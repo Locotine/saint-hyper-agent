@@ -325,7 +325,11 @@ HTTP-hosted clients retain native component visuals but never execute HTML. The 
 bootstrap removes WebRTC capabilities before page scripts and stops parsing if that boundary
 cannot be enforced. HTML messages cannot open external URLs through the host.
 
-The feature list is currently empty; diagnostics retain their separate Beta-only policy.
+The feature list holds one entry, `remote-ssh` (Remote hosts); diagnostics retain their
+separate Beta-only policy. Remote hosts run in the desktop main process, not the server:
+the main process refuses every `desktop:remote-ssh-*` IPC on Stable, the preload exposes no
+`desktopBridge.remoteSsh`, and Settings hides the Remote hosts section. The saved-host file
+(`userdata/remote-ssh-hosts.json`) is inert on Stable. See [Remote access](REMOTE.md#3-remote-ssh-hosts-beta).
 Inline visuals are available in Stable and Beta:
 the `synara_show_visual` agent tool, its transcript rows, and the `orchestration.getInlineVisual`
 read all use the shared policy. Both native component specs and sandboxed HTML retain their

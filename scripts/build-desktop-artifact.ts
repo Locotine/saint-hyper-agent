@@ -35,6 +35,10 @@ import {
   SYNARA_PACKAGED_DESKTOP_FLAVORS,
   type SynaraPackagedDesktopFlavor,
 } from "@synara/shared/desktopIdentity";
+import {
+  createRemoteServerInstallManifest,
+  remoteServerPatchIndex,
+} from "@synara/shared/remoteServerInstall";
 import { createDesktopArtifactIdentity } from "./lib/desktop-artifact-identity.ts";
 import { parseBooleanEnvValue } from "./lib/env-bool.ts";
 import { finalizeSignedMacDmg, rebuildUnsignedMacDmg } from "./lib/mac-dmg-finalize.ts";
@@ -813,6 +817,48 @@ const verifyStagedPatchedDependencies = Effect.fn("verifyStagedPatchedDependenci
   }
 });
 
+// Remote SSH hosts install the server with npm from the bundle the app ships, so
+// the app carries the npm manifest and the Bun patches npm would otherwise skip.
+// Read by apps/desktop/src/remoteSshBundle.ts (REMOTE_INSTALL_STAGE_DIR).
+const stageRemoteServerInstall = Effect.fn("stageRemoteServerInstall")(function* (
+  repoRoot: string,
+  stageAppDir: string,
+  version: string,
+) {
+  const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
+  const manifest = yield* Effect.try({
+    try: () =>
+      createRemoteServerInstallManifest({
+        serverPackageJson: { ...serverPackageJson, version },
+        catalog: rootPackageJson.workspaces.catalog,
+        overrides: rootPackageJson.overrides,
+        patchedDependencies: rootPackageJson.patchedDependencies ?? {},
+      }),
+    catch: (cause) =>
+      new BuildScriptError({
+        message: "Could not build the remote server install manifest.",
+        cause,
+      }),
+  });
+  const stageDir = path.join(stageAppDir, "apps/server/remote-install");
+  yield* fs.makeDirectory(path.join(stageDir, "patches"), { recursive: true });
+  yield* fs.writeFileString(
+    path.join(stageDir, "package.json"),
+    `${JSON.stringify(manifest.packageJson, null, 2)}\n`,
+  );
+  for (const patch of manifest.patches) {
+    yield* fs.copyFile(
+      path.join(repoRoot, patch.patchPath),
+      path.join(stageDir, "patches", patch.fileName),
+    );
+  }
+  yield* fs.writeFileString(
+    path.join(stageDir, "patches/index.tsv"),
+    remoteServerPatchIndex(manifest.patches),
+  );
+});
+
 const installFrozenStageDependencies = Effect.fn("installFrozenStageDependencies")(function* (
   repoRoot: string,
   stageAppDir: string,
@@ -1252,6 +1298,7 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   yield* fs.copy(distDirs.desktopDist, path.join(stageAppDir, "apps/desktop/dist-electron"));
   yield* fs.copy(distDirs.desktopResources, stageResourcesDir);
   yield* fs.copy(distDirs.serverDist, path.join(stageAppDir, "apps/server/dist"));
+  yield* stageRemoteServerInstall(repoRoot, stageAppDir, appVersion);
   yield* stageClientFavicons(stageAppDir, options.flavor);
 
   yield* timedBuildStage(

@@ -651,6 +651,15 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
       "Pair Codex Claude and other local MCP clients with scoped project access. revoke credential task create wait read worktree approval",
   },
   {
+    id: "remote-hosts:hosts",
+    section: "remote-hosts",
+    title: "Remote hosts",
+    keywords:
+      "SSH remote server host tunnel devbox VPS tmux install connect run agents on another machine",
+    target: null,
+    applies: () => isSettingsSectionAvailable("remote-hosts"),
+  },
+  {
     id: "advanced:version",
     section: "advanced",
     title: "Version",

@@ -51,7 +51,14 @@ export const MCP_CONNECTORS_BETA_FEATURE = "mcp-connectors";
  */
 export const NATIVE_EDITOR_BETA_FEATURE = "native-editor";
 
-export const BETA_ONLY_FEATURES: readonly BetaOnlyFeature[] = [];
+/**
+ * Remote SSH hosts (Beta only): the desktop installs and starts a Synara server
+ * on another machine over SSH and opens it in its own window through a tunnel.
+ * The desktop main process owns it and refuses its IPC on Stable.
+ */
+export const REMOTE_SSH_BETA_FEATURE = "remote-ssh";
+
+export const BETA_ONLY_FEATURES: readonly BetaOnlyFeature[] = [REMOTE_SSH_BETA_FEATURE];
 
 /**
  * Whether a Beta-only feature is on for this host. Only the Stable

@@ -12,7 +12,7 @@ import { registerComputerDesktopLifecycle } from "./computerDesktopLifecycle";
 import { COMPUTER_PERMISSION_KINDS } from "@synara/shared/computerGrants";
 import { CUA_HOST_SOCKET_ENV } from "@synara/shared/cuaDriverProtocol";
 import { MODEL_SCREEN_IMAGE_MAX_DIMENSION } from "@synara/shared/modelImageBudget";
-import { spawnProcessSync } from "@synara/shared/processRuntime";
+import { spawnProcess, spawnProcessSync } from "@synara/shared/processRuntime";
 // FILE: main.ts
 // Purpose: Starts the Electron shell, backend process, native menus, IPC bridges, and updater.
 // Layer: Desktop main process
@@ -291,6 +291,14 @@ import { BrowserVault } from "./browserAutomation/browserVault";
 import { BrowserVaultCapture } from "./browserAutomation/browserVaultCapture";
 import { registerBrowserVaultIpc } from "./browserVaultIpc";
 import { registerSafariAccessIpc } from "./safariAccessIpc";
+import { collectRemoteInstallEntries, createTarGzStream } from "./remoteSshBundle";
+import {
+  defaultRemoteRoot,
+  parseSavedRemoteSshHosts,
+  serializeSavedRemoteSshHosts,
+} from "./remoteSshConfig";
+import { registerRemoteSshIpc } from "./remoteSshIpc";
+import { RemoteSshManager } from "./remoteSshManager";
 import { showInFileManager } from "./showInFileManager";
 import { BrowserCookieImport } from "./browserAutomation/browserCookieImport";
 import { shutdownBrowserServices } from "./browserAutomation/browserShutdown";
@@ -343,7 +351,11 @@ import {
   listAudioInputDevices,
   MAX_MICROPHONE_ID_LENGTH,
 } from "./audioLevelMonitor";
-import { AUDIO_TRAIL_BETA_FEATURE, isBetaFeatureEnabled } from "@synara/shared/betaFeatures";
+import {
+  AUDIO_TRAIL_BETA_FEATURE,
+  isBetaFeatureEnabled,
+  REMOTE_SSH_BETA_FEATURE,
+} from "@synara/shared/betaFeatures";
 import { hardenBrowserAnnotationWebviewPreferences } from "./browserAnnotations/webviewSecurity";
 import { LOCAL_HTML_PREVIEW_SCHEME } from "./localHtmlPreviewProtocol";
 import {
@@ -553,6 +565,18 @@ const browserPerfLoggingEnabled = process.env.SYNARA_BROWSER_PERF === "1";
 type DesktopUpdateErrorContext = DesktopUpdateState["errorContext"];
 
 let mainWindow: BrowserWindow | null = null;
+// Remote SSH host windows, keyed by webContents id. Each one talks to its host's
+// tunnelled backend instead of the local one.
+const remoteSshWindows = new Map<
+  number,
+  { readonly host: string; readonly window: BrowserWindow }
+>();
+const REMOTE_SSH_ENABLED = isBetaFeatureEnabled(REMOTE_SSH_BETA_FEATURE, desktopFlavor);
+const REMOTE_SSH_HOSTS_PATH = Path.join(STATE_DIR, "remote-ssh-hosts.json");
+const REMOTE_SSH_DEFAULT_ROOT = defaultRemoteRoot(desktopIdentity.defaultHomeDirectoryName);
+let remoteSshManager: RemoteSshManager | null = null;
+// Replaced when the IPC surface registers; the manager outlives re-registration.
+let publishRemoteSshState = (): void => {};
 /** Whether the live BrowserWindow was created with `frame: false` (win32/linux). */
 let customTitleBarActive = false;
 let backendProcess: ChildProcess.ChildProcess | null = null;
@@ -4906,6 +4930,8 @@ async function shutdownDesktopRuntime(reason: string): Promise<void> {
       cancelBackendReadinessWait();
       appSnapManager?.dispose();
       appSnapManager = null;
+      // Tunnels only; remote servers keep running so their agents continue.
+      remoteSshManager?.dispose();
       await shutdownBrowserServices({
         revokeHost: () => disposeBrowserHostPipeServerForShutdown(reason),
         closePages: () => browserManager.dispose(),
@@ -5083,6 +5109,11 @@ function registerIpcHandlers(): void {
 
   ipcMain.removeAllListeners(IPC.wsUrl);
   ipcMain.on(IPC.wsUrl, (event: IpcMainEvent) => {
+    const remoteWindow = remoteSshWindows.get(event.sender.id);
+    if (remoteWindow) {
+      event.returnValue = remoteSshManager?.wsUrl(remoteWindow.host) ?? null;
+      return;
+    }
     // The backend port is reserved at runtime, so preload asks main for the
     // live URL instead of trusting build-time or inherited renderer env.
     event.returnValue =
@@ -5100,7 +5131,9 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.removeHandler(IPC.pickFolder);
-  ipcMain.handle(IPC.pickFolder, async () => {
+  ipcMain.handle(IPC.pickFolder, async (event) => {
+    // A local folder means nothing to a remote host's server; remote windows type the path.
+    if (remoteSshWindows.has(event.sender.id)) return null;
     const owner = BrowserWindow.getFocusedWindow() ?? mainWindow;
     const result = owner
       ? await dialog.showOpenDialog(owner, {
@@ -5249,6 +5282,8 @@ function registerIpcHandlers(): void {
     showItemInFolder: (path) => shell.showItemInFolder(path),
     homeDir: OS.homedir(),
   });
+
+  registerRemoteSshHandlers();
 
   ipcMain.removeHandler(IPC.openExternal);
   ipcMain.handle(IPC.openExternal, async (_event, rawUrl: unknown) => {
@@ -5724,6 +5759,133 @@ function getDesktopCustomTitleBarState() {
     preference: readCustomTitleBarPreference(DESKTOP_CUSTOM_TITLE_BAR_PATH),
     active: customTitleBarActive,
   });
+}
+
+function readSavedRemoteSshHosts() {
+  try {
+    return parseSavedRemoteSshHosts(FS.readFileSync(REMOTE_SSH_HOSTS_PATH, "utf8"));
+  } catch {
+    return [];
+  }
+}
+
+function registerRemoteSshHandlers(): void {
+  remoteSshManager ??= new RemoteSshManager({
+    spawn: (command, args, options) =>
+      spawnProcess(command, args, { ...options, env: process.env }),
+    appVersion: app.getVersion(),
+    defaultRemoteRoot: REMOTE_SSH_DEFAULT_ROOT,
+    createInstallBundle: () => createTarGzStream(collectRemoteInstallEntries(resolveAppRoot())),
+    reserveLocalPort: () =>
+      Effect.service(NetService).pipe(
+        Effect.flatMap((net) => net.reserveLoopbackPort()),
+        Effect.provide(NetService.layer),
+        Effect.runPromise,
+      ),
+    waitForHttpReady: (baseUrl, signal) =>
+      waitForHttpReady(baseUrl, { path: "/health", timeoutMs: null, signal }),
+    createToken: () => Crypto.randomBytes(24).toString("hex"),
+    devUrl: isDevelopment ? process.env.VITE_DEV_SERVER_URL : undefined,
+    log: (message) => writeDesktopLogHeader(message),
+    onStateChange: () => publishRemoteSshState(),
+  });
+  const registration = registerRemoteSshIpc(ipcMain, {
+    enabled: REMOTE_SSH_ENABLED,
+    manager: remoteSshManager,
+    defaultRemoteRoot: REMOTE_SSH_DEFAULT_ROOT,
+    isControlRenderer: (event) =>
+      !remoteSshWindows.has(event.sender.id) &&
+      event.senderFrame === event.sender.mainFrame &&
+      (mainWindow === null || mainWindow.webContents.id === event.sender.id),
+    readSshConfig: () => {
+      try {
+        return FS.readFileSync(Path.join(OS.homedir(), ".ssh", "config"), "utf8");
+      } catch {
+        return null;
+      }
+    },
+    readSavedHosts: readSavedRemoteSshHosts,
+    writeSavedHosts: (hosts) => {
+      FS.mkdirSync(STATE_DIR, { recursive: true });
+      FS.writeFileSync(REMOTE_SSH_HOSTS_PATH, serializeSavedRemoteSshHosts(hosts));
+    },
+    openHostWindow: openRemoteSshWindow,
+    closeHostWindows: (host) => {
+      for (const entry of remoteSshWindows.values()) {
+        if (entry.host === host && !entry.window.isDestroyed()) entry.window.close();
+      }
+    },
+    broadcast: (state) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC.remoteSsh.state, state);
+      }
+    },
+  });
+  publishRemoteSshState = registration.publishState;
+}
+
+/**
+ * A desktop window whose backend is a remote host's server, reached through
+ * the SSH tunnel (see `IPC.wsUrl`). It loads the same renderer as the main
+ * window; local-only surfaces (browser panel, folder picker) stay with the
+ * main window.
+ */
+function openRemoteSshWindow(host: string): void {
+  for (const entry of remoteSshWindows.values()) {
+    if (entry.host !== host || entry.window.isDestroyed()) continue;
+    if (entry.window.isMinimized()) entry.window.restore();
+    entry.window.focus();
+    return;
+  }
+  const title = `${APP_DISPLAY_NAME} — ${host}`;
+  const window = new BrowserWindow({
+    width: 1100,
+    height: 780,
+    minWidth: 840,
+    minHeight: 620,
+    show: false,
+    autoHideMenuBar: true,
+    ...getIconOption(),
+    title,
+    ...getTitleBarOptions(),
+    ...getWindowMaterialOptions(),
+    webPreferences: {
+      preload: Path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: true,
+    },
+  });
+  const webContentsId = window.webContents.id;
+  remoteSshWindows.set(webContentsId, { host, window });
+  attachDesktopZoomFactorSync(window);
+  attachAppSubframeNavigationGuard(window.webContents);
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    const externalUrl = getSafeExternalUrl(url);
+    if (externalUrl) {
+      void shell.openExternal(externalUrl);
+    }
+    return { action: "deny" };
+  });
+  window.on("page-title-updated", (event) => {
+    event.preventDefault();
+    window.setTitle(title);
+  });
+  window.once("ready-to-show", () => {
+    window.show();
+    emitDesktopWindowState(window);
+  });
+  window.on("maximize", () => emitDesktopWindowState(window));
+  window.on("unmaximize", () => emitDesktopWindowState(window));
+  window.on("enter-full-screen", () => emitDesktopWindowState(window));
+  window.on("leave-full-screen", () => emitDesktopWindowState(window));
+  window.on("closed", () => {
+    remoteSshWindows.delete(webContentsId);
+  });
+  void window.loadURL(
+    isDevelopment ? (process.env.VITE_DEV_SERVER_URL as string) : desktopIdentity.entryUrl,
+  );
 }
 
 function createWindow(): BrowserWindow {

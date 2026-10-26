@@ -39,6 +39,15 @@ export const DESKTOP_IPC_CHANNELS = {
     importAndLaunch: "desktop:beta-import-and-launch",
     leave: "desktop:beta-leave",
   },
+  remoteSsh: {
+    enabled: "desktop:remote-ssh-enabled",
+    getState: "desktop:remote-ssh-get-state",
+    connect: "desktop:remote-ssh-connect",
+    disconnect: "desktop:remote-ssh-disconnect",
+    stopServer: "desktop:remote-ssh-stop-server",
+    forget: "desktop:remote-ssh-forget",
+    state: "desktop:remote-ssh-state",
+  },
   betaDiagnostics: {
     enabled: "desktop:beta-diagnostics-enabled",
     rendererReady: "desktop:beta-diagnostics-renderer-ready",

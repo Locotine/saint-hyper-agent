@@ -3,7 +3,7 @@
 // Layer: Route/UI support
 // Exports: section ids, nav items, and search normalization helper
 
-import { MCP_CONNECTORS_BETA_FEATURE } from "@synara/shared/betaFeatures";
+import { MCP_CONNECTORS_BETA_FEATURE, REMOTE_SSH_BETA_FEATURE } from "@synara/shared/betaFeatures";
 
 import { isBetaFeatureOn } from "~/betaFeatures";
 import { KEYBINDINGS_ICON_NAME } from "~/lib/icons";
@@ -25,6 +25,7 @@ export const SETTINGS_SECTION_IDS = [
   "usage",
   "connectors",
   "integrations",
+  "remote-hosts",
   "advanced",
 ] as const;
 
@@ -72,13 +73,24 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
 /** Sections that exist only where their Beta-only feature is on. */
 const SETTINGS_SECTION_BETA_FEATURES: Partial<Record<SettingsSectionId, string>> = {
   connectors: MCP_CONNECTORS_BETA_FEATURE,
+  "remote-hosts": REMOTE_SSH_BETA_FEATURE,
 };
+
+/**
+ * Remote hosts run in the desktop main process, whose preload exposes them only
+ * in the local app window of a build that ships them.
+ */
+function hasRemoteSshBridge(): boolean {
+  return typeof window !== "undefined" && Boolean(window.desktopBridge?.remoteSsh);
+}
 
 /** False for a Beta-only section on Stable: no nav entry, search result, or deep link. */
 export function isSettingsSectionAvailable(
   section: SettingsSectionId,
   isOn: (feature: string) => boolean = isBetaFeatureOn,
+  hasDesktopRemoteSsh: () => boolean = hasRemoteSshBridge,
 ): boolean {
+  if (section === "remote-hosts" && !hasDesktopRemoteSsh()) return false;
   const feature = SETTINGS_SECTION_BETA_FEATURES[section];
   return feature === undefined || isOn(feature);
 }
@@ -172,6 +184,15 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     description: "Give Codex, Claude, and other local agents scoped access to Synara tasks.",
     icon: "plugin-1",
     eyebrow: "External agents",
+  },
+  {
+    id: "remote-hosts",
+    group: "integrations",
+    label: "Remote hosts",
+    description: "Run Synara on another machine over SSH and open it in its own window.",
+    icon: "server",
+    eyebrow: "SSH remotes",
+    badge: "Beta",
   },
   {
     id: "providers",

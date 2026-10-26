@@ -985,6 +985,43 @@ export type DesktopDiagnosticIssue = typeof DesktopDiagnosticIssue.Type;
 export const DESKTOP_DIAGNOSTIC_ISSUE_PREFIX = "SYNARA_DIAGNOSTIC_ISSUE ";
 export type DesktopDiagnosticReportStatus = "queued" | "sent" | "unavailable";
 
+/** Where a remote SSH host is in connect, install, start, tunnel, or stop. */
+export type DesktopRemoteSshPhase =
+  | "idle"
+  | "checking"
+  | "uploading"
+  | "installing"
+  | "starting"
+  | "tunneling"
+  | "connected"
+  | "stopping"
+  | "error";
+
+/** A host the user connected to before. `remoteRoot` is relative to the remote home. */
+export interface DesktopRemoteSshSavedHost {
+  readonly host: string;
+  readonly remoteRoot?: string | null;
+}
+
+export interface DesktopRemoteSshHostState {
+  readonly host: string;
+  readonly remoteRoot: string;
+  readonly phase: DesktopRemoteSshPhase;
+  /** Failure detail for `error`; null otherwise. */
+  readonly message: string | null;
+  /** Local loopback port forwarded to the remote server while connected. */
+  readonly localPort: number | null;
+}
+
+export interface DesktopRemoteSshState {
+  /** Concrete `Host` aliases from `~/.ssh/config`. */
+  readonly configHosts: readonly string[];
+  readonly savedHosts: readonly DesktopRemoteSshSavedHost[];
+  readonly hosts: readonly DesktopRemoteSshHostState[];
+  /** Install folder used when a host has none of its own. */
+  readonly defaultRemoteRoot: string;
+}
+
 export interface DesktopBridge {
   /** Present only when the desktop main process enables baked-in Beta diagnostics. */
   betaDiagnostics?: {
@@ -1102,6 +1139,22 @@ export interface DesktopBridge {
   downloadUpdate: () => Promise<DesktopUpdateActionResult>;
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
+  /**
+   * Remote SSH hosts: run a Synara server on another machine and open it in
+   * its own desktop window through an SSH tunnel. Beta only; absent on Stable
+   * and in remote windows, and the main process refuses it there.
+   */
+  remoteSsh?: {
+    getState: () => Promise<DesktopRemoteSshState>;
+    /** Connects (installing and starting the server when needed), then opens its window. */
+    connect: (host: DesktopRemoteSshSavedHost) => Promise<DesktopRemoteSshHostState>;
+    /** Closes the tunnel and the host's windows; the remote server keeps running. */
+    disconnect: (host: string) => Promise<void>;
+    /** Stops the host's server (its windows close); installed files and data stay. */
+    stopServer: (host: DesktopRemoteSshSavedHost) => Promise<void>;
+    forget: (host: string) => Promise<void>;
+    onState: (listener: (state: DesktopRemoteSshState) => void) => () => void;
+  };
   /** Stable→Beta opt-in surface. Absent on builds that do not ship it. */
   beta?: {
     getState: () => Promise<DesktopBetaChannelState>;

@@ -1,0 +1,229 @@
+import { EventEmitter } from "node:events";
+import { PassThrough, Readable } from "node:stream";
+import type { ChildProcess } from "node:child_process";
+
+import type { DesktopRemoteSshHostState } from "@synara/contracts";
+import { describe, expect, it, vi } from "vitest";
+
+import { RemoteSshManager, type RemoteSshManagerDependencies } from "./remoteSshManager";
+
+interface FakeChild {
+  readonly args: readonly string[];
+  readonly stdin: string[];
+  readonly child: ChildProcess;
+  exit: (code: number) => void;
+}
+
+/** Each ssh invocation answers from `respond`, keyed by what it runs. */
+function fakeSpawn(
+  respond: (
+    args: readonly string[],
+    stdin: string,
+  ) => { stdout?: string; stderr?: string; code?: number } | "tunnel",
+) {
+  const calls: FakeChild[] = [];
+  const spawn: RemoteSshManagerDependencies["spawn"] = (_command, args) => {
+    const emitter = new EventEmitter() as ChildProcess & EventEmitter;
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    const written: string[] = [];
+    Object.assign(emitter, {
+      stdin,
+      stdout,
+      stderr,
+      exitCode: null,
+      signalCode: null,
+      kill: vi.fn(() => {
+        (emitter as { exitCode: number | null }).exitCode = 143;
+        emitter.emit("exit", null);
+        return true;
+      }),
+    });
+    const record: FakeChild = {
+      args,
+      stdin: written,
+      child: emitter,
+      exit: (code) => {
+        (emitter as { exitCode: number | null }).exitCode = code;
+        emitter.emit("exit", code);
+      },
+    };
+    calls.push(record);
+    stdin.on("data", (chunk: Buffer) => written.push(chunk.toString()));
+    stdin.on("finish", () => {
+      const answer = respond(args, written.join(""));
+      if (answer === "tunnel") return;
+      stdout.end(answer.stdout ?? "");
+      stderr.end(answer.stderr ?? "");
+      setImmediate(() => emitter.emit("close", answer.code ?? 0));
+    });
+    if (args.includes("-N")) respond(args, "");
+    return emitter;
+  };
+  return { spawn, calls };
+}
+
+const PROBE_FRESH =
+  'SYNARA_REMOTE {"kind":"probe","node":"v24.13.1","npm":true,"installed":false,"server":null}';
+
+function makeManager(
+  spawn: RemoteSshManagerDependencies["spawn"],
+  overrides: Partial<RemoteSshManagerDependencies> = {},
+) {
+  const states: DesktopRemoteSshHostState[] = [];
+  const manager = new RemoteSshManager({
+    spawn,
+    appVersion: "1.2.3",
+    defaultRemoteRoot: ".synara-remote",
+    createInstallBundle: () => Readable.from([Buffer.from("bundle")]),
+    reserveLocalPort: async () => 45_000,
+    waitForHttpReady: async () => undefined,
+    createToken: () => "tok",
+    log: () => undefined,
+    onStateChange: (state) => states.push(state),
+    ...overrides,
+  });
+  return { manager, states };
+}
+
+function scriptKind(stdin: string): string {
+  if (stdin.includes('report "{\\"kind\\":\\"probe')) return "probe";
+  if (stdin.includes("npm install")) return "install";
+  if (stdin.includes("tmux new-session")) return "start";
+  if (stdin.includes(`report '{"kind":"stopped"}'`)) return "stop";
+  return stdin === "bundle" ? "upload" : "unknown";
+}
+
+describe("RemoteSshManager", () => {
+  it("installs, starts and tunnels a fresh host", async () => {
+    const seen: string[] = [];
+    const { spawn, calls } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      const kind = scriptKind(stdin);
+      seen.push(kind);
+      if (kind === "probe") return { stdout: PROBE_FRESH };
+      if (kind === "install") return { stdout: 'SYNARA_REMOTE {"kind":"installed"}' };
+      if (kind === "start") return { stdout: 'SYNARA_REMOTE {"kind":"started","port":4100}' };
+      return {};
+    });
+    const { manager, states } = makeManager(spawn);
+
+    const state = await manager.connect({ host: "devbox" });
+
+    expect(seen).toEqual(["probe", "upload", "install", "start"]);
+    expect(state).toMatchObject({ host: "devbox", phase: "connected", localPort: 45_000 });
+    expect(states.map((entry) => entry.phase)).toEqual([
+      "checking",
+      "uploading",
+      "installing",
+      "starting",
+      "tunneling",
+      "connected",
+    ]);
+    const tunnel = calls.find((call) => call.args.includes("-N"));
+    expect(tunnel?.args).toEqual(
+      expect.arrayContaining([
+        "BatchMode=yes",
+        "-L",
+        "127.0.0.1:45000:127.0.0.1:4100",
+        "--",
+        "devbox",
+      ]),
+    );
+    // The token goes over stdin, never into an ssh argument.
+    expect(calls.every((call) => !call.args.some((arg) => arg.includes("tok")))).toBe(true);
+    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=tok");
+  });
+
+  it("reuses a live server of the same version without reinstalling", async () => {
+    const seen: string[] = [];
+    const { spawn } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      seen.push(scriptKind(stdin));
+      return {
+        stdout:
+          'SYNARA_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+      };
+    });
+    const { manager } = makeManager(spawn);
+    await manager.connect({ host: "devbox", remoteRoot: "squad/synara" });
+    expect(seen).toEqual(["probe"]);
+    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
+    expect(manager.states()[0]?.remoteRoot).toBe("squad/synara");
+  });
+
+  it("refuses hosts without Node.js 24", async () => {
+    const { spawn } = fakeSpawn(() => ({
+      stdout:
+        'SYNARA_REMOTE {"kind":"probe","node":"v20.1.0","npm":true,"installed":false,"server":null}',
+    }));
+    const { manager, states } = makeManager(spawn);
+    await expect(manager.connect({ host: "devbox" })).rejects.toThrow(/Node.js 24 or newer/);
+    expect(states.at(-1)).toMatchObject({ phase: "error" });
+  });
+
+  it("surfaces ssh failures with stderr", async () => {
+    const { spawn } = fakeSpawn(() => ({
+      code: 255,
+      stderr: "Permission denied (publickey).",
+    }));
+    const { manager } = makeManager(spawn);
+    await expect(manager.connect({ host: "devbox" })).rejects.toThrow(
+      /reach the host \(ssh exit 255\): Permission denied/,
+    );
+  });
+
+  it("rejects option-like hosts and unsafe folders before running ssh", async () => {
+    const spawn = vi.fn();
+    const { manager } = makeManager(spawn);
+    await expect(manager.connect({ host: "-oProxyCommand=x" })).rejects.toThrow(/valid SSH host/);
+    await expect(manager.connect({ host: "devbox", remoteRoot: "../x" })).rejects.toThrow(
+      /relative path/,
+    );
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it("reports a tunnel that drops after connecting and keeps the URL for reconnects", async () => {
+    const { spawn, calls } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      return scriptKind(stdin) === "probe"
+        ? {
+            stdout:
+              'SYNARA_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+          }
+        : {};
+    });
+    const { manager, states } = makeManager(spawn);
+    await manager.connect({ host: "devbox" });
+    calls.find((call) => call.args.includes("-N"))?.exit(255);
+    expect(states.at(-1)).toMatchObject({
+      phase: "error",
+      message: expect.stringMatching(/tunnel/),
+    });
+    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
+  });
+
+  it("disconnect closes the tunnel and stop runs the stop script", async () => {
+    const seen: string[] = [];
+    const { spawn, calls } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      const kind = scriptKind(stdin);
+      seen.push(kind);
+      if (kind === "stop") return { stdout: 'SYNARA_REMOTE {"kind":"stopped"}' };
+      return {
+        stdout:
+          'SYNARA_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+      };
+    });
+    const { manager, states } = makeManager(spawn);
+    await manager.connect({ host: "devbox" });
+    const tunnel = calls.find((call) => call.args.includes("-N"));
+    manager.disconnect("devbox");
+    expect(tunnel?.child.kill).toHaveBeenCalled();
+    expect(states.at(-1)).toMatchObject({ phase: "idle" });
+    await manager.stopServer({ host: "devbox" });
+    expect(seen).toEqual(["probe", "stop"]);
+    expect(states.at(-1)).toMatchObject({ phase: "idle" });
+  });
+});

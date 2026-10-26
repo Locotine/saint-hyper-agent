@@ -463,6 +463,10 @@
     "./wsRequestClass": {
       "types": "./src/wsRequestClass.ts",
       "import": "./src/wsRequestClass.ts"
+    },
+    "./remoteServerInstall": {
+      "types": "./src/remoteServerInstall.ts",
+      "import": "./src/remoteServerInstall.ts"
     }
   },
   "scripts": {

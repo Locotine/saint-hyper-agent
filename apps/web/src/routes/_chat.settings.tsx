@@ -71,6 +71,7 @@ import {
 import { ProfileSettingsPanel } from "../components/settings/ProfileSettingsPanel";
 import { ProviderUsageSettingsPanel } from "../components/settings/ProviderUsageSettingsPanel";
 import { ExternalMcpSettingsPanel } from "../components/settings/ExternalMcpSettingsPanel";
+import { RemoteHostsSettingsPanel } from "../components/settings/RemoteHostsSettingsPanel";
 import { McpConnectorsSettingsPanel } from "../components/settings/McpConnectorsSettingsPanel";
 import {
   SettingResetButton,
@@ -1856,6 +1857,7 @@ function SettingsRouteView() {
                 />
                 <McpConnectorsSettingsPanel active={activeSection === "connectors"} />
                 <ExternalMcpSettingsPanel active={activeSection === "integrations"} />
+                <RemoteHostsSettingsPanel active={activeSection === "remote-hosts"} />
                 <AdvancedSettingsPanel
                   active={activeSection === "advanced"}
                   onOpenReleaseHistory={() => setReleaseHistoryOpen(true)}

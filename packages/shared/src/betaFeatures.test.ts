@@ -8,6 +8,7 @@ import {
   isBetaFeatureEnabled,
   MCP_CONNECTORS_BETA_FEATURE,
   NATIVE_EDITOR_BETA_FEATURE,
+  REMOTE_SSH_BETA_FEATURE,
 } from "./betaFeatures";
 import {
   SYNARA_BETA_BUNDLE_ID,
@@ -74,6 +75,13 @@ describe("isBetaFeatureEnabled", () => {
       }
     },
   );
+
+  it("keeps remote SSH hosts out of Stable only", () => {
+    expect(isBetaFeatureEnabled(REMOTE_SSH_BETA_FEATURE, "production")).toBe(false);
+    for (const flavor of ["beta", "development", "canary", "cua", "unknown"] as const) {
+      expect(isBetaFeatureEnabled(REMOTE_SSH_BETA_FEATURE, flavor)).toBe(true);
+    }
+  });
 
   it("enables the rail sidebar layout in both Beta and Stable", () => {
     expect(isBetaFeatureEnabled("sidebarV2", "beta")).toBe(true);

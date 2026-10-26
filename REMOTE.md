@@ -63,3 +63,40 @@ Open from any device in your tailnet:
 `http://<tailnet-ip>:3773`
 
 You can also bind `--host 0.0.0.0` and connect through the Tailnet IP, but binding directly to the Tailnet IP limits exposure.
+
+## 3) Remote SSH hosts (Beta)
+
+Synara Beta can run a server on another machine and open it in its own desktop window, similar to Emdash's remote workspaces. Agents, git, and terminals then run on that machine.
+
+Open **Settings → Remote hosts**, enter an alias from `~/.ssh/config` (or `user@host`), and select **Connect**. The desktop app:
+
+1. Runs a probe over `ssh -o BatchMode=yes` in your login shell to check Node.js, npm, and any server already running.
+2. If this version is missing, uploads the server bundle the app ships (`apps/server/dist` with the web client), runs `npm install --omit=dev`, and applies the repository's dependency patches with `patch`. The install fails if a patch no longer applies.
+3. Starts `node dist/index.mjs --mode web --host 127.0.0.1 --port <free port>` in the tmux session `<folder name>` (falls back to `nohup` without tmux). It also removes other installed versions.
+4. Forwards a local loopback port with `ssh -N -L` and opens a window whose backend is that port.
+
+The remote server listens only on the remote loopback interface. The auth token is generated per start, sent over stdin, and stored in `<folder>/run/token` with mode 0600. It never appears in an ssh or process argument list.
+
+| Action      | Effect                                                                            |
+| ----------- | --------------------------------------------------------------------------------- |
+| Disconnect  | Closes the tunnel and the host's windows. The server and its agents keep running. |
+| Stop server | Also stops the remote server. Installed files and data stay.                      |
+| Quit Synara | Closes tunnels only.                                                              |
+
+Remote layout, relative to the remote home (default folder `.synara-remote`, `.synara-beta-remote` for Beta):
+
+| Path                  | Contents                                                        |
+| --------------------- | --------------------------------------------------------------- |
+| `versions/<version>/` | Server bundle and `node_modules`                                |
+| `home/`               | `SYNARA_HOME` of the remote server (database, settings)         |
+| `run/`                | `server.sh`, `server.pid`, `server.json`, `token`, `server.log` |
+
+On shared accounts, set **Remote folder** to a folder of your own (for example `squad/synara-remote`). Each folder gets its own server and tmux session.
+
+Host requirements: key-based SSH (no password prompts), Node.js 24+ and npm on the login shell's `PATH`, `patch`, tmux (recommended), and, on Linux, a C/C++ toolchain and Python for `node-pty`. Sign in to provider CLIs on the host itself.
+
+Remote windows have these limits:
+
+- The folder picker returns nothing. Type the remote path when adding a project.
+- The browser panel, AppSnap, and computer use stay with the local app window.
+- Remote windows share the local window's browser storage, such as UI preferences.

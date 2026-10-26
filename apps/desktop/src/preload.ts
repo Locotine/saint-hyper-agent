@@ -55,6 +55,31 @@ function getBetaDiagnosticsBridge(): DesktopBridge["betaDiagnostics"] {
   }
 }
 
+function getRemoteSshBridge(): DesktopBridge["remoteSsh"] {
+  try {
+    if (ipcRenderer.sendSync(IPC.remoteSsh.enabled) !== true) return undefined;
+    return {
+      getState: () => ipcRenderer.invoke(IPC.remoteSsh.getState),
+      connect: (host) => ipcRenderer.invoke(IPC.remoteSsh.connect, host),
+      disconnect: (host) => ipcRenderer.invoke(IPC.remoteSsh.disconnect, host),
+      stopServer: (host) => ipcRenderer.invoke(IPC.remoteSsh.stopServer, host),
+      forget: (host) => ipcRenderer.invoke(IPC.remoteSsh.forget, host),
+      onState: (listener) => {
+        const wrappedListener = (_event: Electron.IpcRendererEvent, state: unknown) => {
+          if (typeof state !== "object" || state === null) return;
+          listener(state as Parameters<typeof listener>[0]);
+        };
+        ipcRenderer.on(IPC.remoteSsh.state, wrappedListener);
+        return () => {
+          ipcRenderer.removeListener(IPC.remoteSsh.state, wrappedListener);
+        };
+      },
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function parseBrowserOpenPanelRequest(payload: unknown): BrowserUseOpenPanelRequest | null {
   if (!payload || typeof payload !== "object") {
     return null;
@@ -127,6 +152,7 @@ function parseBrowserAnnotationEvent(payload: unknown): BrowserAnnotationEvent |
 }
 
 const betaDiagnosticsBridge = getBetaDiagnosticsBridge();
+const remoteSshBridge = getRemoteSshBridge();
 let lastBrowserResize = -Infinity;
 function recordBrowserActivity(activity: DesktopDiagnosticActivity): void {
   try {
@@ -144,6 +170,7 @@ function recordBrowserActivity(activity: DesktopDiagnosticActivity): void {
 
 contextBridge.exposeInMainWorld("desktopBridge", {
   ...(betaDiagnosticsBridge ? { betaDiagnostics: betaDiagnosticsBridge } : {}),
+  ...(remoteSshBridge ? { remoteSsh: remoteSshBridge } : {}),
   getWsUrl: getDesktopWsUrl,
   // Absolute path for OS-dropped File objects (folders with spaces/parens, etc.).
   getPathForFile: (file: File) => {
