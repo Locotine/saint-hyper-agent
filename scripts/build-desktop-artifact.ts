@@ -762,6 +762,20 @@ function resolveGitLabPublishConfig():
   };
 }
 
+/**
+ * Static update feed from `SAINT_DESKTOP_UPDATE_FEED_URL` (an https base URL
+ * serving `<channel>*.yml`), such as the GitLab Pages site that
+ * `scripts/publish-gitlab-release.ts --feed-url` fills. Checking it costs no
+ * GitLab API requests, which are rate-limited per IP for anonymous clients.
+ */
+function resolveStaticFeedPublishConfig():
+  | { readonly provider: "generic"; readonly url: string }
+  | undefined {
+  const url = process.env.SAINT_DESKTOP_UPDATE_FEED_URL?.trim() || "";
+  if (!/^https:\/\/[^\s/]+(?:\/\S*)?$/u.test(url)) return undefined;
+  return { provider: "generic", url: url.endsWith("/") ? url : `${url}/` };
+}
+
 const verifyStagedNodePty = Effect.fn("verifyStagedNodePty")(function* (
   stageAppDir: string,
   verbose: boolean,
@@ -987,7 +1001,10 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     },
     forceCodeSigning: signed,
   };
-  const publishConfig = resolveGitLabPublishConfig() ?? resolveGitHubPublishConfig();
+  const publishConfig =
+    resolveStaticFeedPublishConfig() ??
+    resolveGitLabPublishConfig() ??
+    resolveGitHubPublishConfig();
   if (artifactIdentity.identity.usesScriptedUpdates) {
     // Experimental bundles must never contain a Stable updater feed, even
     // when built from a shell used by the release workflow.

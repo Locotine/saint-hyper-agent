@@ -52,16 +52,32 @@ const ICON_SOURCE_FILES = [
   "src/index.html",
 ] as const;
 
-const LINK_ICON_HTML_RE =
-  /<link\b(?=[^>]*\brel=["'](?:icon|shortcut icon)["'])(?=[^>]*\bhref=["']([^"'?]+))[^>]*>/i;
-const LINK_ICON_OBJ_RE =
-  /(?=[^}]*\brel\s*:\s*["'](?:icon|shortcut icon)["'])(?=[^}]*\bhref\s*:\s*["']([^"'?]+))[^}]*/i;
+// Icon declarations sit in a page head or near the top of a root route, so only
+// this much of each source file is read: a generated multi-megabyte page costs
+// the same bounded read and scan as a small one.
+const MAX_ICON_SOURCE_BYTES = 512 * 1024;
 
-function extractIconHref(source: string): string | null {
-  const htmlMatch = source.match(LINK_ICON_HTML_RE);
-  if (htmlMatch?.[1]) return htmlMatch[1];
-  const objMatch = source.match(LINK_ICON_OBJ_RE);
-  if (objMatch?.[1]) return objMatch[1];
+// Every pattern here runs in linear time: each `<link` tag ends at the next
+// `<` or `>`, and object literals are cut at `}` before their keys are matched.
+// The earlier single-regex form backtracked quadratically: an 11 MB
+// index.html would have held the server's event loop for hours.
+const LINK_TAG_RE = /<link\b[^<>]*>/gi;
+const LINK_REL_ICON_HTML_RE = /\brel=["'](?:icon|shortcut icon)["']/i;
+const LINK_HREF_HTML_RE = /\bhref=["']([^"'?]+)/i;
+const LINK_REL_ICON_OBJ_RE = /\brel\s*:\s*["'](?:icon|shortcut icon)["']/i;
+const LINK_HREF_OBJ_RE = /\bhref\s*:\s*["']([^"'?]+)/i;
+
+export function extractIconHref(source: string): string | null {
+  for (const [tag] of source.matchAll(LINK_TAG_RE)) {
+    if (!LINK_REL_ICON_HTML_RE.test(tag)) continue;
+    const href = LINK_HREF_HTML_RE.exec(tag)?.[1];
+    if (href) return href;
+  }
+  for (const segment of source.split("}")) {
+    if (!LINK_REL_ICON_OBJ_RE.test(segment)) continue;
+    const href = LINK_HREF_OBJ_RE.exec(segment)?.[1];
+    if (href) return href;
+  }
   return null;
 }
 
@@ -101,6 +117,16 @@ export const makeProjectFaviconResolver = Effect.gen(function* () {
     return null;
   });
 
+  const readSourceHead = (sourcePath: string) =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const file = yield* fileSystem.open(sourcePath);
+        if ((yield* file.stat).type !== "File") return null;
+        const bytes = yield* file.readAlloc(MAX_ICON_SOURCE_BYTES);
+        return bytes ? new TextDecoder().decode(bytes) : null;
+      }),
+    ).pipe(Effect.catch(() => Effect.succeed(null)));
+
   const resolvePath: ProjectFaviconResolverShape["resolvePath"] = Effect.fn(function* (projectCwd) {
     const cwd = yield* fileSystem
       .realPath(projectCwd)
@@ -117,9 +143,7 @@ export const makeProjectFaviconResolver = Effect.gen(function* () {
     for (const sourceFile of ICON_SOURCE_FILES) {
       const sourcePath = yield* resolveContainedPath(cwd, path.join(cwd, sourceFile));
       if (!sourcePath) continue;
-      const source = yield* fileSystem
-        .readFileString(sourcePath)
-        .pipe(Effect.catch(() => Effect.succeed(null)));
+      const source = yield* readSourceHead(sourcePath);
       if (!source) {
         continue;
       }

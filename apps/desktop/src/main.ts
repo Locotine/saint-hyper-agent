@@ -9,6 +9,7 @@ import { ComputerFrameTap } from "./computerFrameTap";
 import { ComputerShield } from "./computerShield";
 import { createDesktopNotificationRetainer } from "./notificationRetention";
 import { registerComputerDesktopLifecycle } from "./computerDesktopLifecycle";
+import { SAINT_RELEASES_URL } from "@saint/shared/betaChannel";
 import { COMPUTER_PERMISSION_KINDS } from "@saint/shared/computerGrants";
 import { CUA_HOST_SOCKET_ENV } from "@saint/shared/cuaDriverProtocol";
 import { MODEL_SCREEN_IMAGE_MAX_DIMENSION } from "@saint/shared/modelImageBudget";
@@ -194,6 +195,7 @@ import {
   type ResumableDownloaderTarget,
 } from "./resumableUpdateDownload";
 import { hardenElectronUpdater } from "./electronUpdaterSecurity";
+import { describeUpdateRateLimit, parseUpdateRateLimit } from "./updateRateLimit";
 import { ServerListeningDetector } from "./serverListeningDetector";
 import { BackendStartupBlockDetector, type BackendStartupBlock } from "./backendStartupBlock";
 import {
@@ -549,6 +551,7 @@ const BROWSER_SESSION_RESTORE_TIMEOUT_MS = 5_000;
 // User-driven like the menu and renderer reasons, so it must not be filtered
 // out by the automatic-activity suppression a previous install failure arms.
 const UPDATE_CHECK_REASON_MIGRATION_RECOVERY = "migration recovery";
+const UPDATE_CHECK_REASON_RATE_LIMIT_RETRY = "rate-limit retry";
 const UPDATE_INSTALL_MARKER_FILE_NAME = "pending-update-install.json";
 const BACKEND_FORCE_KILL_DELAY_MS = 8_000;
 const BACKEND_SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -1072,6 +1075,9 @@ function createContextMenuIcon(dataUrl: unknown): Electron.NativeImage | undefin
 let updatePollTimer: ReturnType<typeof setInterval> | null = null;
 let updateStartupTimer: ReturnType<typeof setTimeout> | null = null;
 let updateCheckInFlight = false;
+// Set from a feed 429: automatic checks wait until then, and one retry is armed for it.
+let updateRateLimitedUntilMs = 0;
+let updateRateLimitRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let updateDownloadInFlight = false;
 let activeUpdateCheck: Promise<void> | null = null;
 let settleActiveUpdateCheck: (() => void) | null = null;
@@ -3002,6 +3008,26 @@ function scheduleUpdatePoll(): void {
   updatePollTimer.unref();
 }
 
+// A 429 from the update feed: show when the next check runs instead of the raw
+// header dump, hold automatic checks until then, and arm one check for that time.
+function describeUpdateFailureMessage(message: string): string {
+  const rateLimit = parseUpdateRateLimit(message, Date.now());
+  if (!rateLimit) return message;
+  updateRateLimitedUntilMs = rateLimit.retryAtMs;
+  if (updateRateLimitRetryTimer) clearTimeout(updateRateLimitRetryTimer);
+  // Every Saint behind the same address shares the budget, so spread the retries.
+  const jitterMs = Math.floor(Math.random() * 60_000);
+  updateRateLimitRetryTimer = setTimeout(
+    () => {
+      updateRateLimitRetryTimer = null;
+      void checkForUpdates(UPDATE_CHECK_REASON_RATE_LIMIT_RETRY);
+    },
+    Math.max(0, rateLimit.retryAtMs - Date.now()) + jitterMs,
+  );
+  updateRateLimitRetryTimer.unref();
+  return describeUpdateRateLimit(rateLimit);
+}
+
 function isExplicitUpdateCheckReason(reason: string): boolean {
   return (
     reason === "menu" || reason === "renderer" || reason === UPDATE_CHECK_REASON_MIGRATION_RECOVERY
@@ -3367,6 +3393,16 @@ async function checkForUpdates(reason: string): Promise<void> {
     scheduleUpdatePoll();
   }
   if (
+    Date.now() < updateRateLimitedUntilMs &&
+    !isExplicitUpdateCheckReason(reason) &&
+    reason !== UPDATE_CHECK_REASON_RATE_LIMIT_RETRY
+  ) {
+    console.info(
+      `[desktop-updater] Skipping update check (${reason}) while the feed is rate-limited.`,
+    );
+    return;
+  }
+  if (
     updateState.status === "checking" ||
     updateState.status === "downloading" ||
     updateState.status === "downloaded"
@@ -3388,7 +3424,11 @@ async function checkForUpdates(reason: string): Promise<void> {
     clearUpdateCheckTimeoutTimer();
     const message = error instanceof Error ? error.message : String(error);
     setUpdateState(
-      reduceDesktopUpdateStateOnCheckFailure(updateState, message, new Date().toISOString()),
+      reduceDesktopUpdateStateOnCheckFailure(
+        updateState,
+        describeUpdateFailureMessage(message),
+        new Date().toISOString(),
+      ),
     );
     console.error(`[desktop-updater] Failed to check for updates: ${message}`);
   } finally {
@@ -3467,7 +3507,9 @@ async function downloadAvailableUpdate(): Promise<{
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    setUpdateState(reduceDesktopUpdateStateOnDownloadFailure(updateState, message));
+    setUpdateState(
+      reduceDesktopUpdateStateOnDownloadFailure(updateState, describeUpdateFailureMessage(message)),
+    );
     console.error(`[desktop-updater] Failed to download update: ${message}`);
     return { accepted: true, completed: false };
   } finally {
@@ -3765,13 +3807,19 @@ async function recordDownloadedUpdateIdentity(info: UpdateDownloadedEvent): Prom
   }
 }
 
+/** A packaged generic feed on https, as opposed to the localhost mock feed. */
+function isStaticReleaseFeed(config: Record<string, string> | null): boolean {
+  return config?.provider === "generic" && /^["']?https:\/\//u.test(config.url ?? "");
+}
+
 function configureAutoUpdater(): void {
   const appUpdateYml = readAppUpdateYml();
   configuredUpdaterCacheDirName = resolveElectronUpdaterCacheDirName(appUpdateYml, app.getName());
   const githubUpdateSource = resolveGitHubUpdateSource(appUpdateYml);
   const releaseUrl =
     githubUpdateSource === null
-      ? resolveGitLabReleasesPageUrl(appUpdateYml)
+      ? (resolveGitLabReleasesPageUrl(appUpdateYml) ??
+        (isStaticReleaseFeed(appUpdateYml) ? SAINT_RELEASES_URL : null))
       : buildGitHubReleasesPageUrl(githubUpdateSource);
   const enabled = shouldEnableAutoUpdates();
   setUpdateState({
@@ -3804,12 +3852,18 @@ function configureAutoUpdater(): void {
   autoUpdater.channel = desktopUpdateChannel(desktopFlavor);
   autoUpdater.allowPrerelease = DESKTOP_UPDATE_ALLOW_PRERELEASE;
   autoUpdater.allowDowngrade = false;
-  // Match electron-updater's native GitHub (or GitLab) provider path; the
-  // packaged app-update.yml owns the production feed, and generic feeds stay mock-only.
+  // The packaged app-update.yml owns the production feed: GitHub, GitLab, or a
+  // static https feed (GitLab Pages); a localhost generic feed is mock-only.
   // macOS release builds repack and validate the Squirrel update zip, then omit
   // the stale zip blockmap so ShipIt always installs the exact signed payload.
+  // Installers on GitLab come from its package API, which limits anonymous
+  // requests per IP; differential download spends one request per block range,
+  // so those feeds always download the whole installer in one request.
   autoUpdater.disableDifferentialDownload =
-    process.platform === "darwin" || isArm64HostRunningIntelBuild(desktopRuntimeInfo);
+    process.platform === "darwin" ||
+    isArm64HostRunningIntelBuild(desktopRuntimeInfo) ||
+    appUpdateYml?.provider === "gitlab" ||
+    isStaticReleaseFeed(appUpdateYml);
   // electron-updater has no working idle timeout on macOS (its socket timeout is
   // wired to a `socket` event Electron's net.request never emits) and never
   // resumes from a byte offset, so a stalled CDN transfer hangs for minutes
@@ -3895,7 +3949,7 @@ function configureAutoUpdater(): void {
     if (!updateCheckInFlight && !updateDownloadInFlight) {
       setUpdateState({
         status: "error",
-        message,
+        message: describeUpdateFailureMessage(message),
         checkedAt: new Date().toISOString(),
         downloadPercent: null,
         errorContext,

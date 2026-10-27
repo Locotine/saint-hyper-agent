@@ -203,9 +203,26 @@ A fork hosted on GitLab can ship updates from a **public** GitLab project, witho
 
 Builds made before the feed was configured have no `app-update.yml` and never update. Install a feed-enabled build once by hand. Each flavor only takes its own lane (see [Update channel isolation](#update-channel-isolation)): Saint takes `vX.Y.Z` releases and Saint Beta takes `-beta.N` releases, and the updater reads only the newest release of the project, so keep one lane per releases project.
 
+#### Checking from GitLab Pages instead of the API
+
+GitLab rate-limits anonymous API requests per IP address, so every Saint behind one office network shares that budget, and an update check that only asks the API answers `429` once anything else has used it up. Build with a static feed and publish to it so checks never touch the API:
+
+```bash
+export SAINT_DESKTOP_UPDATE_FEED_URL=https://<pages-site-of-the-releases-project>/
+export SAINT_DESKTOP_UPDATE_GITLAB_PROJECT=<namespace>/<releases-project>   # the publish script still uploads here
+bun run dist:desktop:linux -- --flavor production
+GITLAB_TOKEN=<token with api scope> bun run release:gitlab -- release
+```
+
+With the feed URL set, the build embeds `provider: generic` and the publish run also commits its manifests to `public/` of the releases project as `saint*.yml` (Stable) or `beta*.yml` (Beta), with file URLs pointing at the uploaded packages, adds the `pages` CI job on first use, and waits until the site serves them. The project's Pages visibility must be public. Installers still download from the package registry, in one request per update: differential downloads are off for GitLab-hosted feeds because each block range would cost another API request. A `429` that still happens shows the time of the next check instead of the raw error, and automatic checks wait until then.
+
+The release keeps its `latest*.yml` links, so builds made with the plain GitLab feed still find newer versions there.
+
 ## Joining beta from stable
 
 The stable app offers a one-click handoff under **Settings → General → Saint Beta**:
+
+Stable builds from 1.0.11 no longer show this card: Saint Beta is retired, and only the Beta app still shows its own status card with the way back to Saint. What follows describes older builds.
 
 - **Install Saint Beta** (macOS) downloads the newest `v*-beta.N` release's
   `beta-mac.yml`, picks the zip for the current architecture, verifies its

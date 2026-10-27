@@ -220,12 +220,14 @@ describe("BetaChannelSettingsPanel", () => {
     await mounted.unmount();
   });
 
-  it("hides the Stable → Beta card when Beta is not installed and cannot be installed", async () => {
+  it.each([
+    ["not installed", { installed: false, version: null }],
+    ["installed", { installed: true }],
+  ] as const)("shows nothing on Stable when Beta is %s", async (_label, beta) => {
     const getState = vi.fn().mockResolvedValue({
       ...BETA_STATE,
+      ...beta,
       flavor: "production",
-      installed: false,
-      version: null,
       running: false,
     } satisfies DesktopBetaChannelState);
     setDesktopBridge({ beta: { getState }, openExternal: vi.fn() });
@@ -234,25 +236,6 @@ describe("BetaChannelSettingsPanel", () => {
     await vi.waitFor(() => expect(getState).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(mounted.container.textContent).toBe("");
-    await mounted.unmount();
-  });
-
-  it("keeps the local handoff for an installed Beta without sharing claims", async () => {
-    setDesktopBridge({
-      beta: {
-        getState: vi.fn().mockResolvedValue({
-          ...BETA_STATE,
-          flavor: "production",
-          running: false,
-        } satisfies DesktopBetaChannelState),
-      },
-      openExternal: vi.fn(),
-    });
-
-    const mounted = await render(withQueryClient(<BetaChannelSettingsPanel active />));
-    await expect.element(mounted.getByRole("button", { name: "Open Beta" })).toBeVisible();
-    expect(mounted.container.textContent).not.toContain("shares");
-    expect(mounted.getByRole("button", { name: "Install Saint Beta" }).query()).toBeNull();
     await mounted.unmount();
   });
 });

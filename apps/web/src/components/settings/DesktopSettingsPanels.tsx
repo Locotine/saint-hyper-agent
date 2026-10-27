@@ -679,9 +679,9 @@ function BetaChannelMark() {
 }
 
 /**
- * Stable → Saint Beta handoff. Rendered inside General settings; visible only
- * on desktop builds, with the full action card on production and a status card
- * (plus diagnostics disclosure) on beta.
+ * Saint Beta status card. Rendered inside General settings; only the Beta app
+ * shows it (with the diagnostics disclosure and the way back to Saint). Stable
+ * shows nothing, since Beta is retired.
  */
 export function BetaChannelSettingsPanel({ active }: { readonly active: boolean }) {
   const betaBridge = isElectron ? window.desktopBridge?.beta : undefined;
@@ -689,12 +689,8 @@ export function BetaChannelSettingsPanel({ active }: { readonly active: boolean 
     queryKey: ["desktop-beta-channel-state"],
     queryFn: () => betaBridge!.getState(),
     enabled: active && betaBridge !== undefined,
-    // Poll fast while a download/install is in flight so the progress row moves.
-    refetchInterval: (query) =>
-      query.state.data?.install && query.state.data.install.phase !== "error" ? 500 : 30_000,
+    refetchInterval: 30_000,
   });
-  const [actionPending, setActionPending] = useState<"copy" | "open" | "install" | null>(null);
-  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [sharesDisclosureOpen, setSharesDisclosureOpen] = useState(false);
   // The preload exposes this bridge only when main runs diagnostics, which needs an
@@ -704,75 +700,9 @@ export function BetaChannelSettingsPanel({ active }: { readonly active: boolean 
 
   if (!active || !betaBridge || !state?.supported) return null;
 
-  const refresh = () => void betaStateQuery.refetch();
-
-  async function copyDataAndLaunch() {
-    setActionPending("copy");
-    try {
-      const result = await betaBridge!.importAndLaunch();
-      if (!result.ok) {
-        toastManager.add({
-          type: "warning",
-          title: "Could not start the beta handoff",
-          description: result.message ?? "Try again from Settings → General.",
-        });
-        return;
-      }
-      toastManager.add({
-        type: "success",
-        title: "Opening Saint Beta",
-        description:
-          "Beta is copying your projects, settings, and provider sign-ins from stable on first launch.",
-      });
-      refresh();
-    } finally {
-      setActionPending(null);
-    }
-  }
-
-  async function launchBeta() {
-    setActionPending("open");
-    try {
-      const result = await betaBridge!.launch();
-      if (!result.ok) {
-        toastManager.add({
-          type: "warning",
-          title: "Could not open Saint Beta",
-          description: result.message ?? "The beta install was not found.",
-        });
-      }
-      refresh();
-    } finally {
-      setActionPending(null);
-    }
-  }
-
-  async function installBeta() {
-    setActionPending("install");
-    try {
-      const result = await betaBridge!.install();
-      if (!result.ok) {
-        toastManager.add({
-          type: "warning",
-          title: "Could not install Saint Beta",
-          description: result.message ?? "Try again from Settings → General.",
-        });
-      }
-      refresh();
-    } finally {
-      setActionPending(null);
-    }
-  }
-
   async function openStableDownloadPage() {
     if (state?.stableDownloadUrl && window.desktopBridge?.openExternal) {
       await window.desktopBridge.openExternal(state.stableDownloadUrl);
-    }
-  }
-
-  async function openDownloadPage() {
-    if (state?.downloadUrl && window.desktopBridge?.openExternal) {
-      await window.desktopBridge.openExternal(state.downloadUrl);
     }
   }
 
@@ -854,143 +784,6 @@ export function BetaChannelSettingsPanel({ active }: { readonly active: boolean 
     );
   }
 
-  if (state.flavor !== "production") return null;
-  // Saint Beta ships only from its own release page now; without an installed beta
-  // or an operator-configured install feed there is nothing to offer here.
-  if (!state.installed && !state.canInstall) return null;
-
-  return (
-    <SettingsCard divided={false} className="px-4 py-3.5">
-      <div className="flex items-start gap-3">
-        <BetaChannelMark />
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex items-center gap-2">
-            <p className={SETTINGS_CARD_ROW_TITLE_CLASS_NAME}>Saint Beta</p>
-            <span className="inline-flex items-center rounded-full bg-[var(--beta-pill)] px-1.5 py-0.5 text-ui-xs font-semibold leading-none text-[var(--beta-pill-ink)]">
-              Beta
-            </span>
-            {state.installed && state.version ? (
-              <span className="text-ui-xs text-muted-foreground">v{state.version} installed</span>
-            ) : state.installed ? (
-              <span className="text-ui-xs text-muted-foreground">Installed</span>
-            ) : null}
-          </div>
-          <p className={SETTINGS_CARD_ROW_DESCRIPTION_CLASS_NAME}>
-            {state.installed
-              ? "Beta runs next to Saint with its own data, so nothing here changes. Copy your data to bring over projects, settings, and provider sign-ins."
-              : "Try new features before everyone else. Saint Beta is a separate app with its own data, and this app stays exactly as it is."}
-          </p>
-          {state.lastImportAt ? (
-            <p className="text-ui-xs text-muted-foreground">
-              Last copied your data {new Date(state.lastImportAt).toLocaleString()}.
-            </p>
-          ) : null}
-          {state.lastImportError ? (
-            <p className="text-ui-xs text-destructive">
-              Last import failed: {state.lastImportError}
-            </p>
-          ) : null}
-          {state.install?.phase === "error" ? (
-            <p className="text-ui-xs text-destructive">
-              Install failed: {state.install.message ?? "unknown error"}
-            </p>
-          ) : state.install ? (
-            <p className="text-ui-xs text-muted-foreground">
-              {state.install.phase === "downloading"
-                ? `Downloading Saint Beta${state.install.percent !== null ? ` — ${state.install.percent}%` : "…"}`
-                : state.install.phase === "verifying"
-                  ? "Verifying the download…"
-                  : state.install.phase === "installing"
-                    ? "Installing Saint Beta…"
-                    : "Opening Saint Beta…"}
-            </p>
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2 pt-1.5">
-            {!state.installed ? (
-              <>
-                <Button
-                  size="xs"
-                  disabled={actionPending !== null}
-                  onClick={() => void installBeta()}
-                >
-                  {actionPending === "install" ? "Installing…" : "Install Saint Beta"}
-                </Button>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  disabled={actionPending !== null}
-                  onClick={() => setCopyDialogOpen(true)}
-                >
-                  {actionPending === "copy" ? "Installing…" : "Copy my data and open"}
-                </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  disabled={actionPending !== null}
-                  onClick={() => void openDownloadPage()}
-                >
-                  Download page
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  disabled={actionPending !== null || state.running}
-                  title={
-                    state.running
-                      ? "Quit Saint Beta first so it can pick up the import on its next launch."
-                      : undefined
-                  }
-                  onClick={() => setCopyDialogOpen(true)}
-                >
-                  {actionPending === "copy"
-                    ? "Copying…"
-                    : state.lastImportAt
-                      ? "Re-copy my data and open"
-                      : "Copy my data and open"}
-                </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  disabled={actionPending !== null}
-                  onClick={() => void launchBeta()}
-                >
-                  {actionPending === "open" ? "Opening…" : "Open Beta"}
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-      <AlertDialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
-        <AlertDialogPopup>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Replace Saint Beta data?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Copying from Saint replaces Beta chats and projects. Chats and projects created only
-              in Beta will be lost. Matching settings and provider sign-ins are overwritten, but
-              Beta-only sign-ins may remain. Your data in Saint will not change.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline" size="sm" />}>
-              Keep Beta data
-            </AlertDialogClose>
-            <Button
-              size="sm"
-              disabled={actionPending !== null}
-              onClick={() => {
-                setCopyDialogOpen(false);
-                void copyDataAndLaunch();
-              }}
-            >
-              Replace Beta data and open
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogPopup>
-      </AlertDialog>
-    </SettingsCard>
-  );
+  // Saint Beta is retired: Stable no longer offers to install it or copy data into it.
+  return null;
 }

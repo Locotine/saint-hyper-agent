@@ -205,7 +205,6 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     description: "Run Saint on another machine over SSH and open it in its own window.",
     icon: "server",
     eyebrow: "SSH remotes",
-    badge: "Beta",
   },
   {
     id: "providers",

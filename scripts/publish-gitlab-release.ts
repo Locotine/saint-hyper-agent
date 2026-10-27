@@ -3,7 +3,13 @@
 //          Releases feed (see `resolveGitLabPublishConfig` in build-desktop-artifact.ts).
 // Usage: GITLAB_TOKEN=... node scripts/publish-gitlab-release.ts [asset-dir]
 //          [--project namespace/project] [--host gitlab.com] [--ref main]
+//          [--feed-url https://<pages-site>/]
 //        Run once per build machine; each run adds its files to the same release.
+//        With a feed URL (or SAINT_DESKTOP_UPDATE_FEED_URL), the run also commits its
+//        manifests to the project's GitLab Pages site as `<channel>*.yml`, with file
+//        URLs pointing at the uploaded packages. Builds made with that feed check
+//        for updates without touching the GitLab API, which rate-limits anonymous
+//        clients per IP address.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -20,6 +26,42 @@ export interface GitLabReleaseOptions {
   readonly host: string;
   readonly ref: string;
   readonly token: string;
+  readonly feedUrl: string | null;
+}
+
+/** Builds the feed site from `public/`; every commit to the default branch redeploys it. */
+const PAGES_CI_CONFIG = `pages:
+  image: alpine:3.20
+  script:
+    - echo "Publishing update manifests"
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+`;
+const PAGES_DEPLOY_TIMEOUT_MS = 15 * 60 * 1000;
+const PAGES_DEPLOY_POLL_MS = 15 * 1000;
+
+/** The updater channel a version's manifests serve (see `desktopUpdateChannel`). */
+export function staticFeedChannel(version: string): string {
+  return /-beta\.\d+$/u.test(version) ? "beta" : "saint";
+}
+
+/** `latest-linux.yml` → `saint-linux.yml`: the platform suffix stays, the channel changes. */
+export function staticFeedManifestName(manifestName: string, channel: string): string {
+  return `${channel}${manifestName.replace(/^[a-z]+/u, "")}`;
+}
+
+/** Points every relative `url:`/`path:` entry at the uploaded package files. */
+export function rewriteManifestFileUrls(contents: string, packageBaseUrl: string): string {
+  return contents.replace(
+    /^([ \t]*(?:-[ \t]+)?(?:url|path):[ \t]*)(['"]?)([^'"\n]+?)\2[ \t]*$/gmu,
+    (line, prefix: string, quote: string, value: string) =>
+      /^[a-z]+:\/\//iu.test(value)
+        ? line
+        : `${prefix}${quote}${packageBaseUrl}${encodeURIComponent(value)}${quote}`,
+  );
 }
 
 /** Installers, blockmaps, updater manifests and helpers; electron-builder's debug files stay local. */
@@ -77,7 +119,17 @@ function parseArgs(args: readonly string[]): GitLabReleaseOptions {
     host: flags.get("host") ?? process.env.SAINT_DESKTOP_UPDATE_GITLAB_HOST ?? "gitlab.com",
     ref: flags.get("ref") ?? "main",
     token,
+    feedUrl: normalizeFeedUrl(
+      flags.get("feed-url") ?? process.env.SAINT_DESKTOP_UPDATE_FEED_URL ?? "",
+    ),
   };
+}
+
+function normalizeFeedUrl(raw: string): string | null {
+  const url = raw.trim();
+  if (!url) return null;
+  if (!url.startsWith("https://")) throw new Error(`The feed URL must use https: ${url}`);
+  return url.endsWith("/") ? url : `${url}/`;
 }
 
 async function publish(options: GitLabReleaseOptions): Promise<void> {
@@ -140,6 +192,70 @@ async function publish(options: GitLabReleaseOptions): Promise<void> {
     }
   }
   console.log(`Published ${links.length} files to ${options.project} release ${tag}.`);
+
+  if (options.feedUrl) {
+    await publishStaticFeed({
+      options,
+      request,
+      version,
+      manifests,
+      packageBaseUrl: `${api}/packages/generic/${PACKAGE_NAME}/${encodeURIComponent(version)}/`,
+    });
+  }
+}
+
+async function publishStaticFeed(input: {
+  readonly options: GitLabReleaseOptions;
+  readonly request: (method: string, path: string, body?: unknown) => Promise<unknown>;
+  readonly version: string;
+  readonly manifests: ReadonlyArray<{ name: string; contents: string }>;
+  readonly packageBaseUrl: string;
+}): Promise<void> {
+  const { options, request, version, manifests, packageBaseUrl } = input;
+  const feedUrl = options.feedUrl!;
+  const channel = staticFeedChannel(version);
+  const files = manifests.map((manifest) => ({
+    path: `public/${staticFeedManifestName(manifest.name, channel)}`,
+    content: rewriteManifestFileUrls(manifest.contents, packageBaseUrl),
+  }));
+  const exists = async (path: string) =>
+    (await request(
+      "GET",
+      `/repository/files/${encodeURIComponent(path)}?ref=${encodeURIComponent(options.ref)}`,
+    )) !== null;
+  const actions: Array<{ action: "create" | "update"; file_path: string; content: string }> = [];
+  if (!(await exists(".gitlab-ci.yml"))) {
+    actions.push({ action: "create", file_path: ".gitlab-ci.yml", content: PAGES_CI_CONFIG });
+  }
+  for (const file of files) {
+    actions.push({
+      action: (await exists(file.path)) ? "update" : "create",
+      file_path: file.path,
+      content: file.content,
+    });
+  }
+  await request("POST", "/repository/commits", {
+    branch: options.ref,
+    commit_message: `Update feed: ${files.map((file) => file.path.slice("public/".length)).join(", ")} for v${version}`,
+    actions,
+  });
+  console.log(`Committed ${files.length} feed manifests; waiting for ${feedUrl} to serve them...`);
+
+  const deadline = Date.now() + PAGES_DEPLOY_TIMEOUT_MS;
+  for (const file of files) {
+    const url = `${feedUrl}${file.path.slice("public/".length)}`;
+    for (;;) {
+      const served = await fetch(url, { cache: "no-store" })
+        .then((response) => (response.ok ? response.text() : null))
+        .catch(() => null);
+      if (served === file.content) break;
+      if (Date.now() > deadline) {
+        throw new Error(`${url} still does not serve v${version}; check the project's pages job.`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, PAGES_DEPLOY_POLL_MS));
+    }
+    console.log(`Serving ${url}`);
+  }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
