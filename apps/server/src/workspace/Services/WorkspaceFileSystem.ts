@@ -1,11 +1,14 @@
-import { Effect, Schema, ServiceMap } from "effect";
+import { Effect, Schema, ServiceMap, type Stream } from "effect";
 
 import type {
   ProjectCreateEntryInput,
   ProjectCreateEntryResult,
   ProjectDeleteEntryInput,
   ProjectDeleteEntryResult,
+  ProjectMoveEntryInput,
+  ProjectMoveEntryResult,
   ProjectReadFileInput,
+  ProjectRenameEntryInput,
   ProjectReadFileResult,
   ProjectWriteFileInput,
   ProjectWriteFileResult,
@@ -60,6 +63,19 @@ export interface WorkspaceUploadFileInput {
   readonly bytes: Uint8Array;
 }
 
+export interface WorkspaceDownloadFileInput {
+  readonly cwd: string;
+  readonly relativePath: string;
+}
+
+/** An opened regular file inside the workspace, ready to stream to a download. */
+export interface WorkspaceDownloadFile {
+  readonly fileName: string;
+  readonly sizeBytes: number;
+  /** Reads the opened descriptor; it closes once the stream ends or is interrupted. */
+  readonly stream: Stream.Stream<Uint8Array, WorkspaceFileSystemError>;
+}
+
 export interface WorkspaceFileSystemShape {
   readonly readFile: (
     input: ProjectReadFileInput,
@@ -88,10 +104,29 @@ export interface WorkspaceFileSystemShape {
     ProjectDeleteEntryResult,
     WorkspaceFileSystemError | WorkspacePathOutsideRootError
   >;
+  readonly moveEntry: (
+    input: ProjectMoveEntryInput,
+  ) => Effect.Effect<
+    ProjectMoveEntryResult,
+    WorkspaceFileSystemError | WorkspacePathOutsideRootError
+  >;
+  readonly renameEntry: (
+    input: ProjectRenameEntryInput,
+  ) => Effect.Effect<
+    ProjectMoveEntryResult,
+    WorkspaceFileSystemError | WorkspacePathOutsideRootError
+  >;
   readonly uploadFile: (
     input: WorkspaceUploadFileInput,
   ) => Effect.Effect<
     { readonly relativePath: string },
+    WorkspaceFileSystemError | WorkspacePathOutsideRootError
+  >;
+  /** Opens a regular file for a download; folders and special files are refused. */
+  readonly openFileForDownload: (
+    input: WorkspaceDownloadFileInput,
+  ) => Effect.Effect<
+    WorkspaceDownloadFile,
     WorkspaceFileSystemError | WorkspacePathOutsideRootError
   >;
 }

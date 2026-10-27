@@ -16,7 +16,6 @@ import type {
 import { outboundHttp } from "@saint/shared/outboundHttp";
 
 export const SAINT_OAUTH_CLIENT_NAME = "Saint";
-export const SAINT_OAUTH_CLIENT_URI = "https://www.trysynara.com";
 const OAUTH_TIMEOUT_MS = 20_000;
 const OAUTH_MAX_RESPONSE_BYTES = 1024 * 1024;
 
@@ -77,7 +76,6 @@ export async function connectorOAuthFetch(
 export function connectorClientMetadata(redirectUrl: string): OAuthClientMetadata {
   return {
     client_name: SAINT_OAUTH_CLIENT_NAME,
-    client_uri: SAINT_OAUTH_CLIENT_URI,
     redirect_uris: [redirectUrl],
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],

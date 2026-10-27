@@ -18,7 +18,6 @@ import {
   readLogTail,
   resolveBetaDiagnosticsEndpoint,
   sanitizeBetaDiagnosticsPayload,
-  BETA_DIAGNOSTICS_ENDPOINT,
 } from "./betaDiagnostics";
 import {
   createInitialDesktopUpdateState,
@@ -837,15 +836,44 @@ describe("production gate", () => {
       mainSource.indexOf("const betaDiagnostics ="),
       mainSource.indexOf("const trackBetaDiagnostics"),
     );
-    expect(construction).toContain('desktopFlavor === "beta"');
+    expect(construction).toContain('desktopFlavor === "beta" && betaDiagnosticsEndpoint !== null');
     expect(construction).toContain("new BetaDiagnostics(");
     expect(construction).toContain(": null");
+  });
+
+  it("main.ts starts the crash reporter only with a configured endpoint", () => {
+    const mainSource = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "main.ts"),
+      "utf8",
+    );
+    const start = mainSource.indexOf("crashReporter.start(");
+    expect(mainSource.indexOf("crashReporter.start(", start + 1)).toBe(-1);
+    const guard = mainSource.slice(mainSource.lastIndexOf("\nif (", start), start);
+    expect(guard).toContain("betaDiagnosticsEndpoint !== null");
+  });
+});
+
+describe("without a configured endpoint", () => {
+  it("never makes a network request", async () => {
+    const root = makeRoot();
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      const diag = makeDiagnostics(root);
+      diag.trackError("main", new Error("offline only"));
+      diag.trackIssue("main", { code: "git.push.failed", reason: "timeout" });
+      await diag.flush();
+      await diag.dispose();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });
 
 describe("resolveBetaDiagnosticsEndpoint", () => {
-  it("uses the production default and honors a secure override", () => {
-    expect(resolveBetaDiagnosticsEndpoint({})).toBe(BETA_DIAGNOSTICS_ENDPOINT);
+  it("ships no default endpoint and honors a secure override", () => {
+    expect(resolveBetaDiagnosticsEndpoint({})).toBeNull();
+    expect(resolveBetaDiagnosticsEndpoint({ SAINT_BETA_DIAGNOSTICS_URL: "  " })).toBeNull();
     expect(
       resolveBetaDiagnosticsEndpoint({
         SAINT_BETA_DIAGNOSTICS_URL: "https://staging.example.workers.dev",
@@ -866,7 +894,7 @@ describe("resolveBetaDiagnosticsEndpoint", () => {
       resolveBetaDiagnosticsEndpoint({
         SAINT_BETA_DIAGNOSTICS_URL: "http://diagnostics.example.com",
       }),
-    ).toBe(BETA_DIAGNOSTICS_ENDPOINT);
+    ).toBeNull();
   });
 
   it("rejects loopback lookalikes and unparseable overrides", () => {
@@ -880,9 +908,7 @@ describe("resolveBetaDiagnosticsEndpoint", () => {
       "not a url",
       "localhost:8787",
     ]) {
-      expect(resolveBetaDiagnosticsEndpoint({ SAINT_BETA_DIAGNOSTICS_URL: override })).toBe(
-        BETA_DIAGNOSTICS_ENDPOINT,
-      );
+      expect(resolveBetaDiagnosticsEndpoint({ SAINT_BETA_DIAGNOSTICS_URL: override })).toBeNull();
     }
   });
 });

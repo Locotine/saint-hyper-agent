@@ -11,7 +11,6 @@ import {
 } from "@saint/contracts";
 import { GROUPS_ON, VISIBLE_PROVIDER_DESCRIPTORS } from "../betaFeatures";
 import { sameAppSnapShortcut } from "@saint/shared/appSnapShortcut";
-import { desktopFlavorFromProtocol } from "@saint/shared/betaFeatures";
 import { SafariAccessSetupButton } from "../components/SafariAccessOnboarding";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -36,7 +35,6 @@ import {
   MAX_TERMINAL_FONT_SIZE_PX,
   MIN_CHAT_FONT_SIZE_PX,
   MIN_TERMINAL_FONT_SIZE_PX,
-  defaultDesktopAppIconForFlavor,
   normalizeChatFontSizePx,
   normalizeTerminalFontFamily,
   normalizeTerminalFontSizePx,
@@ -46,7 +44,6 @@ import {
 } from "../appSettings";
 import { APP_VERSION } from "../branding";
 import { AdvancedSettingsPanel } from "~/components/settings/AdvancedSettingsPanel";
-import { AppIconPicker } from "~/components/settings/AppIconPicker";
 import {
   ArchivedSettingsPanel,
   WorktreesSettingsPanel,
@@ -55,6 +52,7 @@ import {
   AppSnapSettingsPanel,
   BetaChannelSettingsPanel,
   NotificationsSettingsPanel,
+  UpdatesSettingsPanel,
 } from "~/components/settings/DesktopSettingsPanels";
 import { ComputerSettingsPanel } from "~/components/settings/ComputerSettingsPanel";
 import { ModelsSettingsPanel } from "~/components/settings/ModelsSettingsPanel";
@@ -367,15 +365,6 @@ function SettingsRouteView() {
   const [releaseHistoryOpen, setReleaseHistoryOpen] = useState(false);
   const [resetEpoch, setResetEpoch] = useState(0);
   const platform = getNavigatorPlatform();
-  const desktopFlavor = useMemo(
-    () =>
-      desktopFlavorFromProtocol(
-        typeof window === "undefined" ? undefined : window.location?.protocol,
-        import.meta.env.DEV,
-      ),
-    [],
-  );
-  const defaultDesktopAppIcon = defaultDesktopAppIconForFlavor(desktopFlavor);
   const shouldShowFontSmoothing = isMacPlatform(platform);
   const supportsCustomTitleBarSetting =
     isElectron && (isWindowsPlatform(platform) || isLinuxPlatform(platform));
@@ -498,7 +487,6 @@ function SettingsRouteView() {
     ...(settings.showAsciiBackground !== defaults.showAsciiBackground ? ["ASCII background"] : []),
     ...(settings.uiDensity !== defaults.uiDensity ? ["UI density"] : []),
     ...(settings.chatWidth !== defaults.chatWidth ? ["Chat width"] : []),
-    ...(settings.desktopAppIcon !== defaultDesktopAppIcon ? ["App icon"] : []),
     ...(customTitleBarPreferenceDirty ? ["Custom title bar"] : []),
     ...(settings.chatFontSizePx !== defaults.chatFontSizePx ? ["Base font size"] : []),
     ...(settings.terminalFontSizePx !== defaults.terminalFontSizePx ? ["Terminal font size"] : []),
@@ -1070,76 +1058,50 @@ function SettingsRouteView() {
         </div>
       </SettingsSectionShell>
 
-      {isElectron ? (
+      {supportsCustomTitleBarSetting ? (
         <SettingsSection title="App">
           <SettingsRow
-            title="App icon"
-            description="Choose the icon Saint uses in the dock or taskbar."
+            title="Use custom title bar"
+            description={
+              customTitleBarRestartRequired
+                ? "Restart Saint to apply. Some Linux window managers work better with the system title bar."
+                : "Replace the system title bar with Saint's frameless chrome and window controls. Restart required to apply."
+            }
+            status={customTitleBarRestartRequired ? "Restart required" : undefined}
             resetAction={
-              settings.desktopAppIcon !== defaultDesktopAppIcon ? (
+              settings.useCustomTitleBar !== defaults.useCustomTitleBar ? (
                 <SettingResetButton
-                  label="app icon"
-                  onClick={() => updateSettings({ desktopAppIcon: defaultDesktopAppIcon })}
+                  label="custom title bar"
+                  onClick={() => {
+                    void applyCustomTitleBarPreference(defaults.useCustomTitleBar);
+                  }}
                 />
               ) : null
             }
             control={
-              <AppIconPicker
-                platform={platform}
-                value={settings.desktopAppIcon}
-                onValueChange={async (desktopAppIcon) => {
-                  if (desktopAppIcon !== settings.desktopAppIcon) {
-                    updateSettings({ desktopAppIcon });
-                  }
-                  await window.desktopBridge?.setAppIcon(desktopAppIcon);
-                }}
-              />
+              <div className="flex items-center gap-2">
+                {customTitleBarRestartRequired ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={() => {
+                      void window.desktopBridge?.customTitleBar?.relaunch();
+                    }}
+                  >
+                    Restart
+                  </Button>
+                ) : null}
+                <Switch
+                  checked={settings.useCustomTitleBar}
+                  onCheckedChange={(checked) => {
+                    void applyCustomTitleBarPreference(Boolean(checked));
+                  }}
+                  aria-label="Use custom title bar"
+                />
+              </div>
             }
           />
-          {supportsCustomTitleBarSetting ? (
-            <SettingsRow
-              title="Use custom title bar"
-              description={
-                customTitleBarRestartRequired
-                  ? "Restart Saint to apply. Some Linux window managers work better with the system title bar."
-                  : "Replace the system title bar with Saint's frameless chrome and window controls. Restart required to apply."
-              }
-              status={customTitleBarRestartRequired ? "Restart required" : undefined}
-              resetAction={
-                settings.useCustomTitleBar !== defaults.useCustomTitleBar ? (
-                  <SettingResetButton
-                    label="custom title bar"
-                    onClick={() => {
-                      void applyCustomTitleBarPreference(defaults.useCustomTitleBar);
-                    }}
-                  />
-                ) : null
-              }
-              control={
-                <div className="flex items-center gap-2">
-                  {customTitleBarRestartRequired ? (
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="outline"
-                      onClick={() => {
-                        void window.desktopBridge?.customTitleBar?.relaunch();
-                      }}
-                    >
-                      Restart
-                    </Button>
-                  ) : null}
-                  <Switch
-                    checked={settings.useCustomTitleBar}
-                    onCheckedChange={(checked) => {
-                      void applyCustomTitleBarPreference(Boolean(checked));
-                    }}
-                    aria-label="Use custom title bar"
-                  />
-                </div>
-              }
-            />
-          ) : null}
         </SettingsSection>
       ) : null}
 
@@ -1858,6 +1820,7 @@ function SettingsRouteView() {
                 <McpConnectorsSettingsPanel active={activeSection === "connectors"} />
                 <ExternalMcpSettingsPanel active={activeSection === "integrations"} />
                 <RemoteHostsSettingsPanel active={activeSection === "remote-hosts"} />
+                <UpdatesSettingsPanel active={activeSection === "updates"} />
                 <AdvancedSettingsPanel
                   active={activeSection === "advanced"}
                   onOpenReleaseHistory={() => setReleaseHistoryOpen(true)}

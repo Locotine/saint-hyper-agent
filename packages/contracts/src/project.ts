@@ -216,6 +216,32 @@ export const ProjectDeleteEntryResult = Schema.Struct({
 });
 export type ProjectDeleteEntryResult = typeof ProjectDeleteEntryResult.Type;
 
+// Explorer drag-and-drop move: a file, a link (never its target), or a folder
+// into another folder of the same workspace. Never replaces an existing entry.
+export const ProjectMoveEntryInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  relativePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_FILE_PATH_MAX_LENGTH)),
+  /** Workspace-relative folder; "" for the workspace root. */
+  destinationDirectory: Schema.String.check(Schema.isMaxLength(PROJECT_FILE_PATH_MAX_LENGTH)),
+});
+export type ProjectMoveEntryInput = typeof ProjectMoveEntryInput.Type;
+
+export const ProjectMoveEntryResult = Schema.Struct({
+  /** The entry's new workspace-relative path. */
+  relativePath: TrimmedNonEmptyString,
+  kind: ProjectEntryKind,
+});
+export type ProjectMoveEntryResult = typeof ProjectMoveEntryResult.Type;
+
+// Explorer "Rename": a new plain name in the same folder, with the same rules as
+// a move (the entry is never followed and an existing name is never replaced).
+export const ProjectRenameEntryInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  relativePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_FILE_PATH_MAX_LENGTH)),
+  newName: TrimmedNonEmptyString.check(Schema.isMaxLength(255)),
+});
+export type ProjectRenameEntryInput = typeof ProjectRenameEntryInput.Type;
+
 export const ProjectReadFileInput = Schema.Struct({
   cwd: TrimmedNonEmptyString,
   relativePath: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_READ_FILE_PATH_MAX_LENGTH)),

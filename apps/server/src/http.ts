@@ -21,11 +21,13 @@ import {
   ATTACHMENT_UPLOAD_ROUTE_PATH,
   LIBRARY_UPLOAD_ROUTE_PATH,
   VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH,
+  WORKSPACE_DOWNLOAD_ROUTE_PATH,
   WORKSPACE_UPLOAD_MAX_BYTES,
   WORKSPACE_UPLOAD_ROUTE_PATH,
 } from "@saint/shared/binaryTransfer";
 import { EDITOR_ICON_ROUTE_PATH } from "@saint/shared/editorIcons";
 import { threadExportBlockedReason } from "@saint/shared/threadExport";
+import { isPlainUploadFileName } from "@saint/shared/uploadFileName";
 import {
   providerStartOptionsFromInstance,
   resolveProviderInstance,
@@ -94,7 +96,6 @@ import {
 } from "./managedAttachmentStore";
 import { ManagedAttachmentRepository } from "./persistence/Services/ManagedAttachments";
 import { WorkspaceFileSystem } from "./workspace/Services/WorkspaceFileSystem";
-import { isPlainUploadFileName } from "./workspace/uploadFileName";
 import { ComputerService } from "./computer/Services/ComputerService";
 import {
   authorizeDesktopShutdown,
@@ -246,6 +247,7 @@ export function makeEffectHttpRouteLayer(
     authEffectRouteLayer,
     projectFaviconEffectRouteLayer,
     threadExportEffectRouteLayer,
+    workspaceDownloadEffectRouteLayer,
     siteFaviconEffectRouteLayer,
     editorIconEffectRouteLayer,
     localImageEffectRouteLayer,
@@ -854,6 +856,77 @@ const threadExportEffectRouteLayer = HttpRouter.add(
           "Access-Control-Expose-Headers": "Content-Disposition",
         },
       },
+    );
+  }).pipe(Effect.catchTag("AuthError", (error) => Effect.succeed(authErrorResponse(error)))),
+);
+
+function workspaceDownloadErrorStatus(error: {
+  readonly _tag: string;
+  readonly cause?: unknown;
+}): number {
+  if (error._tag === "WorkspacePathOutsideRootError") return 400;
+  const code = (error.cause as NodeJS.ErrnoException | null | undefined)?.code;
+  if (code === "ENOENT") return 404;
+  if (code === "EACCES" || code === "EPERM") return 403;
+  // No code: refused before reading (a folder or a special file).
+  return code === undefined || code === "EISDIR" ? 400 : 500;
+}
+
+// Explorer "Download" in a remote window: the desktop app saves one workspace
+// file from the host to this computer. Owner-only, like the workspace upload.
+export const workspaceDownloadEffectRouteLayer = HttpRouter.add(
+  "GET",
+  WORKSPACE_DOWNLOAD_ROUTE_PATH,
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const url = HttpServerRequest.toURL(request);
+    if (!url) return HttpServerResponse.text("Bad Request", { status: 400 });
+
+    const config = yield* ServerConfig;
+    const corsHeaders = localPreviewCorsHeaders({ config, request, url });
+    if (!isLegacyTokenAuthorized({ config, url })) {
+      const serverAuth = yield* ServerAuth;
+      const session = yield* serverAuth.authenticateHttpRequest(makeEffectAuthRequest(request));
+      if (session.role !== "owner") {
+        return HttpServerResponse.jsonUnsafe(
+          { error: "Owner authorization is required for this operation." },
+          { status: 403, headers: corsHeaders },
+        );
+      }
+    }
+
+    const cwd = url.searchParams.get("cwd")?.trim() ?? "";
+    const relativePath = url.searchParams.get("path")?.trim() ?? "";
+    if (!nodePath.isAbsolute(cwd) || !relativePath) {
+      return HttpServerResponse.jsonUnsafe(
+        { error: "Workspace download parameters are invalid." },
+        { status: 400, headers: corsHeaders },
+      );
+    }
+    const workspaceFileSystem = yield* WorkspaceFileSystem;
+    return yield* workspaceFileSystem.openFileForDownload({ cwd, relativePath }).pipe(
+      Effect.map((file) =>
+        HttpServerResponse.stream(file.stream, {
+          status: 200,
+          contentType: "application/octet-stream",
+          contentLength: file.sizeBytes,
+          headers: {
+            "Content-Disposition": attachmentContentDisposition(file.fileName),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            ...corsHeaders,
+            "Access-Control-Expose-Headers": "Content-Disposition",
+          },
+        }),
+      ),
+      Effect.catch((error) =>
+        Effect.succeed(
+          HttpServerResponse.jsonUnsafe(
+            { error: error._tag === "WorkspaceFileSystemError" ? error.detail : error.message },
+            { status: workspaceDownloadErrorStatus(error), headers: corsHeaders },
+          ),
+        ),
+      ),
     );
   }).pipe(Effect.catchTag("AuthError", (error) => Effect.succeed(authErrorResponse(error)))),
 );

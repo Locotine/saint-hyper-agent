@@ -48,7 +48,7 @@ describe("composerSlashCommands", () => {
     expect(filterComposerSlashCommands("auto").map((entry) => entry.command)).toEqual([
       "automation",
     ]);
-    expect(filterComposerSlashCommands("feed").map((entry) => entry.command)).toEqual(["feedback"]);
+    expect(filterComposerSlashCommands("feed")).toEqual([]);
     expect(filterComposerSlashCommands("debug").map((entry) => entry.command)).toEqual(["debug"]);
   });
 
@@ -81,10 +81,7 @@ describe("composerSlashCommands", () => {
       command: "automation",
       args: "every 6h check the page",
     });
-    expect(parseComposerSlashInvocation("/feedback")).toEqual({
-      command: "feedback",
-      args: "",
-    });
+    expect(parseComposerSlashInvocation("/feedback")).toBeNull();
     expect(parseComposerSlashInvocation("/debug")).toEqual({
       command: "debug",
       args: "",
@@ -420,7 +417,6 @@ describe("composerSlashCommands", () => {
       "debug",
       "computer-use",
       "default",
-      "feedback",
       "automation",
     ]);
   });

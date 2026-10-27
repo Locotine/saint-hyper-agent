@@ -92,6 +92,7 @@ function getRemoteWindowBridge(): DesktopBridge["remoteWindow"] {
       providers: REMOTE_SERVER_PROVIDERS,
       openInEditor: (target, editor) =>
         ipcRenderer.invoke(IPC.remoteSsh.openInEditor, { target, editor }),
+      downloadFiles: (input) => ipcRenderer.invoke(IPC.remoteSsh.downloadFiles, input),
     };
   } catch {
     return undefined;
@@ -213,8 +214,6 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   setTheme: (theme) => ipcRenderer.invoke(IPC.setTheme, theme),
   setWindowMaterial: (input) => ipcRenderer.invoke(IPC.setWindowMaterial, input),
   ...(windowTranslucency ? { windowTranslucency } : {}),
-  getAppIcon: () => ipcRenderer.invoke(IPC.getAppIcon),
-  setAppIcon: (icon) => ipcRenderer.invoke(IPC.setAppIcon, icon),
   showContextMenu: (items, position) => ipcRenderer.invoke(IPC.contextMenu, items, position),
   openExternal: (url: string) => ipcRenderer.invoke(IPC.openExternal, url),
   safariAccess: {

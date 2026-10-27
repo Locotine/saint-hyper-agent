@@ -2,7 +2,7 @@
 // Purpose: Public marketing homepage for Saint.
 // Layer: App Router page (server component)
 
-import { SiGithub, SiOpenai } from "react-icons/si";
+import { SiGitlab, SiOpenai } from "react-icons/si";
 import Navbar from "@/components/Navbar";
 import DownloadButton from "@/components/DownloadButton";
 import InstallerCount from "@/components/InstallerCount";
@@ -104,8 +104,8 @@ export default async function Home() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-full border border-[var(--divide)] px-5 py-2.5 text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--mock-row)] focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-link)]"
               >
-                <SiGithub className="size-4 shrink-0" aria-hidden="true" />
-                Star on GitHub
+                <SiGitlab className="size-4 shrink-0" aria-hidden="true" />
+                Star on GitLab
               </a>
             </div>
             <p

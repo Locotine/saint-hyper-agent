@@ -141,6 +141,8 @@ import {
   ProjectWriteFileInput,
   ProjectCreateEntryInput,
   ProjectDeleteEntryInput,
+  ProjectMoveEntryInput,
+  ProjectRenameEntryInput,
 } from "./project";
 import { StudioListThreadOutputsInput } from "./studio";
 import { OrchestrationGetInlineVisualInput } from "./inlineVisual";
@@ -252,6 +254,8 @@ export const WS_METHODS = {
   projectsWriteFile: "projects.writeFile",
   projectsCreateEntry: "projects.createEntry",
   projectsDeleteEntry: "projects.deleteEntry",
+  projectsMoveEntry: "projects.moveEntry",
+  projectsRenameEntry: "projects.renameEntry",
   projectsRunDevServer: "projects.runDevServer",
   projectsStopDevServer: "projects.stopDevServer",
   projectsListDevServers: "projects.listDevServers",
@@ -526,6 +530,8 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.projectsWriteFile, ProjectWriteFileInput),
   tagRequestBody(WS_METHODS.projectsCreateEntry, ProjectCreateEntryInput),
   tagRequestBody(WS_METHODS.projectsDeleteEntry, ProjectDeleteEntryInput),
+  tagRequestBody(WS_METHODS.projectsMoveEntry, ProjectMoveEntryInput),
+  tagRequestBody(WS_METHODS.projectsRenameEntry, ProjectRenameEntryInput),
   tagRequestBody(WS_METHODS.projectsRunDevServer, ProjectRunDevServerInput),
   tagRequestBody(WS_METHODS.projectsStopDevServer, ProjectStopDevServerInput),
   tagRequestBody(WS_METHODS.projectsListDevServers, Schema.Struct({})),

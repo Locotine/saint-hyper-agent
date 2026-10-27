@@ -11,6 +11,7 @@ import {
   ATTACHMENT_UPLOAD_ROUTE_PATH,
   LIBRARY_UPLOAD_ROUTE_PATH,
   VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH,
+  WORKSPACE_DOWNLOAD_ROUTE_PATH,
   WORKSPACE_UPLOAD_ROUTE_PATH,
 } from "@saint/shared/binaryTransfer";
 import { DateTime, Effect, Exit, Layer, Option, Scope } from "effect";
@@ -39,6 +40,7 @@ import {
   AUTH_JSON_BODY_MAX_BYTES,
   authEffectRouteLayer,
   binaryUploadEffectRouteLayer,
+  workspaceDownloadEffectRouteLayer,
 } from "./http";
 import {
   ProviderAdapterRegistry,
@@ -129,7 +131,8 @@ async function withAuthEffectServer(
   run: (origin: string) => Promise<void>,
   routeLayer:
     | typeof authEffectRouteLayer
-    | typeof binaryUploadEffectRouteLayer = authEffectRouteLayer,
+    | typeof binaryUploadEffectRouteLayer
+    | typeof workspaceDownloadEffectRouteLayer = authEffectRouteLayer,
   overrides?: {
     readonly providerAdapterRegistry?: ProviderAdapterRegistryShape;
     readonly serverSettingsLayer?: Layer.Layer<ServerSettingsService, unknown>;
@@ -195,6 +198,10 @@ async function withAuthEffectServer(
           );
           if (routeLayer === authEffectRouteLayer) {
             yield* httpServer.serve(yield* HttpRouter.toHttpEffect(authEffectRouteLayer));
+          } else if (routeLayer === workspaceDownloadEffectRouteLayer) {
+            yield* httpServer.serve(
+              yield* HttpRouter.toHttpEffect(workspaceDownloadEffectRouteLayer),
+            );
           } else {
             yield* httpServer.serve(yield* HttpRouter.toHttpEffect(binaryUploadEffectRouteLayer));
           }
@@ -867,6 +874,75 @@ describe("binaryUploadEffectRouteLayer", () => {
     } finally {
       fs.rmSync(config.stateDir, { recursive: true, force: true });
       fs.rmSync(groupsRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("workspaceDownloadEffectRouteLayer", () => {
+  it("streams a workspace file to the owner and refuses folders, escapes, and strangers", async () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "saint-workspace-download-"));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "saint-workspace-outside-"));
+    fs.mkdirSync(path.join(workspace, "docs"));
+    const bytes = Uint8Array.from([0, 255, 1, 254, 10]);
+    fs.writeFileSync(path.join(workspace, "docs", "báo cáo.pdf"), bytes);
+    fs.writeFileSync(path.join(outside, "secret.txt"), "s");
+    fs.symlinkSync(
+      outside,
+      path.join(workspace, "escape"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    const config = {
+      host: "0.0.0.0",
+      publicUrl: new URL("https://saint.example.test/"),
+    } as ServerConfigShape;
+    const download = (serverOrigin: string, query: Record<string, string>, init?: RequestInit) =>
+      fetch(`${serverOrigin}${WORKSPACE_DOWNLOAD_ROUTE_PATH}?${new URLSearchParams(query)}`, {
+        headers: { Authorization: "Bearer bearer-token" },
+        ...init,
+      });
+    try {
+      await withAuthEffectServer(
+        config,
+        makeServerAuth({ count: 0 }),
+        async (serverOrigin) => {
+          const file = await download(serverOrigin, {
+            cwd: workspace,
+            path: "docs/báo cáo.pdf",
+          });
+          expect(file.status).toBe(200);
+          expect(file.headers.get("content-type")).toBe("application/octet-stream");
+          expect(file.headers.get("content-disposition")).toBe(
+            "attachment; filename*=UTF-8''b%C3%A1o%20c%C3%A1o.pdf",
+          );
+          expect([...new Uint8Array(await file.arrayBuffer())]).toEqual([...bytes]);
+
+          const folder = await download(serverOrigin, { cwd: workspace, path: "docs" });
+          expect(folder.status).toBe(400);
+          expect(await folder.json()).toEqual({ error: "docs is a folder." });
+          const missing = await download(serverOrigin, { cwd: workspace, path: "docs/gone.txt" });
+          expect(missing.status).toBe(404);
+          const lexical = await download(serverOrigin, { cwd: workspace, path: "../secret.txt" });
+          expect(lexical.status).toBe(400);
+          const throughLink = await download(serverOrigin, {
+            cwd: workspace,
+            path: "escape/secret.txt",
+          });
+          expect(throughLink.status).toBe(400);
+          expect(await throughLink.text()).not.toContain('"s"');
+          const relativeCwd = await download(serverOrigin, { cwd: "docs", path: "x.txt" });
+          expect(relativeCwd.status).toBe(400);
+          const unauthenticated = await download(
+            serverOrigin,
+            { cwd: workspace, path: "docs/báo cáo.pdf" },
+            { headers: {} },
+          );
+          expect(unauthenticated.status).toBe(401);
+        },
+        workspaceDownloadEffectRouteLayer,
+      );
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
     }
   });
 });

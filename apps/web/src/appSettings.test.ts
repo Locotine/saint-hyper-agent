@@ -2053,6 +2053,13 @@ describe("AppSettingsSchema", () => {
     expect(decode(Schema.encodeSync(codec)(settings)).autoOpenDevicePane).toBe(false);
   });
 
+  it("still decodes settings saved with the removed app icon choice", () => {
+    const decode = Schema.decodeSync(Schema.fromJsonString(AppSettingsSchema));
+    const settings = decode(JSON.stringify({ desktopAppIcon: "dark", confirmThreadDelete: false }));
+    expect(settings.confirmThreadDelete).toBe(false);
+    expect("desktopAppIcon" in settings).toBe(false);
+  });
+
   it("fills decoding defaults for persisted settings that predate newer keys", () => {
     const decode = Schema.decodeSync(Schema.fromJsonString(AppSettingsSchema));
 
@@ -2074,7 +2081,6 @@ describe("AppSettingsSchema", () => {
       defaultThreadEnvMode: "local",
       confirmThreadDelete: false,
       confirmTerminalTabClose: true,
-      desktopAppIcon: "default",
       useCustomTitleBar: true,
       enableAppSnap: false,
       appSnapShortcut: { kind: "both-option-keys" },

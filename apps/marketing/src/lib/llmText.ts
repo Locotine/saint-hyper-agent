@@ -19,8 +19,6 @@ import {
   SITE_DESCRIPTION,
   SITE_NAME,
   SITE_URL,
-  X_PROFILE_URL,
-  YOUTUBE_URL,
 } from "@/lib/seo";
 
 const PRIMARY_PAGES = [
@@ -28,8 +26,6 @@ const PRIMARY_PAGES = [
   ["Download Saint", `${SITE_URL}/install`],
   ["Saint documentation", `${SITE_URL}/docs`],
   ["Changelog", `${SITE_URL}/changelog`],
-  ["Sponsor Saint", `${SITE_URL}/sponsor`],
-  ["Saint sponsors", `${SITE_URL}/sponsors`],
   ["Privacy", `${SITE_URL}/privacy`],
 ] as const;
 
@@ -85,10 +81,6 @@ export function buildLlmsTxt() {
     "## Additional discovery files",
     `- [Expanded context](${SITE_URL}/llms-full.txt)`,
     `- [Crawler and identity summary](${SITE_URL}/ai.txt)`,
-    "",
-    "## Contact and identity",
-    `- Creator updates: ${X_PROFILE_URL}`,
-    `- YouTube demos: ${YOUTUBE_URL}`,
   ].join("\n");
 }
 

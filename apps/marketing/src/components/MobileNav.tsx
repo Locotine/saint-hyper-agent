@@ -85,15 +85,6 @@ export default function MobileNav() {
         }`}
       >
         <nav aria-label="Mobile navigation" className="grid gap-1">
-          <a
-            href="https://x.com/trySynara"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-            className="rounded-xl px-3 py-2.5 text-[13px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--mock-row)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent-link)]"
-          >
-            X
-          </a>
           {links.map(({ href, label }) => (
             <Link
               key={href}

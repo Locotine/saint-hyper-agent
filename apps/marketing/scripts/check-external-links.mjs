@@ -38,12 +38,8 @@ const ALLOWLIST = new Map([
     "https://x.ai/cli/install.ps1",
     "x.ai CLI install script (Windows); x.ai occasionally rate-limits bot agents",
   ],
-  // x.com frequently returns 4xx/5xx to headless agents; the profile is real.
-  ["https://x.com/emanueledpt", "X profile; x.com frequently throttles non-browser requests"],
   // pi.dev is a small personal-project domain; transient outages are expected.
   ["https://pi.dev/install.sh", "pi.dev install script; small domain, transient flakiness seen"],
-  // youtube.com sometimes times out for non-browser agents; the channel is real.
-  ["https://youtube.com/@emanueledpt", "YouTube channel; occasional ETIMEDOUT for headless agents"],
 ]);
 
 // ---------------------------------------------------------------------------

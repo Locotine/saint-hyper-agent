@@ -48,7 +48,6 @@ import { useProjectImportDialogStore } from "../projectImport/projectImportDialo
 import { FeatureTourDialog } from "../components/FeatureTourDialog";
 import { SafariAccessOnboarding } from "../components/SafariAccessOnboarding";
 import { QueuedComposerDrainCoordinator } from "../components/QueuedComposerDrainCoordinator";
-import { FeedbackDialog } from "../components/FeedbackDialog";
 import { SETTINGS_TARGETS } from "../settingsNavigation";
 import ShortcutsDialog from "../components/ShortcutsDialog";
 import WhatsNewDialog from "../components/WhatsNewDialog";
@@ -61,8 +60,6 @@ import { useGitProgressToastPreview } from "../components/useGitProgressToastPre
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { useFeatureFlags } from "../featureFlags";
 import { useFocusedChatContext } from "../focusedChatContext";
-import { useFeedbackDialogStore } from "../feedbackDialogStore";
-import type { FeedbackThreadContext } from "../feedback";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
   invalidateProviderUsageQueries,
@@ -81,7 +78,7 @@ import {
 } from "../composerDraftStore";
 import { useStore } from "../store";
 import { EMPTY_THREAD_IDS } from "../storeState";
-import { createAllThreadsSelector, createThreadSelector } from "../storeSelectors";
+import { createAllThreadsSelector } from "../storeSelectors";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
 import { terminalActivityFromEvent } from "../terminalActivity";
 import {
@@ -149,7 +146,6 @@ import {
 import { useAppDensity } from "../hooks/useAppDensity";
 import { useChatWidth } from "../hooks/useChatWidth";
 import { useCommittedPathname } from "../hooks/useCommittedPathname";
-import { useDesktopAppIcon } from "../hooks/useDesktopAppIcon";
 import { useDesktopMenuShortcuts } from "../hooks/useDesktopMenuShortcuts";
 import { useAppTypography } from "../hooks/useAppTypography";
 import { usePreloadRouteChunks } from "../hooks/usePreloadRouteChunks";
@@ -301,7 +297,6 @@ function RootRouteView() {
   useAppTypography();
   useAppDensity();
   useChatWidth();
-  useDesktopAppIcon();
   usePreloadRouteChunks();
   useNativeFontSmoothing();
   useSyncDesktopTopBarTrafficLightGutterZoom();
@@ -375,7 +370,6 @@ function RootRouteView() {
           <ProviderModelDiscoveryWarmer />
           <GlobalShortcutsDialog />
           <BrowserVaultDialog />
-          <GlobalFeedbackDialog />
           <GlobalWhatsNewSurface />
           <TaskCompletionNotifications />
           <QueuedComposerDrainCoordinator />
@@ -877,35 +871,6 @@ function GlobalShortcutsDialog() {
       }}
     />
   );
-}
-
-function GlobalFeedbackDialog() {
-  const { activeProject, focusedThreadId } = useFocusedChatContext();
-  const isOpen = useFeedbackDialogStore((state) => state.isOpen);
-  // The report describes the live thread, transcript counts included; only follow it while
-  // the dialog is open so a closed dialog does not re-render for every streamed token.
-  const activeThread = useStore(
-    useMemo(() => createThreadSelector(isOpen ? focusedThreadId : null), [focusedThreadId, isOpen]),
-  );
-  const requestedContext = useFeedbackDialogStore((state) => state.context);
-  const setOpen = useFeedbackDialogStore((state) => state.setOpen);
-  const context: FeedbackThreadContext = requestedContext ?? {
-    provider: activeThread?.modelSelection.provider ?? null,
-    model: activeThread?.modelSelection.model ?? null,
-    projectKind: activeProject?.kind ?? null,
-    environmentMode: activeThread?.envMode ?? null,
-    runtimeMode: activeThread?.runtimeMode ?? null,
-    interactionMode: activeThread?.interactionMode ?? null,
-    sessionStatus: activeThread?.session?.status ?? null,
-    latestTurnState: activeThread?.latestTurn?.state ?? null,
-    messageCount: activeThread?.messages.length ?? 0,
-    activityCount: activeThread?.activities.length ?? 0,
-    hasPendingApproval: activeThread?.hasPendingApprovals === true,
-    hasPendingUserInput: activeThread?.hasPendingUserInput === true,
-    hasThreadError: Boolean(activeThread?.error),
-  };
-
-  return <FeedbackDialog open={isOpen} context={context} onOpenChange={setOpen} />;
 }
 
 // The dialog pulls in the provider sign-in terminal (xterm and addons), so it stays out

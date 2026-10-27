@@ -32,22 +32,44 @@ describe("settings sections", () => {
     ).toBe(true);
     const ids = SETTINGS_NAV_ITEMS.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
-    // Remote hosts also need the desktop bridge, which tests do not have.
+    // Remote hosts and Updates also need the desktop bridge, which tests do not have.
     expect(ids.toSorted()).toEqual(
-      SETTINGS_SECTION_IDS.filter((id) => id !== "remote-hosts").toSorted(),
+      SETTINGS_SECTION_IDS.filter((id) => id !== "remote-hosts" && id !== "updates").toSorted(),
     );
     expect(normalizeSettingsSection("connectors")).toBe("connectors");
     expect(SETTINGS_NAV_ITEMS.find((item) => item.id === "connectors")?.badge).toBeUndefined();
   });
 
-  it("shows Remote hosts only on Beta desktop windows that expose the bridge", () => {
+  it("shows Remote hosts on Stable and Beta desktop windows that expose the bridge", () => {
     const beta = (feature: string) => isBetaFeatureEnabled(feature, "beta");
     const stable = (feature: string) => isBetaFeatureEnabled(feature, "production");
     expect(isSettingsSectionAvailable("remote-hosts", beta, () => true)).toBe(true);
-    expect(isSettingsSectionAvailable("remote-hosts", stable, () => true)).toBe(false);
+    expect(isSettingsSectionAvailable("remote-hosts", stable, () => true)).toBe(true);
+    expect(isSettingsSectionAvailable("remote-hosts", stable, () => false)).toBe(false);
     expect(isSettingsSectionAvailable("remote-hosts", beta, () => false)).toBe(false);
     expect(beta(REMOTE_SSH_BETA_FEATURE)).toBe(true);
+    expect(stable(REMOTE_SSH_BETA_FEATURE)).toBe(true);
     expect(normalizeSettingsSection("remote-hosts")).toBe("general");
+  });
+
+  it("shows Updates only in desktop windows that expose the updater bridge", () => {
+    expect(
+      isSettingsSectionAvailable(
+        "updates",
+        () => true,
+        () => true,
+        () => true,
+      ),
+    ).toBe(true);
+    expect(
+      isSettingsSectionAvailable(
+        "updates",
+        () => true,
+        () => true,
+        () => false,
+      ),
+    ).toBe(false);
+    expect(normalizeSettingsSection("updates")).toBe("general");
   });
 
   it("falls back to General for unknown sections", () => {

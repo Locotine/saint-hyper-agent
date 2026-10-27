@@ -18,7 +18,6 @@ import {
   SITE_IMAGES,
   SEO_KEYWORDS,
   CREATOR_NAME,
-  CREATOR_URL,
   jsonLdScript,
 } from "@/lib/seo";
 
@@ -38,7 +37,7 @@ export const metadata: Metadata = {
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
   keywords: SEO_KEYWORDS,
-  authors: [{ name: CREATOR_NAME, url: CREATOR_URL }],
+  authors: [{ name: CREATOR_NAME }],
   creator: CREATOR_NAME,
   publisher: SITE_NAME,
   category: "technology",
@@ -86,7 +85,6 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    creator: "@emanueledpt",
     images: [OG_IMAGE],
   },
 };

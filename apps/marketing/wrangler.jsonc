@@ -4,7 +4,7 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  // Preview only. No routes/custom domains here on purpose: trysynara.com
+  // Preview only. No routes/custom domains here on purpose: the Saint site
   // stays on Vercel until the preview is verified, so this deploys to
   // workers.dev and production DNS is untouched.
   "workers_dev": true,
@@ -57,5 +57,5 @@
     },
   ],
   // Secrets (wrangler secret put): RESEND_API_KEY, RESEND_INBOUND_API_KEY,
-  // RESEND_WEBHOOK_SECRET, SAINT_FEEDBACK_* addresses, GITHUB_TOKEN.
+  // RESEND_WEBHOOK_SECRET, SAINT_FEEDBACK_* addresses, GITLAB_TOKEN.
 }

@@ -824,5 +824,190 @@ it.layer(TestLayer)("WorkspaceFileSystemLive", (it) => {
         expect(root._tag).toBe("WorkspacePathOutsideRootError");
       }),
     );
+
+    it.effect("moves files and folders into another folder or the root", () =>
+      Effect.gen(function* () {
+        const service = yield* WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        yield* writeTextFile(cwd, "notes.md", "n");
+        yield* writeTextFile(cwd, "src/lib/a.ts", "a");
+        yield* Effect.promise(() => NodeFs.mkdir(`${cwd}/archive`));
+
+        expect(
+          yield* service.moveEntry({
+            cwd,
+            relativePath: "notes.md",
+            destinationDirectory: "archive",
+          }),
+        ).toEqual({ relativePath: "archive/notes.md", kind: "file" });
+        expect(
+          yield* service.moveEntry({
+            cwd,
+            relativePath: "src/lib",
+            destinationDirectory: "archive/",
+          }),
+        ).toEqual({ relativePath: "archive/lib", kind: "directory" });
+        expect(
+          yield* service.moveEntry({
+            cwd,
+            relativePath: "archive/lib/a.ts",
+            destinationDirectory: "",
+          }),
+        ).toEqual({ relativePath: "a.ts", kind: "file" });
+        expect(
+          yield* Effect.promise(() => NodeFs.readFile(`${cwd}/archive/notes.md`, "utf8")),
+        ).toBe("n");
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${cwd}/a.ts`, "utf8"))).toBe("a");
+        expect((yield* Effect.promise(() => NodeFs.readdir(`${cwd}/src`))).length).toBe(0);
+        // Already in that folder: nothing to do.
+        expect(
+          yield* service.moveEntry({ cwd, relativePath: "a.ts", destinationDirectory: "" }),
+        ).toEqual({ relativePath: "a.ts", kind: "file" });
+      }),
+    );
+
+    it.effect("never replaces an entry and never moves a folder into itself", () =>
+      Effect.gen(function* () {
+        const service = yield* WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        yield* writeTextFile(cwd, "a.txt", "new");
+        yield* writeTextFile(cwd, "docs/a.txt", "keep");
+        yield* writeTextFile(cwd, "docs/specs/x.md", "x");
+
+        const taken = yield* service
+          .moveEntry({ cwd, relativePath: "a.txt", destinationDirectory: "docs" })
+          .pipe(Effect.flip);
+        expect(taken._tag).toBe("WorkspaceFileSystemError");
+        expect(taken._tag === "WorkspaceFileSystemError" && taken.detail).toBe(
+          "a.txt already exists in docs.",
+        );
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${cwd}/docs/a.txt`, "utf8"))).toBe(
+          "keep",
+        );
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${cwd}/a.txt`, "utf8"))).toBe("new");
+
+        const intoItself = yield* service
+          .moveEntry({ cwd, relativePath: "docs", destinationDirectory: "docs/specs" })
+          .pipe(Effect.flip);
+        expect(intoItself._tag === "WorkspaceFileSystemError" && intoItself.detail).toBe(
+          "docs cannot be moved into itself.",
+        );
+        const ontoItself = yield* service
+          .moveEntry({ cwd, relativePath: "docs", destinationDirectory: "docs" })
+          .pipe(Effect.flip);
+        expect(ontoItself._tag).toBe("WorkspaceFileSystemError");
+        const intoFile = yield* service
+          .moveEntry({ cwd, relativePath: "a.txt", destinationDirectory: "docs/a.txt" })
+          .pipe(Effect.flip);
+        expect(intoFile._tag === "WorkspaceFileSystemError" && intoFile.detail).toBe(
+          "docs/a.txt is not a folder.",
+        );
+        const missing = yield* service
+          .moveEntry({ cwd, relativePath: "gone.txt", destinationDirectory: "docs" })
+          .pipe(Effect.flip);
+        expect(missing._tag === "WorkspaceFileSystemError" && missing.detail).toBe(
+          "gone.txt no longer exists.",
+        );
+        const root = yield* service
+          .moveEntry({ cwd, relativePath: ".", destinationDirectory: "docs" })
+          .pipe(Effect.flip);
+        expect(root._tag).toBe("WorkspacePathOutsideRootError");
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${cwd}/docs/specs/x.md`, "utf8"))).toBe(
+          "x",
+        );
+      }),
+    );
+
+    it.effect("moves a link as a link and refuses paths that leave the root", () =>
+      Effect.gen(function* () {
+        const service = yield* WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        const outside = yield* makeTempDir;
+        yield* writeTextFile(outside, "secret.txt", "s");
+        yield* writeTextFile(cwd, "a.txt", "a");
+        yield* Effect.promise(() => NodeFs.mkdir(`${cwd}/inside`));
+        yield* Effect.promise(() => makeDirectorySymlink(outside, `${cwd}/escape`));
+
+        // The link itself moves; its target stays where it is.
+        expect(
+          yield* service.moveEntry({ cwd, relativePath: "escape", destinationDirectory: "inside" }),
+        ).toEqual({ relativePath: "inside/escape", kind: "file" });
+        expect(
+          (yield* Effect.promise(() => NodeFs.lstat(`${cwd}/inside/escape`))).isSymbolicLink(),
+        ).toBe(true);
+        expect(yield* Effect.promise(() => NodeFs.readdir(outside))).toEqual(["secret.txt"]);
+
+        // Neither a destination nor a source reached through that link is accepted.
+        const intoOutside = yield* service
+          .moveEntry({ cwd, relativePath: "a.txt", destinationDirectory: "inside/escape" })
+          .pipe(Effect.flip);
+        expect(intoOutside._tag).toBe("WorkspacePathOutsideRootError");
+        const fromOutside = yield* service
+          .moveEntry({ cwd, relativePath: "inside/escape/secret.txt", destinationDirectory: "" })
+          .pipe(Effect.flip);
+        expect(fromOutside._tag).toBe("WorkspacePathOutsideRootError");
+        const lexical = yield* service
+          .moveEntry({ cwd, relativePath: "a.txt", destinationDirectory: "../" })
+          .pipe(Effect.flip);
+        expect(lexical._tag).toBe("WorkspacePathOutsideRootError");
+        expect(yield* Effect.promise(() => NodeFs.readdir(outside))).toEqual(["secret.txt"]);
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${cwd}/a.txt`, "utf8"))).toBe("a");
+      }),
+    );
+
+    it.effect("renames in place without replacing and without following links", () =>
+      Effect.gen(function* () {
+        const service = yield* WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        const outside = yield* makeTempDir;
+        yield* writeTextFile(cwd, "docs/a.md", "a");
+        yield* writeTextFile(cwd, "docs/b.md", "b");
+        yield* writeTextFile(outside, "secret.txt", "s");
+        yield* Effect.promise(() => makeDirectorySymlink(outside, `${cwd}/link`));
+
+        expect(
+          yield* service.renameEntry({ cwd, relativePath: "docs/a.md", newName: "c.md" }),
+        ).toEqual({ relativePath: "docs/c.md", kind: "file" });
+        expect(yield* service.renameEntry({ cwd, relativePath: "docs", newName: "notes" })).toEqual(
+          { relativePath: "notes", kind: "directory" },
+        );
+        expect(
+          yield* service.renameEntry({ cwd, relativePath: "link", newName: "renamed-link" }),
+        ).toEqual({ relativePath: "renamed-link", kind: "file" });
+        expect(yield* Effect.promise(() => NodeFs.readdir(outside))).toEqual(["secret.txt"]);
+        // A case-only rename is not a clash with itself, also on case-insensitive disks.
+        expect(
+          yield* service.renameEntry({ cwd, relativePath: "notes/c.md", newName: "C.md" }),
+        ).toEqual({ relativePath: "notes/C.md", kind: "file" });
+        expect(yield* Effect.promise(() => NodeFs.readdir(`${cwd}/notes`))).toEqual(
+          expect.arrayContaining(["C.md", "b.md"]),
+        );
+
+        const taken = yield* service
+          .renameEntry({ cwd, relativePath: "notes/C.md", newName: "b.md" })
+          .pipe(Effect.flip);
+        expect(taken._tag === "WorkspaceFileSystemError" && taken.detail).toBe(
+          "b.md already exists in notes.",
+        );
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${cwd}/notes/b.md`, "utf8"))).toBe("b");
+        for (const newName of ["../escape.md", "a/b.md", ".."]) {
+          const invalid = yield* service
+            .renameEntry({ cwd, relativePath: "notes/b.md", newName })
+            .pipe(Effect.flip);
+          expect(invalid._tag === "WorkspaceFileSystemError" && invalid.detail).toBe(
+            `${newName} is not a valid name.`,
+          );
+        }
+        const throughLink = yield* service
+          .renameEntry({ cwd, relativePath: "renamed-link/secret.txt", newName: "x.txt" })
+          .pipe(Effect.flip);
+        expect(throughLink._tag).toBe("WorkspacePathOutsideRootError");
+        const root = yield* service
+          .renameEntry({ cwd, relativePath: ".", newName: "x" })
+          .pipe(Effect.flip);
+        expect(root._tag).toBe("WorkspacePathOutsideRootError");
+        expect(yield* Effect.promise(() => NodeFs.readdir(outside))).toEqual(["secret.txt"]);
+      }),
+    );
   });
 });

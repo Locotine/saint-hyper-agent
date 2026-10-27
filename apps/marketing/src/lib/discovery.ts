@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { absoluteUrl, OG_IMAGE, SITE_NAME, SITE_URL, X_PROFILE_URL } from "@/lib/seo";
+import { absoluteUrl, OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
 
 /** Search and user-directed retrieval agents that affect answer visibility. */
 export const AI_DISCOVERY_USER_AGENTS = [
@@ -21,8 +21,6 @@ export const SEARCH_USER_AGENTS = ["Googlebot", "Bingbot", "Applebot"] as const;
 export const AI_TRAINING_USER_AGENTS = ["GPTBot", "ClaudeBot", "Google-Extended"] as const;
 
 export const AI_DISCOVERY_PATHS = ["/llms.txt", "/llms-full.txt", "/ai.txt"] as const;
-
-const X_HANDLE = `@${new URL(X_PROFILE_URL).pathname.replace(/^\//, "")}`;
 
 function toIsoDate(value: Date | string | null | undefined): string | undefined {
   if (!value) return undefined;
@@ -55,7 +53,6 @@ export function documentationPageMetadata({
       card: "summary_large_image",
       title,
       description,
-      creator: X_HANDLE,
       images: [OG_IMAGE],
     },
   };

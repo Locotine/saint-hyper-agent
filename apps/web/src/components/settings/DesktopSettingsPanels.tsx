@@ -1,7 +1,8 @@
 // FILE: DesktopSettingsPanels.tsx
 // Purpose: Own settings panels whose behavior depends on browser or desktop-native lifecycles.
 // Layer: Settings UI components
-// Exports: NotificationsSettingsPanel, AppSnapSettingsPanel, BetaChannelSettingsPanel
+// Exports: NotificationsSettingsPanel, AppSnapSettingsPanel, UpdatesSettingsPanel,
+//          BetaChannelSettingsPanel
 
 import {
   type DesktopAppSnapSettingsPane,
@@ -11,15 +12,19 @@ import {
   type ResolvedKeybindingsConfig,
 } from "@saint/contracts";
 import { appSnapShortcutLabels } from "@saint/shared/appSnapShortcut";
+import { SAINT_RELEASES_URL } from "@saint/shared/betaChannel";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 
 import type { AppSettingsBinding } from "~/appSettings";
 import { createLatestAppSnapRequestGuard } from "~/appSnap.logic";
+import { useDesktopUpdateState } from "~/hooks/useDesktopUpdateState";
 import { useRefreshOnWindowReturn } from "~/hooks/useRefreshOnWindowReturn";
 import { playAppSnapCaptureSound } from "~/lib/appSnapSound";
 import { CentralIcon } from "~/lib/central-icons";
+import { openExternalLink } from "~/lib/linkChips";
 import { cn } from "~/lib/utils";
+import { persistAppStateNow } from "~/store";
 import { isElectron } from "~/env";
 import {
   buildNotificationSettingsSupportText,
@@ -30,6 +35,13 @@ import {
   SETTINGS_CARD_ROW_DESCRIPTION_CLASS_NAME,
   SETTINGS_CARD_ROW_TITLE_CLASS_NAME,
 } from "~/settingsPanelStyles";
+import {
+  getDesktopUpdateActionLabel,
+  getDesktopUpdateStatusText,
+  isDesktopUpdateButtonDisabled,
+  isDesktopUpdateInstallInFlight,
+  resolveDesktopUpdateButtonAction,
+} from "../desktopUpdate.logic";
 import {
   APP_SNAP_PERMISSION_PANES,
   AppSnapPermissionSection,
@@ -466,6 +478,113 @@ export function AppSnapSettingsPanel({
 }
 
 /**
+ * Settings → Updates. Drives the same updater actions as the sidebar update button;
+ * update errors that need a manual download are still toasted by the sidebar, which
+ * stays mounted on the settings route.
+ */
+export function UpdatesSettingsPanel({ active }: { readonly active: boolean }) {
+  const [updateState, setUpdateState] = useDesktopUpdateState();
+  const [installing, setInstalling] = useState(false);
+
+  // Install failures keep "downloaded", so watch the error too to release the latch.
+  useEffect(() => {
+    if (updateState?.status !== "downloaded" || updateState.errorContext === "install") {
+      setInstalling(false);
+    }
+  }, [updateState?.status, updateState?.errorContext]);
+
+  if (!active || !updateState) return null;
+
+  const action = resolveDesktopUpdateButtonAction(updateState);
+  const actionDisabled =
+    !updateState.enabled ||
+    action === "none" ||
+    installing ||
+    isDesktopUpdateButtonDisabled(updateState);
+
+  function reportActionFailure(title: string, error: unknown) {
+    setInstalling(false);
+    toastManager.add({
+      type: "error",
+      title,
+      description: error instanceof Error ? error.message : "An unexpected error occurred.",
+    });
+  }
+
+  function runUpdateAction() {
+    const bridge = window.desktopBridge;
+    if (!bridge || actionDisabled) return;
+    if (action === "check") {
+      void bridge
+        .checkForUpdates()
+        .then(setUpdateState)
+        .catch((error: unknown) => reportActionFailure("Could not check for updates", error));
+      return;
+    }
+    if (action === "download") {
+      void bridge
+        .downloadUpdate()
+        .then((result) => setUpdateState(result.state))
+        .catch((error: unknown) => reportActionFailure("Could not start update download", error));
+      return;
+    }
+    setInstalling(true);
+    persistAppStateNow();
+    void bridge
+      .installUpdate()
+      .then((result) => {
+        setUpdateState(result.state);
+        if (!isDesktopUpdateInstallInFlight(result)) setInstalling(false);
+      })
+      .catch((error: unknown) => reportActionFailure("Could not install update", error));
+  }
+
+  return (
+    <div className="space-y-6">
+      <SettingsSection title="Version">
+        <SettingsRow
+          title="Current version"
+          description="The Saint version running on this computer."
+          control={
+            <code className="text-ui leading-snug font-medium text-muted-foreground">
+              {updateState.currentVersion}
+            </code>
+          }
+        />
+        <SettingsRow
+          title="Software update"
+          description="Saint checks for new versions in the background."
+          status={getDesktopUpdateStatusText(updateState, { installing })}
+          control={
+            <Button
+              size="xs"
+              variant={action === "install" ? "default" : "outline"}
+              disabled={actionDisabled}
+              onClick={runUpdateAction}
+            >
+              {getDesktopUpdateActionLabel(updateState, { installing })}
+            </Button>
+          }
+        />
+        <SettingsRow
+          title="Release notes"
+          description="See what changed in each Saint release, or download an installer."
+          control={
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => openExternalLink(SAINT_RELEASES_URL)}
+            >
+              All releases
+            </Button>
+          }
+        />
+      </SettingsSection>
+    </div>
+  );
+}
+
+/**
  * Beta → stable: opens stable Saint and quits beta. Beta data is never copied
  * back because beta can hold data for features stable does not have yet.
  */
@@ -578,6 +697,9 @@ export function BetaChannelSettingsPanel({ active }: { readonly active: boolean 
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [sharesDisclosureOpen, setSharesDisclosureOpen] = useState(false);
+  // The preload exposes this bridge only when main runs diagnostics, which needs an
+  // operator-configured endpoint; without it Beta shares nothing.
+  const diagnosticsEnabled = window.desktopBridge?.betaDiagnostics !== undefined;
   const state: DesktopBetaChannelState | null = betaStateQuery.data ?? null;
 
   if (!active || !betaBridge || !state?.supported) return null;
@@ -660,51 +782,56 @@ export function BetaChannelSettingsPanel({ active }: { readonly active: boolean 
         <BetaChannelMark />
         <div className="min-w-0 flex-1 space-y-1">
           <p className={SETTINGS_CARD_ROW_TITLE_CLASS_NAME}>You're on Saint Beta</p>
-          <p className={SETTINGS_CARD_ROW_DESCRIPTION_CLASS_NAME}>
-            To help us fix problems, Beta shares crash reports, app errors, and anonymous usage
-            counts. Crash reports may include private information.
-          </p>
-          <button
-            type="button"
-            className="flex cursor-pointer items-center gap-1.5 pt-1 text-ui-sm text-muted-foreground transition-colors hover:text-foreground"
-            aria-expanded={sharesDisclosureOpen}
-            onClick={() => setSharesDisclosureOpen((open) => !open)}
-          >
-            <DisclosureChevron open={sharesDisclosureOpen} />
-            What Beta shares
-          </button>
-          <DisclosureRegion open={sharesDisclosureOpen}>
-            <div className="space-y-2 pt-1.5">
-              <div>
-                <p className="m-0 text-ui-sm font-medium text-foreground">Shared</p>
-                <ul className="m-0 list-disc space-y-0.5 pl-4 pt-0.5 text-ui-sm text-muted-foreground">
-                  <li>A random ID for this install, not linked to you</li>
-                  <li>When Beta opens, closes, installs, or is removed</li>
-                  <li>Crashes and errors; error details are filtered</li>
-                  <li>App version, OS version, and language</li>
-                  <li>
-                    Which providers you use, and how many projects, chats, and turns (just counts)
-                  </li>
-                  <li>Whether updates install correctly</li>
-                </ul>
-              </div>
-              <div>
-                <p className="m-0 text-ui-sm font-medium text-foreground">
-                  Not included in usage counts
-                </p>
-                <ul className="m-0 list-disc space-y-0.5 pl-4 pt-0.5 text-ui-sm text-muted-foreground">
-                  <li>Your chats, prompts, or agent replies</li>
-                  <li>Your code, files, or project names</li>
-                  <li>Keys, passwords, or account details</li>
-                </ul>
-              </div>
-              <p className="m-0 text-ui-xs text-muted-foreground">
-                Error details are filtered, but may still include private information. Crash dumps
-                include app memory that can't be filtered. Reports and dumps are kept with no expiry
-                date.
+          {diagnosticsEnabled ? (
+            <>
+              <p className={SETTINGS_CARD_ROW_DESCRIPTION_CLASS_NAME}>
+                To help us fix problems, Beta shares crash reports, app errors, and anonymous usage
+                counts. Crash reports may include private information.
               </p>
-            </div>
-          </DisclosureRegion>
+              <button
+                type="button"
+                className="flex cursor-pointer items-center gap-1.5 pt-1 text-ui-sm text-muted-foreground transition-colors hover:text-foreground"
+                aria-expanded={sharesDisclosureOpen}
+                onClick={() => setSharesDisclosureOpen((open) => !open)}
+              >
+                <DisclosureChevron open={sharesDisclosureOpen} />
+                What Beta shares
+              </button>
+              <DisclosureRegion open={sharesDisclosureOpen}>
+                <div className="space-y-2 pt-1.5">
+                  <div>
+                    <p className="m-0 text-ui-sm font-medium text-foreground">Shared</p>
+                    <ul className="m-0 list-disc space-y-0.5 pl-4 pt-0.5 text-ui-sm text-muted-foreground">
+                      <li>A random ID for this install, not linked to you</li>
+                      <li>When Beta opens, closes, installs, or is removed</li>
+                      <li>Crashes and errors; error details are filtered</li>
+                      <li>App version, OS version, and language</li>
+                      <li>
+                        Which providers you use, and how many projects, chats, and turns (just
+                        counts)
+                      </li>
+                      <li>Whether updates install correctly</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="m-0 text-ui-sm font-medium text-foreground">
+                      Not included in usage counts
+                    </p>
+                    <ul className="m-0 list-disc space-y-0.5 pl-4 pt-0.5 text-ui-sm text-muted-foreground">
+                      <li>Your chats, prompts, or agent replies</li>
+                      <li>Your code, files, or project names</li>
+                      <li>Keys, passwords, or account details</li>
+                    </ul>
+                  </div>
+                  <p className="m-0 text-ui-xs text-muted-foreground">
+                    Error details are filtered, but may still include private information. Crash
+                    dumps include app memory that can't be filtered. Reports and dumps are kept with
+                    no expiry date.
+                  </p>
+                </div>
+              </DisclosureRegion>
+            </>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2 pt-1.5">
             {state.stableInstalled ? (
               <Button size="xs" variant="outline" onClick={() => setLeaveDialogOpen(true)}>
@@ -728,6 +855,9 @@ export function BetaChannelSettingsPanel({ active }: { readonly active: boolean 
   }
 
   if (state.flavor !== "production") return null;
+  // Saint Beta ships only from its own release page now; without an installed beta
+  // or an operator-configured install feed there is nothing to offer here.
+  if (!state.installed && !state.canInstall) return null;
 
   return (
     <SettingsCard divided={false} className="px-4 py-3.5">
@@ -747,8 +877,8 @@ export function BetaChannelSettingsPanel({ active }: { readonly active: boolean 
           </div>
           <p className={SETTINGS_CARD_ROW_DESCRIPTION_CLASS_NAME}>
             {state.installed
-              ? "Beta runs next to Saint with its own data, so nothing here changes. Copy your data to bring over projects, settings, and provider sign-ins. Beta shares crash reports and anonymous usage stats."
-              : "Try new features before everyone else. Saint Beta is a separate app with its own data, and this app stays exactly as it is. Beta shares crash reports and anonymous usage stats to help us improve it."}
+              ? "Beta runs next to Saint with its own data, so nothing here changes. Copy your data to bring over projects, settings, and provider sign-ins."
+              : "Try new features before everyone else. Saint Beta is a separate app with its own data, and this app stays exactly as it is."}
           </p>
           {state.lastImportAt ? (
             <p className="text-ui-xs text-muted-foreground">
@@ -777,37 +907,31 @@ export function BetaChannelSettingsPanel({ active }: { readonly active: boolean 
           ) : null}
           <div className="flex flex-wrap items-center gap-2 pt-1.5">
             {!state.installed ? (
-              state.canInstall ? (
-                <>
-                  <Button
-                    size="xs"
-                    disabled={actionPending !== null}
-                    onClick={() => void installBeta()}
-                  >
-                    {actionPending === "install" ? "Installing…" : "Install Saint Beta"}
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    disabled={actionPending !== null}
-                    onClick={() => setCopyDialogOpen(true)}
-                  >
-                    {actionPending === "copy" ? "Installing…" : "Copy my data and open"}
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    disabled={actionPending !== null}
-                    onClick={() => void openDownloadPage()}
-                  >
-                    Download page
-                  </Button>
-                </>
-              ) : (
-                <Button size="xs" onClick={() => void openDownloadPage()}>
-                  Get Saint Beta
+              <>
+                <Button
+                  size="xs"
+                  disabled={actionPending !== null}
+                  onClick={() => void installBeta()}
+                >
+                  {actionPending === "install" ? "Installing…" : "Install Saint Beta"}
                 </Button>
-              )
+                <Button
+                  size="xs"
+                  variant="outline"
+                  disabled={actionPending !== null}
+                  onClick={() => setCopyDialogOpen(true)}
+                >
+                  {actionPending === "copy" ? "Installing…" : "Copy my data and open"}
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  disabled={actionPending !== null}
+                  onClick={() => void openDownloadPage()}
+                >
+                  Download page
+                </Button>
+              </>
             ) : (
               <>
                 <Button

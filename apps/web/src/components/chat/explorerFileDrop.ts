@@ -1,9 +1,11 @@
 // FILE: explorerFileDrop.ts
-// Purpose: Lets the Explorer tree accept local files dragged in from the OS and
-//          upload them into the folder under the pointer. Enabled in remote SSH
-//          windows, where a local path means nothing on the host.
+// Purpose: Drops onto the Explorer tree: local files dragged in from the OS are
+//          uploaded into the folder under the pointer (remote SSH windows, where a
+//          local path means nothing on the host), and the tree's own rows are
+//          moved into that folder (every window).
 // Layer: Chat workspace-browsing UI behavior
-// Exports: useExplorerFileDrop, EXPLORER_DROP_DIRECTORY_ATTRIBUTE, EXPLORER_DROP_TARGET_CLASS_NAME
+// Exports: useExplorerFileDrop, setExplorerEntriesDragData, endExplorerEntriesDrag,
+//          EXPLORER_DROP_DIRECTORY_ATTRIBUTE, EXPLORER_DROP_TARGET_CLASS_NAME
 
 import { useQueryClient } from "@tanstack/react-query";
 import { type DragEvent as ReactDragEvent, useState } from "react";
@@ -13,6 +15,7 @@ import { CHAT_FILE_REFERENCE_DRAG_TYPE } from "~/lib/chatReferences";
 import { projectQueryKeys } from "~/lib/projectReactQuery";
 import { uploadFilesToWorkspace } from "~/lib/workspaceUpload";
 import { toastManager } from "../ui/toast";
+import { explorerMovableEntries } from "./explorerSelection";
 
 /**
  * Rows carry the folder a drop on them lands in: a folder row its own path, a
@@ -32,6 +35,53 @@ export function explorerDropDirectoryFor(entry: {
   return slash === -1 ? "" : entry.path.slice(0, slash);
 }
 
+// Rows dragged inside the Explorer carry this next to their composer file
+// reference, so the tree can tell its own drags apart and move them.
+const EXPLORER_ENTRIES_DRAG_TYPE = "application/x-saint-explorer-entries";
+
+interface ExplorerEntriesDrag {
+  readonly cwd: string;
+  readonly paths: readonly string[];
+}
+
+// dragover can read a drag's types but not its data, so the drag in progress is
+// kept here to skip the tint over folders a drop would not change.
+let activeEntriesDrag: ExplorerEntriesDrag | null = null;
+
+export function setExplorerEntriesDragData(
+  dataTransfer: DataTransfer,
+  drag: ExplorerEntriesDrag,
+): void {
+  dataTransfer.setData(EXPLORER_ENTRIES_DRAG_TYPE, JSON.stringify(drag));
+  // Copy keeps the composer accepting the row as a reference.
+  dataTransfer.effectAllowed = "copyMove";
+  activeEntriesDrag = drag;
+}
+
+export function endExplorerEntriesDrag(): void {
+  activeEntriesDrag = null;
+}
+
+function readEntriesDrag(dataTransfer: DataTransfer): ExplorerEntriesDrag | null {
+  try {
+    const value = JSON.parse(dataTransfer.getData(EXPLORER_ENTRIES_DRAG_TYPE)) as {
+      readonly cwd?: unknown;
+      readonly paths?: unknown;
+    };
+    return typeof value.cwd === "string" &&
+      Array.isArray(value.paths) &&
+      value.paths.every((path) => typeof path === "string")
+      ? { cwd: value.cwd, paths: value.paths as string[] }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function isExplorerEntriesDrag(event: ReactDragEvent): boolean {
+  return event.dataTransfer.types.includes(EXPLORER_ENTRIES_DRAG_TYPE);
+}
+
 // OS file drags carry "Files"; rows dragged out of the Explorer itself carry a
 // file reference and must keep going to the composer.
 function isOsFileDrag(event: ReactDragEvent): boolean {
@@ -46,14 +96,33 @@ function dropDirectoryAt(event: ReactDragEvent): string {
 
 /**
  * Drop handlers for the tree body plus the folder currently targeted (null
- * while nothing is dragged over it, "" for the workspace root).
+ * while nothing is dragged over it, "" for the workspace root). `onMoveEntries`
+ * receives only the dragged paths that the drop actually moves.
  */
-export function useExplorerFileDrop(workspaceRoot: string | null) {
+export function useExplorerFileDrop(
+  workspaceRoot: string | null,
+  onMoveEntries?: (paths: string[], directory: string) => void,
+) {
   const queryClient = useQueryClient();
   const [dropDirectory, setDropDirectory] = useState<string | null>(null);
   const enabled = remoteWindowHost !== null && workspaceRoot !== null;
+  const moveEnabled = workspaceRoot !== null && onMoveEntries !== undefined;
 
   const onDragOver = (event: ReactDragEvent<HTMLElement>) => {
+    if (moveEnabled && isExplorerEntriesDrag(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const next = dropDirectoryAt(event);
+      // A drag from another window is checked on drop instead.
+      const drag = activeEntriesDrag;
+      const moves =
+        !drag ||
+        (drag.cwd === workspaceRoot && explorerMovableEntries(drag.paths, next).length > 0);
+      event.dataTransfer.dropEffect = moves ? "move" : "none";
+      const target = moves ? next : null;
+      if (target !== dropDirectory) setDropDirectory(target);
+      return;
+    }
     if (!enabled || !isOsFileDrag(event)) return;
     // Handled here so the chat pane underneath does not also attach the file.
     event.preventDefault();
@@ -64,13 +133,25 @@ export function useExplorerFileDrop(workspaceRoot: string | null) {
   };
 
   const onDragLeave = (event: ReactDragEvent<HTMLElement>) => {
-    if (!enabled) return;
+    if (!enabled && !moveEnabled) return;
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
       setDropDirectory(null);
     }
   };
 
   const onDrop = (event: ReactDragEvent<HTMLElement>) => {
+    if (moveEnabled && isExplorerEntriesDrag(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      setDropDirectory(null);
+      const drag = readEntriesDrag(event.dataTransfer);
+      endExplorerEntriesDrag();
+      if (!drag || drag.cwd !== workspaceRoot) return;
+      const directory = dropDirectoryAt(event);
+      const paths = explorerMovableEntries(drag.paths, directory);
+      if (paths.length > 0) onMoveEntries?.(paths, directory);
+      return;
+    }
     if (!enabled || !workspaceRoot || !isOsFileDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -104,6 +185,6 @@ export function useExplorerFileDrop(workspaceRoot: string | null) {
 
   return {
     dropDirectory,
-    handlers: enabled ? { onDragOver, onDragLeave, onDrop } : {},
+    handlers: enabled || moveEnabled ? { onDragOver, onDragLeave, onDrop } : {},
   };
 }

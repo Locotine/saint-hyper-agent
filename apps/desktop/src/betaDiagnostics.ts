@@ -16,7 +16,9 @@
 // - The install id is a random UUID generated on first launch of a beta install;
 //   it identifies an install, not a person.
 // - Stable/production builds never construct this object, so the stable binary
-//   has no live diagnostics code path.
+//   has no live diagnostics code path. Beta builds construct it only when the
+//   operator sets SAINT_BETA_DIAGNOSTICS_URL; by default nothing is collected
+//   or sent.
 
 import {
   appendFileSync,
@@ -48,8 +50,11 @@ import {
 import { redactDiagnosticText } from "@saint/shared/diagnosticsRedaction";
 import { Schema } from "effect";
 
-/** Override point for self-hosted / dev ingestion; production default ships in the binary. */
-export const BETA_DIAGNOSTICS_ENDPOINT = "https://saint-beta-diagnostics.kartik-9f9.workers.dev";
+/**
+ * Operator-set ingestion endpoint. No endpoint ships in the binary: without this
+ * variable Saint Beta collects nothing, starts no crash reporter, and makes no
+ * diagnostics requests.
+ */
 export const BETA_DIAGNOSTICS_ENDPOINT_ENV = "SAINT_BETA_DIAGNOSTICS_URL";
 
 const FLUSH_INTERVAL_MS = 5 * 60 * 1000;
@@ -362,9 +367,10 @@ function errorFingerprint(message: string, stack: string | undefined, homeDir: s
     .slice(0, 16);
 }
 
-export function resolveBetaDiagnosticsEndpoint(env: NodeJS.ProcessEnv): string {
+/** Returns the configured endpoint, or null when diagnostics must stay off. */
+export function resolveBetaDiagnosticsEndpoint(env: NodeJS.ProcessEnv): string | null {
   const override = env[BETA_DIAGNOSTICS_ENDPOINT_ENV]?.trim();
-  if (!override) return BETA_DIAGNOSTICS_ENDPOINT;
+  if (!override) return null;
   // Loopback http targets are allowed so the worker can be developed locally;
   // remote overrides must be TLS. Parsed as a URL so lookalike prefixes like
   // http://localhost.evil.com cannot pass.
@@ -378,9 +384,9 @@ export function resolveBetaDiagnosticsEndpoint(env: NodeJS.ProcessEnv): string {
       return override;
     }
   } catch {
-    // Unparseable override: fall through to the baked default.
+    // Unparseable override: diagnostics stay off.
   }
-  return BETA_DIAGNOSTICS_ENDPOINT;
+  return null;
 }
 
 export class BetaDiagnostics {
@@ -390,7 +396,7 @@ export class BetaDiagnostics {
   private readonly usageSnapshotPath: string;
   private readonly usageLastDayPath: string;
   private readonly installPendingPath: string;
-  private readonly endpoint: string;
+  private readonly endpoint: string | null;
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private usageTimers: ReturnType<typeof setTimeout>[] = [];
   private flushing = false;
@@ -867,7 +873,8 @@ export class BetaDiagnostics {
    * cannot stall quit.
    */
   async flush(timeoutMs = 15_000): Promise<void> {
-    if (this.flushing || this.disposed) return;
+    // No configured endpoint: the queue is never sent anywhere.
+    if (this.endpoint === null || this.flushing || this.disposed) return;
     this.flushing = true;
     // The promise resolves only after `flushing` clears, so dispose() can
     // chain a final flush on it.
@@ -883,6 +890,7 @@ export class BetaDiagnostics {
   }
 
   private async flushQueue(timeoutMs: number): Promise<void> {
+    if (this.endpoint === null) return;
     try {
       if (!existsSync(this.queuePath)) return;
       const raw = readFileSync(this.queuePath, "utf8");

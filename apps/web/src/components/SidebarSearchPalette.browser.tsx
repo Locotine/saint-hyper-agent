@@ -50,7 +50,6 @@ async function renderPalette(
         onAddProjectPath={vi.fn().mockResolvedValue(undefined)}
         homeDir={null}
         onOpenSettings={onOpenSettings}
-        onOpenFeedback={vi.fn()}
         onOpenUsageSettings={vi.fn()}
         onOpenProject={vi.fn()}
         onOpenThread={onOpenThread}
@@ -204,7 +203,6 @@ it("opens a source page for importing projects and hands the chosen source to th
           onAddProjectPath={vi.fn().mockResolvedValue(undefined)}
           homeDir={null}
           onOpenSettings={vi.fn()}
-          onOpenFeedback={vi.fn()}
           onOpenUsageSettings={vi.fn()}
           onOpenProject={vi.fn()}
           onOpenThread={vi.fn()}
@@ -271,7 +269,6 @@ describe("SidebarSearchPalette import targets", () => {
             onAddProjectPath={async () => {}}
             homeDir={null}
             onOpenSettings={vi.fn()}
-            onOpenFeedback={vi.fn()}
             onOpenUsageSettings={vi.fn()}
             onOpenProject={vi.fn()}
             onOpenThread={vi.fn()}

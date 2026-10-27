@@ -52,13 +52,14 @@ export const MCP_CONNECTORS_BETA_FEATURE = "mcp-connectors";
 export const NATIVE_EDITOR_BETA_FEATURE = "native-editor";
 
 /**
- * Remote SSH hosts (Beta only): the desktop installs and starts a Saint server
- * on another machine over SSH and opens it in its own window through a tunnel.
- * The desktop main process owns it and refuses its IPC on Stable.
+ * Remote SSH hosts (Stable and Beta): the desktop installs and starts a Saint
+ * server on another machine over SSH and opens it in its own window through a
+ * tunnel. The desktop main process owns it.
  */
 export const REMOTE_SSH_BETA_FEATURE = "remote-ssh";
 
-export const BETA_ONLY_FEATURES: readonly BetaOnlyFeature[] = [REMOTE_SSH_BETA_FEATURE];
+// Empty: every feature ships in Stable. Add a key to hold one back again.
+export const BETA_ONLY_FEATURES: readonly BetaOnlyFeature[] = [];
 
 /**
  * Whether a Beta-only feature is on for this host. Only the Stable

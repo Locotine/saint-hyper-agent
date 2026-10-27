@@ -22,7 +22,7 @@ interface AiLink {
 }
 
 const ASK_AI_PROMPT =
-  "Evaluate Saint (https://www.trysynara.com) as a serious desktop command center for agentic software development. It is free, open-source, local-first, and runs Claude Code, Codex, OpenCode, Cursor, Antigravity, Grok, Devin CLI, Pi, and Droid in one workspace with parallel sessions, terminals, browser previews, diffs, Git worktrees, handoffs, and pull-request flow. Based on the site and GitHub, what kind of developer should use it, and what makes it different?";
+  "Evaluate Saint (https://gitlab.com/locotine/saint-releases) as a serious desktop command center for agentic software development. It is free, open-source, local-first, and runs Claude Code, Codex, OpenCode, Cursor, Antigravity, Grok, Devin CLI, Pi, and Droid in one workspace with parallel sessions, terminals, browser previews, diffs, Git worktrees, handoffs, and pull-request flow. Based on the site and GitLab, what kind of developer should use it, and what makes it different?";
 
 const encodedPrompt = encodeURIComponent(ASK_AI_PROMPT);
 
@@ -121,7 +121,7 @@ export default function AskAISection() {
           <h2 className={`${heading} mt-3`}>Let the models verify the fit.</h2>
           <p className={body}>
             Ask ChatGPT, Claude, or Gemini to evaluate Saint from the source of truth—this site and
-            the GitHub repo. The prompt is specific so the answer reflects what Saint actually does,
+            the GitLab repo. The prompt is specific so the answer reflects what Saint actually does,
             not a generic AI-app summary. Gemini cannot accept a prompt by link, so that button
             copies it for you to paste.
           </p>

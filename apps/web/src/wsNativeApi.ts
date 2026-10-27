@@ -628,6 +628,8 @@ export function createWsNativeApi(): NativeApi {
       writeFile: (input) => transport.request(WS_METHODS.projectsWriteFile, input),
       createEntry: (input) => transport.request(WS_METHODS.projectsCreateEntry, input),
       deleteEntry: (input) => transport.request(WS_METHODS.projectsDeleteEntry, input),
+      moveEntry: (input) => transport.request(WS_METHODS.projectsMoveEntry, input),
+      renameEntry: (input) => transport.request(WS_METHODS.projectsRenameEntry, input),
       runDevServer: (input) => transport.request(WS_METHODS.projectsRunDevServer, input),
       stopDevServer: (input) => transport.request(WS_METHODS.projectsStopDevServer, input),
       listDevServers: () => transport.request(WS_METHODS.projectsListDevServers),

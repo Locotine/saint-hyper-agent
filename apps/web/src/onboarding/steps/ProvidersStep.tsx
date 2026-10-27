@@ -1,8 +1,7 @@
 // FILE: ProvidersStep.tsx
 // Purpose: Provider grid for the welcome tour: one card per runtime with its detection
 //          status, an enable/disable checkbox bound to the server-backed `disabledProviders`
-//          setting, inline sign-in for detected-but-unauthenticated CLIs, and a setup-guide
-//          link for missing ones.
+//          setting, and inline sign-in for detected-but-unauthenticated CLIs.
 // Layer: Web UI component
 
 import type { ProviderKind, ServerProviderStatus } from "@saint/contracts";
@@ -227,17 +226,6 @@ export function ProvidersStep(props: { readonly detection: ProviderDetection }) 
                     >
                       {isConnecting ? "Done" : "Sign in"}
                     </button>
-                  ) : null}
-                  {state === "not-installed" ? (
-                    <a
-                      href={descriptor.setupDocsHref}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={cn("ml-1", INLINE_ACTION_CLASS_NAME)}
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      Guide
-                    </a>
                   ) : null}
                 </span>
               </label>

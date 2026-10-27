@@ -1,12 +1,8 @@
 // FILE: desktopAppIcon.ts
-// Purpose: Validate and persist the app-icon preference and map it to platform resources.
-// Layer: Desktop-native preference logic
+// Purpose: Map the flavor's app icon to platform resources.
+// Layer: Desktop-native icon logic
 
-import * as FS from "node:fs";
-import * as Path from "node:path";
-
-import { DesktopAppIcon } from "@saint/contracts";
-import { Schema } from "effect";
+import type { DesktopAppIcon } from "@saint/contracts";
 
 type DesktopPlatform = "darwin" | "linux" | "win32";
 
@@ -40,40 +36,6 @@ const APP_ICON_RESOURCE_NAMES = {
   },
 } as const;
 
-export const isDesktopAppIcon = Schema.is(DesktopAppIcon);
-
-export function writeDesktopAppIconPreference(filePath: string, icon: DesktopAppIcon): void {
-  FS.mkdirSync(Path.dirname(filePath), { recursive: true });
-  FS.writeFileSync(filePath, icon, "utf8");
-}
-
-// Missing or blank files use the caller's fallback without writing. Unknown
-// values reset on disk; known but inactive choices stay saved for another flavor.
-export function readDesktopAppIconPreference(
-  filePath: string,
-  options: {
-    readonly fallbackIcon?: DesktopAppIcon;
-    readonly inactiveIcons?: readonly string[];
-    readonly onResetError?: (error: unknown) => void;
-  } = {},
-): DesktopAppIcon {
-  const fallbackIcon = options.fallbackIcon ?? "default";
-  let stored: string;
-  try {
-    stored = FS.readFileSync(filePath, "utf8").trim();
-  } catch {
-    return fallbackIcon;
-  }
-  if (stored.length === 0 || options.inactiveIcons?.includes(stored)) return fallbackIcon;
-  if (isDesktopAppIcon(stored)) return stored;
-  try {
-    writeDesktopAppIconPreference(filePath, fallbackIcon);
-  } catch (error) {
-    options.onResetError?.(error);
-  }
-  return fallbackIcon;
-}
-
 interface MacBundleAppIconInput {
   readonly icon: DesktopAppIcon;
   readonly platform: DesktopPlatform;
@@ -92,13 +54,6 @@ export function usesMacBundleAppIcon(input: MacBundleAppIconInput): boolean {
     (input.icon === "default" && !input.isBetaFlavor) ||
     (input.icon === "beta" && input.isBetaFlavor)
   );
-}
-
-export function shouldUpdateDesktopAppIcon(
-  currentIcon: DesktopAppIcon,
-  requestedIcon: DesktopAppIcon,
-): boolean {
-  return currentIcon !== requestedIcon;
 }
 
 export function desktopAppIconResourceName(input: DesktopAppIconResourceInput): string {

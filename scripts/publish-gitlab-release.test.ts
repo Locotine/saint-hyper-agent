@@ -13,14 +13,14 @@ describe("selectReleaseAssets", () => {
         "builder-effective-config.yaml",
         "Saint-Beta-1.2.3-beta.1-x86_64.AppImage",
         "win-unpacked",
-        "install-saint-beta.sh",
+        "install-saint.sh",
         "other.sh",
       ]),
     ).toEqual([
       "Saint-Beta-1.2.3-beta.1-x64.exe",
       "Saint-Beta-1.2.3-beta.1-x64.exe.blockmap",
       "Saint-Beta-1.2.3-beta.1-x86_64.AppImage",
-      "install-saint-beta.sh",
+      "install-saint.sh",
       "latest.yml",
     ]);
   });

@@ -10,11 +10,9 @@ import { readNativeApi } from "~/nativeApi";
 
 export { downloadBlob } from "~/lib/browserDownload";
 
-const SHARE_BRAND_HANDLE = "@trySynara";
-export const SHARE_TWEET_TEXT = `Just checking my ${SHARE_BRAND_HANDLE} dev stats. Absolute masterpiece of an IDE.`;
-const SHARE_URL = "https://trysynara.com";
+export const SHARE_TWEET_TEXT = "Just checking my Saint dev stats. Absolute masterpiece of an IDE.";
 
-export type ShareTarget = "x" | "linkedin" | "reddit";
+export type ShareTarget = "x" | "reddit";
 
 // Renders the given node to a PNG blob entirely on-device (canvas serialization).
 // Passing explicit width/height keeps the export deterministic and free of trailing
@@ -65,11 +63,7 @@ export function shareIntentUrl(target: ShareTarget): string {
   switch (target) {
     case "x":
       return `https://x.com/intent/tweet?text=${encodeURIComponent(SHARE_TWEET_TEXT)}`;
-    case "linkedin":
-      return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(SHARE_URL)}`;
     case "reddit":
-      return `https://www.reddit.com/submit?url=${encodeURIComponent(
-        SHARE_URL,
-      )}&title=${encodeURIComponent("My Saint dev stats")}`;
+      return `https://www.reddit.com/submit?title=${encodeURIComponent("My Saint dev stats")}`;
   }
 }

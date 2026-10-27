@@ -1936,6 +1936,20 @@ const makeWsRpcHandlersLayer = () =>
                 explorerEntryRpcError(cause, "Failed to delete the entry"),
               ),
             ),
+        [WS_METHODS.projectsMoveEntry]: (input) =>
+          workspaceFileSystem
+            .moveEntry(input)
+            .pipe(
+              Effect.mapError((cause) => explorerEntryRpcError(cause, "Failed to move the entry")),
+            ),
+        [WS_METHODS.projectsRenameEntry]: (input) =>
+          workspaceFileSystem
+            .renameEntry(input)
+            .pipe(
+              Effect.mapError((cause) =>
+                explorerEntryRpcError(cause, "Failed to rename the entry"),
+              ),
+            ),
         [WS_METHODS.projectsRunDevServer]: (input) =>
           rpcEffect(devServerManager.run(input), "Failed to start dev server"),
         [WS_METHODS.projectsStopDevServer]: (input) =>

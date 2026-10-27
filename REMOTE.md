@@ -64,9 +64,9 @@ Open from any device in your tailnet:
 
 You can also bind `--host 0.0.0.0` and connect through the Tailnet IP, but binding directly to the Tailnet IP limits exposure.
 
-## 3) Remote SSH hosts (Beta)
+## 3) Remote SSH hosts
 
-Saint Beta can run a server on another machine and open it in its own desktop window, similar to Emdash's remote workspaces. Agents, git, and terminals then run on that machine.
+Saint (Stable and Beta) can run a server on another machine and open it in its own desktop window, similar to Emdash's remote workspaces. Agents, git, and terminals then run on that machine.
 
 Open **Settings → Remote hosts**, enter an alias from `~/.ssh/config` (or `user@host`), and select **Connect**. The desktop app:
 
@@ -112,7 +112,9 @@ In a remote window, paths belong to the host:
 | Preview an HTML file            | Renders it from the host in a sandboxed frame, with its relative assets and no size limit. The frame cannot read the app, its storage, or the server token.                     |
 | Drop files into the composer    | Uploads them as attachments instead of mentioning local paths.                                                                                                                  |
 | Drop files on the Explorer      | Uploads them into the folder under the pointer (a file row means its folder, empty space the workspace root), up to 256 MB each. A taken name gets ` (1)`; nothing is replaced. |
-| Right-click in the Explorer     | **Copy path › Full path** copies the host path. **New File…**, **New Folder…** and **Delete…** act on the host; delete asks first and cannot be undone.                         |
+| Right-click in the Explorer     | **Copy path › Full path** copies the host path. **New File…**, **New Folder…**, **Rename…** and **Delete…** act on the host; delete asks first and cannot be undone.            |
+| Download from the Explorer      | **Download** (right-click, or the button beside the search box) saves the selected files on this computer: a Save dialog for one, a folder for several. Folders are skipped.    |
+| Drag rows onto a folder         | Moves them into that folder on the host (empty space means the workspace root). An existing name there is never replaced. Works the same in local windows.                      |
 | Drop a folder on "Add project"  | Not available. Browse or type the host path.                                                                                                                                    |
 | Reveal in Finder / file manager | Hidden.                                                                                                                                                                         |
 

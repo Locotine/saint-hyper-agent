@@ -150,7 +150,7 @@ it("saves provider CPU priority opt-out and exposes reset to the default", async
   );
 });
 
-it("shows installation and auth beside activity switches with visible setup guides", async () => {
+it("shows installation and auth beside activity switches", async () => {
   await render(<ProvidersSettingsPanel {...props} />);
   expect(activityRow("OpenCode").textContent).toContain("Unavailable");
   expect(activityRow("OpenCode").textContent).toContain("not installed or not on PATH");
@@ -167,14 +167,7 @@ it("shows installation and auth beside activity switches with visible setup guid
   await expect
     .element(page.getByRole("switch", { name: "Disable OpenCode", exact: true }))
     .toBeChecked();
-  for (const descriptor of PROVIDER_DESCRIPTORS) {
-    const guide = page.getByRole("link", {
-      name: `${descriptor.displayName} setup guide`,
-      exact: true,
-    });
-    await expect.element(guide).toBeVisible();
-    expect(guide.element().getAttribute("href")).toBe(descriptor.setupDocsHref);
-  }
+  expect(page.getByRole("link", { name: /setup guide/u }).elements()).toHaveLength(0);
 });
 
 it("keeps disabled providers only in a collapsed recovery list", async () => {

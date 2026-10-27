@@ -8,7 +8,7 @@ import { consumeFeedbackRateLimit } from "@/lib/feedbackRateLimit";
 export const runtime = "nodejs";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
-const DEFAULT_FROM_EMAIL = "Saint Feedback <feedback@trysynara.com>";
+const DEFAULT_FROM_EMAIL = "Saint Feedback <feedback@saint.invalid>";
 const MAX_REQUEST_BYTES = 64 * 1024;
 const MAX_DETAILS_LENGTH = 5_000;
 const SEND_TIMEOUT_MS = 15_000;

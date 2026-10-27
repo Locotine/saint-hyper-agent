@@ -124,14 +124,7 @@ import {
 } from "./betaDiagnostics";
 import { attachBetaRendererDiagnostics } from "./betaRendererDiagnostics";
 import { guardDesktopWindowClose, showDesktopConfirmDialog } from "./confirmDialog";
-import {
-  desktopAppIconResourceName,
-  isDesktopAppIcon,
-  readDesktopAppIconPreference,
-  shouldUpdateDesktopAppIcon,
-  usesMacBundleAppIcon,
-  writeDesktopAppIconPreference,
-} from "./desktopAppIcon";
+import { desktopAppIconResourceName, usesMacBundleAppIcon } from "./desktopAppIcon";
 import {
   applyWindowsTaskbarIcon,
   collectWindowsShortcutPaths,
@@ -146,7 +139,6 @@ import {
   ensureWindowsShellAppUserModelHelper,
   nativeWindowHandleToHwnd,
 } from "./windowsShellAppUserModel";
-import { createExclusiveApplyQueue } from "./exclusiveApplyQueue";
 import { extractIcoPngImages, toWindowsShellIco } from "./windowsShellIco";
 import {
   makeUpdateInstallPreparationCoordinator,
@@ -312,6 +304,7 @@ import { buildRemoteSshEditorUrl } from "./remoteSshEditors";
 import { registerRemoteSshIpc } from "./remoteSshIpc";
 import { RemoteSshManager } from "./remoteSshManager";
 import { showInFileManager } from "./showInFileManager";
+import { downloadWorkspaceFiles, resolveWorkspaceDownloadRequests } from "./workspaceDownloads";
 import { BrowserCookieImport } from "./browserAutomation/browserCookieImport";
 import { shutdownBrowserServices } from "./browserAutomation/browserShutdown";
 import {
@@ -436,7 +429,6 @@ const BASE_DIR =
   Path.join(OS.homedir(), desktopIdentity.defaultHomeDirectoryName);
 const STATE_DIR = Path.join(BASE_DIR, "userdata");
 const DESKTOP_WINDOW_STATE_PATH = Path.join(STATE_DIR, "desktop-window-state.json");
-const DESKTOP_APP_ICON_PATH = Path.join(STATE_DIR, "desktop-app-icon");
 const DESKTOP_CUSTOM_TITLE_BAR_PATH = Path.join(STATE_DIR, "desktop-custom-title-bar.json");
 // Written by the renderer-mirrored agent cursor colors; read at each driver
 // session open so a persisted custom cursor survives app restarts.
@@ -463,11 +455,14 @@ const userDataPath = resolveUserDataPath();
 app.setPath("userData", userDataPath);
 
 // Beta-only diagnostics: constructed solely when the baked build flavor is
-// "beta", so production binaries never run a collection path. The payload
-// schema is an allowlist; error text may still contain fragments of user data,
-// and Electron crash dumps are raw process memory.
+// "beta" and the operator configured SAINT_BETA_DIAGNOSTICS_URL, so production
+// binaries and default Beta builds never run a collection or upload path. The
+// payload schema is an allowlist; error text may still contain fragments of
+// user data, and Electron crash dumps are raw process memory.
+const betaDiagnosticsEndpoint =
+  desktopFlavor === "beta" ? resolveBetaDiagnosticsEndpoint(process.env) : null;
 const betaDiagnostics =
-  desktopFlavor === "beta"
+  desktopFlavor === "beta" && betaDiagnosticsEndpoint !== null
     ? new BetaDiagnostics({
         homeDir: BASE_DIR,
         appVersion: app.getVersion(),
@@ -497,11 +492,11 @@ const betaDiagnostics =
       })
     : null;
 
-if (betaDiagnostics) {
+if (betaDiagnostics && betaDiagnosticsEndpoint !== null) {
   crashReporter.start({
     productName: APP_DISPLAY_NAME,
     companyName: "Saint",
-    submitURL: `${resolveBetaDiagnosticsEndpoint(process.env)}/v1/crash`,
+    submitURL: `${betaDiagnosticsEndpoint}/v1/crash`,
     uploadToServer: true,
     compress: true,
     globalExtra: {
@@ -2413,22 +2408,11 @@ function usesLegacyMacDockIcon(): boolean {
   return Number.isFinite(darwinMajor) && darwinMajor < 25;
 }
 
+// There is no app-icon choice anymore: every launch applies the flavor's own icon.
+// A choice saved by an older build is ignored, and applying the default clears any
+// custom artwork it left on the bundle, dock, taskbar shortcuts, or icon theme.
 function readDesktopAppIcon(): DesktopAppIcon {
-  const requestedFallback = desktopFlavor === "beta" ? "beta" : "default";
-  const fallbackIcon = isDesktopAppIcon(requestedFallback) ? requestedFallback : "default";
-  return readDesktopAppIconPreference(DESKTOP_APP_ICON_PATH, {
-    fallbackIcon,
-    // Stable leaves a Beta choice inert. Builds without the Beta icon retain
-    // the token too, so returning to a build that supports it restores it.
-    inactiveIcons: desktopFlavor === "beta" && isDesktopAppIcon("beta") ? [] : ["beta"],
-    onResetError: (error) => {
-      safeConsoleError("[desktop] Failed to reset unrecognized app icon preference", error);
-    },
-  });
-}
-
-function persistDesktopAppIcon(icon: DesktopAppIcon): void {
-  writeDesktopAppIconPreference(DESKTOP_APP_ICON_PATH, icon);
+  return desktopFlavor === "beta" ? "beta" : "default";
 }
 
 function windowsShortcutSearchDirectories(): string[] {
@@ -2649,14 +2633,6 @@ function syncLinuxIconThemeArtwork(image: Electron.NativeImage): void {
       `[desktop] Failed to update the Linux icon theme artwork: ${formatErrorMessage(error)}`,
     );
   }
-}
-
-async function applyDesktopAppIcon(
-  icon: DesktopAppIcon,
-  window: BrowserWindow | null = mainWindow,
-  options?: { reregisterTaskbarButton?: boolean; flushShellIconCache?: boolean },
-): Promise<void> {
-  return enqueueDesktopAppIconJob(() => applyDesktopAppIconUnlocked(icon, window, options));
 }
 
 function applyPersistedDesktopAppIcon(
@@ -5188,6 +5164,45 @@ function registerIpcHandlers(): void {
     await shell.openExternal(url);
   });
 
+  // Explorer "Download": host workspace files saved on this computer. Main
+  // fetches only the window's own tunnelled download route (see
+  // resolveWorkspaceDownloadRequests), never a URL the renderer chose.
+  ipcMain.removeHandler(IPC.remoteSsh.downloadFiles);
+  ipcMain.handle(IPC.remoteSsh.downloadFiles, async (event, rawInput: unknown) => {
+    const remoteWindow = remoteSshWindows.get(event.sender.id);
+    if (!remoteWindow) throw new Error("Only remote host windows download workspace files.");
+    const requests = resolveWorkspaceDownloadRequests(
+      rawInput,
+      remoteSshManager?.wsUrl(remoteWindow.host) ?? null,
+    );
+    if (!requests) throw new Error("This download request is not valid.");
+    const [first] = requests;
+    if (!first) return { canceled: false, saved: [], failures: [] };
+    const downloadsPath = app.getPath("downloads");
+    if (requests.length === 1) {
+      const result = await dialog.showSaveDialog(remoteWindow.window, {
+        defaultPath: Path.join(downloadsPath, first.fileName),
+      });
+      if (result.canceled || !result.filePath) return { canceled: true, saved: [], failures: [] };
+      return downloadWorkspaceFiles({
+        requests,
+        destination: { kind: "file", path: result.filePath },
+      });
+    }
+    const result = await dialog.showOpenDialog(remoteWindow.window, {
+      title: `Download ${requests.length} files`,
+      buttonLabel: "Download",
+      defaultPath: downloadsPath,
+      properties: ["openDirectory", "createDirectory"],
+    });
+    const directory = result.filePaths[0];
+    if (result.canceled || !directory) return { canceled: true, saved: [], failures: [] };
+    return downloadWorkspaceFiles({
+      requests,
+      destination: { kind: "directory", path: directory },
+    });
+  });
+
   ipcMain.removeHandler(IPC.pickFolder);
   ipcMain.handle(IPC.pickFolder, async (event) => {
     // A local folder means nothing to a remote host's server; remote windows
@@ -5267,23 +5282,6 @@ function registerIpcHandlers(): void {
     const window = BrowserWindow.fromWebContents(event.sender);
     if (process.platform !== "darwin" || !input || !window) return false;
     return applyWindowMaterial(window, input);
-  });
-
-  ipcMain.removeHandler(IPC.getAppIcon);
-  ipcMain.handle(IPC.getAppIcon, () => readDesktopAppIcon());
-
-  ipcMain.removeHandler(IPC.setAppIcon);
-  const enqueueDesktopAppIconApply = createExclusiveApplyQueue(async (icon: DesktopAppIcon) => {
-    const shouldPersist = shouldUpdateDesktopAppIcon(readDesktopAppIcon(), icon);
-    if (shouldPersist) persistDesktopAppIcon(icon);
-    // Renderer hydration mirrors this native preference. Explicit clicks on
-    // macOS/Windows can retry a failed shell update even if the choice is saved.
-    if (!shouldPersist && process.platform !== "win32" && process.platform !== "darwin") return;
-    await applyDesktopAppIcon(icon, mainWindow, { flushShellIconCache: true });
-  });
-  ipcMain.handle(IPC.setAppIcon, async (_event, rawIcon: unknown) => {
-    if (!isDesktopAppIcon(rawIcon) || (rawIcon === "beta" && desktopFlavor !== "beta")) return;
-    await enqueueDesktopAppIconApply(rawIcon);
   });
 
   ipcMain.removeHandler(IPC.contextMenu);

@@ -80,7 +80,7 @@ const approvedIdentityLines: readonly ApprovedIdentityLine[] = [
     // A real user's words, quoted verbatim on the homepage. The retired name
     // here refers to someone else's product, not to Saint's own identity.
     path: "apps/marketing/src/data/testimonials.ts",
-    line: `"I've been using @trySynara for a few hours now. I'm really impressed. I'd already tried ${retiredFirstDisplayName.slice(0, 2)} Chat, Orca, and Terax, but none of them managed to grab my attention quite like Saint did.",`,
+    line: `"I've been using Saint for a few hours now. I'm really impressed. I'd already tried ${retiredFirstDisplayName.slice(0, 2)} Chat, Orca, and Terax, but none of them managed to grab my attention quite like Saint did.",`,
   },
   // Preserve the recorded license provenance; these are exact attribution
   // lines, not permission to reintroduce retired product names in these docs.

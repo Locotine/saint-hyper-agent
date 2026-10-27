@@ -126,35 +126,11 @@ describe("resolveBetaFeedLocation", () => {
     expect(location.baseUrl).toBe("http://127.0.0.1:8799/feed/");
   });
 
-  it("picks the newest beta release with a manifest asset", async () => {
-    const location = await resolveBetaFeedLocation({
-      fetchText: async () =>
-        JSON.stringify([
-          { tag_name: "v0.9.4", assets: [{ name: "latest-mac.yml" }] },
-          {
-            tag_name: "v0.9.3-beta.2",
-            assets: [
-              {
-                name: "beta-mac.yml",
-                browser_download_url:
-                  "https://github.com/x/releases/download/v0.9.3-beta.2/beta-mac.yml",
-              },
-            ],
-          },
-        ]),
-    });
-    expect(location.manifestUrl).toBe(
-      "https://github.com/x/releases/download/v0.9.3-beta.2/beta-mac.yml",
+  it("has no built-in feed and never probes a release host", async () => {
+    await expect(resolveBetaFeedLocation({})).rejects.toThrow(/No Saint Beta download feed/);
+    await expect(resolveBetaFeedLocation({ feedUrlOverride: "  " })).rejects.toThrow(
+      /No Saint Beta download feed/,
     );
-    expect(location.baseUrl).toBe("https://github.com/x/releases/download/v0.9.3-beta.2/");
-  });
-
-  it("throws when no beta release carries the manifest", async () => {
-    await expect(
-      resolveBetaFeedLocation({
-        fetchText: async () => JSON.stringify([{ tag_name: "v1.0.0", assets: [] }]),
-      }),
-    ).rejects.toThrow(/No beta release/);
   });
 });
 

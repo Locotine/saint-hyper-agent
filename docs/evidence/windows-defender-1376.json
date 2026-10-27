@@ -1,6 +1,6 @@
 {
   "collectedAt": "2026-09-30",
-  "issue": "https://github.com/Emanuele-web04/synara/issues/1376",
+  "issue": "https://gitlab.com/locotine/saint-hyper-agent/-/issues/1376",
   "mainCommit": "529ad049cb106c998010f5400189515008997aa4",
   "method": "Static extraction with 7-Zip 24.09 and SHA-256 comparison of extracted .exe/.dll/.node files with PE magic. No sample execution or antivirus scan.",
   "windowsDefenderResult": "not performed; isolated Windows environment unavailable",
@@ -17,7 +17,7 @@
         "size": 225595797,
         "sha256": "893438647667a4f6aeb2929897a0131dd95e5c0686ec2958e5968cdb75f3496b"
       },
-      "url": "https://github.com/Emanuele-web04/synara/releases/download/v0.9.1/Saint-0.9.1-x64.exe",
+      "url": "https://gitlab.com/locotine/saint-releases/-/releases",
       "installerCertificateTableBytes": 0,
       "provenanceSigningStatus": "unsigned-explicit-release"
     },
@@ -33,7 +33,7 @@
         "size": 225688617,
         "sha256": "fee21f614136df8ff0a1e97649886060625c843d34e724b62410164634928dcb"
       },
-      "url": "https://github.com/Emanuele-web04/synara/releases/download/v0.9.2/Saint-0.9.2-x64.exe",
+      "url": "https://gitlab.com/locotine/saint-releases/-/releases",
       "installerCertificateTableBytes": 0,
       "provenanceSigningStatus": "unsigned-explicit-release"
     }

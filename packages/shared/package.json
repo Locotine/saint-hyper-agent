@@ -316,6 +316,10 @@
       "types": "./src/binaryTransfer.ts",
       "import": "./src/binaryTransfer.ts"
     },
+    "./uploadFileName": {
+      "types": "./src/uploadFileName.ts",
+      "import": "./src/uploadFileName.ts"
+    },
     "./outboundHttpPolicy": {
       "types": "./src/outboundHttpPolicy.ts",
       "import": "./src/outboundHttpPolicy.ts"

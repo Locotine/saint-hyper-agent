@@ -4,10 +4,12 @@ import type { DesktopUpdateActionResult, DesktopUpdateState } from "@saint/contr
 import {
   getArm64IntelBuildWarningDescription,
   getDesktopUpdateActionError,
+  getDesktopUpdateActionLabel,
   getDesktopUpdateAlreadyCurrentNotice,
   getDesktopUpdateButtonTooltip,
   getDesktopUpdateDownloadPercent,
   getDesktopUpdateErrorSignature,
+  getDesktopUpdateStatusText,
   isDesktopUpdateButtonDisabled,
   isDesktopUpdateInstallInFlight,
   resolveDesktopUpdateButtonAction,
@@ -427,5 +429,41 @@ describe("desktop update UI helpers", () => {
     expect(shouldShowArm64IntelBuildWarning(state)).toBe(true);
     expect(getArm64IntelBuildWarningDescription(state)).toContain("Apple Silicon");
     expect(getArm64IntelBuildWarningDescription(state)).toContain("Intel build");
+  });
+});
+
+describe("settings update panel copy", () => {
+  it("explains states the rail never shows", () => {
+    expect(getDesktopUpdateStatusText({ ...baseState, enabled: false, status: "disabled" })).toBe(
+      "Automatic updates are not available right now.",
+    );
+    expect(getDesktopUpdateStatusText(baseState)).toBe("Not checked yet.");
+    expect(getDesktopUpdateActionLabel(baseState)).toBe("Check for updates");
+  });
+
+  it("reuses the rail copy once the updater has something to say", () => {
+    const upToDate: DesktopUpdateState = { ...baseState, status: "up-to-date" };
+    expect(getDesktopUpdateStatusText(upToDate)).toBe(getDesktopUpdateButtonTooltip(upToDate));
+    const downloaded: DesktopUpdateState = {
+      ...baseState,
+      status: "downloaded",
+      availableVersion: "1.1.0",
+      downloadedVersion: "1.1.0",
+    };
+    expect(getDesktopUpdateStatusText(downloaded)).toBe(
+      "Update 1.1.0 is ready. Click to restart and install.",
+    );
+    expect(getDesktopUpdateActionLabel(downloaded)).toBe("Restart to update");
+    expect(getDesktopUpdateActionLabel(downloaded, { installing: true })).toBe("Restarting…");
+    expect(getDesktopUpdateStatusText(downloaded, { installing: true })).toBe("Applying update...");
+    expect(
+      getDesktopUpdateActionLabel({
+        ...baseState,
+        status: "error",
+        errorContext: "download",
+        availableVersion: "1.1.0",
+      }),
+    ).toBe("Download update");
+    expect(getDesktopUpdateActionLabel({ ...baseState, status: "checking" })).toBe("Checking…");
   });
 });

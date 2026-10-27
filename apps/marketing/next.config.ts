@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 import { createMDX } from "fumadocs-mdx/next";
 
-// The canonical production host. Must match SITE_URL in src/lib/seo.ts, which is
-// what every page's <link rel="canonical"> and metadataBase point at.
-const CANONICAL_HOST = "www.trysynara.com";
+// The canonical production host and base path. Must match SITE_URL in
+// src/lib/seo.ts, which is what every page's <link rel="canonical"> and
+// metadataBase point at.
+const CANONICAL_HOST = "gitlab.com/locotine/saint-releases";
 
 // The stable Vercel production alias. Unlike per-deployment/preview URLs (which
 // Vercel serves with `x-robots-tag: noindex`), this alias is fully indexable and
@@ -18,13 +19,6 @@ const CANONICAL_HOST = "www.trysynara.com";
 const VERCEL_ALIAS_HOST = ["dp", "code", "-website.vercel.app"].join("");
 
 const nextConfig: NextConfig = {
-  images: {
-    remotePatterns: [
-      // Sponsor avatars on /sponsor. GitHub serves every user avatar from this
-      // host, so the pathname stays open rather than listing one id per sponsor.
-      { protocol: "https", hostname: "avatars.githubusercontent.com" },
-    ],
-  },
   async redirects() {
     return [
       {

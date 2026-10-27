@@ -1016,7 +1016,7 @@ function makeHarnessLayer(
           url:
             reference.startsWith("http://") || reference.startsWith("https://")
               ? reference
-              : "https://github.com/Emanuele-web04/synara/pull/841",
+              : "https://github.com/locotine/saint/pull/841",
           baseBranch: "main",
           headBranch: "fix/created-at-thread-order",
           state: "open",
@@ -6394,7 +6394,7 @@ describe("AgentGateway", () => {
         token: "token-parent",
         name: "saint_set_thread_pull_request",
         args: {
-          reference: "https://github.com/Emanuele-web04/synara/pull/841",
+          reference: "https://github.com/locotine/saint/pull/841",
         },
       });
 

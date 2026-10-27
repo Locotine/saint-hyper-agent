@@ -324,6 +324,9 @@ import {
   ProjectCreateEntryResult,
   ProjectDeleteEntryInput,
   ProjectDeleteEntryResult,
+  ProjectMoveEntryInput,
+  ProjectMoveEntryResult,
+  ProjectRenameEntryInput,
 } from "./project";
 import {
   ServerConfig,
@@ -732,6 +735,18 @@ export const WsProjectsCreateEntryRpc = Rpc.make(WS_METHODS.projectsCreateEntry,
 export const WsProjectsDeleteEntryRpc = Rpc.make(WS_METHODS.projectsDeleteEntry, {
   payload: ProjectDeleteEntryInput,
   success: ProjectDeleteEntryResult,
+  error: WsRpcError,
+});
+
+export const WsProjectsMoveEntryRpc = Rpc.make(WS_METHODS.projectsMoveEntry, {
+  payload: ProjectMoveEntryInput,
+  success: ProjectMoveEntryResult,
+  error: WsRpcError,
+});
+
+export const WsProjectsRenameEntryRpc = Rpc.make(WS_METHODS.projectsRenameEntry, {
+  payload: ProjectRenameEntryInput,
+  success: ProjectMoveEntryResult,
   error: WsRpcError,
 });
 
@@ -2053,6 +2068,8 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsProjectsWriteFileRpc,
   WsProjectsCreateEntryRpc,
   WsProjectsDeleteEntryRpc,
+  WsProjectsMoveEntryRpc,
+  WsProjectsRenameEntryRpc,
   WsProjectsRunDevServerRpc,
   WsProjectsStopDevServerRpc,
   WsProjectsListDevServersRpc,

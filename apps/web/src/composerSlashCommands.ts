@@ -101,7 +101,6 @@ function shouldKeepBuiltInSlashCommandDespiteNativeCollision(
     command === "automation" ||
     command === "computer-use" ||
     command === "export" ||
-    command === "feedback" ||
     // /fork is app-owned everywhere: it creates a Saint thread with fork
     // lineage (native session forking per provider), which a provider-native
     // "fork" text command cannot do.
@@ -125,7 +124,6 @@ export function shouldHideProviderNativeCommandFromComposerMenu(
     normalizedCommand === "debug" ||
     normalizedCommand === "default" ||
     (normalizedCommand === "export" && appCommandIsAvailable) ||
-    (normalizedCommand === "feedback" && appCommandIsAvailable) ||
     (normalizedCommand === "fork" && appCommandIsAvailable) ||
     (normalizedCommand === "goal" && appCommandIsAvailable) ||
     (normalizedCommand === "rename" && appCommandIsAvailable) ||
@@ -256,12 +254,6 @@ const COMPOSER_SLASH_COMMAND_DEFINITIONS: Record<
     command: "rename",
     label: "/rename",
     description: "Regenerate this thread title, or set an exact title",
-    source: "app",
-  },
-  feedback: {
-    command: "feedback",
-    label: "/feedback",
-    description: "Send feedback to the Saint team",
     source: "app",
   },
   automation: {
@@ -518,7 +510,6 @@ export function getAvailableComposerSlashCommands(input: {
           ...(input.canOfferExportCommand ? (["export"] as const) : []),
           "goal",
           "rename",
-          "feedback",
           "automation",
         ]
       : [
@@ -536,7 +527,6 @@ export function getAvailableComposerSlashCommands(input: {
           "debug",
           "computer-use",
           "default",
-          "feedback",
           "automation",
         ];
   return availableCommands.filter((command) => !collidingNativeCommandNames.has(command));

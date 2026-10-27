@@ -193,7 +193,6 @@ type ProviderInstallSettings = {
 const PROVIDER_VISIBILITY_OPTIONS = VISIBLE_PROVIDER_DESCRIPTORS.map((descriptor) => ({
   provider: descriptor.kind,
   title: descriptor.displayName,
-  setupDocsHref: descriptor.setupDocsHref,
 }));
 
 const PROVIDER_INSTALL_SETTINGS: readonly ProviderInstallSettings[] = [
@@ -2159,31 +2158,20 @@ export function ProvidersSettingsPanel({
           </>
         }
         actions={
-          <>
-            <Button
-              variant="outline"
-              size="xs"
-              render={<a href={option.setupDocsHref} target="_blank" rel="noreferrer" />}
-              aria-label={`${option.title} setup guide`}
-            >
-              Setup guide
-              <ExternalLinkIcon className="size-3" />
-            </Button>
-            <Switch
-              checked={enabled}
-              disabled={!serverSettingsQuery.data || providerEnablementMutationPending}
-              onCheckedChange={(checked) =>
-                void updateProviderEnablement(
-                  setProviderListMembership(
-                    settings.disabledProviders,
-                    option.provider,
-                    !Boolean(checked),
-                  ),
-                )
-              }
-              aria-label={`${enabled ? "Disable" : "Enable"} ${option.title}`}
-            />
-          </>
+          <Switch
+            checked={enabled}
+            disabled={!serverSettingsQuery.data || providerEnablementMutationPending}
+            onCheckedChange={(checked) =>
+              void updateProviderEnablement(
+                setProviderListMembership(
+                  settings.disabledProviders,
+                  option.provider,
+                  !Boolean(checked),
+                ),
+              )
+            }
+            aria-label={`${enabled ? "Disable" : "Enable"} ${option.title}`}
+          />
         }
       />
     );

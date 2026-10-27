@@ -150,6 +150,36 @@ export function getDesktopUpdateButtonTooltip(
   return "Update available";
 }
 
+/**
+ * Status line for the Settings → Updates panel. Reuses the rail tooltip copy and
+ * covers the states the rail never shows (updates off, not checked yet).
+ */
+export function getDesktopUpdateStatusText(
+  state: DesktopUpdateState,
+  options?: { installing?: boolean },
+): string {
+  if (!state.enabled || state.status === "disabled") {
+    return "Automatic updates are not available right now.";
+  }
+  if (state.status === "idle" && !options?.installing) {
+    return "Not checked yet.";
+  }
+  return getDesktopUpdateButtonTooltip(state, options);
+}
+
+/** Label for the Settings → Updates action button; mirrors the rail button's action. */
+export function getDesktopUpdateActionLabel(
+  state: DesktopUpdateState,
+  options?: { installing?: boolean },
+): string {
+  if (options?.installing) return "Restarting…";
+  if (state.status === "checking") return "Checking…";
+  const action = resolveDesktopUpdateButtonAction(state);
+  if (action === "download") return "Download update";
+  if (action === "install") return "Restart to update";
+  return "Check for updates";
+}
+
 export function getDesktopUpdateActionError(result: DesktopUpdateActionResult): string | null {
   if (!result.accepted || result.completed) return null;
   if (typeof result.state.message !== "string") return null;

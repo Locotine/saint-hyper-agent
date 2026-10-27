@@ -7,7 +7,8 @@ import * as NodePath from "node:path";
 
 import { isLocalAbsolutePath } from "@saint/shared/path";
 import { normalizeLineEndings } from "@saint/shared/text";
-import { Effect, Layer, Path } from "effect";
+import { isPlainUploadFileName, uploadFileNameCandidates } from "@saint/shared/uploadFileName";
+import { Effect, Layer, Path, Stream } from "effect";
 
 import { resolveLocalPreviewGrantRealPath } from "../../localImageFiles";
 import {
@@ -20,8 +21,8 @@ import {
 import { WorkspaceEntries } from "../Services/WorkspaceEntries";
 import { WorkspacePathOutsideRootError } from "../Services/WorkspacePaths";
 import { WorkspacePaths } from "../Services/WorkspacePaths";
-import { isPlainUploadFileName, uploadFileNameCandidates } from "../uploadFileName";
 import {
+  isContainedPath,
   prepareRealPathForWriteWithinRoot,
   resolveRealPathForCreateWithinRoot,
   resolveRealPathWithinRoot,
@@ -70,6 +71,10 @@ function isBinaryLike(bytes: Uint8Array): boolean {
 
 function isFileNotFoundError(cause: unknown): boolean {
   return (cause as NodeJS.ErrnoException | null)?.code === "ENOENT";
+}
+
+function errorDetail(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 function sameFileState(left: BigIntStats, right: BigIntStats): boolean {
@@ -763,12 +768,214 @@ export const makeWorkspaceFileSystem = Effect.gen(function* () {
     return { relativePath: target.relativePath, kind: outcome };
   });
 
+  // Explorer drag-and-drop move and "Rename". Like delete, the source's parent
+  // is canonicalized inside the root and the entry itself is never followed, so
+  // a link moves as a link. The destination folder is canonicalized too; an
+  // existing entry there is never replaced, and a folder never moves into itself.
+  const relocateEntry = Effect.fn("WorkspaceFileSystem.relocateEntry")(function* (input: {
+    readonly cwd: string;
+    readonly relativePath: string;
+    /** Workspace-relative folder, "" for the root; null keeps the entry's own folder. */
+    readonly destinationDirectory: string | null;
+    /** New plain name; null keeps the current one. */
+    readonly newName: string | null;
+    readonly operation: string;
+  }) {
+    const source = yield* workspacePaths.resolveRelativePathWithinRoot({
+      workspaceRoot: input.cwd,
+      relativePath: input.relativePath,
+    });
+    const fail = (detail: string, cause?: unknown) =>
+      new WorkspaceFileSystemError({
+        cwd: input.cwd,
+        relativePath: source.relativePath,
+        operation: input.operation,
+        detail,
+        ...(cause === undefined ? {} : { cause }),
+      });
+    const sourceName = NodePath.basename(source.absolutePath);
+    if (input.newName !== null && !isPlainUploadFileName(input.newName)) {
+      return yield* fail(`${input.newName} is not a valid name.`);
+    }
+    const name = input.newName ?? sourceName;
+    const destinationDirectory = (
+      input.destinationDirectory ?? NodePath.posix.dirname(source.relativePath)
+    )
+      .trim()
+      .replace(/^\.$/u, "")
+      .replace(/^\/+|\/+$/gu, "");
+    const destination = destinationDirectory
+      ? yield* workspacePaths.resolveRelativePathWithinRoot({
+          workspaceRoot: input.cwd,
+          relativePath: destinationDirectory,
+        })
+      : null;
+    const destinationLabel = destination?.relativePath ?? "the workspace root";
+    const outcome = yield* Effect.tryPromise({
+      try: async () => {
+        const realDestination = await resolveRealPathWithinRoot(
+          input.cwd,
+          destination?.absolutePath ?? input.cwd,
+        ).catch((cause: unknown) => {
+          if (isFileNotFoundError(cause)) return "missing" as const;
+          throw cause;
+        });
+        if (realDestination === "missing") return { status: "missing-destination" } as const;
+        const realParent = await resolveRealPathWithinRoot(
+          input.cwd,
+          NodePath.dirname(source.absolutePath),
+        );
+        if (realParent === null || realDestination === null) return { status: "outside" } as const;
+        const sourcePath = NodePath.join(realParent, sourceName);
+        const sourceStat = await NodeFs.lstat(sourcePath);
+        const kind = sourceStat.isDirectory() ? ("directory" as const) : ("file" as const);
+        if (!(await NodeFs.stat(realDestination)).isDirectory()) {
+          return { status: "not-directory" } as const;
+        }
+        if (kind === "directory" && isContainedPath(sourcePath, realDestination)) {
+          return { status: "into-itself" } as const;
+        }
+        const targetPath = NodePath.join(realDestination, name);
+        if (targetPath === sourcePath) return { status: "moved", kind } as const;
+        // lstat, so a dangling link at the destination also counts as taken. On a
+        // case-insensitive disk a case-only rename finds the entry itself.
+        const taken = await NodeFs.lstat(targetPath).then(
+          (targetStat) => targetStat.dev !== sourceStat.dev || targetStat.ino !== sourceStat.ino,
+          (cause: unknown) => {
+            if (isFileNotFoundError(cause)) return false;
+            throw cause;
+          },
+        );
+        if (taken) return { status: "exists" } as const;
+        // Node has no renameat2(RENAME_NOREPLACE): the check above narrows, but
+        // cannot close, the window in which another process creates the target.
+        await NodeFs.rename(sourcePath, targetPath);
+        return { status: "moved", kind } as const;
+      },
+      catch: (cause) =>
+        fail(
+          isFileNotFoundError(cause)
+            ? `${source.relativePath} no longer exists.`
+            : (cause as NodeJS.ErrnoException | null)?.code === "EXDEV"
+              ? `${source.relativePath} cannot be moved to another disk.`
+              : errorDetail(cause),
+          cause,
+        ),
+    });
+    switch (outcome.status) {
+      case "outside":
+        return yield* new WorkspacePathOutsideRootError({
+          workspaceRoot: input.cwd,
+          relativePath: destination?.relativePath ?? source.relativePath,
+        });
+      case "missing-destination":
+        return yield* fail(`${destinationLabel} no longer exists.`);
+      case "not-directory":
+        return yield* fail(`${destinationLabel} is not a folder.`);
+      case "into-itself":
+        return yield* fail(`${source.relativePath} cannot be moved into itself.`);
+      case "exists":
+        return yield* fail(`${name} already exists in ${destinationLabel}.`);
+      case "moved":
+        break;
+    }
+    yield* workspaceEntries.invalidate(input.cwd);
+    return {
+      relativePath: destination ? `${destination.relativePath}/${name}` : name,
+      kind: outcome.kind,
+    };
+  });
+
+  const moveEntry: WorkspaceFileSystemShape["moveEntry"] = (input) =>
+    relocateEntry({
+      cwd: input.cwd,
+      relativePath: input.relativePath,
+      destinationDirectory: input.destinationDirectory,
+      newName: null,
+      operation: "workspaceFileSystem.moveEntry",
+    });
+
+  const renameEntry: WorkspaceFileSystemShape["renameEntry"] = (input) =>
+    relocateEntry({
+      cwd: input.cwd,
+      relativePath: input.relativePath,
+      destinationDirectory: null,
+      newName: input.newName,
+      operation: "workspaceFileSystem.renameEntry",
+    });
+
+  // Explorer "Download". The regular-file check runs on the opened descriptor,
+  // which the returned stream then reads, so a swapped path cannot redirect it.
+  const openFileForDownload: WorkspaceFileSystemShape["openFileForDownload"] = Effect.fn(
+    "WorkspaceFileSystem.openFileForDownload",
+  )(function* (input) {
+    const target = yield* workspacePaths.resolveRelativePathWithinRoot({
+      workspaceRoot: input.cwd,
+      relativePath: input.relativePath,
+    });
+    const fail = (detail: string, cause: unknown) =>
+      new WorkspaceFileSystemError({
+        cwd: input.cwd,
+        relativePath: target.relativePath,
+        operation: "workspaceFileSystem.openFileForDownload",
+        detail,
+        cause,
+      });
+    const opened = yield* Effect.tryPromise({
+      try: async () => {
+        const realPath = await resolveRealPathWithinRoot(input.cwd, target.absolutePath);
+        if (realPath === null) return null;
+        const handle = await NodeFs.open(realPath, READ_FILE_FLAGS);
+        try {
+          const stat = await handle.stat();
+          if (!stat.isFile()) {
+            throw new Error(
+              stat.isDirectory()
+                ? `${target.relativePath} is a folder.`
+                : `${target.relativePath} is not a regular file.`,
+            );
+          }
+          return { handle, sizeBytes: stat.size };
+        } catch (cause) {
+          await handle.close();
+          throw cause;
+        }
+      },
+      catch: (cause) =>
+        fail(
+          isFileNotFoundError(cause)
+            ? `${target.relativePath} no longer exists.`
+            : (cause as NodeJS.ErrnoException | null)?.code === "EISDIR"
+              ? `${target.relativePath} is a folder.`
+              : errorDetail(cause),
+          cause,
+        ),
+    });
+    if (opened === null) {
+      return yield* new WorkspacePathOutsideRootError({
+        workspaceRoot: input.cwd,
+        relativePath: target.relativePath,
+      });
+    }
+    return {
+      fileName: NodePath.basename(target.absolutePath),
+      sizeBytes: opened.sizeBytes,
+      stream: Stream.fromAsyncIterable(
+        opened.handle.createReadStream({ autoClose: true }),
+        (cause) => fail(errorDetail(cause), cause),
+      ),
+    };
+  });
+
   return {
     readFile,
     writeFile,
     createEntry,
     deleteEntry,
+    moveEntry,
+    renameEntry,
     uploadFile,
+    openFileForDownload,
   } satisfies WorkspaceFileSystemShape;
 });
 

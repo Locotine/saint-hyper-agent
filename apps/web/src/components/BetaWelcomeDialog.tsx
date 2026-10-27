@@ -1,8 +1,7 @@
 // FILE: BetaWelcomeDialog.tsx
 // Purpose: First-launch welcome on Saint Beta — what beta is, that stable stays
-//          untouched, the diagnostics disclosure, and the stable→beta import
-//          result. The first-run tour waits for this sheet and is skipped when
-//          data was imported.
+//          untouched, and the stable→beta import result. The first-run tour
+//          waits for this sheet and is skipped when data was imported.
 // Layer: Root web overlay
 //
 // Rendered through the shared AnnouncementSheet; only probes on beta-flavor
@@ -30,10 +29,6 @@ const INITIAL_STORAGE: BetaWelcomeStorage = { acknowledged: false };
 
 const WELCOME_POINTS = [
   { icon: "shield-check", text: "Saint stays separate and untouched." },
-  {
-    icon: "heart",
-    text: "Beta shares crash reports, app errors, and anonymous usage counts. Crash reports may include private information.",
-  },
   { icon: "arrow-left-circle", text: "Switch back to Saint any time in Settings." },
 ] as const;
 

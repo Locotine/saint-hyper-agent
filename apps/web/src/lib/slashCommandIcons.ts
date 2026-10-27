@@ -39,7 +39,6 @@ export const SLASH_COMMAND_ICONS: Record<string, LucideIcon> = {
   side: TemporaryThreadIcon,
   status: InfoIcon,
   subagents: BotIcon,
-  feedback: BugIcon,
   automation: ClockIcon,
   goal: GoalIcon,
   "computer-use": ComputerUseIcon,

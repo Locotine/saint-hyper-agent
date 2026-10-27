@@ -4,8 +4,8 @@
 // Layer: Desktop platform adapter (no Electron imports; I/O is injectable for tests).
 //
 // Feed resolution: `SAINT_BETA_FEED_URL` points at a base URL that serves
-// `beta-mac.yml` plus the files it lists. Without it, the newest GitHub
-// `v*-beta.N` release on Emanuele-web04/synara provides the manifest.
+// `beta-mac.yml` plus the files it lists. There is no built-in feed: without
+// the override, resolution fails and nothing is downloaded.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -23,7 +23,6 @@ import { get as httpsGet, type RequestOptions } from "node:https";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { BETA_RELEASE_TAG_PATTERN, SAINT_BETA_RELEASES_API_URL } from "@saint/shared/betaChannel";
 import { SAINT_BETA_BUNDLE_ID } from "@saint/shared/desktopIdentity";
 
 export const BETA_MAC_MANIFEST_NAME = "beta-mac.yml";
@@ -215,41 +214,17 @@ const fetchTextWithRedirects = (url: string, redirects: number): Promise<string>
 
 /**
  * Resolves where the beta update manifest lives. `feedUrlOverride` is a base
- * URL serving `beta-mac.yml` and the listed files; otherwise the newest GitHub
- * `v*-beta.N` release supplies it through its `beta-mac.yml` asset.
+ * URL serving `beta-mac.yml` and the listed files; without it there is no feed.
  */
 export async function resolveBetaFeedLocation(input: {
   readonly feedUrlOverride?: string | undefined;
-  readonly fetchText?: FetchText;
 }): Promise<BetaFeedLocation> {
   const override = input.feedUrlOverride?.trim();
-  if (override) {
-    const base = override.endsWith("/") ? override : `${override}/`;
-    return { manifestUrl: `${base}${BETA_MAC_MANIFEST_NAME}`, baseUrl: base };
+  if (!override) {
+    throw new Error("No Saint Beta download feed is configured.");
   }
-  const fetchText = input.fetchText ?? httpsFetchText;
-  const releases = JSON.parse(await fetchText(SAINT_BETA_RELEASES_API_URL)) as unknown;
-  if (!Array.isArray(releases)) {
-    throw new Error("Unexpected GitHub releases response.");
-  }
-  for (const release of releases as { tag_name?: unknown; assets?: unknown }[]) {
-    if (typeof release.tag_name !== "string" || !BETA_RELEASE_TAG_PATTERN.test(release.tag_name)) {
-      continue;
-    }
-    const assets = Array.isArray(release.assets) ? release.assets : [];
-    const manifest = assets.find(
-      (asset) => (asset as { name?: unknown }).name === BETA_MAC_MANIFEST_NAME,
-    );
-    const downloadUrl = (manifest as { browser_download_url?: unknown } | undefined)
-      ?.browser_download_url;
-    if (typeof downloadUrl === "string") {
-      return {
-        manifestUrl: downloadUrl,
-        baseUrl: downloadUrl.slice(0, downloadUrl.lastIndexOf("/") + 1),
-      };
-    }
-  }
-  throw new Error("No beta release with a beta-mac.yml asset was found on GitHub.");
+  const base = override.endsWith("/") ? override : `${override}/`;
+  return { manifestUrl: `${base}${BETA_MAC_MANIFEST_NAME}`, baseUrl: base };
 }
 
 export function sha512FileBase64(path: string): string {
@@ -454,10 +429,7 @@ export async function installBetaFromFeed(
   }
   const workDir = mkdtempSync(join(deps.tempBaseDir ?? tmpdir(), "saint-beta-install-"));
   try {
-    const location = await resolveBetaFeedLocation({
-      feedUrlOverride: deps.feedUrlOverride,
-      fetchText,
-    });
+    const location = await resolveBetaFeedLocation({ feedUrlOverride: deps.feedUrlOverride });
     const manifest = parseBetaMacManifest(await fetchText(location.manifestUrl));
     const file = selectBetaDownloadFile(manifest.files, deps.arch);
 

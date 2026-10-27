@@ -103,7 +103,7 @@ export default function ChangelogContent({
                   rel="noopener noreferrer"
                   className="text-[var(--accent-link)] underline underline-offset-2 transition-colors hover:text-[var(--accent-link-hover)]"
                 >
-                  See releases on GitHub
+                  See releases on GitLab
                 </a>
                 .
               </p>

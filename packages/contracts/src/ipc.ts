@@ -242,6 +242,9 @@ import type {
   ProjectCreateEntryResult,
   ProjectDeleteEntryInput,
   ProjectDeleteEntryResult,
+  ProjectMoveEntryInput,
+  ProjectMoveEntryResult,
+  ProjectRenameEntryInput,
 } from "./project";
 import type { FilesystemBrowseInput, FilesystemBrowseResult } from "./filesystem";
 import type {
@@ -1031,6 +1034,21 @@ export interface DesktopRemoteSshState {
   readonly defaultRemoteRoot: string;
 }
 
+/** One host workspace file to save on this computer (Explorer "Download"). */
+export interface DesktopWorkspaceDownloadItem {
+  /** The window's own `/api/workspace/download` URL; main refuses any other. */
+  readonly url: string;
+  /** Plain file name to save as. */
+  readonly fileName: string;
+}
+
+export interface DesktopWorkspaceDownloadResult {
+  /** The Save or folder dialog was dismissed; nothing was written. */
+  readonly canceled: boolean;
+  readonly saved: ReadonlyArray<{ readonly fileName: string; readonly path: string }>;
+  readonly failures: ReadonlyArray<{ readonly fileName: string; readonly message: string }>;
+}
+
 export interface DesktopBridge {
   /** Present only when the desktop main process enables baked-in Beta diagnostics. */
   betaDiagnostics?: {
@@ -1066,8 +1084,6 @@ export interface DesktopBridge {
    * (Windows, Linux without a blurring compositor) and in browsers.
    */
   windowTranslucency?: DesktopWindowTranslucency;
-  getAppIcon?: () => Promise<DesktopAppIcon>;
-  setAppIcon: (icon: DesktopAppIcon) => Promise<void>;
   showContextMenu: <T extends string>(
     items: readonly DesktopContextMenuItem<T>[],
     position?: { x: number; y: number },
@@ -1176,6 +1192,14 @@ export interface DesktopBridge {
     /** Providers the host's server runs; the rest are not installed there. */
     readonly providers: readonly ProviderKind[];
     openInEditor: (target: string, editor: EditorId) => Promise<void>;
+    /**
+     * Saves host workspace files on this computer: a Save dialog for one file,
+     * a folder dialog for several (a taken name there gets " (1)", never replaced).
+     * Absent on desktop builds without Explorer downloads.
+     */
+    downloadFiles?: (input: {
+      readonly items: ReadonlyArray<DesktopWorkspaceDownloadItem>;
+    }) => Promise<DesktopWorkspaceDownloadResult>;
   };
   /** Stable→Beta opt-in surface. Absent on builds that do not ship it. */
   beta?: {
@@ -1322,6 +1346,8 @@ export interface NativeApi {
     writeFile: (input: ProjectWriteFileInput) => Promise<ProjectWriteFileResult>;
     createEntry: (input: ProjectCreateEntryInput) => Promise<ProjectCreateEntryResult>;
     deleteEntry: (input: ProjectDeleteEntryInput) => Promise<ProjectDeleteEntryResult>;
+    moveEntry: (input: ProjectMoveEntryInput) => Promise<ProjectMoveEntryResult>;
+    renameEntry: (input: ProjectRenameEntryInput) => Promise<ProjectMoveEntryResult>;
     runDevServer: (input: ProjectRunDevServerInput) => Promise<ProjectRunDevServerResult>;
     stopDevServer: (input: ProjectStopDevServerInput) => Promise<ProjectStopDevServerResult>;
     listDevServers: () => Promise<ProjectListDevServersResult>;

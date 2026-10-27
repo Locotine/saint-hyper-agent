@@ -9,8 +9,6 @@ export const DESKTOP_IPC_CHANNELS = {
   setTheme: "desktop:set-theme",
   setWindowMaterial: "desktop:set-window-material",
   windowTranslucency: "desktop:window-translucency",
-  getAppIcon: "desktop:get-app-icon",
-  setAppIcon: "desktop:set-app-icon",
   contextMenu: "desktop:context-menu",
   openExternal: "desktop:open-external",
   safariAccess: {
@@ -49,6 +47,7 @@ export const DESKTOP_IPC_CHANNELS = {
     state: "desktop:remote-ssh-state",
     windowHost: "desktop:remote-ssh-window-host",
     openInEditor: "desktop:remote-ssh-open-in-editor",
+    downloadFiles: "desktop:remote-ssh-download-files",
   },
   betaDiagnostics: {
     enabled: "desktop:beta-diagnostics-enabled",

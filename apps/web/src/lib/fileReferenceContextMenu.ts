@@ -4,6 +4,7 @@
 // Layer: Web UI helpers
 // Exports: showFileReferenceContextMenu, getRevealInFolderLabel
 
+import type { ContextMenuItem } from "@saint/contracts";
 import { joinWorkspaceRelativePath } from "@saint/shared/path";
 
 import { formatSelectionLabel, type ChatFileReference } from "~/lib/chatReferences";
@@ -38,11 +39,19 @@ export async function showFileReferenceContextMenu(input: {
   onAskWhyInChat?: ((reference: ChatFileReference) => void) | undefined;
   /** Root `path` is relative to; adds "Copy path › Full path" (the host's path in a remote window). */
   workspaceRoot?: string | null;
-  /** File-tree actions; each receives nothing and acts on the clicked entry. */
+  /**
+   * File-tree actions; each receives nothing and acts on the clicked entry or
+   * selection. Their presence switches to the Explorer's VS Code-like order.
+   */
   explorerActions?: {
     readonly onNewFile: () => void;
     readonly onNewFolder: () => void;
+    readonly onRename: () => void;
     readonly onDelete: () => void;
+    /** Delete's label when it acts on several entries ("Delete 3 items…"). */
+    readonly deleteLabel?: string;
+    /** Remote windows: saves the targeted files on this computer. */
+    readonly download?: { readonly label: string; readonly onDownload: () => void };
   };
 }): Promise<void> {
   const api = readNativeApi();
@@ -65,48 +74,64 @@ export async function showFileReferenceContextMenu(input: {
   const fullPath = input.workspaceRoot
     ? joinWorkspaceRelativePath(input.workspaceRoot, input.path)
     : null;
-  const clicked = await api.contextMenu.show<FileReferenceMenuItemId>(
-    [
-      ...(input.onReferenceInChat
-        ? [
-            {
-              id: "reference-in-chat" as const,
-              label: rangeLabel
-                ? `Reference ${rangeLabel} in chat`
-                : hasSnippet
-                  ? "Reference selection in chat"
-                  : "Reference in chat",
-            },
-          ]
-        : []),
-      ...(input.onAskWhyInChat
-        ? [
-            {
-              id: "ask-why-in-chat" as const,
-              label: rangeLabel ? `Ask why ${rangeLabel} changed` : "Ask why this changed",
-            },
-          ]
-        : []),
-      ...(revealPath
-        ? [
-            {
-              id: "reveal-in-folder" as const,
-              label: getRevealInFolderLabel(getNavigatorPlatform()),
-            },
-          ]
-        : []),
-      ...contextMenuGroup<FileReferenceMenuItemId>({ id: "copy-path-group", label: "Copy path" }, [
+  const referenceItems: ContextMenuItem<FileReferenceMenuItemId>[] = [
+    ...(input.onReferenceInChat
+      ? [
+          {
+            id: "reference-in-chat" as const,
+            label: rangeLabel
+              ? `Reference ${rangeLabel} in chat`
+              : hasSnippet
+                ? "Reference selection in chat"
+                : "Reference in chat",
+          },
+        ]
+      : []),
+    ...(input.onAskWhyInChat
+      ? [
+          {
+            id: "ask-why-in-chat" as const,
+            label: rangeLabel ? `Ask why ${rangeLabel} changed` : "Ask why this changed",
+          },
+        ]
+      : []),
+    ...(revealPath
+      ? [
+          {
+            id: "reveal-in-folder" as const,
+            label: getRevealInFolderLabel(getNavigatorPlatform()),
+          },
+        ]
+      : []),
+  ];
+  const copyPathItems = (separatorBefore: boolean) =>
+    contextMenuGroup<FileReferenceMenuItemId>(
+      {
+        id: "copy-path-group",
+        label: "Copy path",
+        ...(separatorBefore ? { separatorBefore } : {}),
+      },
+      [
         { id: "copy-path", label: "Relative path", standaloneLabel: "Copy path" },
         ...(fullPath ? [{ id: "copy-full-path" as const, label: "Full path" }] : []),
-      ]),
-      ...(input.explorerActions
-        ? [
-            { id: "new-file" as const, label: "New File…", separatorBefore: true },
-            { id: "new-folder" as const, label: "New Folder…" },
-            { id: "delete" as const, label: "Delete…", destructive: true, separatorBefore: true },
-          ]
-        : []),
-    ],
+      ],
+    );
+  const explorer = input.explorerActions;
+  const clicked = await api.contextMenu.show<FileReferenceMenuItemId>(
+    explorer
+      ? [
+          // VS Code's Explorer order: create | download | copy, reference | edit.
+          { id: "new-file", label: "New File…" },
+          { id: "new-folder", label: "New Folder…" },
+          ...(explorer.download
+            ? [{ id: "download" as const, label: explorer.download.label, separatorBefore: true }]
+            : []),
+          ...copyPathItems(true),
+          ...referenceItems,
+          { id: "rename", label: "Rename…", separatorBefore: true },
+          { id: "delete", label: explorer.deleteLabel ?? "Delete…", destructive: true },
+        ]
+      : [...referenceItems, ...copyPathItems(false)],
     input.position,
   );
   if (clicked === "reference-in-chat") {
@@ -138,8 +163,10 @@ export async function showFileReferenceContextMenu(input: {
     await copyTextToClipboard(fullPath);
     return;
   }
+  if (clicked === "download") input.explorerActions?.download?.onDownload();
   if (clicked === "new-file") input.explorerActions?.onNewFile();
   if (clicked === "new-folder") input.explorerActions?.onNewFolder();
+  if (clicked === "rename") input.explorerActions?.onRename();
   if (clicked === "delete") input.explorerActions?.onDelete();
 }
 
@@ -150,6 +177,8 @@ type FileReferenceMenuItemId =
   | "copy-path-group"
   | "copy-path"
   | "copy-full-path"
+  | "download"
   | "new-file"
   | "new-folder"
+  | "rename"
   | "delete";

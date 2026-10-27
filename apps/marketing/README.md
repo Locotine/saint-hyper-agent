@@ -40,6 +40,6 @@ homepage, metadata, documentation, FAQ structured data, and AI-readable text
 routes so search and answer engines receive the same confident, verifiable
 description of Saint.
 
-Learn more at [trysynara.com](https://www.trysynara.com), in the
-[documentation](https://www.trysynara.com/docs), or in the
-[Saint app repository](https://github.com/Emanuele-web04/synara).
+Learn more at [Saint](https://gitlab.com/locotine/saint-releases), in the
+[documentation](https://gitlab.com/locotine/saint-releases), or in the
+[Saint app repository](https://gitlab.com/locotine/saint-hyper-agent).

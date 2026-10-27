@@ -2,7 +2,7 @@
 
 **Follow-up:** the user subsequently authorized full checks. Formatting, lint and all seven workspace type checks now pass, with additional pane-cancellation and unarchive fixes. The [final checks and comparison](final-checks-and-comparison.md) supersede the initial verification status recorded below.
 
-This refresh combines selected changes from [PR #822](https://github.com/Emanuele-web04/Synara/pull/822) at `bf70dfd0e7ee1e512a633da3cc6e814d2f791b0b` and [PR #1010](https://github.com/Emanuele-web04/Synara/pull/1010) at `32d62c28c39229a42f8d9f31b160bf61996e494a` with the existing Cua implementation. Those immutable heads were compared against the local source before integration. The original import history remains in [import-provenance.json](import-provenance.json).
+This refresh combines selected changes from [PR #822](https://gitlab.com/locotine/saint-hyper-agent/-/merge_requests/822) at `bf70dfd0e7ee1e512a633da3cc6e814d2f791b0b` and [PR #1010](https://gitlab.com/locotine/saint-hyper-agent/-/merge_requests/1010) at `32d62c28c39229a42f8d9f31b160bf61996e494a` with the existing Cua implementation. Those immutable heads were compared against the local source before integration. The original import history remains in [import-provenance.json](import-provenance.json).
 
 There is still one native backend: Cua. Shared improvements were adapted to its actual capabilities. The refreshed Swift helper has capabilities that Cua does not yet implement, so this integration does not claim that either backend is better in every respect.
 

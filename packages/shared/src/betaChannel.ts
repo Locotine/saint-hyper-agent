@@ -15,19 +15,17 @@ export const BETA_IMPORT_RESULT_FILE_NAME = "import-result.json";
  */
 export const SAINT_BETA_WINDOWS_INSTALLER_GUID = "e5cb6c41-44ef-4989-a949-8b42c1d9b788";
 
-/** Public release listing; the newest `v*-beta.N` prerelease is the current beta build. */
-export const SAINT_BETA_RELEASES_URL =
-  "https://github.com/Emanuele-web04/synara/releases?q=prerelease%3Atrue";
+/** Public release listing for every Saint build this fork publishes. */
+export const SAINT_RELEASES_URL = "https://gitlab.com/locotine/saint-releases/-/releases";
 
-/** Latest stable release, offered from beta when stable Saint is not installed. */
-export const SAINT_STABLE_RELEASES_URL = "https://github.com/Emanuele-web04/synara/releases/latest";
+/** Download page handed to the user when beta is not installed. */
+export const SAINT_BETA_RELEASES_URL = SAINT_RELEASES_URL;
+
+/** Download page offered from beta when stable Saint is not installed. */
+export const SAINT_STABLE_RELEASES_URL = SAINT_RELEASES_URL;
 
 /** electron-builder NSIS `guid` for stable (production) builds. */
 export const SAINT_STABLE_WINDOWS_INSTALLER_GUID = "03736dce-37a8-431c-9e4d-359a0a86ee78";
-
-/** GitHub API releases endpoint probed for the newest `v*-beta.N` tag. */
-export const SAINT_BETA_RELEASES_API_URL =
-  "https://api.github.com/repos/Emanuele-web04/synara/releases?per_page=30";
 
 /**
  * Environment overrides for the beta install flow. `SAINT_BETA_HOME` moves the

@@ -9,7 +9,6 @@ import { Option, Schema, SchemaTransformation } from "effect";
 import {
   type AssistantDeliveryMode,
   CodexAccountConfig,
-  DesktopAppIcon,
   DEFAULT_GIT_TEXT_GENERATION_MODEL,
   DEFAULT_CODEX_ACCOUNT_ID,
   DEFAULT_SERVER_SETTINGS,
@@ -41,7 +40,6 @@ import {
   APP_SNAP_SHORTCUT_MODIFIERS,
   DEFAULT_APP_SNAP_SHORTCUT,
 } from "@saint/shared/appSnapShortcut";
-import type { SaintDesktopFlavor } from "@saint/shared/desktopIdentity";
 import { codexAccountInstanceId } from "@saint/shared/providerInstances";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { EnvMode } from "./components/BranchToolbar.logic";
@@ -537,7 +535,6 @@ export const AppSettingsSchema = Schema.Struct({
   keepAwakeMode: KeepAwakeMode.pipe(withDefaults(() => "off" as const satisfies KeepAwakeMode)),
   lowerProviderProcessPriority: Schema.Boolean.pipe(withDefaults(() => true)),
   enableNativeFontSmoothing: Schema.Boolean.pipe(withDefaults(getDefaultNativeFontSmoothing)),
-  desktopAppIcon: DesktopAppIcon.pipe(withDefaults(() => "default" as const)),
   // Local desktop preference: frameless custom title bar on Windows/Linux.
   // Electron `frame` is fixed at window creation, so the desktop main process also
   // persists this value and a relaunch is required for the live window to match.
@@ -624,17 +621,6 @@ export const AppSettingsSchema = Schema.Struct({
   hiddenModels: PersistedHiddenModels.pipe(withDefaults(() => [])),
 });
 export type AppSettings = typeof AppSettingsSchema.Type;
-
-/**
- * First-launch icon default per desktop flavor. The schema keeps "default" so
- * persisted renderer state stays stable; the native side owns first-launch
- * defaulting via getAppIcon, and the Appearance reset uses this for its target.
- */
-export function defaultDesktopAppIconForFlavor(
-  flavor: SaintDesktopFlavor | "unknown",
-): DesktopAppIcon {
-  return flavor === "beta" ? "beta" : "default";
-}
 
 /** The settings values and mutation used by a mounted settings panel.
  * The route owns the subscription so extracted workflow panels do not create

@@ -115,7 +115,7 @@ describe("DesktopBetaChannel", () => {
     expect(state.lastImportAt).toBeNull();
     expect(state.canInstall).toBe(false);
     expect(state.install).toBeNull();
-    expect(state.downloadUrl).toContain("releases");
+    expect(state.downloadUrl).toBe("https://gitlab.com/locotine/saint-releases/-/releases");
   });
 
   it("refuses the import when beta is missing", async () => {
@@ -170,6 +170,7 @@ describe("DesktopBetaChannel", () => {
       homeDir: root,
       betaHomeDir: betaHome,
       flavor: "production",
+      feedUrlOverride: "http://127.0.0.1:1/feed",
       installDirOverride: installDir,
       betaUserDataDir: join(root, "beta-userdata"),
       install: async (onProgress) => {
@@ -195,6 +196,24 @@ describe("DesktopBetaChannel", () => {
     expect(channel.getState().installed).toBe(true);
   });
 
+  it("refuses the in-app install on macOS without a configured feed", async () => {
+    const root = makeRoot();
+    const install = vi.fn(async () => join(root, "Applications", "Saint Beta.app"));
+    const channel = new DesktopBetaChannel({
+      platform: "darwin",
+      homeDir: root,
+      betaHomeDir: join(root, ".saint-beta"),
+      flavor: "production",
+      installDirOverride: join(root, "Applications"),
+      install,
+    });
+    expect(channel.getState().canInstall).toBe(false);
+    expect((await channel.install()).error).toBe("not-installed");
+    expect((await channel.importAndLaunch(join(root, ".saint"))).error).toBe("not-installed");
+    expect(install).not.toHaveBeenCalled();
+    expect(channel.getState().install).toBeNull();
+  });
+
   it("reports an install failure and keeps it visible in state", async () => {
     const root = makeRoot();
     const channel = new DesktopBetaChannel({
@@ -202,6 +221,7 @@ describe("DesktopBetaChannel", () => {
       homeDir: root,
       betaHomeDir: join(root, ".saint-beta"),
       flavor: "production",
+      feedUrlOverride: "http://127.0.0.1:1/feed",
       installDirOverride: join(root, "Applications"),
       install: async () => {
         throw new Error("checksum mismatch");
@@ -423,7 +443,7 @@ describe("switching back to stable", () => {
     const state = channel.getState();
     expect(state.stableInstalled).toBe(true);
     expect(state.canMoveBetaToTrash).toBe(true);
-    expect(state.stableDownloadUrl).toContain("releases/latest");
+    expect(state.stableDownloadUrl).toBe("https://gitlab.com/locotine/saint-releases/-/releases");
 
     expect(await channel.leave()).toEqual({ ok: true });
     const last = spawnCalls.at(-1);

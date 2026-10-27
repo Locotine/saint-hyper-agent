@@ -96,7 +96,7 @@ refusals remain active throughout these tests.
 
 ## Linux verification on September 21
 
-[The Linux CI run passed](https://github.com/Emanuele-web04/synara/actions/runs/35548988491)
+[The Linux CI run passed](https://gitlab.com/locotine/saint-hyper-agent)
 on Ubuntu 24.04 x64, using the pinned revision 34 source and both checked
 native/Linux patches. It compiled the Linux driver and cursor helper with
 Rust 1.97.1 and passed 741 regression tests: 175 desktop admission/host/Escape,

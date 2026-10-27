@@ -155,7 +155,12 @@ describe("showFileReferenceContextMenu", () => {
   });
 
   it("adds explorer actions and runs the chosen one", async () => {
-    const actions = { onNewFile: vi.fn(), onNewFolder: vi.fn(), onDelete: vi.fn() };
+    const actions = {
+      onNewFile: vi.fn(),
+      onNewFolder: vi.fn(),
+      onRename: vi.fn(),
+      onDelete: vi.fn(),
+    };
     harness.clicked = "delete";
 
     await showFileReferenceContextMenu({
@@ -166,8 +171,64 @@ describe("showFileReferenceContextMenu", () => {
     });
 
     const items = harness.showContextMenu.mock.calls[0]?.[0] as Array<{ id: string }>;
-    expect(items.map((item) => item.id)).toEqual(["copy-path", "new-file", "new-folder", "delete"]);
+    expect(items.map((item) => item.id)).toEqual([
+      "new-file",
+      "new-folder",
+      "copy-path",
+      "rename",
+      "delete",
+    ]);
     expect(actions.onDelete).toHaveBeenCalledOnce();
     expect(actions.onNewFile).not.toHaveBeenCalled();
+  });
+
+  it("orders the Explorer menu like VS Code and runs Download and Rename", async () => {
+    const onDownload = vi.fn();
+    const actions = {
+      onNewFile: vi.fn(),
+      onNewFolder: vi.fn(),
+      onRename: vi.fn(),
+      onDelete: vi.fn(),
+      deleteLabel: "Delete 3 items…",
+      download: { label: "Download 2 files", onDownload },
+    };
+    harness.clicked = "download";
+
+    await showFileReferenceContextMenu({
+      path: "src/a.ts",
+      position: { x: 1, y: 2 },
+      onReferenceInChat: vi.fn(),
+      workspaceRoot: "/repo",
+      explorerActions: actions,
+    });
+
+    expect(harness.showContextMenu.mock.calls[0]?.[0]).toEqual([
+      { id: "new-file", label: "New File…" },
+      { id: "new-folder", label: "New Folder…" },
+      { id: "download", label: "Download 2 files", separatorBefore: true },
+      {
+        id: "copy-path-group",
+        label: "Copy path",
+        separatorBefore: true,
+        children: [
+          { id: "copy-path", label: "Relative path" },
+          { id: "copy-full-path", label: "Full path" },
+        ],
+      },
+      { id: "reference-in-chat", label: "Reference in chat" },
+      { id: "rename", label: "Rename…", separatorBefore: true },
+      { id: "delete", label: "Delete 3 items…", destructive: true },
+    ]);
+    expect(onDownload).toHaveBeenCalledOnce();
+
+    harness.clicked = "rename";
+    await showFileReferenceContextMenu({
+      path: "src/a.ts",
+      position: { x: 1, y: 2 },
+      onReferenceInChat: undefined,
+      explorerActions: actions,
+    });
+    expect(actions.onRename).toHaveBeenCalledOnce();
+    expect(actions.onDelete).not.toHaveBeenCalled();
   });
 });

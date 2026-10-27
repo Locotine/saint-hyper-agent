@@ -72,14 +72,14 @@ describe("worker health", () => {
             title: "Alpha",
             outcome: "completed",
             result: "Shipped the migration — 12 files",
-            pr: "https://github.com/diliprt/synara/pull/42",
+            pr: "https://github.com/locotine/saint/pull/42",
           },
           { title: "Beta", outcome: "completed" },
           { title: "Gamma", outcome: "waiting-approval" },
         ],
       }),
     ).toBe(
-      "All 3 threads are done: Alpha: Shipped the migration — 12 files — https://github.com/diliprt/synara/pull/42, Beta \u2713 — no result filed, Gamma \u26a0 needs approval",
+      "All 3 threads are done: Alpha: Shipped the migration — 12 files — https://github.com/locotine/saint/pull/42, Beta \u2713 — no result filed, Gamma \u26a0 needs approval",
     );
     expect(
       formatWorkerBatchRollup({

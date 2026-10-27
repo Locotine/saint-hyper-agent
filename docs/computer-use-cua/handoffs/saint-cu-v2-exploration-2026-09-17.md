@@ -179,7 +179,7 @@ PSN fallback until a crash is observed. The pinned driver would need a `SLEventP
 ```sh
 # clone state
 cd ~/saint-computer-use && git log --oneline -1 && git status -sb && git rev-list --count origin/main..HEAD
-gh pr view 1227 --repo Emanuele-web04/synara --json headRefOid,additions,deletions,changedFiles,updatedAt
+gh pr view 1227 --repo locotine/saint-hyper-agent --json headRefOid,additions,deletions,changedFiles,updatedAt
 
 # Codex constants: disassemble the daemon, then read the initializer at 0x100717e14 etc.
 xcrun -f llvm-objdump

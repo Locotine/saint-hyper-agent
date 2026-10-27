@@ -53,19 +53,11 @@ The rest of this file is the detailed reference.
 - Windows installer GUID: `e5cb6c41-44ef-4989-a949-8b42c1d9b788` (separate Add/Remove
   Programs entry; the stable GUID is unchanged)
 
-## App icon choices
+## App icon
 
-**Settings → Appearance → App icon** offers Default, Icon, Dark, and Beta on
-macOS. Windows and Linux offer Default, Icon, and Beta; Dark is macOS-only.
-Default is the white Saint artwork, Dark is black, Icon is the landscape artwork,
-and Beta is the blue Beta artwork. A fresh Beta profile and Reset to defaults use
-Beta; a saved choice is preserved.
-
-On macOS 26, Beta uses the app's appearance-aware bundle icon. Earlier macOS
-versions use its PNG artwork. Explicit Default and the other bitmap choices are
-also written to the macOS app bundle so they survive quitting the app.
-Stable keeps its existing picker choices. It does not offer Beta, and a stored
-Beta preference remains inactive without being erased.
+There is no icon picker. Saint uses its default artwork and Saint Beta the blue
+Beta artwork. On launch each app re-applies its own icon, which also clears an
+icon chosen with the picker in earlier builds; the old saved choice is ignored.
 
 ## How it differs from Canary
 
@@ -191,9 +183,10 @@ A fork hosted on GitLab can ship updates from a **public** GitLab project, witho
    ```bash
    export SAINT_DESKTOP_UPDATE_GITLAB_PROJECT=<namespace>/<releases-project>
    # SAINT_DESKTOP_UPDATE_GITLAB_HOST=git.example.com for self-managed GitLab
-   bun run dist:desktop:win -- --flavor beta        # Windows: NSIS installer
-   bun run dist:desktop:linux -- --flavor beta      # Ubuntu: AppImage
-   bun run dist:desktop:dmg:arm64 -- --flavor beta  # macOS
+   # --flavor production builds Saint (Stable); --flavor beta builds Saint Beta.
+   bun run dist:desktop:win -- --flavor production        # Windows: NSIS installer
+   bun run dist:desktop:linux -- --flavor production      # Ubuntu: AppImage
+   bun run dist:desktop:dmg:arm64 -- --flavor production  # macOS
    ```
 
 2. On each machine, upload its output folder. Every run adds its files to the release `v<version>`, which it creates on first use:
@@ -204,11 +197,11 @@ A fork hosted on GitLab can ship updates from a **public** GitLab project, witho
 
    Uploads are generic packages (`saint-desktop/<version>/<file>`), linked from the release by file name. They are the names `latest.yml`, `latest-linux.yml` and `latest-mac.yml` that the updater looks up. Merge the two macOS manifests first with `scripts/merge-mac-update-manifests.ts` when you ship both architectures.
 
-   On Linux, add `scripts/linux/install-saint-beta.sh` to the folder you upload. Users run `bash install-saint-beta.sh` after downloading the AppImage: it copies it to `~/Applications/saint-beta.AppImage` (a name without a version, so updates overwrite it in place), adds the menu entry, icon and `saint-beta://` handler, offers to install `libfuse2` and to remove an older `.deb`, and `--uninstall` removes it again.
+   Every release also carries `scripts/linux/install-saint.sh` and the one-time Beta → Stable copy scripts `scripts/copy-saint-beta-data.sh` (macOS/Linux) and `scripts/copy-saint-beta-data.ps1` (Windows); the upload picks them up from the folder. Users run `bash install-saint.sh` after downloading the Stable AppImage: it copies it to `~/Applications/saint.AppImage` (a name without a version, so updates overwrite it in place), adds the menu entry, icon and `saint://` handler, offers to install `libfuse2` and to remove an older `.deb` (including packages from older builds), and `--uninstall` removes it again. The copy scripts move `~/.saint-beta/userdata` into `~/.saint/userdata` with both apps quit, skip runtime entries the same way the in-app Stable → Beta copy does, and keep the replaced Stable data as a backup.
 
 3. Installed apps check the newest release and update in place on Windows (NSIS) and Linux (AppImage only; a `.deb` never updates). macOS installs only builds signed and notarized with a Developer ID. An unsigned Mac sees the update, fails to install it, and after two failures offers the GitLab release page for a manual download.
 
-Builds made before the feed was configured have no `app-update.yml` and never update. Install a feed-enabled build once by hand. Every version in this feed must be a `-beta.N` version: a Beta install refuses stable releases (see [Update channel isolation](#update-channel-isolation)).
+Builds made before the feed was configured have no `app-update.yml` and never update. Install a feed-enabled build once by hand. Each flavor only takes its own lane (see [Update channel isolation](#update-channel-isolation)): Saint takes `vX.Y.Z` releases and Saint Beta takes `-beta.N` releases, and the updater reads only the newest release of the project, so keep one lane per releases project.
 
 ## Joining beta from stable
 

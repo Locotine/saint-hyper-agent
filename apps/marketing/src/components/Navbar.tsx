@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { FaGithub } from "react-icons/fa";
+import { FaGitlab } from "react-icons/fa";
 import { formatStars, getStars } from "@/lib/githubStars";
 import { GITHUB_REPO_URL } from "@/lib/seo";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -28,17 +28,9 @@ export default async function Navbar() {
 
         {/*
           Middle nav: mobile prioritizes Docs + Changelog alongside the primary
-          actions. X and Install are revealed at sm+.
+          actions. Install is revealed at sm+.
         */}
         <div className="hidden min-w-0 flex-1 items-center justify-center gap-3 text-[13px] text-[var(--text-tertiary)] sm:flex sm:gap-6">
-          <a
-            href="https://x.com/trySynara"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden shrink-0 transition-colors hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-link)] sm:inline"
-          >
-            X
-          </a>
           <Link
             href="/install"
             className="hidden shrink-0 transition-colors hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-link)] sm:inline"
@@ -57,12 +49,6 @@ export default async function Navbar() {
           >
             Changelog
           </Link>
-          <Link
-            href="/sponsor"
-            className="hidden shrink-0 transition-colors hover:text-[var(--text-primary)] sm:inline"
-          >
-            Sponsor
-          </Link>
         </div>
 
         <div className="hidden shrink-0 items-center gap-1.5 sm:flex sm:gap-3">
@@ -72,10 +58,10 @@ export default async function Navbar() {
               href={GITHUB_REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={`GitHub stars: ${formatStars(stars)}`}
+              aria-label={`GitLab stars: ${formatStars(stars)}`}
               className="flex items-center gap-1 text-[12.5px] text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-link)] sm:gap-1.5 sm:text-[13px]"
             >
-              <FaGithub className="size-4 text-[var(--text-primary)]" />
+              <FaGitlab className="size-4 text-[var(--text-primary)]" />
               {formatStars(stars)}
             </a>
           ) : null}

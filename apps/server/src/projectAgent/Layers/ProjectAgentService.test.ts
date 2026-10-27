@@ -3037,7 +3037,7 @@ it.effect("listGroupThreads reports derived states to the coordinator", () => {
       title: "Opened a PR",
       session: { status: "ready", updatedAt: now, lastError: null },
       lastKnownPr: {
-        url: "https://github.com/diliprt/synara/pull/7",
+        url: "https://github.com/locotine/saint/pull/7",
         state: "open",
         isDraft: false,
       },
@@ -3050,7 +3050,7 @@ it.effect("listGroupThreads reports derived states to the coordinator", () => {
     assert.equal(byThread.get(prThread)?.state, "review");
     assert.equal(
       byThread.get(prThread)?.pullRequestUrl,
-      "https://github.com/diliprt/synara/pull/7",
+      "https://github.com/locotine/saint/pull/7",
     );
     assert.equal(byThread.get(prThread)?.projectTitle, "Alpha");
     // waiting sorts ahead of working ahead of review.
@@ -5434,7 +5434,7 @@ it.effect("adds the tracked PR link to finished rows and the roll-up", () => {
       title: "Linked work",
       session: { status: "ready", updatedAt: now, lastError: null },
       lastKnownPr: {
-        url: "https://github.com/diliprt/synara/pull/42",
+        url: "https://github.com/locotine/saint/pull/42",
         state: "open",
         isDraft: false,
       },
@@ -5468,7 +5468,7 @@ it.effect("adds the tracked PR link to finished rows and the roll-up", () => {
       row.type === "thread.activity.append" ? row.activity.summary : "";
     assert.equal(
       summaryOf(settledRows[0]!),
-      "\u2713 Linked work finished — no result filed — https://github.com/diliprt/synara/pull/42",
+      "\u2713 Linked work finished — no result filed — https://github.com/locotine/saint/pull/42",
     );
     assert.equal(summaryOf(settledRows[1]!), "\u2713 Plain work finished — no result filed");
     const rollups = harness.dispatched.filter(
@@ -5480,7 +5480,7 @@ it.effect("adds the tracked PR link to finished rows and the roll-up", () => {
     if (rollups[0]!.type === "thread.activity.append") {
       assert.equal(
         rollups[0]!.activity.summary,
-        "All 2 threads finished: Linked work \u2713 — no result filed — https://github.com/diliprt/synara/pull/42, Plain work \u2713 — no result filed",
+        "All 2 threads finished: Linked work \u2713 — no result filed — https://github.com/locotine/saint/pull/42, Plain work \u2713 — no result filed",
       );
     }
   }).pipe(Effect.provide(harness.layer));

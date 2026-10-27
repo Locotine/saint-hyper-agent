@@ -219,13 +219,6 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     keywords: "Choose how Saint looks across the app. dark light system color",
   },
   {
-    id: "appearance:app-icon",
-    section: "appearance",
-    title: "App icon",
-    keywords: "Choose the icon Saint uses in the dock or taskbar desktop application logo.",
-    target: null,
-  },
-  {
     id: "appearance:custom-title-bar",
     section: "appearance",
     title: "Use custom title bar",
@@ -658,6 +651,29 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
       "SSH remote server host tunnel devbox VPS tmux install connect run agents on another machine",
     target: null,
     applies: () => isSettingsSectionAvailable("remote-hosts"),
+  },
+  {
+    id: "updates:current-version",
+    section: "updates",
+    title: "Current version",
+    keywords: "The Saint version running on this computer. about build number",
+    applies: () => isSettingsSectionAvailable("updates"),
+  },
+  {
+    id: "updates:software-update",
+    section: "updates",
+    title: "Software update",
+    keywords:
+      "Saint checks for new versions in the background. check for updates upgrade download install restart latest",
+    applies: () => isSettingsSectionAvailable("updates"),
+  },
+  {
+    id: "updates:release-notes",
+    section: "updates",
+    title: "Release notes",
+    keywords:
+      "See what changed in each Saint release, or download an installer. changelog all releases gitlab download page",
+    applies: () => isSettingsSectionAvailable("updates"),
   },
   {
     id: "advanced:version",

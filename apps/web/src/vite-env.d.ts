@@ -4,7 +4,6 @@ import type { NativeApi, DesktopBridge } from "@saint/contracts";
 
 interface ImportMetaEnv {
   readonly APP_VERSION: string;
-  readonly VITE_FEEDBACK_ENDPOINT?: string;
 }
 
 interface ImportMeta {

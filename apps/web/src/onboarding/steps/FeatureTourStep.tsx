@@ -1,7 +1,7 @@
 // FILE: FeatureTourStep.tsx
 // Purpose: "What Saint can do" tour built from TOUR_CARDS: a vertical list of topics on the
-//          left, the selected topic's text on the right, with a docs link per topic and live
-//          shortcut chips on the shortcuts topic.
+//          left, the selected topic's text on the right, with live shortcut chips on the
+//          shortcuts topic.
 // Layer: Web UI component
 
 import type { ResolvedKeybindingsConfig } from "@saint/contracts";
@@ -10,7 +10,6 @@ import { useState } from "react";
 
 import { ShortcutKbd } from "~/components/ui/kbd";
 import { shortcutLabelForCommand } from "~/keybindings";
-import { ExternalLinkIcon } from "~/lib/icons";
 import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { cn } from "~/lib/utils";
 import { TOUR_CARDS, TOUR_SHORTCUT_COMMANDS } from "../tourContent";
@@ -109,15 +108,6 @@ export function FeatureTourStep() {
             ))}
           </ul>
         )}
-        <a
-          href={selectedCard.docsHref}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-2 inline-flex items-center gap-1.5 self-start text-ui text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none"
-        >
-          Read the guide
-          <ExternalLinkIcon className="size-3" aria-hidden />
-        </a>
       </div>
     </div>
   );

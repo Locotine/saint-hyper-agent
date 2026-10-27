@@ -51,6 +51,8 @@ it("shows Beta welcome before the first-run gate and releases it only on acknowl
   const screen = await render(<BetaWelcomeDialog />);
   try {
     await expect.element(page.getByRole("dialog", { name: "Welcome to Saint Beta" })).toBeVisible();
+    // Diagnostics ship off, so the sheet must not claim Beta shares anything.
+    expect(document.body.textContent).not.toMatch(/crash reports|usage counts/i);
     expect(useOnboardingDialogStore.getState().betaWelcomePending).toBe(true);
     expect(localStorage.getItem(storageKey)).toBeNull();
     await page.getByRole("button", { name: "Get started" }).click();

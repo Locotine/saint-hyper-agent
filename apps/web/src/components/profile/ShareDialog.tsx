@@ -1,12 +1,11 @@
 // FILE: ShareDialog.tsx
 // Purpose: "Share your activity" dialog — previews the virality card and exports it to
 // PNG fully on-device, then copies to clipboard + opens a social composer, or saves the
-// file. Mirrors the reference share sheet (Copy / X / LinkedIn / Reddit / Save).
+// file. Mirrors the reference share sheet (Copy / X / Reddit / Save).
 // Layer: web profile feature.
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { SiReddit, SiX } from "react-icons/si";
-import { FaLinkedinIn } from "react-icons/fa6";
 import type { ProfileStats, ProfileTokenStats } from "@saint/contracts";
 import { Dialog, DialogPopup, DialogTitle } from "~/components/ui/dialog";
 import { CopyIcon, DownloadIcon } from "~/lib/icons";
@@ -190,14 +189,6 @@ export function ShareDialog({
               onClick={() => void handleShare("x")}
             >
               <SiX className="size-5" />
-            </ShareButton>
-            <ShareButton
-              label="LinkedIn"
-              busy={busy === "linkedin"}
-              disabled={actionsDisabled}
-              onClick={() => void handleShare("linkedin")}
-            >
-              <FaLinkedinIn className="size-5" />
             </ShareButton>
             <ShareButton
               label="Reddit"

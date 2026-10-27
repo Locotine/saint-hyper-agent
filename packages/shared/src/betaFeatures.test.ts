@@ -76,9 +76,15 @@ describe("isBetaFeatureEnabled", () => {
     },
   );
 
-  it("keeps remote SSH hosts out of Stable only", () => {
-    expect(isBetaFeatureEnabled(REMOTE_SSH_BETA_FEATURE, "production")).toBe(false);
-    for (const flavor of ["beta", "development", "canary", "cua", "unknown"] as const) {
+  it("ships remote SSH hosts in Stable and Beta", () => {
+    for (const flavor of [
+      "production",
+      "beta",
+      "development",
+      "canary",
+      "cua",
+      "unknown",
+    ] as const) {
       expect(isBetaFeatureEnabled(REMOTE_SSH_BETA_FEATURE, flavor)).toBe(true);
     }
   });

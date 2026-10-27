@@ -29,6 +29,8 @@ export interface RenameDialogProps {
   inputType?: "text" | "datetime-local" | undefined;
   /** Extra gate on Save beyond the empty check, e.g. a date in the future. */
   isValueValid?: ((value: string) => boolean) | undefined;
+  /** Selects the initial value only up to here (a file name without its extension). */
+  initialSelectionEnd?: number | undefined;
   onOpenChange: (open: boolean) => void;
   onSave: (next: string) => Promise<void> | void;
 }
@@ -48,6 +50,7 @@ export function RenameDialog({
   saveLabel: saveLabelProp,
   inputType,
   isValueValid,
+  initialSelectionEnd,
   onOpenChange,
   onSave,
 }: RenameDialogProps) {
@@ -71,6 +74,7 @@ export function RenameDialog({
           saveLabel={saveLabel}
           inputType={inputType ?? "text"}
           isValueValid={isValueValid}
+          initialSelectionEnd={initialSelectionEnd}
           onOpenChange={onOpenChange}
           onSave={onSave}
         />
@@ -87,6 +91,7 @@ function RenameDialogForm({
   saveLabel,
   inputType,
   isValueValid,
+  initialSelectionEnd,
   onOpenChange,
   onSave,
 }: {
@@ -97,6 +102,7 @@ function RenameDialogForm({
   saveLabel: string;
   inputType: "text" | "datetime-local";
   isValueValid: ((value: string) => boolean) | undefined;
+  initialSelectionEnd: number | undefined;
   onOpenChange: (open: boolean) => void;
   onSave: (value: string) => Promise<void> | void;
 }) {
@@ -107,12 +113,13 @@ function RenameDialogForm({
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       inputRef.current?.focus();
-      inputRef.current?.select();
+      if (initialSelectionEnd === undefined) inputRef.current?.select();
+      else inputRef.current?.setSelectionRange(0, initialSelectionEnd);
     });
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [initialSelectionEnd]);
 
   const trimmed = value.trim();
   const canSave =

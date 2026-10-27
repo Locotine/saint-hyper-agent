@@ -6,14 +6,12 @@ import { useProjectImportDialogStore } from "~/projectImport/projectImportDialog
 import {
   AddPlusIcon,
   ArchiveIcon,
-  BookIcon,
   BotIcon,
   CircleQuestionIcon,
   ClockIcon,
   CodeReviewIcon,
   CopyIcon,
   CustomizeIcon,
-  FeedbackIcon,
   GitBranchIcon,
   ExternalLinkIcon,
   FolderOpenIcon,
@@ -326,8 +324,6 @@ import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { useProviderStatusesForLocalConfig } from "../hooks/useProviderStatusesForLocalConfig";
 import { useThreadHandoff } from "../hooks/useThreadHandoff";
 import { useCreateProjectDialogStore } from "../createProjectDialogStore";
-import { useFeedbackDialogStore } from "../feedbackDialogStore";
-import { openExternalLink } from "~/lib/linkChips";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
 import { toastManager } from "./ui/toast";
 import {
@@ -926,8 +922,6 @@ function ProjectSortMenu({
   );
 }
 
-const SAINT_DOCS_URL = "https://trysynara.com/docs";
-
 // Latest curated releases surfaced directly in the help menu. Static data, so
 // computed once at module scope rather than per render.
 const HELP_MENU_RELEASE_ENTRIES = sortEntriesByVersionDesc(WHATS_NEW_ENTRIES).slice(0, 3);
@@ -936,12 +930,10 @@ const HELP_MENU_RELEASE_ENTRIES = sortEntriesByVersionDesc(WHATS_NEW_ENTRIES).sl
 // available (see SidebarFooter).
 function SidebarHelpMenu({
   onOpenShortcuts,
-  onOpenFeedback,
   onCustomizeSidebar,
   inRail: inRailProp,
 }: {
   onOpenShortcuts: () => void;
-  onOpenFeedback: () => void;
   /** Null hides the entry (e.g. on surfaces without the primary nav block). */
   onCustomizeSidebar: (() => void) | null;
   /** Rail layout: the trigger takes the rail button look and the menu opens to the side. */
@@ -1022,17 +1014,6 @@ function SidebarHelpMenu({
             <MenuItem className={SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME} onClick={onOpenShortcuts}>
               <SidebarContextMenuIcon icon={KeyboardIcon} />
               <span>Keybindings</span>
-            </MenuItem>
-            <MenuItem className={SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME} onClick={onOpenFeedback}>
-              <SidebarContextMenuIcon icon={FeedbackIcon} />
-              <span>Send feedback</span>
-            </MenuItem>
-            <MenuItem
-              className={SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME}
-              onClick={() => openExternalLink(SAINT_DOCS_URL)}
-            >
-              <SidebarContextMenuIcon icon={BookIcon} />
-              <span>Docs</span>
             </MenuItem>
           </MenuGroup>
         </ComposerPickerMenuPopup>
@@ -1613,7 +1594,6 @@ export default function Sidebar() {
     // Match the dialog's previous panel-local lifetime when leaving Automations.
     if (!isOnAutomations) setAutomationCreateOpen(false);
   }, [isOnAutomations]);
-  const openFeedbackDialog = useFeedbackDialogStore((state) => state.openDialog);
   const [searchPaletteMode, setSearchPaletteMode] = useState<SidebarSearchPaletteMode>("search");
   const projectAdditionLockRef = useRef(false);
   const [renameDialogThreadId, setRenameDialogThreadId] = useState<ThreadId | null>(null);
@@ -6629,12 +6609,6 @@ export default function Sidebar() {
         shortcutLabel: importThreadShortcutLabel,
       },
       {
-        id: "feedback",
-        label: "Feedback Saint",
-        description: "Send feedback or report an issue to the Saint team.",
-        keywords: ["feedback", "bug", "issue", "problem", "report", "support", "saint"],
-      },
-      {
         id: "settings",
         label: "Settings",
         description: "Open app settings.",
@@ -6918,7 +6892,6 @@ export default function Sidebar() {
     !isOnInbox;
   const sidebarHelpMenuProps = {
     onOpenShortcuts: () => void navigate({ to: "/settings", search: { section: "shortcuts" } }),
-    onOpenFeedback: () => openFeedbackDialog(),
     // The rail customizes from its "…" menu.
     onCustomizeSidebar: null,
   };
@@ -8279,7 +8252,6 @@ export default function Sidebar() {
               }),
             });
           }}
-          onOpenFeedback={() => openFeedbackDialog()}
           onOpenUsageSettings={() => {
             void navigate({
               to: "/settings",
@@ -8328,7 +8300,6 @@ function SidebarSearchPaletteController(props: {
   onAddProjectPath: (path: string, options?: { createIfMissing?: boolean }) => Promise<void>;
   homeDir: string | null;
   onOpenSettings: (section?: SettingsSectionId, options?: { target?: string }) => void;
-  onOpenFeedback: () => void;
   onOpenUsageSettings: () => void;
   onOpenProject: (projectId: string) => void;
   providerInstances: readonly ProviderInstanceOption[];
@@ -8408,7 +8379,6 @@ function SidebarSearchPaletteController(props: {
       onAddProjectPath={props.onAddProjectPath}
       homeDir={props.homeDir}
       onOpenSettings={props.onOpenSettings}
-      onOpenFeedback={props.onOpenFeedback}
       onOpenUsageSettings={props.onOpenUsageSettings}
       onOpenProject={props.onOpenProject}
       importTargets={importTargets}

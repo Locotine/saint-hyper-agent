@@ -7,7 +7,7 @@ import { Resend } from "resend";
 
 export const runtime = "nodejs";
 
-const FEEDBACK_ADDRESS = "feedback@trysynara.com";
+const FEEDBACK_ADDRESS = "feedback@saint.invalid";
 const FORWARD_FROM = `Saint Feedback <${FEEDBACK_ADDRESS}>`;
 
 function jsonResponse(body: unknown, status: number): Response {

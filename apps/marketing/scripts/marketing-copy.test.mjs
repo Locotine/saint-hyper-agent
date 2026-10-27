@@ -87,7 +87,7 @@ test("homepage hierarchy keeps one thesis, one proof image, and a coherent actio
   assert.ok(homepage.includes("PRODUCT_HERO_DESCRIPTION"));
   assert.ok(homepage.includes("data-home-actions"));
   assert.ok(homepage.includes("data-hero-preview"));
-  assert.ok(homepage.includes("Star on GitHub"));
+  assert.ok(homepage.includes("Star on GitLab"));
   assert.ok(homepage.includes("HomepageRail"));
 
   for (const removedHeroLabel of [

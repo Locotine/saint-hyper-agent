@@ -55,14 +55,14 @@ export const TESTIMONIALS: TestimonialSeed[] = [
     id: "2065233838498865624",
     tier: 1,
     fallbackHandle: "uzairansar",
-    fallbackText: "The local server feature in @trySynara is lowkey goated",
+    fallbackText: "The local server feature in Saint is lowkey goated",
     fallbackUrl: "https://x.com/uzairansar/status/2065233838498865624",
   },
   {
     id: "2065191018635329877",
     tier: 1,
     fallbackHandle: "maboroshidev",
-    fallbackText: "first reaction 10/10 @trySynara @emanueledpt",
+    fallbackText: "first reaction 10/10 Saint @emanueledpt",
     fallbackUrl: "https://x.com/maboroshidev/status/2065191018635329877",
   },
   {
@@ -70,14 +70,14 @@ export const TESTIMONIALS: TestimonialSeed[] = [
     tier: 1,
     fallbackHandle: "alpes_aux_andes",
     fallbackText:
-      "Why nobody is talking about @trySynara ?\nThis app is so well designed I can't believe it",
+      "Why nobody is talking about Saint ?\nThis app is so well designed I can't believe it",
     fallbackUrl: "https://x.com/alpes_aux_andes/status/2066574154741027134",
   },
   {
     id: "2066644113508749678",
     tier: 1,
     fallbackHandle: "danfq_dev",
-    fallbackText: "man i just CAN'T get enough of @trySynara\nit's just sooooo goooooooooooood",
+    fallbackText: "man i just CAN'T get enough of Saint\nit's just sooooo goooooooooooood",
     fallbackUrl: "https://x.com/danfq_dev/status/2066644113508749678",
   },
   {
@@ -85,7 +85,7 @@ export const TESTIMONIALS: TestimonialSeed[] = [
     tier: 2,
     fallbackHandle: "HugoAssis_",
     fallbackText:
-      "I've been using @trySynara for a few hours now. I'm really impressed. I'd already tried T3 Chat, Orca, and Terax, but none of them managed to grab my attention quite like Saint did.",
+      "I've been using Saint for a few hours now. I'm really impressed. I'd already tried T3 Chat, Orca, and Terax, but none of them managed to grab my attention quite like Saint did.",
     fallbackUrl: "https://x.com/HugoAssis_/status/2062730056082850270",
   },
   {
@@ -93,7 +93,7 @@ export const TESTIMONIALS: TestimonialSeed[] = [
     tier: 2,
     fallbackHandle: "sanjaydotpro",
     fallbackText:
-      "@trySynara Use it almost daily, loving it so far, has almost become a part of my workflow. Founder here.",
+      "Saint Use it almost daily, loving it so far, has almost become a part of my workflow. Founder here.",
     fallbackUrl: "https://x.com/sanjaydotpro/status/2066256453162385479",
   },
   {
@@ -123,7 +123,7 @@ export const TESTIMONIALS: TestimonialSeed[] = [
     tier: 3,
     fallbackHandle: "saint",
     fallbackText:
-      "@trySynara's way of working with agents is exactly what I need. Of course, the design is also much better than AionUI. I knew about Saint before, but now I can finally use it since it has a Linux version.",
+      "Saint's way of working with agents is exactly what I need. Of course, the design is also much better than AionUI. I knew about Saint before, but now I can finally use it since it has a Linux version.",
     fallbackUrl: "https://x.com/i/status/2066183684026417180",
   },
   {

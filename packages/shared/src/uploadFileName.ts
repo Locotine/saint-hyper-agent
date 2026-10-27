@@ -1,7 +1,8 @@
 // FILE: uploadFileName.ts
-// Purpose: Validates names of files dropped into a workspace and lists the
-//          non-clobbering names an upload may take ("a.pdf", "a (1).pdf", ...).
-// Layer: Server workspace utility
+// Purpose: Validates names of files moved between this computer and a workspace
+//          (Explorer uploads on the server, downloads in the desktop app) and lists
+//          the non-clobbering names they may take ("a.pdf", "a (1).pdf", ...).
+// Layer: Shared file-transfer utility
 // Exports: isPlainUploadFileName, uploadFileNameCandidates
 
 const MAX_UPLOAD_FILE_NAME_LENGTH = 255;

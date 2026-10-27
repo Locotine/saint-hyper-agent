@@ -16,18 +16,14 @@ import {
 } from "@/data/product";
 import { releaseDateIso } from "@/lib/releaseDates";
 
-/** Canonical production origin; keep aligned with Vercel's primary domain. */
-export const SITE_URL = "https://www.trysynara.com";
+/** Canonical production base URL; keep aligned with CANONICAL_HOST in next.config.ts. */
+export const SITE_URL = "https://gitlab.com/locotine/saint-releases";
 
 export const SITE_NAME = PRODUCT_NAME;
 
-export const CREATOR_NAME = "Emanuele Di Pietro";
-export const CREATOR_URL = "https://emanueledipietro.com";
-export const GITHUB_REPO_URL = "https://github.com/Emanuele-web04/synara";
-export const GITHUB_RELEASES_URL = `${GITHUB_REPO_URL}/releases`;
-export const GITHUB_SPONSORS_URL = "https://github.com/sponsors/Emanuele-web04";
-export const X_PROFILE_URL = "https://x.com/emanueledpt";
-export const YOUTUBE_URL = "https://youtube.com/@emanueledpt";
+export const CREATOR_NAME = "Locotine";
+export const GITHUB_REPO_URL = "https://gitlab.com/locotine/saint-hyper-agent";
+export const GITHUB_RELEASES_URL = "https://gitlab.com/locotine/saint-releases/-/releases";
 
 /**
  * Search/share title — brand first, then the high-intent provider keywords.
@@ -78,8 +74,9 @@ export const SITE_IMAGES = {
 };
 
 /** Builds an absolute production URL for metadata, sitemaps, and structured data. */
+// SITE_URL carries a path, so join onto it the way Next joins metadataBase.
 export function absoluteUrl(path = "/") {
-  return new URL(path, SITE_URL).toString();
+  return new URL(path.replace(/^\//, ""), `${SITE_URL}/`).toString();
 }
 
 /**
@@ -106,12 +103,10 @@ export const SITE_JSONLD = {
       logo: absoluteUrl(SITE_IMAGES.icon),
       image: absoluteUrl(SITE_IMAGES.og),
       founder: {
-        "@type": "Person",
+        "@type": "Organization",
         name: CREATOR_NAME,
-        url: CREATOR_URL,
-        sameAs: [X_PROFILE_URL, YOUTUBE_URL],
       },
-      sameAs: [GITHUB_REPO_URL, X_PROFILE_URL, YOUTUBE_URL, CREATOR_URL],
+      sameAs: [GITHUB_REPO_URL],
     },
     {
       "@type": "WebSite",
@@ -241,84 +236,6 @@ export function releaseJsonLd(entry: ChangelogEntry) {
   };
 }
 
-/**
- * Sponsorship tiers as an OfferCatalog hanging off the sponsor page, so the
- * prices are machine-readable rather than trapped in the layout.
- */
-export function sponsorJsonLd(
-  tiers: ReadonlyArray<{ label: string; amount: number; tagline: string }>,
-) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    "@id": `${SITE_URL}/sponsor#webpage`,
-    name: "Sponsor Saint",
-    url: absoluteUrl("/sponsor"),
-    description:
-      "Sponsor Saint through GitHub Sponsors. Monthly tiers from $5 to $499 plus custom one-time amounts fund development, releases, and docs for the free, open-source desktop app.",
-    isPartOf: { "@id": `${SITE_URL}/#website` },
-    about: { "@id": `${SITE_URL}/#app` },
-    primaryImageOfPage: absoluteUrl(SITE_IMAGES.og),
-    mainEntity: {
-      "@type": "OfferCatalog",
-      name: "Saint sponsorship tiers",
-      itemListElement: tiers.map((tier) => ({
-        "@type": "Offer",
-        name: tier.label,
-        description: tier.tagline,
-        price: String(tier.amount),
-        priceCurrency: "USD",
-        url: GITHUB_SPONSORS_URL,
-        priceSpecification: {
-          "@type": "UnitPriceSpecification",
-          price: tier.amount,
-          priceCurrency: "USD",
-          billingIncrement: 1,
-          unitCode: "MON",
-        },
-      })),
-    },
-  };
-}
-
-/**
- * The sponsor wall as an ItemList of the people credited on it.
- *
- * Takes an already-resolved `url` per sponsor rather than building a GitHub
- * profile link here: `sponsorLink()` in lib/sponsors owns that choice (it
- * prefers a sponsor's own site over their GitHub profile), and this module
- * can't import it — lib/sponsors imports GITHUB_SPONSORS_URL from here, so
- * reaching back the other way would make the two files circular.
- */
-export function sponsorsPageJsonLd(sponsors: ReadonlyArray<{ name: string; url: string }>) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    "@id": `${SITE_URL}/sponsors#webpage`,
-    name: "Saint sponsors",
-    url: absoluteUrl("/sponsors"),
-    description:
-      "The people and companies funding Saint, the free and open-source command center for agentic development.",
-    isPartOf: { "@id": `${SITE_URL}/#website` },
-    about: { "@id": `${SITE_URL}/#app` },
-    primaryImageOfPage: absoluteUrl(SITE_IMAGES.og),
-    mainEntity: {
-      "@type": "ItemList",
-      name: "Saint sponsors",
-      numberOfItems: sponsors.length,
-      itemListElement: sponsors.map((sponsor, index) => ({
-        "@type": "ListItem",
-        position: index + 1,
-        item: {
-          "@type": "Person",
-          name: sponsor.name,
-          url: sponsor.url,
-        },
-      })),
-    },
-  };
-}
-
 export function pageMetadata({
   title,
   description,
@@ -344,7 +261,6 @@ export function pageMetadata({
       card: "summary_large_image",
       title,
       description,
-      creator: "@emanueledpt",
       images: [OG_IMAGE],
     },
   };

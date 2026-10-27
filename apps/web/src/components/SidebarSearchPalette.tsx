@@ -5,7 +5,6 @@
  * keyboard navigation and shortcut labels behave like the rest of the app.
  */
 import {
-  BugReportIcon,
   CheckIcon,
   ChevronRightIcon,
   DeviceLaptopIcon,
@@ -100,11 +99,7 @@ const PALETTE_KBD_CLASS = "h-[17px] min-w-0 text-ui-xs";
 const PALETTE_STATUS_CLASS = "px-4 pt-1 pb-3 text-ui text-muted-foreground/79";
 
 // Actions that live under the "Settings" heading when the palette is idle.
-const SETTINGS_ACTION_IDS: ReadonlySet<string> = new Set([
-  "settings",
-  "usage-settings",
-  "feedback",
-]);
+const SETTINGS_ACTION_IDS: ReadonlySet<string> = new Set(["settings", "usage-settings"]);
 
 export type SidebarSearchPaletteMode = "search" | "import" | "import-projects";
 
@@ -121,7 +116,6 @@ interface SidebarSearchPaletteProps {
   onAddProjectPath: (path: string, options?: { createIfMissing?: boolean }) => Promise<void>;
   homeDir: string | null;
   onOpenSettings: (section?: SettingsSectionId, options?: { target?: string }) => void;
-  onOpenFeedback: () => void;
   onOpenUsageSettings: () => void;
   onOpenProject: (projectId: string) => void;
   onOpenThread: (threadId: string) => void;
@@ -145,7 +139,7 @@ function actionHandler(
   actionId: string,
   props: Pick<
     SidebarSearchPaletteProps,
-    "onCreateChat" | "onCreateThread" | "onOpenFeedback" | "onOpenSettings" | "onOpenUsageSettings"
+    "onCreateChat" | "onCreateThread" | "onOpenSettings" | "onOpenUsageSettings"
   >,
 ): (() => void) | null {
   switch (actionId) {
@@ -155,8 +149,6 @@ function actionHandler(
       return props.onCreateThread;
     case "settings":
       return props.onOpenSettings;
-    case "feedback":
-      return props.onOpenFeedback;
     case "usage-settings":
       return props.onOpenUsageSettings;
     default:
@@ -172,7 +164,6 @@ const ACTION_ICONS: Record<string, IconComponent> = {
   "add-project": FolderAddIcon,
   "import-thread": ImportThreadIcon,
   "import-projects": DownloadIcon,
-  feedback: BugReportIcon,
   settings: SettingsIcon,
   "usage-settings": UsageGaugeIcon,
 };

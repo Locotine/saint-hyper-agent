@@ -298,7 +298,6 @@ import { hasUnseenSnoozeReturn } from "./Sidebar.logic";
 import { SidebarHeaderNavigationControls } from "./SidebarHeaderNavigationControls";
 import { SaintLogo } from "./SaintLogo";
 import { AsciiWaveBackground } from "./chat/AsciiWaveBackground";
-import { SponsorLandingBanner } from "./SponsorLandingBanner";
 import TerminalWorkspaceTabs from "./TerminalWorkspaceTabs";
 import { ThreadWorktreeHandoffDialog } from "./ThreadWorktreeHandoffDialog";
 
@@ -5252,7 +5251,6 @@ export default function ChatView({
     selectedProvider,
     currentProviderModelOptions,
     selectedModelSelection,
-    environmentMode: envMode ?? null,
     runtimeMode,
     interactionMode,
     threadId,
@@ -6933,11 +6931,6 @@ export default function ChatView({
                     stacked on top of the input) so starting a chat keeps the composer
                     where it lives for the rest of the conversation. */}
                 <div className="relative flex min-h-0 flex-1 items-center justify-center">
-                  {/* Pinned to the top so the heading stays optically centered; hidden on
-                      short panes where it would crowd the heading. */}
-                  <div className="absolute inset-x-0 top-4 flex justify-center px-6 [@media(max-height:620px)]:hidden">
-                    <SponsorLandingBanner className="w-full max-w-[520px]" />
-                  </div>
                   <div
                     className={cn(
                       "flex flex-col items-center gap-4 px-6 text-center select-none",

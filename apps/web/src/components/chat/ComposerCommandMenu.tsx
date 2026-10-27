@@ -75,8 +75,6 @@ function commandMenuTitle(
       return "Status";
     case "subagents":
       return "Subagents";
-    case "feedback":
-      return "Feedback Saint";
     default:
       return humanizeProviderCommandName(item.command);
   }

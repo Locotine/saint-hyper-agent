@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 const PACKAGE_NAME = "saint-desktop";
 const ASSET_PATTERN = /\.(?:dmg|zip|exe|AppImage|blockmap|yml)$/u;
 /** Unversioned assets every release carries next to its installers. */
-const RELEASE_HELPERS = ["install-saint-beta.sh"];
+const RELEASE_HELPERS = ["install-saint.sh", "copy-saint-beta-data.sh", "copy-saint-beta-data.ps1"];
 
 export interface GitLabReleaseOptions {
   readonly assetDir: string;

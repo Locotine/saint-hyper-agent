@@ -26,6 +26,7 @@ export const SETTINGS_SECTION_IDS = [
   "connectors",
   "integrations",
   "remote-hosts",
+  "updates",
   "advanced",
 ] as const;
 
@@ -84,13 +85,25 @@ function hasRemoteSshBridge(): boolean {
   return typeof window !== "undefined" && Boolean(window.desktopBridge?.remoteSsh);
 }
 
-/** False for a Beta-only section on Stable: no nav entry, search result, or deep link. */
+/** The app updater lives in the desktop main process; browsers have no bridge for it. */
+function hasDesktopUpdaterBridge(): boolean {
+  return (
+    typeof window !== "undefined" && typeof window.desktopBridge?.getUpdateState === "function"
+  );
+}
+
+/**
+ * False for a Beta-only section on Stable, or a desktop-only section in a browser:
+ * no nav entry, search result, or deep link.
+ */
 export function isSettingsSectionAvailable(
   section: SettingsSectionId,
   isOn: (feature: string) => boolean = isBetaFeatureOn,
   hasDesktopRemoteSsh: () => boolean = hasRemoteSshBridge,
+  hasDesktopUpdater: () => boolean = hasDesktopUpdaterBridge,
 ): boolean {
   if (section === "remote-hosts" && !hasDesktopRemoteSsh()) return false;
+  if (section === "updates" && !hasDesktopUpdater()) return false;
   const feature = SETTINGS_SECTION_BETA_FEATURES[section];
   return feature === undefined || isOn(feature);
 }
@@ -226,6 +239,14 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     description: "Review and clean up isolated workspaces created by Saint.",
     icon: "branch-simple",
     eyebrow: "Workspace management",
+  },
+  {
+    id: "updates",
+    group: "system",
+    label: "Updates",
+    description: "Check for new versions of Saint and read the release notes.",
+    icon: "cloud-download",
+    eyebrow: "App updates",
   },
   {
     id: "advanced",

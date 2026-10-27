@@ -4,6 +4,13 @@ Saint Beta ships always-on diagnostics so the team can see crashes and release
 health on real machines instead of waiting for bug reports. This document is the
 authoritative description of what leaves your computer.
 
+**Off unless an operator configures an endpoint.** This fork ships no
+diagnostics endpoint: a Beta build creates the diagnostics module and starts
+Electron's crash reporter only when `SAINT_BETA_DIAGNOSTICS_URL` is set to a valid
+`https://` (or loopback) URL. Without it nothing is queued or sent, no crash
+reporter runs, and the Beta UI makes no sharing claims. The rest of this document
+describes what is sent once an endpoint is configured.
+
 **Stable builds collect nothing.** The diagnostics module is only constructed
 when the packaged build's `saintDesktopFlavor` field equals `"beta"` — a field baked
 in at build time that cannot be flipped by an environment variable. (The module
@@ -184,14 +191,10 @@ External IP addresses remain redacted and external ports remain distinct.
 ## Transport and storage
 
 Events are buffered to `~/.saint-beta/diagnostics/events.jsonl` and flushed in
-batches as NDJSON over HTTPS to `https://saint-beta-diagnostics.kartik-9f9.workers.dev`
-(override with `SAINT_BETA_DIAGNOSTICS_URL` for local development; only `https://`
-or loopback targets are accepted). Events land in a Cloudflare D1 database and
-are kept with no expiry date, so crash and error trends can be compared across
-all beta releases. Crash dumps land in the `saint-beta-crash-dumps` R2 bucket
-and are also kept with no expiry date. The ingest worker
-and its private dashboard live outside this repository (they run on the
-maintainers' Cloudflare account). The worker re-runs the same allowlist and
+batches as NDJSON over HTTPS to the endpoint in `SAINT_BETA_DIAGNOSTICS_URL` (only
+`https://` or loopback targets are accepted); there is no built-in default. How long
+events and crash dumps are kept depends on the ingest service the operator runs,
+which lives outside this repository. The worker re-runs the same allowlist and
 `redactDiagnosticText` and drops unknown events/fields, so the documented
 schema is enforced at the endpoint, not just the client.
 

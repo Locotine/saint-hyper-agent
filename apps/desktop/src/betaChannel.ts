@@ -72,7 +72,10 @@ interface BetaChannelDeps {
   readonly betaHomeDir: string;
   /** Flavor of the running app; only "production" may initiate the handoff. */
   readonly flavor: "production" | "beta" | "canary" | "cua";
-  /** Base URL serving beta-mac.yml and its files; falls back to GitHub releases. */
+  /**
+   * Base URL serving beta-mac.yml and its files. There is no built-in feed:
+   * without it the in-app install is refused and nothing is downloaded.
+   */
   readonly feedUrlOverride?: string | undefined;
   /** Install target for the macOS bundle; defaults to /Applications. */
   readonly installDirOverride?: string | undefined;
@@ -426,9 +429,9 @@ export class DesktopBetaChannel {
 
   constructor(private readonly deps: BetaChannelDeps) {}
 
-  /** macOS can install beta in place; other platforms keep the download page. */
+  /** In-place install needs macOS and an operator-configured feed. */
   private get canInstall(): boolean {
-    return this.deps.platform === "darwin";
+    return this.deps.platform === "darwin" && Boolean(this.deps.feedUrlOverride?.trim());
   }
 
   private detect(): BetaInstallDetection {

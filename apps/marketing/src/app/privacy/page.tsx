@@ -155,12 +155,12 @@ export default function PrivacyPage() {
             Saint is open source under the MIT license. If a sentence on this page isn&apos;t
             enough, you can verify every claim yourself —{" "}
             <a
-              href="https://github.com/Emanuele-web04/synara"
+              href="https://gitlab.com/locotine/saint-hyper-agent"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[var(--accent-link)] transition-colors hover:text-[var(--accent-link-hover)]"
             >
-              read the code on GitHub
+              read the code on GitLab
             </a>
             .
           </p>
@@ -183,18 +183,7 @@ export default function PrivacyPage() {
         </Section>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-[var(--divide)] pt-8 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[12px] text-[var(--text-tertiary)]">
-            Last updated {LAST_UPDATED}. Questions?{" "}
-            <a
-              href="https://x.com/emanueledpt"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[var(--accent-link)] transition-colors hover:text-[var(--accent-link-hover)]"
-            >
-              Reach out on X
-            </a>
-            .
-          </p>
+          <p className="text-[12px] text-[var(--text-tertiary)]">Last updated {LAST_UPDATED}.</p>
           <Link
             href="/install"
             className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--btn-primary-bg)] px-5 py-2.5 text-[13px] font-medium text-[var(--btn-primary-fg)] transition-opacity hover:opacity-90"

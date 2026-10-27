@@ -15,6 +15,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   forwardRef,
+  useEffect,
+  useEffectEvent,
 } from "react";
 
 import {
@@ -29,20 +31,24 @@ import {
   projectReadFileQueryOptions,
   projectSearchEntriesQueryOptions,
 } from "~/lib/projectReactQuery";
+import { DownloadIcon } from "~/lib/icons";
 import { getSyntaxHighlighterPromise, getSyntaxLanguageForPath } from "~/lib/syntaxHighlighting";
 import { cn } from "~/lib/utils";
 import { Skeleton } from "../ui/skeleton";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import { DisclosureChevron } from "../ui/DisclosureChevron";
+import { IconButton } from "../ui/icon-button";
 import { SearchInput } from "../ui/search-input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { useExplorerEntryActions } from "./explorerEntryActions";
+import { type ExplorerTreeSelection, useExplorerEntryActions } from "./explorerEntryActions";
 import {
   EXPLORER_DROP_DIRECTORY_ATTRIBUTE,
   EXPLORER_DROP_TARGET_CLASS_NAME,
+  endExplorerEntriesDrag,
   explorerDropDirectoryFor,
   useExplorerFileDrop,
 } from "./explorerFileDrop";
+import { EXPLORER_TREE_ATTRIBUTE, explorerEntryRowAttributes } from "./explorerSelection";
 import { EXPLORER_ROW_PROPS, useExplorerListNavigation } from "./explorerListNavigation";
 import { FileEntryIcon } from "./FileEntryIcon";
 import { fileRowClassName, fileRowIndentStyle } from "./fileRowStyles";
@@ -70,6 +76,8 @@ const EXPLORER_HIDDEN_DIRECTORY_NAMES = new Set([
 // out into fuzzy-search RPCs, and cap results to keep the sidebar light.
 const EXPLORER_SEARCH_QUERY_DEBOUNCE_MS = 120;
 const EXPLORER_SEARCH_RESULTS_LIMIT = 80;
+// How long a drag rests on a collapsed folder before it opens.
+const EXPLORER_DRAG_EXPAND_DELAY_MS = 500;
 const EMPTY_WORKSPACE_SEARCH_FILE_MATCHES: ReadonlyArray<ProjectEntry> = [];
 
 // Default sidebar shell: a full-height column in the editor's wide row layout
@@ -129,8 +137,9 @@ const ExplorerRow = forwardRef<
     depth: number;
     selected: boolean;
     expanded: boolean;
-    /** Highlights a folder row while local files are dragged over it. */
+    /** Highlights a folder row while local files or Explorer rows are dragged over it. */
     dropTarget?: boolean;
+    selection: ExplorerTreeSelection;
     onSelectFile: (path: string) => void;
     onPrefetchEntry: (entry: ProjectFileSystemEntry) => void;
     onEntryContextMenu: (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => void;
@@ -142,6 +151,7 @@ const ExplorerRow = forwardRef<
     selected,
     expanded,
     dropTarget = false,
+    selection,
     onSelectFile,
     onPrefetchEntry,
     onEntryContextMenu,
@@ -154,7 +164,9 @@ const ExplorerRow = forwardRef<
   const isDirectory = entry.kind === "directory";
   // Directory rows are the Collapsible trigger: chain Base UI's injected onClick
   // (which toggles open/close) and skip file selection. File rows open the preview.
+  // Cmd/Ctrl/Shift-clicks only change the multi-selection.
   const handleClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (selection.onRowClick(entry, event)) return;
     onClick?.(event);
     if (isDirectory) {
       return;
@@ -170,6 +182,7 @@ const ExplorerRow = forwardRef<
   };
   const handleDragStart = (event: ReactDragEvent<HTMLButtonElement>) => {
     setFileReferenceDragData(event.dataTransfer, entry.path);
+    selection.onRowDragStart(entry, event.dataTransfer);
   };
 
   return (
@@ -185,8 +198,11 @@ const ExplorerRow = forwardRef<
       style={fileRowIndentStyle(depth)}
       title={entry.path}
       {...{ [EXPLORER_DROP_DIRECTORY_ATTRIBUTE]: explorerDropDirectoryFor(entry) }}
+      {...explorerEntryRowAttributes(entry)}
+      data-selected={selected ? "" : undefined}
       draggable
       onDragStart={handleDragStart}
+      onDragEnd={endExplorerEntriesDrag}
       onClick={handleClick}
       onPointerEnter={handlePrefetch}
       onFocus={handlePrefetch}
@@ -231,6 +247,7 @@ function WorkspaceDirectory(props: {
   relativePath: string | null;
   depth: number;
   selectedFilePath: string | null;
+  selection: ExplorerTreeSelection;
   expandedDirectories: ReadonlySet<string>;
   dropDirectory: string | null;
   onSelectFile: (path: string) => void;
@@ -238,6 +255,7 @@ function WorkspaceDirectory(props: {
   onPrefetchEntry: (entry: ProjectFileSystemEntry) => void;
   onEntryContextMenu: (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => void;
 }) {
+  const { selectedPaths } = props.selection;
   const query = useQuery(
     projectListDirectoriesQueryOptions({
       cwd: props.cwd,
@@ -267,8 +285,13 @@ function WorkspaceDirectory(props: {
               key={entry.path}
               entry={entry}
               depth={props.depth}
-              selected={entry.path === props.selectedFilePath}
+              selected={
+                selectedPaths
+                  ? selectedPaths.has(entry.path)
+                  : entry.path === props.selectedFilePath
+              }
               expanded={false}
+              selection={props.selection}
               onSelectFile={props.onSelectFile}
               onPrefetchEntry={props.onPrefetchEntry}
               onEntryContextMenu={props.onEntryContextMenu}
@@ -287,9 +310,10 @@ function WorkspaceDirectory(props: {
                 <ExplorerRow
                   entry={entry}
                   depth={props.depth}
-                  selected={false}
+                  selected={selectedPaths?.has(entry.path) ?? false}
                   expanded={expanded}
                   dropTarget={entry.path === props.dropDirectory}
+                  selection={props.selection}
                   onSelectFile={props.onSelectFile}
                   onPrefetchEntry={props.onPrefetchEntry}
                   onEntryContextMenu={props.onEntryContextMenu}
@@ -304,6 +328,7 @@ function WorkspaceDirectory(props: {
                 relativePath={entry.path}
                 depth={props.depth + 1}
                 selectedFilePath={props.selectedFilePath}
+                selection={props.selection}
                 expandedDirectories={props.expandedDirectories}
                 dropDirectory={props.dropDirectory}
                 onSelectFile={props.onSelectFile}
@@ -336,21 +361,39 @@ function useResultEntryContextMenu(
 function WorkspaceFilesTreeBody(props: {
   workspaceRoot: string | null;
   selectedFilePath: string | null;
+  selection: ExplorerTreeSelection;
   expandedDirectories: ReadonlySet<string>;
   onSelectFile: (path: string) => void;
   onToggleDirectory: (path: string) => void;
   onPrefetchEntry: (entry: ProjectFileSystemEntry) => void;
   onEntryContextMenu: (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => void;
   onRootContextMenu: (position: { x: number; y: number }) => void;
+  onMoveEntries: (paths: string[], directory: string) => void;
 }) {
-  const fileDrop = useExplorerFileDrop(props.workspaceRoot);
+  const fileDrop = useExplorerFileDrop(props.workspaceRoot, props.onMoveEntries);
+  const { dropDirectory } = fileDrop;
+  // Read at fire time, so parent re-renders during the drag do not restart the wait.
+  const expandHeldDirectory = useEffectEvent((directory: string) => {
+    if (!props.expandedDirectories.has(directory)) props.onToggleDirectory(directory);
+  });
+  // Like VS Code, a collapsed folder held under a drag opens after a moment.
+  useEffect(() => {
+    if (!dropDirectory) return;
+    const timer = window.setTimeout(
+      () => expandHeldDirectory(dropDirectory),
+      EXPLORER_DRAG_EXPAND_DELAY_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [dropDirectory]);
   return (
     <div
       className={cn(
         "min-h-0 flex-1 overflow-auto px-1 py-1",
         fileDrop.dropDirectory === "" && EXPLORER_DROP_TARGET_CLASS_NAME,
       )}
+      {...{ [EXPLORER_TREE_ATTRIBUTE]: "" }}
       {...fileDrop.handlers}
+      onKeyDown={props.selection.onTreeKeyDown}
       onContextMenu={(event) => {
         // Rows open their own menu; only empty space below them lands here.
         if ((event.target as Element).closest(`[${EXPLORER_DROP_DIRECTORY_ATTRIBUTE}]`)) return;
@@ -364,6 +407,7 @@ function WorkspaceFilesTreeBody(props: {
           relativePath={null}
           depth={0}
           selectedFilePath={props.selectedFilePath}
+          selection={props.selection}
           expandedDirectories={props.expandedDirectories}
           dropDirectory={fileDrop.dropDirectory}
           onSelectFile={props.onSelectFile}
@@ -394,6 +438,7 @@ export function WorkspaceFilesSidebar(props: {
     workspaceRoot: props.workspaceRoot,
     onReferenceInChat: props.onReferenceInChat,
     onSelectFile: props.onSelectFile,
+    selectedFilePath: props.selectedFilePath,
   });
   const handleListKeyDown = useExplorerListNavigation();
   return (
@@ -410,6 +455,8 @@ export function WorkspaceFilesSidebar(props: {
         onPrefetchEntry={prefetchEntry}
         onEntryContextMenu={entryActions.openEntryMenu}
         onRootContextMenu={entryActions.openRootMenu}
+        selection={entryActions.selection}
+        onMoveEntries={entryActions.moveEntries}
       />
       {entryActions.dialog}
     </aside>
@@ -513,6 +560,8 @@ function WorkspaceSearchInputHeader(props: {
   query: string;
   search: WorkspaceFileSearchState;
   autoFocus?: boolean;
+  /** Controls beside the search box (the remote window's Download button). */
+  trailing?: ReactNode;
   onQueryChange: (query: string) => void;
   onSelectFile: (path: string) => void;
 }) {
@@ -536,7 +585,12 @@ function WorkspaceSearchInputHeader(props: {
   };
 
   return (
-    <div className="shrink-0 border-b border-border/65 p-2">
+    <div
+      className={cn(
+        "shrink-0 border-b border-border/65 p-2",
+        props.trailing && "flex items-center gap-1.5",
+      )}
+    >
       <SearchInput
         value={query}
         autoFocus={props.autoFocus}
@@ -548,7 +602,36 @@ function WorkspaceSearchInputHeader(props: {
         onChange={(event) => onQueryChange(event.target.value)}
         onKeyDown={handleInputKeyDown}
       />
+      {props.trailing}
     </div>
+  );
+}
+
+// Remote windows: saves the selected files (or the open one) on this computer.
+// Stays focusable while nothing is selected so its tooltip can say why.
+function ExplorerDownloadButton(props: { fileCount: number; onDownload: () => void }) {
+  const disabled = props.fileCount === 0;
+  const label = disabled
+    ? "Select files to download"
+    : props.fileCount === 1
+      ? "Download selected file"
+      : `Download ${props.fileCount} selected files`;
+  return (
+    <IconButton
+      label={label}
+      tooltip={label}
+      tooltipSide="bottom"
+      aria-disabled={disabled || undefined}
+      className={cn(
+        "shrink-0 text-muted-foreground hover:text-foreground",
+        disabled && "cursor-default opacity-64 hover:text-muted-foreground",
+      )}
+      onClick={() => {
+        if (!disabled) props.onDownload();
+      }}
+    >
+      <DownloadIcon className="size-3.5" />
+    </IconButton>
   );
 }
 
@@ -681,7 +764,9 @@ export function WorkspaceExplorerSidebar(props: {
     workspaceRoot: props.workspaceRoot,
     onReferenceInChat: props.onReferenceInChat,
     onSelectFile: props.onSelectFile,
+    selectedFilePath: props.selectedFilePath,
   });
+  const { downloadSelection } = entryActions;
   const handleResultEntryContextMenu = useResultEntryContextMenu(
     props.onReferenceInChat,
     props.workspaceRoot,
@@ -697,6 +782,14 @@ export function WorkspaceExplorerSidebar(props: {
       <WorkspaceSearchInputHeader
         query={props.query}
         search={search}
+        trailing={
+          downloadSelection ? (
+            <ExplorerDownloadButton
+              fileCount={downloadSelection.fileCount}
+              onDownload={downloadSelection.download}
+            />
+          ) : undefined
+        }
         onQueryChange={props.onQueryChange}
         onSelectFile={props.onSelectFile}
       />
@@ -710,6 +803,8 @@ export function WorkspaceExplorerSidebar(props: {
           onPrefetchEntry={prefetchEntry}
           onEntryContextMenu={entryActions.openEntryMenu}
           onRootContextMenu={entryActions.openRootMenu}
+          selection={entryActions.selection}
+          onMoveEntries={entryActions.moveEntries}
         />
       ) : (
         <WorkspaceSearchResultsBody
