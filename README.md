@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="./assets/prod/logo.svg" width="112" alt="Saint logo">
   <h1>Saint</h1>
   <p><strong>A focused workspace for coding agents.</strong><br>
   Projects, provider sessions, execution surfaces, and review tools in one local-first desktop application.</p>
@@ -15,10 +14,6 @@
     <a href="https://gitlab.com/locotine/saint-hyper-agent/-/issues">Report an issue</a>
   </p>
 </div>
-
-<p align="center">
-  <img src="./assets/prod/readme-workspace-light.png" width="1200" alt="Saint workspace with an agent conversation and pull request review side by side">
-</p>
 
 <details open>
   <summary><strong>Table of contents</strong></summary>
@@ -59,10 +54,6 @@ The tools surrounding an agent session remain available from the same task surfa
 ### 3. Split views and previews
 
 Keep an active conversation alongside the surface it is changing. Split views, browser previews, and device previews make the result part of the working context.
-
-<p align="center">
-  <img src="./assets/prod/readme-split-view-dark.png" width="900" alt="Saint split view with an agent thread and iOS simulator preview">
-</p>
 
 ### 4. Provider-native integrations
 
@@ -116,10 +107,6 @@ See [External MCP integrations](./docs/external-mcp.md) for setup, pairing, proj
 ### 8. Appearance and workspace preferences
 
 Configure the shell to match the way you work with light and dark themes, typography controls, density preferences, and workspace settings.
-
-<p align="center">
-  <img src="./assets/prod/readme-appearance-dark.png" width="900" alt="Saint Appearance settings with theme, typography, and density controls">
-</p>
 
 ### Additional capabilities
 
