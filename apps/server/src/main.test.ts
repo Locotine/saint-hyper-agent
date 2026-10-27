@@ -614,6 +614,21 @@ it.layer(testLayer)("server CLI command", (it) => {
     }),
   );
 
+  it.effect("reads SAINT_IDLE_EXIT_MS and leaves idle exit disabled unless it is positive", () =>
+    Effect.gen(function* () {
+      yield* runCli([]);
+      assert.equal(resolvedConfig?.idleExitMs, undefined);
+
+      yield* runCli([], { SAINT_IDLE_EXIT_MS: "1800000" });
+      assert.equal(resolvedConfig?.idleExitMs, 1_800_000);
+
+      for (const value of ["", "  ", "soon", "0", "-5"]) {
+        yield* runCli([], { SAINT_IDLE_EXIT_MS: value });
+        assert.equal(resolvedConfig?.idleExitMs, undefined, `value ${JSON.stringify(value)}`);
+      }
+    }),
+  );
+
   it.effect("uses loopback and dynamic port discovery in web mode by default", () =>
     Effect.gen(function* () {
       findAvailablePort.mockImplementation((_preferred: number) => Effect.succeed(5444));

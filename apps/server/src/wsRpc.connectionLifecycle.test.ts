@@ -953,6 +953,8 @@ describe("websocketRpcRouteLayer connection lifecycle", () => {
         role: "owner",
         attachmentPrincipal: { ownerKind: "session", ownerId: issued.sessionId },
       });
+      // Idle exit counts live clients through this registry.
+      expect(server.connectionSessions.size()).toBe(1);
 
       // A client may read Computer state without ever subscribing to its
       // event stream. The socket scope must still release the remembered view.
@@ -968,6 +970,7 @@ describe("websocketRpcRouteLayer connection lifecycle", () => {
       await waitForClose(socket);
       await waitForObserved(() => server.connectionSessions.lookup(sessionKey) === undefined);
       expect(interests.accepts(sessionKey, event)).toBe(false);
+      expect(server.connectionSessions.size()).toBe(0);
     } finally {
       await server.close();
     }

@@ -113,6 +113,11 @@ export interface ServerConfigShape extends ServerDerivedPaths {
   readonly trashDir?: string | undefined;
   readonly migrationDivergenceConsent?: string | undefined;
   readonly autoBootstrapProjectFromCwd: boolean;
+  /**
+   * From `SAINT_IDLE_EXIT_MS`: stop gracefully after this long with no clients
+   * or work. Undefined (the default) disables idle exit.
+   */
+  readonly idleExitMs?: number | undefined;
   readonly logProviderEvents: boolean;
   readonly logWebSocketEvents: boolean;
 }

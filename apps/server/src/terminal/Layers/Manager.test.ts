@@ -771,6 +771,36 @@ describe("TerminalManager", () => {
     manager.dispose();
   });
 
+  it("reports active work for running subprocesses and live headless sessions only", async () => {
+    let hasRunningSubprocess = false;
+    const { manager, ptyAdapter } = makeManager(5, {
+      subprocessChecker: async () => hasRunningSubprocess,
+      subprocessPollIntervalMs: 20,
+    });
+    const events: TerminalEvent[] = [];
+    manager.on("event", (event) => {
+      events.push(event);
+    });
+
+    // An idle interactive shell does not keep the server busy.
+    await manager.open(openInput());
+    await waitFor(() => events.some((event) => event.type === "started"));
+    expect(manager.hasActiveWork()).toBe(false);
+
+    hasRunningSubprocess = true;
+    await waitFor(() => manager.hasActiveWork(), 1_200);
+    hasRunningSubprocess = false;
+    await waitFor(() => !manager.hasActiveWork(), 1_200);
+
+    // A headless session (dev server) counts while its process is alive.
+    await manager.open(openInput({ terminalId: "dev-server", streamOutput: false }));
+    expect(manager.hasActiveWork()).toBe(true);
+    ptyAdapter.processes.at(-1)?.emitExit({ exitCode: 0, signal: 0 });
+    await waitFor(() => !manager.hasActiveWork());
+
+    manager.dispose();
+  });
+
   it("emits subprocess activity events when child-process state changes", async () => {
     let hasRunningSubprocess = false;
     const { manager } = makeManager(5, {

@@ -2441,6 +2441,16 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
     }
   }
 
+  hasActiveWork(): boolean {
+    for (const session of this.sessions.values()) {
+      if (session.status !== "running" && session.status !== "starting") continue;
+      if (!session.streamOutput || session.hasRunningSubprocess || session.managedAgentRunning) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private requireSession(threadId: string, terminalId: string): TerminalSessionState {
     const session = this.sessions.get(toSessionKey(threadId, terminalId));
     if (!session) {
@@ -2615,6 +2625,7 @@ export const TerminalManagerLive = Layer.effect(
             runtime.off("event", listener);
           };
         }),
+      hasActiveWork: Effect.sync(() => runtime.hasActiveWork()),
       dispose: Effect.promise(() => runtime.disposeForShutdown()),
     } satisfies TerminalManagerShape;
   }),

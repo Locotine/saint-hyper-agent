@@ -58,6 +58,12 @@ function fakeSpawn(
       stderr.end(answer.stderr ?? "");
       setImmediate(() => emitter.emit("close", answer.code ?? 0));
     });
+    // Connection-sharing runs (`-O check`, the forked `-f` master) take no stdin.
+    if (args.includes("-O") || args.includes("-f")) {
+      const answer = respond(args, "");
+      setImmediate(() => record.exit(answer === "tunnel" ? 0 : (answer.code ?? 0)));
+      return emitter;
+    }
     if (args.includes("-N")) respond(args, "");
     return emitter;
   };
@@ -74,7 +80,7 @@ function makeManager(
   const states: DesktopRemoteSshHostState[] = [];
   const manager = new RemoteSshManager({
     spawn,
-    installVersion: () => "1.2.3",
+    installIdentity: () => ({ version: "1.2.3", depsHash: "0123456789ab" }),
     defaultRemoteRoot: ".saint-remote",
     storeRoot: ".saint-remote",
     createInstallBundle: () => Readable.from([Buffer.from("bundle")]),
@@ -176,7 +182,7 @@ describe("RemoteSshManager", () => {
     await manager.connect({ host: "devbox" });
     expect(manager.states()[0]?.remoteRoot).toBe(".saint-remote/clients/anh-0a1b2c3d");
     expect(scripts[0]).toContain(`root="$HOME/"'.saint-remote/clients/anh-0a1b2c3d'`);
-    expect(scripts[0]).toContain(`store="$HOME/"'.saint-remote/versions'`);
+    expect(scripts[0]).toContain(`store_root="$HOME/"'.saint-remote'`);
   });
 
   it("refuses hosts whose Node.js lacks the node:sqlite APIs", async () => {
@@ -319,5 +325,107 @@ describe("RemoteSshManager", () => {
     await manager.stopServer({ host: "devbox" });
     expect(seen).toEqual(["probe", "stop"]);
     expect(states.at(-1)).toMatchObject({ phase: "idle" });
+  });
+
+  it("installs without npm when this build's dependencies are already on the host", async () => {
+    const seen: string[] = [];
+    const { spawn } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      const kind = scriptKind(stdin);
+      seen.push(kind);
+      if (kind === "probe") {
+        return { stdout: PROBE_FRESH.replace('"npm":true', '"npm":false,"deps":true') };
+      }
+      if (kind === "install") return { stdout: 'SAINT_REMOTE {"kind":"installed"}' };
+      if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
+      return {};
+    });
+    const { manager } = makeManager(spawn);
+    await expect(manager.connect({ host: "devbox" })).resolves.toMatchObject({
+      phase: "connected",
+    });
+    expect(seen).toEqual(["probe", "upload", "install", "start"]);
+  });
+
+  it("still requires npm when the dependencies are missing", async () => {
+    const { spawn } = fakeSpawn(() => ({
+      stdout: PROBE_FRESH.replace('"npm":true', '"npm":false,"deps":false'),
+    }));
+    const { manager } = makeManager(spawn);
+    await expect(manager.connect({ host: "devbox" })).rejects.toThrow(/npm is required/);
+  });
+
+  it("reconnects a connected host whose server no longer answers", async () => {
+    const seen: string[] = [];
+    const { spawn } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      const kind = scriptKind(stdin);
+      seen.push(kind);
+      if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4300}' };
+      return { stdout: PROBE_FRESH.replace('"installed":false', '"installed":true') };
+    });
+    let healthy = true;
+    const { manager } = makeManager(spawn, {
+      waitForHttpReady: async () => {
+        if (!healthy) throw new Error("down");
+      },
+    });
+    await manager.connect({ host: "devbox" });
+    expect(seen).toEqual(["probe", "start"]);
+
+    // A live server answers, so connecting again runs nothing on the host.
+    await manager.connect({ host: "devbox" });
+    expect(seen).toEqual(["probe", "start"]);
+
+    // After an idle exit the tunnel stays up but nothing answers behind it.
+    healthy = false;
+    const reconnect = manager.connect({ host: "devbox" });
+    await new Promise((resolve) => setImmediate(resolve));
+    healthy = true;
+    await expect(reconnect).resolves.toMatchObject({ phase: "connected" });
+    expect(seen).toEqual(["probe", "start", "probe", "start"]);
+  });
+
+  it("shares one ssh connection across the scripts of a connect", async () => {
+    const { spawn, calls } = fakeSpawn((args, stdin) => {
+      if (args.includes("-O")) return { code: 255 };
+      if (args.includes("-f")) return { code: 0 };
+      if (args.includes("-N")) return "tunnel";
+      const kind = scriptKind(stdin);
+      if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
+      if (kind === "install") return { stdout: 'SAINT_REMOTE {"kind":"installed"}' };
+      return { stdout: PROBE_FRESH };
+    });
+    const { manager } = makeManager(spawn, { sshControlDir: "/home/anh/.saint/userdata/ssh" });
+    await manager.connect({ host: "devbox" });
+    const controlPath = "ControlPath=/home/anh/.saint/userdata/ssh/%C";
+    const master = calls.find((call) => call.args.includes("-f"));
+    expect(master?.args).toEqual(
+      expect.arrayContaining([controlPath, "ControlMaster=yes", "ControlPersist=120", "-N"]),
+    );
+    const scripts = calls.filter((call) => !call.args.includes("-N") && !call.args.includes("-O"));
+    expect(scripts).toHaveLength(4);
+    expect(
+      scripts.every(
+        (call) => call.args.includes("ControlMaster=no") && call.args.includes(controlPath),
+      ),
+    ).toBe(true);
+    // The tunnel keeps its own connection, as before.
+    const tunnel = calls.find((call) => call.args.includes("-L"));
+    expect(tunnel?.args).not.toContain(controlPath);
+  });
+
+  it("skips connection sharing when the socket path would be too long", async () => {
+    const { spawn, calls } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      return scriptKind(stdin) === "start"
+        ? { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' }
+        : { stdout: PROBE_FRESH.replace('"installed":false', '"installed":true') };
+    });
+    const { manager } = makeManager(spawn, { sshControlDir: `/home/${"x".repeat(80)}` });
+    await manager.connect({ host: "devbox" });
+    expect(calls.some((call) => call.args.some((arg) => arg.startsWith("ControlPath=")))).toBe(
+      false,
+    );
   });
 });

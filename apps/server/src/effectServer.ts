@@ -58,7 +58,11 @@ import { ServerSettingsService } from "./serverSettings";
 import { makeServerReadiness } from "./server/readiness";
 import { makeServerShutdownController, type ServerShutdownController } from "./serverShutdown";
 import { makeBoundedNodeHttpServer } from "./nodeHttpServer";
-import { websocketRpcRouteLayer } from "./wsRpc";
+import { makeWebsocketRpcRoutesLayer } from "./wsRpc";
+import { makeWsConnectionSessions, WsConnectionSessions } from "./wsConnectionSessions";
+import { startServerIdleExit } from "./idleExit";
+import type { AutomationRepository } from "./persistence/Services/AutomationRepository";
+import type { TerminalManager } from "./terminal/Services/Manager";
 import { recoverGitHandoffOperations } from "./gitHandoffOperations";
 import { externalMcpRouteLayer } from "./externalMcp/httpRoute";
 import { ExternalMcpGateway } from "./externalMcp/Services/ExternalMcpGateway";
@@ -84,6 +88,8 @@ export interface ServerShape {
     | AutomationRunReactor
     | AutomationScheduler
     | AutomationService
+    | AutomationRepository
+    | TerminalManager
     | TodoService
     | ServerLifecycleEvents
     | OrchestrationEngineService
@@ -227,9 +233,11 @@ export const createEffectServer = Effect.fn(function* (
     Effect.mapError((cause) => new ServerLifecycleError({ operation: "httpServerListen", cause })),
   );
 
+  // Owned here (not inside the route layer) so idle exit can count live clients.
+  const connectionSessions = yield* makeWsConnectionSessions;
   const routesLayer = Layer.mergeAll(
     makeEffectHttpRouteLayer(readiness, shutdownController),
-    websocketRpcRouteLayer,
+    makeWebsocketRpcRoutesLayer(Layer.succeed(WsConnectionSessions, connectionSessions)),
     agentGatewayRouteLayer,
     externalMcpRouteLayer,
     mcpConnectorsRouteLayer,
@@ -338,6 +346,19 @@ export const createEffectServer = Effect.fn(function* (
     type: "ready",
     payload: { at: new Date().toISOString() },
   });
+
+  // Opt-in (SAINT_IDLE_EXIT_MS) and only once startup has completed. It lives in
+  // the subscriptions scope so it stops before the engine during shutdown.
+  if (config.idleExitMs !== undefined) {
+    yield* Scope.provide(
+      startServerIdleExit({
+        idleExitMs: config.idleExitMs,
+        webSocketClients: connectionSessions.size,
+        requestStop: shutdownController.requestStop,
+      }),
+      subscriptionsScope,
+    );
+  }
 
   if (!nodeServer) {
     return yield* new ServerLifecycleError({ operation: "httpServerListen" });

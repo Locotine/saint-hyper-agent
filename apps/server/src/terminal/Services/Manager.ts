@@ -177,6 +177,15 @@ export interface TerminalManagerShape {
   readonly subscribe: (listener: (event: TerminalEvent) => void) => Effect.Effect<() => void>;
 
   /**
+   * True while any live terminal session is doing work the server must stay up
+   * for: a PTY with a running foreground subprocess or managed agent, or a
+   * headless session (`streamOutput === false`, e.g. a dev server) whose
+   * process is alive. Idle interactive shells do not count; their history is
+   * persisted and restored on reopen.
+   */
+  readonly hasActiveWork: Effect.Effect<boolean>;
+
+  /**
    * Dispose all managed terminal resources.
    */
   readonly dispose: Effect.Effect<void>;

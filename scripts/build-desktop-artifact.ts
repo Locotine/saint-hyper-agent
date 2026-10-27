@@ -37,6 +37,7 @@ import {
 } from "@saint/shared/desktopIdentity";
 import {
   createRemoteServerInstallManifest,
+  parsePatchAddedLines,
   remoteServerPatchIndex,
 } from "@saint/shared/remoteServerInstall";
 import { createDesktopArtifactIdentity } from "./lib/desktop-artifact-identity.ts";
@@ -795,35 +796,6 @@ const verifyStagedNodePty = Effect.fn("verifyStagedNodePty")(function* (
   );
 });
 
-interface PatchFileExpectation {
-  readonly file: string;
-  readonly addedLines: ReadonlyArray<string>;
-}
-
-function parsePatchAddedLines(patchContents: string): PatchFileExpectation[] {
-  const expectations: Array<{ file: string; addedLines: string[] }> = [];
-  let current: { file: string; addedLines: string[] } | null = null;
-  for (const line of patchContents.split("\n")) {
-    if (line.startsWith("+++ ")) {
-      const target = line.slice(4).trim();
-      if (target === "/dev/null") {
-        current = null;
-        continue;
-      }
-      current = { file: target.startsWith("b/") ? target.slice(2) : target, addedLines: [] };
-      expectations.push(current);
-      continue;
-    }
-    if (current && line.startsWith("+")) {
-      const added = line.slice(1).trim();
-      if (added.length > 0) {
-        current.addedLines.push(added);
-      }
-    }
-  }
-  return expectations.filter((expectation) => expectation.addedLines.length > 0);
-}
-
 // Package managers can silently skip tracked patches when the staged install
 // diverges from the repo setup (that shipped broken Windows provider updates
 // in v0.5.2–v0.5.5), so fail the build unless every patched line is present.
@@ -1346,6 +1318,14 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   }
 
   yield* validateBundledClientAssets(path.dirname(bundledClientEntry));
+
+  // Remote SSH hosts install from this bundle (apps/desktop/src/remoteSshBundle.ts).
+  const remoteServerEntry = path.join(distDirs.serverDist, "remote/index.mjs");
+  if (!(yield* fs.exists(remoteServerEntry))) {
+    return yield* new BuildScriptError({
+      message: `Missing remote server bundle at ${remoteServerEntry}. Run 'bun run build:desktop' first.`,
+    });
+  }
 
   yield* fs.makeDirectory(path.join(stageAppDir, "apps/desktop"), { recursive: true });
   yield* fs.makeDirectory(path.join(stageAppDir, "apps/server"), { recursive: true });

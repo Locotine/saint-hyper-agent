@@ -1,18 +1,37 @@
 import { describe, expect, it } from "vitest";
 
-import { createRemoteServerInstallManifest, remoteServerPatchIndex } from "./remoteServerInstall";
+import {
+  createRemoteServerInstallManifest,
+  isRemoteServerExternalModule,
+  REMOTE_SERVER_INSTALLED_DEPENDENCIES,
+  remoteServerPatchIndex,
+} from "./remoteServerInstall";
 
 const catalog = {
   effect: "https://pkg.example/effect@abc",
-  "@effect/platform-node": "https://pkg.example/@effect/platform-node@abc",
+  typescript: "^5.7.3",
+};
+
+/** The installed dependencies as the server manifest declares them. */
+const installedDependencies = {
+  "node-pty": "^1.1.0",
+  typescript: "catalog:",
+  "@anthropic-ai/claude-agent-sdk": "0.3.296",
+  open: "^10.1.0",
+  "@xterm/headless": "^6.0.0",
 };
 
 describe("createRemoteServerInstallManifest", () => {
-  it("resolves catalog specs and keeps plain ranges", () => {
+  it("installs only the dependencies the remote bundle keeps external", () => {
     const manifest = createRemoteServerInstallManifest({
       serverPackageJson: {
         version: "1.2.3",
-        dependencies: { effect: "catalog:", ws: "^8.21.0", "@effect/platform-node": "catalog:" },
+        dependencies: {
+          ...installedDependencies,
+          effect: "catalog:",
+          ws: "^8.21.0",
+          "@earendil-works/pi-coding-agent": "^0.87.1",
+        },
       },
       catalog,
     });
@@ -22,89 +41,94 @@ describe("createRemoteServerInstallManifest", () => {
       private: true,
       type: "module",
       dependencies: {
-        effect: "https://pkg.example/effect@abc",
-        ws: "^8.21.0",
-        "@effect/platform-node": "https://pkg.example/@effect/platform-node@abc",
+        "node-pty": "^1.1.0",
+        typescript: "^5.7.3",
+        "@anthropic-ai/claude-agent-sdk": "0.3.296",
+        open: "^10.1.0",
+        "@xterm/headless": "^6.0.0",
       },
       overrides: {},
     });
   });
 
-  it("leaves out the SDKs of providers a remote server does not run", () => {
-    const manifest = createRemoteServerInstallManifest({
-      serverPackageJson: {
-        version: "1.2.3",
-        dependencies: {
-          ws: "^8.21.0",
-          "@earendil-works/pi-coding-agent": "^0.87.1",
-          "@agentclientprotocol/sdk": "^0.20.0",
-          "@anthropic-ai/claude-agent-sdk": "0.3.296",
-        },
-      },
-      catalog,
-    });
-    expect(manifest.packageJson.dependencies).toEqual({
-      ws: "^8.21.0",
-      "@anthropic-ai/claude-agent-sdk": "0.3.296",
-    });
+  it("fails when an installed dependency is no longer a server dependency", () => {
+    expect(() =>
+      createRemoteServerInstallManifest({
+        serverPackageJson: { version: "1.0.0", dependencies: { "node-pty": "^1.1.0" } },
+        catalog,
+      }),
+    ).toThrow(/typescript/);
   });
 
   it("flattens Bun selectors and drops overrides that conflict with direct specs", () => {
     const manifest = createRemoteServerInstallManifest({
-      serverPackageJson: {
-        version: "1.0.0",
-        dependencies: { effect: "catalog:", "smol-toml": "^1.7.0", ws: "^8.21.0" },
-      },
+      serverPackageJson: { version: "1.0.0", dependencies: installedDependencies },
       catalog,
       overrides: {
         "@effect/platform-node>effect": "catalog:",
-        "smol-toml": "^1.6.1",
-        ws: "^8.21.0",
+        "node-pty": "^1.0.0",
         axios: "^1.16.0",
       },
     });
     expect(manifest.packageJson.overrides).toEqual({
       effect: "https://pkg.example/effect@abc",
-      ws: "^8.21.0",
       axios: "^1.16.0",
     });
   });
 
-  it("pins patched packages to the version their patch targets", () => {
+  it("applies patches of installed packages on the host and leaves the rest to the bundle", () => {
     const manifest = createRemoteServerInstallManifest({
-      serverPackageJson: {
-        version: "1.0.0",
-        dependencies: { "@pierre/diffs": "^1.2.12" },
-      },
+      serverPackageJson: { version: "1.0.0", dependencies: installedDependencies },
       catalog,
       patchedDependencies: {
+        "node-pty@1.1.0": "patches/node-pty@1.1.0.patch",
         "@pierre/diffs@1.3.5": "patches/@pierre%2Fdiffs@1.3.5.patch",
-        "@effect/platform-node-shared@https://pkg.example/shared@abc":
-          "patches/@effect%2Fplatform-node-shared@abc.patch",
       },
     });
-    expect(manifest.packageJson.dependencies).toEqual({ "@pierre/diffs": "1.3.5" });
-    expect(manifest.packageJson.overrides).toEqual({
-      "@effect/platform-node-shared": "https://pkg.example/shared@abc",
-    });
-    expect(remoteServerPatchIndex(manifest.patches)).toBe(
-      "@pierre/diffs\t@pierre%2Fdiffs@1.3.5.patch\n" +
-        "@effect/platform-node-shared\t@effect%2Fplatform-node-shared@abc.patch\n",
-    );
+    expect(manifest.packageJson.dependencies["node-pty"]).toBe("1.1.0");
+    expect(manifest.packageJson.overrides).toEqual({});
+    expect(remoteServerPatchIndex(manifest.patches)).toBe("node-pty\tnode-pty@1.1.0.patch\n");
+    expect(manifest.bundledPatches).toEqual([
+      {
+        packageName: "@pierre/diffs",
+        patchPath: "patches/@pierre%2Fdiffs@1.3.5.patch",
+        fileName: "@pierre%2Fdiffs@1.3.5.patch",
+      },
+    ]);
   });
 
   it("refuses workspace and unresolved catalog dependencies", () => {
     expect(() =>
       createRemoteServerInstallManifest({
-        serverPackageJson: { version: "1.0.0", dependencies: { "@saint/shared": "workspace:*" } },
+        serverPackageJson: {
+          version: "1.0.0",
+          dependencies: { ...installedDependencies, open: "workspace:*" },
+        },
         catalog,
       }),
     ).toThrow(/workspace package/);
     expect(() =>
       createRemoteServerInstallManifest({
-        serverPackageJson: { version: "1.0.0", dependencies: { vitest: "catalog:" } },
-        catalog,
+        serverPackageJson: { version: "1.0.0", dependencies: installedDependencies },
+        catalog: {},
       }),
     ).toThrow(/Unable to resolve/);
+  });
+});
+
+describe("isRemoteServerExternalModule", () => {
+  it("keeps installed, refused-provider, and Bun modules external", () => {
+    for (const name of REMOTE_SERVER_INSTALLED_DEPENDENCIES) {
+      expect(isRemoteServerExternalModule(name)).toBe(true);
+    }
+    expect(isRemoteServerExternalModule("typescript/lib/lib.d.ts")).toBe(true);
+    expect(isRemoteServerExternalModule("@agentclientprotocol/sdk")).toBe(true);
+    expect(isRemoteServerExternalModule("bun:sqlite")).toBe(true);
+  });
+
+  it("bundles everything else, including look-alike names", () => {
+    expect(isRemoteServerExternalModule("effect/Effect")).toBe(false);
+    expect(isRemoteServerExternalModule("node-pty-prebuilt")).toBe(false);
+    expect(isRemoteServerExternalModule("opener")).toBe(false);
   });
 });

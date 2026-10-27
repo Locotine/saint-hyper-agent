@@ -54,6 +54,7 @@ import { ServerAuth } from "./auth/Services/ServerAuth";
 import * as SqlitePersistence from "./persistence/Layers/Sqlite";
 import { ProviderRuntimeEventRepositoryLive } from "./persistence/Layers/ProviderRuntimeEvents";
 import { makeServerApplicationLayers } from "./serverLayers";
+import { IDLE_EXIT_ENV, parseIdleExitMs } from "./idleExit";
 import { startServerMemoryDiagnostics } from "./memoryDiagnostics";
 import {
   claudeCredentialKeepaliveTargets,
@@ -201,6 +202,11 @@ const CliEnvConfig = Config.all({
   trashDir: Config.string("SAINT_TRASH_DIR").pipe(Config.option, Config.map(Option.getOrUndefined)),
   logProviderEvents: optionalBooleanEnvironmentConfig("SAINT_LOG_PROVIDER_EVENTS"),
   logWebSocketEvents: optionalBooleanEnvironmentConfig("SAINT_LOG_WS_EVENTS"),
+  // Read as a string so a malformed value disables the feature instead of failing startup.
+  idleExitMs: Config.string(IDLE_EXIT_ENV).pipe(
+    Config.option,
+    Config.map((value) => parseIdleExitMs(Option.getOrUndefined(value))),
+  ),
 });
 
 const ServerConfigLive = (input: CliInput) =>
@@ -372,6 +378,7 @@ const ServerConfigLive = (input: CliInput) =>
         migrationDivergenceConsent,
         autoBootstrapProjectFromCwd,
         trashDir: env.trashDir,
+        ...(env.idleExitMs !== undefined ? { idleExitMs: env.idleExitMs } : {}),
         logProviderEvents,
         logWebSocketEvents,
       } satisfies ServerConfigShape;

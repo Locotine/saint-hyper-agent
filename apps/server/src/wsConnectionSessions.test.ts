@@ -26,9 +26,11 @@ describe("WsConnectionSessions", () => {
     expect(sessions.lookup(key)).toEqual(OWNER_SESSION);
     expect(sessions.lookup(undefined)).toBeUndefined();
     expect(sessions.lookup("unknown-key")).toBeUndefined();
+    expect(sessions.size()).toBe(1);
 
     await Effect.runPromise(Scope.close(scope, Exit.void));
     expect(sessions.lookup(key)).toBeUndefined();
+    expect(sessions.size()).toBe(0);
   });
 
   it("issues unguessable, unique keys per connection", async () => {

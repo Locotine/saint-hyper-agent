@@ -70,30 +70,41 @@ Saint (Stable and Beta) can run a server on another machine and open it in its o
 
 Open **Settings → Remote hosts**, enter an alias from `~/.ssh/config` (or `user@host`), and select **Connect**. The desktop app:
 
-1. Runs a probe over `ssh -o BatchMode=yes` in your login shell to check Node.js, npm, and any server already running.
-2. If this build is missing, uploads the server bundle the app ships (`apps/server/dist` with the web client), runs `npm install --omit=dev`, and applies the repository's dependency patches with `patch`. The install fails if a patch no longer applies. It leaves out the SDKs of providers the remote server does not run and the Claude Code binary bundled with the Agent SDK.
-3. Starts `node dist/index.mjs --mode web --host 127.0.0.1 --port <free port>` in the tmux session `<folder name>` (falls back to `nohup` without tmux), with `SAINT_PROVIDERS=codex,claudeAgent`. It also removes installed versions that no server runs (checked with `pgrep`).
-4. Forwards a local loopback port with `ssh -N -L` and opens a window whose backend is that port.
+1. Opens one shared SSH connection (`ControlMaster`, kept 120 s after its last use; not on Windows) and runs a probe over it with `ssh -o BatchMode=yes` in your login shell to check Node.js, npm, and any server already running.
+2. If this build is missing, uploads the remote server bundle the app ships (`apps/server/dist/remote`, with every pure-JavaScript dependency inlined, plus the web client). Only the packages that must stay on disk (`node-pty`, `typescript`, the Claude Agent SDK, `open`, `@xterm/headless`) are installed with `npm install --omit=dev --omit=optional`, once per dependency set, platform, and Node.js ABI, into `deps/`. Later builds with the same dependencies reuse that folder and run no npm at all. The install applies the repository's patches for those packages with `patch` and fails if one no longer applies; patched packages that are inlined are checked when the bundle is built. It leaves out the Claude Code binary bundled with the Agent SDK and keeps only the host's own `node-pty` prebuilds.
+3. Starts `node --max-old-space-size=1024 --max-semi-space-size=8 dist/index.mjs --mode web --host 127.0.0.1 --port <free port>` in the tmux session `<folder name>` (falls back to `nohup` without tmux), with `SAINT_PROVIDERS=codex,claudeAgent`. It also removes installed versions that no server runs (checked with `pgrep`) and dependency folders no remaining version uses.
+4. Forwards a local loopback port with `ssh -N -L` (its own connection) and opens a window whose backend is that port.
+
+To keep a host that many people share light, the remote server releases what it does not use:
+
+| Setting                                                | Effect                                                                                                                                                                                                                           |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SAINT_PROVIDER_RUNTIME_IDLE_STOP_MS=180000`           | An agent's `claude`/`codex` process stops 3 minutes after its last turn (10 minutes on a desktop) and resumes its session on the next message.                                                                                   |
+| `SAINT_IDLE_EXIT_MS=600000`                            | The server exits after 10 minutes with no open window, no running turn or provider background task, no terminal running a command or dev server, and no scheduled automation. The next **Connect** starts it again with its data. |
+| `--max-old-space-size=1024`, `--max-semi-space-size=8` | Caps the server's JavaScript heap at 1 GB (Node's default is about a quarter of RAM, up to roughly 4 GB) and uses a smaller young generation.                                                                                    |
 
 The remote server listens only on the remote loopback interface. The auth token is generated per start, sent over stdin, and stored in `<folder>/run/token` with mode 0600. It never appears in an ssh or process argument list.
 
 | Action                 | Effect                                                                                                        |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Disconnect             | Closes the tunnel and the host's windows. The server and its agents keep running.                             |
+| Disconnect             | Closes the tunnel and the host's windows. The server and its agents keep running until the server is idle.    |
 | Stop server            | Also stops the remote server. Installed files and data stay.                                                  |
 | Quit Saint             | Closes tunnels only.                                                                                          |
 | Close the local window | Remote windows stay open. Launching Saint again reopens the local window; the app quits with its last window. |
 
 Remote layout, relative to the remote home (shared folder `.saint-remote`, `.saint-beta-remote` for Beta):
 
-| Path                           | Contents                                                                                   |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| `versions/<build>/`            | Server bundle and `node_modules`, shared by every desktop and remote folder                |
-| `clients/<client-id>/home/`    | `SAINT_HOME` of this desktop's remote server (database, settings, threads)                 |
-| `clients/<client-id>/run/`     | `server.sh`, `server.pid`, `server.json`, `token`, `server.log`                            |
-| `clients/<client-id>/staging/` | Upload and `npm install` in progress; removed when the version is published to `versions/` |
+| Path                                 | Contents                                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `versions/<build>/`                  | Server bundle, shared by every desktop and remote folder; `node_modules` links into `deps/`       |
+| `deps/<hash>-<os>-<arch>-node<abi>/` | npm install of the bundle's external packages, shared by every version with the same dependencies |
+| `clients/<client-id>/home/`          | `SAINT_HOME` of this desktop's remote server (database, settings, threads)                        |
+| `clients/<client-id>/run/`           | `server.sh`, `server.pid`, `server.json`, `token`, `server.log`                                   |
+| `clients/<client-id>/staging/`       | Upload and `npm install` in progress; removed when the version is published to `versions/`        |
 
-`<build>` is the app version plus the first 12 hex digits of a SHA-256 of the server bundle (for example `1.0.9-3f2a9c1b7d4e`). A rebuild that keeps the version number therefore installs and starts its own server instead of reusing an older one, and the older install is removed once no server runs it.
+`<build>` is the app version plus the first 12 hex digits of a SHA-256 of the server bundle (for example `1.0.9-3f2a9c1b7d4e`). A rebuild that keeps the version number therefore installs and starts its own server instead of reusing an older one, and the older install is removed once no server runs it. `<hash>` covers the npm manifest and its patches only, and `<abi>` is `process.versions.modules` of the host's `node`, so upgrading Node.js on the host installs matching native modules on the next connect.
+
+An administrator can install a build once for every account of a host. Copy a connected account's `versions/<build>` and the `deps/` folder it links to into one read-only folder (for example `cp -R ~/.saint-beta-remote/versions ~/.saint-beta-remote/deps <shared>/`, which keeps the relative links), and set `SAINT_REMOTE_SHARED_STORE=<shared>` (an absolute path) in the environment of every user's login shell. A desktop whose build and Node.js ABI match a version there runs it in place and uploads and installs nothing; otherwise it installs into its own account as usual. Clients never write to or remove from the shared folder, so the administrator removes old builds. Make it writable only by the administrator: every account runs its code.
 
 `<client-id>` is the local user name plus 8 random hex digits (for example `anh-0a1b2c3d`), created once per desktop install and stored in `userdata/remote-ssh-client-id`. Desktops that reach the same remote account therefore run separate servers, with their own data and tmux session, and never see each other's threads. They share only the installed versions; the first to finish installing a version publishes it with one atomic rename and the others reuse it. This separates data per desktop, not per Unix user: anyone with a shell on that remote account can still read every folder.
 
@@ -101,7 +112,7 @@ Remote layout, relative to the remote home (shared folder `.saint-remote`, `.sai
 
 The remote server runs only Codex and Claude, through the `codex` and `claude` CLIs on the host's `PATH` (or the binary paths set in **Settings → Providers**). Other providers are hidden in remote windows, and the server refuses them.
 
-Host requirements: key-based SSH (no password prompts), Node.js 22.16+ (23.11+ on the 23 line, or 24+) and npm on the login shell's `PATH`, `patch`, tmux (recommended), and, on Linux, a C/C++ toolchain and Python for `node-pty`. Install and sign in to `codex` and/or `claude` on the host itself.
+Host requirements: key-based SSH (no password prompts), Node.js 22.16+ (23.11+ on the 23 line, or 24+) on the login shell's `PATH`, tmux (recommended), and, for the first install of a dependency set, npm, `patch`, and on Linux a C/C++ toolchain and Python for `node-pty`. Install and sign in to `codex` and/or `claude` on the host itself.
 
 In a remote window, paths belong to the host:
 

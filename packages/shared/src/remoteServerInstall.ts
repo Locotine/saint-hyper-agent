@@ -2,7 +2,8 @@
 // Purpose: Builds the npm manifest a remote SSH host installs the Saint server from.
 // Layer: Shared runtime utility (desktop main and the desktop artifact build)
 // Exports: createRemoteServerInstallManifest, remoteServerPatchIndex,
-//          REMOTE_SERVER_OMITTED_DEPENDENCIES
+//          REMOTE_SERVER_INSTALLED_DEPENDENCIES, REMOTE_SERVER_EXTERNAL_MODULES,
+//          isRemoteServerExternalModule, parsePatchAddedLines
 
 /** A Bun patch the remote applies after `npm install`, since npm never reads `patchedDependencies`. */
 export interface RemoteServerPatch {
@@ -22,7 +23,13 @@ export interface RemoteServerInstallManifest {
     readonly dependencies: Record<string, string>;
     readonly overrides: Record<string, string>;
   };
+  /** Patches the host applies after `npm install` (installed dependencies only). */
   readonly patches: readonly RemoteServerPatch[];
+  /**
+   * Patches of every other package. The remote bundle inlines those from the
+   * repository's patched install, so the build verifies them instead.
+   */
+  readonly bundledPatches: readonly RemoteServerPatch[];
 }
 
 export interface RemoteServerInstallManifestInput {
@@ -39,13 +46,47 @@ export interface RemoteServerInstallManifestInput {
 }
 
 /**
- * Dependencies only the providers a remote server leaves out load (lazily), so
- * remote installs skip them. See REMOTE_SERVER_PROVIDERS in `./serverProviders`.
+ * The only server dependencies a remote host installs with npm. The remote
+ * bundle (`apps/server/tsdown.remote.config.ts`) inlines every other package,
+ * so a new version uploads plain JavaScript and the host reuses one install of
+ * these per native ABI. Each one must stay a real package on disk: node-pty is
+ * native, typescript reads its `lib.*.d.ts` files next to itself, the Agent SDK
+ * resolves its own files, open runs the `xdg-open` script it ships, and the
+ * server loads @xterm/headless through `createRequire`, which no bundler follows.
  */
-export const REMOTE_SERVER_OMITTED_DEPENDENCIES: readonly string[] = [
+export const REMOTE_SERVER_INSTALLED_DEPENDENCIES: readonly string[] = [
+  "node-pty",
+  "typescript",
+  "@anthropic-ai/claude-agent-sdk",
+  "open",
+  "@xterm/headless",
+];
+
+/**
+ * Modules the remote bundle leaves as imports but the host never installs:
+ * Bun builtins (guarded by `process.versions.bun`), the SDKs of providers a
+ * remote server refuses (loaded lazily), and the optional native helpers `ws`
+ * probes for inside try/catch.
+ */
+const REMOTE_SERVER_UNINSTALLED_EXTERNALS: readonly string[] = [
   "@earendil-works/pi-coding-agent",
   "@agentclientprotocol/sdk",
+  "@effect/sql-sqlite-bun",
+  "bufferutil",
+  "utf-8-validate",
 ];
+
+/** Every module the remote bundle keeps external, installed or not. */
+export const REMOTE_SERVER_EXTERNAL_MODULES: readonly string[] = [
+  ...REMOTE_SERVER_INSTALLED_DEPENDENCIES,
+  ...REMOTE_SERVER_UNINSTALLED_EXTERNALS,
+];
+
+/** Whether the remote bundle keeps `id` (a bare import specifier) external. */
+export function isRemoteServerExternalModule(id: string): boolean {
+  if (id.startsWith("bun:")) return true;
+  return REMOTE_SERVER_EXTERNAL_MODULES.some((name) => id === name || id.startsWith(`${name}/`));
+}
 
 function resolveSpec(
   name: string,
@@ -90,9 +131,12 @@ export function createRemoteServerInstallManifest(
   input: RemoteServerInstallManifestInput,
 ): RemoteServerInstallManifest {
   const dependencies: Record<string, string> = {};
-  for (const [name, spec] of Object.entries(input.serverPackageJson.dependencies ?? {})) {
-    if (REMOTE_SERVER_OMITTED_DEPENDENCIES.includes(name)) continue;
-    dependencies[name] = resolveSpec(name, spec, input.catalog, "dependency");
+  const serverDependencies = input.serverPackageJson.dependencies ?? {};
+  for (const name of REMOTE_SERVER_INSTALLED_DEPENDENCIES) {
+    if (!Object.hasOwn(serverDependencies, name)) {
+      throw new Error(`Remote server dependency '${name}' is not a server dependency.`);
+    }
+    dependencies[name] = resolveSpec(name, serverDependencies[name], input.catalog, "dependency");
   }
 
   const overrides: Record<string, string> = {};
@@ -105,17 +149,19 @@ export function createRemoteServerInstallManifest(
   }
 
   const patches: RemoteServerPatch[] = [];
+  const bundledPatches: RemoteServerPatch[] = [];
   for (const [key, patchPath] of Object.entries(input.patchedDependencies ?? {})) {
     const parts = splitPatchedDependencyKey(key);
     if (!parts || typeof patchPath !== "string") continue;
     const [packageName, spec] = parts;
-    if (dependencies[packageName] !== undefined) {
-      dependencies[packageName] = spec;
-      if (overrides[packageName] !== undefined) overrides[packageName] = spec;
-    } else {
-      overrides[packageName] = spec;
+    const patch = { packageName, patchPath, fileName: patchFileName(patchPath) };
+    if (dependencies[packageName] === undefined) {
+      bundledPatches.push(patch);
+      continue;
     }
-    patches.push({ packageName, patchPath, fileName: patchFileName(patchPath) });
+    dependencies[packageName] = spec;
+    if (overrides[packageName] !== undefined) overrides[packageName] = spec;
+    patches.push(patch);
   }
 
   return {
@@ -128,10 +174,47 @@ export function createRemoteServerInstallManifest(
       overrides,
     },
     patches,
+    bundledPatches,
   };
 }
 
 /** Tab-separated `packageName<TAB>fileName` lines the remote install script reads. */
 export function remoteServerPatchIndex(patches: readonly RemoteServerPatch[]): string {
   return patches.map((patch) => `${patch.packageName}\t${patch.fileName}\n`).join("");
+}
+
+export interface PatchFileExpectation {
+  /** Path inside the patched package, e.g. `dist/index.js`. */
+  readonly file: string;
+  /** Trimmed, non-empty lines the patch adds to that file. */
+  readonly addedLines: ReadonlyArray<string>;
+}
+
+/**
+ * The lines a unified-diff patch adds, per target file. Builds check them in
+ * installed packages because package managers can skip a tracked patch
+ * silently (that shipped broken Windows provider updates in v0.5.2–v0.5.5).
+ */
+export function parsePatchAddedLines(patchContents: string): PatchFileExpectation[] {
+  const expectations: Array<{ file: string; addedLines: string[] }> = [];
+  let current: { file: string; addedLines: string[] } | null = null;
+  for (const line of patchContents.split("\n")) {
+    if (line.startsWith("+++ ")) {
+      const target = line.slice(4).trim();
+      if (target === "/dev/null") {
+        current = null;
+        continue;
+      }
+      current = { file: target.startsWith("b/") ? target.slice(2) : target, addedLines: [] };
+      expectations.push(current);
+      continue;
+    }
+    if (current && line.startsWith("+")) {
+      const added = line.slice(1).trim();
+      if (added.length > 0) {
+        current.addedLines.push(added);
+      }
+    }
+  }
+  return expectations.filter((expectation) => expectation.addedLines.length > 0);
 }

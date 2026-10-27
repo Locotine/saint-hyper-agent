@@ -3703,13 +3703,22 @@ const computerFrameRouteLayer = makeComputerFrameRouteLayer({
     }),
 });
 
-export const websocketRpcRouteLayer = Layer.mergeAll(
-  deviceFrameRouteLayer,
-  computerFrameRouteLayer,
-  makeWebsocketNegotiationRouteLayer(),
-  // The registry must be provided here so the upgrade route and the RPC
-  // middleware (built from the same source effect) share one instance.
-  makeWebsocketRpcRouteLayer(makeRpcWebSocketHttpEffect).pipe(
-    Layer.provide(WsConnectionSessionsLive),
-  ),
-);
+/**
+ * Builds the WebSocket routes around one connection-session registry. The
+ * registry must be provided here so the upgrade route and the RPC middleware
+ * (built from the same source effect) share one instance; the server passes
+ * its own instance so idle-exit can observe live connections.
+ */
+export const makeWebsocketRpcRoutesLayer = (
+  connectionSessionsLayer: Layer.Layer<WsConnectionSessions> = WsConnectionSessionsLive,
+) =>
+  Layer.mergeAll(
+    deviceFrameRouteLayer,
+    computerFrameRouteLayer,
+    makeWebsocketNegotiationRouteLayer(),
+    makeWebsocketRpcRouteLayer(makeRpcWebSocketHttpEffect).pipe(
+      Layer.provide(connectionSessionsLayer),
+    ),
+  );
+
+export const websocketRpcRouteLayer = makeWebsocketRpcRoutesLayer();

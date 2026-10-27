@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { remoteInstallVersion } from "./remoteSshBundle";
+import { remoteInstallDepsHash, remoteInstallVersion } from "./remoteSshBundle";
 
 const entry = (path: string, contents: string) => ({ path, contents: Buffer.from(contents) });
 
@@ -25,5 +25,20 @@ describe("remoteInstallVersion", () => {
     expect(remoteInstallVersion("1.0.9", [first, second])).toBe(
       remoteInstallVersion("1.0.9", [second, first]),
     );
+  });
+});
+
+describe("remoteInstallDepsHash", () => {
+  it("follows the npm manifest and patches but not the bundle", () => {
+    const manifest = [entry("package.json", "{}"), entry("patches/index.tsv", "")];
+    const hash = remoteInstallDepsHash([...manifest, entry("dist/index.mjs", "a")]);
+    expect(hash).toMatch(/^[0-9a-f]{12}$/u);
+    expect(remoteInstallDepsHash([...manifest, entry("dist/index.mjs", "b")])).toBe(hash);
+    expect(
+      remoteInstallDepsHash([
+        entry("package.json", '{"dependencies":{}}'),
+        entry("patches/index.tsv", ""),
+      ]),
+    ).not.toBe(hash);
   });
 });

@@ -292,6 +292,7 @@ import { registerSafariAccessIpc } from "./safariAccessIpc";
 import {
   collectRemoteInstallEntries,
   createTarGzStream,
+  remoteInstallDepsHash,
   remoteInstallVersion,
 } from "./remoteSshBundle";
 import {
@@ -5904,6 +5905,21 @@ function resolveRemoteSshDefaultRoot(): string {
   return clientRemoteRoot(REMOTE_SSH_STORE_ROOT, clientId);
 }
 
+/**
+ * Folder for the SSH connection-sharing sockets of remote hosts, inside this
+ * flavor's state folder. Windows OpenSSH has no ControlMaster.
+ */
+function resolveRemoteSshControlDir(): string | null {
+  if (process.platform === "win32" || !REMOTE_SSH_ENABLED) return null;
+  const dir = Path.join(STATE_DIR, "ssh");
+  try {
+    FS.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    return dir;
+  } catch {
+    return null;
+  }
+}
+
 function readSavedRemoteSshHosts() {
   try {
     return parseSavedRemoteSshHosts(FS.readFileSync(REMOTE_SSH_HOSTS_PATH, "utf8"));
@@ -5917,8 +5933,13 @@ function registerRemoteSshHandlers(): void {
   remoteSshManager ??= new RemoteSshManager({
     spawn: (command, args, options) =>
       spawnProcess(command, args, { ...options, env: process.env }),
-    installVersion: () =>
-      remoteInstallVersion(app.getVersion(), collectRemoteInstallEntries(resolveAppRoot())),
+    installIdentity: () => {
+      const entries = collectRemoteInstallEntries(resolveAppRoot());
+      return {
+        version: remoteInstallVersion(app.getVersion(), entries),
+        depsHash: remoteInstallDepsHash(entries),
+      };
+    },
     defaultRemoteRoot: remoteSshDefaultRoot,
     storeRoot: REMOTE_SSH_STORE_ROOT,
     createInstallBundle: () => createTarGzStream(collectRemoteInstallEntries(resolveAppRoot())),
@@ -5934,6 +5955,7 @@ function registerRemoteSshHandlers(): void {
     devUrl: isDevelopment ? process.env.VITE_DEV_SERVER_URL : undefined,
     log: (message) => writeDesktopLogHeader(message),
     onStateChange: () => publishRemoteSshState(),
+    sshControlDir: resolveRemoteSshControlDir(),
   });
   const registration = registerRemoteSshIpc(ipcMain, {
     enabled: REMOTE_SSH_ENABLED,

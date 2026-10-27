@@ -3,7 +3,7 @@
 //          dependency patches, into a gzipped tar stream for upload to a remote SSH host.
 // Layer: Desktop remote SSH utility
 // Exports: loadRemoteInstallManifest, collectRemoteInstallEntries, remoteInstallVersion,
-//          createTarGzStream
+//          remoteInstallDepsHash, createTarGzStream
 
 import * as Crypto from "node:crypto";
 import * as FS from "node:fs";
@@ -19,7 +19,8 @@ import {
 
 /**
  * Folder the desktop artifact build stages next to `apps/server/dist` with the
- * resolved `package.json` and `patches/`. Source checkouts have no such folder
+ * resolved `package.json` and `patches/` of the dependencies the remote
+ * bundle keeps external. Source checkouts have no such folder
  * and derive the same content from the workspace manifests instead.
  */
 export const REMOTE_INSTALL_STAGE_DIR = "apps/server/remote-install";
@@ -104,25 +105,45 @@ function collectDirectory(root: string, prefix: string, entries: RemoteInstallEn
   }
 }
 
+/** Folders of `apps/server/dist` a remote server reads at runtime besides its own bundle. */
+const REMOTE_DIST_ASSET_DIRS = ["client", "device-helper"];
+
 /**
- * Everything the remote needs to `npm install` and run the server: the built
- * `dist/` (including the bundled web client), `package.json`, and `patches/`.
- * Reads go through Electron's asar-aware fs, so this works from a packaged app.
+ * Everything the remote needs to install and run the server: the remote bundle
+ * (`apps/server/dist/remote`, every pure-JavaScript dependency inlined) as
+ * `dist/`, the bundled web client and other runtime assets, and the npm
+ * manifest and `patches/` for the few dependencies it keeps external. Reads go
+ * through Electron's asar-aware fs, so this works from a packaged app.
  */
 export function collectRemoteInstallEntries(appRoot: string): RemoteInstallEntry[] {
   const distDir = Path.join(appRoot, "apps/server/dist");
-  if (!FS.existsSync(Path.join(distDir, "index.mjs"))) {
-    throw new Error(`The Saint server bundle is missing at ${distDir}. Build apps/server first.`);
+  const remoteDir = Path.join(distDir, "remote");
+  if (!FS.existsSync(Path.join(remoteDir, "index.mjs"))) {
+    throw new Error(
+      `The Saint remote server bundle is missing at ${remoteDir}. Build apps/server first.`,
+    );
   }
   const manifest = loadRemoteInstallManifest(appRoot);
   const entries: RemoteInstallEntry[] = [];
-  collectDirectory(distDir, "dist", entries);
+  collectDirectory(remoteDir, "dist", entries);
+  for (const assetDir of REMOTE_DIST_ASSET_DIRS) {
+    const absolute = Path.join(distDir, assetDir);
+    if (FS.existsSync(absolute)) collectDirectory(absolute, `dist/${assetDir}`, entries);
+  }
   entries.push({ path: "package.json", contents: Buffer.from(manifest.packageJson) });
   entries.push({ path: "patches/index.tsv", contents: Buffer.from(manifest.patchIndex) });
   for (const patch of manifest.patches) {
     entries.push({ path: `patches/${patch.fileName}`, contents: patch.contents });
   }
   return entries;
+}
+
+function hashEntries(entries: readonly RemoteInstallEntry[]): string {
+  const hash = Crypto.createHash("sha256");
+  for (const entry of entries.toSorted((a, b) => (a.path < b.path ? -1 : 1))) {
+    hash.update(entry.path).update("\0").update(entry.contents).update("\0");
+  }
+  return hash.digest("hex").slice(0, 12);
 }
 
 /**
@@ -135,11 +156,18 @@ export function remoteInstallVersion(
   appVersion: string,
   entries: readonly RemoteInstallEntry[],
 ): string {
-  const hash = Crypto.createHash("sha256");
-  for (const entry of entries.toSorted((a, b) => (a.path < b.path ? -1 : 1))) {
-    hash.update(entry.path).update("\0").update(entry.contents).update("\0");
-  }
-  return `${appVersion}-${hash.digest("hex").slice(0, 12)}`;
+  return `${appVersion}-${hashEntries(entries)}`;
+}
+
+/**
+ * Hash of what the host installs with npm (the manifest and its patches). Builds
+ * that change only the bundle keep it, so their versions reuse one `deps/`
+ * install instead of running npm again.
+ */
+export function remoteInstallDepsHash(entries: readonly RemoteInstallEntry[]): string {
+  return hashEntries(
+    entries.filter((entry) => entry.path === "package.json" || entry.path.startsWith("patches/")),
+  );
 }
 
 const TAR_BLOCK = 512;

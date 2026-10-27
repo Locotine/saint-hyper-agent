@@ -25,6 +25,7 @@ const target = {
   remoteRoot: "squad/saint-remote",
   storeRoot: ".saint-remote",
   version: "1.2.3",
+  depsHash: "0123456789ab",
 };
 
 describe("remote script builders", () => {
@@ -39,6 +40,7 @@ describe("remote script builders", () => {
 
   it("refuses versions and tokens that are unsafe to embed", () => {
     expect(() => buildRemoteProbeScript({ ...target, version: "1.0; rm -rf ~" })).toThrow();
+    expect(() => buildRemoteProbeScript({ ...target, depsHash: "$(id)" })).toThrow();
     expect(() => buildRemoteStartScript(target, { token: "a'b" })).toThrow();
     expect(() =>
       buildRemoteStartScript(target, { token: "abc", devUrl: "http://x/$(id)" }),
@@ -69,6 +71,7 @@ describe("report parsers", () => {
       nodeVersion: "v24.17.0",
       npm: true,
       installed: false,
+      depsInstalled: false,
       server: { port: 4100, version: "1.2.3", token: "abc" },
     });
   });
@@ -78,7 +81,13 @@ describe("report parsers", () => {
       parseRemoteProbeReport(
         'SAINT_REMOTE {"kind":"probe","node":"","npm":false,"installed":true,"server":{"info":{"port":"x"}}}',
       ),
-    ).toEqual({ nodeVersion: null, npm: false, installed: true, server: null });
+    ).toEqual({
+      nodeVersion: null,
+      npm: false,
+      installed: true,
+      depsInstalled: false,
+      server: null,
+    });
     expect(parseRemoteProbeReport("no report")).toBeNull();
   });
 
@@ -113,10 +122,10 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
   let home: string;
   let bin: string;
 
-  const run = (script: string, input?: Buffer | string) =>
+  const run = (script: string, input?: Buffer | string, env: Record<string, string> = {}) =>
     spawnSync("sh", input === undefined ? ["-s"] : ["-c", script], {
       input: input ?? script,
-      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin` },
+      env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, ...env },
       encoding: "utf8",
       timeout: 60_000,
     });
@@ -130,9 +139,12 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
       Path.join(bin, "npm"),
       [
         "#!/bin/sh",
+        'echo "$*" >>"$HOME/npm-runs"',
         "mkdir -p node_modules/@pierre/diffs node_modules/@anthropic-ai/claude-agent-sdk-linux-x64",
         'printf "old\\n" >node_modules/@pierre/diffs/index.js',
         ": >node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude",
+        "here=$(node -p 'process.platform + \"-\" + process.arch')",
+        'mkdir -p "node_modules/node-pty/prebuilds/$here" node_modules/node-pty/prebuilds/win32-x64',
         "",
       ].join("\n"),
       { mode: 0o755 },
@@ -184,9 +196,19 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     expect(install.stderr).toBe("");
     expect(hasRemoteReport(install.stdout, "installed")).toBe(true);
     const installDir = Path.join(home, target.storeRoot, "versions", target.version);
+    // node_modules links to the shared dependency folder for this ABI.
+    const link = FS.readlinkSync(Path.join(installDir, "node_modules"));
+    expect(link).toMatch(
+      new RegExp(`^\\.\\./\\.\\./deps/${target.depsHash}-[a-z]+-[^/]+-node\\d+/node_modules$`, "u"),
+    );
     expect(
       FS.readFileSync(Path.join(installDir, "node_modules/@pierre/diffs/index.js"), "utf8"),
     ).toBe("patched\n");
+    expect(FS.readFileSync(Path.join(home, "npm-runs"), "utf8")).toContain("--omit=optional");
+    // Only this platform's node-pty prebuilds stay.
+    expect(FS.readdirSync(Path.join(installDir, "node_modules/node-pty/prebuilds"))).toEqual([
+      `${process.platform}-${process.arch}`,
+    ]);
     // The host's `claude` runs agents, so the SDK's bundled binary is dropped.
     expect(FS.existsSync(Path.join(installDir, "node_modules/@anthropic-ai"))).toBe(true);
     expect(
@@ -205,10 +227,14 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     const serverScript = FS.readFileSync(Path.join(runDir, "server.sh"), "utf8");
     expect(serverScript).not.toContain("tok123");
     expect(serverScript).toContain("export SAINT_PROVIDERS=codex,claudeAgent");
+    expect(serverScript).toContain("export SAINT_PROVIDER_RUNTIME_IDLE_STOP_MS=180000");
+    expect(serverScript).toContain("export SAINT_IDLE_EXIT_MS=600000");
+    expect(serverScript).toContain("exec node --max-old-space-size=1024 --max-semi-space-size=8 ");
 
     const reprobe = parseRemoteProbeReport(run(buildRemoteProbeScript(target)).stdout);
     expect(reprobe).toMatchObject({
       installed: true,
+      depsInstalled: true,
       server: { port: started?.port, version: target.version, token: "tok123" },
     });
 
@@ -280,6 +306,132 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
       busy.kill();
     }
     run(buildRemoteStopScript(other));
+  }, 90_000);
+
+  const bundle = async (entries: Array<{ path: string; contents: string }>) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of createTarGzStream(
+      entries.map((entry) => ({ path: entry.path, contents: Buffer.from(entry.contents) })),
+    )) {
+      chunks.push(chunk as Buffer);
+    }
+    return Buffer.concat(chunks);
+  };
+  const okServer = [
+    'import { createServer } from "node:http";',
+    'const port = Number(process.argv[process.argv.indexOf("--port") + 1]);',
+    'createServer((req, res) => res.end("ok")).listen(port, "127.0.0.1");',
+  ].join("\n");
+  const install = async (scriptTarget: typeof target, server = okServer) => {
+    const upload = run(
+      buildRemoteUploadCommand(scriptTarget),
+      await bundle([
+        { path: "dist/index.mjs", contents: server },
+        { path: "package.json", contents: "{}" },
+      ]),
+    );
+    expect(upload.status).toBe(0);
+    const result = run(buildRemoteInstallScript(scriptTarget));
+    expect(result.stderr).toBe("");
+    expect(hasRemoteReport(result.stdout, "installed")).toBe(true);
+  };
+  const npmRuns = () =>
+    FS.existsSync(Path.join(home, "npm-runs"))
+      ? FS.readFileSync(Path.join(home, "npm-runs"), "utf8").trim().split("\n").length
+      : 0;
+
+  it("reuses installed dependencies for a new version and moves links on a new hash", async () => {
+    await install(target);
+    expect(npmRuns()).toBe(1);
+
+    // A rebuild with the same npm manifest installs no dependencies again.
+    const next = { ...target, version: "1.2.4" };
+    expect(parseRemoteProbeReport(run(buildRemoteProbeScript(next)).stdout)).toMatchObject({
+      installed: false,
+      depsInstalled: true,
+    });
+    await install(next);
+    expect(npmRuns()).toBe(1);
+
+    // New dependencies for an installed version relink it in place.
+    const relinked = { ...target, depsHash: "fedcba987654" };
+    expect(parseRemoteProbeReport(run(buildRemoteProbeScript(relinked)).stdout)).toMatchObject({
+      installed: false,
+      depsInstalled: false,
+    });
+    await install(relinked);
+    expect(npmRuns()).toBe(2);
+    const versionDir = Path.join(home, target.storeRoot, "versions", target.version);
+    expect(FS.readlinkSync(Path.join(versionDir, "node_modules"))).toContain("/fedcba987654-");
+    expect(parseRemoteProbeReport(run(buildRemoteProbeScript(relinked)).stdout)?.installed).toBe(
+      true,
+    );
+  }, 90_000);
+
+  it("removes dependency folders no version links once they are an hour old", async () => {
+    await install(target);
+    const depsStore = Path.join(home, target.storeRoot, "deps");
+    const stale = Path.join(depsStore, "aaaaaaaaaaaa-linux-x64-node1");
+    const fresh = Path.join(depsStore, "bbbbbbbbbbbb-linux-x64-node1");
+    FS.mkdirSync(stale);
+    FS.mkdirSync(fresh);
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    FS.utimesSync(stale, old, old);
+    const start = run(buildRemoteStartScript(target, { token: "tok1" }));
+    expect(start.stderr).toBe("");
+    const left = FS.readdirSync(depsStore);
+    expect(left).not.toContain(Path.basename(stale));
+    expect(left).toContain(Path.basename(fresh));
+    expect(left.some((name) => name.startsWith(`${target.depsHash}-`))).toBe(true);
+  }, 90_000);
+
+  it("runs a version from the read-only shared store without installing", async () => {
+    // An administrator's install, copied as is into the shared store.
+    await install(target);
+    const shared = Path.join(home, "shared-store");
+    FS.cpSync(Path.join(home, target.storeRoot), shared, {
+      recursive: true,
+      verbatimSymlinks: true,
+    });
+    FS.rmSync(Path.join(home, target.storeRoot), { recursive: true, force: true });
+    const env = { SAINT_REMOTE_SHARED_STORE: shared };
+
+    const probe = parseRemoteProbeReport(
+      run(buildRemoteProbeScript(target), undefined, env).stdout,
+    );
+    expect(probe).toMatchObject({ installed: true, server: null });
+    const start = run(buildRemoteStartScript(target, { token: "tok2" }), undefined, env);
+    expect(start.stderr).toBe("");
+    expect(parseRemoteStartReport(start.stdout)).not.toBeNull();
+    const serverScript = FS.readFileSync(
+      Path.join(home, target.remoteRoot, "run", "server.sh"),
+      "utf8",
+    );
+    expect(serverScript).toContain(`${shared}/versions/${target.version}/dist/index.mjs`);
+    expect(FS.existsSync(Path.join(shared, "versions", target.version))).toBe(true);
+
+    // A relative or unset path is ignored.
+    const relative = { SAINT_REMOTE_SHARED_STORE: "shared-store" };
+    expect(
+      parseRemoteProbeReport(run(buildRemoteProbeScript(target), undefined, relative).stdout)
+        ?.installed,
+    ).toBe(false);
+    run(buildRemoteStopScript(target), undefined, env);
+  }, 90_000);
+
+  it("treats a pid file whose process is not a Saint server as no server", async () => {
+    await install(target);
+    const runDir = Path.join(home, target.remoteRoot, "run");
+    FS.mkdirSync(runDir, { recursive: true });
+    const other = spawn("sleep", ["30"], { stdio: "ignore" });
+    try {
+      FS.writeFileSync(Path.join(runDir, "server.pid"), String(other.pid));
+      FS.writeFileSync(Path.join(runDir, "server.json"), '{"port":4100,"version":"1.2.3"}');
+      FS.writeFileSync(Path.join(runDir, "token"), "tok");
+      expect(parseRemoteProbeReport(run(buildRemoteProbeScript(target)).stdout)?.server).toBeNull();
+    } finally {
+      other.kill();
+    }
   }, 90_000);
 });
 

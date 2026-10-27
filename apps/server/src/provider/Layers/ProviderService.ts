@@ -5225,6 +5225,14 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
     const hasLiveRuntimeTasks: NonNullable<ProviderServiceShape["hasLiveRuntimeTasks"]> = (input) =>
       Effect.sync(() => (liveRuntimeTaskIds.get(input.threadId)?.size ?? 0) > 0);
 
+    const hasAnyLiveRuntimeTasks: NonNullable<ProviderServiceShape["hasAnyLiveRuntimeTasks"]> =
+      Effect.sync(() => {
+        for (const taskIds of liveRuntimeTaskIds.values()) {
+          if (taskIds.size > 0) return true;
+        }
+        return false;
+      });
+
     stopIdleRuntimeSession = (threadId, generation, cleanupStarted = false) => {
       const stopEffect = Effect.gen(function* () {
         if (!isRuntimeIdleGenerationCurrent(threadId, generation)) {
@@ -5739,6 +5747,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
       getRuntimeSessionStopTarget,
       withRuntimeSessionStopTarget,
       hasLiveRuntimeTasks,
+      hasAnyLiveRuntimeTasks,
       clearSessionResumeCursor,
       listSessions,
       listRetainedSessions,

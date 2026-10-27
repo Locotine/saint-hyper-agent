@@ -41,6 +41,8 @@ export interface WsConnectionSessionsShape {
   readonly lookup: (key: string | undefined) => WsConnectionSession | undefined;
   /** Registers cleanup on a live socket; false means it has already closed. */
   readonly onClose: (key: string, cleanup: () => void) => boolean;
+  /** Number of RPC WebSocket connections currently open (registered and not yet closed). */
+  readonly size: () => number;
 }
 
 export class WsConnectionSessions extends ServiceMap.Service<
@@ -76,6 +78,7 @@ export const makeWsConnectionSessions = Effect.sync(() => {
       connection.cleanups.add(cleanup);
       return true;
     },
+    size: () => sessions.size,
   } satisfies WsConnectionSessionsShape;
 });
 

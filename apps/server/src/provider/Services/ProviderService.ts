@@ -287,6 +287,9 @@ export interface ProviderServiceShape {
    */
   readonly hasLiveRuntimeTasks?: (input: { readonly threadId: ThreadId }) => Effect.Effect<boolean>;
 
+  /** True while any thread still has a provider-native background task running. */
+  readonly hasAnyLiveRuntimeTasks?: Effect.Effect<boolean>;
+
   /**
    * Forget a stale provider-native resume cursor while preserving local routing
    * metadata such as provider options and runtime mode.

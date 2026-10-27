@@ -142,6 +142,18 @@ const buildCmd = Command.make(
         })`bun tsdown`,
       );
 
+      // Remote SSH hosts run a second bundle with its dependencies inlined, so
+      // they install only a few packages (apps/desktop/src/remoteSshBundle.ts).
+      yield* Effect.log("[cli] Running tsdown for the remote SSH bundle...");
+      yield* runCommand(
+        ChildProcess.make({
+          cwd: serverDir,
+          stdout: config.verbose ? "inherit" : "ignore",
+          stderr: "inherit",
+          shell: process.platform === "win32",
+        })`bun tsdown -c tsdown.remote.config.ts`,
+      );
+
       // The device backend compiles this helper against the user's installed
       // Xcode on first attach. tsdown bundles JavaScript only, and desktop/CLI
       // packaging stage only `dist`, so leaving the sources under `native`
@@ -212,6 +224,8 @@ const stageDistributionPackage = Effect.fn("stageDistributionPackage")(function*
     prefix: "saint-cli-publish-",
   });
   yield* fs.copy(path.join(serverDir, "dist"), path.join(stagedPackageDir, "dist"));
+  // The npm CLI runs `dist` with its own dependencies; only remote SSH hosts use this bundle.
+  yield* fs.remove(path.join(stagedPackageDir, "dist/remote"), { recursive: true, force: true });
   for (const binTarget of Object.values(pkg.bin)) {
     if (typeof binTarget !== "string" || !binTarget.startsWith("dist/")) {
       return yield* new CliError({

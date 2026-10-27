@@ -38,8 +38,11 @@ export interface RemoteSshManagerDependencies {
     args: readonly string[],
     options: RuntimeSpawnOptions,
   ) => ChildProcess;
-  /** Install folder name of this build's server (see `remoteInstallVersion`); called once. */
-  readonly installVersion: () => string;
+  /**
+   * Install folder name of this build's server (see `remoteInstallVersion`) and
+   * the hash of its npm dependencies (see `remoteInstallDepsHash`); called once.
+   */
+  readonly installIdentity: () => RemoteInstallIdentity;
   /** Install folder of hosts with none of their own; this client's folder (see `clientRemoteRoot`). */
   readonly defaultRemoteRoot: string;
   /** Folder whose `versions/` every install folder on a host shares. */
@@ -52,6 +55,16 @@ export interface RemoteSshManagerDependencies {
   readonly devUrl?: string | undefined;
   readonly log: (message: string) => void;
   readonly onStateChange: (state: DesktopRemoteSshHostState) => void;
+  /**
+   * Folder for SSH connection-sharing sockets, or null to give every ssh run its
+   * own connection (Windows OpenSSH has no ControlMaster).
+   */
+  readonly sshControlDir?: string | null;
+}
+
+export interface RemoteInstallIdentity {
+  readonly version: string;
+  readonly depsHash: string;
 }
 
 /** Non-interactive ssh: never prompt for a password or host key inside the app. */
@@ -71,6 +84,18 @@ const SSH_BASE_OPTIONS = [
  * (`LocalForward`, `RemoteForward`, `DynamicForward`) are not set up for them.
  */
 const SSH_SCRIPT_OPTIONS = [...SSH_BASE_OPTIONS, "-o", "ClearAllForwardings=yes"];
+
+/**
+ * How long a shared connection outlives its last script run. One connect runs
+ * up to four scripts (probe, upload, install, start); sharing one connection
+ * saves their key exchanges and authentications on the host.
+ */
+const CONTROL_PERSIST_SECONDS = 120;
+/** sun_path is 104 bytes on macOS; `%C` expands to 40 hex digits. */
+const MAX_CONTROL_PATH_LENGTH = 100;
+const CONTROL_MASTER_TIMEOUT_MS = 20_000;
+/** A connected host whose server stopped (idle exit) answers no /health within this. */
+const CONNECTED_HEALTH_TIMEOUT_MS = 5_000;
 
 const PROBE_TIMEOUT_MS = 60_000;
 const UPLOAD_TIMEOUT_MS = 10 * 60_000;
@@ -114,13 +139,25 @@ function tail(text: string): string {
 
 export class RemoteSshManager {
   private readonly hosts = new Map<string, HostRecord>();
-  private cachedInstallVersion: string | null = null;
+  private cachedInstallIdentity: RemoteInstallIdentity | null = null;
 
   constructor(private readonly deps: RemoteSshManagerDependencies) {}
 
+  private installIdentity(): RemoteInstallIdentity {
+    this.cachedInstallIdentity ??= this.deps.installIdentity();
+    return this.cachedInstallIdentity;
+  }
+
   private installVersion(): string {
-    this.cachedInstallVersion ??= this.deps.installVersion();
-    return this.cachedInstallVersion;
+    return this.installIdentity().version;
+  }
+
+  /** The ControlPath pattern for shared connections, or null when sharing is off. */
+  private controlPath(): string | null {
+    const dir = this.deps.sshControlDir;
+    if (!dir) return null;
+    const path = `${dir.replace(/[\\/]+$/u, "")}/%C`;
+    return path.length - 2 + 40 <= MAX_CONTROL_PATH_LENGTH ? path : null;
   }
 
   states(): DesktopRemoteSshHostState[] {
@@ -151,17 +188,32 @@ export class RemoteSshManager {
     }
     const record = this.record(host, remoteRoot);
     if (record.connecting) return record.connecting;
-    if (record.state.phase === "connected" && record.remoteRoot === remoteRoot) {
-      return Promise.resolve(record.state);
-    }
-    record.remoteRoot = remoteRoot;
     const abort = new AbortController();
     record.abort = abort;
-    record.connecting = this.runConnect(record, abort.signal).finally(() => {
+    const connected = record.state.phase === "connected" && record.remoteRoot === remoteRoot;
+    record.remoteRoot = remoteRoot;
+    record.connecting = (async () => {
+      // The tunnel outlives a server that exited after idling with no window
+      // open; reconnect when it no longer answers.
+      if (connected && record.localPort && (await this.answersHealth(record.localPort))) {
+        return record.state;
+      }
+      return this.runConnect(record, abort.signal);
+    })().finally(() => {
       record.connecting = null;
       if (record.abort === abort) record.abort = null;
     });
     return record.connecting;
+  }
+
+  private async answersHealth(localPort: number): Promise<boolean> {
+    const timeout = AbortSignal.timeout(CONNECTED_HEALTH_TIMEOUT_MS);
+    try {
+      await this.deps.waitForHttpReady(`http://127.0.0.1:${localPort}`, timeout);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Closes the tunnel. The remote server keeps running so agents continue. */
@@ -232,10 +284,12 @@ export class RemoteSshManager {
   }
 
   private target(record: HostRecord): RemoteSshScriptTarget {
+    const identity = this.installIdentity();
     return {
       remoteRoot: record.remoteRoot,
       storeRoot: this.deps.storeRoot,
-      version: this.installVersion(),
+      version: identity.version,
+      depsHash: identity.depsHash,
     };
   }
 
@@ -263,6 +317,7 @@ export class RemoteSshManager {
     try {
       this.closeTunnel(record);
       step("checking");
+      await this.ensureControlMaster(host);
       const probeResult = await this.runScript(
         host,
         buildRemoteProbeScript(target),
@@ -285,7 +340,9 @@ export class RemoteSshManager {
         token = probe.server.token;
       } else {
         if (!probe.installed) {
-          if (!probe.npm) throw new RemoteSshError(`npm is required on ${host} to install Saint.`);
+          if (!probe.depsInstalled && !probe.npm) {
+            throw new RemoteSshError(`npm is required on ${host} to install Saint.`);
+          }
           step("uploading");
           const upload = await this.runSsh(
             host,
@@ -435,6 +492,56 @@ export class RemoteSshManager {
     return `Could not ${action} (ssh exit ${result.code ?? "signal"})${detail ? `: ${detail}` : "."}`;
   }
 
+  /**
+   * Starts a background master connection the scripts of this connect share
+   * (`-f` returns once it is authenticated). It exits CONTROL_PERSIST_SECONDS
+   * after its last script. Any failure only means each script connects alone.
+   */
+  private async ensureControlMaster(host: string): Promise<void> {
+    const controlPath = this.controlPath();
+    if (!controlPath) return;
+    const pathOption = ["-o", `ControlPath=${controlPath}`];
+    if ((await this.runDetached([...pathOption, "-O", "check", "--", host])) === 0) return;
+    const code = await this.runDetached([
+      ...SSH_SCRIPT_OPTIONS,
+      ...pathOption,
+      "-o",
+      "ControlMaster=yes",
+      "-o",
+      `ControlPersist=${CONTROL_PERSIST_SECONDS}`,
+      "-N",
+      "-f",
+      "--",
+      host,
+    ]);
+    if (code !== 0) this.deps.log(`[remote-ssh] no shared connection to ${host} (exit ${code})`);
+  }
+
+  /** Runs ssh with no stdio (a forked master must not hold our pipes); resolves its exit code. */
+  private runDetached(args: readonly string[]): Promise<number | null> {
+    return new Promise((resolve) => {
+      let child: ChildProcess;
+      try {
+        child = this.deps.spawn("ssh", args, { stdio: ["ignore", "ignore", "ignore"] });
+      } catch {
+        resolve(null);
+        return;
+      }
+      const timer = setTimeout(() => {
+        child.kill();
+        resolve(null);
+      }, CONTROL_MASTER_TIMEOUT_MS);
+      child.once("error", () => {
+        clearTimeout(timer);
+        resolve(null);
+      });
+      child.once("exit", (code) => {
+        clearTimeout(timer);
+        resolve(code);
+      });
+    });
+  }
+
   private runScript(host: string, script: string, timeoutMs: number): Promise<SshRunResult> {
     return this.runSsh(host, REMOTE_SSH_LOGIN_SHELL_COMMAND, script, timeoutMs);
   }
@@ -445,10 +552,18 @@ export class RemoteSshManager {
     stdin: string | Readable,
     timeoutMs: number,
   ): Promise<SshRunResult> {
+    const controlPath = this.controlPath();
+    // ControlMaster=no uses a live shared connection and connects on its own
+    // otherwise, so a missing or expired master never fails a script.
+    const sharing = controlPath
+      ? ["-o", "ControlMaster=no", "-o", `ControlPath=${controlPath}`]
+      : [];
     return new Promise((resolve, reject) => {
-      const child = this.deps.spawn("ssh", [...SSH_SCRIPT_OPTIONS, "--", host, remoteCommand], {
-        stdio: ["pipe", "pipe", "pipe"],
-      });
+      const child = this.deps.spawn(
+        "ssh",
+        [...SSH_SCRIPT_OPTIONS, ...sharing, "--", host, remoteCommand],
+        { stdio: ["pipe", "pipe", "pipe"] },
+      );
       let stdout = "";
       let stderr = "";
       child.stdout?.setEncoding("utf8");
