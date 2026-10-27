@@ -14,8 +14,8 @@
  *
  * @module device/deviceUiSnapshot
  */
-import type { DeviceUiNode } from "@synara/contracts";
-import { flattenUiTree, uiTreeActivationPoint } from "@synara/shared/uiTreeTargeting";
+import type { DeviceUiNode } from "@saint/contracts";
+import { flattenUiTree, uiTreeActivationPoint } from "@saint/shared/uiTreeTargeting";
 
 import { deviceKeyboardTop, isOnScreen, isTargetable } from "./uiTreeTargeting.ts";
 

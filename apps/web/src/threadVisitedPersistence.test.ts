@@ -1,7 +1,7 @@
 // FILE: threadVisitedPersistence.test.ts
 // Purpose: Unit-test persisted thread visits and the reload watermark.
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { initialState, type AppState } from "./storeState";

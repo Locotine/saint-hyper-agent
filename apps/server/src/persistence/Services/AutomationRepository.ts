@@ -20,7 +20,7 @@ import {
   ProjectId,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -515,4 +515,4 @@ export interface AutomationRepositoryShape {
 export class AutomationRepository extends ServiceMap.Service<
   AutomationRepository,
   AutomationRepositoryShape
->()("synara/persistence/Services/AutomationRepository") {}
+>()("saint/persistence/Services/AutomationRepository") {}

@@ -32,13 +32,13 @@ import {
 } from "./lib/desktop-platform-build-config.ts";
 import { stageDesktopRuntimeResources } from "./lib/desktop-runtime-resources.ts";
 import {
-  SYNARA_PACKAGED_DESKTOP_FLAVORS,
-  type SynaraPackagedDesktopFlavor,
-} from "@synara/shared/desktopIdentity";
+  SAINT_PACKAGED_DESKTOP_FLAVORS,
+  type SaintPackagedDesktopFlavor,
+} from "@saint/shared/desktopIdentity";
 import {
   createRemoteServerInstallManifest,
   remoteServerPatchIndex,
-} from "@synara/shared/remoteServerInstall";
+} from "@saint/shared/remoteServerInstall";
 import { createDesktopArtifactIdentity } from "./lib/desktop-artifact-identity.ts";
 import { parseBooleanEnvValue } from "./lib/env-bool.ts";
 import { finalizeSignedMacDmg, rebuildUnsignedMacDmg } from "./lib/mac-dmg-finalize.ts";
@@ -71,7 +71,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 const BuildPlatform = Schema.Literals(["mac", "linux", "win"]);
 const BuildArch = Schema.Literals(["arm64", "x64", "universal"]);
-const BuildFlavor = Schema.Literals(SYNARA_PACKAGED_DESKTOP_FLAVORS);
+const BuildFlavor = Schema.Literals(SAINT_PACKAGED_DESKTOP_FLAVORS);
 const requireFromScriptsWorkspace = createRequire(new URL("./package.json", import.meta.url));
 
 const RepoRoot = Effect.service(Path.Path).pipe(
@@ -116,7 +116,7 @@ const PLATFORM_CONFIG: Record<typeof BuildPlatform.Type, PlatformConfig> = {
 
 interface BuildCliInput {
   readonly platform: Option.Option<typeof BuildPlatform.Type>;
-  readonly flavor: Option.Option<SynaraPackagedDesktopFlavor>;
+  readonly flavor: Option.Option<SaintPackagedDesktopFlavor>;
   readonly target: Option.Option<string>;
   readonly arch: Option.Option<typeof BuildArch.Type>;
   readonly buildVersion: Option.Option<string>;
@@ -216,7 +216,7 @@ function resolvePythonForNodeGyp(): string | undefined {
 
 interface ResolvedBuildOptions {
   readonly platform: typeof BuildPlatform.Type;
-  readonly flavor: SynaraPackagedDesktopFlavor;
+  readonly flavor: SaintPackagedDesktopFlavor;
   readonly target: string;
   readonly arch: typeof BuildArch.Type;
   readonly version: string | undefined;
@@ -235,16 +235,18 @@ interface ResolvedBuildOptions {
 interface StagePackageJson {
   readonly name: string;
   readonly productName: string;
-  readonly synaraDesktopFlavor: SynaraPackagedDesktopFlavor;
+  readonly saintDesktopFlavor: SaintPackagedDesktopFlavor;
   readonly version: string;
   readonly buildVersion: string;
-  readonly synaraCommitHash: string;
-  readonly synaraLockfileSha256: string;
-  readonly synaraSourceTag: string | null;
-  readonly synaraWindowsPublisherSubject: string | null;
+  readonly saintCommitHash: string;
+  readonly saintLockfileSha256: string;
+  readonly saintSourceTag: string | null;
+  readonly saintWindowsPublisherSubject: string | null;
   readonly private: true;
   readonly description: string;
   readonly author: string;
+  /** Required by electron-builder's deb/rpm targets. */
+  readonly homepage: string;
   readonly main: string;
   readonly build: Record<string, unknown>;
   readonly dependencies: Record<string, unknown>;
@@ -270,20 +272,20 @@ const AzureTrustedSigningOptionsConfig = Config.all({
 });
 
 const BuildEnvConfig = Config.all({
-  platform: Config.schema(BuildPlatform, "SYNARA_DESKTOP_PLATFORM").pipe(Config.option),
-  target: Config.string("SYNARA_DESKTOP_TARGET").pipe(Config.option),
-  arch: Config.schema(BuildArch, "SYNARA_DESKTOP_ARCH").pipe(Config.option),
-  version: Config.string("SYNARA_DESKTOP_VERSION").pipe(Config.option),
-  sourceCommit: Config.string("SYNARA_SOURCE_COMMIT").pipe(Config.option),
-  sourceTag: Config.string("SYNARA_SOURCE_TAG").pipe(Config.option),
-  lockfileSha256: Config.string("SYNARA_LOCKFILE_SHA256").pipe(Config.option),
-  outputDir: Config.string("SYNARA_DESKTOP_OUTPUT_DIR").pipe(Config.option),
-  skipBuild: Config.string("SYNARA_DESKTOP_SKIP_BUILD").pipe(Config.option),
-  keepStage: Config.string("SYNARA_DESKTOP_KEEP_STAGE").pipe(Config.option),
-  signed: Config.string("SYNARA_DESKTOP_SIGNED").pipe(Config.option),
-  verbose: Config.string("SYNARA_DESKTOP_VERBOSE").pipe(Config.option),
-  mockUpdates: Config.string("SYNARA_DESKTOP_MOCK_UPDATES").pipe(Config.option),
-  mockUpdateServerPort: Config.string("SYNARA_DESKTOP_MOCK_UPDATE_SERVER_PORT").pipe(Config.option),
+  platform: Config.schema(BuildPlatform, "SAINT_DESKTOP_PLATFORM").pipe(Config.option),
+  target: Config.string("SAINT_DESKTOP_TARGET").pipe(Config.option),
+  arch: Config.schema(BuildArch, "SAINT_DESKTOP_ARCH").pipe(Config.option),
+  version: Config.string("SAINT_DESKTOP_VERSION").pipe(Config.option),
+  sourceCommit: Config.string("SAINT_SOURCE_COMMIT").pipe(Config.option),
+  sourceTag: Config.string("SAINT_SOURCE_TAG").pipe(Config.option),
+  lockfileSha256: Config.string("SAINT_LOCKFILE_SHA256").pipe(Config.option),
+  outputDir: Config.string("SAINT_DESKTOP_OUTPUT_DIR").pipe(Config.option),
+  skipBuild: Config.string("SAINT_DESKTOP_SKIP_BUILD").pipe(Config.option),
+  keepStage: Config.string("SAINT_DESKTOP_KEEP_STAGE").pipe(Config.option),
+  signed: Config.string("SAINT_DESKTOP_SIGNED").pipe(Config.option),
+  verbose: Config.string("SAINT_DESKTOP_VERBOSE").pipe(Config.option),
+  mockUpdates: Config.string("SAINT_DESKTOP_MOCK_UPDATES").pipe(Config.option),
+  mockUpdateServerPort: Config.string("SAINT_DESKTOP_MOCK_UPDATE_SERVER_PORT").pipe(Config.option),
 });
 
 const resolveBooleanFlag = (flag: Option.Option<boolean>, envValue: boolean) =>
@@ -325,7 +327,7 @@ export const resolveBuildOptions = Effect.fn("resolveBuildOptions")(function* (
 
   const target = mergeOptions(input.target, env.target, PLATFORM_CONFIG[platform].defaultTarget);
   // Flavor is deliberately a build flag, never inherited from a source
-  // launcher's SYNARA_DESKTOP_FLAVOR environment variable.
+  // launcher's SAINT_DESKTOP_FLAVOR environment variable.
   const flavor = Option.getOrElse(input.flavor, () => "production" as const);
   const artifactIdentity = yield* Effect.try({
     try: () => createDesktopArtifactIdentity({ platform, flavor }),
@@ -336,11 +338,11 @@ export const resolveBuildOptions = Effect.fn("resolveBuildOptions")(function* (
   const sourceCommit = mergeOptions(input.sourceCommit, env.sourceCommit, undefined);
   const sourceTag = mergeOptions(input.sourceTag, env.sourceTag, undefined);
   const lockfileSha256 = mergeOptions(input.lockfileSha256, env.lockfileSha256, undefined);
-  const envSkipBuild = yield* resolveBooleanEnv("SYNARA_DESKTOP_SKIP_BUILD", env.skipBuild);
-  const envKeepStage = yield* resolveBooleanEnv("SYNARA_DESKTOP_KEEP_STAGE", env.keepStage);
-  const envSigned = yield* resolveBooleanEnv("SYNARA_DESKTOP_SIGNED", env.signed);
-  const envVerbose = yield* resolveBooleanEnv("SYNARA_DESKTOP_VERBOSE", env.verbose);
-  const envMockUpdates = yield* resolveBooleanEnv("SYNARA_DESKTOP_MOCK_UPDATES", env.mockUpdates);
+  const envSkipBuild = yield* resolveBooleanEnv("SAINT_DESKTOP_SKIP_BUILD", env.skipBuild);
+  const envKeepStage = yield* resolveBooleanEnv("SAINT_DESKTOP_KEEP_STAGE", env.keepStage);
+  const envSigned = yield* resolveBooleanEnv("SAINT_DESKTOP_SIGNED", env.signed);
+  const envVerbose = yield* resolveBooleanEnv("SAINT_DESKTOP_VERBOSE", env.verbose);
+  const envMockUpdates = yield* resolveBooleanEnv("SAINT_DESKTOP_MOCK_UPDATES", env.mockUpdates);
   const releaseDir = resolveBooleanFlag(input.mockUpdates, envMockUpdates)
     ? `${artifactIdentity.releaseDirectoryName}-mock`
     : artifactIdentity.releaseDirectoryName;
@@ -481,7 +483,7 @@ function stageMacIcons(
     }
 
     const tmpRoot = yield* fs.makeTempDirectoryScoped({
-      prefix: "synara-icon-build-",
+      prefix: "saint-icon-build-",
     });
 
     const iconPngPath = path.join(stageResourcesDir, "icon.png");
@@ -525,7 +527,7 @@ function stageMacIcons(
     // Composer asset, so compile one into the asset catalog that ships beside
     // the ICNS. Older releases ignore Assets.car and keep the solid mark.
     const assetCatalogPath = path.join(stageResourcesDir, "Assets.car");
-    const precompiledCatalog = process.env.SYNARA_MAC_ICON_CATALOG?.trim();
+    const precompiledCatalog = process.env.SAINT_MAC_ICON_CATALOG?.trim();
     if (precompiledCatalog) {
       // Release CI compiles this architecture-independent resource from the
       // same checkout on macOS 26; native code retains the macOS 15 SDK.
@@ -606,7 +608,7 @@ const FLAVOR_NEUTRAL_ICON_RESOURCES = [
   "app-icon-macos.png",
   "app-icon-linux.png",
   "app-icon-windows.ico",
-  "synara.png",
+  "saint.png",
 ] as const;
 
 function assertFlavorNeutralIconResources(stageResourcesDir: string) {
@@ -716,7 +718,7 @@ function resolveGitHubPublishConfig():
     }
   | undefined {
   const rawRepo =
-    process.env.SYNARA_DESKTOP_UPDATE_REPOSITORY?.trim() ||
+    process.env.SAINT_DESKTOP_UPDATE_REPOSITORY?.trim() ||
     process.env.GITHUB_REPOSITORY?.trim() ||
     "";
   if (!rawRepo) return undefined;
@@ -743,7 +745,7 @@ const verifyStagedNodePty = Effect.fn("verifyStagedNodePty")(function* (
       cwd: stageAppDir,
       env: {
         ...process.env,
-        SYNARA_NODE_PTY_SMOKE_REQUIRE_ROOT: stageAppDir,
+        SAINT_NODE_PTY_SMOKE_REQUIRE_ROOT: stageAppDir,
       },
       ...commandOutputOptions(verbose),
       shell: process.platform === "win32",
@@ -892,13 +894,16 @@ const installFrozenStageDependencies = Effect.fn("installFrozenStageDependencies
     // install already passed. Its --production flag also forces frozen mode,
     // so use the equivalent dependency omission and allow only the temporary
     // staging copy to update; the verified source lockfile remains untouched.
+    // Optional per-platform packages must match the target, so a Linux host
+    // can cross-build the installer.
+    const cpu = arch === "universal" ? "*" : arch;
     yield* runCommand(
       ChildProcess.make({
         cwd: stageAppDir,
         ...commandOutputOptions(verbose),
         // Windows needs shell mode to resolve .cmd shims (e.g. bun.cmd).
         shell: process.platform === "win32",
-      })`bun install --omit=dev --ignore-scripts --linker hoisted`,
+      })`bun install --omit=dev --ignore-scripts --linker hoisted --os=win32 --cpu=${cpu}`,
     );
   } else {
     // Optional per-CPU packages (Claude SDK, esbuild, msgpackr) must match the
@@ -945,7 +950,7 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   signed: boolean,
   mockUpdates: boolean,
   mockUpdateServerPort: string | undefined,
-  flavor: SynaraPackagedDesktopFlavor,
+  flavor: SaintPackagedDesktopFlavor,
 ) {
   const buildConfig: Record<string, unknown> = {
     ...artifactIdentity.buildConfig,
@@ -994,6 +999,12 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   } as const;
 
   Object.assign(buildConfig, createDesktopPlatformBuildConfig(platformBuildConfigInput));
+  if (platform === "win" && process.platform !== "win32") {
+    // node-gyp cannot cross-compile. The staged win32 install already holds the
+    // prebuilt bindings: node-pty ships them, msgpackr-extract's come from its
+    // optional per-platform package (and msgpackr falls back to JS without it).
+    buildConfig.npmRebuild = false;
+  }
   if (platform === "linux" && artifactIdentity.identity.flavor !== "production") {
     const linux = buildConfig.linux as Record<string, unknown>;
     buildConfig.linux = {
@@ -1235,7 +1246,7 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   }
   const mkdir = options.keepStage ? fs.makeTempDirectory : fs.makeTempDirectoryScoped;
   const stageRoot = yield* mkdir({
-    prefix: `synara-desktop-${options.flavor}-${options.platform}-stage-`,
+    prefix: `saint-desktop-${options.flavor}-${options.platform}-stage-`,
   });
 
   yield* Effect.log(`[desktop-artifact] Packaging stage: ${stageRoot}`);
@@ -1248,13 +1259,13 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   };
   const bundledClientEntry = path.join(distDirs.serverDist, "client/index.html");
 
-  if (options.skipBuild && process.env.SYNARA_PORTABLE_BUILD_MANIFEST) {
+  if (options.skipBuild && process.env.SAINT_PORTABLE_BUILD_MANIFEST) {
     yield* Effect.try({
       try: () =>
         verifyPortableBuild(
           repoRoot,
           commitHash,
-          JSON.parse(readFileSync(process.env.SYNARA_PORTABLE_BUILD_MANIFEST!, "utf8")),
+          JSON.parse(readFileSync(process.env.SAINT_PORTABLE_BUILD_MANIFEST!, "utf8")),
         ),
       catch: (cause) =>
         new BuildScriptError({ message: "Shared release build verification failed.", cause }),
@@ -1371,13 +1382,14 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     ...artifactIdentity.packageMetadata,
     version: appVersion,
     buildVersion: appVersion,
-    synaraCommitHash: commitHash,
-    synaraLockfileSha256: resolvedLockfileSha256,
-    synaraSourceTag: options.sourceTag ?? null,
-    synaraWindowsPublisherSubject: resolvedBuildConfig.windowsPublisherSubject,
+    saintCommitHash: commitHash,
+    saintLockfileSha256: resolvedLockfileSha256,
+    saintSourceTag: options.sourceTag ?? null,
+    saintWindowsPublisherSubject: resolvedBuildConfig.windowsPublisherSubject,
     private: true,
-    description: "Synara desktop build",
-    author: "Emanuele Di Pietro",
+    description: "Saint desktop build",
+    author: "Locotine",
+    homepage: serverPackageJson.repository.url.replace(/^git\+/u, "").replace(/\.git$/u, ""),
     main: "apps/desktop/dist-electron/main.js",
     build: resolvedBuildConfig.buildConfig,
     dependencies: {
@@ -1566,69 +1578,69 @@ const buildDesktopArtifactCli = Command.make("build-desktop-artifact", {
     Flag.optional,
   ),
   platform: Flag.choice("platform", BuildPlatform.literals).pipe(
-    Flag.withDescription("Build platform (env: SYNARA_DESKTOP_PLATFORM)."),
+    Flag.withDescription("Build platform (env: SAINT_DESKTOP_PLATFORM)."),
     Flag.optional,
   ),
   target: Flag.string("target").pipe(
     Flag.withDescription(
-      "Artifact target, for example dmg/AppImage/nsis (env: SYNARA_DESKTOP_TARGET).",
+      "Artifact target, for example dmg/AppImage/nsis (env: SAINT_DESKTOP_TARGET).",
     ),
     Flag.optional,
   ),
   arch: Flag.choice("arch", BuildArch.literals).pipe(
-    Flag.withDescription("Build arch, for example arm64/x64/universal (env: SYNARA_DESKTOP_ARCH)."),
+    Flag.withDescription("Build arch, for example arm64/x64/universal (env: SAINT_DESKTOP_ARCH)."),
     Flag.optional,
   ),
   buildVersion: Flag.string("build-version").pipe(
-    Flag.withDescription("Artifact version metadata (env: SYNARA_DESKTOP_VERSION)."),
+    Flag.withDescription("Artifact version metadata (env: SAINT_DESKTOP_VERSION)."),
     Flag.optional,
   ),
   sourceCommit: Flag.string("source-commit").pipe(
-    Flag.withDescription("Expected full source commit (env: SYNARA_SOURCE_COMMIT)."),
+    Flag.withDescription("Expected full source commit (env: SAINT_SOURCE_COMMIT)."),
     Flag.optional,
   ),
   sourceTag: Flag.string("source-tag").pipe(
-    Flag.withDescription("Exact source tag when building a release (env: SYNARA_SOURCE_TAG)."),
+    Flag.withDescription("Exact source tag when building a release (env: SAINT_SOURCE_TAG)."),
     Flag.optional,
   ),
   lockfileSha256: Flag.string("lockfile-sha256").pipe(
-    Flag.withDescription("Expected bun.lock SHA-256 (env: SYNARA_LOCKFILE_SHA256)."),
+    Flag.withDescription("Expected bun.lock SHA-256 (env: SAINT_LOCKFILE_SHA256)."),
     Flag.optional,
   ),
   outputDir: Flag.string("output-dir").pipe(
-    Flag.withDescription("Output directory for artifacts (env: SYNARA_DESKTOP_OUTPUT_DIR)."),
+    Flag.withDescription("Output directory for artifacts (env: SAINT_DESKTOP_OUTPUT_DIR)."),
     Flag.optional,
   ),
   skipBuild: Flag.boolean("skip-build").pipe(
     Flag.withDescription(
-      "Skip `bun run build:desktop` and use existing dist artifacts (env: SYNARA_DESKTOP_SKIP_BUILD).",
+      "Skip `bun run build:desktop` and use existing dist artifacts (env: SAINT_DESKTOP_SKIP_BUILD).",
     ),
     Flag.optional,
   ),
   keepStage: Flag.boolean("keep-stage").pipe(
-    Flag.withDescription("Keep temporary staging files (env: SYNARA_DESKTOP_KEEP_STAGE)."),
+    Flag.withDescription("Keep temporary staging files (env: SAINT_DESKTOP_KEEP_STAGE)."),
     Flag.optional,
   ),
   signed: Flag.boolean("signed").pipe(
     Flag.withDescription(
-      "Enable signing/notarization discovery; Windows uses Azure Trusted Signing (env: SYNARA_DESKTOP_SIGNED).",
+      "Enable signing/notarization discovery; Windows uses Azure Trusted Signing (env: SAINT_DESKTOP_SIGNED).",
     ),
     Flag.optional,
   ),
   verbose: Flag.boolean("verbose").pipe(
-    Flag.withDescription("Stream subprocess stdout (env: SYNARA_DESKTOP_VERBOSE)."),
+    Flag.withDescription("Stream subprocess stdout (env: SAINT_DESKTOP_VERBOSE)."),
     Flag.optional,
   ),
   mockUpdates: Flag.boolean("mock-updates").pipe(
-    Flag.withDescription("Enable mock updates (env: SYNARA_DESKTOP_MOCK_UPDATES)."),
+    Flag.withDescription("Enable mock updates (env: SAINT_DESKTOP_MOCK_UPDATES)."),
     Flag.optional,
   ),
   mockUpdateServerPort: Flag.string("mock-update-server-port").pipe(
-    Flag.withDescription("Mock update server port (env: SYNARA_DESKTOP_MOCK_UPDATE_SERVER_PORT)."),
+    Flag.withDescription("Mock update server port (env: SAINT_DESKTOP_MOCK_UPDATE_SERVER_PORT)."),
     Flag.optional,
   ),
 }).pipe(
-  Command.withDescription("Build a desktop artifact for Synara."),
+  Command.withDescription("Build a desktop artifact for Saint."),
   Command.withHandler((input) => Effect.flatMap(resolveBuildOptions(input), buildDesktopArtifact)),
 );
 

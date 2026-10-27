@@ -9,12 +9,12 @@ Diagnostics should answer a specific question: what state was projected, what du
 
 Authorized Agent Gateway sessions can expose four complementary tools:
 
-| Tool                                | Source                                           | Best for                                                 |
-| ----------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
-| `synara_diagnose_thread`            | Bounded forensic snapshot across several sources | First-pass triage of a stuck or inconsistent task        |
-| `synara_read_thread_activity`       | Projected task activity                          | What Synara presented as user-facing task activity       |
-| `synara_read_thread_events`         | Durable orchestration event journal              | Authoritative ordering of persisted orchestration events |
-| `synara_read_thread_runtime_events` | Retained provider-runtime events                 | What the provider adapter emitted before projection      |
+| Tool                               | Source                                           | Best for                                                 |
+| ---------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| `saint_diagnose_thread`            | Bounded forensic snapshot across several sources | First-pass triage of a stuck or inconsistent task        |
+| `saint_read_thread_activity`       | Projected task activity                          | What Saint presented as user-facing task activity        |
+| `saint_read_thread_events`         | Durable orchestration event journal              | Authoritative ordering of persisted orchestration events |
+| `saint_read_thread_runtime_events` | Retained provider-runtime events                 | What the provider adapter emitted before projection      |
 
 No single source answers every question.
 
@@ -23,7 +23,7 @@ No single source answers every question.
 Use:
 
 ```text
-synara_diagnose_thread({ threadId })
+saint_diagnose_thread({ threadId })
 ```
 
 It combines a bounded view of:
@@ -39,7 +39,7 @@ Use the result to choose the next narrow read. Do not paste the full snapshot pu
 
 ## Read projected activity
 
-Use `synara_read_thread_activity` when the question is:
+Use `saint_read_thread_activity` when the question is:
 
 - What appeared in the task transcript?
 - Which approval, tool, status, or user-input activity was projected?
@@ -51,7 +51,7 @@ A projected activity can be absent because projection failed even when a durable
 
 ## Read durable thread events
 
-Use `synara_read_thread_events` when ordering and durable persistence matter.
+Use `saint_read_thread_events` when ordering and durable persistence matter.
 
 The event journal:
 
@@ -65,7 +65,7 @@ When `durableSourceComplete` is true for the requested high-water mark, absence 
 
 ## Read provider-runtime events
 
-Use `synara_read_thread_runtime_events` when the question is:
+Use `saint_read_thread_runtime_events` when the question is:
 
 - Did the provider emit an item or completion event?
 - Which provider event IDs or request IDs appeared?
@@ -123,7 +123,7 @@ Keep the smallest useful page and filter to a relevant turn or event type.
 
 ## Built-in redaction and bounds
 
-Synara’s diagnostic sanitizer:
+Saint’s diagnostic sanitizer:
 
 - Redacts fields whose keys resemble authorization, cookies, credentials, passwords, secrets, tokens, or API keys
 - Redacts common secret assignments, authorization headers, credential-bearing URLs, and sensitive query parameters
@@ -179,14 +179,14 @@ Do not “reconcile” the evidence by inventing a missing event.
 
 For most task-runtime problems, collect:
 
-1. Synara version and build type
+1. Saint version and build type
 2. Operating system
 3. Provider executable path and version
 4. Provider/model/options
 5. Task status and environment type
 6. Exact error text and time range
 7. `git status --short --branch`
-8. A redacted `synara_diagnose_thread` result
+8. A redacted `saint_diagnose_thread` result
 9. One narrow follow-up source page when needed
 10. Reproduction steps and expected behavior
 

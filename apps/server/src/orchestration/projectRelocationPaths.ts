@@ -6,7 +6,7 @@ import { posix, win32 } from "node:path";
 import {
   normalizeWorkspaceRootForComparison,
   workspaceRootsEqual,
-} from "@synara/shared/threadWorkspace";
+} from "@saint/shared/threadWorkspace";
 
 export function relocateProjectPath(
   value: string | null | undefined,

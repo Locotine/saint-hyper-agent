@@ -1,4 +1,4 @@
-import type { ProjectId, ThreadEnvironmentMode } from "@synara/contracts";
+import type { ProjectId, ThreadEnvironmentMode } from "@saint/contracts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -24,7 +24,7 @@ export const useProjectEnvironmentStore = create<ProjectEnvironmentStoreState>()
         ),
     }),
     {
-      name: "synara:project-environment:v1",
+      name: "saint:project-environment:v1",
       storage: createJSONStorage(() => storage),
       partialize: (state) => ({ envModeByProjectId: state.envModeByProjectId }),
       merge: (persisted, current) => ({

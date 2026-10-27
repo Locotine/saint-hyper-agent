@@ -1,4 +1,4 @@
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 
 import type { Project } from "../types";
 

@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { ProjectId, type ProjectImportProvider } from "@synara/contracts";
+import { ProjectId, type ProjectImportProvider } from "@saint/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { NativeImportProject, NativeImportSession } from "../provider/projectImportTypes";
@@ -12,7 +12,7 @@ import * as paths from "./projectImportPaths";
 const temporaryDirectories: string[] = [];
 
 async function fixtureDirectory(): Promise<string> {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "synara-import-catalog-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "saint-import-catalog-"));
   temporaryDirectories.push(directory);
   return fs.realpath(directory);
 }
@@ -89,12 +89,12 @@ describe("buildProjectImportCatalog", () => {
           [{ id: alias, title: "Alias", roots: [alias] }],
         ),
       ],
-      [existing("existing", alias, "Keep my Synara title")],
+      [existing("existing", alias, "Keep my Saint title")],
     );
 
     expect(projects).toHaveLength(1);
     expect(projects[0]).toMatchObject({
-      title: "Keep my Synara title",
+      title: "Keep my Saint title",
       workspaceRoot: root,
       directoryExists: true,
       existingProjectId: "existing",
@@ -262,7 +262,7 @@ describe("buildProjectImportCatalog", () => {
     expect(projects[0]?.threads).toHaveLength(2);
   });
 
-  it("ignores broader, deleted and non-project Synara containers when deriving a Git workspace", async () => {
+  it("ignores broader, deleted and non-project Saint containers when deriving a Git workspace", async () => {
     const home = await fixtureDirectory();
     const { root } = await worktreeFixture(home);
     const cwd = path.join(root, "src");
@@ -308,7 +308,7 @@ describe("buildProjectImportCatalog", () => {
     expect(projects[0]).toMatchObject({ workspaceRoot: root, existingProjectId: null });
   });
 
-  it("uses explicit Codex subproject roots to group Claude chats before Synara has that project", async () => {
+  it("uses explicit Codex subproject roots to group Claude chats before Saint has that project", async () => {
     const home = await fixtureDirectory();
     const { root, worktree } = await worktreeFixture(home);
     const subproject = path.join(root, "apps", "api");

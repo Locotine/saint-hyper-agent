@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ComputerWindow } from "@synara/contracts";
+import type { ComputerWindow } from "@saint/contracts";
 
 import { topmostWindowAtPoint } from "./computerGeometry.ts";
 

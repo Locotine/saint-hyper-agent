@@ -1,35 +1,35 @@
 # Connectors
 
-Connectors let agents in Synara use remote MCP servers such as Supabase, Linear, or Notion.
+Connectors let agents in Saint use remote MCP servers such as Supabase, Linear, or Notion.
 The user signs in once in **Settings → Connectors**, and new chats get the server's tools.
 Connectors are available in Stable and Beta builds from current `main`, including RPCs, OAuth
 callbacks and proxy routes. Each app reads only its own saved connectors; credentials are not
 copied from Beta into Stable. Existing published Stable builds do not gain this support until updated.
 
-One sign-in covers every provider account configured in Synara on this machine, such as all
-Claude accounts, Codex, and OpenCode, because the tokens live in Synara's own store rather than
+One sign-in covers every provider account configured in Saint on this machine, such as all
+Claude accounts, Codex, and OpenCode, because the tokens live in Saint's own store rather than
 in any provider's configuration. This is separate from Claude Code's own claude.ai connectors and
 per-account MCP configuration, which stay per account. Each machine signs in separately, because
-the store belongs to one Synara home.
+the store belongs to one Saint home.
 
 This is the opposite direction of [External MCP](./external-mcp.md), which lets outside agents
-call into Synara.
+call into Saint.
 
 ## How it works
 
 | Step     | What happens                                                                                                                                                                                                                                                                                             |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Connect  | The server sends an unauthenticated MCP `initialize` to the connector URL. A valid JSON-RPC initialize result means no sign-in is needed. Existing OAuth connections retain their credentials if initialization is public. A 401 starts OAuth.                                                           |
-| Sign-in  | The MCP SDK's OAuth client discovers the protected-resource and authorization-server metadata, registers Synara with Dynamic Client Registration, and builds a PKCE (S256) authorization URL with a single-use `state` and the RFC 8707 `resource`. The web app opens it in the default browser.         |
-| Callback | The browser returns to `GET /oauth/mcp/callback` on Synara's loopback port. The `state` is the only authority (the browser carries no Synara session); it expires after ten minutes. The code is exchanged for tokens.                                                                                   |
-| Storage  | All connectors and their tokens are one entry (`mcp-connectors`) in the server secret store: a `0600` file under the Synara home. Tokens never reach the web app or provider processes.                                                                                                                  |
+| Sign-in  | The MCP SDK's OAuth client discovers the protected-resource and authorization-server metadata, registers Saint with Dynamic Client Registration, and builds a PKCE (S256) authorization URL with a single-use `state` and the RFC 8707 `resource`. The web app opens it in the default browser.          |
+| Callback | The browser returns to `GET /oauth/mcp/callback` on Saint's loopback port. The `state` is the only authority (the browser carries no Saint session); it expires after ten minutes. The code is exchanged for tokens.                                                                                     |
+| Storage  | All connectors and their tokens are one entry (`mcp-connectors`) in the server secret store: a `0600` file under the Saint home. Tokens never reach the web app or provider processes.                                                                                                                   |
 | Sessions | Connected connectors are published to the agent gateway. Each new provider session gets one MCP server per connector, named `<slug>_connector`, pointing at `/mcp/connectors/<id>` on the gateway and authenticated with the session's gateway bearer.                                                   |
 | Calls    | The proxy checks the bearer, attaches the connector's access token, and forwards the exchange through the origin-pinned outbound client. SSE answers are collapsed to their JSON-RPC response. A 401 triggers one refresh and one retry; a rejected refresh grant marks the connector **needs sign-in**. |
 
 The `_connector` suffix reduces accidental overlap with user-configured MCP servers. Codex
-deep-merges same-named tables, so Synara reads its effective configuration and omits a connector
+deep-merges same-named tables, so Saint reads its effective configuration and omits a connector
 whose name is already present rather than altering the user's server. If that configuration
-cannot be checked, connectors are omitted for that session. Names never start with `synara`,
+cannot be checked, connectors are omitted for that session. Names never start with `saint`,
 which tool policy treats as trusted.
 
 ## Provider coverage
@@ -53,9 +53,9 @@ elicitation requests other than tool approvals.
 The presets live in `packages/shared/src/mcpConnectors.ts`. Each one was checked against the live
 server: it either answers anonymously (Hugging Face) or accepts dynamic registration from an
 unknown client. Vercel documents that it admits only clients it has reviewed, yet a full sign-in
-from Synara succeeded on 2026-10-14; its consent page names Synara "An MCP client" until Vercel
+from Saint succeeded on 2026-10-14; its consent page names Saint "An MCP client" until Vercel
 approves it through its [client review form](https://forms.gle/FQ3nYPbovoHvbfmz9). Todoist
-(`ai.todoist.net/mcp`) accepted a test registration from Synara on 2026-10-14. Slack registers no
+(`ai.todoist.net/mcp`) accepted a test registration from Saint on 2026-10-14. Slack registers no
 clients, so its preset asks for the user's own Slack app (client ID and secret) and shows the
 redirect URL to paste into it. Vendors that refuse registration (Figma) or require a
 pre-registered OAuth app (GitHub, Asana, HubSpot) are left out; their custom URLs fail with an
@@ -79,6 +79,6 @@ Custom URLs must be public `https://` endpoints without credentials.
   carries the current port. After the desktop restarts, reconnecting fails until the app's
   redirect URL is updated to the one the connect dialog shows.
 - The MCP 2026-07-28 revision prefers Client ID Metadata Documents over Dynamic Client
-  Registration. Supporting it needs a hosted client metadata document on a Synara domain.
+  Registration. Supporting it needs a hosted client metadata document on a Saint domain.
 - Disconnecting invalidates pending sign-ins, deletes the tokens locally and attempts RFC 7009 revocation when the server
   advertises a revocation endpoint.

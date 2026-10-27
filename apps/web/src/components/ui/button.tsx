@@ -99,7 +99,7 @@ const buttonVariants = cva(
         prominent:
           "rounded-full border-transparent bg-[var(--color-text-foreground)] text-[var(--color-background-surface)] transition-[transform,opacity] duration-150 hover:scale-105 disabled:opacity-20 disabled:hover:scale-100",
         // Neutral filled circle for an icon action beside a `prominent` one (composer +, mic):
-        // Synara iOS's circle badges, so every composer action reads as one set.
+        // Saint iOS's circle badges, so every composer action reads as one set.
         circle:
           "rounded-full border-transparent bg-[var(--color-background-button-secondary)] text-[var(--color-text-foreground)] transition-colors focus-visible:ring-[color:var(--color-border-focus)]/60 focus-visible:ring-offset-0 [:hover,[data-pressed]]:bg-[var(--color-background-button-secondary-hover)]",
         secondary:

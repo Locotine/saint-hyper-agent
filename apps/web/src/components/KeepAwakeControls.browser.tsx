@@ -1,6 +1,6 @@
 import "../index.css";
 
-import type { KeepAwakeMode, ServerKeepAwakeUpdatedPayload } from "@synara/contracts";
+import type { KeepAwakeMode, ServerKeepAwakeUpdatedPayload } from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "vitest-browser-react";
 import { page } from "vitest/browser";

@@ -2,7 +2,7 @@ import type {
   ExternalMcpCapability,
   ExternalMcpClientKind,
   ExternalMcpProjectScope,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
@@ -21,7 +21,7 @@ interface IntegrationRow {
   readonly integrationId: string;
   readonly name: string;
   readonly clientKind: ExternalMcpClientKind;
-  readonly audience: "synara.external-mcp";
+  readonly audience: "saint.external-mcp";
   readonly credentialHash: string | null;
   readonly capabilitiesJson: string;
   readonly projectScope: ExternalMcpProjectScope;

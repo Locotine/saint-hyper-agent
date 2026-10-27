@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { DEFAULT_SERVER_SETTINGS, type ServerSettings } from "@synara/contracts";
+import { DEFAULT_SERVER_SETTINGS, type ServerSettings } from "@saint/contracts";
 
 import { deriveManagedTerminalProfiles } from "./providerTerminalProfiles.ts";
 
@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 function fixture() {
-  const root = mkdtempSync(path.join(os.tmpdir(), "synara-provider-profiles-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "saint-provider-profiles-"));
   roots.push(root);
   const binDir = path.join(root, "bin");
   const homeDir = path.join(root, "home");

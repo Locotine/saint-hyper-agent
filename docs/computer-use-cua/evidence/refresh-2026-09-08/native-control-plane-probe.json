@@ -1,5 +1,5 @@
 {
-  "driver": "/Users/emanueledipietro/.codex/worktrees/702b/synara/apps/desktop/resources/cua-driver/cua-driver",
+  "driver": "/Users/emanueledipietro/.codex/worktrees/702b/saint/apps/desktop/resources/cua-driver/cua-driver",
   "driverPid": 98970,
   "inputToolsCalled": 0,
   "readinessToolsCalled": 1,
@@ -36,7 +36,7 @@
     "embedded": true,
     "mcp_protocol_version": "2025-06-18",
     "pid": 98970,
-    "synara_native_revision": 2,
+    "saint_native_revision": 2,
     "tools_list_schema_version": "1"
   },
   "exit": {

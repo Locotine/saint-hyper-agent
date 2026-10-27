@@ -1,4 +1,4 @@
-import type { KeybindingWhenNode } from "@synara/contracts";
+import type { KeybindingWhenNode } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {

@@ -1,4 +1,4 @@
-import type { ServerProviderStatus } from "@synara/contracts";
+import type { ServerProviderStatus } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 import { providerAccountStatusSummary, providerSetupStatusLabel } from "./providerSetupStatus";
 

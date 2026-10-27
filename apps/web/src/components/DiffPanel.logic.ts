@@ -3,7 +3,7 @@
 // Exports: resolveDiffPanelThread, diff view source helpers
 // Depends on: ChatView.logic draft-thread normalization.
 
-import { type ModelSelection, type ThreadId, type TurnId } from "@synara/contracts";
+import { type ModelSelection, type ThreadId, type TurnId } from "@saint/contracts";
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 
 import type { DraftThreadState } from "../composerDraftStore";

@@ -13,5 +13,5 @@ export interface OmpAdapterShape extends ProviderAdapterShape<ProviderAdapterErr
 }
 
 export class OmpAdapter extends ServiceMap.Service<OmpAdapter, OmpAdapterShape>()(
-  "synara/provider/Services/OmpAdapter",
+  "saint/provider/Services/OmpAdapter",
 ) {}

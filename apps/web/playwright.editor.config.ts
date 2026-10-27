@@ -4,9 +4,9 @@ import os from "node:os";
 import path from "node:path";
 
 // Both processes use an isolated data home; never connect the harness to a running user's app.
-const home = mkdtempSync(path.join(os.tmpdir(), "synara-editor-acceptance-"));
-const serverPort = Number(process.env.SYNARA_EDITOR_TEST_SERVER_PORT ?? 48121);
-const webPort = Number(process.env.SYNARA_EDITOR_TEST_WEB_PORT ?? 5734);
+const home = mkdtempSync(path.join(os.tmpdir(), "saint-editor-acceptance-"));
+const serverPort = Number(process.env.SAINT_EDITOR_TEST_SERVER_PORT ?? 48121);
+const webPort = Number(process.env.SAINT_EDITOR_TEST_WEB_PORT ?? 5734);
 const webUrl = `http://127.0.0.1:${webPort}`;
 export default defineConfig({
   testDir: "./e2e",
@@ -29,15 +29,15 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
-        SYNARA_HOME: home,
-        SYNARA_MODE: "web",
-        SYNARA_PORT: String(serverPort),
-        SYNARA_HOST: "127.0.0.1",
-        SYNARA_NO_BROWSER: "1",
-        SYNARA_PATH_HYDRATED: "1",
+        SAINT_HOME: home,
+        SAINT_MODE: "web",
+        SAINT_PORT: String(serverPort),
+        SAINT_HOST: "127.0.0.1",
+        SAINT_NO_BROWSER: "1",
+        SAINT_PATH_HYDRATED: "1",
         // The server must allow this exact development origin, as dev-runner does.
         VITE_DEV_SERVER_URL: webUrl,
-        SYNARA_AUTH_TOKEN: "",
+        SAINT_AUTH_TOKEN: "",
       },
     },
     {
@@ -48,7 +48,7 @@ export default defineConfig({
       env: {
         VITE_WS_URL: `ws://127.0.0.1:${serverPort}`,
         VITE_DEV_SERVER_URL: webUrl,
-        SYNARA_AUTH_TOKEN: "",
+        SAINT_AUTH_TOKEN: "",
       },
     },
   ],

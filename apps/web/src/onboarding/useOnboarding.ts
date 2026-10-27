@@ -29,7 +29,7 @@ import {
 import { useOnboardingDialogStore } from "./onboardingDialogStore";
 
 // v2: the marker carries the installation it was recorded against.
-const ONBOARDING_STORAGE_KEY = "synara:onboarding:v2";
+const ONBOARDING_STORAGE_KEY = "saint:onboarding:v2";
 
 const OnboardingStorageSchema = Schema.Struct({
   completedAt: Schema.NullOr(Schema.String),

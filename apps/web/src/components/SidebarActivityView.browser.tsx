@@ -4,7 +4,7 @@
 
 import "../index.css";
 
-import { ProjectId, ThreadId, type OrchestrationThreadPullRequest } from "@synara/contracts";
+import { ProjectId, ThreadId, type OrchestrationThreadPullRequest } from "@saint/contracts";
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { page, userEvent } from "vitest/browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -364,7 +364,7 @@ describe("SidebarActivityView", () => {
       lastKnownPr: {
         number: 42,
         title: "Persisted open PR",
-        url: "https://github.com/acme/synara/pull/42",
+        url: "https://github.com/acme/saint/pull/42",
         baseBranch: "main",
         headBranch: "feature/activity",
         state: "open",
@@ -373,7 +373,7 @@ describe("SidebarActivityView", () => {
     const livePr: OrchestrationThreadPullRequest = {
       number: 42,
       title: "Live merged PR",
-      url: "https://github.com/acme/synara/pull/42",
+      url: "https://github.com/acme/saint/pull/42",
       baseBranch: "main",
       headBranch: "feature/activity",
       state: "merged",

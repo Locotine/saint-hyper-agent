@@ -1,15 +1,16 @@
 {
-  "name": "@synara/cli",
+  "name": "@saint/cli",
   "version": "1.0.9",
-  "license": "MIT",
+  "license": "Apache-2.0",
+  "author": "Locotine",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Emanuele-web04/Synara.git",
+    "url": "git+https://gitlab.com/locotine/saint-hyper-agent.git",
     "directory": "apps/server"
   },
   "bin": {
-    "synara": "dist/index.mjs",
-    "synara-restore-migration-backup": "dist/restoreMigrationBackup.mjs"
+    "saint": "dist/index.mjs",
+    "saint-restore-migration-backup": "dist/restoreMigrationBackup.mjs"
   },
   "files": [
     "dist"
@@ -50,9 +51,9 @@
   "devDependencies": {
     "@effect/language-service": "catalog:",
     "@effect/vitest": "catalog:",
-    "@synara/contracts": "workspace:*",
-    "@synara/shared": "workspace:*",
-    "@synara/web": "workspace:*",
+    "@saint/contracts": "workspace:*",
+    "@saint/shared": "workspace:*",
+    "@saint/web": "workspace:*",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
     "@types/ws": "^8.5.13",

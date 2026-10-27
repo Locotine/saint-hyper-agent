@@ -7,7 +7,7 @@ import {
   ThreadId,
   type ThreadId as ThreadIdType,
   type TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { resolveSubagentThreadStatusKind } from "../lib/subagentPresentation";
 import type { AppState } from "../storeState";

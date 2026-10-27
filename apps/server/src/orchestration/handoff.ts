@@ -1,5 +1,5 @@
-import type { OrchestrationMessage, OrchestrationThread } from "@synara/contracts";
-import { unicodeSafeEndOffset } from "@synara/shared/text";
+import type { OrchestrationMessage, OrchestrationThread } from "@saint/contracts";
+import { unicodeSafeEndOffset } from "@saint/shared/text";
 
 const RECENT_MESSAGE_COUNT = 6;
 const EARLIER_MESSAGE_CHAR_LIMIT = 320;
@@ -267,7 +267,7 @@ export function buildPriorTranscriptBootstrap(
     thread,
     importedMessages: priorMessages,
     intro:
-      "This provider session may have been restarted without native conversation state. Use this prior Synara transcript as context for the latest user message.",
+      "This provider session may have been restarted without native conversation state. Use this prior Saint transcript as context for the latest user message.",
     maxChars,
   });
 }

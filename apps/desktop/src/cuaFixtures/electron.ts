@@ -5,8 +5,8 @@ import { writeFile, readFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { randomBytes } from "node:crypto";
-import type { ComputerUiNode } from "@synara/contracts";
-import { cuaRequest, CUA_ACTION_TOOLS, type CuaReply } from "@synara/shared/cuaDriverProtocol";
+import type { ComputerUiNode } from "@saint/contracts";
+import { cuaRequest, CUA_ACTION_TOOLS, type CuaReply } from "@saint/shared/cuaDriverProtocol";
 import { CuaDriverHost } from "../cuaDriverHost";
 import {
   CuaActionError,
@@ -20,25 +20,25 @@ import { withDesktopDeliveryMode } from "../../../server/src/computer/DesktopOpe
 import { runLiveFixture } from "./live";
 
 const directory =
-  process.env.SYNARA_CUA_FIXTURE_DIR ??
-  `/private/tmp/synara-cua-implementation/fixture-${Date.now()}`;
+  process.env.SAINT_CUA_FIXTURE_DIR ??
+  `/private/tmp/saint-cua-implementation/fixture-${Date.now()}`;
 const binaryPath =
-  process.env.SYNARA_CUA_FIXTURE_DRIVER || join(process.resourcesPath, "cua-driver", "cua-driver");
+  process.env.SAINT_CUA_FIXTURE_DRIVER || join(process.resourcesPath, "cua-driver", "cua-driver");
 // The focus-theft sampler ships inside the fixture bundle (see
-// build-electron.mjs); SYNARA_CUA_FOCUS_PROBE overrides it for dev runs.
+// build-electron.mjs); SAINT_CUA_FOCUS_PROBE overrides it for dev runs.
 const focusProbePath =
-  process.env.SYNARA_CUA_FOCUS_PROBE || join(process.resourcesPath, "focus-probe");
+  process.env.SAINT_CUA_FOCUS_PROBE || join(process.resourcesPath, "focus-probe");
 if (
-  !directory?.startsWith("/private/tmp/synara-cua-implementation/") ||
+  !directory?.startsWith("/private/tmp/saint-cua-implementation/") ||
   !binaryPath?.endsWith("/cua-driver")
 )
   throw new Error("An explicit temporary fixture directory and driver binary are required.");
 app.setPath("userData", join(directory, "electron-profile"));
-app.setName("Synara Cua Fixture");
+app.setName("Saint Cua Fixture");
 // Closing the last target is itself a test case; keep its runner alive until
 // the refused action, native target and report teardown have completed.
 app.on("window-all-closed", () => undefined);
-const nonce = `Synara Cua Fixture ${process.pid}`;
+const nonce = `Saint Cua Fixture ${process.pid}`;
 const report: Record<string, unknown> = {
   fixtureRevision: 12,
   fixture: nonce,
@@ -115,7 +115,7 @@ async function main() {
     y: 330,
     show: false,
   });
-  const html = `<!doctype html><title>${nonce} A</title><style>body{font:18px system-ui;padding:24px}button,input{font:20px system-ui;margin:14px;padding:12px}</style><h1>Synara controlled fixture</h1><button id="counter">Click counter: 0</button><input id="text" aria-label="Fixture text" value="abc"><p id="state"></p><script>const {ipcRenderer}=require('electron'); let clicks=0,changes=0; const button=document.querySelector('#counter'),input=document.querySelector('#text'); function emit(){const value={clicks,text:input.value,changes};document.querySelector('#state').textContent=JSON.stringify(value);ipcRenderer.send('fixture-state',value)} button.onclick=()=>{clicks++;button.textContent='Click counter: '+clicks;emit()};input.oninput=()=>{changes++;emit()};emit();</script>`;
+  const html = `<!doctype html><title>${nonce} A</title><style>body{font:18px system-ui;padding:24px}button,input{font:20px system-ui;margin:14px;padding:12px}</style><h1>Saint controlled fixture</h1><button id="counter">Click counter: 0</button><input id="text" aria-label="Fixture text" value="abc"><p id="state"></p><script>const {ipcRenderer}=require('electron'); let clicks=0,changes=0; const button=document.querySelector('#counter'),input=document.querySelector('#text'); function emit(){const value={clicks,text:input.value,changes};document.querySelector('#state').textContent=JSON.stringify(value);ipcRenderer.send('fixture-state',value)} button.onclick=()=>{clicks++;button.textContent='Click counter: '+clicks;emit()};input.oninput=()=>{changes++;emit()};emit();</script>`;
   await first.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   const targetHtml = (label: "B" | "C") =>
     `<!doctype html><title>${nonce} ${label}</title><style>body{font:18px system-ui;padding:24px}input{font:20px system-ui;padding:12px;width:90%}</style><h1>Background target ${label}</h1><input id="text" aria-label="Fixture text ${label}" value=""><p>Exact semantic target ${label}</p>`;
@@ -129,18 +129,18 @@ async function main() {
   first.showInactive();
   first.webContents.on("will-navigate", (event) => event.preventDefault());
   first.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  // SYNARA_CUA_FIXTURE_ENDPOINT/CAPABILITY: connect to an externally hosted
+  // SAINT_CUA_FIXTURE_ENDPOINT/CAPABILITY: connect to an externally hosted
   // driver instead of embedding one — identical to the canary override. The
   // adhoc fixture bundle holds no TCC grants, so an embedded driver is
   // attributed to it and every AX surface enumerates empty. An external host
   // spawned under a trusted ancestry serves the same protocol with grants.
-  const externalEndpoint = process.env.SYNARA_CUA_FIXTURE_ENDPOINT ?? "";
+  const externalEndpoint = process.env.SAINT_CUA_FIXTURE_ENDPOINT ?? "";
   const capability =
     externalEndpoint.length > 0
-      ? (process.env.SYNARA_CUA_FIXTURE_CAPABILITY ?? "")
+      ? (process.env.SAINT_CUA_FIXTURE_CAPABILITY ?? "")
       : randomBytes(32).toString("base64url");
   if (externalEndpoint.length > 0 && capability.length === 0)
-    throw new Error("SYNARA_CUA_FIXTURE_ENDPOINT requires SYNARA_CUA_FIXTURE_CAPABILITY.");
+    throw new Error("SAINT_CUA_FIXTURE_ENDPOINT requires SAINT_CUA_FIXTURE_CAPABILITY.");
   let endpoint: string;
   if (externalEndpoint.length > 0) {
     endpoint = externalEndpoint;
@@ -148,7 +148,7 @@ async function main() {
     host = new CuaDriverHost({
       binaryPath: binaryPath!,
       capability,
-      bundleId: "com.synara.cua-fixture",
+      bundleId: "com.saint.cua-fixture",
       setup: async () => {
         throw new Error("Fixture runner never requests permissions.");
       },
@@ -209,7 +209,7 @@ async function main() {
       const windows = result.windows.filter(
         (window) =>
           typeof window?.title === "string" &&
-          /^Synara (Cua|Native) Fixture \d+ [ABC]$/.test(window.title),
+          /^Saint (Cua|Native) Fixture \d+ [ABC]$/.test(window.title),
       );
       (report.nativeObservations as unknown[]).push({ name, windows });
     }
@@ -513,7 +513,7 @@ async function main() {
   // Operator opt-in for exactly one explicitly authorized foreground action.
   // Reset this owned field first: this is a separate test, not a replay of the
   // uncertain background insertion. No personal clipboard is read or changed.
-  if (process.env.SYNARA_CUA_FIXTURE_FOREGROUND === "approved-once") {
+  if (process.env.SAINT_CUA_FIXTURE_FOREGROUND === "approved-once") {
     await first.webContents.executeJavaScript(
       "(()=>{const input=document.querySelector('#text');input.value='foreground seed';input.focus();input.select()})()",
     );
@@ -751,7 +751,7 @@ async function main() {
   report.processMemory = process.memoryUsage();
 }
 const run =
-  process.env.SYNARA_CUA_FIXTURE_LIVE === "1"
+  process.env.SAINT_CUA_FIXTURE_LIVE === "1"
     ? runLiveFixture(directory, binaryPath).then((result) => {
         report.live = result;
       })

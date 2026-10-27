@@ -11,8 +11,8 @@ import type {
   TodoId,
   TodoListResult,
   TodoUpdateInput,
-} from "@synara/contracts";
-import { applyTodoPatch } from "@synara/shared/todo";
+} from "@saint/contracts";
+import { applyTodoPatch } from "@saint/shared/todo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";

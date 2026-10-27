@@ -33,7 +33,7 @@ function prepare(baseEnv: NodeJS.ProcessEnv) {
 }
 
 beforeEach(() => {
-  dir = mkdtempSync(path.join(os.tmpdir(), "synara-managed-wrappers-"));
+  dir = mkdtempSync(path.join(os.tmpdir(), "saint-managed-wrappers-"));
   binDir = path.join(dir, "bin");
   rootDir = path.join(dir, "managed");
   zshRootDir = path.join(dir, "zsh");
@@ -107,7 +107,7 @@ describeOnPosix("prepareManagedTerminalWrappers", () => {
 
     expect(env.Path?.split(path.delimiter)[0]).toBe(rootDir);
     expect(env.PATH).toBeUndefined();
-    expect(env.SYNARA_MANAGED_BIN_DIR).toBe(rootDir);
+    expect(env.SAINT_MANAGED_BIN_DIR).toBe(rootDir);
   });
 
   it("writes provider profiles even when Codex and Claude are not installed", () => {

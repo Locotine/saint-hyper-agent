@@ -23,7 +23,7 @@ describe("resolveWsHttpUrl", () => {
   it("does not forward the websocket token to an absolute external URL", () => {
     vi.stubGlobal("window", {
       desktopBridge: {
-        getWsUrl: () => "wss://synara.test/ws?token=legacy-secret",
+        getWsUrl: () => "wss://saint.test/ws?token=legacy-secret",
       },
       location: { origin: "https://fallback.test" },
     });

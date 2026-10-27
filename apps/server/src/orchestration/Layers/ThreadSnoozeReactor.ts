@@ -1,4 +1,4 @@
-import { CommandId, type OrchestrationEvent, type ThreadId } from "@synara/contracts";
+import { CommandId, type OrchestrationEvent, type ThreadId } from "@saint/contracts";
 import { Cause, Duration, Effect, Layer, Queue, Schedule, Stream } from "effect";
 
 import { OrchestrationEngineService } from "../Services/OrchestrationEngine.ts";

@@ -16,7 +16,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface SynaraAXBridge : NSObject
+@interface SaintAXBridge : NSObject
 
 /// The `SimDevice` accessibility requests are sent to.
 @property (nonatomic, strong, nullable) id device;

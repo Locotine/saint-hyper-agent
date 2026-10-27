@@ -6,7 +6,7 @@ import type {
   ProviderComposerCapabilities,
   ProviderInstanceId,
   ProviderKind,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import type { ProviderInstanceOption } from "../appSettings";
 

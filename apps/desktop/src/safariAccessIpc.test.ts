@@ -34,8 +34,8 @@ function setup(platform: NodeJS.Platform = "darwin", systemVersion = "26.0") {
   const options = {
     platform,
     systemVersion,
-    execPath: "/Applications/Synara (Dev).app/Contents/MacOS/Synara",
-    appName: "Synara",
+    execPath: "/Applications/Saint (Dev).app/Contents/MacOS/Saint",
+    appName: "Saint",
     isTrustedRenderer: (id: number) => id === 1,
     openExternal: vi.fn(async (_url: string) => {}),
     showItemInFolder: vi.fn(),
@@ -64,18 +64,18 @@ describe("Safari access setup IPC", () => {
     const { options, call } = setup();
     await expect(call("getInfo")).resolves.toEqual({
       supported: true,
-      appName: "Synara (Dev)",
-      appPath: "/Applications/Synara (Dev).app",
+      appName: "Saint (Dev)",
+      appPath: "/Applications/Saint (Dev).app",
       fullDiskAccess: "denied",
     });
     expect(options.openExternal).not.toHaveBeenCalled();
     await expect(call("revealApp")).resolves.toBe(true);
     expect(options.showItemInFolder).toHaveBeenCalledExactlyOnceWith(
-      "/Applications/Synara (Dev).app",
+      "/Applications/Saint (Dev).app",
     );
-    expect(getSafariAccessInfo({ ...options, execPath: "/usr/bin/synara" })).toEqual({
+    expect(getSafariAccessInfo({ ...options, execPath: "/usr/bin/saint" })).toEqual({
       supported: true,
-      appName: "Synara",
+      appName: "Saint",
       appPath: null,
     });
   });

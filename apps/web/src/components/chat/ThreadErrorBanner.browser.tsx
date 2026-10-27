@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import { formatProviderDeliveryBlockDetail } from "@synara/shared/providerDeliveryBlock";
+import { formatProviderDeliveryBlockDetail } from "@saint/shared/providerDeliveryBlock";
 import { page } from "vitest/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

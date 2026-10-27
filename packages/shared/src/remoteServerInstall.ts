@@ -1,7 +1,8 @@
 // FILE: remoteServerInstall.ts
-// Purpose: Builds the npm manifest a remote SSH host installs the Synara server from.
+// Purpose: Builds the npm manifest a remote SSH host installs the Saint server from.
 // Layer: Shared runtime utility (desktop main and the desktop artifact build)
-// Exports: createRemoteServerInstallManifest, remoteServerPatchIndex
+// Exports: createRemoteServerInstallManifest, remoteServerPatchIndex,
+//          REMOTE_SERVER_OMITTED_DEPENDENCIES
 
 /** A Bun patch the remote applies after `npm install`, since npm never reads `patchedDependencies`. */
 export interface RemoteServerPatch {
@@ -36,6 +37,15 @@ export interface RemoteServerInstallManifestInput {
   /** Root `patchedDependencies`: `name@spec` -> patch path. */
   readonly patchedDependencies?: Record<string, unknown>;
 }
+
+/**
+ * Dependencies only the providers a remote server leaves out load (lazily), so
+ * remote installs skip them. See REMOTE_SERVER_PROVIDERS in `./serverProviders`.
+ */
+export const REMOTE_SERVER_OMITTED_DEPENDENCIES: readonly string[] = [
+  "@earendil-works/pi-coding-agent",
+  "@agentclientprotocol/sdk",
+];
 
 function resolveSpec(
   name: string,
@@ -81,6 +91,7 @@ export function createRemoteServerInstallManifest(
 ): RemoteServerInstallManifest {
   const dependencies: Record<string, string> = {};
   for (const [name, spec] of Object.entries(input.serverPackageJson.dependencies ?? {})) {
+    if (REMOTE_SERVER_OMITTED_DEPENDENCIES.includes(name)) continue;
     dependencies[name] = resolveSpec(name, spec, input.catalog, "dependency");
   }
 
@@ -109,7 +120,7 @@ export function createRemoteServerInstallManifest(
 
   return {
     packageJson: {
-      name: "synara-remote-server",
+      name: "saint-remote-server",
       version: input.serverPackageJson.version,
       private: true,
       type: "module",

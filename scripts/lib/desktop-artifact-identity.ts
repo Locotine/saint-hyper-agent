@@ -1,11 +1,11 @@
 import {
-  synaraDesktopIdentity,
-  type SynaraPackagedDesktopFlavor,
-} from "@synara/shared/desktopIdentity";
+  saintDesktopIdentity,
+  type SaintPackagedDesktopFlavor,
+} from "@saint/shared/desktopIdentity";
 
 export function createDesktopArtifactIdentity(input: {
   readonly platform: "mac" | "linux" | "win";
-  readonly flavor: SynaraPackagedDesktopFlavor;
+  readonly flavor: SaintPackagedDesktopFlavor;
 }) {
   // Stable's NSIS GUID deliberately survives public bundle ID changes. An
   // experimental installer must not register itself as that same product; beta
@@ -13,14 +13,14 @@ export function createDesktopArtifactIdentity(input: {
   if (input.platform === "win" && input.flavor !== "production" && input.flavor !== "beta") {
     throw new Error("Isolated desktop flavors are currently supported on macOS and Linux only.");
   }
-  const identity = synaraDesktopIdentity(input.flavor);
+  const identity = saintDesktopIdentity(input.flavor);
   const suffix = input.flavor === "production" ? "" : `-${input.flavor}`;
   return {
     identity,
     packageMetadata: {
-      name: `synara-desktop${suffix}`,
+      name: `saint-desktop${suffix}`,
       productName: identity.displayName,
-      synaraDesktopFlavor: input.flavor,
+      saintDesktopFlavor: input.flavor,
     },
     buildConfig: {
       appId: identity.bundleId,

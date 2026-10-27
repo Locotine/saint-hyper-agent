@@ -1,4 +1,4 @@
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 type TerminalRuntimeCleanup = (activeThreadIds: ReadonlySet<string>) => void;
 let cleanupRuntimes: TerminalRuntimeCleanup | undefined;

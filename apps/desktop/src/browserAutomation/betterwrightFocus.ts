@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { WebContents } from "electron";
 
-/** The manager only leases guests attached to Synara's trusted owning renderer. */
+/** The manager only leases guests attached to Saint's trusted owning renderer. */
 export async function withRendererGuestFocus<T>(
   contents: WebContents,
   operation: () => Promise<T>,
@@ -10,7 +10,7 @@ export async function withRendererGuestFocus<T>(
   const host = contents.hostWebContents;
   if (!host || host.isDestroyed() || !Number.isSafeInteger(contents.id))
     throw new Error("Browser focus unavailable.");
-  const key = JSON.stringify(`synara-browser-focus-${randomUUID()}`);
+  const key = JSON.stringify(`saint-browser-focus-${randomUUID()}`);
   try {
     // Never interpolate model input into the privileged renderer. The only
     // arguments are a native WebContents ID and a one-use restoration key.

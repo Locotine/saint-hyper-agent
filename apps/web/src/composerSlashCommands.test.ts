@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { THREAD_GOAL_MAX_CHARS } from "@synara/contracts";
+import { THREAD_GOAL_MAX_CHARS } from "@saint/contracts";
 
 import {
   buildGoalSlashCommandPrompt,
@@ -25,7 +25,7 @@ import {
 
 describe("composerSlashCommands", () => {
   it.each(["codex"] as const)(
-    "offers one Synara Computer invocation for %s despite a native name collision",
+    "offers one Saint Computer invocation for %s despite a native name collision",
     (provider) => {
       const commands = getAvailableComposerSlashCommands({
         provider,
@@ -400,7 +400,7 @@ describe("composerSlashCommands", () => {
     expect(providerSupportsTextNativeReviewCommand("claudeAgent", ["review"])).toBe(true);
   });
 
-  it("only exposes Synara-owned app commands for claude", () => {
+  it("only exposes Saint-owned app commands for claude", () => {
     const commands = getAvailableComposerSlashCommands({
       provider: "claudeAgent",
       supportsFastSlashCommand: true,

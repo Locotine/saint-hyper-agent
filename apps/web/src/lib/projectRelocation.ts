@@ -1,4 +1,4 @@
-import { CommandId, type NativeApi, type ProjectId } from "@synara/contracts";
+import { CommandId, type NativeApi, type ProjectId } from "@saint/contracts";
 
 type ProjectRelocationApi = Pick<
   NativeApi["orchestration"],

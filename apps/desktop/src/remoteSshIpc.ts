@@ -3,7 +3,7 @@
 // Layer: Desktop IPC (Electron main)
 // Exports: registerRemoteSshIpc, RemoteSshIpcOptions
 
-import type { DesktopRemoteSshSavedHost, DesktopRemoteSshState } from "@synara/contracts";
+import type { DesktopRemoteSshSavedHost, DesktopRemoteSshState } from "@saint/contracts";
 import type { IpcMain, IpcMainEvent, IpcMainInvokeEvent } from "electron";
 
 import { DESKTOP_IPC_CHANNELS } from "./ipcChannels";

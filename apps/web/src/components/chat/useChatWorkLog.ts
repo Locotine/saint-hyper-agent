@@ -1,4 +1,4 @@
-import { OrchestrationThreadActivity, type TurnId } from "@synara/contracts";
+import { OrchestrationThreadActivity, type TurnId } from "@saint/contracts";
 import { useMemo } from "react";
 import { setsEqual, useStableValue } from "../../hooks/useStableValue";
 import {

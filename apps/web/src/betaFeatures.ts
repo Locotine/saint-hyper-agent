@@ -1,7 +1,7 @@
 // FILE: betaFeatures.ts
 // Purpose: The web app's read of the shared Beta-only feature list.
 // Layer: Route/UI support
-// Exports: isBetaFeatureOn, visibleProviderDescriptors, VISIBLE_PROVIDER_DESCRIPTORS
+// Exports: isBetaFeatureOn, isProviderOn, visibleProviderDescriptors, VISIBLE_PROVIDER_DESCRIPTORS
 
 import {
   desktopFlavorFromProtocol,
@@ -12,12 +12,12 @@ import {
   MCP_CONNECTORS_BETA_FEATURE,
   NATIVE_EDITOR_BETA_FEATURE,
   PULL_REQUEST_AUTO_FIX_BETA_FEATURE,
-} from "@synara/shared/betaFeatures";
-import { PROVIDER_DESCRIPTORS } from "@synara/shared/providerMetadata";
+} from "@saint/shared/betaFeatures";
+import { PROVIDER_DESCRIPTORS } from "@saint/shared/providerMetadata";
 
 // The desktop serves the app from its own scheme, so the protocol names the
 // host flavor (branding.ts uses the same signal for display names). A dev
-// build serves `synara:` too, so import.meta.env.DEV disambiguates it. SSR and
+// build serves `saint:` too, so import.meta.env.DEV disambiguates it. SSR and
 // tests have no window and resolve to "unknown", which keeps Beta-only
 // features on — the server gate is the authoritative one.
 const DESKTOP_FLAVOR = desktopFlavorFromProtocol(
@@ -27,6 +27,18 @@ const DESKTOP_FLAVOR = desktopFlavorFromProtocol(
 
 export const isBetaFeatureOn = (feature: string): boolean =>
   isBetaFeatureEnabled(feature, DESKTOP_FLAVOR);
+
+// A remote SSH host's server installs only some providers; the server refuses
+// the rest, so pickers and settings leave them out too.
+const REMOTE_WINDOW_PROVIDERS: ReadonlySet<string> | null =
+  typeof window !== "undefined" && window.desktopBridge?.remoteWindow
+    ? new Set(window.desktopBridge.remoteWindow.providers)
+    : null;
+
+/** A provider this window can select: on for this build and installed on its server's host. */
+export const isProviderOn = (provider: string): boolean =>
+  isBetaFeatureOn(provider) &&
+  (REMOTE_WINDOW_PROVIDERS === null || REMOTE_WINDOW_PROVIDERS.has(provider));
 
 /**
  * Hubs is available in Stable and Beta. The shared feature policy also controls
@@ -73,13 +85,14 @@ export const CODE_EDITOR_ENGINE = codeEditorEngine();
 export const NATIVE_EDITOR_ON = CODE_EDITOR_ENGINE === "native";
 
 /**
- * Provider descriptors with Beta-only providers removed on Stable. A
- * provider's feature key is its ProviderKind, so an unlisted kind is always
- * visible. Selectable lists (pickers, settings, onboarding) consume this;
- * display-only rendering of existing threads keeps PROVIDER_DESCRIPTORS.
+ * Provider descriptors with Beta-only providers removed on Stable, and in a
+ * remote SSH window the providers its host does not install. A provider's
+ * feature key is its ProviderKind, so an unlisted kind is always visible.
+ * Selectable lists (pickers, settings, onboarding) consume this; display-only
+ * rendering of existing threads keeps PROVIDER_DESCRIPTORS.
  */
 export function visibleProviderDescriptors(
-  isOn: (feature: string) => boolean = isBetaFeatureOn,
+  isOn: (feature: string) => boolean = isProviderOn,
 ): (typeof PROVIDER_DESCRIPTORS)[number][] {
   return PROVIDER_DESCRIPTORS.filter((d) => isOn(d.kind));
 }

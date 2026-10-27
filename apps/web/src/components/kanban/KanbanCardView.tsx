@@ -5,7 +5,7 @@
 // Exports: KanbanCardView
 
 import { GLASS_RAISED_SURFACE_CLASS_NAME } from "~/surfaceStyles";
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 import {
   resolveThreadPullRequestFallback,
@@ -28,7 +28,7 @@ import { formatRelativeTime } from "~/lib/relativeTime";
 import { cn } from "~/lib/utils";
 import { formatElapsed } from "../../session-logic";
 import { RAISED_SURFACE_CHROME_CLASS_NAME } from "../chat/composerPickerStyles";
-import { KANBAN_ATTENTION_LABELS, KANBAN_COLUMN_V2_LABELS } from "@synara/shared/kanban";
+import { KANBAN_ATTENTION_LABELS, KANBAN_COLUMN_V2_LABELS } from "@saint/shared/kanban";
 import { KanbanStatusIcon } from "./KanbanStatusIcon";
 import { kanbanThreadCardId, refineAttentionFlagsForLivePr, type KanbanCard } from "./kanban.logic";
 

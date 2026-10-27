@@ -8,15 +8,15 @@
  * Process control (spawn, SIGTERM, bounded restart backoff) is isolated behind
  * an injectable runtime so the fold is unit-testable without a real child.
  */
-import { resolveExecutable } from "@synara/shared/executable";
-import { spawnProcess } from "@synara/shared/processRuntime";
+import { resolveExecutable } from "@saint/shared/executable";
+import { spawnProcess } from "@saint/shared/processRuntime";
 import {
   type KeepAwakeMode,
   type OrchestrationEvent,
   type OrchestrationReadModel,
   type ServerKeepAwakeState,
   ThreadSessionSetPayload,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   Deferred,
   Duration,
@@ -61,7 +61,7 @@ export interface KeepAwakeShape {
 }
 
 export class KeepAwakeService extends ServiceMap.Service<KeepAwakeService, KeepAwakeShape>()(
-  "synara/keepAwake/KeepAwakeService",
+  "saint/keepAwake/KeepAwakeService",
 ) {}
 
 export function computeDesired(mode: KeepAwakeMode, activeTurnCount: number): boolean {

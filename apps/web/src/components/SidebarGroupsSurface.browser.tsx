@@ -5,7 +5,7 @@
 
 import "../index.css";
 
-import { ProjectId, ThreadId, type ProjectAgentSummary } from "@synara/contracts";
+import { ProjectId, ThreadId, type ProjectAgentSummary } from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { page, userEvent } from "vitest/browser";

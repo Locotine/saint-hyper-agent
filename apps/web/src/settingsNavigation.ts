@@ -3,7 +3,7 @@
 // Layer: Route/UI support
 // Exports: section ids, nav items, and search normalization helper
 
-import { MCP_CONNECTORS_BETA_FEATURE, REMOTE_SSH_BETA_FEATURE } from "@synara/shared/betaFeatures";
+import { MCP_CONNECTORS_BETA_FEATURE, REMOTE_SSH_BETA_FEATURE } from "@saint/shared/betaFeatures";
 
 import { isBetaFeatureOn } from "~/betaFeatures";
 import { KEYBINDINGS_ICON_NAME } from "~/lib/icons";
@@ -124,7 +124,7 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     id: "notifications",
     group: "personal",
     label: "Notifications",
-    description: "Choose how Synara tells you when work finishes or needs attention.",
+    description: "Choose how Saint tells you when work finishes or needs attention.",
     icon: "bell",
     eyebrow: "Alerts",
   },
@@ -140,7 +140,7 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     id: "shortcuts",
     group: "personal",
     label: "Keybindings",
-    description: "Change, add, or remove the shortcut for every Synara command.",
+    description: "Change, add, or remove the shortcut for every Saint command.",
     icon: KEYBINDINGS_ICON_NAME,
     eyebrow: "Key bindings",
   },
@@ -181,7 +181,7 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     id: "integrations",
     group: "integrations",
     label: "MCP connections",
-    description: "Give Codex, Claude, and other local agents scoped access to Synara tasks.",
+    description: "Give Codex, Claude, and other local agents scoped access to Saint tasks.",
     icon: "plugin-1",
     eyebrow: "External agents",
   },
@@ -189,7 +189,7 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     id: "remote-hosts",
     group: "integrations",
     label: "Remote hosts",
-    description: "Run Synara on another machine over SSH and open it in its own window.",
+    description: "Run Saint on another machine over SSH and open it in its own window.",
     icon: "server",
     eyebrow: "SSH remotes",
     badge: "Beta",
@@ -223,7 +223,7 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     id: "worktrees",
     group: "coding",
     label: "Managed worktrees",
-    description: "Review and clean up isolated workspaces created by Synara.",
+    description: "Review and clean up isolated workspaces created by Saint.",
     icon: "branch-simple",
     eyebrow: "Workspace management",
   },

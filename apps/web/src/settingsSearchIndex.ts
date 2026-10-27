@@ -26,7 +26,7 @@ export interface SettingsSearchEntry {
    * Whether this row exists on the machine the user is actually looking at.
    * Omitted means "always". A search result for a row the panel does not render
    * is a dead end: it scrolls to an anchor that is not there, and it tells the
-   * user Synara has a setting it does not.
+   * user Saint has a setting it does not.
    */
   applies?: (context: SettingsSearchContext) => boolean;
 }
@@ -216,13 +216,13 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     id: "appearance:theme",
     section: "appearance",
     title: "Theme",
-    keywords: "Choose how Synara looks across the app. dark light system color",
+    keywords: "Choose how Saint looks across the app. dark light system color",
   },
   {
     id: "appearance:app-icon",
     section: "appearance",
     title: "App icon",
-    keywords: "Choose the icon Synara uses in the dock or taskbar desktop application logo.",
+    keywords: "Choose the icon Saint uses in the dock or taskbar desktop application logo.",
     target: null,
   },
   {
@@ -237,7 +237,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     id: "appearance:system-ui-font",
     section: "appearance",
     title: "Use system UI font",
-    keywords: "Use the operating system interface font throughout Synara.",
+    keywords: "Use the operating system interface font throughout Saint.",
   },
   {
     id: "appearance:ui-density",
@@ -507,7 +507,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: "shortcuts",
     title: "Keybindings",
     keywords:
-      "Every keyboard shortcut available in Synara: change, add, remove, or reset them. keybindings hotkeys key combo cmd ctrl customize rebind unassigned reset defaults",
+      "Every keyboard shortcut available in Saint: change, add, remove, or reset them. keybindings hotkeys key combo cmd ctrl customize rebind unassigned reset defaults",
     target: null,
   },
 
@@ -516,7 +516,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     id: "worktrees:managed-worktrees",
     section: "worktrees",
     title: "Managed worktrees",
-    keywords: "Review and clean up the worktrees created by Synara. git branch remove",
+    keywords: "Review and clean up the worktrees created by Saint. git branch remove",
     target: null,
   },
 
@@ -554,7 +554,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
     id: "providers:cpu-priority",
     section: "providers",
-    title: "Keep Synara responsive",
+    title: "Keep Saint responsive",
     keywords:
       "Lower agent CPU scheduling priority performance load nice responsiveness restart sessions",
   },
@@ -583,7 +583,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     id: "providers:provider-updates",
     section: "providers",
     title: "Provider updates",
-    keywords: "Update installed provider tools that Synara can safely update. upgrade cli",
+    keywords: "Update installed provider tools that Saint can safely update. upgrade cli",
   },
   {
     id: "providers:installed-clis",

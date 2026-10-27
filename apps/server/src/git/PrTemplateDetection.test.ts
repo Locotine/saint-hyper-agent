@@ -22,7 +22,7 @@ const TEMPLATE_DIRECTORIES = [
 ] as const;
 
 const ServerConfigLayer = ServerConfig.layerTest(process.cwd(), {
-  prefix: "synara-pr-template-test-",
+  prefix: "saint-pr-template-test-",
 });
 const PrTemplateDetectionTestLayer = GitCoreLive.pipe(
   Layer.provide(ServerConfigLayer),
@@ -46,7 +46,7 @@ const runWithTempDirectory = <A, E, R>(
   Effect.scoped(
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
-      const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "synara-pr-template-" });
+      const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "saint-pr-template-" });
       yield* runGit(cwd, ["init", "--initial-branch=main"]);
       yield* runGit(cwd, ["config", "user.email", "test@example.com"]);
       yield* runGit(cwd, ["config", "user.name", "Test User"]);
@@ -280,7 +280,7 @@ it.effect("rejects a committed template symlink escaping the repository", () =>
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const outsideDirectory = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "synara-pr-template-outside-",
+        prefix: "saint-pr-template-outside-",
       });
       const outsideTemplate = path.join(outsideDirectory, "secret.md");
       yield* fileSystem.writeFileString(outsideTemplate, "LOCAL_SECRET_SENTINEL");
@@ -306,7 +306,7 @@ it.effect("reads the committed template when a worktree parent is replaced", () 
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const outsideDirectory = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "synara-pr-template-outside-",
+        prefix: "saint-pr-template-outside-",
       });
       const templatePath = yield* writeTemplate(
         cwd,

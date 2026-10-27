@@ -5,7 +5,7 @@ vite v8.1.5 building client environment for production...
 Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
   npx update-browserslist-db@latest
   Why you should do it regularly: https://github.com/browserslist/update-db#readme
-[2Ktransforming...[BABEL] Note: The code generator has deoptimised the styling of /Users/emanueledipietro/.codex/worktrees/702b/synara/apps/web/src/components/ChatView.tsx as it exceeds the max of 500KB.
+[2Ktransforming...[BABEL] Note: The code generator has deoptimised the styling of /Users/emanueledipietro/.codex/worktrees/702b/saint/apps/web/src/components/ChatView.tsx as it exceeds the max of 500KB.
 [33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugin `vite:css`. See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
 
 ✓ 8902 modules transformed.
@@ -164,7 +164,7 @@ dist/assets/AutomationProposalActions-BnAuA_Ll.js                     1.70 kB �
 dist/assets/docker-IyjqRm3v.js                                        1.73 kB │ gzip:   0.59 kB
 dist/assets/hxml-B0Qn7Nwc.js                                          1.74 kB │ gzip:   0.87 kB
 dist/assets/icon-button-CO9tI0QS.js                                   1.81 kB │ gzip:   0.96 kB
-dist/assets/SynaraLogo-C3hGtOSG.js                                    1.82 kB │ gzip:   1.12 kB
+dist/assets/SaintLogo-C3hGtOSG.js                                    1.82 kB │ gzip:   1.12 kB
 dist/assets/desktop-Dlh5hvp9.js                                       1.82 kB │ gzip:   0.75 kB
 dist/assets/FileEntryIcon-BpB7piHp.js                                 1.84 kB │ gzip:   0.93 kB
 dist/assets/binaryFrameSource-CezAc3i4.js                             1.89 kB │ gzip:   0.95 kB

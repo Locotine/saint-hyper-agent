@@ -104,9 +104,9 @@ test("v0.7.3 durable workflows are documented and connected", () => {
 
   assert.ok(workflowMeta.pages.includes("headless-server"));
   assert.ok(workflowIndex.includes("/docs/workflows/headless-server"));
-  assert.ok(headless.includes("synara-server-<version>.tar.gz"));
+  assert.ok(headless.includes("saint-server-<version>.tar.gz"));
   assert.ok(headless.includes("server status"));
-  assert.ok(headless.includes("SYNARA_AUTH_TOKEN"));
+  assert.ok(headless.includes("SAINT_AUTH_TOKEN"));
   assert.ok(browser.includes("Floating over the conversation"));
   assert.ok(browser.includes("two presentations of one task-scoped browser session"));
   assert.ok(commands.includes("`/side [provider] [prompt]`"));
@@ -158,7 +158,7 @@ test("v0.8.4 editor and browser guides are connected and preserve safety boundar
   assert.ok(editor.includes("**Partial diff**"));
   assert.ok(editor.includes("Some files or changes may be missing"));
   const browser = read("content/docs/features/browser-sessions.mdx");
-  assert.ok(browser.includes("shared across Synara browser tabs and agent workflows"));
+  assert.ok(browser.includes("shared across Saint browser tabs and agent workflows"));
   assert.ok(browser.includes("Agent password filling and password generation are unavailable"));
   assert.ok(browser.includes("Nothing is copied merely by opening or completing"));
   assert.ok(browser.includes("clean app shutdown"));
@@ -221,7 +221,7 @@ test("v0.9.0 guides keep platform, source preservation and interruption boundari
 
 test("Hubs guide documents Stable availability, human approvals and separate app state", () => {
   const hubs = read("content/docs/features/hubs.mdx");
-  assert.ok(hubs.includes("Synara 1.0.2 Stable"));
+  assert.ok(hubs.includes("Saint 1.0.2 Stable"));
   assert.ok(hubs.includes("It never approves a worker's pending request for you"));
   assert.ok(hubs.includes("Stable and Beta keep separate Hubs and chats"));
   assert.ok(hubs.includes("Beta data is not copied back to Stable"));

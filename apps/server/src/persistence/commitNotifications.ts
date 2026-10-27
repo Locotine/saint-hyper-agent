@@ -3,7 +3,7 @@ import { Effect, Option, ServiceMap } from "effect";
 class CommitNotifications extends ServiceMap.Service<
   CommitNotifications,
   { readonly enqueue: (notification: Effect.Effect<void>) => void }
->()("synara/persistence/CommitNotifications") {}
+>()("saint/persistence/CommitNotifications") {}
 
 /** Run normally, or defer a notification until the enclosing transaction commits. */
 export const notifyAfterCommit = (notification: Effect.Effect<void>): Effect.Effect<void> =>

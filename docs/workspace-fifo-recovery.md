@@ -6,7 +6,7 @@ Both read paths now open with `O_RDONLY | O_NONBLOCK` on POSIX and reject non-re
 
 ## Controlled reproduction
 
-Use a disposable home, empty Git repository/worktree, unused server and browser ports, and a test-only auth token. Never use an existing Synara database or provider credentials. Build the actual server entry point and run it with Node 24.21.0. The investigation used the pinned Claude SDK 0.3.296 without calling a model.
+Use a disposable home, empty Git repository/worktree, unused server and browser ports, and a test-only auth token. Never use an existing Saint database or provider credentials. Build the actual server entry point and run it with Node 24.21.0. The investigation used the pinned Claude SDK 0.3.296 without calling a model.
 
 1. Create a regular `healthy.txt` and four named pipes with `mkfifo pipe-0.txt pipe-1.txt pipe-2.txt pipe-3.txt` inside the disposable worktree.
 2. Connect the real browser `WsTransport` to the full authenticated application server, with its browser origin explicitly configured as the development origin. Verify `projects.readFile` reads the regular file first.

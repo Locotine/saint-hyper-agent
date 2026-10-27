@@ -2,7 +2,7 @@
 // Purpose: Assign stable, lineage-wide sequence titles to forked threads.
 // Layer: Orchestration domain helper
 
-import { isSidechatThread, type SidechatIdentityFields } from "@synara/shared/sidechatThread";
+import { isSidechatThread, type SidechatIdentityFields } from "@saint/shared/sidechatThread";
 
 interface ForkLineageThread extends SidechatIdentityFields {
   readonly id: string;

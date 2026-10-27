@@ -2,7 +2,7 @@
 // Purpose: Characterizes the opt-in worktree release that follows an accepted archive.
 // Layer: Web orchestration helper tests
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppState } from "../storeState";
@@ -26,7 +26,7 @@ import { releaseOrphanedWorktreeAfterArchive } from "./archiveThreadWorktreeClea
 
 const ARCHIVED_ID = ThreadId.makeUnsafe("thread-archived");
 const SIBLING_ID = ThreadId.makeUnsafe("thread-sibling");
-const WORKTREE_PATH = "/home/user/.synara/worktrees/repo/feature-a";
+const WORKTREE_PATH = "/home/user/.saint/worktrees/repo/feature-a";
 const ARCHIVE_SEQUENCE = 42;
 
 // Folds single-thread fixture states together: ids concatenate, per-thread maps merge.

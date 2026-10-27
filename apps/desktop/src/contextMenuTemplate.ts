@@ -3,7 +3,7 @@
 // Layer: desktop main utility
 // Exports: buildContextMenuTemplate, CONTEXT_MENU_MAX_DEPTH
 
-import type { DesktopContextMenuItem } from "@synara/contracts";
+import type { DesktopContextMenuItem } from "@saint/contracts";
 import type { MenuItemConstructorOptions, NativeImage } from "electron";
 
 /** Renderer input is untrusted; deeper nesting than this is dropped rather than built. */

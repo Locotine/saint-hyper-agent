@@ -3,9 +3,9 @@ import {
   THREAD_NOTES_MAX_CHARS,
   type OrchestrationThreadShell,
   type TurnDispatchMode,
-  SynaraCreateThreadsInput,
-  SynaraCreateThreadsResult,
-} from "@synara/contracts";
+  SaintCreateThreadsInput,
+  SaintCreateThreadsResult,
+} from "@saint/contracts";
 import {
   deriveKanbanColumnV2,
   deriveKanbanAttention,
@@ -13,7 +13,7 @@ import {
   type KanbanAttentionFlag,
   type KanbanColumnV2Key,
   type KanbanThreadDerivationInput,
-} from "@synara/shared/kanban";
+} from "@saint/shared/kanban";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -94,13 +94,13 @@ interface ReadKanbanCard {
 }
 
 /**
- * Hard cap on the cards `synara_read_kanban_board` will materialize and
+ * Hard cap on the cards `saint_read_kanban_board` will materialize and
  * serialize into one MCP response. The board read loads the durable shell
  * snapshot and derives a card for every non-archived thread in JS; without a
  * bound a single workspace with tens of thousands of threads would hydrate
  * them all into one multi-MB JSON blob (memory + latency). When the live card
  * count exceeds this cap the read stops and reports `truncated: true` so a
- * caller can fall back to scoped reads (synara_read_kanban_card) instead.
+ * caller can fall back to scoped reads (saint_read_kanban_card) instead.
  */
 const MAX_CARDS_PER_BOARD = 500;
 /** Card titles stay one-liners; prompts/descriptions share the goal cap. */
@@ -147,7 +147,7 @@ export interface KanbanGatewayHelpers {
   ) => Effect.Effect<void, unknown, never>;
   /** Exactly-once creation saga for one or more threads (creationCoordinator). */
   readonly runCreateThreads: (
-    input: typeof SynaraCreateThreadsInput.Type,
+    input: typeof SaintCreateThreadsInput.Type,
     context: GatewayCreationContext,
   ) => Effect.Effect<McpToolCallResult, never, never>;
   /** Start (or restart) a turn on an existing thread — mirrors sendMessage. */
@@ -460,9 +460,9 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
   const readBoard: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_read_kanban_board",
+      name: "saint_read_kanban_board",
       description:
-        "Read the durable Kanban board: projects and their columns (Draft, In Progress, Awaiting you, Done), each card with provider/model, branch/worktree, PR state, a thread summary, and its attention flags. Column and attention derive from the same shared model as the Synara board UI, so a card's column here matches what the board renders; client-only draft/optimistic overlays the UI shows are not included. Attention flags are awaiting-approval, awaiting-input, failed, stuck, needs-review — an Awaiting-you card is waiting on the human (approval or input) and cannot be moved by synara_move_kanban_card.",
+        "Read the durable Kanban board: projects and their columns (Draft, In Progress, Awaiting you, Done), each card with provider/model, branch/worktree, PR state, a thread summary, and its attention flags. Column and attention derive from the same shared model as the Saint board UI, so a card's column here matches what the board renders; client-only draft/optimistic overlays the UI shows are not included. Attention flags are awaiting-approval, awaiting-input, failed, stuck, needs-review — an Awaiting-you card is waiting on the human (approval or input) and cannot be moved by saint_move_kanban_card.",
       inputSchema: {
         type: "object",
         properties: {
@@ -474,11 +474,11 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
         additionalProperties: false,
       },
       annotations: {
-        title: "Read the Synara kanban board",
+        title: "Read the Saint kanban board",
         ...READ_ONLY_TOOL_ANNOTATIONS,
       },
     },
-    handler: withKanbanToolAudit("synara_read_kanban_board", (args, context) =>
+    handler: withKanbanToolAudit("saint_read_kanban_board", (args, context) =>
       Effect.gen(function* () {
         const callerShell = yield* requireThreadShell(context.callerThreadId).pipe(
           Effect.mapError((error) => new ToolInputError(errorText(error))),
@@ -563,7 +563,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
           truncated,
           ...(truncated
             ? {
-                truncatedReason: `Board read capped at ${MAX_CARDS_PER_BOARD} cards; use synara_read_kanban_card for a single thread.`,
+                truncatedReason: `Board read capped at ${MAX_CARDS_PER_BOARD} cards; use saint_read_kanban_card for a single thread.`,
               }
             : {}),
         });
@@ -574,9 +574,9 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
   const readCard: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_read_kanban_card",
+      name: "saint_read_kanban_card",
       description:
-        "Read a single Kanban card by thread id: its column (Draft, In Progress, Awaiting you, Done), provider/model, branch/worktree, PR state, thread summary, and attention flags. Bounded and cheap — reads one thread shell rather than the whole board, so prefer it to check a single card's state without loading synara_read_kanban_board. Column and attention derive from the same shared model as the board UI.",
+        "Read a single Kanban card by thread id: its column (Draft, In Progress, Awaiting you, Done), provider/model, branch/worktree, PR state, thread summary, and attention flags. Bounded and cheap — reads one thread shell rather than the whole board, so prefer it to check a single card's state without loading saint_read_kanban_board. Column and attention derive from the same shared model as the board UI.",
       inputSchema: {
         type: "object",
         properties: {
@@ -589,11 +589,11 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
         additionalProperties: false,
       },
       annotations: {
-        title: "Read a Synara kanban card",
+        title: "Read a Saint kanban card",
         ...READ_ONLY_TOOL_ANNOTATIONS,
       },
     },
-    handler: withKanbanToolAudit("synara_read_kanban_card", (args, context) =>
+    handler: withKanbanToolAudit("saint_read_kanban_card", (args, context) =>
       Effect.gen(function* () {
         const threadId = readStringArg(args, "threadId", { required: true })!;
         const callerShell = yield* requireThreadShell(context.callerThreadId).pipe(
@@ -605,7 +605,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
         if (thread.projectId !== callerShell.projectId) {
           return yield* Effect.fail(
             new ToolInputError(
-              `Thread "${threadId}" is in a different project. Use synara_read_kanban_board for your own project "${callerShell.projectId}".`,
+              `Thread "${threadId}" is in a different project. Use saint_read_kanban_board for your own project "${callerShell.projectId}".`,
             ),
           );
         }
@@ -650,9 +650,9 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_create_kanban_task",
+      name: "saint_create_kanban_task",
       description:
-        "Create a Kanban task from a title and optional description/prompt: starts a new Synara thread and immediately starts a turn, so the card renders In Progress while the turn is live. Reuse the returned threadId with synara_read_thread or synara_move_kanban_card. requestId is required and retries with the same requestId replay exactly-once.",
+        "Create a Kanban task from a title and optional description/prompt: starts a new Saint thread and immediately starts a turn, so the card renders In Progress while the turn is live. Reuse the returned threadId with saint_read_thread or saint_move_kanban_card. requestId is required and retries with the same requestId replay exactly-once.",
       inputSchema: {
         type: "object",
         properties: {
@@ -692,7 +692,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
       },
     },
     handler: withKanbanToolAudit(
-      "synara_create_kanban_task",
+      "saint_create_kanban_task",
       withKanbanWriteConcurrencyGuard(
         (args, context) =>
           Effect.suspend(() =>
@@ -756,21 +756,21 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
                 return yield* Effect.fail(
                   new GatewayToolError(
                     "operation_failed",
-                    "synara_create_kanban_task received no JSON payload from the creation saga; the operation may have succeeded — retry with the same requestId (it replays exactly-once) or check the board.",
+                    "saint_create_kanban_task received no JSON payload from the creation saga; the operation may have succeeded — retry with the same requestId (it replays exactly-once) or check the board.",
                   ),
                 );
               }
-              // The creation saga returns a SynaraCreateThreadsResult (`threadIds`
+              // The creation saga returns a SaintCreateThreadsResult (`threadIds`
               // / per-thread `threads`, never a top-level `threadId`). Decode it
               // against the shared contract so shape drift fails loudly instead of
               // degrading into an unparseable card view.
               const batch = yield* Effect.try({
                 try: () =>
-                  Schema.decodeUnknownSync(SynaraCreateThreadsResult)(JSON.parse(content.text)),
+                  Schema.decodeUnknownSync(SaintCreateThreadsResult)(JSON.parse(content.text)),
                 catch: (error) =>
                   new GatewayToolError(
                     "operation_failed",
-                    "synara_create_kanban_task could not decode the creation saga result as SynaraCreateThreadsResult; the operation may have succeeded — retry with the same requestId (it replays exactly-once) or check the board.",
+                    "saint_create_kanban_task could not decode the creation saga result as SaintCreateThreadsResult; the operation may have succeeded — retry with the same requestId (it replays exactly-once) or check the board.",
                     { reason: errorText(error) },
                   ),
               });
@@ -827,7 +827,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_move_kanban_card",
+      name: "saint_move_kanban_card",
       description:
         'Move a Kanban card between the actionable columns. target "inProgress" starts (or resumes) work on the thread, optionally with a message; target "done" requests that a running turn settle (falls back to interrupting it). A card already in the requested column reports a no-op (alreadyInProgress / alreadyDone). Awaiting-you is a human-attention state: target "inProgress" reports a no-op with awaitingYou=true for pending approval/input or a stuck live turn (a failed card instead restarts through the settled-thread path), and target "done" is prohibited.',
       inputSchema: {
@@ -857,7 +857,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
       },
     },
     handler: withKanbanToolAudit(
-      "synara_move_kanban_card",
+      "saint_move_kanban_card",
       withKanbanWriteConcurrencyGuard(
         (args, context) =>
           Effect.suspend(() =>
@@ -945,7 +945,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
               if (currentColumn === "awaitingYou") {
                 return yield* Effect.fail(
                   new ToolInputError(
-                    "Awaiting-you cards cannot be force-moved: wait for the human response, then poll with synara_read_kanban_card.",
+                    "Awaiting-you cards cannot be force-moved: wait for the human response, then poll with saint_read_kanban_card.",
                   ),
                 );
               }
@@ -991,9 +991,9 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_create_kanban_draft",
+      name: "saint_create_kanban_draft",
       description:
-        "Create a Kanban draft card from a local-checkout thread: starts a new Synara thread without starting a turn, so the card renders in Draft until synara_move_kanban_card starts its work with a message. Optional description is stored as the thread notes. requestId is required as the in-flight concurrency key but drafts are not idempotent: every call creates one thread, so never retry blindly — check the board first.",
+        "Create a Kanban draft card from a local-checkout thread: starts a new Saint thread without starting a turn, so the card renders in Draft until saint_move_kanban_card starts its work with a message. Optional description is stored as the thread notes. requestId is required as the in-flight concurrency key but drafts are not idempotent: every call creates one thread, so never retry blindly — check the board first.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1033,7 +1033,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
       },
     },
     handler: withKanbanToolAudit(
-      "synara_create_kanban_draft",
+      "saint_create_kanban_draft",
       withKanbanWriteConcurrencyGuard(
         (args, context) =>
           Effect.suspend(() =>
@@ -1042,7 +1042,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
               if (!createDraftThread || !updateThreadMeta) {
                 return yield* Effect.fail(
                   new ToolInputError(
-                    "synara_create_kanban_draft is unavailable: the gateway wiring provides no draft creation.",
+                    "saint_create_kanban_draft is unavailable: the gateway wiring provides no draft creation.",
                   ),
                 );
               }
@@ -1063,7 +1063,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
               if (callerShell.envMode === "worktree") {
                 return yield* Effect.fail(
                   new ToolInputError(
-                    "Kanban drafts currently use the local checkout and cannot be created from an isolated worktree. Use synara_create_kanban_task to create an isolated task, or ask the user to create a draft from a local thread.",
+                    "Kanban drafts currently use the local checkout and cannot be created from an isolated worktree. Use saint_create_kanban_task to create an isolated task, or ask the user to create a draft from a local thread.",
                   ),
                 );
               }
@@ -1151,7 +1151,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_delete_kanban_card",
+      name: "saint_delete_kanban_card",
       description:
         "Delete a Kanban card: permanently deletes the thread behind the card in your own project. Works from any column; archived threads and other projects are rejected. This cannot be undone.",
       inputSchema: {
@@ -1174,7 +1174,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
       },
     },
     handler: withKanbanToolAudit(
-      "synara_delete_kanban_card",
+      "saint_delete_kanban_card",
       withKanbanWriteConcurrencyGuard(
         (args, context) =>
           Effect.suspend(() =>
@@ -1183,7 +1183,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
               if (!deleteThread) {
                 return yield* Effect.fail(
                   new ToolInputError(
-                    "synara_delete_kanban_card is unavailable: the gateway wiring provides no deletion.",
+                    "saint_delete_kanban_card is unavailable: the gateway wiring provides no deletion.",
                   ),
                 );
               }
@@ -1195,7 +1195,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
               if (threadHasInFlightTurn(card)) {
                 return yield* Effect.fail(
                   new ToolInputError(
-                    `Card "${threadId}" has a live turn; settle it with synara_move_kanban_card first — deleting now would strand running provider work.`,
+                    `Card "${threadId}" has a live turn; settle it with saint_move_kanban_card first — deleting now would strand running provider work.`,
                   ),
                 );
               }
@@ -1214,9 +1214,9 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_update_kanban_card",
+      name: "saint_update_kanban_card",
       description:
-        "Edit a Kanban card's title and/or description (stored as the thread notes) in your own project. Provide at least one of title/description. Works from any column; archived threads and other projects are rejected. Starts and settles no work — use synara_move_kanban_card for that.",
+        "Edit a Kanban card's title and/or description (stored as the thread notes) in your own project. Provide at least one of title/description. Works from any column; archived threads and other projects are rejected. Starts and settles no work — use saint_move_kanban_card for that.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1247,7 +1247,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
       },
     },
     handler: withKanbanToolAudit(
-      "synara_update_kanban_card",
+      "saint_update_kanban_card",
       withKanbanWriteConcurrencyGuard(
         (args, context) =>
           Effect.suspend(() =>
@@ -1256,7 +1256,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
               if (!updateThreadMeta) {
                 return yield* Effect.fail(
                   new ToolInputError(
-                    "synara_update_kanban_card is unavailable: the gateway wiring provides no metadata update.",
+                    "saint_update_kanban_card is unavailable: the gateway wiring provides no metadata update.",
                   ),
                 );
               }
@@ -1306,7 +1306,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_set_kanban_goal",
+      name: "saint_set_kanban_goal",
       description:
         "Set the persistent goal on a card's thread in your own project, from any column including live cards. Pass null or an empty string to clear the goal. Archived threads and other projects are rejected.",
       inputSchema: {
@@ -1334,7 +1334,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
       },
     },
     handler: withKanbanToolAudit(
-      "synara_set_kanban_goal",
+      "saint_set_kanban_goal",
       withKanbanWriteConcurrencyGuard(
         (args, context) =>
           Effect.suspend(() =>
@@ -1343,7 +1343,7 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
               if (!updateThreadMeta) {
                 return yield* Effect.fail(
                   new ToolInputError(
-                    "synara_set_kanban_goal is unavailable: the gateway wiring provides no metadata update.",
+                    "saint_set_kanban_goal is unavailable: the gateway wiring provides no metadata update.",
                   ),
                 );
               }

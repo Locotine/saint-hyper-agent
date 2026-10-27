@@ -1,5 +1,5 @@
 // FILE: inlineVisualTools.ts
-// Purpose: The `synara_show_visual` gateway tool: an agent publishes a visual into its own
+// Purpose: The `saint_show_visual` gateway tool: an agent publishes a visual into its own
 //          running turn, shown inline above its final reply. Usually a component spec the
 //          app draws natively; a self-contained HTML document for anything the spec can't express.
 // Layer: Agent Gateway tool (provider-neutral; every provider with the thread-scoped gateway)
@@ -22,8 +22,8 @@ import {
   type InlineVisualActivityPayload,
   type InlineVisualBlock,
   type InlineVisualFormat,
-} from "@synara/contracts";
-import { compileInlineVisualFormula } from "@synara/shared/inlineVisualFormula";
+} from "@saint/contracts";
+import { compileInlineVisualFormula } from "@saint/shared/inlineVisualFormula";
 import { Effect, Schema, Semaphore } from "effect";
 
 import { writeInlineVisual } from "../inlineVisualStore.ts";

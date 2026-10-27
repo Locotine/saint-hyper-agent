@@ -13,7 +13,7 @@ import {
   ProviderInstanceId,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -164,4 +164,4 @@ export interface ProjectionThreadSessionRepositoryShape {
 export class ProjectionThreadSessionRepository extends ServiceMap.Service<
   ProjectionThreadSessionRepository,
   ProjectionThreadSessionRepositoryShape
->()("synara/persistence/Services/ProjectionThreadSessions/ProjectionThreadSessionRepository") {}
+>()("saint/persistence/Services/ProjectionThreadSessions/ProjectionThreadSessionRepository") {}

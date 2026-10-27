@@ -10,7 +10,7 @@ export function OneClickPrMock() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/git-syn.png"
-        alt="Synara git actions — commit, pull, push, create PR, and create branch in one click"
+        alt="Saint git actions — commit, pull, push, create PR, and create branch in one click"
         className="block h-auto w-full"
       />
     </div>

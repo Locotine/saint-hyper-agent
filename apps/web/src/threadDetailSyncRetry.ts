@@ -2,7 +2,7 @@
 // Purpose: Route all manual thread retries through the active subscription owner.
 // Layer: Web subscription utility
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 type ThreadDetailSyncRetry = (threadId: ThreadId) => Promise<void>;
 let activeRetry: ThreadDetailSyncRetry | null = null;

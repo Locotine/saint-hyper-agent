@@ -19,7 +19,7 @@ export async function runGatewayFixture(
   approveCapture: (windowId: string) => void,
   focusProbePath?: string,
 ) {
-  const title = `Synara Cua Fixture ${process.pid}`;
+  const title = `Saint Cua Fixture ${process.pid}`;
   const first = new BrowserWindow({
     title: `${title} A`,
     width: 640,
@@ -103,7 +103,7 @@ export async function runGatewayFixture(
   let focusProbe: Awaited<ReturnType<typeof startFocusProbe>> = null;
   try {
     await first.loadURL(
-      `data:text/html,${encodeURIComponent(`<title>${title} A</title><style>body{font:20px system-ui;padding:32px}button{font:24px system-ui;padding:18px}</style><h1>Synara gateway fixture</h1><button id="counter">Counter: 0</button><script>window.clicks=0;counter.onclick=()=>{counter.textContent='Counter: '+(++window.clicks)}</script>`)}`,
+      `data:text/html,${encodeURIComponent(`<title>${title} A</title><style>body{font:20px system-ui;padding:32px}button{font:24px system-ui;padding:18px}</style><h1>Saint gateway fixture</h1><button id="counter">Counter: 0</button><script>window.clicks=0;counter.onclick=()=>{counter.textContent='Counter: '+(++window.clicks)}</script>`)}`,
     );
     await sibling.loadURL(
       `data:text/html,${encodeURIComponent(`<title>${title} B</title><h1>Owned sibling</h1>`)}`,

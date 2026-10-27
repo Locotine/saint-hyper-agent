@@ -7,21 +7,21 @@ Cua driver now build on `macos-15` (arm64); a short `qualify_intel` job then run
 the packaged startup smoke on `macos-15-intel`. Durations run from job start to
 completion, excluding queue; each value is one observation.
 
-| macOS x64 path                                                                              | Packaging runner   | Package | Intel smoke job |     Total |
-| ------------------------------------------------------------------------------------------- | ------------------ | ------: | --------------: | --------: |
-| [v1.0.1 tag](https://github.com/Emanuele-web04/synara/actions/runs/37850836681)             | `macos-15-intel`   |   14.8m |               - |     14.8m |
-| [build-only 37865125366](https://github.com/Emanuele-web04/synara/actions/runs/37865125366) | `macos-15-intel`   |   15.7m |               - |     15.7m |
-| [v1.0.1-beta.1 tag](https://github.com/Emanuele-web04/synara/actions/runs/37339778939)      | `macos-15-intel`   |   17.4m |               - |     17.4m |
-| [v1.0.1-beta.2 tag](https://github.com/Emanuele-web04/synara/actions/runs/37555043844)      | `macos-15-intel`   |   19.9m |               - |     19.9m |
-| [build-only 37911471339](https://github.com/Emanuele-web04/synara/actions/runs/37911471339) | `macos-15` (arm64) |   11.1m |            2.7m | **13.9m** |
+| macOS x64 path         | Packaging runner   | Package | Intel smoke job |     Total |
+| ---------------------- | ------------------ | ------: | --------------: | --------: |
+| v1.0.1 tag             | `macos-15-intel`   |   14.8m |               - |     14.8m |
+| build-only 37865125366 | `macos-15-intel`   |   15.7m |               - |     15.7m |
+| v1.0.1-beta.1 tag      | `macos-15-intel`   |   17.4m |               - |     17.4m |
+| v1.0.1-beta.2 tag      | `macos-15-intel`   |   19.9m |               - |     19.9m |
+| build-only 37911471339 | `macos-15` (arm64) |   11.1m |            2.7m | **13.9m** |
 
 - Packaging (sign, notarize, DMG, ZIP) took 8.3-9.2m against 12.6m on Intel;
   signing took 66s against 116s. Apple's notarization waits are unchanged.
 - The Intel smoke job: 49s artifact download, 44s extraction, Mach-O check and
   runtime dependency smoke, then 25s to app startup.
 - Rosetta 2 could not qualify the app: its startup took 135s in
-  [run 37903022273](https://github.com/Emanuele-web04/synara/actions/runs/37903022273)
-  and exceeded 180s in [run 37908310551](https://github.com/Emanuele-web04/synara/actions/runs/37908310551),
+  run 37903022273
+  and exceeded 180s in run 37908310551,
   where the server process spent 64s loading its JavaScript bundle.
 - In run 37911471339 arm64 took 10.4m and Windows 9.8m, so the Intel path stays
   the longest, by about 3.5 minutes rather than 5-10.
@@ -32,9 +32,9 @@ completion, excluding queue; each value is one observation.
   host-only helper the smoke never launches. The Intel-built v1.0.1 app passes
   that check; the same app checked as arm64 reports 26 binaries.
 
-Baseline: [v0.9.0 run 35659929299](https://github.com/Emanuele-web04/synara/actions/runs/35659929299),
+Baseline: v0.9.0 run 35659929299,
 source `f04341a67bc4941d1b2e91e0b23bbe782dfbc727`.
-Validation: [build-only run 35711485748](https://github.com/Emanuele-web04/synara/actions/runs/35711485748),
+Validation: build-only run 35711485748,
 source `be6aa59f3beeb03ffb942c2b43bd18c8e01be70e`, 2026-09-22. Both succeeded.
 Each column is one observation, not an average or a controlled performance guarantee.
 Original logs, new timestamped stage records and both job API responses were checked.
@@ -128,14 +128,14 @@ artifact hit. No cache speedup is claimed before a real Actions hit.
 
 ## SDK-only follow-up attempt
 
-[Run 35717648611](https://github.com/Emanuele-web04/synara/actions/runs/35717648611)
+Run 35717648611
 at `e4b3cdc05cd669fb70daaa0dd768c0999503a568` attempted one cold Intel A/B pair
 against `d4f3b3107f5b3f1af41034e8b92a24c737c84503`. The candidate removes the
 unused SDK `cdylib` output and retains `rlib`, with the same pinned source,
 compiler and native protocol revision. No candidate performance or runtime
 qualification was obtained.
 
-The benchmark exported an incomplete Synara snapshot: it omitted
+The benchmark exported an incomplete Saint snapshot: it omitted
 `docs/computer-use-cua/CUA-LICENSE.txt`. Baseline Cargo completed in
 **943.080 seconds (15m43.080s)**, but the subsequent license copy failed with
 `ENOENT`. The candidate compilation and both driver probes never started.
@@ -167,7 +167,7 @@ critical path was the server package: 500 files run serially with
 `--maxWorkers=1 --no-file-parallelism`, taking 483.97s and then 594.79s while the
 web, desktop, shared, scripts and contracts suites finished within 3m30s. A
 25-second contracts build (tsdown with declaration output) also preceded the server
-suite because its Turbo test task depended on `@synara/contracts#build`.
+suite because its Turbo test task depended on `@saint/contracts#build`.
 
 Per-file server timings from the optimized run: `ProviderCommandReactor.test.ts`
 98.20s (346 tests; 75.48s in the baseline), `AntigravityAdapter.test.ts` 27.21s,
@@ -194,7 +194,7 @@ Changes, validated locally before the one CI measurement:
 - Portable, icon and native jobs now require `quality` and every server shard,
   and the smoke test asserts those prerequisites.
 - The Turbo test task no longer depends on any build. All packages import
-  `@synara/contracts` from source through its ESM `import` export. With the
+  `@saint/contracts` from source through its ESM `import` export. With the
   contracts build output deleted, the entire workspace suite passed locally under
   Node 24.13.1 (`bunx turbo run test --only --continue`: 500 server files /
   6,987 tests, 399 web files / 5,195 tests, 14,732 tests in total, 4m59s on
@@ -203,7 +203,7 @@ Changes, validated locally before the one CI measurement:
 - `stage=preflight` runs only these gates, so they can be measured without
   native builds, packaging or publication.
 
-Measurement: [run 35725031035](https://github.com/Emanuele-web04/synara/actions/runs/35725031035)
+Measurement: run 35725031035
 at `acd7ddd1e832bec5afad6eae0e8ceca016b07521`, `stage=preflight`,
 `publish_release=false`, dispatched from the branch on 2026-09-22. No retry
 was run and no other run was triggered. **The run failed**: the `Server tests
@@ -267,10 +267,10 @@ app/DMG/update-ZIP path; the other native platforms and warm Cua cache remain un
 Reproduce local output validation after `bun run build:desktop`:
 
 ```bash
-mkdir -p /tmp/synara-portable-measurement
-node scripts/portable-build.ts create /tmp/synara-portable-measurement/manifest.json "$(git rev-parse HEAD)"
-tar -cf /tmp/synara-portable-measurement/outputs.tar apps/desktop/dist-electron apps/server/dist
-node scripts/import-portable-build.ts /tmp/synara-portable-measurement "$(git rev-parse HEAD)"
+mkdir -p /tmp/saint-portable-measurement
+node scripts/portable-build.ts create /tmp/saint-portable-measurement/manifest.json "$(git rev-parse HEAD)"
+tar -cf /tmp/saint-portable-measurement/outputs.tar apps/desktop/dist-electron apps/server/dist
+node scripts/import-portable-build.ts /tmp/saint-portable-measurement "$(git rev-parse HEAD)"
 ```
 
 Use the [targeted build-only commands](release.md#1-build-only-native-ci-validation)
@@ -296,7 +296,7 @@ release smoke and the Windows runtime boundary check. Subsequent digest/state
 directory fixes passed focused packaging/provenance tests and script typecheck.
 All four workflow/action YAML files parsed successfully. These source-level checks
 were followed by the successful signed Intel Actions run documented above.
-The verified shared outputs also produced a local `synara-server-0.9.0.tar.gz`
+The verified shared outputs also produced a local `saint-server-0.9.0.tar.gz`
 (18,033,407 bytes); archive inspection confirmed version/name, both CLI entrypoints,
 the bundled client and device-helper sources. No package was published.
 

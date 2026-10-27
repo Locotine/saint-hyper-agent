@@ -110,7 +110,7 @@ describe("EditorWorkspaceView", () => {
       <EditorWorkspaceView
         {...makeEditorBaseProps()}
         workspaceRoot={null}
-        selectedFilePath="/tmp/synara-codex-workspaces/thread-1/report.pdf"
+        selectedFilePath="/tmp/saint-codex-workspaces/thread-1/report.pdf"
       />,
     );
 
@@ -123,13 +123,13 @@ describe("EditorWorkspaceView", () => {
       <EditorWorkspaceView
         {...makeEditorBaseProps()}
         workspaceRoot={null}
-        selectedFilePath="/tmp/synara-codex-workspaces/thread-1/shot.png"
+        selectedFilePath="/tmp/saint-codex-workspaces/thread-1/shot.png"
       />,
     );
 
     expect(markup).toContain("local-image-preview");
     expect(markup).toContain(
-      "/api/local-image?path=%2Ftmp%2Fsynara-codex-workspaces%2Fthread-1%2Fshot.png",
+      "/api/local-image?path=%2Ftmp%2Fsaint-codex-workspaces%2Fthread-1%2Fshot.png",
     );
     expect(markup).not.toContain("No workspace is attached");
     expect(markup).not.toContain("cwd=");

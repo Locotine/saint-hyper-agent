@@ -3,7 +3,7 @@
 //          agent-facing instruction files (AGENTS.md/CLAUDE.md). Instructions are only
 //          written when missing so user edits are never clobbered. Also owns the
 //          delete-time cleanup: a group folder is removed only when everything left
-//          inside is something Synara generated.
+//          inside is something Saint generated.
 // Layer: Server workspace helper
 // Exports: slugifyGroupTitle, ensureGroupWorkspaceInstructionsFiles, prepareGroupWorkspaceRoot,
 //          cleanupGroupWorkspaceRoot
@@ -11,17 +11,17 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { slugifyGroupTitle } from "@synara/shared/groupSlug";
-import { isWorkspaceRootWithin, workspaceRootsEqual } from "@synara/shared/threadWorkspace";
+import { slugifyGroupTitle } from "@saint/shared/groupSlug";
+import { isWorkspaceRootWithin, workspaceRootsEqual } from "@saint/shared/threadWorkspace";
 import { Effect, FileSystem, Path } from "effect";
 
 export { slugifyGroupTitle };
 
 const GROUP_WORKSPACE_INSTRUCTIONS = `# Hub workspace
 
-This folder is the coordinator's scratch space for this Synara Hub.
+This folder is the coordinator's scratch space for this Saint Hub.
 
-The hub's instructions live in Synara Hub settings (Memory → Instructions).
+The hub's instructions live in Saint Hub settings (Memory → Instructions).
 Do not treat this folder as the source of those instructions.
 
 Keep working files here. Do not create Studio-style Inbox/Context/Logs/Skills/Outbox
@@ -70,7 +70,7 @@ export interface GroupWorkspaceCleanupResult {
 
 /**
  * Removes a deleted group's workspace folder only when every top-level entry
- * inside it is something Synara generated (the instruction files with their
+ * inside it is something Saint generated (the instruction files with their
  * exact scaffolded contents) or ignorable (.DS_Store). Any other entry —
  * including an edited instruction file — means the user (or an agent) put
  * files there, so the folder is kept and reported.

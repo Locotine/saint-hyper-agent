@@ -1,4 +1,4 @@
-import type { AsyncUserInput, AsyncUserInputQuestions } from "@synara/contracts";
+import type { AsyncUserInput, AsyncUserInputQuestions } from "@saint/contracts";
 
 export const ASYNC_USER_INPUT_ALREADY_ANSWERED =
   "This asynchronous question has already been answered.";

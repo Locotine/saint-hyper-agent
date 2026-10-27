@@ -159,7 +159,7 @@ function fixture(options?: { coldProviders?: boolean }) {
           location: { directory },
           data: [
             {
-              name: "synara",
+              name: "saint",
               status: pendingMcp
                 ? { status: mcpReads++ === 0 ? "pending" : "connected" }
                 : { status: "failed", error: "Unauthorized gateway" },
@@ -284,7 +284,7 @@ describe("OpenCode V2 client boundary", () => {
     const server = fixture();
     await server.client.session.promptAsync({
       sessionID: session.id,
-      system: "Synara host instructions",
+      system: "Saint host instructions",
       parts: [{ type: "text", text: "/review changed files" }],
     });
     const command = server.calls.find((call) => call.path === "/api/session/ses_root/command");
@@ -295,17 +295,17 @@ describe("OpenCode V2 client boundary", () => {
     });
     expect(server.calls.some((call) => call.path.endsWith("/prompt"))).toBe(false);
     expect(
-      server.calls.find((call) => call.path.endsWith("/instructions/entries/synara"))?.body,
-    ).toEqual({ value: "Synara host instructions" });
+      server.calls.find((call) => call.path.endsWith("/instructions/entries/saint"))?.body,
+    ).toEqual({ value: "Saint host instructions" });
   });
   it("waits for an asynchronous MCP handshake before admitting work", async () => {
     const server = fixture();
     server.pendingMcp = true;
     const result = await server.client.mcp.add({
-      name: "synara",
+      name: "saint",
       config: { type: "remote", url: "http://gateway.test/mcp", enabled: true, oauth: false },
     });
-    expect(result.data?.synara?.status).toBe("connected");
+    expect(result.data?.saint?.status).toBe("connected");
     expect(server.calls.filter((call) => call.path === "/api/mcp")).toHaveLength(2);
   });
   it("rejects the old client's V1 mutation against the same native server fixture", async () => {
@@ -398,7 +398,7 @@ describe("OpenCode V2 client boundary", () => {
       body: { answer: { choice: "internal", confirm: true } },
     });
     const mcp = await client.mcp.add({
-      name: "synara",
+      name: "saint",
       config: {
         type: "remote",
         url: "http://gateway.test/mcp",
@@ -408,8 +408,8 @@ describe("OpenCode V2 client boundary", () => {
         timeout: 1000,
       },
     });
-    expect(mcp.data?.synara).toEqual({ status: "failed", error: "Unauthorized gateway" });
-    const registration = calls.find((call) => call.path === "/api/experimental/mcp/synara")!;
+    expect(mcp.data?.saint).toEqual({ status: "failed", error: "Unauthorized gateway" });
+    const registration = calls.find((call) => call.path === "/api/experimental/mcp/saint")!;
     expect(registration.method).toBe("PUT");
     expect(registration.url.searchParams.get("location[directory]")).toBe(directory);
     expect(registration.body).toMatchObject({
@@ -503,7 +503,7 @@ describe("OpenCode V2 client boundary", () => {
     });
     server.emit("session.execution.interrupted", { sessionID: session.id, reason: "user" });
     await expect
-      .poll(() => received.some((event) => event.type === "synara.opencode.execution"))
+      .poll(() => received.some((event) => event.type === "saint.opencode.execution"))
       .toBe(true);
     const parts = received.flatMap((event) =>
       event.type === "message.part.updated" ? [event.properties.part] : [],
@@ -518,7 +518,7 @@ describe("OpenCode V2 client boundary", () => {
         state: expect.objectContaining({ status: "completed", output: "clean" }),
       }),
     );
-    expect(received.filter((event) => event.type === "synara.opencode.execution")).toEqual([
+    expect(received.filter((event) => event.type === "saint.opencode.execution")).toEqual([
       expect.objectContaining({ properties: { sessionID: session.id, outcome: "interrupted" } }),
     ]);
     abort.abort();

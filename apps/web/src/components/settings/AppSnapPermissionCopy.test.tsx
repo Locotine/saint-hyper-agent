@@ -13,7 +13,7 @@ function renderGuide(pane: Parameters<typeof AppSnapPermissionGuide>[0]["pane"])
   return renderToStaticMarkup(
     <AppSnapPermissionGuide
       pane={pane}
-      appDisplayName="Synara"
+      appDisplayName="Saint"
       waiting
       onOpenSettings={() => undefined}
       onRestart={() => undefined}

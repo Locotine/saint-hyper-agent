@@ -9,7 +9,7 @@ import nodePath from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { outboundHttp } from "@synara/shared/outboundHttp";
+import { outboundHttp } from "@saint/shared/outboundHttp";
 import { codexUsageFetcher } from "./codex";
 
 const { readKeychainPasswordMock } = vi.hoisted(() => ({
@@ -62,7 +62,7 @@ function makeJwt(expMs: number): string {
 }
 
 function makeCodexHome(auth: Record<string, unknown>) {
-  const codexHome = mkdtempSync(nodePath.join(os.tmpdir(), "synara-codex-usage-"));
+  const codexHome = mkdtempSync(nodePath.join(os.tmpdir(), "saint-codex-usage-"));
   tempDirs.push(codexHome);
   mkdirSync(codexHome, { recursive: true });
   const authPath = nodePath.join(codexHome, "auth.json");
@@ -131,7 +131,7 @@ describe("codexUsageFetcher", () => {
   });
 
   it("tries a still-valid keychain token when read-only refresh cannot rotate it", async () => {
-    const codexHome = mkdtempSync(nodePath.join(os.tmpdir(), "synara-codex-keychain-"));
+    const codexHome = mkdtempSync(nodePath.join(os.tmpdir(), "saint-codex-keychain-"));
     tempDirs.push(codexHome);
     const staleJwt = makeJwt(NOW_MS + 60_000);
     readKeychainPasswordMock.mockResolvedValue(

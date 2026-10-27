@@ -1,4 +1,4 @@
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { collapseExpandedComposerCursor, detectComposerTrigger } from "../../composer-logic";

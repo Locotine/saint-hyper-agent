@@ -1,5 +1,5 @@
 {
-  "name": "@synara/shared",
+  "name": "@saint/shared",
   "version": "0.0.0-alpha.1",
   "private": true,
   "type": "module",
@@ -92,9 +92,9 @@
       "types": "./src/loginShellEnvironment.ts",
       "import": "./src/loginShellEnvironment.ts"
     },
-    "./synaraHome": {
-      "types": "./src/synaraHome.ts",
-      "import": "./src/synaraHome.ts"
+    "./saintHome": {
+      "types": "./src/saintHome.ts",
+      "import": "./src/saintHome.ts"
     },
     "./staticSnapshot": {
       "types": "./src/staticSnapshot.ts",
@@ -467,6 +467,10 @@
     "./remoteServerInstall": {
       "types": "./src/remoteServerInstall.ts",
       "import": "./src/remoteServerInstall.ts"
+    },
+    "./serverProviders": {
+      "types": "./src/serverProviders.ts",
+      "import": "./src/serverProviders.ts"
     }
   },
   "scripts": {
@@ -476,7 +480,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@synara/contracts": "workspace:*",
+    "@saint/contracts": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

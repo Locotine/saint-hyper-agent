@@ -25,7 +25,7 @@ export function stripDiagnosticImages(value: unknown): unknown {
     for (const [key, child] of Object.entries(source)) {
       if (image && key === "data" && typeof child === "string") {
         const metadata = result as Record<string, unknown>;
-        metadata.synaraImageOmitted = true;
+        metadata.saintImageOmitted = true;
         metadata.encodedLength = child.length;
         metadata.byteLength = Math.max(
           0,
@@ -40,7 +40,7 @@ export function stripDiagnosticImages(value: unknown): unknown {
         (key === "url" || key === "image_url" || key === "imageUrl") &&
         /^data:image\/[a-zA-Z0-9.+-]+(?:;base64)?,/.test(child)
           ? {
-              synaraImageOmitted: true,
+              saintImageOmitted: true,
               encodedLength: child.length,
               mimeType: child.slice(
                 5,

@@ -25,11 +25,11 @@ import {
 
 const PRIMARY_PAGES = [
   ["Homepage", `${SITE_URL}/`],
-  ["Download Synara", `${SITE_URL}/install`],
-  ["Synara documentation", `${SITE_URL}/docs`],
+  ["Download Saint", `${SITE_URL}/install`],
+  ["Saint documentation", `${SITE_URL}/docs`],
   ["Changelog", `${SITE_URL}/changelog`],
-  ["Sponsor Synara", `${SITE_URL}/sponsor`],
-  ["Synara sponsors", `${SITE_URL}/sponsors`],
+  ["Sponsor Saint", `${SITE_URL}/sponsor`],
+  ["Saint sponsors", `${SITE_URL}/sponsors`],
   ["Privacy", `${SITE_URL}/privacy`],
 ] as const;
 
@@ -66,18 +66,18 @@ export function buildLlmsTxt() {
     ...SUPPORTED_PROVIDERS.map((provider) => `- ${provider}`),
     "",
     "## Questions answered by the documentation",
-    "- How do I install Synara and connect a coding-agent runtime?",
+    "- How do I install Saint and connect a coding-agent runtime?",
     "- Which providers, models, authentication methods, and capabilities are supported?",
     "- How do tasks, turns, provider sessions, local checkouts, and Git worktrees relate?",
     "- How do I run parallel agents without mixing ownership or branches?",
     "- How do provider handoffs, browser verification, automations, Studio, Agent Gateway, and External MCP work?",
     "- How do I diagnose provider, runtime, Git, browser, automation, or integration failures safely?",
-    "- What evidence should I collect before reporting a Synara problem?",
+    "- What evidence should I collect before reporting a Saint problem?",
     "",
     "## Recent releases",
     ...releases.map(
       (entry) =>
-        `- [Synara ${entry.version}](${SITE_URL}/changelog/${toVersionSlug(entry.version)}): ${entry.features
+        `- [Saint ${entry.version}](${SITE_URL}/changelog/${toVersionSlug(entry.version)}): ${entry.features
           .map((feature) => feature.title)
           .join("; ")}`,
     ),
@@ -106,7 +106,7 @@ export async function buildLlmsFullTxt() {
     ...FAQ_ITEMS.flatMap(({ question, answer }) => [`### ${question}`, answer, ""]),
     "## Full changelog summaries",
     ...releases.flatMap((entry) => [
-      `### Synara ${entry.version} (${entry.date})`,
+      `### Saint ${entry.version} (${entry.date})`,
       ...entry.features.map((feature) => {
         const details = feature.details ? ` ${feature.details}` : "";
         return `- ${feature.title}: ${feature.description}${details}`;
@@ -122,7 +122,7 @@ export function buildAiTxt() {
     "",
     AI_DISCOVERY_NOTICE,
     "",
-    "Purpose: help search, answer, and browser agents identify canonical public Synara pages.",
+    "Purpose: help search, answer, and browser agents identify canonical public Saint pages.",
     "",
     "Canonical discovery resources:",
     `- ${SITE_URL}/docs`,
@@ -147,9 +147,9 @@ export function buildAiTxt() {
     `- Supported runtimes: ${SUPPORTED_PROVIDERS.join(", ")}.`,
     `- Source repository: ${GITHUB_REPO_URL}`,
     `- Releases: ${GITHUB_RELEASES_URL}`,
-    "- Synara is local-first and does not require a Synara cloud account.",
+    "- Saint is local-first and does not require a Saint cloud account.",
     "- The selected provider still receives the prompts, file snippets, diffs, terminal output, or tool results needed for its session.",
-    "- Synara does not proxy or store normal provider traffic on a Synara server.",
+    "- Saint does not proxy or store normal provider traffic on a Saint server.",
     "- Optional anonymous analytics are off by default and are designed not to include code, prompts, or chat history.",
     "",
     "Policy note:",

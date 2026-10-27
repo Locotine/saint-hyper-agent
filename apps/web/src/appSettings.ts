@@ -29,20 +29,20 @@ import {
   type ProviderStartOptions,
   type ServerSettingsView,
   type ServerSettingsPatch,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   getDefaultModel,
   getModelOptions,
   normalizeModelSlug,
   resolveSelectableModel,
-} from "@synara/shared/model";
+} from "@saint/shared/model";
 import {
   APP_SNAP_SHORTCUT_KEYS,
   APP_SNAP_SHORTCUT_MODIFIERS,
   DEFAULT_APP_SNAP_SHORTCUT,
-} from "@synara/shared/appSnapShortcut";
-import type { SynaraDesktopFlavor } from "@synara/shared/desktopIdentity";
-import { codexAccountInstanceId } from "@synara/shared/providerInstances";
+} from "@saint/shared/appSnapShortcut";
+import type { SaintDesktopFlavor } from "@saint/shared/desktopIdentity";
+import { codexAccountInstanceId } from "@saint/shared/providerInstances";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { EnvMode } from "./components/BranchToolbar.logic";
 import { normalizeCursorModelVariantBaseId } from "./cursorModelVariants";
@@ -78,8 +78,8 @@ import {
   normalizeChatWidthMode as normalizeChatWidthModeValue,
 } from "./lib/chatWidth";
 
-const APP_SETTINGS_STORAGE_KEY = "synara:app-settings:v1";
-const SERVER_SETTINGS_MIGRATION_STORAGE_KEY = "synara:server-settings-migrated:v1";
+const APP_SETTINGS_STORAGE_KEY = "saint:app-settings:v1";
+const SERVER_SETTINGS_MIGRATION_STORAGE_KEY = "saint:server-settings-migrated:v1";
 
 function hasCompletedServerSettingsMigration(): boolean {
   return globalThis.localStorage?.getItem(SERVER_SETTINGS_MIGRATION_STORAGE_KEY) === "1";
@@ -88,7 +88,7 @@ function hasCompletedServerSettingsMigration(): boolean {
 // Hubs ("studio") used to start hidden in the rail, and saved settings still carry that
 // default. The first launch after it became a default item shows it once; hiding it again
 // from Customize afterwards sticks.
-const HUBS_RAIL_DEFAULT_MIGRATION_STORAGE_KEY = "synara:hubs-rail-default:v1";
+const HUBS_RAIL_DEFAULT_MIGRATION_STORAGE_KEY = "saint:hubs-rail-default:v1";
 
 /**
  * Rewrites the stored settings once, before the app renders: every `useAppSettings` mount
@@ -631,7 +631,7 @@ export type AppSettings = typeof AppSettingsSchema.Type;
  * defaulting via getAppIcon, and the Appearance reset uses this for its target.
  */
 export function defaultDesktopAppIconForFlavor(
-  flavor: SynaraDesktopFlavor | "unknown",
+  flavor: SaintDesktopFlavor | "unknown",
 ): DesktopAppIcon {
   return flavor === "beta" ? "beta" : "default";
 }

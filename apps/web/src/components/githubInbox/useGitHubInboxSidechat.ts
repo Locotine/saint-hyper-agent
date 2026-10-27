@@ -7,7 +7,7 @@
 // Layer: GitHub inbox orchestration hook
 // Exports: useGitHubInboxSidechat
 
-import type { ProjectId, ThreadId } from "@synara/contracts";
+import type { ProjectId, ThreadId } from "@saint/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -28,7 +28,7 @@ import {
 } from "~/composerDraftStore";
 import { randomUUID } from "~/lib/utils";
 import { addChatPullRequestContext } from "~/lib/chatReferences";
-import type { ModelSelection } from "@synara/contracts";
+import type { ModelSelection } from "@saint/contracts";
 import { githubIssueDetailQueryOptions } from "~/lib/githubInboxQueryOptions";
 import { pullRequestDetailQueryOptions } from "~/lib/pullRequestReactQuery";
 import { serverConfigQueryOptions } from "~/lib/serverReactQuery";

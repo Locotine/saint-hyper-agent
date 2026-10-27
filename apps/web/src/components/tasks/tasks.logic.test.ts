@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId, type Todo, TodoId, TurnId } from "@synara/contracts";
+import { ProjectId, ThreadId, type Todo, TodoId, TurnId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import type { SidebarThreadSummary } from "../../types";

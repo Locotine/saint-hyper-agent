@@ -1,15 +1,15 @@
 # Quickstart
 
-This guide takes you through Synara's basic loop: open a repository, give one coding agent a
+This guide takes you through Saint's basic loop: open a repository, give one coding agent a
 concrete task, supervise the work, and review the resulting diff. You should be up and running in
 about five minutes.
 
-> **Before you begin:** install Synara and authenticate at least one supported provider. In
+> **Before you begin:** install Saint and authenticate at least one supported provider. In
 > shortcuts, `mod` means Command on macOS and Ctrl on Windows or Linux.
 
 ## 1. Add a Git project
 
-Open Synara and add a local repository.
+Open Saint and add a local repository.
 
 Start with a repository whose current changes are already committed or intentionally preserved. A
 clean starting state makes the agent's work much easier to review.
@@ -19,15 +19,15 @@ clean starting state makes the agent's work much easier to review.
 Press `mod+n` or use the new-task control.
 
 For this first task, use the local checkout and run only one agent against the repository. Use a
-[Git worktree](https://www.trysynara.com/docs/workflows/worktrees) when you begin running multiple
+Git worktree when you begin running multiple
 tasks or want stronger isolation.
 
 ## 3. Choose a provider and model
 
 Select an available provider, model, and effort or reasoning option.
 
-Synara uses the provider runtime and account configured on your machine. It does not add a separate
-Synara model plan.
+Saint uses the provider runtime and account configured on your machine. It does not add a separate
+Saint model plan.
 
 ## 4. Give the agent a verifiable objective
 
@@ -83,16 +83,16 @@ Commit the reviewed changes when they are ready.
 
 For GitHub repositories, push the branch, inspect the final change set, and open a PR.
 
-That is Synara's core workflow:
+That is Saint's core workflow:
 
 > Give one task a concrete objective, supervise the work, verify the result, and commit only what
 > you intend to keep.
 
 ## Continue learning
 
-- [Core concepts](https://www.trysynara.com/docs/getting-started/core-concepts) — projects, tasks,
+- [Core concepts](./core-concepts.md) — projects, tasks,
   environments, provider sessions, and Git ownership.
-- [Your first task](https://www.trysynara.com/docs/getting-started/first-task) — the same workflow
+- Your first task — the same workflow
   in more detail, including recovery and review.
-- [Best practices](https://www.trysynara.com/docs/workflows/best-practices) — patterns Synara
+- Best practices — patterns Saint
   maintainers rely on for real development work.

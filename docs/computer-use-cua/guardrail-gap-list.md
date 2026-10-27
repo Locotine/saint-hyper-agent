@@ -51,7 +51,7 @@ code findings.
    stale; raw session and raw recording remain correctly excluded.
 2. Acceptance criterion 6 expects the protocol file to document `cancel_input`,
    the ack fields, and the refusal taxonomy. Resolved 2026-09-17: the file now
-   documents the handshake (`metadata`/`synara_native_revision`), the private
+   documents the handshake (`metadata`/`saint_native_revision`), the private
    `cancel_input` teardown method, the four cleanup-acknowledgement fields the
    host validates (`pid`, `input_admission_closed`, `cleanup_complete`,
    `pending_input`), the close-admission fail-closed rule, session/epoch

@@ -4,7 +4,7 @@
 // Layer: Web UI (Create project dialog)
 // Exports: ProjectFolderList
 
-import { deriveProjectFolderLabels } from "@synara/shared/projectFolders";
+import { deriveProjectFolderLabels } from "@saint/shared/projectFolders";
 import type { ReactNode } from "react";
 
 import { FolderIcon, XIcon } from "~/lib/icons";

@@ -1,4 +1,4 @@
-import { ORCHESTRATION_STREAM_OVERFLOW_CODE, WsRpcError } from "@synara/contracts";
+import { ORCHESTRATION_STREAM_OVERFLOW_CODE, WsRpcError } from "@saint/contracts";
 import * as Arr from "effect/Array";
 import { Cause, Deferred, Effect, Exit, Queue, Scope, Semaphore, Stream } from "effect";
 

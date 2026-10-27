@@ -6,7 +6,7 @@ import {
   ThreadId,
   TurnId,
   type ProviderRuntimeEvent,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { it as effectIt } from "@effect/vitest";
 import { TestClock } from "effect/testing";
 

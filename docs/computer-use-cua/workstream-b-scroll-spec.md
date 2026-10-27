@@ -28,7 +28,7 @@ spec with these measured facts:
   deltas. NSScrollView wants continuous trackpad deltas for horizontal
   travel, so `delta_x` is a no-op there. This is a toolkit limitation, not a
   refusal.
-- The driver's keystroke scroll path is unreachable through Synara
+- The driver's keystroke scroll path is unreachable through Saint
   admission (an exact pid plus window_id is required), so its refusal of
   delta/modifier requests is defense-in-depth rather than a live gate.
 
@@ -47,7 +47,7 @@ The manager has a closed loop for other platforms but skips it on macOS. The bef
 
 The measurement math already exists and is platform neutral. The correlator entry point is `apps/server/src/computer/scrollCalibration.ts:240`. The per window gearing store is `apps/server/src/computer/scrollCalibration.ts:357`. The shared pixel to notch constant is `apps/server/src/computer/scrollUnits.ts:32`.
 
-The native wheel poster is `scroll_wheel_at_xy` in `apps/desktop/patches/cua-driver/0001-synara-native.patch:4874`. The patch hunks around that line only change cancellation gating, not wheel semantics, so the driver still posts one direction per call with fixed sleeps between ticks.
+The native wheel poster is `scroll_wheel_at_xy` in `apps/desktop/patches/cua-driver/0001-saint-native.patch:4874`. The patch hunks around that line only change cancellation gating, not wheel semantics, so the driver still posts one direction per call with fixed sleeps between ticks.
 
 The tool surface keeps two safety rules that this spec preserves. Requests are clamped to half the captured frame at `apps/server/src/agentGateway/computerTools.ts:2405`. A fourth consecutive unchanged scroll on one window is refused at `apps/server/src/agentGateway/computerTools.ts:2429`. The streak tracker behind that refusal is declared at `apps/server/src/agentGateway/computerTools.ts:847`.
 
@@ -125,7 +125,7 @@ Durable gearing store:
 ## Implementer brief
 
 1. Read the scroll method at `apps/server/src/computer/CuaComputerBackend.ts:1198`, the macOS branch at `apps/server/src/computer/ComputerManager.ts:1736`, the estimator at `apps/server/src/computer/scrollCalibration.ts:240`, and the tool guard at `apps/server/src/agentGateway/computerTools.ts:2429`.
-2. Extend the driver patch at `apps/desktop/patches/cua-driver/0001-synara-native.patch:4874` for two axis plus modifiers. Keep cancellation gating.
+2. Extend the driver patch at `apps/desktop/patches/cua-driver/0001-saint-native.patch:4874` for two axis plus modifiers. Keep cancellation gating.
 3. Wire the backend to forward both axes and modifiers, and to try AX scroll actions first when the target token supports them.
 4. Remove the macOS measurement skip while adding the leg and capture budget caps.
 5. Add the durable per app gearing fallback with bounded size and corrupt file tolerance.

@@ -15,7 +15,7 @@ import {
 let root: string;
 
 beforeEach(() => {
-  root = mkdtempSync(path.join(tmpdir(), "synara-filesystem-platform-"));
+  root = mkdtempSync(path.join(tmpdir(), "saint-filesystem-platform-"));
 });
 
 afterEach(() => {

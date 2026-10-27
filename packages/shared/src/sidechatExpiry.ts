@@ -1,4 +1,4 @@
-import type { SidechatExpiry } from "@synara/contracts";
+import type { SidechatExpiry } from "@saint/contracts";
 
 export const SIDECHAT_INACTIVITY_EXPIRY_MS = 3_600_000;
 export const SIDECHAT_VISIBLE_ACTIVITY_HEARTBEAT_MS = 5 * 60 * 1_000;

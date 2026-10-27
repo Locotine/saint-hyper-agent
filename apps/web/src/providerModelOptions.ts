@@ -4,7 +4,7 @@ import {
   normalizeModelDisplayName,
   normalizeModelSlug,
   resolveNewestKnownClaudeFamilyModel,
-} from "@synara/shared/model";
+} from "@saint/shared/model";
 import {
   MODEL_OPTIONS_BY_PROVIDER,
   PROVIDER_DISPLAY_NAMES,
@@ -32,7 +32,7 @@ import {
   type ProviderInstanceId,
   type ProviderKind,
   type ProviderModelOptions,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { normalizeCursorModelVariantBaseId } from "./cursorModelVariants";
 
 export type ProviderOptions = ProviderModelOptions[ProviderKind];
@@ -161,7 +161,7 @@ const CLAUDE_CATALOG_RANK_BY_SLUG: ReadonlyMap<string, number> = new Map(
 );
 
 // Models the CLI exposes but the catalog does not know yet (a release landing
-// before Synara updates) sort just ahead of their family's newest catalog model,
+// before Saint updates) sort just ahead of their family's newest catalog model,
 // so a new Opus stays below Fable. Other unknown models sort first.
 function claudeModelRank(slug: string): number {
   const catalogRank = CLAUDE_CATALOG_RANK_BY_SLUG.get(slug);

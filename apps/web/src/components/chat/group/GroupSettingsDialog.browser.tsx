@@ -1,8 +1,8 @@
 import "~/index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ProjectId, ThreadId } from "@synara/contracts";
-import type { ProjectAgentOverview } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
+import type { ProjectAgentOverview } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

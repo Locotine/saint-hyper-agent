@@ -12,9 +12,9 @@ import {
   ThreadId,
   type ThreadGoalAchievement,
   type TurnId,
-} from "@synara/contracts";
-import { isLocalAbsolutePath } from "@synara/shared/path";
-import { pluralize } from "@synara/shared/text";
+} from "@saint/contracts";
+import { isLocalAbsolutePath } from "@saint/shared/path";
+import { pluralize } from "@saint/shared/text";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import {
   memo,
@@ -87,7 +87,7 @@ import { CrossTaskOriginLabel, type CrossTaskOrigin } from "./CrossTaskOriginLab
 import { ForkSourceDivider, type ForkSourceReference } from "./ForkSourceDivider";
 import { ProviderHandoffDivider } from "./ProviderHandoffDivider";
 import { ThreadErrorBanner } from "./ThreadErrorBanner";
-import { SynaraThreadCreationCard } from "./SynaraThreadCreationCard";
+import { SaintThreadCreationCard } from "./SaintThreadCreationCard";
 import { WorkerMonitorNoticePill } from "./WorkerMonitorNoticePill";
 import { buildExpandedImagePreview, ExpandedImagePreview } from "./ExpandedImagePreview";
 import { ProposedPlanCard } from "./ProposedPlanCard";
@@ -483,7 +483,7 @@ interface MessagesTimelineProps {
    * the anchored slide settles; ChatView's auto-follow re-snaps pause while set.
    */
   tailAnchorScrollInFlightRef?: RefObject<boolean> | undefined;
-  /** Provenance for a conversation created from another Synara task. */
+  /** Provenance for a conversation created from another Saint task. */
   crossTaskOrigin?: CrossTaskOrigin | null;
   /** Set on a subagent's own thread: its brief renders as a card from the parent. */
   subagentThread?: SubagentThreadPresentation | null;
@@ -1539,7 +1539,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       (item) =>
         item.kind !== "work" ||
         !(
-          item.entry.synaraThreadCreation ||
+          item.entry.saintThreadCreation ||
           item.entry.computerSetupRequired ||
           item.entry.computerControlDenied ||
           isPinnedBackgroundTaskEntry(item.entry, turnEndedAt)
@@ -1804,11 +1804,11 @@ export const MessagesTimeline = memo(function MessagesTimeline({
         (() => {
           const groupId = row.id;
           // Creation milestones are reserved for the end-of-turn recap card.
-          // The provider's actual Synara MCP tool rows remain visible here.
+          // The provider's actual Saint MCP tool rows remain visible here.
           // Handoff boundaries render as the divider above, not as work rows.
           const groupedEntries = row.groupedEntries.filter(
             (workEntry) =>
-              !workEntry.synaraThreadCreation &&
+              !workEntry.saintThreadCreation &&
               !workEntry.providerHandoff &&
               !workEntry.turnFailure,
           );
@@ -1957,8 +1957,8 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           // left-aligned body text in the message column, not centered pills
           // or work entries.
           const notices = row.groupedEntries.flatMap((workEntry) =>
-            workEntry.synaraWorkerNotice
-              ? [{ entry: workEntry, notice: workEntry.synaraWorkerNotice }]
+            workEntry.saintWorkerNotice
+              ? [{ entry: workEntry, notice: workEntry.saintWorkerNotice }]
               : [],
           );
           if (notices.length === 0) {
@@ -2106,7 +2106,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                   )}
                 >
                   {/* Keep user-message chrome outside the bubble so the message reads as one simple block. */}
-                  {/* The cross-task origin label already attributes this turn to another Synara thread,
+                  {/* The cross-task origin label already attributes this turn to another Saint thread,
                       so suppress the dispatch chip here to avoid a duplicate "Sent by …" marker. */}
                   {showCrossTaskOrigin ? null : (
                     <UserDispatchModeChip
@@ -2310,7 +2310,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
         (() => {
           const messageText = resolveAssistantMessageDisplayText(row);
           const buildWorkDisplay = (workEntries: WorkLogEntry[], workGroupId: string | null) => {
-            const displayEntries = workEntries.filter((entry) => !entry.synaraThreadCreation);
+            const displayEntries = workEntries.filter((entry) => !entry.saintThreadCreation);
             const toolEntries = displayEntries.filter((entry) => entry.tone === "tool");
             const statusEntries = displayEntries.filter((entry) => entry.tone !== "tool");
             const toolGroupId = toolEntries.length > 0 ? workGroupId : null;
@@ -2412,11 +2412,11 @@ export const MessagesTimeline = memo(function MessagesTimeline({
             ),
           ];
           const knownAbsoluteFilePaths = knownAbsoluteFilePathsForRow(row);
-          const synaraThreadCreationRecaps = [
+          const saintThreadCreationRecaps = [
             ...new Map(
               allTurnWorkEntries.flatMap((entry) =>
-                entry.synaraThreadCreation
-                  ? [[entry.synaraThreadCreation.operationId, entry.synaraThreadCreation] as const]
+                entry.saintThreadCreation
+                  ? [[entry.saintThreadCreation.operationId, entry.saintThreadCreation] as const]
                   : [],
               ),
             ).values(),
@@ -2441,7 +2441,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
             (item) =>
               item.kind !== "work" ||
               !(
-                item.entry.synaraThreadCreation ||
+                item.entry.saintThreadCreation ||
                 item.entry.computerSetupRequired ||
                 item.entry.computerControlDenied ||
                 isPinnedBackgroundTaskEntry(item.entry, turnEndedAt)
@@ -2645,7 +2645,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                           conversationOnly
                             ? rewriteThreadIdsAsMarkdownLinks(
                                 messageText,
-                                synaraThreadCreationRecaps.flatMap((creation) =>
+                                saintThreadCreationRecaps.flatMap((creation) =>
                                   creation.threads.map((thread) => ({
                                     id: thread.threadId,
                                     title: thread.title,
@@ -2704,7 +2704,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                   </div>
                 ))}
                 {!row.assistantTurnInProgress && row.showAssistantCopyButton
-                  ? synaraThreadCreationRecaps.map((creation) =>
+                  ? saintThreadCreationRecaps.map((creation) =>
                       conversationOnly ? (
                         <p
                           key={creation.operationId}
@@ -2723,7 +2723,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
                         </p>
                       ) : (
                         <div key={creation.operationId} className="mt-2 mb-4">
-                          <SynaraThreadCreationCard
+                          <SaintThreadCreationCard
                             creation={creation}
                             {...(onOpenThread
                               ? {

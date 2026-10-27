@@ -8,7 +8,7 @@ import {
   type ProjectAgentConfig,
   type ProjectAgentSummary,
   type ProjectThreadIndexEntry,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 const listSummaries = vi.fn<() => Promise<{ summaries: ProjectAgentSummary[] }>>();
 

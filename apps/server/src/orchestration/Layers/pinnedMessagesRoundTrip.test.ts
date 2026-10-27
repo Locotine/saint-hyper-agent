@@ -8,7 +8,7 @@ import {
   MessageId,
   ProjectId,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, ManagedRuntime, Option } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -29,7 +29,7 @@ import { ProjectionSnapshotQuery } from "../Services/ProjectionSnapshotQuery.ts"
 
 async function createSystem(dbPath?: string) {
   const ServerConfigLayer = ServerConfig.layerTest(process.cwd(), {
-    prefix: "synara-pinned-roundtrip-test-",
+    prefix: "saint-pinned-roundtrip-test-",
   });
   const layer = OrchestrationEngineLive.pipe(
     Layer.provideMerge(OrchestrationProjectionPipelineLive),
@@ -54,7 +54,7 @@ async function createSystem(dbPath?: string) {
 
 describe("thread annotations round-trip", () => {
   it("persists a thread goal into detail, full snapshots, and shell snapshots", async () => {
-    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-goal-roundtrip-"));
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-goal-roundtrip-"));
     const dbPath = path.join(stateDir, "state.sqlite");
     let system = await createSystem(dbPath);
     const createdAt = "2026-06-06T00:00:00.000Z";

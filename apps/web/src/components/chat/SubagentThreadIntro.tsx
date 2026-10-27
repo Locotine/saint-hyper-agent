@@ -7,7 +7,7 @@
 // Exports: SubagentThreadIntro, SubagentBriefCard, SubagentDeliveredNote,
 // SubagentThreadPresentation
 
-import type { ProviderKind, ThreadId } from "@synara/contracts";
+import type { ProviderKind, ThreadId } from "@saint/contracts";
 import type { CSSProperties } from "react";
 
 import { useNowMs } from "~/hooks/useNowMs";

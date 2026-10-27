@@ -1,30 +1,30 @@
 # Providers
 
-Synara does not host models or sell a separate model subscription. It operates supported
+Saint does not host models or sell a separate model subscription. It operates supported
 coding-agent runtimes installed and authenticated on your machine, then presents them through one
 consistent workspace.
 
 ## Supported providers
 
-| Provider                                                                | What Synara connects to                                        |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------- |
-| [Claude Code](https://www.trysynara.com/docs/providers/claude-code)     | Your installed Claude Code runtime and authenticated account   |
-| [Codex](https://www.trysynara.com/docs/providers/codex)                 | Your installed and authenticated Codex CLI                     |
-| [OpenCode](https://www.trysynara.com/docs/providers/opencode)           | Your local OpenCode runtime and configured model providers     |
-| [Cursor](https://www.trysynara.com/docs/providers/cursor)               | Your local Cursor agent runtime and account                    |
-| [Devin](https://docs.devin.ai)                                          | Your installed and authenticated Devin CLI                     |
-| [Antigravity](https://www.trysynara.com/docs/providers/antigravity)     | Your installed and authenticated Antigravity CLI               |
-| [Grok Build](https://www.trysynara.com/docs/providers/grok)             | Your configured Grok Build runtime and access                  |
-| [Pi](https://www.trysynara.com/docs/providers/pi)                       | Pi and the model providers configured through it               |
-| [Oh My Pi](https://www.trysynara.com/docs/providers/omp)                | Your installed Oh My Pi runtime and configured model providers |
-| [Factory Droid](https://www.trysynara.com/docs/providers/factory-droid) | Your installed and authenticated Droid runtime                 |
+| Provider                       | What Saint connects to                                         |
+| ------------------------------ | -------------------------------------------------------------- |
+| Claude Code                    | Your installed Claude Code runtime and authenticated account   |
+| Codex                          | Your installed and authenticated Codex CLI                     |
+| OpenCode                       | Your local OpenCode runtime and configured model providers     |
+| Cursor                         | Your local Cursor agent runtime and account                    |
+| [Devin](https://docs.devin.ai) | Your installed and authenticated Devin CLI                     |
+| Antigravity                    | Your installed and authenticated Antigravity CLI               |
+| Grok Build                     | Your configured Grok Build runtime and access                  |
+| Pi                             | Pi and the model providers configured through it               |
+| Oh My Pi                       | Your installed Oh My Pi runtime and configured model providers |
+| Factory Droid                  | Your installed and authenticated Droid runtime                 |
 
 Provider availability can differ between the current stable release and development builds. Use the
-provider settings in your installed Synara version as the authoritative list for that build.
+provider settings in your installed Saint version as the authoritative list for that build.
 
-## What Synara manages
+## What Saint manages
 
-Synara provides the shared operating surface around each provider:
+Saint provides the shared operating surface around each provider:
 
 - Project and task ownership
 - Provider and model selection
@@ -38,7 +38,7 @@ Synara provides the shared operating surface around each provider:
 
 Commands remain ordered within a task, while independent tasks use separate delivery lanes
 with bounded concurrency. A command receipt confirms durable acceptance; provider execution
-continues in the background. After restart, Synara resumes from the settled event prefix and
+continues in the background. After restart, Saint resumes from the settled event prefix and
 the delivery journal, preserving completed deliveries and requiring reconciliation for ambiguous
 provider calls. A task waiting on a slow provider operation does not hold another task's lane.
 Recovery also isolates persisted child commands whose owning task is missing or deleted. It
@@ -62,29 +62,29 @@ that known generation before Unblock. The idle Stop refuses a newer turn or repl
 Ordinary idle Stops without an uncertain root Claude send remain no-ops. After a server restart, Unblock may reconcile an
 untouched inherited delivery once the new server confirms it owns no live, retained or background
 work for that task. This restores delivery; it does not prove that every process from an older
-server exited or that its external effects were cancelled. Synara does not automatically resend
+server exited or that its external effects were cancelled. Saint does not automatically resend
 the original ambiguous message. This guard applies to ambiguous root Claude sends; child
 threads retain their existing manual-abandon behavior without stopping the parent. Child
 recovery is not covered by the root-runtime retirement proof.
 
 A Claude steer can wait for permission-mode control or attachment preparation before entering
 the native prompt queue. If its original turn ends or the runtime is replaced during that wait,
-Synara rejects the unsent steer and preserves the newer session state. The final ownership check
+Saint rejects the unsent steer and preserves the newer session state. The final ownership check
 and queue admission run synchronously, so cooperative yielding cannot admit the old steer to a
 newer turn. Queued follow-ups retain their normal turn boundary and wait for any replacement turn
 to settle.
 
 Codex native resume is confirmed only when the runtime returns the requested thread ID.
-If a recoverable resume failure starts a fresh Codex thread instead, Synara treats its native
+If a recoverable resume failure starts a fresh Codex thread instead, Saint treats its native
 history as unavailable and carries the stored transcript through the existing bounded recovery
 summary. Starting the replacement process alone does not prove that native history was restored.
 Recovery remains pending until Codex acknowledges the recap turn, or another provider reports
-matching terminal success. Synara then retires the durable recovery marker; rejected
+matching terminal success. Saint then retires the durable recovery marker; rejected
 submissions keep it for retry, and an explicit stop discards it.
 This applies to every provider after a stored provider change. Delayed recovery
 evidence can retire only the provider session generation that accepted the recap,
 so an old activity retry cannot discard a newer session's pending transcript.
-If the runtime restarts before that evidence is committed, Synara conservatively
+If the runtime restarts before that evidence is committed, Saint conservatively
 retains the recap for the next accepted turn, even when native resume succeeds.
 
 Codex's internal `turn/moderationMetadata` notifications stay in local native event logs
@@ -139,12 +139,12 @@ Devin ACP subagents and background shells use the existing task and subagent con
 activity stays with the launching turn and child thread, including nested work that continues
 after the parent response ends. Stopping one task leaves the parent and sibling tasks running.
 A local stop remains subject to a later native completion; after restart, session replay can
-restore the original ownership and correct the recorded outcome. If native resume fails, Synara
+restore the original ownership and correct the recorded outcome. If native resume fails, Saint
 reports that the old task can no longer be tracked or controlled rather than claiming it completed.
 
 Claude's readable reasoning appears as compact progress text between tool actions while it works.
 Open a reasoning row to read its available detail. This text comes from the running provider;
-Synara does not make another model request to generate it. Models that do not return readable
+Saint does not make another model request to generate it. Models that do not return readable
 reasoning continue to show their normal tool activity and assistant messages.
 Claude's tool-use summaries also appear as expandable text between tool groups. API retries
 show their attempt count and reported delay. Authentication displays its latest state, including
@@ -163,10 +163,10 @@ only the first two available selected accounts appear in the rail.
 Usage checks follow each account's configured credentials; unassigned thread telemetry and
 provider-wide local totals are not used as a fallback for an individual account.
 
-## Keep Synara responsive
+## Keep Saint responsive
 
-Settings → Agent providers → **Keep Synara responsive** is enabled by default in Stable and Beta.
-Synara gives newly launched local agent processes a moderate CPU scheduling priority:
+Settings → Agent providers → **Keep Saint responsive** is enabled by default in Stable and Beta.
+Saint gives newly launched local agent processes a moderate CPU scheduling priority:
 nice +5 on macOS/Linux and Below Normal on Windows. Their children normally inherit it,
 including tests, compilers, and browsers. Processes that explicitly change their own priority
 can override that inheritance. This does not use background I/O or network throttling.
@@ -183,7 +183,7 @@ that launch a process per turn pick it up on the next launch. Pi's SDK runs insi
 so its supervised shell commands receive the priority selected when that session started.
 An externally managed OpenCode server must be configured by its operator.
 
-The Synara server, terminals opened by the user, Git checkpoint helpers, and brief version,
+The Saint server, terminals opened by the user, Git checkpoint helpers, and brief version,
 authentication, and dedicated Codex/Claude model-list probes keep their existing priority.
 ACP/OpenCode discovery uses the shared agent process/server and retains its agent priority.
 Auxiliary Codex/Claude model-generation processes use the agent priority. Priority changes are best effort: an OS
@@ -191,7 +191,7 @@ failure is logged and the agent launch continues. Lower CPU priority improves sc
 under contention; it does not impose a CPU quota or guarantee response times under overload.
 Unresolved native executables launch directly to preserve startup errors such as ENOENT;
 if that direct launch succeeds, priority is adjusted after spawn as a best-effort fallback.
-If the native system `/bin/sh` is unavailable, Synara logs a warning and uses the same
+If the native system `/bin/sh` is unavailable, Saint logs a warning and uses the same
 direct-spawn fallback. These fallback paths can race initial threads/children; actual shell-less
 Linux images and WSL guests without `/bin/sh` have not been verified.
 
@@ -209,20 +209,20 @@ The provider still controls:
 - Provider-specific session features
 
 A provider working in its own terminal is an important prerequisite, but not a guarantee that every
-provider feature is supported through Synara.
+provider feature is supported through Saint.
 
 ## Connect a provider
 
 1. **Install the official runtime.** Use the provider's official installation instructions.
 2. **Open Settings → Providers.** Confirm that the provider is detected and enabled, then select
-   its account and choose **Sign in**. Synara starts the provider's authentication flow in the
+   its account and choose **Sign in**. Saint starts the provider's authentication flow in the
    account environment. Complete any browser, Apple, enterprise, device-code, or credential prompts.
-3. **Check authentication.** Synara rechecks provider status when the login process exits; for
+3. **Check authentication.** Saint rechecks provider status when the login process exits; for
    interactive CLIs, choose **Check authentication** after completing the prompts. A successful
    process exit alone does not establish authentication. A custom executable path is only needed
    when the installation cannot be discovered automatically.
 4. **Check model discovery.** Open the model picker and confirm that the expected models and options
-   appear. Synara discovers many provider capabilities at runtime; the result can depend on the
+   appear. Saint discovers many provider capabilities at runtime; the result can depend on the
    installed CLI version, account, subscription, and provider configuration.
 5. **Start a small test task.** Use a harmless objective in a test repository before relying on a
    newly configured provider for important work.
@@ -248,23 +248,23 @@ Providers expose different selection models:
 - Reasoning, effort, mode, or variant options
 - Account-dependent availability
 
-Synara normalizes these choices into the composer where possible without pretending that every
+Saint normalizes these choices into the composer where possible without pretending that every
 provider has identical capabilities.
 
-OMP's internal sub-agent roles are not user-selectable models. Synara discovers the runtime's
+OMP's internal sub-agent roles are not user-selectable models. Saint discovers the runtime's
 model catalog without reading `modelRoles` from repository configuration. A stale saved `role:`
-selection that the runtime does not advertise requires an explicit model choice; Synara does
+selection that the runtime does not advertise requires an explicit model choice; Saint does
 not silently substitute another model or account. Concrete model selections saved by the old
 role picker retain their model, account and thinking options, including custom selectors.
 
 Claude Code may discover a model under an alias while reporting its concrete model ID separately.
-For a release newer than Synara's catalog, the picker shows the concrete ID. Agent Gateway accepts
+For a release newer than Saint's catalog, the picker shows the concrete ID. Agent Gateway accepts
 that ID when it resolves to one discovered non-default model; ambiguous IDs require an exact
 advertised alias.
 
 Claude effort levels, adaptive-thinking support and fast-mode availability come from the installed
-CLI when it supplies that metadata, including for models newer than Synara’s fallback catalog.
-When effort is unset, Claude Code keeps its own default; Synara offers only the native effort
+CLI when it supplies that metadata, including for models newer than Saint’s fallback catalog.
+When effort is unset, Claude Code keeps its own default; Saint offers only the native effort
 levels and validates explicit selections against the session’s catalog. Older CLIs retain fallback behavior for metadata
 fields they omit.
 
@@ -281,8 +281,8 @@ A response beyond that bound fails discovery without stopping a conversation. Co
 frames and all stdin frames retain the 16 MiB limit.
 
 For Codex, successful model discovery determines the built-in choices, including when the returned
-catalog is empty. Models absent from that catalog are not added back from Synara's static list.
-Custom models remain available. Until discovery succeeds, Synara uses a static fallback; a failed
+catalog is empty. Models absent from that catalog are not added back from Saint's static list.
+Custom models remain available. Until discovery succeeds, Saint uses a static fallback; a failed
 refresh keeps the last successful catalog. The shared discovery cache refreshes catalogs in the
 background after its thirty-minute fresh window. Opening a provider/account tab in the composer
 checks that catalog on demand and delivers any refreshed list directly to the picker. Other tabs
@@ -313,13 +313,13 @@ catalog.
 
 ## OpenCode V2
 
-Synara selects the native `@opencode/client` API after a read-only `/api/info` probe;
+Saint selects the native `@opencode/client` API after a read-only `/api/info` probe;
 `@opencode-ai/sdk/v2` remains the V1-server fallback (its package subpath is not the V2
 server protocol). Managed and external servers use the same adapter boundary. V2 session
 permissions, model/agent selection, prompt receipts, messages, execution events, forms,
 MCP configuration, and pagination use their native contracts.
 
-Scoped root dependency overrides keep Synara's Effect platform, SQLite, and test packages on
+Scoped root dependency overrides keep Saint's Effect platform, SQLite, and test packages on
 the catalog runtime. OpenCode's protocol/schema dependencies retain their own Effect version.
 
 Install V2 following the [official guide](https://opencode.ai/v2/docs/), then select its
@@ -333,7 +333,7 @@ fallback uses a private server with the selected account's environment instead o
 service's shared port.
 
 Preserve the OpenCode account/data directories to retain native session IDs. OpenCode owns
-migration of its history and credentials. Synara does not copy provider databases or silently
+migration of its history and credentials. Saint does not copy provider databases or silently
 replace missing resumed sessions. Existing supported V1 configuration remains readable by V2;
 V1 plugins need migration. See [OpenCode's migration guide](https://opencode.ai/v2/docs/migrate-v1/).
 
@@ -344,12 +344,12 @@ not individual assistant steps, settle turns; disconnect recovery checks native 
 replays message snapshots before accepting a terminal event. Failed snapshot reads leave the
 turn active for recovery to retry.
 Rollback commits a cut at a user-turn boundary with provider file restoration disabled because
-Synara owns workspace checkpoints.
+Saint owns workspace checkpoints.
 
 ## Claude Monitor notifications
 
 Claude Monitor can wake a session with output batches that the SDK does not forward.
-Synara reads the bounded session-transcript tail to recover those notifications without
+Saint reads the bounded session-transcript tail to recover those notifications without
 splitting the assistant reply. Each notification keeps its timestamp and task identity.
 The transcript shows a compact Monitor update or terminal outcome; its output is available
 in the shared detail disclosure. Failed and stopped outcomes stay explicit. Updates do not
@@ -358,8 +358,8 @@ mean the Monitor finished, and tool-only notifications do not enable assistant a
 ## Provider sessions
 
 Use [Import projects](project-import.md) to bring local Codex and Claude Code projects and
-conversations into Synara. The flow links existing folders, merges matching project destinations,
-and creates independent conversation copies without replacing your existing Synara work.
+conversations into Saint. The flow links existing folders, merges matching project destinations,
+and creates independent conversation copies without replacing your existing Saint work.
 
 Each task owns a provider session.
 
@@ -400,7 +400,7 @@ the subagent that launched it as its source thread. A background subagent's fina
 
 Children are named after their description, nickname or brief, never after a provider id.
 Codex multi-agent v2 encrypts spawn briefs, so its children are named after their task name and
-open without a brief. Synara shows up to 20 provider-native subagents per turn and notes on the
+open without a brief. Saint shows up to 20 provider-native subagents per turn and notes on the
 parent thread when more ran.
 
 The parent transcript groups adjacent child launches from the same turn in a compact card at
@@ -417,16 +417,16 @@ subagents separately; their rows start collapsed. The sidebar lists top-level th
 child threads are reached from the card, Environment and the Subagents dock. Child threads link back to
 their launcher, show agent-sent briefs as cards and mark the completed answer delivered to it.
 
-After a successfully completed Codex turn, Synara retires that turn's internal tool credential.
+After a successfully completed Codex turn, Saint retires that turn's internal tool credential.
 Once native background work settles, it keeps the app-server process alive, unsubscribes the
 native conversation, verifies that Codex unloaded it, and resumes the same conversation with
 a fresh credential. The credential is sent through the app-server pipe as thread configuration;
-Synara does not put it in the shared Codex config or the child process environment.
+Saint does not put it in the shared Codex config or the child process environment.
 This avoids process startup and initialization between ordinary replies while preserving
 the rejection of stale tool requests. It still reloads the native conversation and its MCP clients.
 
 If additional native threads remain loaded, native unloading or resume cannot be verified, or
-a turn was interrupted, failed, or aborted for inactivity, Synara uses the full process-restart
+a turn was interrupted, failed, or aborted for inactivity, Saint uses the full process-restart
 recovery path. You can continue in the same task. Idle provider processes still shut down after
 10 minutes by default.
 
@@ -439,7 +439,7 @@ process once it is idle. Model-only changes, non-max effort, thinking and fast m
 existing live controls; max effort also requires a restart.
 
 On Claude CLI 2.1.259 and 2.1.274, the SDK's live `applyFlagSettings` accepts an auto-compact
-window without updating the window used by the runtime. Synara therefore never announces that
+window without updating the window used by the runtime. Saint therefore never announces that
 live setting as applied. A replacement is refused while a turn, background task, workflow,
 subagent, approval, question or send preparation is active. The existing session and event
 ownership remain intact. Finish that work and retry; the desired selection remains saved.
@@ -447,7 +447,7 @@ Persistent TODO entries survive resume and do not by themselves block replacemen
 
 The meter uses fresh runtime reporting for its denominator and percentage. The applied target
 comes from the configuration event, including an explicit Auto state; when that history is
-unavailable, Synara does not infer a target from a threshold. Output reserves, environment
+unavailable, Saint does not infer a target from a threshold. Output reserves, environment
 settings and model caps can make the effective threshold differ from the target (for example,
 967k for 1M or 167k for 200k). Old usage is invalidated after a new configuration or compaction.
 The composer model button shows the observed budget after the model and effort, for example
@@ -459,7 +459,7 @@ No budget is inferred from the model catalog. Compact layouts retain the suffix 
 title and accessible text alongside the hidden effort. Other providers are unchanged.
 See [Claude context configuration](https://code.claude.com/docs/en/model-config#context-window-and-auto-compaction).
 
-Restart/resume preserves the conversation and Synara's cache observations and counters, but
+Restart/resume preserves the conversation and Saint's cache observations and counters, but
 cannot guarantee a cache hit. The existing large cold-context preflight still applies after
 resume. This behavior does not change SDK `snapshot` configuration: enabling prompt recording
 with appended system instructions can change instruction freshness on resume and needs separate
@@ -467,17 +467,17 @@ validation. See the [implementation plan and evidence](claude-context-switch-pla
 
 ### Claude prompt caching and resumed sessions
 
-Synara uses the installed Claude Code runtime through the Agent SDK. Claude owns prompt caching,
+Saint uses the installed Claude Code runtime through the Agent SDK. Claude owns prompt caching,
 session restoration, and automatic compaction. Resuming a saved conversation restores its history;
 it does not restore an expired server-side cache. An unchanged prefix can still be reused after a
 process restart while its cache remains valid. Leaving a process open does not refresh that cache.
 
 A fresh Claude session becomes resumable only after the runtime emits conversation output.
-If a handoff session needs a settings restart before its first message, Synara starts another
+If a handoff session needs a settings restart before its first message, Saint starts another
 fresh session and keeps the prior transcript queued for that message.
 
 The main-conversation cache policy applies to both CLI and SDK turns. The effective lifetime depends
-on the account and Claude settings; Synara does not force a lifetime or change the selected model,
+on the account and Claude settings; Saint does not force a lifetime or change the selected model,
 effort, or compaction threshold to reduce usage. See Anthropic's
 [prompt caching documentation](https://code.claude.com/docs/en/prompt-caching).
 
@@ -487,14 +487,14 @@ an estimate, since changes to the model, tools, or conversation can invalidate a
 prefix. Missing information remains unknown. The adapter preserves the last observation alongside
 the native resume cursor and incorporates native resume metadata when the runtime provides it.
 
-Compare equivalent CLI, SDK, and Synara runs before attributing a cache miss to the wrapper;
+Compare equivalent CLI, SDK, and Saint runs before attributing a cache miss to the wrapper;
 transcript file size and base64 image size are not model token counts.
 
-Like embedded Claude Code, Synara sends after a long pause without asking by default; the first
+Like embedded Claude Code, Saint sends after a long pause without asking by default; the first
 request then re-caches the full history once. Turning on **Ask before resuming a long idle session** in
 Settings → Providers → Claude adds Claude Code's interactive resume prompt (checked against Claude Code
 2.1.296): when Claude's context is at least 100,000 tokens and its last response is at least 70 minutes
-old, whatever the cache state, Synara holds the next message a person sends before delivering it to the runtime.
+old, whatever the cache state, Saint holds the next message a person sends before delivering it to the runtime.
 The composer uses Claude Code's wording and choices: **Resume from summary (recommended)** compacts
 first when supported, **Resume full session as-is** sends with the full history, and
 **Don't ask me again** sends as-is and turns off **Ask before resuming a long idle session** in
@@ -526,15 +526,15 @@ reduce the history sent after a long pause; it also processes the existing histo
 it after the cache expires can itself consume substantial usage. Automatic compaction and the
 selected context threshold remain under the existing Claude settings.
 
-**Resume from summary** keeps the held message separate from `/compact`. Synara releases it only
+**Resume from summary** keeps the held message separate from `/compact`. Saint releases it only
 after a matching native compaction boundary and successful completion. Failure or interruption
-keeps the message on hold. If delivery is uncertain, Synara does not automatically repeat the send.
+keeps the message on hold. If delivery is uncertain, Saint does not automatically repeat the send.
 See [cache recovery behavior and verification](claude-cache-recovery.md) for the implementation
 boundaries and remaining live validation.
 
 ### OpenCode
 
-Synara detects the server protocol with a read-only `GET /api/info` request.
+Saint detects the server protocol with a read-only `GET /api/info` request.
 V2 uses native `/api` session and MCP endpoints. V1 retains the legacy `/session`
 endpoint family and must pass a `GET /provider` readiness check. An HTML app shell
 is not API readiness. The V1 SDK (`1.18.31`) and V2 client (`2.0.25`) are pinned
@@ -549,7 +549,7 @@ provider settings only when the install lives somewhere else entirely.
 
 Claude Code keeps [Artifacts](https://code.claude.com/docs/en/artifacts) off by default for Agent
 SDK sessions, so `/design` and `/slides` cannot publish until the host opts in. Turn on **Settings →
-Providers → Claude → Artifacts, /design and /slides** and start a new session; Synara then launches
+Providers → Claude → Artifacts, /design and /slides** and start a new session; Saint then launches
 Claude with `CLAUDE_CODE_ARTIFACT=1`. Claude's own requirements still apply: a claude.ai login on a
 Pro, Max, Team, or Enterprise plan, Claude Code 2.1.234 or later, and an organization policy that
 allows Artifacts. While Artifacts are off or unavailable, the composer marks both commands with a
@@ -559,44 +559,44 @@ link in its reply.
 ## Provider profiles and terminal commands
 
 Provider settings can define multiple independently routed instances of any supported provider.
-Each enabled instance receives a stable command in newly opened or restarted Synara terminals, for
+Each enabled instance receives a stable command in newly opened or restarted Saint terminals, for
 example `claude-work`, `codex-personal`, or `pi-team`. The command is an executable shim on `PATH`,
 not a zsh or bash function, so it behaves consistently from zsh, bash, fish, shell scripts, and
 child processes. Bare commands such as `claude` and `codex` keep their existing meaning.
 
 The generated name comes from the provider and stable instance ID. A portable command override can
 be configured without tying terminal behavior to the editable display label. Profile shims are
-scoped to Synara terminals; Synara does not edit `.zshrc`, `.bashrc`, or other global shell files.
+scoped to Saint terminals; Saint does not edit `.zshrc`, `.bashrc`, or other global shell files.
 
 Use **Import directory** in the desktop provider settings to reference an existing provider account
-directory. Import is non-destructive: Synara does not move or copy the selected directory. Known
+directory. Import is non-destructive: Saint does not move or copy the selected directory. Known
 provider roots use their native setting (`CODEX_HOME`, Claude's config directory, or Pi's agent
 directory); other providers use the profile-directory mapping shown in settings. Remote browser
 sessions can create the same profile manually because a browser cannot safely pick a directory on
 the server machine.
 
 A non-default Oh My Pi instance, or one with its own environment, runs under a private home in the
-Synara state directory and does not inherit ambient provider credentials, like Pi. **Agent
+Saint state directory and does not inherit ambient provider credentials, like Pi. **Agent
 directory** (or the profile directory) sets `PI_CODING_AGENT_DIR`. Sessions, forks, model and command
 discovery, imported history, and the instance's terminal command all use that account.
 
-With `SYNARA_CLAUDE_KEEPALIVE=1` on macOS, the Claude OAuth keepalive runs `claude auth status` for
+With `SAINT_CLAUDE_KEEPALIVE=1` on macOS, the Claude OAuth keepalive runs `claude auth status` for
 every enabled Claude account in that account's own environment, so each account's Keychain token
 stays fresh.
 
 Sensitive environment values are never serialized into terminal shim files. Directory-backed
 authentication works directly. A profile that depends only on a secret environment credential
-still works for managed Synara runs, but its named terminal command requires that credential to be
+still works for managed Saint runs, but its named terminal command requires that credential to be
 available through a secure runtime mechanism rather than an on-disk shim.
 
 ### Sign in from account settings
 
-**Sign in** opens Synara's existing interactive terminal in a settings dialog. It launches the
+**Sign in** opens Saint's existing interactive terminal in a settings dialog. It launches the
 resolved provider executable directly with the account environment; it does not rely on a profile
 shim being available in an external shell. Account edits already being saved settle before launch.
-The login runs in an empty directory on the Synara server machine, rather than in your project.
+The login runs in an empty directory on the Saint server machine, rather than in your project.
 Browser/remote clients still need to complete the provider's browser or device authorization on the
-appropriate machine. Synara never submits browser credentials or accepts consent prompts for you.
+appropriate machine. Saint never submits browser credentials or accepts consent prompts for you.
 
 | Provider      | Entry point                     | Human steps                                                 |
 | ------------- | ------------------------------- | ----------------------------------------------------------- |
@@ -613,9 +613,9 @@ appropriate machine. Synara never submits browser credentials or accepts consent
 
 Pi-family **Sign-in options** sends the native `/login` TUI command after you have completed startup
 prompts. It is never passed as a model prompt. OpenCode accounts configured for an external server
-must authenticate on that server; Synara reports this instead of changing a local account.
+must authenticate on that server; Saint reports this instead of changing a local account.
 
-For local OpenCode sign-in, Synara checks `auth login --help` and adds `--standalone` when supported.
+For local OpenCode sign-in, Saint checks `auth login --help` and adds `--standalone` when supported.
 The private login server uses the selected account's home and XDG directories without connecting
 to another account's background service. Legacy CLIs keep `auth login`. Authentication terminals
 use the embedded renderer's terminal and color capabilities, including when the server inherited
@@ -633,7 +633,7 @@ login, chats, health checks, and usage use the same resolved account directories
 overrides remain supported, but a private home can select a different macOS Keychain. Prefer the
 system home with separate config and secure-storage directories. Existing credential files are
 left in place. If an older sign-in saved credentials under `unknown` or in a private Keychain,
-sign in again from the account settings; Synara does not copy or delete Keychain entries.
+sign in again from the account settings; Saint does not copy or delete Keychain entries.
 
 Claude's account status says **Signed in locally** when the CLI reports stored authentication.
 This is not a guarantee that Anthropic will accept the next request. Usage authentication errors
@@ -646,7 +646,7 @@ Restoring an account's appearance and enablement defaults preserves its display 
 in memory while the window is active and is not persisted as a terminal log. Cancellation does not
 log out or remove credentials already saved by the provider. Closing errors stay visible and can be
 retried. Reconnecting to a completed attempt does not launch it again; use a new **Sign in** attempt
-to retry. Synara only reports **Authenticated** when the account's server health check confirms it;
+to retry. Saint only reports **Authenticated** when the account's server health check confirms it;
 providers without a verifiable login-status probe can continue to show an unknown status.
 
 Entry points checked against provider documentation and the installed Pi CLI source on 2026-10-02:
@@ -665,8 +665,8 @@ launch tests use disposable CLI fixtures and do not authenticate personal accoun
 
 ## Switching providers
 
-A [provider handoff](https://www.trysynara.com/docs/workflows/handoffs) allows another provider to
-continue the task and work in the same environment with the context Synara passes to it.
+A [provider handoff](./core-concepts.md#handoffs) allows another provider to
+continue the task and work in the same environment with the context Saint passes to it.
 
 Continue task, workflow resumes, and plan follow-ups use the same handoff eligibility checks
 as Send. A refused plan handoff keeps the thread's runtime and interaction modes; a refusal
@@ -676,10 +676,18 @@ after a handoff restores the current provider and an access mode it supports.
 Use handoffs deliberately. Review the working tree before and after changing providers so ownership
 remains clear.
 
-When a provider cannot resume its native conversation, Synara can continue from a bounded transcript
+When a provider cannot resume its native conversation, Saint can continue from a bounded transcript
 summary. The existing recovery activity reports how many messages that summary omitted or shortened;
-expand it to inspect the summary size and preview. Omitted content remains in the Synara conversation.
+expand it to inspect the summary size and preview. Omitted content remains in the Saint conversation.
 This fallback does not recreate provider-native tool results, reasoning, or cache state.
+
+**Fresh session from transcript** is the alternative when the copied history would be too large.
+The new thread receives one prompt instead of the messages: the path of the source session's
+native transcript (Claude Code `projects/*/<session>.jsonl` under the configured or default config
+directory, Codex `sessions/**/rollout-*-<thread>.jsonl` under the configured or default Codex home),
+the original working directory and branch, and the last request and update. The server locates the
+file from the thread's resume cursor (`orchestration.getThreadTranscript`); other providers get the
+prompt without a path. See [core concepts](./core-concepts.md#handoffs).
 
 ## When a provider is missing
 
@@ -690,13 +698,13 @@ Check these in order:
 3. Is the expected executable on `PATH`?
 4. Is a custom binary path configured incorrectly?
 5. Does the installed runtime version support the required integration?
-6. Does restarting Synara refresh the provider status?
+6. Does restarting Saint refresh the provider status?
 7. Does the provider itself report a service or account error?
 
-Continue with the [troubleshooting hub](https://www.trysynara.com/docs/troubleshooting) when the
-runtime works independently but remains unavailable in Synara.
+Continue with the troubleshooting hub when the
+runtime works independently but remains unavailable in Saint.
 
-Use the dedicated [provider guides](https://www.trysynara.com/docs/providers) for exact
+Use the dedicated [provider guides](./providers.md) for exact
 installation, authentication, verification, capabilities, update paths, and provider-specific
 failure checks.
 
@@ -712,7 +720,7 @@ complete the form in OpenCode. Requests retain their task and provider-session s
 
 ## Codex asynchronous questions
 
-On Codex versions and models that expose `request_user_input_async`, Synara shows
+On Codex versions and models that expose `request_user_input_async`, Saint shows
 a question-mark capsule labeled with the number of questions. Opening it reuses
 the same question form as blocking prompts: numbered choices, previous/next
 navigation, and a separate text answer. Closing the capsule preserves the current
@@ -725,7 +733,7 @@ opened form, so separate questions and the main composer cannot consume each
 other's input.
 
 Questions and submitted answers are stored with the assistant message. Refreshing
-or restarting Synara restores that state. Concurrent submissions are admitted once
+or restarting Saint restores that state. Concurrent submissions are admitted once
 by the server; a second client refreshes the accepted answer. Normal turn-delivery
 errors remain visible on the conversation, as for any other user message.
 
@@ -744,14 +752,14 @@ and an isolated native app-server session:
   `delivery: "async"` and `questions: [{ title, options }]`, and immediately
   returns to the agent. `options` may be null for a free-text-only question.
 - The answer is an ordinary user message containing the questions and answers.
-  Synara uses its existing turn dispatch: `turn/steer` with `expectedTurnId` while
+  Saint uses its existing turn dispatch: `turn/steer` with `expectedTurnId` while
   a turn is active, and `turn/start` once the turn has finished. The existing
   dispatch path also handles the turn finishing while the answer is being sent.
 - This differs from `item/tool/requestUserInput`, which carries a JSON-RPC request
   ID and uses a response with an answer map. Its `isBlocking` field and deprecated
   `autoResolutionMs` do not define the native asynchronous tool's answer path.
-  The inline asynchronous cards never enter Synara's pending approval/input queues.
-- Synara does not force a model or enable experimental model features. Older
+  The inline asynchronous cards never enter Saint's pending approval/input queues.
+- Saint does not force a model or enable experimental model features. Older
   app-server versions retain their existing text and blocking-question behavior;
   malformed structured questions fall back to the provider's message text.
 
@@ -764,20 +772,20 @@ Sources: [OpenAI app-server documentation](https://developers.openai.com/codex/a
 ## Passive results from delegated tasks
 
 When an orchestrator needs delegated results to finish the user's request, it must keep calling
-`synara_wait_for_threads` with the returned `runIds` until `allTerminal` is true, then read and
+`saint_wait_for_threads` with the returned `runIds` until `allTerminal` is true, then read and
 synthesize the results. A timeout reports progress; it is not completion. Native provider
 subagents use their provider's own completion mechanism. Neither launching work nor opting
 into passive receipts is a substitute for collecting required results before ending the turn.
 
 An authenticated agent can pass `notifyCreatorOnComplete: true` to
-`synara_create_thread`, or on individual entries in `synara_create_threads`.
+`saint_create_thread`, or on individual entries in `saint_create_threads`.
 The default is off. The destination is always the authenticated creating task;
 there is no destination-ID parameter, and the new task remains standalone.
 
-Synara persists one result for the initial message/run when it completes, fails,
+Saint persists one result for the initial message/run when it completes, fails,
 or is interrupted. The creator sees an attributed activity with the child and
 run IDs, up to 2,000 characters of final response (with truncation indicated),
-and a `synara_read_thread` reference for the full result. Delivery does not start,
+and a `saint_read_thread` reference for the full result. Delivery does not start,
 queue, steer, or interrupt a creator turn, and does not update human-message
 recency. The result is supplied as untrusted reference context on a subsequent
 human-started turn; rejected sends retain it, retries keep their assignment, and
@@ -788,7 +796,7 @@ consume completion context.
 
 This option covers only the initial delegated run. Approval/question waits and
 provider idle alone are not completion. Goals are unsupported: if a goal was
-set during the initial run, Synara reports that limitation rather than claiming
+set during the initial run, Saint reports that limitation rather than claiming
 the goal finished at an intermediate turn. Later conversational turns do not
 produce further notifications. External MCP integrations cannot opt in because
 they have no authenticated creating task.

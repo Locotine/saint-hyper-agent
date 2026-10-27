@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { supportsPosixPermissions } from "@synara/shared/filesystemPlatform";
+import { supportsPosixPermissions } from "@saint/shared/filesystemPlatform";
 export {
   sameFileIdentity,
   supportsPosixPermissions,
   syncDirectoryEntry,
   syncRegularFile,
-} from "@synara/shared/filesystemPlatform";
+} from "@saint/shared/filesystemPlatform";
 
 export const PRIVATE_DIRECTORY_MODE = 0o700;
 export const PRIVATE_FILE_MODE = 0o600;

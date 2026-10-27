@@ -3,7 +3,7 @@ import {
   ExternalMcpPairInput,
   ExternalMcpRefreshPairingInput,
   ExternalMcpRevokeIntegrationInput,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, Option, Schema, Semaphore } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
@@ -97,7 +97,7 @@ const localExternalMcpEnabled = Effect.gen(function* () {
 
 const disabledResponse = () =>
   HttpServerResponse.jsonUnsafe(
-    { error: "External MCP is available only from a loopback-only Synara instance." },
+    { error: "External MCP is available only from a loopback-only Saint instance." },
     { status: 404 },
   );
 

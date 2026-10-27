@@ -3,7 +3,7 @@
 // Layer: Web lib (pure)
 // Exports: KEEP_AWAKE_MODE_OPTIONS and status label helpers.
 
-import type { KeepAwakeMode, ServerKeepAwakeState } from "@synara/contracts";
+import type { KeepAwakeMode, ServerKeepAwakeState } from "@saint/contracts";
 
 export interface KeepAwakeModeOption {
   readonly value: KeepAwakeMode;

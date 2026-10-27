@@ -1,5 +1,5 @@
 import type { LegendListRef } from "@legendapp/list/react";
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { Debouncer } from "@tanstack/react-pacer";
 import type { RefObject } from "react";
 import {

@@ -52,10 +52,10 @@ describe("resolveAllowedLocalPreviewFile", () => {
     }
   });
 
-  it("allows images written to the SYNARA_HOME codex-home-overlay generated_images root", async () => {
-    // Codex app-server is launched with CODEX_HOME pointing at a Synara overlay
-    // directory (see resolveSynaraCodexHomeOverlayPath). Generated images therefore
-    // live under <SYNARA_HOME>/codex-home-overlay/generated_images/<thread>/<call>.png,
+  it("allows images written to the SAINT_HOME codex-home-overlay generated_images root", async () => {
+    // Codex app-server is launched with CODEX_HOME pointing at a Saint overlay
+    // directory (see resolveSaintCodexHomeOverlayPath). Generated images therefore
+    // live under <SAINT_HOME>/codex-home-overlay/generated_images/<thread>/<call>.png,
     // which sits outside both the user's `~/.codex` source home and any workspace
     // root. The allowlist must still serve them.
     //
@@ -64,9 +64,9 @@ describe("resolveAllowedLocalPreviewFile", () => {
     // way only the overlay candidate can satisfy the allowlist.
     const fakeRoot = path.join(process.cwd(), `.test-codex-overlay-${process.pid}-${Date.now()}`);
     const sourceHome = path.join(fakeRoot, "source", ".codex");
-    const synaraHome = path.join(fakeRoot, "synara", "runtime");
+    const saintHome = path.join(fakeRoot, "saint", "runtime");
     const overlayImageDir = path.join(
-      synaraHome,
+      saintHome,
       "codex-home-overlay",
       "generated_images",
       "thread-overlay",
@@ -75,8 +75,8 @@ describe("resolveAllowedLocalPreviewFile", () => {
     mkdirSync(overlayImageDir, { recursive: true });
     writeFileSync(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 
-    const previousSynaraHome = process.env.SYNARA_HOME;
-    process.env.SYNARA_HOME = synaraHome;
+    const previousSaintHome = process.env.SAINT_HOME;
+    process.env.SAINT_HOME = saintHome;
     try {
       const result = await resolveAllowedLocalPreviewFile({
         requestedPath: imagePath,
@@ -86,10 +86,10 @@ describe("resolveAllowedLocalPreviewFile", () => {
 
       assert.equal(result?.path, realpathSync(imagePath));
     } finally {
-      if (previousSynaraHome === undefined) {
-        delete process.env.SYNARA_HOME;
+      if (previousSaintHome === undefined) {
+        delete process.env.SAINT_HOME;
       } else {
-        process.env.SYNARA_HOME = previousSynaraHome;
+        process.env.SAINT_HOME = previousSaintHome;
       }
       rmSync(fakeRoot, { recursive: true, force: true });
     }
@@ -101,9 +101,9 @@ describe("resolveAllowedLocalPreviewFile", () => {
       `.test-codex-account-overlay-${process.pid}-${Date.now()}`,
     );
     const sourceHome = path.join(fakeRoot, "source", ".codex");
-    const synaraHome = path.join(fakeRoot, "synara", "runtime");
+    const saintHome = path.join(fakeRoot, "saint", "runtime");
     const siblingImageDir = path.join(
-      synaraHome,
+      saintHome,
       "codex-home-overlay",
       "accounts",
       "work-account",
@@ -114,8 +114,8 @@ describe("resolveAllowedLocalPreviewFile", () => {
     mkdirSync(siblingImageDir, { recursive: true });
     writeFileSync(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 
-    const previousSynaraHome = process.env.SYNARA_HOME;
-    process.env.SYNARA_HOME = synaraHome;
+    const previousSaintHome = process.env.SAINT_HOME;
+    process.env.SAINT_HOME = saintHome;
     try {
       const result = await resolveAllowedLocalPreviewFile({
         requestedPath: imagePath,
@@ -125,10 +125,10 @@ describe("resolveAllowedLocalPreviewFile", () => {
 
       assert.equal(result, null);
     } finally {
-      if (previousSynaraHome === undefined) {
-        delete process.env.SYNARA_HOME;
+      if (previousSaintHome === undefined) {
+        delete process.env.SAINT_HOME;
       } else {
-        process.env.SYNARA_HOME = previousSynaraHome;
+        process.env.SAINT_HOME = previousSaintHome;
       }
       rmSync(fakeRoot, { recursive: true, force: true });
     }
@@ -165,7 +165,7 @@ describe("resolveAllowedLocalPreviewFile", () => {
     );
     const sourceHome = path.join(fakeRoot, "source", ".codex-work");
     const shadowHome = path.join(fakeRoot, "shadow", ".codex-work-auth");
-    const synaraHome = path.join(fakeRoot, "synara", "runtime");
+    const saintHome = path.join(fakeRoot, "saint", "runtime");
     const accountSegment = resolveCodexHomeOverlayAccountSegment({
       homePath: sourceHome,
       shadowHomePath: shadowHome,
@@ -173,7 +173,7 @@ describe("resolveAllowedLocalPreviewFile", () => {
     });
     assert.ok(accountSegment, "expected an account overlay segment");
     const imageDir = path.join(
-      synaraHome,
+      saintHome,
       "codex-home-overlay",
       "accounts",
       accountSegment,
@@ -184,8 +184,8 @@ describe("resolveAllowedLocalPreviewFile", () => {
     mkdirSync(imageDir, { recursive: true });
     writeFileSync(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 
-    const previousSynaraHome = process.env.SYNARA_HOME;
-    process.env.SYNARA_HOME = synaraHome;
+    const previousSaintHome = process.env.SAINT_HOME;
+    process.env.SAINT_HOME = saintHome;
     try {
       const result = await resolveAllowedLocalPreviewFile({
         requestedPath: imagePath,
@@ -201,17 +201,17 @@ describe("resolveAllowedLocalPreviewFile", () => {
 
       assert.equal(result?.path, realpathSync(imagePath));
     } finally {
-      if (previousSynaraHome === undefined) {
-        delete process.env.SYNARA_HOME;
+      if (previousSaintHome === undefined) {
+        delete process.env.SAINT_HOME;
       } else {
-        process.env.SYNARA_HOME = previousSynaraHome;
+        process.env.SAINT_HOME = previousSaintHome;
       }
       rmSync(fakeRoot, { recursive: true, force: true });
     }
   });
 
   it("allows PDFs inside dot-prefixed workspace directories", async () => {
-    const workspace = makeTempDir("synara-pdf-workspace-");
+    const workspace = makeTempDir("saint-pdf-workspace-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
     const pdfPath = path.join(workspace, "..assets", "spec.pdf");
     mkdirSync(path.dirname(pdfPath), { recursive: true });
@@ -229,9 +229,9 @@ describe("resolveAllowedLocalPreviewFile", () => {
 
   it("allows PDFs inside a per-thread scratch workspace without a cwd", async () => {
     // Sessions that start before a project workspace exists run in
-    // <tmpdir>/synara-codex-workspaces/<threadId>; files agents create there
+    // <tmpdir>/saint-codex-workspaces/<threadId>; files agents create there
     // are workspace-equivalent, so documents must be servable from that root.
-    const scratchRoot = path.join(os.tmpdir(), "synara-codex-workspaces");
+    const scratchRoot = path.join(os.tmpdir(), "saint-codex-workspaces");
     const threadDir = path.join(scratchRoot, `test-thread-${process.pid}-${Date.now()}`);
     const pdfPath = path.join(threadDir, "viewer-test.pdf");
     mkdirSync(threadDir, { recursive: true });
@@ -253,8 +253,8 @@ describe("resolveAllowedLocalPreviewFile", () => {
   });
 
   it("allows PDFs inside the configured private scratch root without a cwd", async () => {
-    const privateTempRoot = makeTempDir("synara-private-scratch-");
-    const scratchRoot = path.join(privateTempRoot, "synara-codex-workspaces");
+    const privateTempRoot = makeTempDir("saint-private-scratch-");
+    const scratchRoot = path.join(privateTempRoot, "saint-codex-workspaces");
     const threadDir = path.join(scratchRoot, "private-thread");
     const pdfPath = path.join(threadDir, "private-scratch.pdf");
     mkdirSync(threadDir, { recursive: true });
@@ -273,7 +273,7 @@ describe("resolveAllowedLocalPreviewFile", () => {
   it("rejects PDFs outside the workspace even under the temp-dir image roots", async () => {
     // Temp/generated-image roots exist for agent-produced images in chat
     // markdown; documents must only ever be served from the workspace.
-    const tempDir = makeTempDir("synara-pdf-outside-");
+    const tempDir = makeTempDir("saint-pdf-outside-");
     const pdfPath = path.join(tempDir, "leak.pdf");
     writeFileSync(pdfPath, Buffer.from("%PDF-1.4"));
 
@@ -286,7 +286,7 @@ describe("resolveAllowedLocalPreviewFile", () => {
   });
 
   it("still allows images under the temp-dir roots without a workspace", async () => {
-    const tempDir = makeTempDir("synara-image-tmp-root-");
+    const tempDir = makeTempDir("saint-image-tmp-root-");
     const imagePath = path.join(tempDir, "clip.png");
     writeFileSync(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 

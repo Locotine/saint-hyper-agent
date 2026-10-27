@@ -1,4 +1,4 @@
-import { ProviderInteractionMode } from "@synara/contracts";
+import { ProviderInteractionMode } from "@saint/contracts";
 import { type ReactNode } from "react";
 import { GoTasklist } from "react-icons/go";
 import { BugIcon, ChevronDownIcon, ComposerSendArrowIcon, LayoutSidebarIcon } from "~/lib/icons";

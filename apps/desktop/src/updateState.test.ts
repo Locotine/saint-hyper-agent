@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DesktopUpdateState } from "@synara/contracts";
+import type { DesktopUpdateState } from "@saint/contracts";
 
 import {
   getCanRetryAfterDownloadFailure,
@@ -266,7 +266,7 @@ describe("getAutoUpdateDisabledReason", () => {
         disabledByEnv: true,
         hasUpdateFeedConfig: true,
       }),
-    ).toContain("SYNARA_DISABLE_AUTO_UPDATE");
+    ).toContain("SAINT_DISABLE_AUTO_UPDATE");
   });
 
   it("reports linux non-AppImage builds as disabled", () => {

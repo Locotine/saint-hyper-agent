@@ -3,10 +3,10 @@
 // Layer: Web UI helpers
 // Exports: THREAD_DRAG_MIME, ThreadDragPayload, beginThreadDrag, endThreadDrag, getActiveThreadDragId, isThreadDragTransfer, readThreadDragPayload, THREAD_MENTION_DROPZONE_ATTRIBUTE, isWithinThreadMentionDropzone
 
-import { type ThreadId } from "@synara/contracts";
+import { type ThreadId } from "@saint/contracts";
 
 // Custom MIME so external file drops on the composer (which listen for `Files`) cannot trigger us.
-export const THREAD_DRAG_MIME = "application/x-synara-thread";
+export const THREAD_DRAG_MIME = "application/x-saint-thread";
 
 // Marks the composer region where a thread drop becomes an @mention instead of a split.
 export const THREAD_MENTION_DROPZONE_ATTRIBUTE = "data-thread-mention-dropzone";

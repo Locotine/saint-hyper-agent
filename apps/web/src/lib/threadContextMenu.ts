@@ -7,7 +7,7 @@
 //      fork, archive, delete) live in the sidebar, which is mounted next to every chat, so
 //      other surfaces call into it instead of rebuilding the menu.
 
-import type { ContextMenuItem, ThreadId } from "@synara/contracts";
+import type { ContextMenuItem, ThreadId } from "@saint/contracts";
 
 export interface ThreadContextMenuOptions {
   /** Rows the calling surface adds to the thread's menu, such as a tab's close actions. */

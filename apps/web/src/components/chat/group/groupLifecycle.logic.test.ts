@@ -15,27 +15,27 @@ describe("buildGroupDeletedNotice", () => {
 
   it("describes a kept library with one copyable path", () => {
     const notice = buildGroupDeletedNotice({
-      libraryLeftOnDiskPath: "/Users/a/Documents/Synara/Groups/crew/Library",
+      libraryLeftOnDiskPath: "/Users/a/Documents/Saint/Groups/crew/Library",
       workspaceLeftOnDiskPath: null,
     });
     assert.equal(
-      notice?.description.includes("/Users/a/Documents/Synara/Groups/crew/Library"),
+      notice?.description.includes("/Users/a/Documents/Saint/Groups/crew/Library"),
       true,
     );
     assert.deepEqual(notice?.copyItems, [
-      { label: "library path", text: "/Users/a/Documents/Synara/Groups/crew/Library" },
+      { label: "library path", text: "/Users/a/Documents/Saint/Groups/crew/Library" },
     ]);
   });
 
   it("explains why the hub folder was kept", () => {
     const notice = buildGroupDeletedNotice({
       libraryLeftOnDiskPath: null,
-      workspaceLeftOnDiskPath: "/Users/a/Documents/Synara/Groups/crew",
+      workspaceLeftOnDiskPath: "/Users/a/Documents/Saint/Groups/crew",
     });
     assert.equal(notice?.description.includes("has your files"), true);
-    assert.equal(notice?.description.includes("/Users/a/Documents/Synara/Groups/crew"), true);
+    assert.equal(notice?.description.includes("/Users/a/Documents/Saint/Groups/crew"), true);
     assert.deepEqual(notice?.copyItems, [
-      { label: "hub folder path", text: "/Users/a/Documents/Synara/Groups/crew" },
+      { label: "hub folder path", text: "/Users/a/Documents/Saint/Groups/crew" },
     ]);
   });
 

@@ -5,9 +5,9 @@
 //          scoping) so each row's count and its expanded body read the same data.
 // Layer: Group panel UI
 // Why: Claude Code's Projects Overview lists every thread by live state; this is
-//      Synara's version, derived from the same helpers the sidebar uses.
+//      Saint's version, derived from the same helpers the sidebar uses.
 
-import type { AutomationDefinition, ThreadId } from "@synara/contracts";
+import type { AutomationDefinition, ThreadId } from "@saint/contracts";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 

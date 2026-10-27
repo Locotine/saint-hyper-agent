@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { makeBootOwnershipStore, orphanedBootUdids, processIsAlive } from "./bootOwnership.ts";
 
 const store = async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), "synara-boot-own-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "saint-boot-own-"));
   return { dir, file: path.join(dir, "ownership.json") };
 };
 
@@ -62,7 +62,7 @@ describe("deciding which boots to reclaim", () => {
   });
 
   it("leaves a live sibling server's devices alone", () => {
-    // Two Synara processes can run at once; the older record belongs to the
+    // Two Saint processes can run at once; the older record belongs to the
     // one still running, and shutting its simulators down would be a bug.
     expect(orphanedBootUdids({ pid: 123, udids: ["A"] }, ["A"], alive)).toEqual([]);
   });

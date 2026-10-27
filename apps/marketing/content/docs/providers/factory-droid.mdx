@@ -1,9 +1,9 @@
 ---
 title: Factory Droid
-description: Install, authenticate, verify, and run Factory Droid through Synara.
+description: Install, authenticate, verify, and run Factory Droid through Saint.
 ---
 
-Synara connects to Factory Droid through its `droid` executable and Agent Client Protocol mode. Factory owns the account, model routing, credentials, autonomy settings, and provider service; Synara supplies the task, repository environment, transcript, approvals, review surfaces, and Git workflow around the session.
+Saint connects to Factory Droid through its `droid` executable and Agent Client Protocol mode. Factory owns the account, model routing, credentials, autonomy settings, and provider service; Saint supplies the task, repository environment, transcript, approvals, review surfaces, and Git workflow around the session.
 
 ## Install
 
@@ -35,7 +35,7 @@ When prompted, complete Factory’s browser device-pairing flow. For headless us
 export FACTORY_API_KEY="fk-..."
 ```
 
-Synara’s ACP integration can use either a device-paired session advertised by Droid or the API-key method. Do not commit the key or paste it into a task transcript.
+Saint’s ACP integration can use either a device-paired session advertised by Droid or the API-key method. Do not commit the key or paste it into a task transcript.
 
 ## Verify
 
@@ -46,23 +46,23 @@ droid --version
 droid
 ```
 
-Confirm that authentication completes and a harmless read-only request succeeds. For API-key verification, test the environment variable in the same shell context that launches Synara.
+Confirm that authentication completes and a harmless read-only request succeeds. For API-key verification, test the environment variable in the same shell context that launches Saint.
 
-## Connect to Synara
+## Connect to Saint
 
 <Steps>
 <Step>
 
 ### Enable Factory Droid
 
-Open provider settings and confirm that Synara detects `droid`.
+Open provider settings and confirm that Saint detects `droid`.
 
 </Step>
 <Step>
 
 ### Confirm authentication
 
-Use the browser-paired account or provide `FACTORY_API_KEY` to the Synara process environment.
+Use the browser-paired account or provide `FACTORY_API_KEY` to the Saint process environment.
 
 </Step>
 <Step>
@@ -81,7 +81,7 @@ Use a clean repository and conservative permissions. Review the selected autonom
 </Step>
 </Steps>
 
-## Capabilities in Synara
+## Capabilities in Saint
 
 Factory Droid sessions can expose:
 
@@ -91,21 +91,21 @@ Factory Droid sessions can expose:
 - Permission and autonomy controls supplied by the runtime
 - Browser device pairing or `FACTORY_API_KEY` authentication
 - Session configuration negotiated at startup
-- Synara’s terminal, browser, diff, checkpoint, worktree, and Git delivery surfaces
+- Saint’s terminal, browser, diff, checkpoint, worktree, and Git delivery surfaces
 
-Synara applies Droid’s model and reasoning choices through ACP session configuration because command-line model flags are not authoritative in every ACP release.
+Saint applies Droid’s model and reasoning choices through ACP session configuration because command-line model flags are not authoritative in every ACP release.
 
-Synara does not currently classify Factory Droid as supporting native live-turn steering.
+Saint does not currently classify Factory Droid as supporting native live-turn steering.
 
 ## Updating
 
-Use Factory’s supported update path or rerun the official installer, then restart Synara. Synara can recognize common Droid installations and may expose an update action when the runtime supports it.
+Use Factory’s supported update path or rerun the official installer, then restart Saint. Saint can recognize common Droid installations and may expose an update action when the runtime supports it.
 
 Create a new task after an update that changes ACP configuration, model discovery, authentication, or autonomy modes.
 
 ## Usage credentials
 
-Synara can read usage limits from available Factory credentials, including supported secure storage. If usage is unavailable, check that the same local Factory account is authenticated; missing usage data does not mean the allowance is zero.
+Saint can read usage limits from available Factory credentials, including supported secure storage. If usage is unavailable, check that the same local Factory account is authenticated; missing usage data does not mean the allowance is zero.
 
 ## Troubleshooting
 
@@ -113,8 +113,8 @@ Synara can read usage limits from available Factory credentials, including suppo
 
 1. Run `droid --version` from a fresh terminal.
 2. Confirm the installer directory is on `PATH`.
-3. Check Synara’s custom binary path.
-4. Restart Synara after installation or environment changes.
+3. Check Saint’s custom binary path.
+4. Restart Saint after installation or environment changes.
 
 ### Device pairing does not complete
 
@@ -122,11 +122,11 @@ Run `droid` directly and complete the browser flow. On Linux, verify that a brow
 
 ### The API key is ignored
 
-Confirm that `FACTORY_API_KEY` is exported in the environment that launches Synara. An environment variable set in one terminal does not automatically reach an already-running desktop application.
+Confirm that `FACTORY_API_KEY` is exported in the environment that launches Saint. An environment variable set in one terminal does not automatically reach an already-running desktop application.
 
 ### Model or reasoning options are missing
 
-Update Droid, authenticate directly, and start a new Synara session. The ACP runtime advertises the available configuration for each session.
+Update Droid, authenticate directly, and start a new Saint session. The ACP runtime advertises the available configuration for each session.
 
 ## Official documentation
 

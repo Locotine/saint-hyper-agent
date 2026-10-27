@@ -3,8 +3,8 @@
 // Layer: Chat composer state helpers
 // Depends on: composer trait resolution and the starred model storage shape.
 
-import type { ModelSlug, ProviderInstanceId, ProviderKind } from "@synara/contracts";
-import { resolveSelectableModel } from "@synara/shared/model";
+import type { ModelSlug, ProviderInstanceId, ProviderKind } from "@saint/contracts";
+import { resolveSelectableModel } from "@saint/shared/model";
 
 import { type StarredModel, starredModelInstanceId, starredModelKey } from "~/lib/starredModels";
 import {

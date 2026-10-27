@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { MessageId, ThreadId } from "@synara/contracts";
+import type { MessageId, ThreadId } from "@saint/contracts";
 import type { ChatMessage, Thread } from "~/types";
 import {
   THREAD_RECAP_STORAGE_KEY,

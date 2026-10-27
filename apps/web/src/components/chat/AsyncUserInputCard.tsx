@@ -1,4 +1,4 @@
-import type { AsyncUserInput, MessageId, UserInputQuestion } from "@synara/contracts";
+import type { AsyncUserInput, MessageId, UserInputQuestion } from "@saint/contracts";
 import { useMemo, useRef, useState } from "react";
 import { CircleQuestionIcon, CheckIcon } from "~/lib/icons";
 import {

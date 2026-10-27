@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import type { ResolvedKeybindingRule, ServerKeybindingEdit } from "@synara/contracts";
+import type { ResolvedKeybindingRule, ServerKeybindingEdit } from "@saint/contracts";
 import { page, userEvent } from "vitest/browser";
 import { expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

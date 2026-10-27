@@ -112,7 +112,7 @@ test.describe("visual regression @visual", () => {
     expect(version).toMatch(/^v\d+\.\d+\.\d+$/);
     const releaseCaption = page.getByText(/^Latest release /);
     await expect(releaseCaption).toContainText(`Latest release ${version}.`);
-    const assetRoot = `https://github.com/Emanuele-web04/synara/releases/download/${version}/Synara-${version.slice(1)}`;
+    const assetRoot = `https://github.com/Emanuele-web04/synara/releases/download/${version}/Saint-${version.slice(1)}`;
     for (const [platform, suffix] of [
       ["macOS", "arm64.dmg"],
       ["Windows", "x64.exe"],

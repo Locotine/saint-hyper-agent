@@ -23,7 +23,7 @@ import {
   type RuntimeMode,
   type ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   DateTime,
   Deferred,
@@ -42,10 +42,10 @@ import { ChildProcessSpawner } from "effect/unstable/process";
 import { makeEffectProcessCommand } from "../../platform/effectProcessRuntime.ts";
 import type * as Acp from "@agentclientprotocol/sdk";
 
-import { buildAcpSynaraMcpServers } from "../../agentGateway/mcpInjection.ts";
+import { buildAcpSaintMcpServers } from "../../agentGateway/mcpInjection.ts";
 import {
-  type SynaraHarnessPolicyDeliveryState,
-  takeSynaraHarnessPolicyTextPartForProviderSession,
+  type SaintHarnessPolicyDeliveryState,
+  takeSaintHarnessPolicyTextPartForProviderSession,
 } from "../../agentGateway/harnessPolicy.ts";
 import { AgentGatewayCredentials } from "../../agentGateway/Services/AgentGatewayCredentials.ts";
 import {
@@ -184,11 +184,11 @@ export function stampCursorTerminalEventInstance(
     : event;
 }
 
-export const takeCursorSynaraHarnessPolicyTextPart = (
-  state: SynaraHarnessPolicyDeliveryState,
+export const takeCursorSaintHarnessPolicyTextPart = (
+  state: SaintHarnessPolicyDeliveryState,
   scopedGatewayConnectionAvailable: boolean,
 ) =>
-  takeSynaraHarnessPolicyTextPartForProviderSession(state, {
+  takeSaintHarnessPolicyTextPartForProviderSession(state, {
     provider: PROVIDER,
     scopedGatewayConnectionAvailable,
   });
@@ -208,9 +208,9 @@ const CURSOR_ACP_STARTUP_TIMEOUTS = {
 } as const satisfies AcpSessionStartupTimeouts;
 // Backstop for an alive-but-silent cursor-agent child: if a turn produces no
 // ACP activity for this long, force-fail it instead of showing "Working"
-// forever. Generous by design; override with SYNARA_CURSOR_TURN_IDLE_TIMEOUT_MS.
+// forever. Generous by design; override with SAINT_CURSOR_TURN_IDLE_TIMEOUT_MS.
 const CURSOR_TURN_IDLE_TIMEOUT_MS = resolveAcpTurnIdleTimeoutMs({
-  envVar: "SYNARA_CURSOR_TURN_IDLE_TIMEOUT_MS",
+  envVar: "SAINT_CURSOR_TURN_IDLE_TIMEOUT_MS",
   defaultMs: 600_000,
 });
 const CURSOR_TURN_WATCHDOG_INTERVAL_MS = 15_000;
@@ -223,7 +223,7 @@ const CURSOR_ACP_SESSION_MODE_ALIASES = {
   approval: ACP_APPROVAL_MODE_ALIASES,
 } as const;
 const CURSOR_PLAN_MODE_PROMPT_PREFIX = [
-  "Synara Cursor plan mode is active.",
+  "Saint Cursor plan mode is active.",
   "Do not implement or mutate files in this turn.",
   "Do not ask follow-up questions or wait for confirmation; if scope is ambiguous, choose a reasonable default and state the assumption in the plan.",
   "When ready, create the final implementation plan.",
@@ -500,7 +500,7 @@ export function makeCursorAdapter(
     const childProcessSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const serverConfig = yield* Effect.service(ServerConfig);
     // Optional so adapter tests can run without the gateway layer; when
-    // present, every session gets the synara_* MCP tools.
+    // present, every session gets the saint_* MCP tools.
     const agentGatewayCredentials = Option.getOrUndefined(
       yield* Effect.serviceOption(AgentGatewayCredentials),
     );
@@ -843,12 +843,12 @@ export function makeCursorAdapter(
             childProcessSpawner,
             cwd,
             ...(resumeSessionId ? { resumeSessionId } : {}),
-            clientInfo: { name: "Synara", version: "0.0.0" },
+            clientInfo: { name: "Saint", version: "0.0.0" },
             startupTimeouts: CURSOR_ACP_STARTUP_TIMEOUTS,
             ...(agentGatewayCredentials
               ? {
                   buildMcpServers: (initializeResult) =>
-                    buildAcpSynaraMcpServers({
+                    buildAcpSaintMcpServers({
                       connection: gatewaySessionLease!.connection,
                       initializeResult,
                       stdioProxy: agentGatewayCredentials.stdioProxy,
@@ -1410,7 +1410,7 @@ export function makeCursorAdapter(
             issue: "Turn requires non-empty text or attachments.",
           });
         }
-        const harnessPolicy = takeCursorSynaraHarnessPolicyTextPart(
+        const harnessPolicy = takeCursorSaintHarnessPolicyTextPart(
           ctx,
           agentGatewayCredentials !== undefined,
         );
@@ -1841,7 +1841,7 @@ export function makeCursorAdapter(
           cursorSettings: effectiveAcpSettings,
           childProcessSpawner,
           cwd: process.cwd(),
-          clientInfo: { name: "Synara", version: "0.0.0" },
+          clientInfo: { name: "Saint", version: "0.0.0" },
         });
         const started = yield* runtime.start();
         const models = yield* fetchCursorAcpModelDescriptors(runtime, started.sessionId);
@@ -1933,7 +1933,7 @@ export function makeCursorAdapter(
             runtime,
             targetCwd,
             unsupportedIssue:
-              "This Cursor ACP version does not advertise session/fork; Synara will rebuild the fork from its retained transcript.",
+              "This Cursor ACP version does not advertise session/fork; Saint will rebuild the fork from its retained transcript.",
             requestTimeoutMs: CURSOR_ACP_FORK_TIMEOUT_MS,
             timeoutError: cursorForkTimeoutError,
           });
@@ -1946,7 +1946,7 @@ export function makeCursorAdapter(
             provider: PROVIDER,
             operation: "forkThread",
             issue:
-              "The source Cursor session has a turn in flight; Synara will rebuild the fork from its retained transcript.",
+              "The source Cursor session has a turn in flight; Saint will rebuild the fork from its retained transcript.",
           });
         }
         const forked = activeSource
@@ -1982,7 +1982,7 @@ export function makeCursorAdapter(
                 childProcessSpawner,
                 cwd: sourceCwd,
                 resumeSessionId: sourceSessionId,
-                clientInfo: { name: "Synara Fork", version: "0.0.0" },
+                clientInfo: { name: "Saint Fork", version: "0.0.0" },
                 startupTimeouts: CURSOR_ACP_STARTUP_TIMEOUTS,
               });
               yield* runtime.start().pipe(

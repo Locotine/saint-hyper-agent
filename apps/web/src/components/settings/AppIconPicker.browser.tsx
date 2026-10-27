@@ -6,9 +6,9 @@ import "../../index.css";
 
 import { expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import { desktopFlavorFromProtocol } from "@synara/shared/betaFeatures";
+import { desktopFlavorFromProtocol } from "@saint/shared/betaFeatures";
 
-vi.mock("@synara/shared/betaFeatures", { spy: true });
+vi.mock("@saint/shared/betaFeatures", { spy: true });
 
 import { AppIconPicker } from "./AppIconPicker";
 

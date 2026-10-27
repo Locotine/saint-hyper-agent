@@ -1,7 +1,7 @@
 // Owns the HTTP-hosted client execution boundary for agent HTML.
 // Native component visuals remain separate from this refusal path.
 import "../../index.css";
-import { ThreadId, type NativeApi } from "@synara/contracts";
+import { ThreadId, type NativeApi } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
@@ -35,7 +35,7 @@ it("never fetches or executes agent HTML in an HTTP-hosted browser", async () =>
     await expect
       .element(
         screen.getByText(
-          "HTML visuals are available in Synara desktop. Use native components in the browser.",
+          "HTML visuals are available in Saint desktop. Use native components in the browser.",
         ),
       )
       .toBeVisible();

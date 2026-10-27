@@ -1,4 +1,4 @@
-import type { DesktopAppSnapState } from "@synara/contracts";
+import type { DesktopAppSnapState } from "@saint/contracts";
 import { QueryClient, QueryObserver, focusManager } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -16,7 +16,7 @@ function grantState(overrides: Partial<DesktopAppSnapState> = {}): DesktopAppSna
     inputMonitoringPermission: "granted",
     screenRecordingPermission: "granted",
     message: null,
-    appDisplayName: "Synara",
+    appDisplayName: "Saint",
     ...overrides,
   };
 }
@@ -91,7 +91,7 @@ describe("native Computer permission status bridge", () => {
   it("does not apply local grant pushes to a remote Computer host", () => {
     const onState = vi.fn();
     vi.stubGlobal("window", {
-      desktopBridge: { getWsUrl: () => "wss://remote.synara.test", appSnap: { onState } },
+      desktopBridge: { getWsUrl: () => "wss://remote.saint.test", appSnap: { onState } },
     });
     const queryClient = new QueryClient();
     subscribeComputerPermissionStatus(queryClient)();

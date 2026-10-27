@@ -4,7 +4,7 @@ import {
   ThreadId,
   type OrchestrationProjectShell,
   type OrchestrationThreadShell,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer, Option } from "effect";
 
@@ -94,13 +94,13 @@ layer("agent gateway to-do tools", (it) => {
 
       assert.deepStrictEqual(
         [...byName.keys()],
-        ["synara_create_todo", "synara_list_todos", "synara_update_todo"],
+        ["saint_create_todo", "saint_list_todos", "saint_update_todo"],
       );
-      for (const name of ["synara_create_todo", "synara_update_todo"]) {
+      for (const name of ["saint_create_todo", "saint_update_todo"]) {
         assert.strictEqual(byName.get(name)?.requiredCapability, "thread:write");
         assert.isTrue(byName.get(name)?.requiresActiveTurn);
       }
-      assert.strictEqual(byName.get("synara_list_todos")?.requiredCapability, "thread:read");
+      assert.strictEqual(byName.get("saint_list_todos")?.requiredCapability, "thread:read");
     }),
   );
 
@@ -110,7 +110,7 @@ layer("agent gateway to-do tools", (it) => {
       const { call } = makeTools(todos);
 
       const { todo } = resultJson(
-        yield* call("synara_create_todo", {
+        yield* call("saint_create_todo", {
           requestId: "create-default",
           title: "  Fix the scroll jump  ",
           notes: "Happens after a reconnect.",
@@ -140,9 +140,9 @@ layer("agent gateway to-do tools", (it) => {
       const { call } = makeTools(todos);
       const args = { requestId: "create-retry", title: "Renew the certificate" };
 
-      const first = resultJson(yield* call("synara_create_todo", args)).todo;
-      const retried = resultJson(yield* call("synara_create_todo", args)).todo;
-      const reused = yield* call("synara_create_todo", { ...args, title: "Another to-do" });
+      const first = resultJson(yield* call("saint_create_todo", args)).todo;
+      const retried = resultJson(yield* call("saint_create_todo", args)).todo;
+      const reused = yield* call("saint_create_todo", { ...args, title: "Another to-do" });
 
       assert.strictEqual(retried.id, first.id);
       assert.isTrue(reused.isError);
@@ -158,21 +158,21 @@ layer("agent gateway to-do tools", (it) => {
       const todos = yield* TodoService;
 
       const personal = resultJson(
-        yield* makeTools(todos).call("synara_create_todo", {
+        yield* makeTools(todos).call("saint_create_todo", {
           requestId: "create-personal",
           title: "Call the dentist",
           projectId: null,
         }),
       ).todo;
       const elsewhere = resultJson(
-        yield* makeTools(todos).call("synara_create_todo", {
+        yield* makeTools(todos).call("saint_create_todo", {
           requestId: "create-elsewhere",
           title: "Bump the SDK",
           projectId: "project-b",
         }),
       ).todo;
       const fromChat = resultJson(
-        yield* makeTools(todos, "project-chat").call("synara_create_todo", {
+        yield* makeTools(todos, "project-chat").call("saint_create_todo", {
           requestId: "create-from-chat",
           title: "Read the changelog",
         }),
@@ -191,23 +191,23 @@ layer("agent gateway to-do tools", (it) => {
       const before = (yield* todos.list()).todos.length;
 
       const results = [
-        yield* call("synara_create_todo", { title: "No request id" }),
-        yield* call("synara_create_todo", { requestId: "bad-blank", title: "   " }),
-        yield* call("synara_create_todo", {
+        yield* call("saint_create_todo", { title: "No request id" }),
+        yield* call("saint_create_todo", { requestId: "bad-blank", title: "   " }),
+        yield* call("saint_create_todo", {
           requestId: "bad-long",
           title: "x".repeat(TODO_TITLE_MAX_LENGTH + 1),
         }),
-        yield* call("synara_create_todo", {
+        yield* call("saint_create_todo", {
           requestId: "bad-date",
           title: "Impossible day",
           dueDate: "2026-02-31",
         }),
-        yield* call("synara_create_todo", {
+        yield* call("saint_create_todo", {
           requestId: "bad-project",
           title: "Unknown project",
           projectId: "project-missing",
         }),
-        yield* call("synara_create_todo", {
+        yield* call("saint_create_todo", {
           requestId: "bad-container",
           title: "Container project",
           projectId: "project-chat",
@@ -227,7 +227,7 @@ layer("agent gateway to-do tools", (it) => {
       const { call } = makeTools(todos);
       const longNotes = "n".repeat(900);
       const open = resultJson(
-        yield* call("synara_create_todo", {
+        yield* call("saint_create_todo", {
           requestId: "list-open",
           title: "List: open",
           notes: longNotes,
@@ -235,15 +235,15 @@ layer("agent gateway to-do tools", (it) => {
         }),
       ).todo;
       const done = resultJson(
-        yield* call("synara_create_todo", { requestId: "list-done", title: "List: done" }),
+        yield* call("saint_create_todo", { requestId: "list-done", title: "List: done" }),
       ).todo;
       yield* todos.update({ id: done.id, completed: true });
 
-      const listed = resultJson(yield* call("synara_list_todos", {}));
-      const withDone = resultJson(yield* call("synara_list_todos", { includeCompleted: true }));
-      const inProject = resultJson(yield* call("synara_list_todos", { projectId: "project-list" }));
-      const one = resultJson(yield* call("synara_list_todos", { todoId: open.id }));
-      const missing = yield* call("synara_list_todos", { todoId: "todo:missing" });
+      const listed = resultJson(yield* call("saint_list_todos", {}));
+      const withDone = resultJson(yield* call("saint_list_todos", { includeCompleted: true }));
+      const inProject = resultJson(yield* call("saint_list_todos", { projectId: "project-list" }));
+      const one = resultJson(yield* call("saint_list_todos", { todoId: open.id }));
+      const missing = yield* call("saint_list_todos", { todoId: "todo:missing" });
       assert.include(ids(listed), open.id);
       assert.notInclude(ids(listed), done.id);
       assert.include(ids(withDone), done.id);
@@ -262,7 +262,7 @@ layer("agent gateway to-do tools", (it) => {
       const todos = yield* TodoService;
       const { call } = makeTools(todos);
       const created = resultJson(
-        yield* call("synara_create_todo", {
+        yield* call("saint_create_todo", {
           requestId: "update-target",
           title: "Draft the release notes",
           dueDate: "2026-10-15",
@@ -270,7 +270,7 @@ layer("agent gateway to-do tools", (it) => {
       ).todo;
 
       const edited = resultJson(
-        yield* call("synara_update_todo", {
+        yield* call("saint_update_todo", {
           todoId: created.id,
           title: "Publish the release notes",
           priority: "urgent",
@@ -291,7 +291,7 @@ layer("agent gateway to-do tools", (it) => {
         threadId: null,
       });
       const reopened = resultJson(
-        yield* call("synara_update_todo", { todoId: created.id, completed: false }),
+        yield* call("saint_update_todo", { todoId: created.id, completed: false }),
       ).todo;
       assert.strictEqual(reopened.completed, false);
       assert.strictEqual(reopened.title, "Publish the release notes");
@@ -303,19 +303,19 @@ layer("agent gateway to-do tools", (it) => {
       const todos = yield* TodoService;
       const { call } = makeTools(todos);
       const created = resultJson(
-        yield* call("synara_create_todo", { requestId: "update-refused", title: "Keep as is" }),
+        yield* call("saint_create_todo", { requestId: "update-refused", title: "Keep as is" }),
       ).todo;
 
-      const nothing = yield* call("synara_update_todo", { todoId: created.id });
-      const onlyLink = yield* call("synara_update_todo", {
+      const nothing = yield* call("saint_update_todo", { todoId: created.id });
+      const onlyLink = yield* call("saint_update_todo", {
         todoId: created.id,
         threadId: "thread-caller",
       });
-      const badProject = yield* call("synara_update_todo", {
+      const badProject = yield* call("saint_update_todo", {
         todoId: created.id,
         projectId: "project-missing",
       });
-      const unknown = yield* call("synara_update_todo", {
+      const unknown = yield* call("saint_update_todo", {
         todoId: "todo:missing",
         title: "Nobody home",
       });

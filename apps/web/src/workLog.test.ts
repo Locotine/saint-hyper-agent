@@ -1,4 +1,4 @@
-import { MessageId, TurnId, type OrchestrationThreadActivity } from "@synara/contracts";
+import { MessageId, TurnId, type OrchestrationThreadActivity } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -124,7 +124,7 @@ describe("deriveWorkLogEntries", () => {
           sequence: 2,
           kind: "user-input.resolved",
           summary: "User input submitted",
-          // Claude keys answers by question text; Codex and Synara by question id.
+          // Claude keys answers by question text; Codex and Saint by question id.
           payload: {
             requestId: "req-1",
             answers: {
@@ -410,7 +410,7 @@ describe("deriveWorkLogEntries", () => {
     ["clipboard consent", { decision: "accept", toolName: "computer_read_clipboard" }],
     [
       "wrapped clipboard consent",
-      { decision: "accept", toolName: "mcp__synara__computer_read_clipboard" },
+      { decision: "accept", toolName: "mcp__saint__computer_read_clipboard" },
     ],
     ["scoped consent", { decision: "accept", approvalScope: "device-task" }],
   ])("keeps the %s outcome visible", (_name, payload) => {
@@ -1699,12 +1699,12 @@ describe("deriveWorkLogEntries", () => {
         id: "automation-created",
         createdAt: "2026-02-23T00:00:05.000Z",
         kind: "automation.created",
-        summary: "Created automation: Watch Synara PR 231 - Every 5m",
+        summary: "Created automation: Watch Saint PR 231 - Every 5m",
         tone: "info",
         payload: {
           source: "chat-composer",
           automationId: "automation-7",
-          automationName: "Watch Synara PR 231",
+          automationName: "Watch Saint PR 231",
           cadenceLabel: "Every 5m",
         },
       }),
@@ -1718,7 +1718,7 @@ describe("deriveWorkLogEntries", () => {
     expect(automationEntry).toBeDefined();
     expect(automationEntry?.automation).toEqual({
       id: "automation-7",
-      name: "Watch Synara PR 231",
+      name: "Watch Saint PR 231",
       cadenceLabel: "Every 5m",
     });
   });
@@ -1749,14 +1749,14 @@ describe("deriveWorkLogEntries", () => {
     });
   });
 
-  it("exposes a provider-independent Synara thread creation recap", () => {
+  it("exposes a provider-independent Saint thread creation recap", () => {
     const activities: OrchestrationThreadActivity[] = [
       makeActivity({
-        id: "synara-created-threads",
+        id: "saint-created-threads",
         createdAt: "2026-02-23T00:00:05.000Z",
         turnId: "turn-1",
-        kind: "synara.threads.created",
-        summary: "Created 2 Synara threads",
+        kind: "saint.threads.created",
+        summary: "Created 2 Saint threads",
         tone: "info",
         payload: {
           operationId: "gateway:create:two-workers",
@@ -1785,7 +1785,7 @@ describe("deriveWorkLogEntries", () => {
     ];
 
     const [entry] = deriveWorkLogEntries(activities, TurnId.makeUnsafe("turn-1"));
-    expect(entry?.synaraThreadCreation).toEqual({
+    expect(entry?.saintThreadCreation).toEqual({
       operationId: "gateway:create:two-workers",
       requestedCount: 2,
       createdCount: 2,
@@ -1817,7 +1817,7 @@ describe("deriveWorkLogEntries", () => {
       makeActivity({
         id: "worker-settled",
         createdAt: "2026-02-23T00:00:05.000Z",
-        kind: "synara.worker.settled",
+        kind: "saint.worker.settled",
         summary: "✓ Mars rocket research finished",
         tone: "info",
         payload: {
@@ -1835,7 +1835,7 @@ describe("deriveWorkLogEntries", () => {
       makeActivity({
         id: "worker-stuck",
         createdAt: "2026-02-23T00:00:06.000Z",
-        kind: "synara.worker.stuck",
+        kind: "saint.worker.stuck",
         summary: "⚠ Quiet worker has not reported for over 10 minutes",
         tone: "approval",
         payload: {
@@ -1849,7 +1849,7 @@ describe("deriveWorkLogEntries", () => {
       makeActivity({
         id: "workers-rollup",
         createdAt: "2026-02-23T00:00:07.000Z",
-        kind: "synara.workers.settled",
+        kind: "saint.workers.settled",
         summary: "All 3 threads settled: A ✓, B ✓, C ⚠ needs approval",
         tone: "approval",
         payload: {
@@ -1868,7 +1868,7 @@ describe("deriveWorkLogEntries", () => {
       visibleTurnIds: new Set(["turn-other"]),
     });
     const settled = entries.find((entry) => entry.id === "worker-settled");
-    expect(settled?.synaraWorkerNotice).toEqual({
+    expect(settled?.saintWorkerNotice).toEqual({
       kind: "settled",
       marker: "✓",
       phrase: "finished",
@@ -1884,9 +1884,9 @@ describe("deriveWorkLogEntries", () => {
       ],
     });
     const stuck = entries.find((entry) => entry.id === "worker-stuck");
-    expect(stuck?.synaraWorkerNotice?.kind).toBe("stuck");
+    expect(stuck?.saintWorkerNotice?.kind).toBe("stuck");
     const rollup = entries.find((entry) => entry.id === "workers-rollup");
-    expect(rollup?.synaraWorkerNotice).toEqual({
+    expect(rollup?.saintWorkerNotice).toEqual({
       kind: "rollup",
       marker: null,
       phrase: null,
@@ -2095,7 +2095,7 @@ describe("deriveWorkLogEntries", () => {
         id: "recovery-first",
         createdAt: "2026-02-23T00:00:01.000Z",
         kind: "provider.runtime.reconciled",
-        summary: "Synara recovered a stale running state",
+        summary: "Saint recovered a stale running state",
         turnId: "turn-stale",
         payload: recoveryPayload,
       }),
@@ -2109,7 +2109,7 @@ describe("deriveWorkLogEntries", () => {
         id: "recovery-repeat",
         createdAt: "2026-02-23T00:00:03.000Z",
         kind: "provider.runtime.reconciled",
-        summary: "Synara recovered a stale running state",
+        summary: "Saint recovered a stale running state",
         turnId: "turn-stale",
         payload: recoveryPayload,
       }),
@@ -3007,7 +3007,7 @@ describe("deriveWorkLogEntries", () => {
             toolCallId: "acp-typing-call",
             toolName: "computer_type_text",
             rawInput: {
-              _toolName: "mcp__synara__computer_type_text",
+              _toolName: "mcp__saint__computer_type_text",
               app_name: "Notes",
               label: "Message",
               text: "private typed value",
@@ -3026,7 +3026,7 @@ describe("deriveWorkLogEntries", () => {
             toolCallId: "acp-inspection-call",
             toolName: "computer_inspect",
             rawInput: {
-              toolName: "synara_computer_inspect",
+              toolName: "saint_computer_inspect",
               tool: "computer_read_clipboard",
               arguments: {},
             },
@@ -3249,7 +3249,7 @@ describe("deriveWorkLogEntries", () => {
                   type: "read",
                   command: "sed -n '1,220p' README.md",
                   name: "README.md",
-                  path: "/Users/emanueledipietro/Developer/Testing/synara/README.md",
+                  path: "/Users/emanueledipietro/Developer/Testing/saint/README.md",
                 },
               ],
             },
@@ -4150,21 +4150,21 @@ describe("deriveWorkLogEntries", () => {
   });
 
   it("preserves cancellation when an owning turn aborts", () => {
-    const turnId = TurnId.makeUnsafe("turn-with-cancelled-synara-tool");
+    const turnId = TurnId.makeUnsafe("turn-with-cancelled-saint-tool");
     const entries = deriveWorkLogEntries(
       [
         makeActivity({
-          id: "cancelled-synara-start",
+          id: "cancelled-saint-start",
           createdAt: "2026-02-23T00:00:01.000Z",
           kind: "tool.started",
-          summary: "Synara create thread",
+          summary: "Saint create thread",
           turnId,
           payload: {
             itemType: "mcp_tool_call",
-            title: "Synara create thread",
+            title: "Saint create thread",
             data: {
-              toolCallId: "cancelled-synara-call",
-              toolName: "mcp__synara__synara_create_thread",
+              toolCallId: "cancelled-saint-call",
+              toolName: "mcp__saint__saint_create_thread",
             },
           },
         }),
@@ -4192,14 +4192,14 @@ describe("deriveWorkLogEntries", () => {
           id: "interrupted-tool",
           createdAt: "2026-02-23T00:00:01.000Z",
           kind: "tool.completed",
-          summary: "Synara create thread",
+          summary: "Saint create thread",
           payload: {
             itemType: "mcp_tool_call",
-            title: "Synara create thread",
+            title: "Saint create thread",
             status: "interrupted",
             data: {
-              toolCallId: "interrupted-synara-call",
-              toolName: "mcp__synara__synara_create_thread",
+              toolCallId: "interrupted-saint-call",
+              toolName: "mcp__saint__saint_create_thread",
             },
           },
         }),
@@ -4491,42 +4491,42 @@ describe("deriveWorkLogEntries", () => {
     });
   });
 
-  it("presents Synara MCP activity consistently across provider item shapes", () => {
+  it("presents Saint MCP activity consistently across provider item shapes", () => {
     const activities: OrchestrationThreadActivity[] = [
       makeActivity({
-        id: "synara-mcp-create-thread-progress",
+        id: "saint-mcp-create-thread-progress",
         kind: "tool.updated",
         summary: "MCP tool call",
         payload: {
           itemType: "mcp_tool_call",
           title: "MCP tool call",
           data: {
-            toolCallId: "synara-mcp-create",
-            toolName: "mcp__synara__synara_create_thread",
+            toolCallId: "saint-mcp-create",
+            toolName: "mcp__saint__saint_create_thread",
           },
         },
       }),
       makeActivity({
-        id: "synara-dynamic-send-message-progress",
+        id: "saint-dynamic-send-message-progress",
         kind: "tool.updated",
         summary: "Tool call",
         payload: {
           itemType: "dynamic_tool_call",
-          title: "Synara__synara_send_message",
+          title: "Saint__saint_send_message",
           data: {
-            toolCallId: "synara-dynamic-send",
+            toolCallId: "saint-dynamic-send",
           },
         },
       }),
       makeActivity({
-        id: "synara-file-change-list-threads-progress",
+        id: "saint-file-change-list-threads-progress",
         kind: "tool.updated",
         summary: "File change",
         payload: {
           itemType: "file_change",
-          title: "mcp__Synara__synara_list_threads",
+          title: "mcp__Saint__saint_list_threads",
           data: {
-            toolCallId: "synara-file-change-list",
+            toolCallId: "saint-file-change-list",
           },
         },
       }),
@@ -4535,27 +4535,27 @@ describe("deriveWorkLogEntries", () => {
     const entries = deriveWorkLogEntries(activities, undefined);
     expect(entries.map((entry) => [entry.itemType, entry.toolTitle])).toEqual(
       expect.arrayContaining([
-        ["mcp_tool_call", "Synara is creating a thread"],
-        ["dynamic_tool_call", "Synara is sending a message"],
-        ["file_change", "Synara is listing threads"],
+        ["mcp_tool_call", "Saint is creating a thread"],
+        ["dynamic_tool_call", "Saint is sending a message"],
+        ["file_change", "Saint is listing threads"],
       ]),
     );
     expect(entries).toHaveLength(3);
   });
 
-  it("preserves a failed Synara MCP result as a failed activity sentence", () => {
+  it("preserves a failed Saint MCP result as a failed activity sentence", () => {
     const [entry] = deriveWorkLogEntries(
       [
         makeActivity({
-          id: "synara-create-threads-failed",
+          id: "saint-create-threads-failed",
           kind: "tool.completed",
-          summary: "synara__synara_create_threads",
+          summary: "saint__saint_create_threads",
           payload: {
             itemType: "mcp_tool_call",
             status: "failed",
             data: {
-              toolCallId: "synara-create-failed",
-              toolName: "mcp__synara__synara_create_threads",
+              toolCallId: "saint-create-failed",
+              toolName: "mcp__saint__saint_create_threads",
               rawOutput: {
                 is_error: 1,
                 output: { Error: "Invalid target options\n  at target.options" },
@@ -4569,7 +4569,7 @@ describe("deriveWorkLogEntries", () => {
 
     expect(entry).toMatchObject({
       toolStatus: "failed",
-      toolTitle: "Synara couldn't create threads",
+      toolTitle: "Saint couldn't create threads",
       detail: "Invalid target options",
     });
   });
@@ -5062,7 +5062,7 @@ describe("deriveWorkLogEntries", () => {
           id: "native-child-overflow",
           createdAt: "2026-02-23T00:00:01.000Z",
           kind: "subagent.materialization.capped",
-          summary: "Subagent limit reached: Synara shows up to 20 subagents per turn.",
+          summary: "Subagent limit reached: Saint shows up to 20 subagents per turn.",
           tone: "error",
           payload: { source: "provider_native", cap: 20 },
         }),
@@ -5130,11 +5130,11 @@ describe("deriveWorkLogEntries", () => {
             toolCallId: "toolu_012fsSN5hrdndPjxoWQjZswu",
             kind: "agent",
             tool: "task",
-            prompt: "Explore the Synara web app and report back with file paths.",
+            prompt: "Explore the Saint web app and report back with file paths.",
             rawInput: {
               _toolName: "task",
               description: "Explore composer model/effort UI",
-              prompt: "Explore the Synara web app and report back with file paths.",
+              prompt: "Explore the Saint web app and report back with file paths.",
             },
           },
         },
@@ -5149,7 +5149,7 @@ describe("deriveWorkLogEntries", () => {
         toolTitle: "Explore composer model/effort UI",
         subagentAction: expect.objectContaining({
           tool: "task",
-          prompt: "Explore the Synara web app and report back with file paths.",
+          prompt: "Explore the Saint web app and report back with file paths.",
         }),
         liveActivity: expect.objectContaining({ state: "running_tool" }),
       }),
@@ -6408,7 +6408,7 @@ describe("deriveWorkLogEntries Codex find regression", () => {
               id: "call_UmQKQmLCCrj9PF82rupLIFDO",
               command:
                 "/bin/zsh -lc \"find apps packages -maxdepth 2 -name package.json -print -exec sed -n '1,120p' {} \\\\;\"",
-              cwd: "/Users/emanueledipietro/Developer/Testing/synara",
+              cwd: "/Users/emanueledipietro/Developer/Testing/saint",
               processId: "38005",
               source: "unifiedExecStartup",
               status: "inProgress",
@@ -6446,7 +6446,7 @@ describe("deriveWorkLogEntries Codex find regression", () => {
               id: "call_UmQKQmLCCrj9PF82rupLIFDO",
               command:
                 "/bin/zsh -lc \"find apps packages -maxdepth 2 -name package.json -print -exec sed -n '1,120p' {} \\\\;\"",
-              cwd: "/Users/emanueledipietro/Developer/Testing/synara",
+              cwd: "/Users/emanueledipietro/Developer/Testing/saint",
               processId: "38005",
               source: "unifiedExecStartup",
               status: "completed",

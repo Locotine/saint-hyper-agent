@@ -1,4 +1,4 @@
-import type { ExternalMcpCapability } from "@synara/contracts";
+import type { ExternalMcpCapability } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { buildExternalMcpOverviewNextSteps, buildExternalMcpOverviewProjects } from "./overview.ts";
@@ -73,7 +73,7 @@ describe("external MCP overview", () => {
     expect(
       buildExternalMcpOverviewNextSteps(new Set<ExternalMcpCapability>(["projects:read"])),
     ).toEqual([
-      "Call synara_capabilities with a projectId to list the exact provider/model targets available to this integration.",
+      "Call saint_capabilities with a projectId to list the exact provider/model targets available to this integration.",
     ]);
     expect(
       buildExternalMcpOverviewNextSteps(
@@ -85,10 +85,10 @@ describe("external MCP overview", () => {
         ]),
       ),
     ).toEqual([
-      "Call synara_capabilities with a projectId to list the exact provider/model targets available to this integration.",
-      "Create work with synara_create_task.",
-      "Follow permitted work with synara_wait_for_task.",
-      "Read permitted task results with synara_read_task.",
+      "Call saint_capabilities with a projectId to list the exact provider/model targets available to this integration.",
+      "Create work with saint_create_task.",
+      "Follow permitted work with saint_wait_for_task.",
+      "Read permitted task results with saint_read_task.",
     ]);
   });
 });

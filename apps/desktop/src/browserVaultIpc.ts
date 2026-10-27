@@ -1,4 +1,4 @@
-import { BrowserCookieImportInput, BrowserVaultSettings } from "@synara/contracts";
+import { BrowserCookieImportInput, BrowserVaultSettings } from "@saint/contracts";
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { Schema } from "effect";
 import type { DesktopBrowserManager } from "./browserManager";

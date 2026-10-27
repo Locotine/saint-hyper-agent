@@ -37,28 +37,28 @@ describe("trustedOrigins", () => {
     ).toBe(true);
     expect(
       isTrustedAppOrigin({
-        origin: "synara://app",
+        origin: "saint://app",
         requestOrigin: "http://127.0.0.1:58090",
         config,
       }),
     ).toBe(true);
     expect(
       isTrustedAppOrigin({
-        origin: "synara-canary://app",
+        origin: "saint-canary://app",
         requestOrigin: "http://127.0.0.1:58090",
         config,
       }),
     ).toBe(true);
     expect(
       isTrustedAppOrigin({
-        origin: "synara-cua://app",
+        origin: "saint-cua://app",
         requestOrigin: "http://127.0.0.1:58090",
         config,
       }),
     ).toBe(true);
     expect(
       isTrustedAppOrigin({
-        origin: "synara-beta://app",
+        origin: "saint-beta://app",
         requestOrigin: "http://127.0.0.1:58090",
         config,
       }),
@@ -110,12 +110,12 @@ describe("trustedOrigins", () => {
     const remoteConfig = {
       ...config,
       host: "0.0.0.0",
-      publicUrl: new URL("https://synara.example.test/"),
+      publicUrl: new URL("https://saint.example.test/"),
     };
     expect(
       isTrustedAppOrigin({
-        origin: "https://synara.example.test",
-        requestOrigin: "http://synara.example.test",
+        origin: "https://saint.example.test",
+        requestOrigin: "http://saint.example.test",
         config: remoteConfig,
       }),
     ).toBe(true);
@@ -130,18 +130,18 @@ describe("trustedOrigins", () => {
 
   it("normalizes desktop origins and single Origin-header arrays", () => {
     expect(normalizeCorsOrigin(["http://localhost:5173"])).toBe("http://localhost:5173");
-    expect(normalizeCorsOrigin("synara://app/")).toBe("synara://app");
-    expect(normalizeCorsOrigin("synara-canary://app/")).toBe("synara-canary://app");
-    expect(normalizeCorsOrigin("synara-cua://app/")).toBe("synara-cua://app");
-    expect(normalizeCorsOrigin("synara-beta://app/")).toBe("synara-beta://app");
+    expect(normalizeCorsOrigin("saint://app/")).toBe("saint://app");
+    expect(normalizeCorsOrigin("saint-canary://app/")).toBe("saint-canary://app");
+    expect(normalizeCorsOrigin("saint-cua://app/")).toBe("saint-cua://app");
+    expect(normalizeCorsOrigin("saint-beta://app/")).toBe("saint-beta://app");
   });
 
   it("trusts every packaged desktop flavor at the request gate and rejects lookalikes", () => {
     for (const rawOrigin of [
-      "synara://app",
-      "synara-beta://app",
-      "synara-canary://app",
-      "synara-cua://app",
+      "saint://app",
+      "saint-beta://app",
+      "saint-canary://app",
+      "saint-cua://app",
     ]) {
       expect(
         shouldRejectUntrustedRequestOrigin({
@@ -152,12 +152,12 @@ describe("trustedOrigins", () => {
       ).toBe(false);
     }
     for (const rawOrigin of [
-      "synara://evil.test",
-      "synara-beta://evil.test",
-      "synara-beta://app.evil.test",
-      "synara-betas://app",
-      "synara-canary://evil.test",
-      "synara-cua://evil.test",
+      "saint://evil.test",
+      "saint-beta://evil.test",
+      "saint-beta://app.evil.test",
+      "saint-betas://app",
+      "saint-canary://evil.test",
+      "saint-cua://evil.test",
     ]) {
       expect(
         shouldRejectUntrustedRequestOrigin({
@@ -235,7 +235,7 @@ describe("trustedOrigins", () => {
       requiresWebSocketAuthentication({
         host: "127.0.0.1",
         authToken: undefined,
-        publicUrl: new URL("https://synara.example.test/"),
+        publicUrl: new URL("https://saint.example.test/"),
       }),
     ).toBe(true);
   });

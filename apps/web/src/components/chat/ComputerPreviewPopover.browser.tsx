@@ -6,7 +6,7 @@
 // Layer: Component browser tests (vitest-browser-react + playwright)
 // Depends on: ComputerPreviewPopover, the real computerPreviewStore.
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { beforeEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 

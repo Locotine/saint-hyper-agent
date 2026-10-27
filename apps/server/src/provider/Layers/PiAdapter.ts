@@ -37,18 +37,18 @@ import {
   type ThreadTokenUsageSnapshot,
   TurnId,
   type UserInputQuestion,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   execShellCommandSync,
   spawnProcess as spawnPlatformProcess,
   type RuntimeSpawnOptions,
-} from "@synara/shared/processRuntime";
-import { stripTerminalControlSequences } from "@synara/shared/text";
+} from "@saint/shared/processRuntime";
+import { stripTerminalControlSequences } from "@saint/shared/text";
 import { Effect, FileSystem, Layer, Option, Queue, Stream } from "effect";
 
 import {
-  type SynaraHarnessPolicyDeliveryState,
-  takeSynaraHarnessPolicyForProviderSession,
+  type SaintHarnessPolicyDeliveryState,
+  takeSaintHarnessPolicyForProviderSession,
 } from "../../agentGateway/harnessPolicy.ts";
 import {
   callAgentGatewayMcpTool,
@@ -59,7 +59,7 @@ import {
   AgentGatewayCredentials,
   type AgentGatewayMcpConnection,
 } from "../../agentGateway/Services/AgentGatewayCredentials.ts";
-import { SYNARA_COMPUTER_TOOL_NAMES } from "../../agentGateway/computerToolPermission.ts";
+import { SAINT_COMPUTER_TOOL_NAMES } from "../../agentGateway/computerToolPermission.ts";
 import {
   acquireAgentGatewaySessionLease,
   cancelAgentGatewayTurn,
@@ -114,10 +114,10 @@ import {
 const PROVIDER = "pi" as const;
 
 export function buildPiTurnPrompt(
-  state: SynaraHarnessPolicyDeliveryState,
+  state: SaintHarnessPolicyDeliveryState,
   input: { readonly text: string; readonly gatewayControlAvailable: boolean },
 ): string {
-  const harnessPolicy = takeSynaraHarnessPolicyForProviderSession(state, {
+  const harnessPolicy = takeSaintHarnessPolicyForProviderSession(state, {
     provider: PROVIDER,
     scopedGatewayConnectionAvailable: input.gatewayControlAvailable,
   });
@@ -390,7 +390,7 @@ export function makePiBashProcessSupervisor(
 }
 
 // Loads the Pi SDK only when the Pi provider is actually used. The SDK brings in
-// a native clipboard module, so importing it during Synara startup can bloat the
+// a native clipboard module, so importing it during Saint startup can bloat the
 // desktop backend before any Pi session exists.
 const loadPiCodingAgentModule: () => Promise<PiCodingAgentModule> = lazyModule(
   () => import("@earendil-works/pi-coding-agent"),
@@ -400,7 +400,7 @@ interface PiSessionContext {
   harnessPolicyDelivered?: boolean;
   readonly enableComputerControl?: boolean;
   /**
-   * Whether the CURRENT gateway rotation exposes Synara control. Recomputed on
+   * Whether the CURRENT gateway rotation exposes Saint control. Recomputed on
    * every credential rotation, never inherited blindly from session start.
    */
   gatewayControlAvailable: boolean;
@@ -415,7 +415,7 @@ interface PiSessionContext {
   gatewaySessionLease?: AgentGatewaySessionLease;
   gatewayConnection?: AgentGatewayMcpConnection;
   /**
-   * Installed Synara gateway tool definitions. Rotation rebuilds these in
+   * Installed Saint gateway tool definitions. Rotation rebuilds these in
    * place (the Pi SDK exposes no post-construction registration API), so the
    * array elements are the exact objects handed to the SDK at session start.
    */
@@ -581,7 +581,7 @@ function piGatewayToolResult(result: unknown): AgentToolResult<unknown> {
           )
           .join("\n")
       : "";
-    throw new Error(message || "Synara gateway tool failed.");
+    throw new Error(message || "Saint gateway tool failed.");
   }
   const content =
     isRecord(result) && Array.isArray(result.content)
@@ -616,8 +616,8 @@ function piGatewayToolResult(result: unknown): AgentToolResult<unknown> {
  */
 export function piInstalledGatewayToolNames(freshNames: Iterable<string>): Set<string> {
   const installed = new Set(freshNames);
-  if (SYNARA_COMPUTER_TOOL_NAMES.some((name) => installed.has(name))) {
-    for (const name of SYNARA_COMPUTER_TOOL_NAMES) installed.add(name);
+  if (SAINT_COMPUTER_TOOL_NAMES.some((name) => installed.has(name))) {
+    for (const name of SAINT_COMPUTER_TOOL_NAMES) installed.add(name);
   }
   return installed;
 }
@@ -638,7 +638,7 @@ export async function buildPiAgentGatewayCustomTools(input: {
     ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
   });
   if (tools.length === 0) {
-    throw new Error("Synara MCP returned an empty tool catalog.");
+    throw new Error("Saint MCP returned an empty tool catalog.");
   }
   const catalog = new Map(tools.map((tool) => [tool.name, tool]));
   if (input.enableComputerControl === true) {
@@ -653,7 +653,7 @@ export async function buildPiAgentGatewayCustomTools(input: {
     ].filter((name) => !catalog.has(name));
     if (missing.length > 0) {
       throw new Error(
-        `Synara MCP catalog is missing required Computer tools: ${missing.join(", ")}.`,
+        `Saint MCP catalog is missing required Computer tools: ${missing.join(", ")}.`,
       );
     }
   }
@@ -803,7 +803,7 @@ export function getPiDiscoverableModels(
 
 /**
  * Pi extensions own their provider catalogs, so normalize their display metadata
- * before it crosses Synara's trimmed-string RPC contract. A single malformed
+ * before it crosses Saint's trimmed-string RPC contract. A single malformed
  * extension model must not make the complete Pi catalog unavailable.
  */
 export function toPiProviderModelDescriptor(
@@ -2155,7 +2155,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
       });
     };
 
-    // Bridges the common Pi extension UI primitives onto Synara's existing
+    // Bridges the common Pi extension UI primitives onto Saint's existing
     // pending user-input flow; terminal/TUI-only APIs remain no-op by design.
     const makePiExtensionUIContext = (context: PiSessionContext): ExtensionUIContext => {
       const unsupportedWarnings = new Set<string>();
@@ -2166,7 +2166,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
           ...makeEventBase(context, { includeTurnId: false }),
           type: "runtime.warning",
           payload: {
-            message: `Pi extension UI API '${method}' is not supported in Synara yet.`,
+            message: `Pi extension UI API '${method}' is not supported in Saint yet.`,
             detail: { method },
           },
           raw: {
@@ -2245,7 +2245,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
           return () => undefined;
         },
         // Pi extensions use status and working-message callbacks for terminal
-        // chrome. Synara has its own working header; neither belongs in the
+        // chrome. Saint has its own working header; neither belongs in the
         // transcript as a fake tool call.
         setStatus() {},
         setWorkingMessage() {},
@@ -2297,7 +2297,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
           return undefined;
         },
         setTheme() {
-          return { success: false, error: "Synara does not expose Pi themes." };
+          return { success: false, error: "Saint does not expose Pi themes." };
         },
         getToolsExpanded() {
           return false;
@@ -2308,7 +2308,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
     };
 
     /**
-     * Reinstall the Synara gateway tools against the rotated credential. The
+     * Reinstall the Saint gateway tools against the rotated credential. The
      * bearer swap in completePrompt already keeps existing closures authorized;
      * this tail only rebuilds definitions when the per-rotation tools/list
      * catalog actually differs from what is installed. A diff that is only
@@ -2364,7 +2364,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
               type: "runtime.warning",
               payload: {
                 message:
-                  "Pi could not refresh the Synara gateway tool catalog after rotation; keeping the previous tools.",
+                  "Pi could not refresh the Saint gateway tool catalog after rotation; keeping the previous tools.",
                 detail: { method: "gateway/rotate", cause: toMessage(cause, "refresh failed") },
               },
               raw: {
@@ -2552,7 +2552,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
             type: "runtime.error",
             payload: {
               message:
-                "Pi could not rotate the Synara gateway credential after the turn; Synara tools are unavailable until the session restarts.",
+                "Pi could not rotate the Saint gateway credential after the turn; Saint tools are unavailable until the session restarts.",
               class: classifyPiRuntimeError("gateway credential rotation failed"),
             },
             raw: {
@@ -3354,7 +3354,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
             provider: PROVIDER,
             method: "session/start",
             detail:
-              "Computer Use could not start because Pi did not receive a thread-scoped Synara gateway connection.",
+              "Computer Use could not start because Pi did not receive a thread-scoped Saint gateway connection.",
           });
         }
         const gatewayTools = agentGatewayConnection
@@ -3381,12 +3381,12 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
                           new ProviderAdapterRequestError({
                             provider: PROVIDER,
                             method: "session/start",
-                            detail: `Computer Use could not start because Pi could not install Synara gateway tools: ${toMessage(cause, "Gateway setup failed.")}`,
+                            detail: `Computer Use could not start because Pi could not install Saint gateway tools: ${toMessage(cause, "Gateway setup failed.")}`,
                             cause,
                           }),
                         )
                       : Effect.logWarning(
-                          "Pi could not install thread-scoped Synara gateway tools",
+                          "Pi could not install thread-scoped Saint gateway tools",
                           cause,
                         ),
                   ),
@@ -3535,7 +3535,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
             type: "runtime.warning",
             payload: {
               message:
-                "Pi extensions are loaded with Synara's limited UI bridge. select/confirm/input and notifications are supported; terminal status, widgets, and editor hooks are ignored.",
+                "Pi extensions are loaded with Saint's limited UI bridge. select/confirm/input and notifications are supported; terminal status, widgets, and editor hooks are ignored.",
               detail: {
                 extensionCount: loadedExtensions.length,
                 extensions: extensionNames,
@@ -3694,7 +3694,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
             return dispatchResult(context, liveTurnId);
           }
           if (context.runtime.session.isStreaming) {
-            // A run Synara did not dispatch is active (e.g. extension-triggered).
+            // A run Saint did not dispatch is active (e.g. extension-triggered).
             return yield* sendTurnBusyError();
           }
           const turnId = TurnId.makeUnsafe(crypto.randomUUID());
@@ -3808,7 +3808,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
         new ProviderAdapterRequestError({
           provider: PROVIDER,
           method,
-          detail: `Pi does not expose Synara approval/user-input requests for thread ${threadId}.`,
+          detail: `Pi does not expose Saint approval/user-input requests for thread ${threadId}.`,
         }),
       );
 

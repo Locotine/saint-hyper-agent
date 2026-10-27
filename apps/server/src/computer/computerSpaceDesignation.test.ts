@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { OrchestrationMessage } from "@synara/contracts";
+import type { OrchestrationMessage } from "@saint/contracts";
 import {
   computerSpaceDesignationForMessages,
   messageDesignatesComputerSpaces,

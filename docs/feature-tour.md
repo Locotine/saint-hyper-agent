@@ -32,7 +32,7 @@ the installed runtime and accounts; the illustrations do not initiate requests.
 - Confirming an announcement that opens a follow-on flow defers automatic display
   until another launch. The tour does not acknowledge itself when deferred.
 - Completing, skipping, Escape, or backdrop dismissal records the installation's
-  worktrees directory in `synara:feature-tour:since-0.9.2:v1`.
+  worktrees directory in `saint:feature-tour:since-0.9.2:v1`.
 - Settings → Advanced → What's new since 0.9.2 offers **Replay feature tour**.
   A deliberate replay is allowed after a startup handoff, but waits for open dialogs.
 - The tour uses `AnnouncementSheet`, the shared buttons, provider icons, Hugeicons,

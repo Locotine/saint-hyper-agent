@@ -144,33 +144,33 @@ describe("independent browser benchmark evidence", () => {
     expect(parseBrowserWitness({ ...witnesses[0], page: NaN })).toBeNull();
   });
   it("labels isolated comparison and explicitly ends before checkout", () => {
-    const prompt = browserBenchmarkPrompt("newegg", "synara-bench-fixture");
+    const prompt = browserBenchmarkPrompt("newegg", "saint-bench-fixture");
     expect(prompt).toContain("without the user's cookies");
     expect(prompt).toContain(
       "Do not sign in, enter personal/payment data, check out, submit an order, or purchase anything",
     );
     expect(
-      browserBenchmarkPrompt("github-isolated", "synara-bench-fixture", "owner/repo"),
+      browserBenchmarkPrompt("github-isolated", "saint-bench-fixture", "owner/repo"),
     ).toContain("sort%3Acreated-desc");
     expect(() =>
       browserBenchmarkPrompt("github-isolated", "personal-profile", "owner/repo"),
     ).toThrow();
     expect(() =>
-      browserBenchmarkPrompt("github-running", "synara-bench-fixture", "owner/repo"),
+      browserBenchmarkPrompt("github-running", "saint-bench-fixture", "owner/repo"),
     ).toThrow("unsupported");
   });
 });
 
 describe("explicit browser observer ownership descriptor", () => {
   const descriptor = {
-    profileName: "synara-bench-fixture",
-    profileDirectory: "/private/tmp/fixture/synara-bench-fixture",
+    profileName: "saint-bench-fixture",
+    profileDirectory: "/private/tmp/fixture/saint-bench-fixture",
     browserPid: 123,
     endpoint: "http://127.0.0.1:9333",
   };
   it("requires the exact named fresh run descriptor", () => {
     expect(parseObserverDescriptor(descriptor, descriptor.profileName)).toEqual(descriptor);
-    expect(() => parseObserverDescriptor(descriptor, "synara-bench-another")).toThrow();
+    expect(() => parseObserverDescriptor(descriptor, "saint-bench-another")).toThrow();
     expect(() =>
       parseObserverDescriptor({ ...descriptor, browserPid: 0 }, descriptor.profileName),
     ).toThrow();

@@ -6,7 +6,7 @@
 // Layer: Chat transcript state
 // Exports: SubagentRunContext, useSubagentRunContext, createSubagentRunVisibilityStore
 
-import type { ThreadId, TurnId } from "@synara/contracts";
+import type { ThreadId, TurnId } from "@saint/contracts";
 import { createContext, useContext } from "react";
 
 import type { SubagentTaskEnd } from "../../session-logic";

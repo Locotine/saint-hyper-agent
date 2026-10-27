@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 function makeRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "synara-beta-usage-test-"));
+  const root = mkdtempSync(join(tmpdir(), "saint-beta-usage-test-"));
   roots.push(root);
   return root;
 }
@@ -106,13 +106,13 @@ describe("beta gate", () => {
       join(dirname(fileURLToPath(import.meta.url)), "main.ts"),
       "utf8",
     );
-    // The job is invoked inside the SYNARA_DESKTOP_BUNDLE_ID_ENV ===
-    // SYNARA_BETA_BUNDLE_ID branch, not unconditionally. The gate sits in the
+    // The job is invoked inside the SAINT_DESKTOP_BUNDLE_ID_ENV ===
+    // SAINT_BETA_BUNDLE_ID branch, not unconditionally. The gate sits in the
     // few lines directly above the call (the same bundle-id gate also guards
     // the earlier beta-import block, so anchor on the call site itself).
     const callIndex = mainSource.lastIndexOf("startBetaUsageSnapshotJob");
     expect(callIndex).toBeGreaterThan(0);
     const gate = mainSource.slice(callIndex - 400, callIndex + 100);
-    expect(gate).toContain("process.env[SYNARA_DESKTOP_BUNDLE_ID_ENV] === SYNARA_BETA_BUNDLE_ID");
+    expect(gate).toContain("process.env[SAINT_DESKTOP_BUNDLE_ID_ENV] === SAINT_BETA_BUNDLE_ID");
   });
 });

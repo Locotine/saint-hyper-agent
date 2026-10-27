@@ -16,7 +16,7 @@
 // screen, so the pane reads as one object instead of a rectangle with chrome
 // stacked above and below it.
 
-import type { DeviceFamily, DeviceHardwareButton } from "@synara/contracts";
+import type { DeviceFamily, DeviceHardwareButton } from "@saint/contracts";
 import { memo, useId, useMemo, type CSSProperties, type ReactNode } from "react";
 
 import { cn } from "~/lib/utils";

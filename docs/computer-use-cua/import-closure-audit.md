@@ -54,7 +54,7 @@ The fixtures use **9 backend methods**: `captureScreenshot`, `click`,
 | `gateway.ts`      | `ComputerManager` + `computerTools` + `toolRuntime` + Effect — the agent-facing stack | **No** — wider milestone or stays internal   |
 
 A package-side `ComputerUseBackend` interface covering the 9 methods makes
-`cancellation`/`native` compile clean; Synara's `CuaComputerBackend`
+`cancellation`/`native` compile clean; Saint's `CuaComputerBackend`
 satisfies it structurally. `electron.ts`/`live.ts` additionally need the
 factory injection — the package's reference wiring maps the same 9 methods
 onto `cuaRequest` calls over the protocol module.
@@ -80,7 +80,7 @@ computer-desktop-lifecycle.ts (zero-dep, injected monitor)
 fixtures/focus-probe.ts
 fixtures/cancellation.ts      (against ComputerUseBackend interface)
 fixtures/native.ts            (against ComputerUseBackend interface)
-patches/0001-synara-native.patch + README + keymap notes
+patches/0001-saint-native.patch + README + keymap notes
 docs/ (license, permission guide, qualification, evidence pattern)
 ```
 

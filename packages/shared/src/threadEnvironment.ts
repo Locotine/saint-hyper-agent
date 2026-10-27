@@ -1,4 +1,4 @@
-import type { ThreadEnvironmentMode } from "@synara/contracts";
+import type { ThreadEnvironmentMode } from "@saint/contracts";
 import { isWorkspaceRootWithin } from "./threadWorkspace";
 
 export type ResolvedThreadWorkspaceState = "local" | "worktree-pending" | "worktree-ready";

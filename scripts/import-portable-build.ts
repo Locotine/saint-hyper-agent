@@ -25,7 +25,7 @@ timeBuildStage("portable-build-import", () => {
     runTar(["-tf", archive]),
     runTar(["-tvf", archive]).map((line) => line[0] ?? ""),
   );
-  const stage = mkdtempSync(join(tmpdir(), "synara-portable-"));
+  const stage = mkdtempSync(join(tmpdir(), "saint-portable-"));
   try {
     runTar(["-xf", archive, "-C", stage]);
     verifyPortableBuild(

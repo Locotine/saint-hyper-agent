@@ -11,16 +11,16 @@ import type {
   ServerListProviderUsageInput,
   ServerListProviderUsageResult,
   ServerProviderUsageSnapshot,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect } from "effect";
 import nodePath from "node:path";
 
-import { PROVIDER_USAGE_PROVIDERS } from "@synara/shared/providerUsage";
+import { PROVIDER_USAGE_PROVIDERS } from "@saint/shared/providerUsage";
 import {
   deriveProviderInstances,
   providerStartOptionsFromInstance,
   type ResolvedProviderInstance,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 
 import { ServerConfig } from "../config";
 import { resolveBaseCodexHomePath } from "../codexHomePaths";
@@ -358,7 +358,7 @@ function instanceUsageContext(
       !instance.isDefault || codex?.accountId || shadowHomePath
         ? nodePath.dirname(
             prepareCodexAuthTracking({
-              env: { ...env, SYNARA_HOME: baseDir },
+              env: { ...env, SAINT_HOME: baseDir },
               ...(homePath ? { homePath } : {}),
               ...(shadowHomePath ? { shadowHomePath } : {}),
               ...(codex?.accountId ? { accountId: codex.accountId } : {}),

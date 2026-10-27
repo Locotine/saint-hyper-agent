@@ -2,7 +2,7 @@ import { type LegendListRef } from "@legendapp/list/react";
 import {
   parseComputerInvocation,
   resolveComputerInvocationMode,
-} from "@synara/shared/computerInvocation";
+} from "@saint/shared/computerInvocation";
 import {
   MessageId,
   OrchestrationThreadActivity,
@@ -24,18 +24,18 @@ import {
   type ServerProviderStatus,
   type ThreadGoalAchievement,
   type TurnId,
-} from "@synara/contracts";
-import { resolveLatestTailUserMessageEditTarget } from "@synara/shared/conversationEdit";
-import { getModelCapabilities, resolveApiModelId } from "@synara/shared/model";
-import { isProviderDeliveryBlockDetail } from "@synara/shared/providerDeliveryBlock";
+} from "@saint/contracts";
+import { resolveLatestTailUserMessageEditTarget } from "@saint/shared/conversationEdit";
+import { getModelCapabilities, resolveApiModelId } from "@saint/shared/model";
+import { isProviderDeliveryBlockDetail } from "@saint/shared/providerDeliveryBlock";
 import {
   resolveThreadWorkspaceCwd as resolveSharedThreadWorkspaceCwd,
   resolveThreadBranchSourceCwd,
   resolveThreadWorkspaceState,
-} from "@synara/shared/threadEnvironment";
-import { threadExportBlockedReason } from "@synara/shared/threadExport";
-import { pendingRequestInstanceKey } from "@synara/shared/threadSummary";
-import { deriveAssociatedWorktreeMetadata } from "@synara/shared/threadWorkspace";
+} from "@saint/shared/threadEnvironment";
+import { threadExportBlockedReason } from "@saint/shared/threadExport";
+import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
+import { deriveAssociatedWorktreeMetadata } from "@saint/shared/threadWorkspace";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -136,7 +136,7 @@ import {
 } from "../hooks/useComposerCommandMenuItems";
 import { MCP_CONNECTORS_ON } from "../betaFeatures";
 import { mcpConnectorsQueryOptions } from "../lib/mcpConnectorsReactQuery";
-import { providerSupportsMcpConnectors } from "@synara/shared/mcpConnectors";
+import { providerSupportsMcpConnectors } from "@saint/shared/mcpConnectors";
 import { useComposerThreadMentionDrop } from "../hooks/useComposerThreadMentionDrop";
 import { splitComposerDropzoneFiles, useComposerDropzone } from "../hooks/useComposerDropzone";
 import { useComposerImageIntake } from "../hooks/useComposerImageIntake";
@@ -296,7 +296,7 @@ import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { RenameThreadDialog } from "./RenameThreadDialog";
 import { hasUnseenSnoozeReturn } from "./Sidebar.logic";
 import { SidebarHeaderNavigationControls } from "./SidebarHeaderNavigationControls";
-import { SynaraLogo } from "./SynaraLogo";
+import { SaintLogo } from "./SaintLogo";
 import { AsciiWaveBackground } from "./chat/AsciiWaveBackground";
 import { SponsorLandingBanner } from "./SponsorLandingBanner";
 import TerminalWorkspaceTabs from "./TerminalWorkspaceTabs";
@@ -487,7 +487,7 @@ import { Button } from "./ui/button";
 import { SidebarHeaderTrigger } from "./ui/sidebar";
 import { Skeleton } from "./ui/skeleton";
 import { toastManager } from "./ui/toast";
-import { isSidechatThread, isStandaloneSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread, isStandaloneSidechatThread } from "@saint/shared/sidechatThread";
 
 // The terminal panel loads xterm plus its addons (~223 KB gzip). Its mount point
 // is conditional, so loading it lazily keeps the terminal stack out of the initial
@@ -613,7 +613,7 @@ interface ChatViewProps {
 
 // Builds an ephemeral transcript bubble for the conversational automation-setup
 // exchange. These never reach a provider and are not persisted; they render the
-// back-and-forth (user request, Synara's clarifying questions) inline like Codex.
+// back-and-forth (user request, Saint's clarifying questions) inline like Codex.
 
 export default function ChatView({
   threadId,
@@ -667,7 +667,8 @@ export default function ChatView({
   const navigate = useNavigate();
   const { handleNewThread } = useHandleNewThread();
   const { handleNewChat } = useHandleNewChat();
-  const { continueThreadHandoff, createThreadHandoff } = useThreadHandoff();
+  const { continueThreadHandoff, createThreadHandoff, createTranscriptHandoff } =
+    useThreadHandoff();
   const rawSearch = useDiffRouteSearch();
   const activeSplitView = useSplitViewStore(
     useMemo(() => selectSplitView(rawSearch.splitViewId ?? null), [rawSearch.splitViewId]),
@@ -2682,6 +2683,19 @@ export default function ChatView({
         : [],
     [activeThreadProvider, activeThreadProviderInstanceId, providerInstances, providerStatuses],
   );
+  const transcriptHandoffTargets = useMemo(
+    () =>
+      activeThreadProvider
+        ? resolveAvailableHandoffTargets({
+            sourceProvider: activeThreadProvider,
+            sourceProviderInstanceId: activeThreadProviderInstanceId,
+            providerInstances,
+            providerStatuses,
+            includeSource: true,
+          })
+        : [],
+    [activeThreadProvider, activeThreadProviderInstanceId, providerInstances, providerStatuses],
+  );
   const continueHandoffTargets = useMemo(
     () =>
       handoffTargets.filter(
@@ -2977,7 +2991,7 @@ export default function ChatView({
   const focusComposer = useCallback(() => {
     // A disabled editor (dispatch connecting, pending approval) cannot
     // take focus either. Never ask the renderer to focus while another app owns
-    // the desktop; on macOS that can activate Synara and switch Spaces.
+    // the desktop; on macOS that can activate Saint and switch Spaces.
     const editor = composerEditorRef.current;
     if (
       !editor ||
@@ -4445,6 +4459,24 @@ export default function ChatView({
           error instanceof Error
             ? error.message
             : "An error occurred while creating the handoff thread.",
+      });
+    }
+  });
+
+  const onCreateTranscriptHandoffThread = useStableCallback(async (target: ThreadHandoffTarget) => {
+    if (!activeThread || handoffDisabled) {
+      return;
+    }
+    try {
+      await createTranscriptHandoff(activeThread, target.provider, target.instanceId);
+    } catch (error) {
+      toastManager.add({
+        type: "error",
+        title: "Could not start the transcript handoff",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred while starting the transcript handoff.",
       });
     }
   });
@@ -6605,7 +6637,7 @@ export default function ChatView({
                               ? "Ask for follow-up changes"
                               : standaloneSidechatContext
                                 ? `Ask about this ${standaloneSidechatItemNoun}`
-                                : "Do anything in Synara"
+                                : "Do anything in Saint"
                   }
                   disabled={isComposerEditorDisabled}
                   singleLine={composerSingleRow}
@@ -6765,6 +6797,7 @@ export default function ChatView({
           handoffDisabled={handoffDisabled}
           handoffActionTargets={handoffTargets}
           continueHandoffActionTargets={continueHandoffTargets}
+          transcriptHandoffActionTargets={transcriptHandoffTargets}
           showHandoffAction={handoffAvailability.providerHandoff && settings.showHeaderHandoff}
           showHeaderActions={settings.showHeaderActions}
           gitCwd={threadWorkspaceCwd}
@@ -6801,6 +6834,7 @@ export default function ChatView({
           onToggleDiff={onToggleDiff}
           onRegisterCommitAndPushTrigger={onRegisterCommitAndPushTrigger}
           onCreateHandoff={onCreateHandoffThread}
+          onCreateTranscriptHandoff={onCreateTranscriptHandoffThread}
           onContinueHandoff={onContinueHandoffInThread}
           onNavigateToThread={onNavigateToThread}
           onRenameThread={() => setRenameDialogOpen(true)}
@@ -6910,7 +6944,7 @@ export default function ChatView({
                       CHAT_COLUMN_FRAME_CLASS_NAME,
                     )}
                   >
-                    <SynaraLogo aria-label="Synara logo" className="size-10" />
+                    <SaintLogo aria-label="Saint logo" className="size-10" />
                     <h2
                       data-testid="empty-landing-heading"
                       // A combobox contributes its (empty) value, not its text, to the

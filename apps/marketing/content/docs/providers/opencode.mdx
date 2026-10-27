@@ -1,9 +1,9 @@
 ---
 title: OpenCode
-description: Install, configure, verify, and run OpenCode through Synara.
+description: Install, configure, verify, and run OpenCode through Saint.
 ---
 
-Synara connects to the OpenCode runtime installed on your machine. OpenCode owns its configured model providers, credentials, model catalog, agents, and commands; Synara supplies the task, environment, transcript, Git workflow, and review surfaces around the session.
+Saint connects to the OpenCode runtime installed on your machine. OpenCode owns its configured model providers, credentials, model catalog, agents, and commands; Saint supplies the task, environment, transcript, Git workflow, and review surfaces around the session.
 
 ## Install
 
@@ -23,9 +23,9 @@ npm install -g @opencode/cli
 brew install anomalyco/tap/opencode-v2
 ```
 
-V1 and V2 both provide `opencode`. Remove a package-managed V1 installation before installing V2 with a package manager; the V2 installer replaces the existing native binary. Keep a backup of your provider configuration while checking the migration. Synara also continues to support existing V1 servers.
+V1 and V2 both provide `opencode`. Remove a package-managed V1 installation before installing V2 with a package manager; the V2 installer replaces the existing native binary. Keep a backup of your provider configuration while checking the migration. Saint also continues to support existing V1 servers.
 
-Synara looks for the `opencode` executable. Verify it with:
+Saint looks for the `opencode` executable. Verify it with:
 
 ```bash
 opencode --version
@@ -41,7 +41,7 @@ opencode
 
 Inside the TUI, use `/connect` to add a provider and `/models` to select a model. OpenCode can also read provider credentials and model definitions from its own configuration.
 
-Authentication belongs to OpenCode and the selected model provider. Synara does not move API keys into a separate account system.
+Authentication belongs to OpenCode and the selected model provider. Saint does not move API keys into a separate account system.
 
 ## Verify
 
@@ -57,16 +57,16 @@ Confirm that:
 - The intended model provider is connected
 - `/models` shows the expected catalog
 - A harmless read-only request succeeds
-- The same executable is the one Synara should use
+- The same executable is the one Saint should use
 
-## Connect to Synara
+## Connect to Saint
 
 <Steps>
 <Step>
 
 ### Enable OpenCode
 
-Open provider settings and confirm that Synara detects `opencode`.
+Open provider settings and confirm that Saint detects `opencode`.
 
 </Step>
 <Step>
@@ -80,7 +80,7 @@ Use automatic discovery unless you intentionally installed multiple OpenCode ver
 
 ### Refresh the model catalog
 
-Synara reads models and provider-specific options from the OpenCode runtime. Confirm that the model and variant controls match the configuration you tested in OpenCode.
+Saint reads models and provider-specific options from the OpenCode runtime. Confirm that the model and variant controls match the configuration you tested in OpenCode.
 
 </Step>
 <Step>
@@ -92,7 +92,7 @@ Use a small repository and one explicit model before relying on custom routing, 
 </Step>
 </Steps>
 
-## Capabilities in Synara
+## Capabilities in Saint
 
 OpenCode sessions can expose:
 
@@ -106,25 +106,25 @@ OpenCode sessions can expose:
 
 OpenCode supports many underlying model providers. Two users with the same OpenCode version can therefore see different models, authentication requirements, and limits.
 
-Synara does not currently classify OpenCode as supporting native live-turn steering. Send follow-ups according to the controls available in the active task rather than assuming Claude, Codex, and OpenCode behave identically.
+Saint does not currently classify OpenCode as supporting native live-turn steering. Send follow-ups according to the controls available in the active task rather than assuming Claude, Codex, and OpenCode behave identically.
 
-Synara 0.8.0 removed the retired Kilo Code provider. During the database upgrade, existing Kilo tasks and provider-session identities are migrated to OpenCode, along with saved favorite-provider and editor-tab selections. Review the migrated task's OpenCode executable, credentials, and model catalog before continuing important work.
+Saint 0.8.0 removed the retired Kilo Code provider. During the database upgrade, existing Kilo tasks and provider-session identities are migrated to OpenCode, along with saved favorite-provider and editor-tab selections. Review the migrated task's OpenCode executable, credentials, and model catalog before continuing important work.
 
 ## Migrating to OpenCode V2
 
-Point the existing OpenCode provider account at your V2 executable, or configure its V2 server URL and password. Start a new Synara provider session after changing the executable. Synara detects the API before sending work and uses the native V2 client for models, agents, sessions, streaming, approvals, forms, attachments, forks, rollback, compaction, and text generation.
+Point the existing OpenCode provider account at your V2 executable, or configure its V2 server URL and password. Start a new Saint provider session after changing the executable. Saint detects the API before sending work and uses the native V2 client for models, agents, sessions, streaming, approvals, forms, attachments, forks, rollback, compaction, and text generation.
 
-Keep the same OpenCode account and data directories when continuing existing sessions. OpenCode owns migration of its native history and credentials; Synara preserves its stored session IDs and does not replace missing sessions with empty ones. Complete any migration OpenCode requests before resuming old tasks.
+Keep the same OpenCode account and data directories when continuing existing sessions. OpenCode owns migration of its native history and credentials; Saint preserves its stored session IDs and does not replace missing sessions with empty ones. Complete any migration OpenCode requests before resuming old tasks.
 
 Supported V1 configuration remains readable by V2. V1 plugins require porting to the new plugin API. If you convert configuration to native V2 syntax, do not subsequently run V1 against those files. See the [official migration guide](https://opencode.ai/v2/docs/migrate-v1/).
 
-The Synara MCP gateway remains task-scoped. V2 registration is followed by a connection-status check; an accepted configuration alone does not mean the gateway is ready. Standard question forms use Synara’s existing question UI. Forms with external, hidden, or conditional fields must be completed in OpenCode and can be cancelled from Synara.
+The Saint MCP gateway remains task-scoped. V2 registration is followed by a connection-status check; an accepted configuration alone does not mean the gateway is ready. Standard question forms use Saint’s existing question UI. Forms with external, hidden, or conditional fields must be completed in OpenCode and can be cancelled from Saint.
 
 ## Configuration
 
-Keep provider credentials and model definitions in OpenCode’s supported configuration locations. Project-level configuration can intentionally differ from global configuration, so verify the catalog from the same repository Synara will open.
+Keep provider credentials and model definitions in OpenCode’s supported configuration locations. Project-level configuration can intentionally differ from global configuration, so verify the catalog from the same repository Saint will open.
 
-When a model appears in OpenCode but not Synara, compare:
+When a model appears in OpenCode but not Saint, compare:
 
 - The executable path
 - Global and project configuration
@@ -140,13 +140,13 @@ OpenCode supports an update command:
 opencode upgrade
 ```
 
-Synara can also identify common npm, Bun, pnpm, native, and Homebrew installations and present an appropriate update path. Restart Synara after updating.
+Saint can also identify common npm, Bun, pnpm, native, and Homebrew installations and present an appropriate update path. Restart Saint after updating.
 
 ## Troubleshooting
 
 ### OpenCode is not detected
 
-Run `opencode --version` in a fresh terminal. If it works there but not in Synara, inspect the custom binary path and the `PATH` inherited by desktop applications.
+Run `opencode --version` in a fresh terminal. If it works there but not in Saint, inspect the custom binary path and the `PATH` inherited by desktop applications.
 
 ### OpenCode opens but no model is usable
 
@@ -170,12 +170,12 @@ Continue with [Your first task](/docs/getting-started/first-task) or [Provider h
 
 ## Server metadata and Computer readiness in 0.9.0
 
-Synara supports current OpenCode server and model metadata. Refresh the provider catalog after updating the executable. Computer Use needs the Synara-managed, task-scoped MCP connection to be ready; an external OpenCode server cannot currently receive that isolated Computer connection. See [Computer Use beta](/docs/features/computer-use) for the macOS release boundary.
+Saint supports current OpenCode server and model metadata. Refresh the provider catalog after updating the executable. Computer Use needs the Saint-managed, task-scoped MCP connection to be ready; an external OpenCode server cannot currently receive that isolated Computer connection. See [Computer Use beta](/docs/features/computer-use) for the macOS release boundary.
 
 ## Isolated sign-in and cold model discovery in 1.0.9
 
-For local account sign-in, Synara checks the installed CLI's `auth login --help` and uses `--standalone` when supported. The private login server uses the selected account's home and XDG directories instead of another account's background service. Legacy CLIs keep `auth login`; external-server accounts must authenticate on their own server.
+For local account sign-in, Saint checks the installed CLI's `auth login --help` and uses `--standalone` when supported. The private login server uses the selected account's home and XDG directories instead of another account's background service. Legacy CLIs keep `auth login`; external-server accounts must authenticate on their own server.
 
 V2 loads models before provider metadata so providers initialized by the first request appear on cold servers. The model-list fallback also uses a private server when supported. Authentication terminals keep the embedded renderer's terminal and color capabilities even if the server inherited `TERM=dumb` or `NO_COLOR`.
 
-Source evidence for 1.0.9: Synara release `ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`; `docs/releases/1.0.9-source-audit.md`, `docs/providers.md`, `docs/core-concepts.md`, `docs/editor/intelligence.md`, `docs/mcp-connectors.md`, `apps/server/src/persistence/MigrationBackup.ts` and `docs/release.md`.
+Source evidence for 1.0.9: Saint release `ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`; `docs/releases/1.0.9-source-audit.md`, `docs/providers.md`, `docs/core-concepts.md`, `docs/editor/intelligence.md`, `docs/mcp-connectors.md`, `apps/server/src/persistence/MigrationBackup.ts` and `docs/release.md`.

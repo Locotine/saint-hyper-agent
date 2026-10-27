@@ -1,4 +1,4 @@
-import type { OrchestrationThreadPullRequest } from "@synara/contracts";
+import type { OrchestrationThreadPullRequest } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { deriveThreadGitMetadataPatch } from "./threadGitMetadata.ts";
@@ -118,7 +118,7 @@ describe("deriveThreadGitMetadataPatch", () => {
       deriveThreadGitMetadataPatch({
         currentBranch: pullRequest.headBranch,
         currentPullRequest: pullRequest,
-        observedBranch: "synara/deadbeef",
+        observedBranch: "saint/deadbeef",
         pullRequestLookup: { status: "resolved", pullRequest: null },
       }),
     ).toBeNull();
@@ -145,7 +145,7 @@ describe("deriveThreadGitMetadataPatch", () => {
         dedicatedWorktree: {
           cwd: "/repo/.worktrees/thread",
           currentPath: "/repo/.worktrees/thread",
-          currentBranch: "synara/stale-branch",
+          currentBranch: "saint/stale-branch",
         },
       }),
     ).toEqual({

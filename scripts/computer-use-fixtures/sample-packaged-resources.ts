@@ -3,7 +3,7 @@ import { open, realpath, stat } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, sep } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
 import { parseArgs } from "node:util";
-import { spawnProcessSync } from "@synara/shared/processRuntime";
+import { spawnProcessSync } from "@saint/shared/processRuntime";
 import {
   makeResourceTracker,
   parseResourceSnapshot,

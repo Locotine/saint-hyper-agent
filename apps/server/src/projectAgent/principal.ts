@@ -4,11 +4,11 @@ import type {
   ProjectId,
   ProjectTaskId,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   resolveGroupCoordinatorStatus,
   type GroupThreadStateThread,
-} from "@synara/shared/groupThreadState";
+} from "@saint/shared/groupThreadState";
 
 export type ProjectAgentPrincipal =
   | { readonly kind: "user" }

@@ -1,4 +1,4 @@
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import { useMemo, useState } from "react";
 
 import type { Project } from "~/types";
@@ -50,7 +50,10 @@ export function GroupEnvironmentSection(props: {
 
   const revealLabel = getRevealInFolderLabel(getNavigatorPlatform());
   const canReveal =
-    typeof window !== "undefined" && Boolean(window.desktopBridge) && props.workspacePath;
+    typeof window !== "undefined" &&
+    Boolean(window.desktopBridge) &&
+    !window.desktopBridge?.remoteWindow &&
+    props.workspacePath;
   const canPickFolder = typeof window !== "undefined" && Boolean(window.desktopBridge?.pickFolder);
 
   const revealGroupFolder = () => {

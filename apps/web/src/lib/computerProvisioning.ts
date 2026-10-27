@@ -18,12 +18,12 @@ import type {
   DesktopAppSnapPermissionKind,
   DesktopAppSnapState,
   DesktopBridge,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   COMPUTER_PERMISSION_KINDS,
   listComputerPermissions,
   missingComputerAppSnapPermissions,
-} from "@synara/shared/computerGrants";
+} from "@saint/shared/computerGrants";
 
 import { computerStatusNeedsSetup } from "~/components/ComputerPanel.logic";
 import { isLoopbackHostname } from "~/components/Sidebar.logic";
@@ -91,7 +91,7 @@ export interface ComputerProvisionToast {
 
 /**
  * Raised as the call starts, because the call's visible effect is a macOS
- * dialog appearing over Synara and the user needs to know Synara asked for it.
+ * dialog appearing over Saint and the user needs to know Saint asked for it.
  *
  * The grants are named through `listComputerPermissions` rather than written
  * out, so this cannot drift out of the one fixed ordering every other surface
@@ -108,8 +108,8 @@ export function computerProvisionStartToast(
     title: "Setting up computer control",
     description:
       labels.length > 0
-        ? `macOS may ask to allow ${labels} for Synara.`
-        : "Setting up the desktop may require installing a helper or allowing the permissions Synara needs.",
+        ? `macOS may ask to allow ${labels} for Saint.`
+        : "Setting up the desktop may require installing a helper or allowing the permissions Saint needs.",
   };
 }
 
@@ -152,7 +152,7 @@ export function computerProvisionNote(state: {
 }): string | undefined {
   if (state.isPending) {
     if (state.missing?.length) {
-      return `Checking ${listComputerPermissions(state.missing)}. Allow access in the macOS prompt or System Settings, then return to Synara.`;
+      return `Checking ${listComputerPermissions(state.missing)}. Allow access in the macOS prompt or System Settings, then return to Saint.`;
     }
     return (
       "Setting up the agent's desktop. This installs or builds whatever this machine still needs, " +

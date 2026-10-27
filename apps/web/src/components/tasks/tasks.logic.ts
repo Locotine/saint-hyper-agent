@@ -14,7 +14,7 @@ import {
   type TodoPriority,
   type TodoStreamEvent,
   type TodoUpdateInput,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { formatRelativeTime } from "~/lib/relativeTime";
 import { canSessionAnswerPendingRequests, deriveActiveWorkStartedAt } from "../../session-logic";

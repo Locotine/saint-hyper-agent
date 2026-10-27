@@ -7,8 +7,8 @@
  *
  * @module ProviderAdapterRegistryLive
  */
-import type { ProviderInstanceId, ProviderRuntimeEvent, ProviderSession } from "@synara/contracts";
-import { deriveProviderInstances } from "@synara/shared/providerInstances";
+import type { ProviderInstanceId, ProviderRuntimeEvent, ProviderSession } from "@saint/contracts";
+import { deriveProviderInstances } from "@saint/shared/providerInstances";
 import { Effect, Layer, Stream } from "effect";
 
 import { ProviderUnsupportedError, type ProviderAdapterError } from "../Errors.ts";

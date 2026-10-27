@@ -28,8 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ version: 
 
   const highlights = entry.features.map((f) => f.title).join(", ");
   return pageMetadata({
-    title: `Synara ${entry.version} — Changelog`,
-    description: `What's new in Synara ${entry.version} (${entry.date}): ${highlights}.`,
+    title: `Saint ${entry.version} — Changelog`,
+    description: `What's new in Saint ${entry.version} (${entry.date}): ${highlights}.`,
     path: `/changelog/${toVersionSlug(entry.version)}`,
   });
 }
@@ -46,10 +46,10 @@ export default async function ChangelogVersionPage({
   const jsonLd = [
     releaseJsonLd(entry),
     breadcrumbJsonLd([
-      { name: "Synara", path: "/" },
+      { name: "Saint", path: "/" },
       { name: "Changelog", path: "/changelog" },
       {
-        name: `Synara ${entry.version}`,
+        name: `Saint ${entry.version}`,
         path: `/changelog/${toVersionSlug(entry.version)}`,
       },
     ]),
@@ -63,8 +63,8 @@ export default async function ChangelogVersionPage({
       />
       <ChangelogContent
         releases={[entry]}
-        title={`Synara ${entry.version} release notes.`}
-        description={`What changed in Synara ${entry.version} (${entry.date}), including ${entry.features
+        title={`Saint ${entry.version} release notes.`}
+        description={`What changed in Saint ${entry.version} (${entry.date}), including ${entry.features
           .map((feature) => feature.title)
           .join(", ")}.`}
       />

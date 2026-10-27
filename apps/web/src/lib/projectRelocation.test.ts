@@ -1,4 +1,4 @@
-import { ProjectId, type OrchestrationProjectShell } from "@synara/contracts";
+import { ProjectId, type OrchestrationProjectShell } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import { relocateProjectFromClient } from "./projectRelocation";

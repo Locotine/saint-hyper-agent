@@ -1,9 +1,9 @@
-import type { ExternalMcpStdioConfiguration } from "@synara/contracts";
+import type { ExternalMcpStdioConfiguration } from "@saint/contracts";
 
 import { quoteExternalMcpShellArgument } from "./shell.ts";
 
 function executableEntry(): { readonly command: string; readonly prefix: ReadonlyArray<string> } {
-  const entry = process.env.SYNARA_SERVER_ENTRY?.trim() || process.argv[1];
+  const entry = process.env.SAINT_SERVER_ENTRY?.trim() || process.argv[1];
   return entry
     ? { command: process.execPath, prefix: [entry] }
     : { command: process.execPath, prefix: [] };

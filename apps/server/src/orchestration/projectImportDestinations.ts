@@ -1,4 +1,4 @@
-import type { OrchestrationReadModel, ThreadId } from "@synara/contracts";
+import type { OrchestrationReadModel, ThreadId } from "@saint/contracts";
 import type { ProjectImportOrigin } from "../persistence/projectImportRepository";
 
 /** Use the same destination liveness rules for preview, deduplication, and retries. */

@@ -91,7 +91,7 @@ describe("makeDroidAcpRuntime", () => {
           childProcessSpawner: {} as ChildProcessSpawner.ChildProcessSpawner["Service"],
           droidSettings: undefined,
           cwd: "/tmp/project",
-          clientInfo: { name: "Synara", version: "0.0.0" },
+          clientInfo: { name: "Saint", version: "0.0.0" },
         }).pipe(Effect.scoped),
       );
 

@@ -29,18 +29,18 @@ static const uint64_t kButtonDown = 1;
 static const uint64_t kButtonUp = 2;
 static const uint64_t kConsumerPage = 0x0c;
 
-typedef void *(*SynaraEndpointFromPortFn)(mach_port_t, uint64_t, uint64_t);
-typedef void (*SynaraEnableSim2HostFn)(xpc_connection_t);
+typedef void *(*SaintEndpointFromPortFn)(mach_port_t, uint64_t, uint64_t);
+typedef void (*SaintEnableSim2HostFn)(xpc_connection_t);
 
-static NSString *const kErrorDomain = @"dev.synara.device-helper.dtuhid";
+static NSString *const kErrorDomain = @"dev.saint.device-helper.dtuhid";
 
-static NSError *SynaraDTUHIDError(NSInteger code, NSString *message) {
+static NSError *SaintDTUHIDError(NSInteger code, NSString *message) {
   return [NSError errorWithDomain:kErrorDomain
                              code:code
                          userInfo:@{NSLocalizedDescriptionKey: message}];
 }
 
-NSString *SynaraCoreSimulatorVersion(void) {
+NSString *SaintCoreSimulatorVersion(void) {
   NSBundle *bundle = [NSBundle bundleWithIdentifier:@"com.apple.CoreSimulator"];
   NSString *version = bundle.infoDictionary[@"CFBundleVersion"];
   if (version.length > 0) {
@@ -53,8 +53,8 @@ NSString *SynaraCoreSimulatorVersion(void) {
   return version.length > 0 ? version : nil;
 }
 
-BOOL SynaraCoreSimulatorUsesDTUHID(void) {
-  NSString *version = SynaraCoreSimulatorVersion();
+BOOL SaintCoreSimulatorUsesDTUHID(void) {
+  NSString *version = SaintCoreSimulatorVersion();
   if (version == nil) {
     return NO;
   }
@@ -63,7 +63,7 @@ BOOL SynaraCoreSimulatorUsesDTUHID(void) {
          NSOrderedAscending;
 }
 
-static xpc_object_t SynaraEnvelope(const char *messageType, xpc_object_t payload, BOOL barrier) {
+static xpc_object_t SaintEnvelope(const char *messageType, xpc_object_t payload, BOOL barrier) {
   xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
   xpc_dictionary_set_string(message, "messageType", messageType);
   xpc_dictionary_set_bool(message, "isBarrier", barrier);
@@ -72,14 +72,14 @@ static xpc_object_t SynaraEnvelope(const char *messageType, xpc_object_t payload
   return message;
 }
 
-static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
+static xpc_object_t SaintKeyboardPayload(uint64_t usage, uint64_t state) {
   xpc_object_t payload = xpc_dictionary_create(NULL, NULL, 0);
   xpc_dictionary_set_uint64(payload, "usageCode", usage);
   xpc_dictionary_set_uint64(payload, "state", state);
   return payload;
 }
 
-@implementation SynaraDTUHIDTransport {
+@implementation SaintDTUHIDTransport {
   id _device;
   dispatch_queue_t _eventQueue;
   dispatch_queue_t _connectQueue;
@@ -99,9 +99,9 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
   self = [super init];
   if (self) {
     _device = device;
-    _eventQueue = dispatch_queue_create("dev.synara.device-helper.dtuhid", DISPATCH_QUEUE_SERIAL);
+    _eventQueue = dispatch_queue_create("dev.saint.device-helper.dtuhid", DISPATCH_QUEUE_SERIAL);
     _connectQueue =
-        dispatch_queue_create("dev.synara.device-helper.dtuhid.connect", DISPATCH_QUEUE_SERIAL);
+        dispatch_queue_create("dev.saint.device-helper.dtuhid.connect", DISPATCH_QUEUE_SERIAL);
     _attemptGroup = dispatch_group_create();
     _cancelled = dispatch_semaphore_create(0);
     // Warm up now: the first gesture would otherwise pay the daemon's cold
@@ -142,7 +142,7 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
     if (connection != nil && self.isInvalidated) {
       xpc_connection_cancel(connection);
       connection = nil;
-      error = SynaraDTUHIDError(5, @"the input transport was replaced");
+      error = SaintDTUHIDError(5, @"the input transport was replaced");
     }
     @synchronized(self) {
       self->_connection = connection;
@@ -161,18 +161,18 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
 /// sends to it report no error, so an unanswered probe is the only signal that
 /// separates a working transport from a black hole.
 - (nullable xpc_connection_t)connectOnceWithError:(NSError **)error {
-  SynaraEndpointFromPortFn endpointFromPort =
-      (SynaraEndpointFromPortFn)dlsym(RTLD_DEFAULT, "xpc_endpoint_create_mach_port_4sim");
-  SynaraEnableSim2HostFn enableSim2Host =
-      (SynaraEnableSim2HostFn)dlsym(RTLD_DEFAULT, "xpc_connection_enable_sim2host_4sim");
+  SaintEndpointFromPortFn endpointFromPort =
+      (SaintEndpointFromPortFn)dlsym(RTLD_DEFAULT, "xpc_endpoint_create_mach_port_4sim");
+  SaintEnableSim2HostFn enableSim2Host =
+      (SaintEnableSim2HostFn)dlsym(RTLD_DEFAULT, "xpc_connection_enable_sim2host_4sim");
   if (endpointFromPort == NULL || enableSim2Host == NULL) {
-    *error = SynaraDTUHIDError(1, @"this macOS lacks the private _4sim XPC endpoint symbols");
+    *error = SaintDTUHIDError(1, @"this macOS lacks the private _4sim XPC endpoint symbols");
     return nil;
   }
 
   SEL lookupSelector = NSSelectorFromString(@"lookup:error:");
   if (![_device respondsToSelector:lookupSelector]) {
-    *error = SynaraDTUHIDError(1, @"SimDevice cannot look up guest services on this Xcode");
+    *error = SaintDTUHIDError(1, @"SimDevice cannot look up guest services on this Xcode");
     return nil;
   }
   NSError *lookupError = nil;
@@ -180,7 +180,7 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
   mach_port_t port = ((mach_port_t (*)(id, SEL, NSString *, NSError **))objc_msgSend)(
       _device, lookupSelector, service, &lookupError);
   if (port == MACH_PORT_NULL) {
-    *error = SynaraDTUHIDError(
+    *error = SaintDTUHIDError(
         2, [NSString stringWithFormat:@"the simulator does not vend %@ yet (%@)", service,
                                       lookupError.localizedDescription ?: @"lookup failed"]);
     return nil;
@@ -189,18 +189,18 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
   // The endpoint consumes the lookup's send right and is returned +1.
   xpc_object_t endpoint = (__bridge_transfer xpc_object_t)endpointFromPort(port, 0, 0);
   if (endpoint == nil) {
-    *error = SynaraDTUHIDError(3, @"could not create an XPC endpoint for dtuhidd");
+    *error = SaintDTUHIDError(3, @"could not create an XPC endpoint for dtuhidd");
     return nil;
   }
   xpc_connection_t connection = xpc_connection_create_from_endpoint((xpc_endpoint_t)endpoint);
   if (connection == nil) {
-    *error = SynaraDTUHIDError(3, @"could not create an XPC connection to dtuhidd");
+    *error = SaintDTUHIDError(3, @"could not create an XPC connection to dtuhidd");
     return nil;
   }
   // Without the sim-to-host mark the daemon sees the peer but never a payload.
   enableSim2Host(connection);
   xpc_connection_set_target_queue(connection, _eventQueue);
-  __weak SynaraDTUHIDTransport *weakSelf = self;
+  __weak SaintDTUHIDTransport *weakSelf = self;
   xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
     if (event == XPC_ERROR_CONNECTION_INVALID) {
       [weakSelf connectionInvalidated:connection];
@@ -224,8 +224,8 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
 /// A barrier carrying keyboard usage 0 ("no event"), which the daemon answers
 /// without the guest seeing a keypress.
 - (BOOL)probeConnection:(xpc_connection_t)connection error:(NSError **)error {
-  xpc_object_t probe = SynaraEnvelope("IndigoKeyboardButtonEvent",
-                                      SynaraKeyboardPayload(0, kButtonUp), YES);
+  xpc_object_t probe = SaintEnvelope("IndigoKeyboardButtonEvent",
+                                      SaintKeyboardPayload(0, kButtonUp), YES);
   dispatch_semaphore_t answered = dispatch_semaphore_create(0);
   __block BOOL alive = NO;
   xpc_connection_send_message_with_reply(connection, probe, _eventQueue, ^(xpc_object_t reply) {
@@ -235,7 +235,7 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
   long timedOut = dispatch_semaphore_wait(
       answered, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kLivenessTimeout * NSEC_PER_SEC)));
   if (timedOut != 0 || !alive) {
-    *error = SynaraDTUHIDError(
+    *error = SaintDTUHIDError(
         4, timedOut != 0 ? @"dtuhidd did not answer its liveness probe"
                          : @"dtuhidd refused the liveness probe");
     return NO;
@@ -251,7 +251,7 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
     _connection = nil;
     _ready = NO;
     _contactActive = NO;
-    _lastError = SynaraDTUHIDError(5, @"the dtuhidd connection was invalidated");
+    _lastError = SaintDTUHIDError(5, @"the dtuhidd connection was invalidated");
   }
   fprintf(stderr, "[device-helper] dtuhidd connection was invalidated; the next input reconnects\n");
 }
@@ -266,9 +266,9 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
     }
     if (error) {
       *error = timedOut != 0
-                   ? SynaraDTUHIDError(6, @"the simulator's input service (dtuhidd) is still "
+                   ? SaintDTUHIDError(6, @"the simulator's input service (dtuhidd) is still "
                                           @"starting; nothing was sent")
-                   : (_lastError ?: SynaraDTUHIDError(7, @"dtuhidd is unreachable"));
+                   : (_lastError ?: SaintDTUHIDError(7, @"dtuhidd is unreachable"));
     }
     return NO;
   }
@@ -319,7 +319,7 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
   return YES;
 }
 
-- (BOOL)sendTouchAtX:(double)x y:(double)y down:(BOOL)down edge:(SynaraTouchEdge)edge {
+- (BOOL)sendTouchAtX:(double)x y:(double)y down:(BOOL)down edge:(SaintTouchEdge)edge {
   uint64_t phase;
   @synchronized(self) {
     if (!down) {
@@ -342,12 +342,12 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
   // whichever contact it inspects.
   xpc_dictionary_set_uint64(payload, "edge", (uint64_t)edge);
   xpc_dictionary_set_uint64(payload, "target", 0);
-  return [self send:SynaraEnvelope("IndigoDigitizerEvent", payload, NO)];
+  return [self send:SaintEnvelope("IndigoDigitizerEvent", payload, NO)];
 }
 
 - (BOOL)sendKeyUsage:(uint32_t)usage down:(BOOL)down {
-  return [self send:SynaraEnvelope("IndigoKeyboardButtonEvent",
-                                   SynaraKeyboardPayload(usage, down ? kButtonDown : kButtonUp),
+  return [self send:SaintEnvelope("IndigoKeyboardButtonEvent",
+                                   SaintKeyboardPayload(usage, down ? kButtonDown : kButtonUp),
                                    NO)];
 }
 
@@ -356,7 +356,7 @@ static xpc_object_t SynaraKeyboardPayload(uint64_t usage, uint64_t state) {
   xpc_dictionary_set_uint64(payload, "usagePage", kConsumerPage);
   xpc_dictionary_set_uint64(payload, "usageCode", usage);
   xpc_dictionary_set_uint64(payload, "state", down ? kButtonDown : kButtonUp);
-  return [self send:SynaraEnvelope("IndigoButtonEvent", payload, NO)];
+  return [self send:SaintEnvelope("IndigoButtonEvent", payload, NO)];
 }
 
 - (BOOL)flushWithTimeout:(NSTimeInterval)timeout {

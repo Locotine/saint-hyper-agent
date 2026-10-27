@@ -1,4 +1,4 @@
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { Cause, Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vitest";
 

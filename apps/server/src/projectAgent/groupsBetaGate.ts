@@ -6,7 +6,7 @@
 // Exports: GROUPS_BETA_ONLY_MESSAGE, isServerGroupsEnabled, isGroupProjectCommand,
 //          gateProjectAgentServiceForStable
 
-import { GROUPS_BETA_FEATURE } from "@synara/shared/betaFeatures";
+import { GROUPS_BETA_FEATURE } from "@saint/shared/betaFeatures";
 import { Effect, Stream } from "effect";
 
 import { isServerBetaFeatureEnabled } from "../betaFeatureGate";

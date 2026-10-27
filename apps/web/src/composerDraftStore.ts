@@ -7,7 +7,7 @@ import {
   type ProviderInstanceId,
   type ProviderKind,
   type ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useMemo } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";

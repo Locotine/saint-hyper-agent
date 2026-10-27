@@ -51,7 +51,7 @@ function withFakeAcpAgent<A, E, R>(
 ): Effect.Effect<A, E, R> {
   return Effect.acquireUseRelease(
     Effect.sync(() => {
-      const tempDir = mkdtempSync(path.join(os.tmpdir(), "synara-droid-text-acp-"));
+      const tempDir = mkdtempSync(path.join(os.tmpdir(), "saint-droid-text-acp-"));
       return {
         tempDir,
         agentPath: makeAcpAgentWrapper(tempDir, env(tempDir)),
@@ -113,8 +113,8 @@ const cases: TestCase[] = [
   {
     name: "uses ACP model config options instead of raw CLI model ids",
     env: (tempDir) => ({
-      SYNARA_ACP_REQUEST_LOG_PATH: path.join(tempDir, "requests.ndjson"),
-      SYNARA_ACP_PROMPT_RESPONSE_TEXT: JSON.stringify({
+      SAINT_ACP_REQUEST_LOG_PATH: path.join(tempDir, "requests.ndjson"),
+      SAINT_ACP_PROMPT_RESPONSE_TEXT: JSON.stringify({
         subject: "Add generated Droid commit message",
         body: "- verify droid acp model config path",
       }),
@@ -150,8 +150,8 @@ const cases: TestCase[] = [
   {
     name: "closes the ACP child process after text generation completes",
     env: (tempDir) => ({
-      SYNARA_ACP_EXIT_LOG_PATH: path.join(tempDir, "exit.log"),
-      SYNARA_ACP_PROMPT_RESPONSE_TEXT: JSON.stringify({
+      SAINT_ACP_EXIT_LOG_PATH: path.join(tempDir, "exit.log"),
+      SAINT_ACP_PROMPT_RESPONSE_TEXT: JSON.stringify({
         title: '"Trim reconnect spinner status after resume."',
       }),
     }),

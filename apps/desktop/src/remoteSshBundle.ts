@@ -2,8 +2,10 @@
 // Purpose: Packs the server bundle the desktop already ships, plus an npm manifest and the
 //          dependency patches, into a gzipped tar stream for upload to a remote SSH host.
 // Layer: Desktop remote SSH utility
-// Exports: loadRemoteInstallManifest, collectRemoteInstallEntries, createTarGzStream
+// Exports: loadRemoteInstallManifest, collectRemoteInstallEntries, remoteInstallVersion,
+//          createTarGzStream
 
+import * as Crypto from "node:crypto";
 import * as FS from "node:fs";
 import * as Path from "node:path";
 import { Readable } from "node:stream";
@@ -13,7 +15,7 @@ import {
   createRemoteServerInstallManifest,
   remoteServerPatchIndex,
   type RemoteServerPatch,
-} from "@synara/shared/remoteServerInstall";
+} from "@saint/shared/remoteServerInstall";
 
 /**
  * Folder the desktop artifact build stages next to `apps/server/dist` with the
@@ -110,7 +112,7 @@ function collectDirectory(root: string, prefix: string, entries: RemoteInstallEn
 export function collectRemoteInstallEntries(appRoot: string): RemoteInstallEntry[] {
   const distDir = Path.join(appRoot, "apps/server/dist");
   if (!FS.existsSync(Path.join(distDir, "index.mjs"))) {
-    throw new Error(`The Synara server bundle is missing at ${distDir}. Build apps/server first.`);
+    throw new Error(`The Saint server bundle is missing at ${distDir}. Build apps/server first.`);
   }
   const manifest = loadRemoteInstallManifest(appRoot);
   const entries: RemoteInstallEntry[] = [];
@@ -121,6 +123,23 @@ export function collectRemoteInstallEntries(appRoot: string): RemoteInstallEntry
     entries.push({ path: `patches/${patch.fileName}`, contents: patch.contents });
   }
   return entries;
+}
+
+/**
+ * The remote install folder name for this build: the app version plus a hash of
+ * the bundle, so a rebuild that keeps the version still installs its own server
+ * instead of reusing the one an older build left. Only `[0-9a-f-]` is added, so
+ * the name stays a literal in the start script's `pgrep -f` pattern.
+ */
+export function remoteInstallVersion(
+  appVersion: string,
+  entries: readonly RemoteInstallEntry[],
+): string {
+  const hash = Crypto.createHash("sha256");
+  for (const entry of entries.toSorted((a, b) => (a.path < b.path ? -1 : 1))) {
+    hash.update(entry.path).update("\0").update(entry.contents).update("\0");
+  }
+  return `${appVersion}-${hash.digest("hex").slice(0, 12)}`;
 }
 
 const TAR_BLOCK = 512;

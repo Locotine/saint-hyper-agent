@@ -11,7 +11,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 
-import { DeviceAvailability, ThreadDeviceState } from "@synara/contracts";
+import { DeviceAvailability, ThreadDeviceState } from "@saint/contracts";
 import { Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -66,7 +66,7 @@ const DEVICE_LIST_JSON = JSON.stringify({
 const LONG_COMPILE_STDERR = Array.from(
   { length: 40 },
   (_, index) =>
-    `/Users/dev/Library/Caches/synara/device-helper/Sources/SimulatorBridge.swift:${100 + index}:13: ` +
+    `/Users/dev/Library/Caches/saint/device-helper/Sources/SimulatorBridge.swift:${100 + index}:13: ` +
     `error: cannot find type 'SimDeviceIOClient' in scope`,
 ).join("\n");
 
@@ -78,7 +78,7 @@ afterEach(async () => {
 
 /** A real backend on a machine where the helper build fails with long stderr. */
 async function makeFailingCompileBackend(): Promise<IosSimulatorBackend> {
-  const cacheRoot = await mkdtemp(path.join(tmpdir(), "synara-contract-limits-"));
+  const cacheRoot = await mkdtemp(path.join(tmpdir(), "saint-contract-limits-"));
   cacheRoots.push(cacheRoot);
   return new IosSimulatorBackend({
     platform: "darwin",

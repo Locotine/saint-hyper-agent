@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import { DEFAULT_SERVER_SETTINGS } from "@synara/contracts";
+import { DEFAULT_SERVER_SETTINGS } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { page } from "vitest/browser";
 import { expect, it, vi } from "vitest";

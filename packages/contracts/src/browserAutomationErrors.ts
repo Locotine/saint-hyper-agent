@@ -232,7 +232,7 @@ export const BrowserAutomationError = BrowserAutomationErrorFields.check(
 );
 
 export const BrowserMcpToolErrorEnvelope = Schema.Struct({
-  type: Schema.Literal("synara_browser_error"),
+  type: Schema.Literal("saint_browser_error"),
   version: Schema.Literal(1),
   error: BrowserAutomationError,
 });

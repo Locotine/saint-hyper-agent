@@ -1,5 +1,5 @@
 {
-  "name": "@synara/desktop",
+  "name": "@saint/desktop",
   "version": "1.0.9",
   "private": true,
   "main": "dist-electron/main.js",
@@ -27,8 +27,8 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@synara/contracts": "workspace:*",
-    "@synara/shared": "workspace:*",
+    "@saint/contracts": "workspace:*",
+    "@saint/shared": "workspace:*",
     "@types/node": "catalog:",
     "@types/ws": "^8.5.13",
     "tsdown": "catalog:",
@@ -36,5 +36,5 @@
     "vitest": "catalog:",
     "wait-on": "^8.0.2"
   },
-  "productName": "Synara"
+  "productName": "Saint"
 }

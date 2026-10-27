@@ -1,4 +1,4 @@
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { StrictMode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
@@ -40,7 +40,7 @@ let toastIds: Array<ReturnType<typeof toastManager.add>>;
 let addToast: MockInstance<typeof toastManager.add>;
 
 function receiptKey() {
-  return `synara:snooze-reminder:v1:${threadId}`;
+  return `saint:snooze-reminder:v1:${threadId}`;
 }
 
 function syncReminder(at = reminderAt, threadTitle = title) {

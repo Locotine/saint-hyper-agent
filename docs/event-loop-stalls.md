@@ -1,12 +1,12 @@
 # Server event-loop stalls
 
-Synara measures server responsiveness locally in Stable and Beta. A stalled main
+Saint measures server responsiveness locally in Stable and Beta. A stalled main
 thread cannot answer `/health` or report a warning until it resumes; TCP acceptance
 alone does not establish application responsiveness.
 
 ## Operator status
 
-`/health` includes `eventLoop`; `synara server status --json` exposes the same data.
+`/health` includes `eventLoop`; `saint server status --json` exposes the same data.
 The text status prints delay p50/p99/max, ELU, stall-window count and last-stall age.
 These fields contain numbers/booleans only, with no paths, stacks or identifiers.
 `available: false` means monitoring is unavailable, not that the event loop is healthy.
@@ -55,7 +55,7 @@ No worker watchdog or continuous profiler runs in normal operation.
 
 The app does not poll the server for liveness or show a busy notice. An earlier
 client sent a `server.getRuntimeStatus` heartbeat every 5 seconds and showed
-"Synara server is busy" when one reply took longer than 3 seconds, plus a notice
+"Saint server is busy" when one reply took longer than 3 seconds, plus a notice
 for any request still pending after 15 seconds. One end-to-end sample cannot tell
 a stalled server from a busy renderer, a socket queued behind stream data, or
 requests waiting for admission. With several agent threads running in parallel
@@ -67,7 +67,7 @@ still owns reconnects, and the composer still reports a real reconnect.
 The default **60 second acknowledgement timeout remains**. Removing it globally
 would leave reads and mutations with uncertain external effects waiting indefinitely
 on a half-open socket. Command receipts alone do not make every provider/Git action
-safe to retry. Synara already handles supported `thread.turn.start` uncertainty
+safe to retry. Saint already handles supported `thread.turn.start` uncertainty
 through fingerprint-bound receipt settlement; that path keeps waiting/retrying
 settlement until acceptance, rejection, caller cancellation or transport disposal.
 Known long operations already opt out of the default timeout in `wsNativeApi.ts`.
@@ -90,11 +90,11 @@ enabled the profiler, then requested `Profiler.start` 500 ms after readiness whi
 the main thread was blocked for 3 seconds. No inspector TCP listener or debugger
 pause was used. On 2026-10-06 (local date):
 
-| Runtime                                                  | Blocking work                                    | Delay before profiler start |
-| -------------------------------------------------------- | ------------------------------------------------ | --------------------------: |
-| Node 24.21.0                                             | synchronous native wait (`execFileSync` / sleep) |                     2581 ms |
-| Installed packaged Synara Electron 43.4.1 / Node 24.18.1 | same native wait                                 |                     2569 ms |
-| Node 24.21.0                                             | JavaScript tight loop                            |                       14 ms |
+| Runtime                                                 | Blocking work                                    | Delay before profiler start |
+| ------------------------------------------------------- | ------------------------------------------------ | --------------------------: |
+| Node 24.21.0                                            | synchronous native wait (`execFileSync` / sleep) |                     2581 ms |
+| Installed packaged Saint Electron 43.4.1 / Node 24.18.1 | same native wait                                 |                     2569 ms |
+| Node 24.21.0                                            | JavaScript tight loop                            |                       14 ms |
 
 In native waits, sampling started at recovery and retained an `execFileSync` frame,
 but did not capture the preceding blocked interval. This is insufficient evidence

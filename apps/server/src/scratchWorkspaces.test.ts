@@ -17,8 +17,8 @@ import {
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
-import { ThreadId } from "@synara/contracts";
-import { SCRATCH_WORKSPACES_DIRNAME } from "@synara/shared/threadWorkspace";
+import { ThreadId } from "@saint/contracts";
+import { SCRATCH_WORKSPACES_DIRNAME } from "@saint/shared/threadWorkspace";
 import { afterAll, describe, expect, it } from "vitest";
 
 import {
@@ -27,7 +27,7 @@ import {
   resolveScratchWorkspacesRoot,
 } from "./scratchWorkspaces";
 
-const testScratchParent = mkdtempSync(path.join(tmpdir(), "synara-scratch-test-"));
+const testScratchParent = mkdtempSync(path.join(tmpdir(), "saint-scratch-test-"));
 const testScratchRoot = path.join(testScratchParent, SCRATCH_WORKSPACES_DIRNAME);
 
 afterAll(() => {
@@ -45,7 +45,7 @@ describe("ensureIsolatedScratchWorkspace", () => {
     try {
       expect(path.relative(process.cwd(), root).startsWith("..")).toBe(true);
       expect(path.relative(homedir(), root).startsWith("..")).toBe(false);
-      expect(path.dirname(root)).toMatch(/\.synara-[a-f0-9]{16}$/);
+      expect(path.dirname(root)).toMatch(/\.saint-[a-f0-9]{16}$/);
       expect(workspace.startsWith(`${root}${path.sep}`)).toBe(true);
     } finally {
       rmSync(workspace, { recursive: true, force: true });
@@ -97,7 +97,7 @@ describe("ensureIsolatedScratchWorkspace", () => {
         SCRATCH_WORKSPACES_DIRNAME,
       );
       const legacyRoot = path.join(testScratchParent, "legacy-link");
-      const redirectedRoot = mkdtempSync(path.join(tmpdir(), "synara-legacy-redirect-"));
+      const redirectedRoot = mkdtempSync(path.join(tmpdir(), "saint-legacy-redirect-"));
       const workspaceSegment = path.basename(
         ensureIsolatedScratchWorkspace(threadId, privateRoot, redirectedRoot),
       );
@@ -233,7 +233,7 @@ describe("ensureIsolatedScratchWorkspace", () => {
     () => {
       const threadId = ThreadId.makeUnsafe("symlinked-private-thread");
       const workspace = ensureTestScratchWorkspace(threadId);
-      const redirected = mkdtempSync(path.join(tmpdir(), "synara-scratch-redirect-"));
+      const redirected = mkdtempSync(path.join(tmpdir(), "saint-scratch-redirect-"));
       rmSync(workspace, { recursive: true, force: true });
       symlinkSync(redirected, workspace, "dir");
       try {

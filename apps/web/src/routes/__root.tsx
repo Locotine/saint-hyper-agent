@@ -11,10 +11,10 @@ import {
   type ServerProviderStatus,
   type ServerSettingsView,
   type WsCompatibilityError,
-} from "@synara/contracts";
-import { defaultTerminalTitleForCliKind } from "@synara/shared/terminalThreads";
+} from "@saint/contracts";
+import { defaultTerminalTitleForCliKind } from "@saint/shared/terminalThreads";
 import { BrowserVaultDialog } from "~/components/BrowserVault";
-import { isThreadDetailEventFor } from "@synara/shared/threadDetailEvents";
+import { isThreadDetailEventFor } from "@saint/shared/threadDetailEvents";
 import {
   Outlet,
   createRootRouteWithContext,
@@ -109,6 +109,8 @@ import {
 import { useProjectRunStore } from "../projectRunStore";
 import { dockTerminalThreadId } from "../lib/dockTerminalScope";
 import { TaskCompletionNotifications } from "../notifications/taskCompletion";
+import { RemoteFolderPickerDialog } from "../components/RemoteFolderPickerDialog";
+import { remoteWindowHost } from "../env";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
 import {
   isThreadDetailRetained,
@@ -213,7 +215,7 @@ import {
   shouldInvalidateProviderQueriesForEvent,
 } from "./-rootEventInvalidation";
 import { createDesktopProjectRecoveryAttemptGate } from "./-desktopProjectRecoveryAttempt";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 const SHELL_SNAPSHOT_BOOTSTRAP_FALLBACK_DELAY_MS = 1_500;
 const THREAD_DETAIL_CATCHUP_INTERVAL_MS = 1_500;
@@ -387,6 +389,7 @@ function RootRouteView() {
           <GlobalOnboardingDialog />
           <ProjectImportAnnouncementDialog />
           <GlobalProjectImportDialog />
+          {remoteWindowHost ? <RemoteFolderPickerDialog /> : null}
           <AppSnapCoordinator />
           <DesktopProjectBootstrap />
           <Outlet />
@@ -400,16 +403,16 @@ function RootRouteView() {
 function TransportCompatibilityView({ issue }: { issue: WsCompatibilityError }) {
   const title =
     issue.action === "update-client"
-      ? "This Synara client needs an update."
+      ? "This Saint client needs an update."
       : issue.action === "update-server"
-        ? "The Synara server needs an update."
-        : "Synara needs to reconnect with a matching build.";
+        ? "The Saint server needs an update."
+        : "Saint needs to reconnect with a matching build.";
   const guidance =
     issue.action === "update-client"
       ? "Update or reload this client, then reconnect."
       : issue.action === "update-server"
         ? "Update or restart the server, then reload this client."
-        : "Reload the app. If this repeats, restart Synara so the client and server use matching builds.";
+        : "Reload the app. If this repeats, restart Saint so the client and server use matching builds.";
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground sm:px-6">
@@ -603,7 +606,7 @@ async function runProviderUpdateAll(params: {
         if (!isProviderKind(driver)) {
           failures.push({
             provider,
-            reason: "This provider driver cannot be updated by this Synara build.",
+            reason: "This provider driver cannot be updated by this Saint build.",
           });
           continue;
         }

@@ -1,6 +1,6 @@
 # Windows runtime architecture
 
-Synara treats Windows support as a platform boundary, not as provider-specific command handling.
+Saint treats Windows support as a platform boundary, not as provider-specific command handling.
 
 ```text
 Providers / Git / Desktop / Server
@@ -16,13 +16,13 @@ Providers / Git / Desktop / Server
 
 ## Executable resolution
 
-Use `@synara/shared/executable` when code needs to identify the concrete executable that a launch would use. It owns PATH splitting, Windows PATHEXT ordering, manual paths, extensionless command names, and executable validation.
+Use `@saint/shared/executable` when code needs to identify the concrete executable that a launch would use. It owns PATH splitting, Windows PATHEXT ordering, manual paths, extensionless command names, and executable validation.
 
 A configured provider executable must be resolved once against the effective child environment and then reused consistently for health checks, discovery, startup, and updates. Do not add provider-local `where.exe` calls or a second PATH walker.
 
 ## Process launch planning
 
-Use `prepareProcess` from `@synara/shared/platformProcess` when a launch plan must be inspected or logged before execution. It owns:
+Use `prepareProcess` from `@saint/shared/platformProcess` when a launch plan must be inspected or logged before execution. It owns:
 
 - native `.exe` and `.com` execution;
 - `.cmd` and `.bat` routing through a shell-free `cmd.exe` plan;
@@ -31,7 +31,7 @@ Use `prepareProcess` from `@synara/shared/platformProcess` when a launch plan mu
 - fail-fast `ExecutableNotFoundError` when `requireExecutable` is enabled (Node runtime only), preceded by `WorkingDirectoryNotFoundError` when the launch `cwd` is missing or not a directory, because a spawn into a missing `cwd` fails with the same ENOENT as a missing executable;
 - qualified relative commands such as `./bin/tool` resolved against the launch `cwd`, exactly as the child would see them.
 
-Node callers should normally use `spawnProcess`, `spawnProcessSync`, or `execProcessFile` from `@synara/shared/processRuntime`. Effect callers use `makeEffectProcessCommand` from `apps/server/src/platform/effectProcessRuntime.ts`; it has no `requireExecutable` because the Effect spawner is injectable and a missing executable surfaces as the spawner's own ENOENT error.
+Node callers should normally use `spawnProcess`, `spawnProcessSync`, or `execProcessFile` from `@saint/shared/processRuntime`. Effect callers use `makeEffectProcessCommand` from `apps/server/src/platform/effectProcessRuntime.ts`; it has no `requireExecutable` because the Effect spawner is injectable and a missing executable surfaces as the spawner's own ENOENT error.
 
 Bounded one-shot helpers (`processRunner`, provider probes) stop their child with `signalOwnedChildProcess`: Node's direct `child.kill` on POSIX, `taskkill /T` through the tree boundary on Windows where a `.cmd` shim hides the real command behind cmd.exe.
 
@@ -74,7 +74,7 @@ Terminal sessions continue to use the PTY service. On Windows, runtime selection
 
 ## Filesystem semantics
 
-Use `@synara/shared/filesystemPlatform` for platform-sensitive durability and identity operations. It centralizes writable-handle fsync on Windows, POSIX directory fsync/no-follow behavior, and the documented Windows file-identity fallback used by guarded recovery code.
+Use `@saint/shared/filesystemPlatform` for platform-sensitive durability and identity operations. It centralizes writable-handle fsync on Windows, POSIX directory fsync/no-follow behavior, and the documented Windows file-identity fallback used by guarded recovery code.
 
 Migration, backup, restore, and lifecycle-lock code may own their recovery protocol, but they must not reproduce platform-specific fsync rules locally.
 

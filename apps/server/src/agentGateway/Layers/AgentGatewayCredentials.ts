@@ -2,15 +2,15 @@
  * AgentGatewayCredentialsLive - Live layer for agent gateway credentials.
  *
  * Issues opaque in-memory credentials. Tokens live for the provider session,
- * can be revoked independently, and intentionally do not survive a Synara
+ * can be revoked independently, and intentionally do not survive a Saint
  * restart.
  *
  * @module agentGateway/Layers/AgentGatewayCredentials
  */
 import { randomUUID } from "node:crypto";
 
-import type { ProviderKind } from "@synara/contracts";
-import { providerSupportsMcpConnectors } from "@synara/shared/mcpConnectors";
+import type { ProviderKind } from "@saint/contracts";
+import { providerSupportsMcpConnectors } from "@saint/shared/mcpConnectors";
 import { Effect, Layer } from "effect";
 
 import { ServerConfig } from "../../config.ts";

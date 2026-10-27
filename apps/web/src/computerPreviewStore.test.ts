@@ -1,4 +1,4 @@
-import type { ThreadComputerState, ThreadId } from "@synara/contracts";
+import type { ThreadComputerState, ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {

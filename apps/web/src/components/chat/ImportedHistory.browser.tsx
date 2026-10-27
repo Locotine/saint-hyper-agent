@@ -3,7 +3,7 @@ import {
   MessageId,
   type LoadProjectImportHistoryInput,
   type LoadProjectImportHistoryResult,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { type LegendListRef } from "@legendapp/list/react";
 import { act, createRef, type ComponentProps } from "react";
 import { page } from "vitest/browser";

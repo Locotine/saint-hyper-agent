@@ -89,7 +89,7 @@ export function listRunningChatsFromDesktopStore(
 
 export function runningChatsQuitCopy(
   chats: ReadonlyArray<RunningChatQuitSummary>,
-  appName = "Synara",
+  appName = "Saint",
 ): RunningChatsQuitCopy {
   return {
     title:
@@ -109,7 +109,7 @@ export function runningChatsQuitCopy(
 }
 
 /** The ordinary user turn dispatched on each remembered chat at the next launch. */
-export function quitResumeContinuationPrompt(appName = "Synara"): string {
+export function quitResumeContinuationPrompt(appName = "Saint"): string {
   return `${appName} was closed while this chat was still running. Continue where you left off.`;
 }
 

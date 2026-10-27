@@ -7,7 +7,7 @@
 // Exports: ChatLinkActionsContext, parseGitHubItemUrl, resolveGitHubItemLinkOpener,
 //          resolveGitHubItemClickOpener, showLinkContextMenu
 
-import { isValidGitHubRepositoryNameWithOwner } from "@synara/shared/githubRepository";
+import { isValidGitHubRepositoryNameWithOwner } from "@saint/shared/githubRepository";
 import { createContext } from "react";
 
 import type { GitHubLinkOpenTarget } from "~/appSettings";

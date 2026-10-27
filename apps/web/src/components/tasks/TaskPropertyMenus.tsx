@@ -4,7 +4,7 @@
 // Layer: Tasks UI component
 // Exports: TaskPriorityMenu, TaskProjectMenu, TaskDueMenu
 
-import type { ProjectId, TodoDueDate, TodoPriority } from "@synara/contracts";
+import type { ProjectId, TodoDueDate, TodoPriority } from "@saint/contracts";
 import type { ReactElement, ReactNode } from "react";
 
 import { ProjectMenuPicker } from "~/components/ProjectMenuPicker";

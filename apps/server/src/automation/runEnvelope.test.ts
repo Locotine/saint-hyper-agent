@@ -4,7 +4,7 @@ import {
   ProjectId,
   type AutomationDefinition,
   type AutomationRun,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -65,9 +65,9 @@ describe("buildAutomationRunEnvelope", () => {
     expect(envelope).toContain(
       "These automation-only completion duties do not carry into later manual follow-up turns.",
     );
-    expect(envelope).toContain("call synara_report_automation_result");
+    expect(envelope).toContain("call saint_report_automation_result");
     expect(envelope).toContain('decision "silent"');
-    expect(envelope).toContain("synara_cancel_automation");
+    expect(envelope).toContain("saint_cancel_automation");
     expect(envelope.endsWith("---\n\nInspect the latest build.")).toBe(true);
   });
 
@@ -81,7 +81,7 @@ describe("buildAutomationRunEnvelope", () => {
       lastRunAt: null,
     });
 
-    expect(envelope).toContain("synara_cancel_automation");
+    expect(envelope).toContain("saint_cancel_automation");
     expect(envelope).toContain('decision "notify"');
   });
 

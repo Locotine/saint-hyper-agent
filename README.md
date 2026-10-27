@@ -1,23 +1,23 @@
 <div align="center">
-  <img src="./assets/prod/logo.svg" width="112" alt="Synara logo">
-  <h1>Synara</h1>
+  <img src="./assets/prod/logo.svg" width="112" alt="Saint logo">
+  <h1>Saint</h1>
   <p><strong>A focused workspace for coding agents.</strong><br>
   Projects, provider sessions, execution surfaces, and review tools in one local-first desktop application.</p>
   <p>
-    <a href="https://github.com/Emanuele-web04/synara/releases/latest">Download</a>
+    <a href="https://gitlab.com/locotine/saint-hyper-agent">Source</a>
     &nbsp;·&nbsp;
-    <a href="https://www.trysynara.com/">Website</a>
+    <a href="./docs/README.md">Documentation</a>
     &nbsp;·&nbsp;
-    <a href="https://www.trysynara.com/docs">Documentation</a>
+    <a href="./REMOTE.md">Remote SSH hosts</a>
     &nbsp;·&nbsp;
     <a href="./docs/external-mcp.md">MCP integration</a>
     &nbsp;·&nbsp;
-    <a href="https://github.com/Emanuele-web04/synara/issues/new/choose">Report an issue</a>
+    <a href="https://gitlab.com/locotine/saint-hyper-agent/-/issues">Report an issue</a>
   </p>
 </div>
 
 <p align="center">
-  <img src="./assets/prod/readme-workspace-light.png" width="1200" alt="Synara workspace with an agent conversation and pull request review side by side">
+  <img src="./assets/prod/readme-workspace-light.png" width="1200" alt="Saint workspace with an agent conversation and pull request review side by side">
 </p>
 
 <details open>
@@ -31,7 +31,7 @@
 | **Workspace tools**  | Changes, terminal, browser, files, editor, previews, and Git. |
 
 > [!NOTE]
-> Synara is early-stage software. APIs and interface details remain under active development.
+> Saint is early-stage software. APIs and interface details remain under active development.
 
 ## Capabilities
 
@@ -53,7 +53,7 @@ The tools surrounding an agent session remain available from the same task surfa
 | **Changes**        | Inspect diffs, changed files, and review state.                                                   |
 | **Terminal**       | Run commands in the project environment.                                                          |
 | **Browser**        | Keep local previews next to the thread and let agents use semantic or page-declared WebMCP tools. |
-| **Files / Editor** | Browse, inspect, and edit project files in context.                                               |
+| **Files / Editor** | Browse, inspect, and edit project files in context. HTML files render in a sandboxed preview.     |
 | **Git**            | Work with branches, commits, pushes, and pull requests.                                           |
 
 ### 3. Split views and previews
@@ -61,12 +61,12 @@ The tools surrounding an agent session remain available from the same task surfa
 Keep an active conversation alongside the surface it is changing. Split views, browser previews, and device previews make the result part of the working context.
 
 <p align="center">
-  <img src="./assets/prod/readme-split-view-dark.png" width="900" alt="Synara split view with an agent thread and iOS simulator preview">
+  <img src="./assets/prod/readme-split-view-dark.png" width="900" alt="Saint split view with an agent thread and iOS simulator preview">
 </p>
 
 ### 4. Provider-native integrations
 
-Synara connects to coding-agent runtimes that are installed and authenticated locally. The current development build includes the following integrations:
+Saint connects to coding-agent runtimes that are installed and authenticated locally. The current development build includes the following integrations:
 
 | Runtime         | Local integration                           |
 | --------------- | ------------------------------------------- |
@@ -80,7 +80,7 @@ Synara connects to coding-agent runtimes that are installed and authenticated lo
 | **Pi**          | Pi and its configured model providers       |
 | **Devin**       | Devin CLI                                   |
 
-### 5. Isolated parallel work
+### 5. Isolated parallel work and handoffs
 
 Managed worktrees provide a boundary for parallel changes. Handoffs preserve project context when a task needs to continue with another provider or toolchain.
 
@@ -89,18 +89,36 @@ Managed worktrees provide a boundary for parallel changes. Handoffs preserve pro
 - Hand off a task without losing its project context
 - Review the resulting diff before it leaves the workspace
 
-### 6. Automations and external MCP
+| Handoff                           | What the next agent receives                                                                                                                                                                                                                  |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Same thread / new thread**      | The conversation's messages plus a bounded summary of the earlier session.                                                                                                                                                                    |
+| **Fresh session from transcript** | A new thread with an empty history and one prompt: the path of the original Claude or Codex session transcript, the working directory and branch, and the last request and update. The agent reads only the parts of the transcript it needs. |
+
+Start a transcript handoff from the thread header's handoff menu (**Fresh session from transcript**) or from the sidebar's **Handoff** submenu (**<Provider>, fresh from transcript**).
+
+### 6. Remote SSH hosts (Beta)
+
+Open a project that lives on another machine in its own window. Saint installs its server on the host over SSH, starts it in tmux, and tunnels the window to it, so agents, Git, terminals, and files run on the host. Remote servers run Codex and Claude with the CLIs installed on the host.
+
+- Connect from **Settings → Remote hosts** with an alias from `~/.ssh/config`
+- Browse the host's folders, preview its HTML files, and upload dropped files as attachments
+- Several users of one account can keep separate servers and data that share a single install
+- A new build installs its own server automatically, even when the version number is unchanged
+
+See [Remote access](./REMOTE.md) for requirements, the remote layout, and what stays local.
+
+### 7. Automations and external MCP
 
 Automations support recurring agent runs and keep their outcomes attached to projects and threads. External MCP integrations provide scoped, user-approved access for other local clients.
 
 See [External MCP integrations](./docs/external-mcp.md) for setup, pairing, project access, and permission boundaries.
 
-### 7. Appearance and workspace preferences
+### 8. Appearance and workspace preferences
 
 Configure the shell to match the way you work with light and dark themes, typography controls, density preferences, and workspace settings.
 
 <p align="center">
-  <img src="./assets/prod/readme-appearance-dark.png" width="900" alt="Synara Appearance settings with theme, typography, and density controls">
+  <img src="./assets/prod/readme-appearance-dark.png" width="900" alt="Saint Appearance settings with theme, typography, and density controls">
 </p>
 
 ### Additional capabilities
@@ -111,29 +129,34 @@ Configure the shell to match the way you work with light and dark themes, typogr
 | **Execution**     | Terminals, browser previews, files, and editor.                 |
 | **Delivery**      | Diffs, Git actions, managed worktrees, and pull requests.       |
 | **Orchestration** | Provider handoffs, automations, and scoped external MCP.        |
+| **Remote**        | SSH hosts in their own windows, browser access over a token.    |
 | **Development**   | Desktop shell plus focused server and web modes.                |
 
 ## Installation
 
 ### Desktop application
 
-Download the latest build from [GitHub Releases](https://github.com/Emanuele-web04/synara/releases) or visit [trysynara.com](https://www.trysynara.com/).
+Build the installer for your platform from source (see [Build installers](#build-installers)).
 
-Current native release targets are Windows x64, macOS Intel, macOS Apple Silicon, and Linux x64.
+| Platform                     | Artifact                         | Install                                                             |
+| ---------------------------- | -------------------------------- | ------------------------------------------------------------------- |
+| Linux x64                    | `Saint-Beta-<version>-amd64.deb` | `sudo apt install ./Saint-Beta-<version>-amd64.deb`                 |
+| Windows x64                  | `Saint-Beta-<version>-x64.exe`   | Run the NSIS installer. Unsigned builds show a SmartScreen warning. |
+| macOS (Apple Silicon, Intel) | `.dmg`                           | Built on macOS only.                                                |
 
 Workspace Git features require [Git 2.29 or newer](https://github.com/git/git/blob/v2.29.0/Documentation/RelNotes/2.29.0.txt). Background refreshes preserve the FETCH_HEAD used by explicit fetch workflows. Ahead/behind counts use local refs and can update on the next status poll, up to 60 seconds after a successful background refresh; status reads do not wait for the remote.
 
 ### Provider setup
 
-Synara uses the provider installations and subscriptions already configured on the local machine. Install and authenticate the runtime you intend to use before starting a session. For Codex sessions, follow the [Codex CLI setup](https://github.com/openai/codex).
+Saint uses the provider installations and subscriptions already configured on the local machine. Install and authenticate the runtime you intend to use before starting a session. For Codex sessions, follow the [Codex CLI setup](https://github.com/openai/codex).
 
 ### Run from source
 
 The development checkout uses [Bun 1.4.4](https://bun.sh/) and [Node.js 24.13.1](https://nodejs.org/).
 
 ```console
-git clone https://github.com/Emanuele-web04/synara.git
-cd synara
+git clone https://gitlab.com/locotine/saint-hyper-agent.git
+cd saint-hyper-agent
 bun install
 bun run dev
 ```
@@ -152,12 +175,27 @@ Use these named scripts rather than a bare `tsc`, whose version depends on the
 current directory. Normal installation patches the native compiler for Effect;
 the root `typecheck` command also ensures that patch is applied before checking.
 
+### Build installers
+
+```console
+bun install --frozen-lockfile
+bun run build:desktop
+node scripts/build-desktop-artifact.ts --platform linux --target deb --arch x64 --flavor beta
+node scripts/build-desktop-artifact.ts --platform win --target nsis --arch x64 --flavor beta
+```
+
+Artifacts land in `release/` (or `SAINT_DESKTOP_OUTPUT_DIR`). The Linux package must be built on Linux x64, because it compiles `node-pty`. The Windows installer builds on Windows or cross-builds on Linux: the cross-build installs the win32 optional packages, uses the prebuilt native bindings instead of compiling them, and needs Wine with 32-bit support (`wine`, `wine64`, `wine32:i386`) for the executable resources and the NSIS uninstaller. See the [release guide](./docs/release.md#building-installers-on-linux).
+
 ## Contributing
 
 Bug fixes, reliability improvements, performance work, documentation, and maintenance changes are welcome.
 
-Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request. For a reproducible problem, [open an issue](https://github.com/Emanuele-web04/synara/issues/new/choose) with the Synara version, operating system, runtime, and relevant logs.
+Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a merge request. For a reproducible problem, [open an issue](https://gitlab.com/locotine/saint-hyper-agent/-/issues) with the Saint version, operating system, runtime, and relevant logs.
+
+## Maintainer
+
+Saint is maintained by Locotine at [gitlab.com/locotine/saint-hyper-agent](https://gitlab.com/locotine/saint-hyper-agent). Third-party notices are kept in [NOTICE](./NOTICE).
 
 ## License
 
-Synara is licensed under the [MIT License](./LICENSE).
+Saint is licensed under the [Apache License 2.0](./LICENSE). It includes software originally released under the MIT License; that notice is kept in [NOTICE](./NOTICE).

@@ -12,8 +12,8 @@ import type {
   ProviderKind,
   ProviderStartOptions,
   ServerSettings,
-} from "@synara/contracts";
-import { ProviderKind as ProviderKindSchema } from "@synara/contracts";
+} from "@saint/contracts";
+import { ProviderKind as ProviderKindSchema } from "@saint/contracts";
 import { Schema } from "effect";
 
 export const BUILT_IN_PROVIDER_KINDS = [
@@ -54,7 +54,7 @@ type MutableProviderInstanceConfigMap = Record<string, ProviderInstanceConfig>;
 type MutableProviderStartOptions = Partial<Record<ProviderKind, unknown>>;
 const PROVIDER_INSTANCE_ID_MAX_CHARS = 64;
 const CODEX_ACCOUNT_INSTANCE_PREFIX = "codex_";
-const UNRESOLVED_AUTOMATION_INSTANCE_PREFIX = "synara_unresolved_automation_";
+const UNRESOLVED_AUTOMATION_INSTANCE_PREFIX = "saint_unresolved_automation_";
 
 export function unresolvedAutomationInstanceId(provider: ProviderDriverKind): ProviderInstanceId {
   return `${UNRESOLVED_AUTOMATION_INSTANCE_PREFIX}${provider}` as ProviderInstanceId;
@@ -541,7 +541,7 @@ export function providerStartOptionsFromInstance(
       // account's overlay/auth: seed the instance id as a stable account
       // discriminator so it gets its own managed overlay. This includes
       // home-only instances — without a discriminator their overlay path can
-      // collide with the default instance's overlay (e.g. under SYNARA_HOME).
+      // collide with the default instance's overlay (e.g. under SAINT_HOME).
       // A shadow home already yields its own overlay segment, so it keeps its
       // established overlay identity.
       const accountId =

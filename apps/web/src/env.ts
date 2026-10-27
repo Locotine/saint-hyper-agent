@@ -6,3 +6,10 @@
 export const isElectron =
   typeof window !== "undefined" &&
   (window.desktopBridge !== undefined || window.nativeApi !== undefined);
+
+/**
+ * The SSH host this window's server runs on, or null for the local app and
+ * browsers. Paths in a remote window belong to that host.
+ */
+export const remoteWindowHost: string | null =
+  typeof window !== "undefined" ? (window.desktopBridge?.remoteWindow?.host ?? null) : null;

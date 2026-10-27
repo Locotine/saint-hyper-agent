@@ -10,8 +10,8 @@ import {
   type GitTextGenerationProvider,
   type ProviderKind,
   type SourceControlWritingStyle,
-} from "@synara/contracts";
-import { getModelOptions, normalizeModelSlug } from "@synara/shared/model";
+} from "@saint/contracts";
+import { getModelOptions, normalizeModelSlug } from "@saint/shared/model";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 

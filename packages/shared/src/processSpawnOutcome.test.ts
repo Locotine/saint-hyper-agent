@@ -10,7 +10,7 @@ describe("process spawn outcome", () => {
   it("records a missing cwd before ordinary error handlers run", async () => {
     const child = trackProcessSpawn(
       spawn(process.execPath, ["-e", ""], {
-        cwd: join(tmpdir(), `synara-missing-cwd-${crypto.randomUUID()}`),
+        cwd: join(tmpdir(), `saint-missing-cwd-${crypto.randomUUID()}`),
       }),
     );
     await new Promise<void>((resolve, reject) => {
@@ -30,7 +30,7 @@ describe("process spawn outcome", () => {
 
   it("records a missing executable without swallowing the original error", async () => {
     const child = trackProcessSpawn(
-      spawn(join(tmpdir(), `synara-missing-executable-${crypto.randomUUID()}`), []),
+      spawn(join(tmpdir(), `saint-missing-executable-${crypto.randomUUID()}`), []),
     );
     await new Promise<void>((resolve, reject) => {
       child.once("error", (error: NodeJS.ErrnoException) => {

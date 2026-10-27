@@ -1,4 +1,4 @@
-import { OrchestrationProposedPlanId, ProjectId, ThreadId } from "@synara/contracts";
+import { OrchestrationProposedPlanId, ProjectId, ThreadId } from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { partializeComposerDraftStoreState, useComposerDraftStore } from "./composerDraftStore";
 import {

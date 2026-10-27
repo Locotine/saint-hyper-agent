@@ -10,7 +10,7 @@ export function ParallelChatMock() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/split-syn.png"
-        alt="Synara split view — two agent threads running in parallel in the same window"
+        alt="Saint split view — two agent threads running in parallel in the same window"
         className="block h-auto w-full"
       />
     </div>

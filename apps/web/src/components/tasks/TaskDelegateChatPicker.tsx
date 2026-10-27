@@ -4,7 +4,7 @@
 // Layer: Tasks UI component
 // Exports: TaskDelegateChatPicker
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 import { ProviderIcon } from "~/components/ProviderIcon";
 import { ComposerPickerMenuPopup } from "~/components/chat/ComposerPickerMenuPopup";

@@ -9,12 +9,12 @@ import {
   mergePathEntries,
   readPathFromLaunchctl,
   readPathFromLoginShell,
-} from "@synara/shared/shell";
-import { createCachedLoginShellPathReader } from "@synara/shared/loginShellEnvironment";
+} from "@saint/shared/shell";
+import { createCachedLoginShellPathReader } from "@saint/shared/loginShellEnvironment";
 import {
   expandHomePath as expandHomePathSync,
-  resolveSynaraHomeDirectory,
-} from "@synara/shared/synaraHome";
+  resolveSaintHomeDirectory,
+} from "@saint/shared/saintHome";
 
 function logPathHydrationWarning(message: string, error?: unknown): void {
   console.warn(`[server] ${message}`, error instanceof Error ? error.message : (error ?? ""));
@@ -52,7 +52,7 @@ export function fixPath(
     const readLaunchctlFallbackPath = (): string | undefined =>
       platform === "darwin" ? (options.readLaunchctlPath ?? readPathFromLaunchctl)() : undefined;
 
-    // Cached by default: the probe result is persisted under the Synara home and reused
+    // Cached by default: the probe result is persisted under the Saint home and reused
     // until the shell, the user, or any of its startup files changes.
     const readPath = options.readPath ?? createCachedLoginShellPathReader({ env, platform });
 
@@ -86,4 +86,4 @@ export const expandHomePath = (input: string): Effect.Effect<string> =>
   Effect.succeed(expandHomePathSync(input));
 
 export const resolveBaseDir = (raw: string | undefined): Effect.Effect<string> =>
-  Effect.succeed(resolveSynaraHomeDirectory({ configuredHome: raw }));
+  Effect.succeed(resolveSaintHomeDirectory({ configuredHome: raw }));

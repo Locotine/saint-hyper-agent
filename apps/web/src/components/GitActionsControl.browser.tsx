@@ -1,4 +1,4 @@
-import { ThreadId, type GitActionProgressEvent, type NativeApi } from "@synara/contracts";
+import { ThreadId, type GitActionProgressEvent, type NativeApi } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";

@@ -1,7 +1,7 @@
 // One terminal viewport per chat or dock scope. The owning surface supplies its header.
 import { useEffect, useRef } from "react";
-import { type ThreadId } from "@synara/contracts";
-import { type TerminalActivityState, type TerminalCliKind } from "@synara/shared/terminalThreads";
+import { type ThreadId } from "@saint/contracts";
+import { type TerminalActivityState, type TerminalCliKind } from "@saint/shared/terminalThreads";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
 import { readNativeApi } from "~/nativeApi";
 import { useTerminalStateStore } from "~/terminalStateStore";

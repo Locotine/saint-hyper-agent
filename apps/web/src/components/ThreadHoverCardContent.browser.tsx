@@ -1,6 +1,6 @@
 import "../index.css";
 
-import { ThreadId, type ProviderModelDescriptor } from "@synara/contracts";
+import { ThreadId, type ProviderModelDescriptor } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { expect, it } from "vitest";
 import { render } from "vitest-browser-react";

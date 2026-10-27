@@ -6,9 +6,9 @@
 // Layer: Kanban UI hook
 // Exports: useKanbanCardContextMenu
 
-import { THREAD_GOAL_MAX_CHARS, type ThreadId } from "@synara/contracts";
-import { resolveThreadWorkspaceCwd } from "@synara/shared/threadEnvironment";
-import { KANBAN_COLUMN_V2_LABELS } from "@synara/shared/kanban";
+import { THREAD_GOAL_MAX_CHARS, type ThreadId } from "@saint/contracts";
+import { resolveThreadWorkspaceCwd } from "@saint/shared/threadEnvironment";
+import { KANBAN_COLUMN_V2_LABELS } from "@saint/shared/kanban";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type MouseEvent, useState } from "react";
 

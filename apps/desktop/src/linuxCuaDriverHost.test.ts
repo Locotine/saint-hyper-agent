@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cuaRequest, type CuaReply } from "@synara/shared/cuaDriverProtocol";
+import { cuaRequest, type CuaReply } from "@saint/shared/cuaDriverProtocol";
 
 import type { CuaDriverHost } from "./cuaDriverHost";
 import { createLinuxCuaDriverHost } from "./linuxCuaDriverHost";
@@ -17,13 +17,13 @@ async function fixture(
   isPackaged = false,
   inputMonitor?: Parameters<typeof createLinuxCuaDriverHost>[0]["inputMonitor"],
 ) {
-  const missingRoot = join(tmpdir(), `synara-no-driver-${randomUUID()}`);
+  const missingRoot = join(tmpdir(), `saint-no-driver-${randomUUID()}`);
   const ownPids = new Set([process.pid]);
   const host = createLinuxCuaDriverHost({
     isPackaged,
     resourcesPath: missingRoot,
     appRoot: missingRoot,
-    bundleId: "test.synara.linux",
+    bundleId: "test.saint.linux",
     capability,
     ownPids: () => ownPids,
     ...(inputMonitor ? { inputMonitor } : {}),
@@ -98,7 +98,7 @@ describe("Linux desktop host startup", () => {
     },
   );
 
-  it("keeps newly created Synara helper PIDs protected without starting a driver", async () => {
+  it("keeps newly created Saint helper PIDs protected without starting a driver", async () => {
     const f = await fixture();
     const helperPid = process.pid + 10_000;
     f.ownPids.add(helperPid);
@@ -122,7 +122,7 @@ describe("Linux desktop host startup", () => {
       cuaRequest<CuaReply>(f.endpoint, { method: "setup", capability }),
     ).resolves.toMatchObject({
       ok: false,
-      error: expect.stringContaining("Start Synara inside your Linux desktop session"),
+      error: expect.stringContaining("Start Saint inside your Linux desktop session"),
     });
   });
 });

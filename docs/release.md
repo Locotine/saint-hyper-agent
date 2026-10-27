@@ -42,10 +42,10 @@ version, release notes and lockfile are final.
   - Versions with a suffix after `X.Y.Z` (for example `1.2.3-alpha.1`) are published as GitHub prereleases.
   - A `beta` prerelease identifier (`vX.Y.Z-beta.N`) selects the beta lane: the desktop artifact builds with `--flavor beta`, updater manifests publish under the `beta` channel, and the release never becomes Latest, never bumps `main` versions, and never touches the npm `latest` dist-tag. See [Beta channel](../BETA.md).
   - Stable clean-lane releases are GitHub Latest; the 0.4.x compatibility release remains historical.
-- Publishes default `latest*.yml` metadata plus byte-identical `synara*.yml` aliases on every stable release so existing packaged binaries keep working.
+- Publishes default `latest*.yml` metadata plus byte-identical `saint*.yml` aliases on every stable release so existing packaged binaries keep working.
 - Keeps the historical 0.4.x compatibility release unchanged; current stable payloads stay on their own GitHub Latest release.
-- Publishes prerelease installers only on their versioned GitHub prerelease; prereleases never replace the stable `synara` update manifests.
-- Publishes the CLI package (`apps/server`, npm package `@synara/cli`) with OIDC trusted publishing.
+- Publishes prerelease installers only on their versioned GitHub prerelease; prereleases never replace the stable `saint` update manifests.
+- Publishes the CLI package (`apps/server`, npm package `@saint/cli`) with OIDC trusted publishing.
 - Published macOS artifacts must be signed. Windows publication currently uses
   an explicit version-scoped unsigned exception; otherwise Azure signing is
   required. Build-only runs may produce unsigned artifacts when signing secrets
@@ -60,21 +60,21 @@ version, release notes and lockfile are final.
   - The desktop UI shows a rocket update button while preparing and switches to an install action once the update is ready.
 - Provider: GitHub Releases (`provider: github`) configured at build time.
 - Repository visibility: public. The authenticated private-repository provider does not honor custom channel filenames.
-- Runtime channel: `synara` for stable builds, `beta` for beta builds (resolved by `desktopUpdateChannel` in `packages/shared/src/desktopIdentity.ts`). Stable clean-lane releases publish both `latest` and `synara` metadata; beta releases publish `beta` channel aliases of the same default `latest` manifests, and beta builds run with `allowPrerelease=true` so they follow their own prerelease feed.
+- Runtime channel: `saint` for stable builds, `beta` for beta builds (resolved by `desktopUpdateChannel` in `packages/shared/src/desktopIdentity.ts`). Stable clean-lane releases publish both `latest` and `saint` metadata; beta releases publish `beta` channel aliases of the same default `latest` manifests, and beta builds run with `allowPrerelease=true` so they follow their own prerelease feed.
 - Repository slug source:
-  - `SYNARA_DESKTOP_UPDATE_REPOSITORY` (format `owner/repo`), if set.
+  - `SAINT_DESKTOP_UPDATE_REPOSITORY` (format `owner/repo`), if set.
   - otherwise `GITHUB_REPOSITORY` from GitHub Actions.
-- Required Synara release assets for updater:
+- Required Saint release assets for updater:
   - platform installers (`.exe`, `.dmg`, `.AppImage`, plus macOS `.zip` for Squirrel.Mac update payloads)
-  - `synara-mac.yml`, `synara.yml`, and `synara-linux.yml` metadata
-  - every stable release includes both `synara-mac.yml`, `synara.yml`, `synara-linux.yml` and `latest-mac.yml`, `latest.yml`, `latest-linux.yml`
+  - `saint-mac.yml`, `saint.yml`, and `saint-linux.yml` metadata
+  - every stable release includes both `saint-mac.yml`, `saint.yml`, `saint-linux.yml` and `latest-mac.yml`, `latest.yml`, `latest-linux.yml`
   - `*.blockmap` files, except the macOS update ZIP, which uses a full-archive payload
 - Enforced upgrade path:
-  - Stable clean Synara releases are created with `make_latest=true` and carry both six-manifest filenames in the versioned release.
+  - Stable clean Saint releases are created with `make_latest=true` and carry both six-manifest filenames in the versioned release.
   - The historical 0.4.x compatibility release remains available for predecessor migration and is never overwritten by a clean-lane release.
   - Clean releases do not mirror payloads onto the historical compatibility release, so the 0.4.x line remains immutable.
-  - Clean-release publication fails closed if either the default Latest manifests or the dedicated `synara` aliases are missing.
-- Production desktop builds omit web/server/desktop source maps by default to keep update payloads small. Set `SYNARA_WEB_SOURCEMAP=1`, `SYNARA_SERVER_SOURCEMAP=1`, or `SYNARA_DESKTOP_SOURCEMAP=1` only for a diagnostic release that needs them.
+  - Clean-release publication fails closed if either the default Latest manifests or the dedicated `saint` aliases are missing.
+- Production desktop builds omit web/server/desktop source maps by default to keep update payloads small. Set `SAINT_WEB_SOURCEMAP=1`, `SAINT_SERVER_SOURCEMAP=1`, or `SAINT_DESKTOP_SOURCEMAP=1` only for a diagnostic release that needs them.
 - macOS metadata note:
   - Installed macOS apps persist alternate icon choices using `NSWorkspace` custom-icon metadata, and reapply the saved choice on launch after an update. Default removes the override so the bundled icon follows system appearance. This requires a writable app bundle; development Electron bundles are not customized.
   - Custom icons leave signed `Contents` unchanged, but add Finder metadata that `codesign --verify --strict` rejects on a customized installation. Validate pristine distribution artifacts with the strict checks below. A local notarized app copy retained normal signature verification and Gatekeeper acceptance after customization; signed release/update testing must still cover this path.
@@ -82,7 +82,7 @@ version, release notes and lockfile are final.
     the finalizer creates the updater ZIP once with `ditto` and writes its
     `latest-mac.yml` hash/size for each architecture; there is no preliminary ZIP
     or ZIP blockmap to generate and discard.
-  - The workflow merges the per-arch macOS metadata, then keeps the merged manifest as `latest-mac.yml` and copies it to `synara-mac.yml` for stable releases.
+  - The workflow merges the per-arch macOS metadata, then keeps the merged manifest as `latest-mac.yml` and copies it to `saint-mac.yml` for stable releases.
   - Finalization verifies Electron framework symlinks, extracts the ZIP and
     validates the extracted app signature before accepting the updater artifact.
     Retained older stages with existing metadata are updated to the final ZIP
@@ -100,7 +100,7 @@ the package version to the release tag version.
 
 Checklist:
 
-1. Confirm the npm account controls the `@synara` scope and can publish `@synara/cli`.
+1. Confirm the npm account controls the `@saint` scope and can publish `@saint/cli`.
 2. In npm package settings, configure Trusted Publisher:
    - Provider: GitHub Actions
    - Repository: this repo
@@ -112,15 +112,15 @@ Checklist:
    - build web + server
    - run `bun publish --access public`
 
-## Synara notes
+## Saint notes
 
-- Every stable versioned release must include both the default `latest` updater metadata and the dedicated `synara` aliases alongside its installers.
-- The published release title should read `Synara vX.Y.Z`.
+- Every stable versioned release must include both the default `latest` updater metadata and the dedicated `saint` aliases alongside its installers.
+- The published release title should read `Saint vX.Y.Z`.
 - By default, the first-party desktop release path does not require CLI publish or post-release version-bump automation.
 - Optional jobs stay disabled unless repository variables enable them:
-  - `SYNARA_PUBLISH_CLI=1`
-  - `SYNARA_FINALIZE_RELEASE=1`
-  - `SYNARA_AUTO_BETA=1` — tag the next `vX.Y.(Z+1)-beta.1` on the stable commit after each stable publish (see [BETA.md](../BETA.md)).
+  - `SAINT_PUBLISH_CLI=1`
+  - `SAINT_FINALIZE_RELEASE=1`
+  - `SAINT_AUTO_BETA=1` — tag the next `vX.Y.(Z+1)-beta.1` on the stable commit after each stable publish (see [BETA.md](../BETA.md)).
 
 ## 1) Build-only native CI validation
 
@@ -261,7 +261,7 @@ wait does not cancel Apple's processing. With the same credentials in the
 environment, resume finalization without re-signing the app:
 
 ```bash
-node scripts/notarize-mac-app.ts /PATH/TO/STAGE/app/dist/mac-arm64/Synara.app
+node scripts/notarize-mac-app.ts /PATH/TO/STAGE/app/dist/mac-arm64/Saint.app
 node scripts/finalize-mac-dmg.ts /PATH/TO/STAGE/app/dist
 ```
 
@@ -291,9 +291,9 @@ packages, including DMG and update ZIP payloads.
 The generated and retained macOS update feeds use Darwin `22.0.0` for this minimum,
 because electron-updater compares `os.release()` rather than the macOS product version.
 
-The [read-only v1.0.1 inspection](https://github.com/Emanuele-web04/synara/actions/runs/38163962883)
+The read-only v1.0.1 inspection
 found app/Electron metadata at 12.0 and bundled Claude/Cua at 13.0 on both architectures.
-The [actual Homebrew audit](https://github.com/Emanuele-web04/synara/actions/runs/38166229495)
+The actual Homebrew audit
 rejected a cask requiring 13 because the old app plist still declares 12. This source fix
 does not modify signed historical releases. Recheck a newly built and published DMG's
 plist and native payload before refreshing the cask; the old audit failure remains
@@ -304,7 +304,7 @@ Both native macOS release runners use macOS 15. Native helpers and the pinned
 Cua apple-metal bridge build with Xcode 16.4's macOS 15 SDK. A separate macOS 26
 job compiles the architecture-independent Icon Composer catalog with Xcode 26.3
 from the same release checkout and passes it through a required workflow artifact.
-`SYNARA_MAC_ICON_CATALOG` points packaging at that catalog; a missing file fails
+`SAINT_MAC_ICON_CATALOG` points packaging at that catalog; a missing file fails
 the build. This avoids Apple's AssetRuntime framework crash on macOS 15 without
 changing the native SDK. Local builds without that variable compile icons with
 the selected Xcode on the local host.
@@ -324,7 +324,7 @@ as a supported 0.9.0 feature.
 On an Apple Silicon Mac, build the DMG and macOS update ZIP in `release/` with:
 
 ```bash
-SYNARA_DESKTOP_UPDATE_REPOSITORY=Emanuele-web04/synara bun run dist:desktop:dmg:arm64
+SAINT_DESKTOP_UPDATE_REPOSITORY=locotine/saint bun run dist:desktop:dmg:arm64
 ```
 
 `dist:desktop:dmg:x64` builds the Intel app; on Apple Silicon, add the
@@ -345,7 +345,7 @@ backgrounds. The exported `app-icon.png` is retained alongside it as a reference
 the app continues to use the existing production ICNS generation pipeline.
 
 Mount the resulting DMG in Finder and check the 642×406 window, 128px icons,
-and icon centers at (172, 135) for `Synara.app` and (514, 241) for `Applications`.
+and icon centers at (172, 135) for `Saint.app` and (514, 241) for `Applications`.
 Verify both real filename labels remain readable and unclipped. Finder renders
 the app icon and Applications link, so their appearance can differ from Dmgly's
 preview; Retina displays also scale the supplied 1× background. Local Finder
@@ -388,7 +388,7 @@ Notes:
 
 The current Windows release policy publishes x64 installers unsigned under an
 explicit version-scoped exception. Before pushing the release tag, set the
-repository Actions variable `SYNARA_ALLOW_UNSIGNED_WINDOWS_RELEASE` to the exact
+repository Actions variable `SAINT_ALLOW_UNSIGNED_WINDOWS_RELEASE` to the exact
 version without the `v` prefix (for example, `0.8.4`). The workflow checks equality
 with the resolved release version before packaging; do not use a permanent broad
 opt-out. Packaging, source provenance, startup smoke, and artifact upload must
@@ -493,7 +493,7 @@ full subject distinguished name.
    recovery procedure below when a stage fails.
 7. Confirm the versioned release is public with all expected installers, manifests
    and provenance. Stable must be GitHub Latest and carry all three `latest`
-   manifests plus byte-identical `synara` aliases; Beta must remain a prerelease
+   manifests plus byte-identical `saint` aliases; Beta must remain a prerelease
    with its own feed. Verify the historical compatibility release is unchanged.
 8. Verify public downloads and the authorized website deployment. Report packaged
    startup proof separately from manual installation, installed-app updates and
@@ -537,12 +537,34 @@ full subject distinguished name.
   Record both outcomes; do not repeat unrelated passed stages to conceal or
   replace the original result.
 
+## Building installers on Linux
+
+Unsigned installers can be built outside CI on a Linux x64 machine or container
+(Ubuntu 24.04 is known to work) with Node.js 24, Bun, a C/C++ toolchain and Python:
+
+```bash
+bun install --frozen-lockfile
+bun run build:desktop
+SAINT_DESKTOP_OUTPUT_DIR=release node scripts/build-desktop-artifact.ts --platform linux --target deb --arch x64 --flavor beta
+SAINT_DESKTOP_OUTPUT_DIR=release node scripts/build-desktop-artifact.ts --platform win --target nsis --arch x64 --flavor beta
+```
+
+| Target     | Linux host requirements and behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deb` x64  | Compiles `node-pty` for the packaged terminal, so the host must be Linux x64.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `nsis` x64 | Cross-build. The staged install selects the win32 optional packages (`--os=win32 --cpu=x64`) and electron-builder skips its native rebuild (`npmRebuild: false`), because node-gyp cannot cross-compile; `node-pty` and `msgpackr-extract` use their prebuilt win32 bindings. Wine writes the executable's icon and version resources and runs the installer to produce the uninstaller, so install `wine`, `wine64` and `wine32:i386` (after `dpkg --add-architecture i386`), and use a `WINEPREFIX` owned by the building user. |
+
+These builds are unsigned: SmartScreen warns on the Windows installer, and the
+macOS DMG still needs a macOS host. A cross-built Windows installer has not
+passed the CI Defender scan or packaged startup smoke; run it on Windows before
+sharing it.
+
 ## 5) Troubleshooting
 
 - macOS build unsigned when expected signed:
   - Check all Apple secrets are populated and non-empty.
 - Published Windows build rejected before packaging:
-  - For the unsigned release policy, check that `SYNARA_ALLOW_UNSIGNED_WINDOWS_RELEASE` matches the exact version without `v`.
+  - For the unsigned release policy, check that `SAINT_ALLOW_UNSIGNED_WINDOWS_RELEASE` matches the exact version without `v`.
   - For a signed release, check all eight Azure ATS, identity, and auth secrets are populated and non-empty.
 - Build fails with signing error:
   - Re-check certificate/profile names and tenant/client credentials.

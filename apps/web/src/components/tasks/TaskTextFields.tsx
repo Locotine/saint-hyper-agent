@@ -4,7 +4,7 @@
 // Layer: Tasks UI component
 // Exports: TaskTextFields
 
-import type { TodoUpdateInput } from "@synara/contracts";
+import type { TodoUpdateInput } from "@saint/contracts";
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { TaskRowModel } from "./tasks.logic";

@@ -10,7 +10,7 @@ import {
   type OrchestrationThreadShell,
   type PullRequestAutoFixPauseReason,
   type PullRequestAutoFixState,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { threadHasInFlightTurn } from "../orchestration/commandInvariants";
 

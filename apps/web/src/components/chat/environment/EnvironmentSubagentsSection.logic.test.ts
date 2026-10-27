@@ -5,7 +5,7 @@
 // Layer: Environment panel tests
 // Depends on: deriveEnvironmentSubagentRoster
 
-import { EventId, TurnId, type OrchestrationThreadActivity } from "@synara/contracts";
+import { EventId, TurnId, type OrchestrationThreadActivity } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import type { WorkLogEntry, WorkLogSubagent } from "../../../session-logic";

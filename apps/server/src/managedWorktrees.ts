@@ -3,7 +3,7 @@ import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { ServerManagedWorktree } from "@synara/contracts";
+import type { ServerManagedWorktree } from "@saint/contracts";
 import { Effect } from "effect";
 
 import type { GitCoreShape } from "./git/Services/GitCore.ts";
@@ -25,7 +25,7 @@ export function managedWorktreeSnapshotsDir(homeDir: string): string {
 
 /**
  * Whether `worktreePath` lives strictly inside `worktreesDir`. Only such paths are
- * Synara-managed, so only they get residue cleanup (snapshots, empty parents).
+ * Saint-managed, so only they get residue cleanup (snapshots, empty parents).
  */
 export function isManagedWorktreePath(input: {
   readonly worktreesDir: string;

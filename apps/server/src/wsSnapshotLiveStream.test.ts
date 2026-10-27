@@ -1,4 +1,4 @@
-import { EventId, ThreadId, type OrchestrationEvent } from "@synara/contracts";
+import { EventId, ThreadId, type OrchestrationEvent } from "@saint/contracts";
 import { Cause, Deferred, Duration, Effect, Exit, Fiber, PubSub, Queue, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 

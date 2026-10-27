@@ -49,8 +49,8 @@ export default function globalSetup(): () => void {
     ],
     { cwd: WEB_DIR, stdio: "inherit" },
   );
-  process.env.SYNARA_E2E_ELECTRON_MAIN = OUTPUT_PATH;
-  process.env.SYNARA_E2E_INLINE_VISUAL_MAIN = INLINE_VISUAL_OUTPUT_PATH;
-  process.env.SYNARA_E2E_BROWSER_ANNOTATION_PRELOAD = ANNOTATION_PRELOAD_OUTPUT_PATH;
+  process.env.SAINT_E2E_ELECTRON_MAIN = OUTPUT_PATH;
+  process.env.SAINT_E2E_INLINE_VISUAL_MAIN = INLINE_VISUAL_OUTPUT_PATH;
+  process.env.SAINT_E2E_BROWSER_ANNOTATION_PRELOAD = ANNOTATION_PRELOAD_OUTPUT_PATH;
   return () => rmSync(OUTPUT_DIR, { recursive: true, force: true });
 }

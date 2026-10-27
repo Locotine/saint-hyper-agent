@@ -62,10 +62,10 @@ export const DeviceRuntimeState = Schema.Literals([
 export type DeviceRuntimeState = typeof DeviceRuntimeState.Type;
 
 /**
- * Who owns the boot. Synara only auto-shuts down devices it booted itself;
+ * Who owns the boot. Saint only auto-shuts down devices it booted itself;
  * anything the user started (pane picker, Simulator.app) outlives the session.
  */
-export const DeviceBootSource = Schema.Literals(["synara", "user"]);
+export const DeviceBootSource = Schema.Literals(["saint", "user"]);
 export type DeviceBootSource = typeof DeviceBootSource.Type;
 
 /**
@@ -271,7 +271,7 @@ export const ThreadDeviceState = Schema.Struct({
    * it is waiting on.
    */
   attachPhase: Schema.optional(Schema.NullOr(DeviceAttachPhase)),
-  /** Devices the pane may show: booted devices plus anything Synara is booting. */
+  /** Devices the pane may show: booted devices plus anything Saint is booting. */
   devices: Schema.Array(DeviceDescriptor).check(
     Schema.isMaxLength(DEVICE_THREAD_STATE_MAX_DEVICES),
   ),
@@ -284,8 +284,8 @@ export type ThreadDeviceState = typeof ThreadDeviceState.Type;
 
 // ── Control-plane inputs and results ─────────────────────────────────
 
-/** Devices Synara itself booted are capped globally; viewing already-booted devices is not. */
-export const DEVICE_SYNARA_BOOT_LIMIT = 3;
+/** Devices Saint itself booted are capped globally; viewing already-booted devices is not. */
+export const DEVICE_SAINT_BOOT_LIMIT = 3;
 
 const DeviceTargetInput = Schema.Struct({ udid: DeviceUdid });
 
@@ -305,7 +305,7 @@ export const DeviceBootInput = DeviceTargetInput;
 export type DeviceBootInput = typeof DeviceBootInput.Type;
 
 /**
- * Boot is refusable rather than fatal: past DEVICE_SYNARA_BOOT_LIMIT the caller
+ * Boot is refusable rather than fatal: past DEVICE_SAINT_BOOT_LIMIT the caller
  * is handed the shutdown candidates so the pane can prompt instead of erroring.
  */
 export const DeviceBootResult = Schema.Union([
@@ -313,7 +313,7 @@ export const DeviceBootResult = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("boot-limit-reached"),
     limit: NonNegativeInt,
-    synaraBooted: Schema.Array(DeviceDescriptor).check(Schema.isMaxLength(64)),
+    saintBooted: Schema.Array(DeviceDescriptor).check(Schema.isMaxLength(64)),
   }),
 ]);
 export type DeviceBootResult = typeof DeviceBootResult.Type;
@@ -425,7 +425,7 @@ export type DeviceBundleId = typeof DeviceBundleId.Type;
 
 export const DeviceInstallAppInput = Schema.Struct({
   udid: DeviceUdid,
-  /** Absolute path to a built `.app` bundle; Synara never runs the build itself. */
+  /** Absolute path to a built `.app` bundle; Saint never runs the build itself. */
   appPath: TrimmedNonEmptyString.check(Schema.isMaxLength(DEVICE_PATH_MAX_LENGTH)),
 });
 export type DeviceInstallAppInput = typeof DeviceInstallAppInput.Type;
@@ -668,7 +668,7 @@ export type DeviceEvent = typeof DeviceEvent.Type;
 /**
  * Encoded video frames ride the existing WebSocket as binary messages prefixed
  * with this header, so a frame can be routed to the right pane without parsing
- * the bitstream. Runtime encode/decode lives in `@synara/shared/deviceFrame`;
+ * the bitstream. Runtime encode/decode lives in `@saint/shared/deviceFrame`;
  * this module stays schema-only.
  *
  * Little-endian layout:

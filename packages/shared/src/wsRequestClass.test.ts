@@ -1,4 +1,4 @@
-import { ORCHESTRATION_WS_METHODS, WS_METHODS } from "@synara/contracts";
+import { ORCHESTRATION_WS_METHODS, WS_METHODS } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {

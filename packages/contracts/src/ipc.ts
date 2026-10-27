@@ -208,6 +208,8 @@ import type {
 import type {
   ProjectCreateLocalFilePreviewGrantInput,
   ProjectCreateLocalFilePreviewGrantResult,
+  ProjectCreateHtmlPreviewGrantInput,
+  ProjectCreateHtmlPreviewGrantResult,
   ProjectDevServerEvent,
   ProjectDiscoverScriptsInput,
   ProjectDiscoverScriptsResult,
@@ -368,6 +370,9 @@ import type {
   OrchestrationSubscribeThreadInput,
   OrchestrationThreadStreamItem,
   OrchestrationUnsubscribeThreadInput,
+  ProviderKind,
+  OrchestrationGetThreadTranscriptInput,
+  OrchestrationGetThreadTranscriptResult,
 } from "./orchestration";
 import type { EditorId } from "./editor";
 import type { ThreadId } from "./baseSchemas";
@@ -503,7 +508,7 @@ export interface DesktopBetaInstallProgress {
   readonly message?: string;
 }
 
-/** Result of a stable-side probe for a parallel Synara Beta install. */
+/** Result of a stable-side probe for a parallel Saint Beta install. */
 export interface DesktopBetaChannelState {
   /** False on web builds and unsupported probing environments. */
   readonly supported: boolean;
@@ -522,7 +527,7 @@ export interface DesktopBetaChannelState {
   readonly downloadUrl: string;
   /** Live download/install progress; an `error` phase stays until the next attempt. */
   readonly install: DesktopBetaInstallProgress | null;
-  /** Beta only: a stable Synara app was found to switch back to. */
+  /** Beta only: a stable Saint app was found to switch back to. */
   readonly stableInstalled: boolean;
   /** Beta only: leaving can also move the beta app to the Trash (macOS). */
   readonly canMoveBetaToTrash: boolean;
@@ -845,7 +850,7 @@ export const DesktopMenuShortcuts = Schema.Struct({
 });
 export type DesktopMenuShortcuts = typeof DesktopMenuShortcuts.Type;
 
-export interface SynaraStorageSnapshot {
+export interface SaintStorageSnapshot {
   readonly version: 1;
   readonly exportedAt: string;
   readonly entries: Readonly<Record<string, string>>;
@@ -982,7 +987,7 @@ export const DesktopDiagnosticIssue = Schema.Struct({
   durationMs: Schema.optional(Schema.Finite),
 });
 export type DesktopDiagnosticIssue = typeof DesktopDiagnosticIssue.Type;
-export const DESKTOP_DIAGNOSTIC_ISSUE_PREFIX = "SYNARA_DIAGNOSTIC_ISSUE ";
+export const DESKTOP_DIAGNOSTIC_ISSUE_PREFIX = "SAINT_DIAGNOSTIC_ISSUE ";
 export type DesktopDiagnosticReportStatus = "queued" | "sent" | "unavailable";
 
 /** Where a remote SSH host is in connect, install, start, tunnel, or stop. */
@@ -1140,7 +1145,7 @@ export interface DesktopBridge {
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
   /**
-   * Remote SSH hosts: run a Synara server on another machine and open it in
+   * Remote SSH hosts: run a Saint server on another machine and open it in
    * its own desktop window through an SSH tunnel. Beta only; absent on Stable
    * and in remote windows, and the main process refuses it there.
    */
@@ -1155,19 +1160,32 @@ export interface DesktopBridge {
     forget: (host: string) => Promise<void>;
     onState: (listener: (state: DesktopRemoteSshState) => void) => () => void;
   };
+  /**
+   * Present only in a remote SSH host window. Paths there belong to the host,
+   * so the renderer browses folders through the server, opens editors in their
+   * Remote-SSH mode, and never resolves dropped local files to paths.
+   */
+  remoteWindow?: {
+    readonly host: string;
+    /** Local editors that can open the host's folders over Remote-SSH. */
+    readonly editors: readonly EditorId[];
+    /** Providers the host's server runs; the rest are not installed there. */
+    readonly providers: readonly ProviderKind[];
+    openInEditor: (target: string, editor: EditorId) => Promise<void>;
+  };
   /** Stable→Beta opt-in surface. Absent on builds that do not ship it. */
   beta?: {
     getState: () => Promise<DesktopBetaChannelState>;
-    /** Downloads and installs Synara Beta when missing (macOS), then opens it. */
+    /** Downloads and installs Saint Beta when missing (macOS), then opens it. */
     install: () => Promise<DesktopBetaActionResult>;
     /**
-     * Installs Synara Beta when missing (macOS), writes the import marker, and
+     * Installs Saint Beta when missing (macOS), writes the import marker, and
      * launches it to consume the import.
      */
     importAndLaunch: () => Promise<DesktopBetaActionResult>;
     launch: () => Promise<DesktopBetaActionResult>;
     /**
-     * Beta only: opens stable Synara, optionally moves the beta app to the
+     * Beta only: opens stable Saint, optionally moves the beta app to the
      * Trash (macOS), then quits beta. Beta data stays in the beta home.
      */
     leave: (input: { readonly moveToTrash: boolean }) => Promise<DesktopBetaActionResult>;
@@ -1215,7 +1233,7 @@ export interface DesktopBridge {
     onState: (listener: (state: DesktopAppSnapState) => void) => () => void;
   };
   storageMigration: {
-    readSnapshot: () => SynaraStorageSnapshot | null;
+    readSnapshot: () => SaintStorageSnapshot | null;
     acknowledgeSnapshot: () => Promise<void>;
   };
   server?: {
@@ -1293,6 +1311,10 @@ export interface NativeApi {
     createLocalFilePreviewGrant: (
       input: ProjectCreateLocalFilePreviewGrantInput,
     ) => Promise<ProjectCreateLocalFilePreviewGrantResult>;
+    /** Absent on older servers, which cannot render HTML previews. */
+    createHtmlPreviewGrant?: (
+      input: ProjectCreateHtmlPreviewGrantInput,
+    ) => Promise<ProjectCreateHtmlPreviewGrantResult>;
     writeFile: (input: ProjectWriteFileInput) => Promise<ProjectWriteFileResult>;
     runDevServer: (input: ProjectRunDevServerInput) => Promise<ProjectRunDevServerResult>;
     stopDevServer: (input: ProjectStopDevServerInput) => Promise<ProjectStopDevServerResult>;
@@ -1498,6 +1520,10 @@ export interface NativeApi {
     getInlineVisual: (
       input: OrchestrationGetInlineVisualInput,
     ) => Promise<OrchestrationGetInlineVisualResult>;
+    /** Absent on older servers; a transcript handoff then omits the path. */
+    getThreadTranscript?: (
+      input: OrchestrationGetThreadTranscriptInput,
+    ) => Promise<OrchestrationGetThreadTranscriptResult>;
     replayEvents: (
       fromSequenceExclusive: number,
       threadId?: ThreadId,

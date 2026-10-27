@@ -12,7 +12,7 @@ import type {
   ProviderUserInputAnswers,
   RuntimeMode,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Deferred, Effect, Option, Scope, Semaphore, SynchronizedRef } from "effect";
 import type * as Acp from "@agentclientprotocol/sdk";
 

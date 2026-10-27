@@ -1,12 +1,12 @@
 // FILE: desktopUserDataProfile.ts
-// Purpose: Resolves Synara's Electron userData paths and completes bridge profile repair.
+// Purpose: Resolves Saint's Electron userData paths and completes bridge profile repair.
 
 import * as FS from "node:fs";
 import * as OS from "node:os";
 import * as Path from "node:path";
 
-const BRIDGE_PROFILE_MANIFEST_FILE_NAME = "synara-profile-seed.json";
-const CANONICAL_BROWSER_PARTITION_NAME = "synara-browser";
+const BRIDGE_PROFILE_MANIFEST_FILE_NAME = "saint-profile-seed.json";
+const CANONICAL_BROWSER_PARTITION_NAME = "saint-browser";
 const BROWSER_PARTITION_SEED_ENTRY_GROUPS = [
   ["Cookies", "Cookies-journal", "Cookies-wal", "Cookies-shm"],
   ["Local Storage"],
@@ -109,7 +109,7 @@ function findBridgeBrowserPartitionPaths(sourceProfilePath: string): string[] {
 /**
  * Finishes any browser-partition copy described by the compatibility bridge.
  *
- * The bridge manifest identifies the exact sibling profile that supplied the Synara profile.
+ * The bridge manifest identifies the exact sibling profile that supplied the Saint profile.
  * Discovering its `*-browser` partition from that trusted path avoids shipping predecessor names
  * while still repairing cookies or storage entries that were absent during the first bridge run.
  */
@@ -153,7 +153,7 @@ export function repairBrowserProfileFromBridgeManifest(
         FS.existsSync(Path.join(sourcePartitionPath, entryName)),
       );
       FS.mkdirSync(targetPartitionPath, { recursive: true });
-      const stagedGroupPath = FS.mkdtempSync(Path.join(targetPartitionPath, ".synara-bridge-"));
+      const stagedGroupPath = FS.mkdtempSync(Path.join(targetPartitionPath, ".saint-bridge-"));
       const stagedSourcePath = Path.join(stagedGroupPath, "source");
       const stagedTargetBackupPath = Path.join(stagedGroupPath, "target-backup");
       try {

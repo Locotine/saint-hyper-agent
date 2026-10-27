@@ -2,7 +2,7 @@ import type {
   ExternalMcpCapability,
   ExternalMcpClientKind,
   ExternalMcpProjectScope,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -12,7 +12,7 @@ export interface ExternalMcpIntegrationRecord {
   readonly integrationId: string;
   readonly name: string;
   readonly clientKind: ExternalMcpClientKind;
-  readonly audience: "synara.external-mcp";
+  readonly audience: "saint.external-mcp";
   readonly credentialHash: string | null;
   readonly capabilities: ReadonlyArray<ExternalMcpCapability>;
   readonly projectScope: ExternalMcpProjectScope;
@@ -61,7 +61,7 @@ export interface ExternalMcpRepositoryShape {
     readonly integrationId: string;
     readonly name: string;
     readonly clientKind?: ExternalMcpClientKind;
-    readonly audience: "synara.external-mcp";
+    readonly audience: "saint.external-mcp";
     readonly capabilities: ReadonlyArray<ExternalMcpCapability>;
     readonly projectScope: ExternalMcpProjectScope;
     readonly projectIds: ReadonlyArray<string>;
@@ -204,4 +204,4 @@ export interface ExternalMcpRepositoryShape {
 export class ExternalMcpRepository extends ServiceMap.Service<
   ExternalMcpRepository,
   ExternalMcpRepositoryShape
->()("synara/externalMcp/Services/ExternalMcpRepository") {}
+>()("saint/externalMcp/Services/ExternalMcpRepository") {}

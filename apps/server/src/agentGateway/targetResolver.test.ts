@@ -4,7 +4,7 @@ import {
   type ModelSelection,
   type ProviderKind,
   type ProviderModelDescriptor,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect } from "effect";
 
 import type { ProviderDiscoveryServiceShape } from "../provider/Services/ProviderDiscoveryService.ts";
@@ -677,7 +677,7 @@ describe("agent gateway target resolver", () => {
     }),
   );
 
-  it.effect("fails closed before discovery when Synara disables a provider", () =>
+  it.effect("fails closed before discovery when Saint disables a provider", () =>
     Effect.gen(function* () {
       let discoveryCalls = 0;
       const trackedDiscovery = {

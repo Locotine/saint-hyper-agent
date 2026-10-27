@@ -6,7 +6,7 @@ import {
   ThreadId,
   TurnId,
   type OrchestrationThreadShell,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Exit, Layer, Option } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 

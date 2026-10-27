@@ -6,7 +6,7 @@
 //          mounted.
 // Layer: Web UI state store
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { create } from "zustand";
 
 export interface ExplorerRevealRequest {

@@ -10,7 +10,7 @@ import {
   INLINE_VISUAL_EMBED_FENCE,
   INLINE_VISUAL_MAX_HEIGHT,
   INLINE_VISUAL_MIN_HEIGHT,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 /**
  * The agent's HTML only ever runs inside an opaque-origin frame (`sandbox`
@@ -74,10 +74,10 @@ export function clampInlineVisualHeight(height: number): number {
 const SIZE_CHANGED_METHOD = "ui/notifications/size-changed";
 const OPEN_LINK_METHOD = "ui/open-link";
 const HOST_CONTEXT_CHANGED_METHOD = "ui/notifications/host-context-changed";
-const SCROLL_INTENT_METHOD = "synara/notifications/scroll-intent";
-const STOPPED_METHOD = "synara/notifications/visual-stopped";
+const SCROLL_INTENT_METHOD = "saint/notifications/scroll-intent";
+const STOPPED_METHOD = "saint/notifications/visual-stopped";
 const MAX_LINK_LENGTH = 2048;
-const THEME_STYLE_ID = "synara-visual-theme";
+const THEME_STYLE_ID = "saint-visual-theme";
 const VARIABLE_NAME_PATTERN = /^--[a-z0-9-]+$/;
 
 export type InlineVisualFrameMessage =

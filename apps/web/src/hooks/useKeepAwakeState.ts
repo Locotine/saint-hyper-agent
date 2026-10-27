@@ -3,7 +3,7 @@
 // Layer: Web hooks
 // Exports: useKeepAwakeState
 
-import type { ServerKeepAwakeState } from "@synara/contracts";
+import type { ServerKeepAwakeState } from "@saint/contracts";
 import { useEffect, useState } from "react";
 import { onServerKeepAwakeUpdated } from "../wsNativeApi";
 

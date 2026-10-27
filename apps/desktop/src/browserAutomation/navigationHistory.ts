@@ -3,7 +3,7 @@ import type {
   BrowserNavigateOutput,
   BrowserReloadInput,
   BrowserTabId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import type { BrowserAutomationVisibleRuntime } from "../browserManager";
 import { abortReason, sendCdpCommand, throwIfAborted } from "./cdpRuntime";

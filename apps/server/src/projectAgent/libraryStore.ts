@@ -12,8 +12,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { LibraryEntry, ProjectId } from "@synara/contracts";
-import { normalizeProjectDocumentPath } from "@synara/shared/projectAgent";
+import type { LibraryEntry, ProjectId } from "@saint/contracts";
+import { normalizeProjectDocumentPath } from "@saint/shared/projectAgent";
 import { Effect } from "effect";
 
 import type { GitCoreShape } from "../git/Services/GitCore.ts";
@@ -35,11 +35,11 @@ const fail = (message: string, code: "not-found" | "forbidden" | "invalid" | "co
 // segment would hand callers raw control over history plumbing.
 const GIT_DIR_SEGMENT = ".git";
 // Written by ensureLibraryRepo on init and carried over by moveLibraryRoot. The
-// first line identifies a Synara library; the optional second line pins the
+// first line identifies a Saint library; the optional second line pins the
 // owning project id so a custom libraryPath can never be pointed at another
 // group's library. Pre-upgrade markers carry no owner line.
-const LIBRARY_MARKER_NAME = ".synara-library";
-const LIBRARY_MARKER_HEADING = "synara-library";
+const LIBRARY_MARKER_NAME = ".saint-library";
+const LIBRARY_MARKER_HEADING = "saint-library";
 
 interface LibraryMarker {
   readonly owner: string | null;
@@ -141,7 +141,7 @@ export function normalizeLibraryRelativePath(rawPath: string) {
       normalized.split("/").some(isGitDirName)
         ? Effect.fail(fail("Library paths cannot address repository metadata.", "forbidden"))
         : normalized.split("/").some(isReservedEntryName)
-          ? Effect.fail(fail(`Library path "${rawPath}" is reserved for Synara.`, "forbidden"))
+          ? Effect.fail(fail(`Library path "${rawPath}" is reserved for Saint.`, "forbidden"))
           : Effect.succeed(normalized),
     ),
   );
@@ -397,7 +397,7 @@ const pathExists = (target: string) =>
 
 // Creates the root and, on first use, seeds and initializes the repo:
 // `git init`, .gitignore/.gitattributes, an Artifacts/ folder, and the initial
-// commit authored as the Synara Library identity.
+// commit authored as the Saint Library identity.
 export function ensureLibraryRepo(
   git: GitCoreShape,
   root: string,
@@ -412,13 +412,13 @@ export function ensureLibraryRepo(
     if (yield* pathExists(path.join(root, GIT_DIR_SEGMENT))) {
       const marker = yield* readLibraryMarker(root);
       if (marker === null) {
-        // A pre-marker library at the Synara-owned default root is adopted
+        // A pre-marker library at the Saint-owned default root is adopted
         // once by writing the marker with this project's ownership. Custom
         // paths still refuse foreign repos — assertLibraryRootLocation also
         // blocks them before requests ever reach this point.
         if (options?.isManaged !== true) {
           return yield* fail(
-            `Library root "${root}" is a git repository that was not created by Synara.`,
+            `Library root "${root}" is a git repository that was not created by Saint.`,
             "forbidden",
           );
         }
@@ -493,7 +493,7 @@ export function moveLibraryRoot(input: {
           return { moved: true };
         }
         return yield* fail(
-          `Library destination "${toRoot}" is a git repository that was not created by Synara.`,
+          `Library destination "${toRoot}" is a git repository that was not created by Saint.`,
           "conflict",
         );
       }
@@ -613,11 +613,11 @@ export function assertLibraryRootLocation(input: {
       return;
     }
     if (yield* pathExists(path.join(realRoot, GIT_DIR_SEGMENT))) {
-      // At the Synara-owned default root a markerless repo is a pre-marker
+      // At the Saint-owned default root a markerless repo is a pre-marker
       // library; ensureLibraryRepo adopts it once by writing the marker.
       if (!input.isCustomPath) return;
       return yield* fail(
-        `Library path "${input.root}" is a git repository that was not created by Synara.`,
+        `Library path "${input.root}" is a git repository that was not created by Saint.`,
         "forbidden",
       );
     }
@@ -627,7 +627,7 @@ export function assertLibraryRootLocation(input: {
     });
     if (remaining.length > 0) {
       return yield* fail(
-        `Library path "${input.root}" is not empty; pick an empty folder or a Synara-managed location.`,
+        `Library path "${input.root}" is not empty; pick an empty folder or a Saint-managed location.`,
         "forbidden",
       );
     }

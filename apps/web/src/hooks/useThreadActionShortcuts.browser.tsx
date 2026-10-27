@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { type ReactNode, useState } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";

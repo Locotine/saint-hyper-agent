@@ -18,7 +18,7 @@ upgradeLayer("077_ExternalMcpCompensatingCapacity upgrade", (it) => {
           capabilities_json, created_at, expires_at, rate_limit_per_minute,
           concurrency_limit
         ) VALUES (
-          'integration-migration-77', 'Migration 77', 'other', 'synara.external-mcp',
+          'integration-migration-77', 'Migration 77', 'other', 'saint.external-mcp',
           NULL, '[]', '2026-07-21T00:00:00.000Z', '2027-07-21T00:00:00.000Z', 60, 1
         )
       `;

@@ -1,4 +1,4 @@
-// SYNARA_PERF=1 SYNARA_PERF_OUT=/tmp/file-diff.json bun run --cwd apps/web test perf/fileDiff.perf.test.ts
+// SAINT_PERF=1 SAINT_PERF_OUT=/tmp/file-diff.json bun run --cwd apps/web test perf/fileDiff.perf.test.ts
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import type { FileDiffMetadata } from "@pierre/diffs/react";
@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import { sortFileDiffsByPath } from "../src/lib/diffRendering";
 import { buildFileDiffTree } from "../src/lib/fileDiffTree";
 
-it.skipIf(process.env.SYNARA_PERF !== "1")(
+it.skipIf(process.env.SAINT_PERF !== "1")(
   "measures diff ordering and tree construction",
   () => {
     const report = [];
@@ -51,7 +51,7 @@ it.skipIf(process.env.SYNARA_PERF !== "1")(
       }
     }
     writeFileSync(
-      process.env.SYNARA_PERF_OUT ?? "/tmp/synara-file-diff.json",
+      process.env.SAINT_PERF_OUT ?? "/tmp/saint-file-diff.json",
       JSON.stringify({ node: process.version, warmups: 3, samples: 11, report }, null, 2),
     );
   },

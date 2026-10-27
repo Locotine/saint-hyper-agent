@@ -7,7 +7,7 @@ import {
   ThreadId,
   TurnId,
   type PullRequestAutoFixState,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   Clock,
@@ -90,7 +90,7 @@ async function harness(
     read?: GitHubCliShape["getPullRequestWithChecks"];
   } = {},
 ) {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "synara-auto-fix-test-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "saint-auto-fix-test-"));
   let reads = 0;
   const gitHub = {
     withRead: (effect: Effect.Effect<unknown, unknown>) => effect,

@@ -8,15 +8,15 @@ import { describe, expect, it, vi } from "vitest";
 import { BrowserAutomationHostError } from "./browserAutomation/hostErrors";
 import {
   BrowserHostPipeServer,
-  SYNARA_BROWSER_HOST_CAPABILITY_FD_ENV,
-  SYNARA_BROWSER_HOST_PIPE_ENV,
-  SYNARA_BROWSER_USE_PIPE_ENV,
+  SAINT_BROWSER_HOST_CAPABILITY_FD_ENV,
+  SAINT_BROWSER_HOST_PIPE_ENV,
+  SAINT_BROWSER_USE_PIPE_ENV,
   resolveBrowserHostPipeBackendEnv,
   resolveConfiguredBrowserHostPipePath,
   resolveDefaultBrowserHostPipePath,
 } from "./browserUsePipeServer";
 
-const TEST_CAPABILITY = "synara-browser-host-test-capability-0123456789";
+const TEST_CAPABILITY = "saint-browser-host-test-capability-0123456789";
 
 const encodeRequest = (message: unknown): Buffer => {
   const payload = Buffer.from(JSON.stringify(message));
@@ -66,7 +66,7 @@ async function withPipeServer(
   },
   run: (socket: Socket) => Promise<void>,
 ): Promise<void> {
-  const directory = await mkdtemp(join(tmpdir(), "synara-browser-host-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "saint-browser-host-test-"));
   const pipePath = join(directory, "browser.sock");
   const server = new BrowserHostPipeServer({} as never, {
     pipePath,
@@ -95,7 +95,7 @@ describe("canonical browser host pipe resolution", () => {
     const first = resolveDefaultBrowserHostPipePath("darwin", 123);
     const second = resolveDefaultBrowserHostPipePath("darwin", 123);
     const uidSuffix = process.getuid ? `-${process.getuid()}` : "";
-    expect(dirname(first)).toBe(`/tmp/synara-browser-host${uidSuffix}`);
+    expect(dirname(first)).toBe(`/tmp/saint-browser-host${uidSuffix}`);
     expect(basename(first)).toMatch(/^123-[0-9a-f-]{36}\.sock$/);
     expect(Buffer.byteLength(first, "utf8")).toBeLessThanOrEqual(103);
     expect(first).not.toBe(second);
@@ -103,7 +103,7 @@ describe("canonical browser host pipe resolution", () => {
 
   it("creates an unguessable per-process Windows named pipe", () => {
     const pipePath = resolveDefaultBrowserHostPipePath("win32", 456);
-    expect(pipePath).toMatch(/^\\\\\.\\pipe\\synara-browser-host-456-[0-9a-f-]{36}$/);
+    expect(pipePath).toMatch(/^\\\\\.\\pipe\\saint-browser-host-456-[0-9a-f-]{36}$/);
     expect(pipePath).not.toBe(resolveDefaultBrowserHostPipePath("win32", 456));
   });
 
@@ -111,8 +111,8 @@ describe("canonical browser host pipe resolution", () => {
     expect(
       resolveConfiguredBrowserHostPipePath(
         {
-          [SYNARA_BROWSER_HOST_PIPE_ENV]: "/canonical.sock",
-          [SYNARA_BROWSER_USE_PIPE_ENV]: "/legacy.sock",
+          [SAINT_BROWSER_HOST_PIPE_ENV]: "/canonical.sock",
+          [SAINT_BROWSER_USE_PIPE_ENV]: "/legacy.sock",
         },
         "darwin",
       ),
@@ -120,7 +120,7 @@ describe("canonical browser host pipe resolution", () => {
     expect(
       resolveConfiguredBrowserHostPipePath(
         {
-          [SYNARA_BROWSER_USE_PIPE_ENV]: String.raw`\\.\pipe\legacy`,
+          [SAINT_BROWSER_USE_PIPE_ENV]: String.raw`\\.\pipe\legacy`,
         },
         "win32",
       ),
@@ -130,20 +130,20 @@ describe("canonical browser host pipe resolution", () => {
   it("publishes both env names only while a listener is active", () => {
     const inherited = {
       KEEP_ME: "yes",
-      [SYNARA_BROWSER_HOST_PIPE_ENV]: "/stale-canonical.sock",
-      [SYNARA_BROWSER_USE_PIPE_ENV]: "/stale-legacy.sock",
+      [SAINT_BROWSER_HOST_PIPE_ENV]: "/stale-canonical.sock",
+      [SAINT_BROWSER_USE_PIPE_ENV]: "/stale-legacy.sock",
     };
     expect(resolveBrowserHostPipeBackendEnv(inherited, null, null)).toEqual({ KEEP_ME: "yes" });
     expect(resolveBrowserHostPipeBackendEnv(inherited, "/active.sock", 3)).toEqual({
       KEEP_ME: "yes",
-      [SYNARA_BROWSER_HOST_PIPE_ENV]: "/active.sock",
-      [SYNARA_BROWSER_USE_PIPE_ENV]: "/active.sock",
-      [SYNARA_BROWSER_HOST_CAPABILITY_FD_ENV]: "3",
+      [SAINT_BROWSER_HOST_PIPE_ENV]: "/active.sock",
+      [SAINT_BROWSER_USE_PIPE_ENV]: "/active.sock",
+      [SAINT_BROWSER_HOST_CAPABILITY_FD_ENV]: "3",
     });
   });
 
   it("rejects a non-private configured parent without changing its permissions", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "synara-browser-host-public-test-"));
+    const directory = await mkdtemp(join(tmpdir(), "saint-browser-host-public-test-"));
     await chmod(directory, 0o755);
     const server = new BrowserHostPipeServer({} as never, {
       pipePath: join(directory, "browser.sock"),
@@ -162,7 +162,7 @@ describe("canonical browser host pipe resolution", () => {
 
 describe("canonical browser host RPC", () => {
   it("accepts every client in a maximum-size gateway batch", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "synara-browser-host-capacity-test-"));
+    const directory = await mkdtemp(join(tmpdir(), "saint-browser-host-capacity-test-"));
     const pipePath = join(directory, "browser.sock");
     const server = new BrowserHostPipeServer({} as never, {
       pipePath,
@@ -243,7 +243,7 @@ describe("canonical browser host RPC", () => {
       ).resolves.toMatchObject({
         id: 1,
         result: {
-          type: "synara-browser-host",
+          type: "saint-browser-host",
           metadata: { sessionId: "session-1", physicalScope: "visible-shared-electron-webview" },
         },
       });
@@ -340,7 +340,7 @@ describe("canonical browser host RPC", () => {
         error: {
           code: -32_010,
           data: {
-            type: "synara_browser_error",
+            type: "saint_browser_error",
             version: 1,
             error: { code: "BrowserAuthorizationDenied", phase: "auth" },
           },

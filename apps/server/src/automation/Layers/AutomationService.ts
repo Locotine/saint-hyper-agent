@@ -27,16 +27,16 @@ import {
   type ServerSettings,
   type ThreadEnvironmentMode,
   type TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   automationContinuationThreadId,
   automationContinuesThread,
   automationOwnsItsThread,
   automationRequiresTargetThread,
-} from "@synara/shared/automationMode";
-import { buildTemporaryWorktreeBranchName } from "@synara/shared/git";
-import { providerStartOptionsFromServerSettings } from "@synara/shared/serverSettings";
-import { autoRuntimeModeSelectionIssue } from "@synara/shared/runtimeMode";
+} from "@saint/shared/automationMode";
+import { buildTemporaryWorktreeBranchName } from "@saint/shared/git";
+import { providerStartOptionsFromServerSettings } from "@saint/shared/serverSettings";
+import { autoRuntimeModeSelectionIssue } from "@saint/shared/runtimeMode";
 import { Cause, Effect, Layer, Option, PubSub, Queue, Stream } from "effect";
 import {
   isUnresolvedAutomationInstanceId,
@@ -44,7 +44,7 @@ import {
   type ResolvedProviderInstance,
   resolveModelSelectionInstanceId,
   resolveProviderInstance,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 
 import { GitCore } from "../../git/Services/GitCore.ts";
 import { TextGeneration } from "../../git/Services/TextGeneration.ts";
@@ -797,7 +797,7 @@ export const AutomationServiceLive = Layer.effect(
       }
       return instance.instanceId === instance.driver
         ? providerDisabledSettingsMessage(instance.driver)
-        : `Provider instance '${instance.displayName}' is disabled in Synara settings.`;
+        : `Provider instance '${instance.displayName}' is disabled in Saint settings.`;
     };
     const providerDisabledReason = (definition: AutomationDefinition) =>
       serverSettings.getSettings.pipe(

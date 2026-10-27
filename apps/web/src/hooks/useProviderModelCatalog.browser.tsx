@@ -1,6 +1,6 @@
 import "../index.css";
 
-import { DEFAULT_SERVER_SETTINGS, type NativeApi, ThreadId } from "@synara/contracts";
+import { DEFAULT_SERVER_SETTINGS, type NativeApi, ThreadId } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";

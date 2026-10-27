@@ -11,7 +11,7 @@ import type {
 
 // Qualification has no dependency install. Resolve this owned, dependency-free shared
 // module from the checkout, while keeping its types behind the shared subpath export.
-const { matchesDistinguishedName }: typeof import("@synara/shared/windowsCertificate") =
+const { matchesDistinguishedName }: typeof import("@saint/shared/windowsCertificate") =
   await import(new URL("../../packages/shared/src/windowsCertificate.ts", import.meta.url).href);
 
 export interface ReleaseArtifactCheckpointInput extends Pick<
@@ -157,7 +157,7 @@ export async function verifyReleaseArtifactCheckpoint(
 
   // AppImage names use the native x86_64 alias; provenance keeps the matrix arch x64.
   const fileArch = input.platform === "linux" ? "x86_64" : input.arch;
-  const stem = `${input.flavor === "beta" ? "Synara-Beta" : "Synara"}-${input.version}-${fileArch}`;
+  const stem = `${input.flavor === "beta" ? "Saint-Beta" : "Saint"}-${input.version}-${fileArch}`;
   const payloads =
     input.platform === "mac"
       ? [`${stem}.dmg`, `${stem}.zip`]

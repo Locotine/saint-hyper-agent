@@ -4,7 +4,7 @@ import type {
   ProviderSessionRuntimeStatus,
   RuntimeMode,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Option, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -67,4 +67,4 @@ export interface ProviderSessionDirectoryShape {
 export class ProviderSessionDirectory extends ServiceMap.Service<
   ProviderSessionDirectory,
   ProviderSessionDirectoryShape
->()("synara/provider/Services/ProviderSessionDirectory") {}
+>()("saint/provider/Services/ProviderSessionDirectory") {}

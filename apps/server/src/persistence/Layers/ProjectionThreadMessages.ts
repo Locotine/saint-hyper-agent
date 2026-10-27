@@ -4,7 +4,7 @@ import {
   selectSegmentEndedAt,
   joinMessageTextChunks,
 } from "../messageTextChunks.ts";
-import { MessageId } from "@synara/contracts";
+import { MessageId } from "@saint/contracts";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 import { Effect, Layer, Option, Schema } from "effect";

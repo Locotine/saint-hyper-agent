@@ -8,7 +8,7 @@ import {
   BROWSER_ANNOTATION_MAX_TEXT_LENGTH,
   BROWSER_ANNOTATION_MAX_URL_LENGTH,
   type BrowserAnnotationTheme,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { createGuestIdentifier } from "./guestIdentity";
@@ -237,15 +237,15 @@ describe("browser annotation protocol", () => {
     };
     expect(
       hardenBrowserAnnotationWebviewPreferences({
-        partition: "persist:synara-browser",
-        expectedPartition: "persist:synara-browser",
+        partition: "persist:saint-browser",
+        expectedPartition: "persist:saint-browser",
         preloadPath: "/app/browserAnnotations/guestPreload.js",
         webPreferences,
       }),
     ).toBe(true);
     expect(webPreferences).toMatchObject({
       preload: "/app/browserAnnotations/guestPreload.js",
-      partition: "persist:synara-browser",
+      partition: "persist:saint-browser",
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -256,7 +256,7 @@ describe("browser annotation protocol", () => {
     expect(
       hardenBrowserAnnotationWebviewPreferences({
         partition: "persist:other",
-        expectedPartition: "persist:synara-browser",
+        expectedPartition: "persist:saint-browser",
         preloadPath: "/app/browserAnnotations/guestPreload.js",
         webPreferences: {},
       }),

@@ -87,8 +87,8 @@ const REQUIRED_SECTIONS = [
   "Install",
   "Authenticate",
   "Verify",
-  "Connect to Synara",
-  "Capabilities in Synara",
+  "Connect to Saint",
+  "Capabilities in Saint",
   "Troubleshooting",
   "Official documentation",
 ];

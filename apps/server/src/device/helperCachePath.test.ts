@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEVICE_HELPER_CACHE_SEGMENTS,
   deviceHelperCacheKey,
-} from "@synara/shared/deviceHelperCache";
+} from "@saint/shared/deviceHelperCache";
 
 import type { ProcessRunResult } from "../processRunner.ts";
 import { DEVICE_HELPER_CACHE_ROOT, IosSimulatorBackend } from "./IosSimulatorBackend.ts";
@@ -28,8 +28,8 @@ describe("helper cache path agreement", () => {
     const commands: Array<{ command: string; args: readonly string[] }> = [];
     const backend = new IosSimulatorBackend({
       platform: "darwin",
-      helperSourceDir: "/tmp/synara-helper-src",
-      helperCacheRoot: "/tmp/synara-helper-cache",
+      helperSourceDir: "/tmp/saint-helper-src",
+      helperCacheRoot: "/tmp/saint-helper-cache",
       run: async (command, args) => {
         commands.push({ command, args });
         if (command === "xcodebuild") return result(XCODEBUILD_OUTPUT);
@@ -44,7 +44,7 @@ describe("helper cache path agreement", () => {
 
     const build = commands.find((entry) => entry.command === "/bin/sh");
     const expectedKey = deviceHelperCacheKey(XCODEBUILD_OUTPUT)!;
-    expect(build?.args[1]).toBe(join("/tmp/synara-helper-cache", expectedKey));
+    expect(build?.args[1]).toBe(join("/tmp/saint-helper-cache", expectedKey));
   });
 
   it("roots the cache where the smoke script writes it", () => {

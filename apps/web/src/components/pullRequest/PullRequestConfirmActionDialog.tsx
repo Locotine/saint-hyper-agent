@@ -5,7 +5,7 @@
 // Layer: Pull request UI
 // Depends on: the shared alert dialog, toast manager, and clipboard helper.
 
-import type { PullRequestMergeMethod, PullRequestStack } from "@synara/contracts";
+import type { PullRequestMergeMethod, PullRequestStack } from "@saint/contracts";
 import { useState } from "react";
 
 import {

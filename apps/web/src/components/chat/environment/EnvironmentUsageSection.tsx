@@ -5,12 +5,12 @@ import {
   DEFAULT_SERVER_SETTINGS_VIEW,
   type ProviderKind,
   type ServerProviderUsageSnapshot,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   deriveProviderInstances,
   type ResolvedProviderInstance,
-} from "@synara/shared/providerInstances";
-import { providerUsageDisplayName } from "@synara/shared/providerUsage";
+} from "@saint/shared/providerInstances";
+import { providerUsageDisplayName } from "@saint/shared/providerUsage";
 import { useQuery } from "@tanstack/react-query";
 
 import {

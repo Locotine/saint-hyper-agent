@@ -1,10 +1,10 @@
 // FILE: importedThreadMessages.test.ts
-// Purpose: Verifies provider transcript snapshots become stable Synara import messages.
+// Purpose: Verifies provider transcript snapshots become stable Saint import messages.
 // Layer: Orchestration mapping tests
 // Depends on: importedThreadMessages.
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {

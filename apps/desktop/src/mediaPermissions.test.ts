@@ -58,17 +58,17 @@ describe("isTrustedMediaPermissionRequest", () => {
     );
   });
 
-  it("rejects subframes and origins other than the live Synara renderer", () => {
+  it("rejects subframes and origins other than the live Saint renderer", () => {
     const trusted = {
       isDestroyed: () => false,
-      getURL: () => "synara://app/index.html",
+      getURL: () => "saint://app/index.html",
     };
 
     expect(
       isTrustedMediaPermissionRequest(trusted, trusted, {
         mediaTypes: ["audio"],
         isMainFrame: true,
-        requestingUrl: "synara://app/chat",
+        requestingUrl: "saint://app/chat",
       }),
     ).toBe(true);
     expect(

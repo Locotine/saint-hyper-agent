@@ -34,16 +34,16 @@ import {
 } from "@/lib/seo";
 
 export const metadata = pageMetadata({
-  title: "Sponsor — Synara",
+  title: "Sponsor — Saint",
   description:
-    "Sponsor Synara on GitHub Sponsors. Monthly tiers from $5 to $499, plus custom one-time amounts, fund development, reliable releases, and docs for the free, open-source desktop app.",
+    "Sponsor Saint on GitHub Sponsors. Monthly tiers from $5 to $499, plus custom one-time amounts, fund development, reliable releases, and docs for the free, open-source desktop app.",
   path: "/sponsor",
 });
 
 const SPONSOR_JSONLD = [
   sponsorJsonLd(SPONSOR_TIERS),
   breadcrumbJsonLd([
-    { name: "Synara", path: "/" },
+    { name: "Saint", path: "/" },
     { name: "Sponsor", path: "/sponsor" },
   ]),
 ];
@@ -63,10 +63,10 @@ export default function SponsorPage() {
         <header>
           <SectionEyebrow as="p">Sponsor</SectionEyebrow>
           <h1 className="mt-2.5 text-[1.35rem] font-medium leading-[1.2] tracking-[-0.03em] sm:text-[1.5rem]">
-            Synara is free. Sponsorship is what keeps it that way.
+            Saint is free. Sponsorship is what keeps it that way.
           </h1>
           <p className="mt-3 max-w-3xl text-[13.5px] leading-[1.65] text-[var(--text-secondary)]">
-            Synara Desktop is open source under the MIT license, with no paid tier, no account, and
+            Saint Desktop is open source under the MIT license, with no paid tier, no account, and
             nothing held back behind a subscription. It&apos;s maintained by me, with help from some
             kind developers in the open source community. If it saves you time, sponsoring is the
             most direct way to keep it moving — every tier below runs through GitHub Sponsors, so
@@ -170,7 +170,7 @@ export default function SponsorPage() {
           <SectionEyebrow>Questions</SectionEyebrow>
           <div className="mt-4 space-y-5">
             <QA question="Does sponsoring unlock features?">
-              No. Synara is MIT-licensed and every feature is free for everyone, sponsor or not.
+              No. Saint is MIT-licensed and every feature is free for everyone, sponsor or not.
               Sponsorship funds the work — it doesn&apos;t buy access.
             </QA>
             <QA question="Can I sponsor as a company?">
@@ -201,11 +201,11 @@ export default function SponsorPage() {
 
         <div className="mt-12 flex flex-col gap-4 border-t border-[var(--divide)] pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[12px] text-[var(--text-tertiary)]">
-            Not able to sponsor? Starring the repo and telling someone about Synara genuinely helps
+            Not able to sponsor? Starring the repo and telling someone about Saint genuinely helps
             too.
           </p>
           <Link href="/install" className={ctaButtonClass({ variant: "secondary", width: "fit" })}>
-            Download Synara
+            Download Saint
             <LuArrowDownToLine className="size-4" aria-hidden="true" />
           </Link>
         </div>

@@ -1,4 +1,4 @@
-import type { PullRequestDetailInput, ThreadId } from "@synara/contracts";
+import type { PullRequestDetailInput, ThreadId } from "@saint/contracts";
 import { queryOptions } from "@tanstack/react-query";
 
 import { ensureNativeApi } from "~/nativeApi";

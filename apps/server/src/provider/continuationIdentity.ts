@@ -5,7 +5,7 @@
 import { homedir } from "node:os";
 import path from "node:path";
 
-import type { ProviderKind, ProviderStartOptions } from "@synara/contracts";
+import type { ProviderKind, ProviderStartOptions } from "@saint/contracts";
 
 import { resolveActiveCodexHomeWritePath, resolveBaseCodexHomePath } from "../codexHomePaths.ts";
 import { resolveCodexPathIdentity } from "../codexPathIdentity.ts";

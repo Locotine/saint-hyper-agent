@@ -10,7 +10,7 @@ package gets its own repository, this file should land there as `SECURITY.md`.
 
 This policy covers the open computer-use package: the driver patch, the host
 protocol, the tool layer, and the docs listed in `open-package-file-list.md`.
-Synara product code is out of scope and keeps its own reporting path.
+Saint product code is out of scope and keeps its own reporting path.
 
 The highest severity class for this package is a consent-bypass bug: any code
 path that delivers synthetic input, captures the screen, or enumerates windows

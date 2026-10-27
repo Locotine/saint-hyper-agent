@@ -93,7 +93,7 @@ export function assertNoExternalCodexConfigLayers(
   );
   if (configuredSystemPath) {
     throw new CodexTextGenerationConfigError(
-      `Isolated Codex text generation is disabled because ${configuredSystemPath} can add or force tool configuration outside Synara's isolated home.`,
+      `Isolated Codex text generation is disabled because ${configuredSystemPath} can add or force tool configuration outside Saint's isolated home.`,
     );
   }
   if ((options.platform ?? process.platform) !== "darwin") return;
@@ -255,7 +255,7 @@ function assertProviderEnvironmentName(name: string, context: string): void {
     FORBIDDEN_PROVIDER_ENV_NAMES.has(canonicalName) ||
     canonicalName.startsWith("LD_") ||
     canonicalName.startsWith("DYLD_") ||
-    canonicalName.startsWith("SYNARA_") ||
+    canonicalName.startsWith("SAINT_") ||
     /(?:BROWSER|PLAYWRIGHT|CHROME|CDP).*(?:TOKEN|SOCK|SOCKET|ENDPOINT|WS)/i.test(name)
   ) {
     throw new CodexTextGenerationConfigError(
@@ -477,7 +477,7 @@ export function buildCodexTextGenerationModelCatalog(model: string): string {
       {
         slug: model,
         display_name: model,
-        description: "Isolated Synara text generation without local or network tools.",
+        description: "Isolated Saint text generation without local or network tools.",
         default_reasoning_level: "low",
         supported_reasoning_levels: [{ effort: "low", description: "Low" }],
         shell_type: "shell_command",

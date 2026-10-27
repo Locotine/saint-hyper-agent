@@ -15,13 +15,13 @@ const root = document.documentElement;
 let previousTheme: string | null;
 
 beforeEach(() => {
-  previousTheme = localStorage.getItem("synara:theme");
+  previousTheme = localStorage.getItem("saint:theme");
 });
 
 afterEach(() => {
-  if (previousTheme === null) localStorage.removeItem("synara:theme");
-  else localStorage.setItem("synara:theme", previousTheme);
-  window.dispatchEvent(new StorageEvent("storage", { key: "synara:theme" }));
+  if (previousTheme === null) localStorage.removeItem("saint:theme");
+  else localStorage.setItem("saint:theme", previousTheme);
+  window.dispatchEvent(new StorageEvent("storage", { key: "saint:theme" }));
 });
 
 async function selectLightPreset(label: string) {
@@ -39,17 +39,17 @@ it("preserves saved Codex on mount, applies and persists Vercel, then restores C
     },
     mode: "light",
   });
-  localStorage.setItem("synara:theme", stored);
+  localStorage.setItem("saint:theme", stored);
   await render(<ThemePackEditor variant="light" />);
   await expect.poll(() => root.getAttribute("data-code-theme-id")).toBe("codex");
   expect(root.getAttribute("data-window-material")).toBe("opaque");
-  expect(localStorage.getItem("synara:theme")).toBe(stored);
+  expect(localStorage.getItem("saint:theme")).toBe(stored);
 
   await selectLightPreset("Vercel");
   await expect.poll(() => root.style.getPropertyValue("--codex-base-accent")).toBe("#006aff");
   expect(getComputedStyle(root).getPropertyValue("--color-text-foreground").trim()).toBe("#171717");
   expect(root.style.getPropertyValue("--codex-base-surface")).toBe("#ffffff");
-  expect(parseStoredThemeState(localStorage.getItem("synara:theme")).codeThemeIds.light).toBe(
+  expect(parseStoredThemeState(localStorage.getItem("saint:theme")).codeThemeIds.light).toBe(
     "vercel",
   );
   await expect
@@ -62,12 +62,12 @@ it("preserves saved Codex on mount, applies and persists Vercel, then restores C
 });
 
 it("previews an inactive light preset and applies it only when the user chooses Use light theme", async () => {
-  localStorage.setItem("synara:theme", JSON.stringify({ ...DEFAULT_THEME_STATE, mode: "dark" }));
+  localStorage.setItem("saint:theme", JSON.stringify({ ...DEFAULT_THEME_STATE, mode: "dark" }));
   await render(<ThemePackEditor variant="light" />);
   await selectLightPreset("Vercel");
 
   expect(root.getAttribute("data-theme-variant")).toBe("dark");
-  expect(root.getAttribute("data-code-theme-id")).toBe("synara");
+  expect(root.getAttribute("data-code-theme-id")).toBe("saint");
   const preview = page.getByRole("img", { name: "Light theme preview: Vercel" });
   expect(getComputedStyle(preview.element()).backgroundColor).toBe("rgb(255, 255, 255)");
   expect(getComputedStyle(preview.element()).color).toBe("rgb(23, 23, 23)");
@@ -75,14 +75,14 @@ it("previews an inactive light preset and applies it only when the user chooses 
   await page.getByRole("button", { name: "Use light theme" }).click();
   await expect.poll(() => root.getAttribute("data-theme-variant")).toBe("light");
   expect(root.getAttribute("data-code-theme-id")).toBe("vercel");
-  const saved = parseStoredThemeState(localStorage.getItem("synara:theme"));
+  const saved = parseStoredThemeState(localStorage.getItem("saint:theme"));
   expect(saved.mode).toBe("light");
-  expect(saved.codeThemeIds.dark).toBe("synara");
+  expect(saved.codeThemeIds.dark).toBe("saint");
   expect(saved.systemUiFont).toBe(true);
 });
 
 it.each(["dark", "light"] as const)(
-  "replaces Linear completely with Codex and an orange accent when selecting Synara (%s)",
+  "replaces Linear completely with Codex and an orange accent when selecting Saint (%s)",
   async (variant) => {
     const title = variant === "dark" ? "Dark" : "Light";
     const accent = variant === "dark" ? "#f2612d" : "#c74614";
@@ -101,16 +101,16 @@ it.each(["dark", "light"] as const)(
         },
       },
     };
-    localStorage.setItem("synara:theme", JSON.stringify(stored));
+    localStorage.setItem("saint:theme", JSON.stringify(stored));
     await render(<ThemePackEditor variant={variant} />);
-    window.dispatchEvent(new StorageEvent("storage", { key: "synara:theme" }));
+    window.dispatchEvent(new StorageEvent("storage", { key: "saint:theme" }));
     await expect.poll(() => root.getAttribute("data-code-theme-id")).toBe("linear");
 
     await page.getByRole("combobox", { name: `${title} theme code theme` }).click();
-    await page.getByRole("option", { name: "Synara", exact: true }).click();
-    await expect.poll(() => root.getAttribute("data-code-theme-id")).toBe("synara");
+    await page.getByRole("option", { name: "Saint", exact: true }).click();
+    await expect.poll(() => root.getAttribute("data-code-theme-id")).toBe("saint");
 
-    const saved = parseStoredThemeState(localStorage.getItem("synara:theme"));
+    const saved = parseStoredThemeState(localStorage.getItem("saint:theme"));
     const codex = getCodeThemeSeed("codex", variant);
     expect(saved.chromeThemes[variant]).toEqual({ ...codex, accent });
     expect(saved.chromeThemes[otherVariant]).toEqual(stored.chromeThemes[otherVariant]);
@@ -119,7 +119,7 @@ it.each(["dark", "light"] as const)(
     expect(root.style.getPropertyValue("--codex-base-ink")).toBe(codex.ink);
     expect(root.style.getPropertyValue("--color-accent-purple")).toBe(codex.semanticColors.skill);
     expect(root.style.getPropertyValue("--theme-font-ui-family")).toBe("");
-    const preview = page.getByRole("img", { name: `${title} theme preview: Synara` });
+    const preview = page.getByRole("img", { name: `${title} theme preview: Saint` });
     const fontFamily = getComputedStyle(preview.element()).fontFamily;
     expect(fontFamily).toContain("system-ui");
     expect(fontFamily).not.toContain("Inter");

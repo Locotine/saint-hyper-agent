@@ -29,13 +29,13 @@ import {
   PROJECT_SEARCH_CONTENT_MAX_LIMIT,
   PROJECT_SEARCH_CONTENT_MAX_LINE_LENGTH,
   PROJECT_SEARCH_CONTENT_MIN_QUERY_LENGTH,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   isExplicitRelativePath,
   isWindowsAbsolutePath,
   isWorkspaceRelativePathSafe,
-} from "@synara/shared/path";
-import { normalizeWorkspaceEntrySearchQuery } from "@synara/shared/searchQuery";
+} from "@saint/shared/path";
+import { normalizeWorkspaceEntrySearchQuery } from "@saint/shared/searchQuery";
 import { resolveRealPathWithinRoot } from "./workspace/realPathContainment";
 
 const WORKSPACE_CACHE_TTL_MS = 15_000;
@@ -851,6 +851,8 @@ function resolveBrowseTarget(input: FilesystemBrowseInput): string {
   return path.resolve(expandHomePath(input.cwd), input.partialPath);
 }
 
+const BROWSE_REPOSITORY_PROBE_CONCURRENCY = 16;
+
 export async function browseWorkspaceEntries(
   input: FilesystemBrowseInput,
 ): Promise<FilesystemBrowseResult> {
@@ -864,20 +866,31 @@ export async function browseWorkspaceEntries(
   const showHidden = endsWithSeparator || prefix.startsWith(".");
   const lowerPrefix = prefix.toLowerCase();
 
+  const directoryNames = dirents
+    .filter(
+      (dirent) =>
+        dirent.isDirectory() &&
+        dirent.name.toLowerCase().startsWith(lowerPrefix) &&
+        (showHidden || !dirent.name.startsWith(".")),
+    )
+    .map((dirent) => dirent.name)
+    .toSorted((left, right) => left.localeCompare(right));
+
   return {
     parentPath,
-    entries: dirents
-      .filter(
-        (dirent) =>
-          dirent.isDirectory() &&
-          dirent.name.toLowerCase().startsWith(lowerPrefix) &&
-          (showHidden || !dirent.name.startsWith(".")),
-      )
-      .map((dirent) => ({
-        name: dirent.name,
-        fullPath: path.join(parentPath, dirent.name),
-      }))
-      .toSorted((left, right) => left.name.localeCompare(right.name)),
+    // Folder pickers mark repositories, like a native picker's project hints.
+    entries: await mapWithConcurrency(
+      directoryNames,
+      BROWSE_REPOSITORY_PROBE_CONCURRENCY,
+      async (name) => {
+        const fullPath = path.join(parentPath, name);
+        return {
+          name,
+          fullPath,
+          isGitRepository: await pathExists(path.join(fullPath, ".git")),
+        };
+      },
+    ),
   };
 }
 

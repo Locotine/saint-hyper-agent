@@ -2,7 +2,7 @@
 // Purpose: Migrate queued-run account identity before removing legacy launch snapshots.
 // Layer: SQLite data migration for automation persistence.
 
-import { AutomationPermissionSnapshot } from "@synara/contracts";
+import { AutomationPermissionSnapshot } from "@saint/contracts";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";

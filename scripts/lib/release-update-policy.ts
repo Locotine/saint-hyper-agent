@@ -1,7 +1,7 @@
 // FILE: release-update-policy.ts
 // Purpose: Keeps the historical 0.4.x compatibility line separate while stable 0.5.x
 // releases publish through GitHub's Latest updater feed and retain the packaged app's
-// dedicated `synara` channel aliases.
+// dedicated `saint` channel aliases.
 
 import { constants, copyFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -95,7 +95,7 @@ export function resolveReleaseUpdatePolicy(
   }
   if (normalizedConfig.lane === "clean" && compareCoreVersions(requested.core, bridge.core) <= 0) {
     throw new Error(
-      `Synara releases must be newer than the compatibility release v${normalizedConfig.bridgeVersion}.`,
+      `Saint releases must be newer than the compatibility release v${normalizedConfig.bridgeVersion}.`,
     );
   }
 
@@ -166,7 +166,7 @@ export function prepareReleaseUpdateManifests(
     throw new Error(`Latest release is missing update manifests: ${missing.join(", ")}`);
   }
   // Stable 0.5.x releases are GitHub Latest, but shipped desktop binaries still
-  // request the dedicated `synara` channel. Keep both filenames in the same
+  // request the dedicated `saint` channel. Keep both filenames in the same
   // release so existing installations and new Latest installs use the same feed.
   copyChannelManifests(assetDirectory, sourceNames, destinationNames);
   return [...sourceNames, ...destinationNames];

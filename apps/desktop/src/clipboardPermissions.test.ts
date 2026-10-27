@@ -22,7 +22,7 @@ describe("clipboard permissions", () => {
       ),
     ).toBe(true);
   });
-  it.each(["synara://app", "synara-canary://app", "synara-cua://app", "synara-beta://app"])(
+  it.each(["saint://app", "saint-canary://app", "saint-cua://app", "saint-beta://app"])(
     "allows foreground copy buttons on the %s desktop origin",
     (origin) => {
       const url = `${origin}/index.html`;

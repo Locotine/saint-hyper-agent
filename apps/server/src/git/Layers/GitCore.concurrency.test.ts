@@ -11,7 +11,7 @@ import type { ExecuteGitInput, GitCoreShape } from "../Services/GitCore";
 import { makeGitCore } from "./GitCore";
 
 const TestLayer = Layer.provideMerge(
-  ServerConfig.layerTest(process.cwd(), { prefix: "synara-git-concurrency-test-" }),
+  ServerConfig.layerTest(process.cwd(), { prefix: "saint-git-concurrency-test-" }),
   NodeServices.layer,
 );
 const success = { code: 0, stdout: "", stderr: "" };
@@ -770,7 +770,7 @@ it.layer(TestLayer)("GitCore command admission", (it) => {
         yield* core.execute({
           ...command("push", null),
           args: ["push", "origin"],
-          env: { GIT_TERMINAL_PROMPT: "1", SYNARA_TEST_MARKER: "preserved" },
+          env: { GIT_TERMINAL_PROMPT: "1", SAINT_TEST_MARKER: "preserved" },
         });
         yield* core.execute({
           ...command("configured-push", null),
@@ -786,15 +786,15 @@ it.layer(TestLayer)("GitCore command admission", (it) => {
           yield* core.execute({
             ...command(subcommand),
             args: ["-c", "credential.helper=", subcommand],
-            env: { GIT_TERMINAL_PROMPT: "1", SYNARA_TEST_MARKER: "preserved" },
+            env: { GIT_TERMINAL_PROMPT: "1", SAINT_TEST_MARKER: "preserved" },
           });
         expect(inputs[0]?.options?.env?.GIT_TERMINAL_PROMPT).toBe("0");
-        expect(inputs[0]?.options?.env?.SYNARA_TEST_MARKER).toBe("preserved");
+        expect(inputs[0]?.options?.env?.SAINT_TEST_MARKER).toBe("preserved");
         expect(inputs[1]?.options?.env?.GIT_TERMINAL_PROMPT).toBe("0");
         expect(inputs[2]?.options?.env?.GIT_TERMINAL_PROMPT).toBe("1");
         for (const input of inputs.slice(3)) {
           expect(input.options?.env?.GIT_TERMINAL_PROMPT).toBe("0");
-          expect(input.options?.env?.SYNARA_TEST_MARKER).toBe("preserved");
+          expect(input.options?.env?.SAINT_TEST_MARKER).toBe("preserved");
         }
       }),
   );

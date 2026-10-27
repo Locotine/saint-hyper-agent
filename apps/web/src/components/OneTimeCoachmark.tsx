@@ -102,7 +102,7 @@ export function OneTimeCoachmark({
 }
 
 export const TASKS_COACHMARK = {
-  storageKey: "synara:tasks-onboarding:v1",
+  storageKey: "saint:tasks-onboarding:v1",
   title: "Tasks",
   description: "Keep your to-dos in one place and hand them to an agent when you’re ready.",
 };

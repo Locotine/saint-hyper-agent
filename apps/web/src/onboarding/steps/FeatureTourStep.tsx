@@ -1,10 +1,10 @@
 // FILE: FeatureTourStep.tsx
-// Purpose: "What Synara can do" tour built from TOUR_CARDS: a vertical list of topics on the
+// Purpose: "What Saint can do" tour built from TOUR_CARDS: a vertical list of topics on the
 //          left, the selected topic's text on the right, with a docs link per topic and live
 //          shortcut chips on the shortcuts topic.
 // Layer: Web UI component
 
-import type { ResolvedKeybindingsConfig } from "@synara/contracts";
+import type { ResolvedKeybindingsConfig } from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -48,7 +48,7 @@ export function FeatureTourStep() {
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)] gap-8">
-      <div className="flex flex-col gap-0.5" role="tablist" aria-label="Synara capabilities">
+      <div className="flex flex-col gap-0.5" role="tablist" aria-label="Saint capabilities">
         {TOUR_CARDS.map((card) => {
           const Icon = card.icon;
           const selected = card.id === selectedCard.id;

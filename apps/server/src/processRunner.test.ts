@@ -137,7 +137,7 @@ describe.skipIf(process.platform === "win32")("cancellation without ps on PATH",
     const started = Date.now();
     let abortTimer: ReturnType<typeof setTimeout> | undefined;
     try {
-      process.env.PATH = "/synara-test-no-executables";
+      process.env.PATH = "/saint-test-no-executables";
       const running = runProcess(process.execPath, ["-e", "setTimeout(() => {}, 4000)"], {
         timeoutMs: cause === "timeout" ? 30 : 5000,
         signal: controller.signal,

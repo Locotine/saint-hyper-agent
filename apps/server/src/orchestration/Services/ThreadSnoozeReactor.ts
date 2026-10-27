@@ -8,4 +8,4 @@ export interface ThreadSnoozeReactorShape {
 export class ThreadSnoozeReactor extends ServiceMap.Service<
   ThreadSnoozeReactor,
   ThreadSnoozeReactorShape
->()("synara/orchestration/Services/ThreadSnoozeReactor") {}
+>()("saint/orchestration/Services/ThreadSnoozeReactor") {}

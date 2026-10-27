@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DesktopUpdateActionResult, DesktopUpdateState } from "@synara/contracts";
+import type { DesktopUpdateActionResult, DesktopUpdateState } from "@saint/contracts";
 
 import {
   getArm64IntelBuildWarningDescription,
@@ -90,7 +90,7 @@ describe("desktop update button state", () => {
       status: "error",
       availableVersion: "1.1.0",
       downloadedVersion: null,
-      message: "Synara restarted before the update was installed.",
+      message: "Saint restarted before the update was installed.",
       errorContext: "install",
       canRetry: true,
       installFailureCount: 1,
@@ -99,7 +99,7 @@ describe("desktop update button state", () => {
     expect(resolveDesktopUpdateButtonAction(state)).toBe("download");
     expect(isDesktopUpdateButtonDisabled(state)).toBe(false);
     expect(getDesktopUpdateButtonTooltip(state)).toBe(
-      "Synara restarted, but update 1.1.0 was not installed. Click to try again.",
+      "Saint restarted, but update 1.1.0 was not installed. Click to try again.",
     );
   });
 

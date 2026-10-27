@@ -2,7 +2,7 @@ import {
   OrchestrationProposedPlanId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import * as Schema from "effect/Schema";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pendingComposerAttachmentSyncGenerationCount } from "./composerDraftAttachments";
@@ -551,7 +551,7 @@ describe("composerDraftStore prompt history saved draft", () => {
       captureId,
       capturedAt: "2026-07-14T08:00:00.000Z",
       appName: "Safari",
-      windowTitle: "Synara",
+      windowTitle: "Saint",
     };
     const staleLiveImage = {
       ...makeImage({ id: "appsnap-stale-live", previewUrl: "blob:appsnap-stale-live" }),
@@ -633,7 +633,7 @@ describe("composerDraftStore pull request context cards", () => {
     createdAt: "2026-09-08T12:00:00.000Z",
     scope: "checks" as const,
     prNumber: 321,
-    prUrl: "https://github.com/example/synara/pull/321",
+    prUrl: "https://github.com/example/saint/pull/321",
     title: "1 failing check",
     subtitle: "Test",
     text: "Fix the failing CI checks on PR #321.",
@@ -784,7 +784,7 @@ describe("composerDraftStore copyTransferableComposerState", () => {
         captureId: "capture-shared",
         capturedAt: "2026-07-12T20:00:00.000Z",
         appName: "Safari",
-        windowTitle: "Synara",
+        windowTitle: "Saint",
       },
     };
     const store = useComposerDraftStore.getState();
@@ -1090,7 +1090,7 @@ describe("composerDraftStore syncPersistedAttachments", () => {
       appName: "Safari",
       bundleIdentifier: null,
       appIconDataUrl: null,
-      windowTitle: "Synara",
+      windowTitle: "Saint",
     };
     const mergedState = persistApi.getOptions().merge(
       {
@@ -1145,7 +1145,7 @@ describe("composerDraftStore syncPersistedAttachments", () => {
                 appName: "Safari",
                 bundleIdentifier: "com.apple.Safari",
                 appIconDataUrl: "data:image/png;base64,aWNvbg==",
-                windowTitle: "Synara",
+                windowTitle: "Saint",
               },
             },
           ],

@@ -1,4 +1,4 @@
-import { ProjectId } from "@synara/contracts";
+import { ProjectId } from "@saint/contracts";
 import { expect, it } from "vitest";
 import { renderHook } from "vitest-browser-react";
 import { useLatestProjectStore } from "../../latestProjectStore";

@@ -12,9 +12,9 @@ import {
   type ProjectImportProvider,
   type ProviderForkThreadResult,
   type ThreadHandoffImportedMessage,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Schema } from "effect";
-import { resolveThreadWorkspaceCwd } from "@synara/shared/threadEnvironment";
+import { resolveThreadWorkspaceCwd } from "@saint/shared/threadEnvironment";
 import {
   access,
   mkdir,
@@ -52,7 +52,7 @@ const temporaryDirectories: string[] = [];
 type NativeImportInput = Parameters<NonNullable<ProviderServiceShape["importExternalThread"]>>[0];
 
 async function workspace() {
-  const temporary = await mkdtemp(path.join(tmpdir(), "synara-project-import-route-"));
+  const temporary = await mkdtemp(path.join(tmpdir(), "saint-project-import-route-"));
   temporaryDirectories.push(temporary);
   const directory = await realpath(temporary);
   const root = path.join(directory, "workspace");
@@ -673,11 +673,11 @@ describe("project import routes", () => {
     expect(test.commands.some((command) => command.type === "project.create")).toBe(false);
   });
 
-  it("skips a native session already owned by Synara even without an import origin", async () => {
+  it("skips a native session already owned by Saint even without an import origin", async () => {
     const { root } = await workspace();
     const project = existingProject(root);
     const test = harness({ root, projects: [project] });
-    const threadId = ThreadId.makeUnsafe("original-synara-thread");
+    const threadId = ThreadId.makeUnsafe("original-saint-thread");
     test.threads.push({ id: threadId, projectId: project.id, deletedAt: null });
     test.bindings.push({
       threadId,

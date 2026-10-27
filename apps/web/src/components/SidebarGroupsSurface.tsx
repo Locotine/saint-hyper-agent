@@ -6,7 +6,7 @@
 // Exports: SidebarGroupsSurface
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { ProjectId, ThreadId } from "@synara/contracts";
+import type { ProjectId, ThreadId } from "@saint/contracts";
 
 import { createGroupProject, findLegacyStudioContainerForAdoption } from "../lib/groupProjects";
 import { NewThreadIcon, SettingsIcon } from "../lib/icons";

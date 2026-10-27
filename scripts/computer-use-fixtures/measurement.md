@@ -1,7 +1,7 @@
 # Computer Use measurement collector
 
 `collect-measurement.ts` collects bounded evidence from the existing authenticated
-Synara diagnostic tools. It does not launch applications, create threads, grant
+Saint diagnostic tools. It does not launch applications, create threads, grant
 permissions, or open the live SQLite database. The application deliberately owns
 that database exclusively; another SQLite client cannot safely read it while the
 app runs, and copying its database and WAL files separately is not a snapshot.
@@ -20,8 +20,8 @@ nice -n 10 bun scripts/computer-use-fixtures/collect-measurement.ts \
   --out /private/tmp/computer-run-measurement.json
 ```
 
-`SYNARA_AGENT_GATEWAY_URL` identifies the isolated loopback `/mcp` endpoint;
-`SYNARA_AGENT_GATEWAY_TOKEN` must be an existing active session token. The collector
+`SAINT_AGENT_GATEWAY_URL` identifies the isolated loopback `/mcp` endpoint;
+`SAINT_AGENT_GATEWAY_TOKEN` must be an existing active session token. The collector
 does not discover credentials or exchange single-use provider bootstrap tokens.
 The output must not already exist and is created with mode `0600`. Exit 0 means
 the measurement gates passed; 2 means the saved report is invalid; 1 means the

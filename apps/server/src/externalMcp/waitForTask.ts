@@ -1,4 +1,4 @@
-import { ThreadId, TurnId } from "@synara/contracts";
+import { ThreadId, TurnId } from "@saint/contracts";
 import { Effect } from "effect";
 
 import type { ProjectionTurnRepositoryShape } from "../persistence/Services/ProjectionTurns.ts";

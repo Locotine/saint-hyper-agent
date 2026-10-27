@@ -3,12 +3,12 @@ import { Schema } from "effect";
 import { IsoDateTime, TrimmedNonEmptyString } from "./baseSchemas";
 
 // Connectors (Beta): remote MCP servers the user signs in to from Settings.
-// Synara keeps their OAuth tokens and proxies provider sessions to them.
+// Saint keeps their OAuth tokens and proxies provider sessions to them.
 
 export const McpConnectorId = TrimmedNonEmptyString;
 export type McpConnectorId = typeof McpConnectorId.Type;
 
-/** "oauth" servers carry Synara-held tokens; "none" servers answer anonymously. */
+/** "oauth" servers carry Saint-held tokens; "none" servers answer anonymously. */
 export const McpConnectorAuthKind = Schema.Literals(["oauth", "none"]);
 export type McpConnectorAuthKind = typeof McpConnectorAuthKind.Type;
 

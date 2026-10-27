@@ -7,7 +7,7 @@ import {
   DEFAULT_MODEL,
   DEFAULT_MODEL_BY_PROVIDER,
   MODEL_OPTIONS_BY_PROVIDER,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import {
   applyClaudePromptEffortPrefix,

@@ -14,7 +14,7 @@ import {
   migrationBackupProvenancePath,
   migrationRecoveryMarkerPath,
   parseMigrationSchemaTooNewStartupBlock,
-} from "@synara/shared/migrationRecovery";
+} from "@saint/shared/migrationRecovery";
 
 import {
   inspectCompletedMigrationBackupForSchemaTooNew,
@@ -47,7 +47,7 @@ afterEach(async () => {
 });
 
 async function makeDatabasePath(): Promise<string> {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "synara-schema-too-new-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "saint-schema-too-new-"));
   tempDirectories.push(directory);
   return path.join(directory, "state.sqlite");
 }

@@ -1,4 +1,4 @@
-import type { BrowserRunOutput, BrowserTabId } from "@synara/contracts";
+import type { BrowserRunOutput, BrowserTabId } from "@saint/contracts";
 import type { BrowserAutomationVisibleRuntime } from "../browserManager";
 import { browserHostError } from "./hostErrors";
 import { getBrowserNavigationTracker, type BrowserNavigationMark } from "./navigationTracker";

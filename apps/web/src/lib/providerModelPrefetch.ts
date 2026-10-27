@@ -11,7 +11,7 @@ import type {
   ProviderKind,
   ServerProviderStatus,
   ServerSettings,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import type { QueryClient } from "@tanstack/react-query";
 
 import {

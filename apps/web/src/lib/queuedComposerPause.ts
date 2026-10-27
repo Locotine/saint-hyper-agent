@@ -12,7 +12,7 @@
 // Resume acknowledges them through `queueResumedTurnId`. Both markers live in the
 // persisted composer draft, so a pause survives reload.
 
-import type { OrchestrationThreadActivity } from "@synara/contracts";
+import type { OrchestrationThreadActivity } from "@saint/contracts";
 
 import type { Thread } from "../types";
 

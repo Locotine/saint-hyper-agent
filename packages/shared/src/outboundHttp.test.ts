@@ -93,7 +93,7 @@ describe("outbound requests that cannot connect", () => {
     // A synchronous pinned lookup can destroy the TLS socket during its
     // constructor, before Node attaches its error handlers. Keep the fatal
     // regression in a child process and exercise the real transport there.
-    const directory = await mkdtemp(join(tmpdir(), "synara-outbound-tls-"));
+    const directory = await mkdtemp(join(tmpdir(), "saint-outbound-tls-"));
     try {
       for (const name of ["outboundHttpPolicy", "outboundHttp"]) {
         const source = await readFile(new URL(`./${name}.ts`, import.meta.url), "utf8");

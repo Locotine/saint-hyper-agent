@@ -13,17 +13,17 @@ export default async function Navbar() {
       <div className="mx-auto flex h-9 max-w-6xl items-center justify-between gap-2 sm:gap-6">
         <Link
           href="/"
-          aria-label="Synara home"
+          aria-label="Saint home"
           className="flex shrink-0 items-center gap-2 text-[14px] font-medium tracking-[-0.02em] text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-link)]"
         >
           <Image
-            src="/synara-icon.png"
+            src="/saint-icon.png"
             alt=""
             width={22}
             height={22}
             className="rounded-[5px] border border-[var(--divide)]"
           />
-          <span className="hidden sm:inline">Synara</span>
+          <span className="hidden sm:inline">Saint</span>
         </Link>
 
         {/*

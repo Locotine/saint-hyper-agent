@@ -35,7 +35,7 @@ import type {
   RuntimeMode,
   ThreadCreationSource,
   ThreadEnvironmentMode,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import type { ProjectAppearance } from "./lib/projectAppearance";
 
 export type SessionPhase = "disconnected" | "connecting" | "ready" | "running";
@@ -79,7 +79,7 @@ export type ChatAttachment =
   | ChatAssistantSelectionAttachment;
 
 export type OrchestrationMessageTextSegment =
-  import("@synara/contracts").OrchestrationMessageTextSegment;
+  import("@saint/contracts").OrchestrationMessageTextSegment;
 
 export interface ChatMessage {
   id: MessageId;
@@ -87,7 +87,7 @@ export interface ChatMessage {
   text: string;
   /** Slices of streamed assistant text between row-making provider events. */
   textSegments?: OrchestrationMessageTextSegment[];
-  asyncUserInput?: import("@synara/contracts").AsyncUserInput;
+  asyncUserInput?: import("@saint/contracts").AsyncUserInput;
   attachments?: ChatAttachment[];
   skills?: ProviderSkillReference[];
   mentions?: ProviderMentionReference[];

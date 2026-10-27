@@ -44,12 +44,12 @@ import {
   type ProjectDocumentRevision,
   type ProjectTaskStatus,
   type ProviderSession,
-} from "@synara/contracts";
-import { groupThreadStateLabel, resolveGroupThreadState } from "@synara/shared/groupThreadState";
+} from "@saint/contracts";
+import { groupThreadStateLabel, resolveGroupThreadState } from "@saint/shared/groupThreadState";
 import { HubWorkRepository } from "../../persistence/Services/HubWorkRepository";
-import { coordinatorCheckinTurnReport } from "@synara/shared/coordinatorCheckin";
-import { resolveThreadWorkspaceCwd } from "@synara/shared/threadEnvironment";
-import { isOrdinaryProjectRow } from "@synara/shared/projectContainers";
+import { coordinatorCheckinTurnReport } from "@saint/shared/coordinatorCheckin";
+import { resolveThreadWorkspaceCwd } from "@saint/shared/threadEnvironment";
+import { isOrdinaryProjectRow } from "@saint/shared/projectContainers";
 import {
   coordinatorWelcomeDisplayName,
   coordinatorWelcomeMessageId,
@@ -91,7 +91,7 @@ import {
   normalizeProjectDocumentPath,
   sanitizeProjectDigestSummary,
   truncateToContextBudget,
-} from "@synara/shared/projectAgent";
+} from "@saint/shared/projectAgent";
 import {
   Cause,
   Clock,
@@ -721,9 +721,9 @@ export const makeProjectAgentService = Effect.gen(function* () {
           coordinatorThreadId: input.coordinatorThreadId,
           sourceKey: `stuck:${input.sourceEventId}`,
           tone: notice.tone,
-          // The needs-you row is a Synara-native action card (retry / stop /
+          // The needs-you row is a Saint-native action card (retry / stop /
           // open thread) — NOT a fake provider user-input request.
-          kind: needsYou ? "synara.worker.needs-you" : "synara.worker.stuck",
+          kind: needsYou ? "saint.worker.needs-you" : "saint.worker.stuck",
           summary: formatWorkerMonitorRow({
             title: worker.title,
             marker: notice.marker,
@@ -759,7 +759,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
           sourceKey: `settle:${input.sourceEventId}`,
           tone: notice.tone,
           strict: input.replayDelivery,
-          kind: "synara.worker.settled",
+          kind: "saint.worker.settled",
           summary: formatWorkerMonitorRow({
             title: worker.title,
             marker: notice.marker,
@@ -885,7 +885,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
             sourceKey: `rollup:${rollupKey}`,
             strict: input.replayDelivery,
             tone: allFinished ? "info" : "approval",
-            kind: "synara.workers.settled",
+            kind: "saint.workers.settled",
             summary: [
               formatWorkerBatchRollup({ threads }),
               ...unstartedWork.map((item) => `${item.title}: ${item.state} before starting.`),
@@ -1116,7 +1116,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
         worker.settleOutcome === "missing";
 
       // "Waiting on you": the latch is the same for every path that reaches
-      // it — flag + Synara-native row with retry/stop actions (posted by the
+      // it — flag + Saint-native row with retry/stop actions (posted by the
       // `worker.needs-you` ingest), never a fake provider request.
       const latchNeedsYou = (dedupeKey: string) =>
         Effect.gen(function* () {
@@ -2709,7 +2709,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
     });
 
   // Both link entry points (the user's linkProject and the coordinator's
-  // synara_project_link_repository) run this body; only the recorded actor
+  // saint_project_link_repository) run this body; only the recorded actor
   // differs.
   const linkProjectIntoGroup = (input: {
     readonly requestId: string;
@@ -3308,7 +3308,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
             .pipe(Effect.mapError(toServiceError("Failed to resolve workspacePath.")));
           if (Option.isNone(project)) {
             return yield* Effect.fail(
-              fail(`No Synara project owns workspace "${input.workspacePath}".`, "not-found"),
+              fail(`No Saint project owns workspace "${input.workspacePath}".`, "not-found"),
             );
           }
           return project.value.id;
@@ -4164,7 +4164,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
                 catch: toServiceError("Failed to remove hub context files."),
               });
               // The managed group workspace folder only gets removed when
-              // nothing but Synara-generated instructions remain inside; any
+              // nothing but Saint-generated instructions remain inside; any
               // user files keep it on disk and the path goes back to the UI.
               const workspaceCleanup = yield* cleanupGroupWorkspaceRoot({
                 workspaceRoot: project.workspaceRoot,
@@ -4813,7 +4813,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
           if (diskHash !== syncedMarker && diskHash !== head.value.contentHash) {
             return yield* Effect.fail(
               fail(
-                "The Markdown file changed outside Synara. Import the external copy explicitly instead of overwriting it.",
+                "The Markdown file changed outside Saint. Import the external copy explicitly instead of overwriting it.",
                 "conflict",
               ),
             );
@@ -5155,7 +5155,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
         const memoryIndexText =
           Option.isSome(memoryIndex) && memoryIndex.value.content.trim().length > 0
             ? memoryIndex.value.content.trim()
-            : "Empty. Save hub-wide memory with synara_project_remember.";
+            : "Empty. Save hub-wide memory with saint_project_remember.";
         const groupLibraryRoot = Option.isSome(config)
           ? yield* resolveGroupLibraryRoot(principal.projectId)
               .pipe(Effect.map(({ root }) => root))
@@ -5205,7 +5205,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
             ? [
                 {
                   label: sectionLabel("Assigned Hub task", "server-state"),
-                  text: `Work item: ${workItem.id}\nTask: ${workItem.title}\nProgress revision: ${workItem.progress?.revision ?? 0}\nReport your own checklist with synara_hub_update_progress using this workItemId and expectedRevision. Read the current revision with synara_hub_list_work before updating after a conflict. Checklist completion does not finish the task or release its worker slot.`,
+                  text: `Work item: ${workItem.id}\nTask: ${workItem.title}\nProgress revision: ${workItem.progress?.revision ?? 0}\nReport your own checklist with saint_hub_update_progress using this workItemId and expectedRevision. Read the current revision with saint_hub_list_work before updating after a conflict. Checklist completion does not finish the task or release its worker slot.`,
                 },
               ]
             : []),
@@ -5243,7 +5243,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
             : [
                 {
                   label: sectionLabel("Hub tools", "host-policy"),
-                  text: "Save shared hub memory with synara_project_remember; deliver files to the hub Library with synara_project_library_add — sources must be inside your own workspace.",
+                  text: "Save shared hub memory with saint_project_remember; deliver files to the hub Library with saint_project_library_add — sources must be inside your own workspace.",
                 },
               ]),
           {
@@ -5282,7 +5282,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
                   text:
                     workerReports.length > 0
                       ? workerReports.join("\n\n")
-                      : "None yet. Synara writes inbox/<threadId>/report.md when a worker finishes or dies.",
+                      : "None yet. Saint writes inbox/<threadId>/report.md when a worker finishes or dies.",
                 },
               ]
             : []),
@@ -5296,7 +5296,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
           },
         ]);
         return [
-          "Hub context packet (server state, user-owned instructions and contextual documents; additional documents via synara_project_read_document):",
+          "Hub context packet (server state, user-owned instructions and contextual documents; additional documents via saint_project_read_document):",
           hubContextPacketRoleIntro(role),
           HUB_CONTEXT_PACKET_PROVENANCE_LEGEND,
           budget.packet,
@@ -6730,7 +6730,7 @@ export const makeProjectAgentService = Effect.gen(function* () {
         // thread.create persists provenance before the worker's first turn
         // starts. Keep the same role while its final tracking transaction is
         // still pending, so a fast worker cannot delegate in that window.
-        if (shell.value.creationSource === "synara_mcp" && shell.value.sourceThreadId) {
+        if (shell.value.creationSource === "saint_mcp" && shell.value.sourceThreadId) {
           const creator = yield* repository
             .getConfigByCoordinatorThread(shell.value.sourceThreadId)
             .pipe(Effect.mapError(toServiceError("Failed to resolve worker creator.")));

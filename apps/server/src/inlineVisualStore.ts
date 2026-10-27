@@ -8,7 +8,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { INLINE_VISUAL_MAX_HTML_BYTES, InlineVisualId } from "@synara/contracts";
+import { INLINE_VISUAL_MAX_HTML_BYTES, InlineVisualId } from "@saint/contracts";
 import { Schema } from "effect";
 
 import { resolveAttachmentRelativePath } from "./attachmentPaths";

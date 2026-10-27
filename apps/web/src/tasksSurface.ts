@@ -5,7 +5,7 @@
 // Exports: TASKS_OFFERED_BY_BUILD, isTasksSurfaceEnabled, useTasksSurfaceEnabled,
 //          isTasksRefusal, noteTasksRefusal
 
-import { TASKS_UNAVAILABLE_ERROR_CODE } from "@synara/contracts";
+import { TASKS_UNAVAILABLE_ERROR_CODE } from "@saint/contracts";
 import { create } from "zustand";
 
 import { isBetaFeatureOn } from "./betaFeatures";

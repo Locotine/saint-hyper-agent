@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { selectComposerThreadDraft } from "./composerDraftDomain";
 import { runComposerSendOnce } from "./lib/composerSendOwnership";

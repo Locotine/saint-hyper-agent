@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { EditorDebugService } from "./debugService";
 import { ensureDebugAdapter } from "./debugAdapterInstaller";
-import type { EditorDebugEvent, EditorDebugStartInput } from "@synara/contracts";
+import type { EditorDebugEvent, EditorDebugStartInput } from "@saint/contracts";
 
 const owned: { service: EditorDebugService; directory: string }[] = [];
 afterEach(async () => {
@@ -19,7 +19,7 @@ afterEach(async () => {
   }
 });
 async function setup(adapter?: (signal: AbortSignal) => Promise<string>) {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "synara-dap-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "saint-dap-"));
   const cwd = path.join(directory, "project");
   await mkdir(cwd);
   const service = new EditorDebugService(path.join(directory, "state"), adapter);
@@ -127,12 +127,12 @@ it.each([
   },
 );
 
-// SYNARA_TEST_JS_DEBUG=1 downloads the checksum-pinned upstream adapter; no fake DAP peer.
-const live = process.env.SYNARA_TEST_JS_DEBUG === "1";
+// SAINT_TEST_JS_DEBUG=1 downloads the checksum-pinned upstream adapter; no fake DAP peer.
+const live = process.env.SAINT_TEST_JS_DEBUG === "1";
 describe.runIf(live)("actual Microsoft JavaScript debugger", () => {
   function actual() {
     return setup((signal) =>
-      ensureDebugAdapter(path.join(os.tmpdir(), "synara-js-debug-test-cache"), signal),
+      ensureDebugAdapter(path.join(os.tmpdir(), "saint-js-debug-test-cache"), signal),
     );
   }
   async function wait(

@@ -7,7 +7,7 @@
 // screen rather than the app surface: fixed light-on-dark values, not theme
 // tokens, because a phone screen does not change with the app's theme.
 
-import type { DeviceSetupStep } from "@synara/contracts";
+import type { DeviceSetupStep } from "@saint/contracts";
 
 import { CheckIcon, LoaderCircleIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";

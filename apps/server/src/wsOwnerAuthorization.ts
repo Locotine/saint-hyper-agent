@@ -1,4 +1,4 @@
-import { WsRpcError } from "@synara/contracts";
+import { WsRpcError } from "@saint/contracts";
 import { Effect } from "effect";
 
 import { CurrentWsSessionRole } from "./wsConnectionSessions";

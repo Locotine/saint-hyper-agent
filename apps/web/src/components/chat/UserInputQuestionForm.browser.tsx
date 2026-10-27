@@ -1,5 +1,5 @@
 import "../../index.css";
-import { ApprovalRequestId, MessageId } from "@synara/contracts";
+import { ApprovalRequestId, MessageId } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";

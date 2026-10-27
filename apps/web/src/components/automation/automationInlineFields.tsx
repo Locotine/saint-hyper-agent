@@ -4,7 +4,7 @@
 // Exports: DetailGroup/DetailRow/StatusValue/EditRow layout rows plus the inline
 // commit-on-change controls (select, toggle, time, commit-on-blur text input).
 
-import type { AutomationMode, AutomationWorktreeMode } from "@synara/contracts";
+import type { AutomationMode, AutomationWorktreeMode } from "@saint/contracts";
 
 import { CentralIcon } from "~/lib/central-icons";
 import { useCommitDraft, useCommitDraftBlurHandlers } from "~/lib/automationInlineDraft";

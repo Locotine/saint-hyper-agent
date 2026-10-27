@@ -2,7 +2,7 @@ import {
   DEFAULT_SERVER_SETTINGS_VIEW,
   type ServerConfig,
   type ServerSettingsView,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { TASKS_COACHMARK } from "../components/OneTimeCoachmark";
 import { FEATURE_TOUR_STORAGE_KEY } from "../featureTour/store";
@@ -12,7 +12,7 @@ export function createBrowserTestServerConfig(checkedAt: string): ServerConfig {
   return {
     cwd: "/repo/project",
     worktreesDir: "/repo/.codex/worktrees",
-    keybindingsConfigPath: "/repo/project/.synara-keybindings.json",
+    keybindingsConfigPath: "/repo/project/.saint-keybindings.json",
     keybindings: [],
     issues: [],
     providers: [
@@ -52,7 +52,7 @@ export function acknowledgeStartupAnnouncementsForTest(config: ServerConfig): vo
     JSON.stringify([config.worktreesDir]),
   );
   localStorage.setItem(TASKS_COACHMARK.storageKey, "seen");
-  localStorage.setItem("synara:activity-onboarding:v1", "seen");
+  localStorage.setItem("saint:activity-onboarding:v1", "seen");
 }
 
 export function createFullscreenTestHost(): HTMLDivElement {

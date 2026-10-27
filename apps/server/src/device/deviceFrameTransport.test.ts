@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { decodeDeviceFrame } from "@synara/shared/deviceFrame";
+import { decodeDeviceFrame } from "@saint/shared/deviceFrame";
 
 import type { DeviceStreamFrame } from "./DeviceBackend.ts";
 import { DeviceFrameTransport, type DeviceFrameSink } from "./deviceFrameTransport.ts";

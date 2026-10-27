@@ -1,6 +1,6 @@
 # Claude cache recovery
 
-Synara retains Claude Code's native cache behavior. Saved conversation history is durable; the
+Saint retains Claude Code's native cache behavior. Saved conversation history is durable; the
 provider's prompt cache has a limited lifetime. A process restart does not necessarily invalidate a
 warm prefix, and a process left running does not refresh an idle prefix.
 
@@ -81,7 +81,7 @@ Installing a hold and marking the session ready happen in one command. Admission
 conversation journal for cancellation after the source request, including cancellation during a
 cache observation, so a delayed hold cannot revive a stopped task.
 
-The provider may accept a prompt before Synara persists the acknowledgement. This is not an
+The provider may accept a prompt before Saint persists the acknowledgement. This is not an
 exactly-once external API. An ambiguous delivery remains uncertain instead of being blindly
 replayed. Cancelling a held send preserves its text for copying; it does not promise that the
 existing edit-and-resend action is available for a message with no provider turn yet.
@@ -160,7 +160,7 @@ including after route changes or a page reload. A proven server rejection releas
 a timeout or transport error does not create a new compaction.
 
 Compaction after cache expiry still reads the old history once. Its benefit is the smaller history
-on subsequent requests. Synara does not remove old screenshots from the Claude transcript, rewrite
+on subsequent requests. Saint does not remove old screenshots from the Claude transcript, rewrite
 the JSONL, force a cache lifetime, or change the user's model or automatic-compaction threshold.
 
 ## Verification boundaries
@@ -175,7 +175,7 @@ without sending a prompt. It verified native command discovery and context-summa
 SessionStart did not arrive before a prompt in that probe, which is why saved observations are
 needed. This is evidence about the tested runtime, not a capability guarantee for every version.
 
-Live CLI/SDK/Synara cache parity remains a separate validation gate. Compare the same runtime,
+Live CLI/SDK/Saint cache parity remains a separate validation gate. Compare the same runtime,
 account, model, effort, settings, directory, tools, and prompt prefix with small synthetic sessions
 and an explicit inference budget. Measure warm resume, cold resume, restart, and image retention
 separately. Do not use a large customer transcript as the workload or equate simulated timestamps

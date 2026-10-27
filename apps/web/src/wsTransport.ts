@@ -1,5 +1,5 @@
 // FILE: wsTransport.ts
-// Purpose: Browser-side Effect RPC transport over the Synara WebSocket endpoint.
+// Purpose: Browser-side Effect RPC transport over the Saint WebSocket endpoint.
 // Layer: Web transport
 // Exports: WsTransport plus stream-selection helpers used by tests.
 
@@ -65,7 +65,7 @@ import {
   type WsPushMessage,
   TASKS_UNAVAILABLE_ERROR_CODE,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   Cause,
   Data,
@@ -96,7 +96,7 @@ import {
   makeWsRequestCapacityError,
   WS_REQUEST_CLASS_LIMITS,
   type WsRequestClass,
-} from "@synara/shared/wsRequestClass";
+} from "@saint/shared/wsRequestClass";
 import {
   classifyRpcTransportFailure,
   describeTransportFailureForDiagnostics,

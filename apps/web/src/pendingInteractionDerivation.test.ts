@@ -5,7 +5,7 @@ import {
   TurnId,
   type OrchestrationPendingInteraction,
   type OrchestrationThreadActivity,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { derivePendingApprovals, derivePendingUserInputs } from "./pendingInteractionDerivation";
@@ -299,7 +299,7 @@ describe("derivePendingApprovals", () => {
         payload: {
           requestId: "tool-request-1",
           requestKind: "tool",
-          detail: "Allow Synara to launch the calculator?",
+          detail: "Allow Saint to launch the calculator?",
           toolName: "computer_launch_app",
           toolParamsDisplay: [{ name: "app", value: "kcalc", display_name: "app" }],
         },
@@ -311,7 +311,7 @@ describe("derivePendingApprovals", () => {
         requestId: "tool-request-1",
         requestKind: "tool",
         createdAt: "2026-02-23T00:00:01.000Z",
-        detail: "Allow Synara to launch the calculator?",
+        detail: "Allow Saint to launch the calculator?",
         toolName: "computer_launch_app",
         toolParamsDisplay: [{ name: "app", value: "kcalc", displayName: "app" }],
       },

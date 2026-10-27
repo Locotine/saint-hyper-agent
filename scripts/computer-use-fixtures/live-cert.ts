@@ -1,5 +1,5 @@
 /**
- * live-cert: the single-command live gate for Synara computer use.
+ * live-cert: the single-command live gate for Saint computer use.
  *
  * Boots a trusted CuaDriverHost + the packaged driver on the current tree,
  * spawns real TextEdit targets without stealing focus (`open -g` / `open -j`
@@ -58,7 +58,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
-import { cuaRequest, type CuaReply } from "@synara/shared/cuaDriverProtocol";
+import { cuaRequest, type CuaReply } from "@saint/shared/cuaDriverProtocol";
 import { CuaDriverHost } from "../../apps/desktop/src/cuaDriverHost";
 import { ComputerShield } from "../../apps/desktop/src/computerShield";
 import { EscapeKillSwitchMonitor } from "../../apps/desktop/src/escapeKillSwitchMonitor";
@@ -75,9 +75,9 @@ import {
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const DRIVER = join(root, "apps/desktop/resources/cua-driver/cua-driver");
-const PROBE_BIN = "/private/tmp/synara-cua-implementation/focus-probe";
-const SPACE_CTL = "/private/tmp/synara-cua-implementation/space-ctl";
-const APPSNAP = join(root, "apps/desktop/.electron-runtime/appsnap/synara-appsnap-helper");
+const PROBE_BIN = "/private/tmp/saint-cua-implementation/focus-probe";
+const SPACE_CTL = "/private/tmp/saint-cua-implementation/space-ctl";
+const APPSNAP = join(root, "apps/desktop/.electron-runtime/appsnap/saint-appsnap-helper");
 const SENTINEL = `livecert-${Date.now().toString(36)}`;
 
 type Verdict = "pass" | "fail" | "skipped";
@@ -486,7 +486,7 @@ const escArmEvents: boolean[] = [];
 let escMonitor: EscapeKillSwitchMonitor | undefined;
 const host = new CuaDriverHost({
   binaryPath: DRIVER,
-  bundleId: "com.synara.cua-canary",
+  bundleId: "com.saint.cua-canary",
   capability,
   setup: async () => {},
   ...(shieldHost ? { shield: shieldHost } : {}),

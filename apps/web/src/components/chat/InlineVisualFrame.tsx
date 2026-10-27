@@ -4,14 +4,14 @@
 // Layer: Chat transcript row content
 // Exports: InlineVisualFrame
 
-import type { InlineVisualActivityPayload, ThreadId } from "@synara/contracts";
+import type { InlineVisualActivityPayload, ThreadId } from "@saint/contracts";
 import {
   buildInlineVisualDocument,
   clampInlineVisualHeight,
   inlineVisualThemeMessage,
   readInlineVisualFrameMessage,
   type InlineVisualTheme,
-} from "@synara/shared/inlineVisual";
+} from "@saint/shared/inlineVisual";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
@@ -45,7 +45,7 @@ export function InlineVisualFrame(props: {
   ) : (
     <InlineVisualNotice
       title={props.visual.title}
-      message="HTML visuals are available in Synara desktop. Use native components in the browser."
+      message="HTML visuals are available in Saint desktop. Use native components in the browser."
     />
   );
 }

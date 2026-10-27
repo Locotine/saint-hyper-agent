@@ -15,8 +15,8 @@ import {
   type ProviderKind,
   type RuntimeMode,
   type ThreadId,
-} from "@synara/contracts";
-import { automationRequiresTargetThread } from "@synara/shared/automationMode";
+} from "@saint/contracts";
+import { automationRequiresTargetThread } from "@saint/shared/automationMode";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -108,7 +108,7 @@ import { useProviderModelCatalog } from "~/hooks/useProviderModelCatalog";
 import { useProviderStatusesForLocalConfig } from "~/hooks/useProviderStatusesForLocalConfig";
 import { useStore } from "~/store";
 import { resolveThreadPickerTitle } from "./-chatThreadRoute.logic";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 export const automationQueryKey = ["automations"] as const;
 export const EMPTY_AUTOMATION_LIST: AutomationListResult = {
@@ -827,7 +827,7 @@ export function AutomationApprovalBanner({
       <AlertTitle>Approval needed</AlertTitle>
       <AlertDescription>
         <span>
-          This automation needs your approval once before Synara can save changes. When a warning
+          This automation needs your approval once before Saint can save changes. When a warning
           blocks manual runs, Run now stays disabled until you approve it.
         </span>
         <ul className="flex flex-col gap-1.5">

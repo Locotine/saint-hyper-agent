@@ -8,7 +8,7 @@ import { expect, vi } from "vitest";
 
 import {
   resolveCodexHomeOverlayAccountSegment,
-  resolveSynaraCodexHomeOverlayPath,
+  resolveSaintCodexHomeOverlayPath,
 } from "../../codexHomePaths.ts";
 import { ServerConfig } from "../../config.ts";
 import {
@@ -22,7 +22,7 @@ import { TextGeneration } from "../Services/TextGeneration.ts";
 const CodexTextGenerationTestLayer = CodexTextGenerationLive.pipe(
   Layer.provideMerge(
     ServerConfig.layerTest(process.cwd(), {
-      prefix: "synara-codex-text-generation-test-",
+      prefix: "saint-codex-text-generation-test-",
     }),
   ),
   Layer.provideMerge(NodeServices.layer),
@@ -36,7 +36,7 @@ const CodexTextGenerationTimeoutTestLayer = makeCodexTextGenerationLive({
 }).pipe(
   Layer.provideMerge(
     ServerConfig.layerTest(process.cwd(), {
-      prefix: "synara-codex-text-generation-process-test-",
+      prefix: "saint-codex-text-generation-process-test-",
     }),
   ),
   Layer.provideMerge(NodeServices.layer),
@@ -50,7 +50,7 @@ const CodexTextGenerationAuthDeadlineTestLayer = makeCodexTextGenerationLive({
 }).pipe(
   Layer.provideMerge(
     ServerConfig.layerTest(process.cwd(), {
-      prefix: "synara-codex-text-generation-auth-deadline-test-",
+      prefix: "saint-codex-text-generation-auth-deadline-test-",
     }),
   ),
   Layer.provideMerge(NodeServices.layer),
@@ -64,7 +64,7 @@ const CodexTextGenerationDrainTestLayer = makeCodexTextGenerationLive({
 }).pipe(
   Layer.provideMerge(
     ServerConfig.layerTest(process.cwd(), {
-      prefix: "synara-codex-text-generation-drain-test-",
+      prefix: "saint-codex-text-generation-drain-test-",
     }),
   ),
   Layer.provideMerge(NodeServices.layer),
@@ -198,46 +198,44 @@ function makeFakeCodexBinary(dir: string, input: FakeCodexOptions) {
     yield* fs.makeDirectory(binDir, { recursive: true });
 
     const embeddedEnvironment = {
-      SYNARA_FAKE_CODEX_VERSION_OUTPUT: input.codexVersionOutput ?? "codex-cli 0.105.0",
-      SYNARA_FAKE_CODEX_VERSION_EXIT_CODE: String(input.codexVersionExitCode ?? 0),
-      SYNARA_FAKE_CODEX_OUTPUT_B64: Buffer.from(input.output, "utf8").toString("base64"),
-      SYNARA_FAKE_CODEX_EXIT_CODE: String(input.exitCode ?? 0),
-      SYNARA_FAKE_CODEX_STDERR: input.stderr ?? "",
-      SYNARA_FAKE_CODEX_REQUIRE_IMAGE: input.requireImage ? "1" : "",
-      SYNARA_FAKE_CODEX_FORBID_IMAGE: input.forbidImage ? "1" : "",
-      SYNARA_FAKE_CODEX_STDIN_MUST_CONTAIN: input.stdinMustContain ?? "",
-      SYNARA_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN: input.stdinMustNotContain ?? "",
-      SYNARA_FAKE_CODEX_REQUIRE_CODEX_HOME: input.requireCodexHome ? "1" : "",
-      SYNARA_FAKE_CODEX_REQUIRE_AUTH_JSON: input.requireAuthJson ? "1" : "",
-      SYNARA_FAKE_CODEX_FORBID_AUTH_JSON: input.forbidAuthJson ? "1" : "",
-      SYNARA_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK: input.requireSkipGitRepoCheck ? "1" : "",
-      SYNARA_FAKE_CODEX_REQUIRE_APPROVAL_NEVER: input.requireApprovalNever ? "1" : "",
-      SYNARA_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG: input.forbidIgnoreUserConfig ? "1" : "",
-      SYNARA_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING: input.requireAzureProviderRouting
-        ? "1"
-        : "",
-      SYNARA_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS: input.requireNoUserExtensions ? "1" : "",
-      SYNARA_FAKE_CODEX_REQUIRE_SECURE_ISOLATION: input.requireSecureIsolation ? "1" : "",
-      SYNARA_FAKE_CODEX_FORBIDDEN_CWD: input.forbiddenCwd ?? "",
-      SYNARA_FAKE_CODEX_TRAP_TERM: input.trapTerm ? "1" : "",
-      SYNARA_FAKE_CODEX_EXIT_ON_TERM: input.exitOnTerm ? "1" : "",
-      SYNARA_FAKE_CODEX_TERM_MARKER: input.termMarkerPath ?? "",
-      SYNARA_FAKE_CODEX_PID_MARKER: input.pidMarkerPath ?? "",
-      SYNARA_FAKE_CODEX_READY_MARKER: input.readyMarkerPath ?? "",
-      SYNARA_FAKE_CODEX_RESOURCE_MANIFEST: input.resourceManifestPath ?? "",
-      SYNARA_FAKE_CODEX_ROTATED_AUTH: input.rotatedAuth ?? "",
-      SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN: input.codexHomeConfigMustContain ?? "",
-      SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN:
+      SAINT_FAKE_CODEX_VERSION_OUTPUT: input.codexVersionOutput ?? "codex-cli 0.105.0",
+      SAINT_FAKE_CODEX_VERSION_EXIT_CODE: String(input.codexVersionExitCode ?? 0),
+      SAINT_FAKE_CODEX_OUTPUT_B64: Buffer.from(input.output, "utf8").toString("base64"),
+      SAINT_FAKE_CODEX_EXIT_CODE: String(input.exitCode ?? 0),
+      SAINT_FAKE_CODEX_STDERR: input.stderr ?? "",
+      SAINT_FAKE_CODEX_REQUIRE_IMAGE: input.requireImage ? "1" : "",
+      SAINT_FAKE_CODEX_FORBID_IMAGE: input.forbidImage ? "1" : "",
+      SAINT_FAKE_CODEX_STDIN_MUST_CONTAIN: input.stdinMustContain ?? "",
+      SAINT_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN: input.stdinMustNotContain ?? "",
+      SAINT_FAKE_CODEX_REQUIRE_CODEX_HOME: input.requireCodexHome ? "1" : "",
+      SAINT_FAKE_CODEX_REQUIRE_AUTH_JSON: input.requireAuthJson ? "1" : "",
+      SAINT_FAKE_CODEX_FORBID_AUTH_JSON: input.forbidAuthJson ? "1" : "",
+      SAINT_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK: input.requireSkipGitRepoCheck ? "1" : "",
+      SAINT_FAKE_CODEX_REQUIRE_APPROVAL_NEVER: input.requireApprovalNever ? "1" : "",
+      SAINT_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG: input.forbidIgnoreUserConfig ? "1" : "",
+      SAINT_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING: input.requireAzureProviderRouting ? "1" : "",
+      SAINT_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS: input.requireNoUserExtensions ? "1" : "",
+      SAINT_FAKE_CODEX_REQUIRE_SECURE_ISOLATION: input.requireSecureIsolation ? "1" : "",
+      SAINT_FAKE_CODEX_FORBIDDEN_CWD: input.forbiddenCwd ?? "",
+      SAINT_FAKE_CODEX_TRAP_TERM: input.trapTerm ? "1" : "",
+      SAINT_FAKE_CODEX_EXIT_ON_TERM: input.exitOnTerm ? "1" : "",
+      SAINT_FAKE_CODEX_TERM_MARKER: input.termMarkerPath ?? "",
+      SAINT_FAKE_CODEX_PID_MARKER: input.pidMarkerPath ?? "",
+      SAINT_FAKE_CODEX_READY_MARKER: input.readyMarkerPath ?? "",
+      SAINT_FAKE_CODEX_RESOURCE_MANIFEST: input.resourceManifestPath ?? "",
+      SAINT_FAKE_CODEX_ROTATED_AUTH: input.rotatedAuth ?? "",
+      SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN: input.codexHomeConfigMustContain ?? "",
+      SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN:
         input.codexHomeConfigMustNotContain ?? "",
-      SYNARA_FAKE_CODEX_REQUIRE_TOOL_ISOLATION: input.requireToolIsolation ? "1" : "",
-      SYNARA_FAKE_CODEX_EXPECTED_ENV_B64: Buffer.from(
+      SAINT_FAKE_CODEX_REQUIRE_TOOL_ISOLATION: input.requireToolIsolation ? "1" : "",
+      SAINT_FAKE_CODEX_EXPECTED_ENV_B64: Buffer.from(
         JSON.stringify(input.expectedChildEnv ?? {}),
       ).toString("base64"),
-      SYNARA_FAKE_CODEX_FORBIDDEN_ENV_B64: Buffer.from(
+      SAINT_FAKE_CODEX_FORBIDDEN_ENV_B64: Buffer.from(
         JSON.stringify(input.forbiddenChildEnvKeys ?? []),
       ).toString("base64"),
-      SYNARA_FAKE_CODEX_HOLD_PIPES_AFTER_ROOT_EXIT: input.holdPipesAfterRootExit ? "1" : "",
-      SYNARA_FAKE_CODEX_CLOSE_PIPES_AFTER_ROOT_EXIT: input.closePipesAfterRootExit ? "1" : "",
+      SAINT_FAKE_CODEX_HOLD_PIPES_AFTER_ROOT_EXIT: input.holdPipesAfterRootExit ? "1" : "",
+      SAINT_FAKE_CODEX_CLOSE_PIPES_AFTER_ROOT_EXIT: input.closePipesAfterRootExit ? "1" : "",
     };
 
     yield* fs.writeFileString(
@@ -248,8 +246,8 @@ function makeFakeCodexBinary(dir: string, input: FakeCodexOptions) {
           ([key, value]) => `${key}=${shellLiteral(value)}`,
         ),
         'if [ "$1" = "--version" ]; then',
-        '  printf "%s\n" "$SYNARA_FAKE_CODEX_VERSION_OUTPUT"',
-        '  exit "$SYNARA_FAKE_CODEX_VERSION_EXIT_CODE"',
+        '  printf "%s\n" "$SAINT_FAKE_CODEX_VERSION_OUTPUT"',
+        '  exit "$SAINT_FAKE_CODEX_VERSION_EXIT_CODE"',
         "fi",
         'output_path=""',
         'schema_path=""',
@@ -287,70 +285,70 @@ function makeFakeCodexBinary(dir: string, input: FakeCodexOptions) {
         "  shift",
         "done",
         'stdin_content="$(cat)"',
-        'if [ "$SYNARA_FAKE_CODEX_REQUIRE_IMAGE" = "1" ] && [ "$seen_image" != "1" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_REQUIRE_IMAGE" = "1" ] && [ "$seen_image" != "1" ]; then',
         '  printf "%s\\n" "missing --image input" >&2',
         "  exit 2",
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_FORBID_IMAGE" = "1" ] && [ "$seen_image" = "1" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_FORBID_IMAGE" = "1" ] && [ "$seen_image" = "1" ]; then',
         '  printf "%s\n" "unexpected --image input" >&2',
         "  exit 23",
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK" = "1" ] && [ "$seen_skip_git_repo_check" != "1" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK" = "1" ] && [ "$seen_skip_git_repo_check" != "1" ]; then',
         '  printf "%s\\n" "missing --skip-git-repo-check" >&2',
         "  exit 9",
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_REQUIRE_APPROVAL_NEVER" = "1" ] && [ "$seen_approval_never" != "1" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_REQUIRE_APPROVAL_NEVER" = "1" ] && [ "$seen_approval_never" != "1" ]; then',
         '  printf "%s\\n" "missing approval_policy=never" >&2',
         "  exit 10",
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG" = "1" ] && [ "$seen_ignore_user_config" = "1" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG" = "1" ] && [ "$seen_ignore_user_config" = "1" ]; then',
         '  printf "%s\\n" "error: unexpected argument --ignore-user-config" >&2',
         "  exit 12",
         "fi",
-        'if [ -n "$SYNARA_FAKE_CODEX_STDIN_MUST_CONTAIN" ]; then',
-        '  printf "%s" "$stdin_content" | grep -F -- "$SYNARA_FAKE_CODEX_STDIN_MUST_CONTAIN" >/dev/null || {',
+        'if [ -n "$SAINT_FAKE_CODEX_STDIN_MUST_CONTAIN" ]; then',
+        '  printf "%s" "$stdin_content" | grep -F -- "$SAINT_FAKE_CODEX_STDIN_MUST_CONTAIN" >/dev/null || {',
         '    printf "%s\\n" "stdin missing expected content" >&2',
         "    exit 3",
         "  }",
         "fi",
-        'if [ -n "$SYNARA_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN" ]; then',
-        '  if printf "%s" "$stdin_content" | grep -F -- "$SYNARA_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN" >/dev/null; then',
+        'if [ -n "$SAINT_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN" ]; then',
+        '  if printf "%s" "$stdin_content" | grep -F -- "$SAINT_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN" >/dev/null; then',
         '    printf "%s\\n" "stdin contained forbidden content" >&2',
         "    exit 4",
         "  fi",
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_REQUIRE_CODEX_HOME" = "1" ] && [ -z "$CODEX_HOME" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_REQUIRE_CODEX_HOME" = "1" ] && [ -z "$CODEX_HOME" ]; then',
         '  printf "%s\\n" "missing CODEX_HOME" >&2',
         "  exit 5",
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_REQUIRE_AUTH_JSON" = "1" ] && [ ! -f "$CODEX_HOME/auth.json" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_REQUIRE_AUTH_JSON" = "1" ] && [ ! -f "$CODEX_HOME/auth.json" ]; then',
         '  printf "%s\\n" "missing auth.json in CODEX_HOME" >&2',
         "  exit 6",
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_FORBID_AUTH_JSON" = "1" ] && [ -f "$CODEX_HOME/auth.json" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_FORBID_AUTH_JSON" = "1" ] && [ -f "$CODEX_HOME/auth.json" ]; then',
         '  printf "%s\\n" "unexpected auth.json in CODEX_HOME" >&2',
         "  exit 11",
         "fi",
-        'if [ -n "$SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN" ]; then',
-        '  grep -F -- "$SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN" "$CODEX_HOME/config.toml" >/dev/null || {',
+        'if [ -n "$SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN" ]; then',
+        '  grep -F -- "$SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN" "$CODEX_HOME/config.toml" >/dev/null || {',
         '    printf "%s\\n" "CODEX_HOME config missing expected content" >&2',
         "    exit 7",
         "  }",
         "fi",
-        'if [ -n "$SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN" ]; then',
-        '  if grep -F -- "$SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN" "$CODEX_HOME/config.toml" >/dev/null; then',
+        'if [ -n "$SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN" ]; then',
+        '  if grep -F -- "$SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN" "$CODEX_HOME/config.toml" >/dev/null; then',
         '    printf "%s\\n" "CODEX_HOME config contained forbidden content" >&2',
         "    exit 8",
         "  fi",
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING" = "1" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING" = "1" ]; then',
         '  grep -F -- "model_provider = \\"azure\\"" "$CODEX_HOME/config.toml" >/dev/null || exit 13',
         '  grep -F -- "[model_providers.azure]" "$CODEX_HOME/config.toml" >/dev/null || exit 14',
         '  grep -F -- "env_key = \\"AZURE_OPENAI_API_KEY\\"" "$CODEX_HOME/config.toml" >/dev/null || exit 15',
         '  grep -F -- "base_url = \\"https://example.openai.azure.com/openai\\"" "$CODEX_HOME/config.toml" >/dev/null || exit 19',
         '  [ "$AZURE_OPENAI_API_KEY" = "test-key" ] || exit 16',
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS" = "1" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS" = "1" ]; then',
         '  if grep -F -- "[[skills.config]]" "$CODEX_HOME/config.toml" >/dev/null || grep -F -- "[plugins." "$CODEX_HOME/config.toml" >/dev/null; then',
         '    printf "%s\\n" "user extension config leaked into CODEX_HOME" >&2',
         "    exit 17",
@@ -364,7 +362,7 @@ function makeFakeCodexBinary(dir: string, input: FakeCodexOptions) {
         "    exit 18",
         "  fi",
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_REQUIRE_TOOL_ISOLATION" = "1" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_REQUIRE_TOOL_ISOLATION" = "1" ]; then',
         '  for required in "features.shell_tool=false" "features.unified_exec=false" "include_apply_patch_tool=false" "features.js_repl=false" "features.code_mode=false" "features.multi_agent=false" "features.apps=false" "features.connectors=false" "features.plugins=false" "features.tool_search=false" "web_search=\\\"disabled\\\"" "tools.view_image=false" "features.imagegen=false" "features.artifact=false" "features.memory_tool=false"; do',
         '    printf "%s\n" "$config_overrides" | grep -F -x -- "$required" >/dev/null || { printf "%s\n" "missing tool override: $required" >&2; exit 24; }',
         "  done",
@@ -373,42 +371,42 @@ function makeFakeCodexBinary(dir: string, input: FakeCodexOptions) {
         "    exit 25",
         "  }",
         "fi",
-        'node -e \'const expected=JSON.parse(Buffer.from(process.argv[1],"base64")); const forbidden=JSON.parse(Buffer.from(process.argv[2],"base64")); for(const [key,value] of Object.entries(expected)) if(process.env[key]!==value) process.exit(1); for(const key of forbidden) if(Object.hasOwn(process.env,key)) process.exit(2);\' "$SYNARA_FAKE_CODEX_EXPECTED_ENV_B64" "$SYNARA_FAKE_CODEX_FORBIDDEN_ENV_B64" || {',
+        'node -e \'const expected=JSON.parse(Buffer.from(process.argv[1],"base64")); const forbidden=JSON.parse(Buffer.from(process.argv[2],"base64")); for(const [key,value] of Object.entries(expected)) if(process.env[key]!==value) process.exit(1); for(const key of forbidden) if(Object.hasOwn(process.env,key)) process.exit(2);\' "$SAINT_FAKE_CODEX_EXPECTED_ENV_B64" "$SAINT_FAKE_CODEX_FORBIDDEN_ENV_B64" || {',
         '  printf "%s\n" "child environment isolation failed" >&2',
         "  exit 26",
         "}",
-        'if [ "$SYNARA_FAKE_CODEX_REQUIRE_SECURE_ISOLATION" = "1" ]; then',
+        'if [ "$SAINT_FAKE_CODEX_REQUIRE_SECURE_ISOLATION" = "1" ]; then',
         '  if [ "$CODEX_SQLITE_HOME" != "$CODEX_HOME" ]; then',
         '    printf "%s\\n" "CODEX_SQLITE_HOME is not isolated with CODEX_HOME" >&2',
         "    exit 20",
         "  fi",
-        '  node -e \'const fs=require("node:fs"); const [home,cwd,config,schema,output,forbidden]=process.argv.slice(1); const mode=(p)=>fs.statSync(p).mode & 0o777; if (home===forbidden || cwd===forbidden || fs.readdirSync(cwd).length!==0 || mode(home)!==0o700 || mode(cwd)!==0o700 || mode(config)!==0o600 || mode(schema)!==0o600 || mode(output)!==0o600) process.exit(1);\' "$CODEX_HOME" "$PWD" "$CODEX_HOME/config.toml" "$schema_path" "$output_path" "$SYNARA_FAKE_CODEX_FORBIDDEN_CWD" || {',
+        '  node -e \'const fs=require("node:fs"); const [home,cwd,config,schema,output,forbidden]=process.argv.slice(1); const mode=(p)=>fs.statSync(p).mode & 0o777; if (home===forbidden || cwd===forbidden || fs.readdirSync(cwd).length!==0 || mode(home)!==0o700 || mode(cwd)!==0o700 || mode(config)!==0o600 || mode(schema)!==0o600 || mode(output)!==0o600) process.exit(1);\' "$CODEX_HOME" "$PWD" "$CODEX_HOME/config.toml" "$schema_path" "$output_path" "$SAINT_FAKE_CODEX_FORBIDDEN_CWD" || {',
         '    printf "%s\\n" "Codex process resources were not privately isolated" >&2',
         "    exit 21",
         "  }",
         "fi",
-        'if [ -n "$SYNARA_FAKE_CODEX_RESOURCE_MANIFEST" ]; then',
-        '  node -e \'const fs=require("node:fs"); fs.writeFileSync(process.argv[1], JSON.stringify(process.argv.slice(2)));\' "$SYNARA_FAKE_CODEX_RESOURCE_MANIFEST" "$CODEX_HOME" "$PWD" "$schema_path" "$output_path"',
+        'if [ -n "$SAINT_FAKE_CODEX_RESOURCE_MANIFEST" ]; then',
+        '  node -e \'const fs=require("node:fs"); fs.writeFileSync(process.argv[1], JSON.stringify(process.argv.slice(2)));\' "$SAINT_FAKE_CODEX_RESOURCE_MANIFEST" "$CODEX_HOME" "$PWD" "$schema_path" "$output_path"',
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_TRAP_TERM" = "1" ]; then',
-        '  exec node -e \'const fs=require("node:fs"); const [term,pid,ready,diagnostic,exitOnTerm]=process.argv.slice(1); fs.writeFileSync(pid,String(process.pid)); process.on("SIGTERM",()=>{fs.appendFileSync(term,"TERM\\n");if(exitOnTerm==="1")setTimeout(()=>process.exit(0),50)}); fs.writeFileSync(ready,"ready"); if(diagnostic){process.stderr.write(diagnostic.slice(0,12)); setTimeout(()=>process.stderr.write(diagnostic.slice(12)+"\\n"),20)} setInterval(()=>{},1000);\' "$SYNARA_FAKE_CODEX_TERM_MARKER" "$SYNARA_FAKE_CODEX_PID_MARKER" "$SYNARA_FAKE_CODEX_READY_MARKER" "$SYNARA_FAKE_CODEX_STDERR" "$SYNARA_FAKE_CODEX_EXIT_ON_TERM"',
+        'if [ "$SAINT_FAKE_CODEX_TRAP_TERM" = "1" ]; then',
+        '  exec node -e \'const fs=require("node:fs"); const [term,pid,ready,diagnostic,exitOnTerm]=process.argv.slice(1); fs.writeFileSync(pid,String(process.pid)); process.on("SIGTERM",()=>{fs.appendFileSync(term,"TERM\\n");if(exitOnTerm==="1")setTimeout(()=>process.exit(0),50)}); fs.writeFileSync(ready,"ready"); if(diagnostic){process.stderr.write(diagnostic.slice(0,12)); setTimeout(()=>process.stderr.write(diagnostic.slice(12)+"\\n"),20)} setInterval(()=>{},1000);\' "$SAINT_FAKE_CODEX_TERM_MARKER" "$SAINT_FAKE_CODEX_PID_MARKER" "$SAINT_FAKE_CODEX_READY_MARKER" "$SAINT_FAKE_CODEX_STDERR" "$SAINT_FAKE_CODEX_EXIT_ON_TERM"',
         "fi",
-        'if [ -n "$SYNARA_FAKE_CODEX_STDERR" ]; then',
-        '  printf "%s\\n" "$SYNARA_FAKE_CODEX_STDERR" >&2',
+        'if [ -n "$SAINT_FAKE_CODEX_STDERR" ]; then',
+        '  printf "%s\\n" "$SAINT_FAKE_CODEX_STDERR" >&2',
         "fi",
-        'if [ -n "$SYNARA_FAKE_CODEX_ROTATED_AUTH" ]; then',
-        '  printf "%s" "$SYNARA_FAKE_CODEX_ROTATED_AUTH" > "$CODEX_HOME/auth.json"',
+        'if [ -n "$SAINT_FAKE_CODEX_ROTATED_AUTH" ]; then',
+        '  printf "%s" "$SAINT_FAKE_CODEX_ROTATED_AUTH" > "$CODEX_HOME/auth.json"',
         "fi",
         'if [ -n "$output_path" ]; then',
-        '  node -e \'const fs=require("node:fs"); const value=process.argv[2] ?? ""; fs.writeFileSync(process.argv[1], Buffer.from(value, "base64"));\' "$output_path" "${SYNARA_FAKE_CODEX_OUTPUT_B64:-e30=}"',
+        '  node -e \'const fs=require("node:fs"); const value=process.argv[2] ?? ""; fs.writeFileSync(process.argv[1], Buffer.from(value, "base64"));\' "$output_path" "${SAINT_FAKE_CODEX_OUTPUT_B64:-e30=}"',
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_HOLD_PIPES_AFTER_ROOT_EXIT" = "1" ]; then',
-        '  node -e \'const fs=require("node:fs"),{spawn}=require("node:child_process"); const [term,pid,ready]=process.argv.slice(1); const source=`const fs=require("node:fs"); const [term,ready]=process.argv.slice(1); process.on("SIGHUP",()=>{}); process.on("SIGTERM",()=>fs.writeFileSync(term,"TERM")); fs.writeFileSync(ready,"ready"); setInterval(()=>{},1000);`; const child=spawn(process.execPath,["-e",source,term,ready],{stdio:["ignore",1,2]}); fs.writeFileSync(pid,String(child.pid)); const wait=new Int32Array(new SharedArrayBuffer(4)); const deadline=Date.now()+2000; while(!fs.existsSync(ready)&&Date.now()<deadline) Atomics.wait(wait,0,0,10); if(!fs.existsSync(ready)){child.kill("SIGKILL");process.exit(3)} child.unref();\' "$SYNARA_FAKE_CODEX_TERM_MARKER" "$SYNARA_FAKE_CODEX_PID_MARKER" "$SYNARA_FAKE_CODEX_READY_MARKER" || exit 27',
+        'if [ "$SAINT_FAKE_CODEX_HOLD_PIPES_AFTER_ROOT_EXIT" = "1" ]; then',
+        '  node -e \'const fs=require("node:fs"),{spawn}=require("node:child_process"); const [term,pid,ready]=process.argv.slice(1); const source=`const fs=require("node:fs"); const [term,ready]=process.argv.slice(1); process.on("SIGHUP",()=>{}); process.on("SIGTERM",()=>fs.writeFileSync(term,"TERM")); fs.writeFileSync(ready,"ready"); setInterval(()=>{},1000);`; const child=spawn(process.execPath,["-e",source,term,ready],{stdio:["ignore",1,2]}); fs.writeFileSync(pid,String(child.pid)); const wait=new Int32Array(new SharedArrayBuffer(4)); const deadline=Date.now()+2000; while(!fs.existsSync(ready)&&Date.now()<deadline) Atomics.wait(wait,0,0,10); if(!fs.existsSync(ready)){child.kill("SIGKILL");process.exit(3)} child.unref();\' "$SAINT_FAKE_CODEX_TERM_MARKER" "$SAINT_FAKE_CODEX_PID_MARKER" "$SAINT_FAKE_CODEX_READY_MARKER" || exit 27',
         "fi",
-        'if [ "$SYNARA_FAKE_CODEX_CLOSE_PIPES_AFTER_ROOT_EXIT" = "1" ]; then',
-        '  node -e \'const fs=require("node:fs"),{spawn}=require("node:child_process"); const [term,pid,ready]=process.argv.slice(1); const source=`const fs=require("node:fs"); const [term,ready]=process.argv.slice(1); process.on("SIGHUP",()=>{}); process.on("SIGTERM",()=>fs.writeFileSync(term,"TERM")); fs.writeFileSync(ready,"ready"); setInterval(()=>{},1000);`; const child=spawn(process.execPath,["-e",source,term,ready],{stdio:"ignore"}); fs.writeFileSync(pid,String(child.pid)); const wait=new Int32Array(new SharedArrayBuffer(4)); const deadline=Date.now()+2000; while(!fs.existsSync(ready)&&Date.now()<deadline) Atomics.wait(wait,0,0,10); if(!fs.existsSync(ready)){child.kill("SIGKILL");process.exit(3)} child.unref();\' "$SYNARA_FAKE_CODEX_TERM_MARKER" "$SYNARA_FAKE_CODEX_PID_MARKER" "$SYNARA_FAKE_CODEX_READY_MARKER" || exit 28',
+        'if [ "$SAINT_FAKE_CODEX_CLOSE_PIPES_AFTER_ROOT_EXIT" = "1" ]; then',
+        '  node -e \'const fs=require("node:fs"),{spawn}=require("node:child_process"); const [term,pid,ready]=process.argv.slice(1); const source=`const fs=require("node:fs"); const [term,ready]=process.argv.slice(1); process.on("SIGHUP",()=>{}); process.on("SIGTERM",()=>fs.writeFileSync(term,"TERM")); fs.writeFileSync(ready,"ready"); setInterval(()=>{},1000);`; const child=spawn(process.execPath,["-e",source,term,ready],{stdio:"ignore"}); fs.writeFileSync(pid,String(child.pid)); const wait=new Int32Array(new SharedArrayBuffer(4)); const deadline=Date.now()+2000; while(!fs.existsSync(ready)&&Date.now()<deadline) Atomics.wait(wait,0,0,10); if(!fs.existsSync(ready)){child.kill("SIGKILL");process.exit(3)} child.unref();\' "$SAINT_FAKE_CODEX_TERM_MARKER" "$SAINT_FAKE_CODEX_PID_MARKER" "$SAINT_FAKE_CODEX_READY_MARKER" || exit 28',
         "fi",
-        'exit "${SYNARA_FAKE_CODEX_EXIT_CODE:-0}"',
+        'exit "${SAINT_FAKE_CODEX_EXIT_CODE:-0}"',
         "",
       ].join("\n"),
     );
@@ -422,179 +420,178 @@ function withFakeCodexEnv<A, E, R>(input: FakeCodexOptions, effect: Effect.Effec
     Effect.gen(function* () {
       const releaseLock = yield* acquireCodexEnvLock();
       const fs = yield* FileSystem.FileSystem;
-      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "synara-codex-text-" });
+      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "saint-codex-text-" });
       const binDir = yield* makeFakeCodexBinary(tempDir, input);
       const previousPath = process.env.PATH;
-      const previousSynaraHome = process.env.SYNARA_HOME;
-      const previousOutput = process.env.SYNARA_FAKE_CODEX_OUTPUT_B64;
-      const previousExitCode = process.env.SYNARA_FAKE_CODEX_EXIT_CODE;
-      const previousStderr = process.env.SYNARA_FAKE_CODEX_STDERR;
-      const previousRequireImage = process.env.SYNARA_FAKE_CODEX_REQUIRE_IMAGE;
-      const previousStdinMustContain = process.env.SYNARA_FAKE_CODEX_STDIN_MUST_CONTAIN;
-      const previousStdinMustNotContain = process.env.SYNARA_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN;
-      const previousRequireCodexHome = process.env.SYNARA_FAKE_CODEX_REQUIRE_CODEX_HOME;
-      const previousRequireAuthJson = process.env.SYNARA_FAKE_CODEX_REQUIRE_AUTH_JSON;
-      const previousForbidAuthJson = process.env.SYNARA_FAKE_CODEX_FORBID_AUTH_JSON;
+      const previousSaintHome = process.env.SAINT_HOME;
+      const previousOutput = process.env.SAINT_FAKE_CODEX_OUTPUT_B64;
+      const previousExitCode = process.env.SAINT_FAKE_CODEX_EXIT_CODE;
+      const previousStderr = process.env.SAINT_FAKE_CODEX_STDERR;
+      const previousRequireImage = process.env.SAINT_FAKE_CODEX_REQUIRE_IMAGE;
+      const previousStdinMustContain = process.env.SAINT_FAKE_CODEX_STDIN_MUST_CONTAIN;
+      const previousStdinMustNotContain = process.env.SAINT_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN;
+      const previousRequireCodexHome = process.env.SAINT_FAKE_CODEX_REQUIRE_CODEX_HOME;
+      const previousRequireAuthJson = process.env.SAINT_FAKE_CODEX_REQUIRE_AUTH_JSON;
+      const previousForbidAuthJson = process.env.SAINT_FAKE_CODEX_FORBID_AUTH_JSON;
       const previousRequireSkipGitRepoCheck =
-        process.env.SYNARA_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK;
-      const previousRequireApprovalNever = process.env.SYNARA_FAKE_CODEX_REQUIRE_APPROVAL_NEVER;
-      const previousForbidIgnoreUserConfig =
-        process.env.SYNARA_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG;
+        process.env.SAINT_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK;
+      const previousRequireApprovalNever = process.env.SAINT_FAKE_CODEX_REQUIRE_APPROVAL_NEVER;
+      const previousForbidIgnoreUserConfig = process.env.SAINT_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG;
       const previousRequireAzureProviderRouting =
-        process.env.SYNARA_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING;
+        process.env.SAINT_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING;
       const previousRequireNoUserExtensions =
-        process.env.SYNARA_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS;
-      const previousRotatedAuth = process.env.SYNARA_FAKE_CODEX_ROTATED_AUTH;
-      const previousRequireSecureIsolation = process.env.SYNARA_FAKE_CODEX_REQUIRE_SECURE_ISOLATION;
-      const previousForbiddenCwd = process.env.SYNARA_FAKE_CODEX_FORBIDDEN_CWD;
-      const previousTrapTerm = process.env.SYNARA_FAKE_CODEX_TRAP_TERM;
-      const previousTermMarker = process.env.SYNARA_FAKE_CODEX_TERM_MARKER;
-      const previousPidMarker = process.env.SYNARA_FAKE_CODEX_PID_MARKER;
-      const previousReadyMarker = process.env.SYNARA_FAKE_CODEX_READY_MARKER;
-      const previousResourceManifest = process.env.SYNARA_FAKE_CODEX_RESOURCE_MANIFEST;
+        process.env.SAINT_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS;
+      const previousRotatedAuth = process.env.SAINT_FAKE_CODEX_ROTATED_AUTH;
+      const previousRequireSecureIsolation = process.env.SAINT_FAKE_CODEX_REQUIRE_SECURE_ISOLATION;
+      const previousForbiddenCwd = process.env.SAINT_FAKE_CODEX_FORBIDDEN_CWD;
+      const previousTrapTerm = process.env.SAINT_FAKE_CODEX_TRAP_TERM;
+      const previousTermMarker = process.env.SAINT_FAKE_CODEX_TERM_MARKER;
+      const previousPidMarker = process.env.SAINT_FAKE_CODEX_PID_MARKER;
+      const previousReadyMarker = process.env.SAINT_FAKE_CODEX_READY_MARKER;
+      const previousResourceManifest = process.env.SAINT_FAKE_CODEX_RESOURCE_MANIFEST;
       const previousUmask = process.umask();
       const previousCodexHomeConfigMustContain =
-        process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN;
+        process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN;
       const previousCodexHomeConfigMustNotContain =
-        process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN;
+        process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN;
 
       yield* Effect.sync(() => {
         process.env.PATH = `${binDir}:${previousPath ?? ""}`;
-        process.env.SYNARA_HOME = tempDir;
+        process.env.SAINT_HOME = tempDir;
         if (input.permissiveUmask) process.umask(0);
-        process.env.SYNARA_FAKE_CODEX_OUTPUT_B64 = Buffer.from(input.output, "utf8").toString(
+        process.env.SAINT_FAKE_CODEX_OUTPUT_B64 = Buffer.from(input.output, "utf8").toString(
           "base64",
         );
 
         if (input.exitCode !== undefined) {
-          process.env.SYNARA_FAKE_CODEX_EXIT_CODE = String(input.exitCode);
+          process.env.SAINT_FAKE_CODEX_EXIT_CODE = String(input.exitCode);
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_EXIT_CODE;
+          delete process.env.SAINT_FAKE_CODEX_EXIT_CODE;
         }
 
         if (input.stderr !== undefined) {
-          process.env.SYNARA_FAKE_CODEX_STDERR = input.stderr;
+          process.env.SAINT_FAKE_CODEX_STDERR = input.stderr;
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_STDERR;
+          delete process.env.SAINT_FAKE_CODEX_STDERR;
         }
 
         if (input.requireImage) {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_IMAGE = "1";
+          process.env.SAINT_FAKE_CODEX_REQUIRE_IMAGE = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_IMAGE;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_IMAGE;
         }
 
         if (input.stdinMustContain !== undefined) {
-          process.env.SYNARA_FAKE_CODEX_STDIN_MUST_CONTAIN = input.stdinMustContain;
+          process.env.SAINT_FAKE_CODEX_STDIN_MUST_CONTAIN = input.stdinMustContain;
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_STDIN_MUST_CONTAIN;
+          delete process.env.SAINT_FAKE_CODEX_STDIN_MUST_CONTAIN;
         }
 
         if (input.stdinMustNotContain !== undefined) {
-          process.env.SYNARA_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN = input.stdinMustNotContain;
+          process.env.SAINT_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN = input.stdinMustNotContain;
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN;
+          delete process.env.SAINT_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN;
         }
 
         if (input.requireCodexHome) {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_CODEX_HOME = "1";
+          process.env.SAINT_FAKE_CODEX_REQUIRE_CODEX_HOME = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_CODEX_HOME;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_CODEX_HOME;
         }
 
         if (input.requireAuthJson) {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_AUTH_JSON = "1";
+          process.env.SAINT_FAKE_CODEX_REQUIRE_AUTH_JSON = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_AUTH_JSON;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_AUTH_JSON;
         }
 
         if (input.forbidAuthJson) {
-          process.env.SYNARA_FAKE_CODEX_FORBID_AUTH_JSON = "1";
+          process.env.SAINT_FAKE_CODEX_FORBID_AUTH_JSON = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_FORBID_AUTH_JSON;
+          delete process.env.SAINT_FAKE_CODEX_FORBID_AUTH_JSON;
         }
 
         if (input.requireSkipGitRepoCheck) {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK = "1";
+          process.env.SAINT_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK;
         }
 
         if (input.requireApprovalNever) {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_APPROVAL_NEVER = "1";
+          process.env.SAINT_FAKE_CODEX_REQUIRE_APPROVAL_NEVER = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_APPROVAL_NEVER;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_APPROVAL_NEVER;
         }
 
         if (input.forbidIgnoreUserConfig) {
-          process.env.SYNARA_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG = "1";
+          process.env.SAINT_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG;
+          delete process.env.SAINT_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG;
         }
 
         if (input.requireAzureProviderRouting) {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING = "1";
+          process.env.SAINT_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING;
         }
 
         if (input.requireNoUserExtensions) {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS = "1";
+          process.env.SAINT_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS;
         }
 
         if (input.requireSecureIsolation) {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_SECURE_ISOLATION = "1";
+          process.env.SAINT_FAKE_CODEX_REQUIRE_SECURE_ISOLATION = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_SECURE_ISOLATION;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_SECURE_ISOLATION;
         }
 
         if (input.forbiddenCwd !== undefined) {
-          process.env.SYNARA_FAKE_CODEX_FORBIDDEN_CWD = input.forbiddenCwd;
+          process.env.SAINT_FAKE_CODEX_FORBIDDEN_CWD = input.forbiddenCwd;
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_FORBIDDEN_CWD;
+          delete process.env.SAINT_FAKE_CODEX_FORBIDDEN_CWD;
         }
 
         if (input.trapTerm) {
-          process.env.SYNARA_FAKE_CODEX_TRAP_TERM = "1";
+          process.env.SAINT_FAKE_CODEX_TRAP_TERM = "1";
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_TRAP_TERM;
+          delete process.env.SAINT_FAKE_CODEX_TRAP_TERM;
         }
         for (const [key, value] of [
-          ["SYNARA_FAKE_CODEX_TERM_MARKER", input.termMarkerPath],
-          ["SYNARA_FAKE_CODEX_PID_MARKER", input.pidMarkerPath],
-          ["SYNARA_FAKE_CODEX_READY_MARKER", input.readyMarkerPath],
-          ["SYNARA_FAKE_CODEX_RESOURCE_MANIFEST", input.resourceManifestPath],
+          ["SAINT_FAKE_CODEX_TERM_MARKER", input.termMarkerPath],
+          ["SAINT_FAKE_CODEX_PID_MARKER", input.pidMarkerPath],
+          ["SAINT_FAKE_CODEX_READY_MARKER", input.readyMarkerPath],
+          ["SAINT_FAKE_CODEX_RESOURCE_MANIFEST", input.resourceManifestPath],
         ] as const) {
           if (value === undefined) delete process.env[key];
           else process.env[key] = value;
         }
 
         if (input.rotatedAuth !== undefined) {
-          process.env.SYNARA_FAKE_CODEX_ROTATED_AUTH = input.rotatedAuth;
+          process.env.SAINT_FAKE_CODEX_ROTATED_AUTH = input.rotatedAuth;
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_ROTATED_AUTH;
+          delete process.env.SAINT_FAKE_CODEX_ROTATED_AUTH;
         }
 
         if (input.codexHomeConfigMustContain !== undefined) {
-          process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN =
+          process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN =
             input.codexHomeConfigMustContain;
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN;
+          delete process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN;
         }
 
         if (input.codexHomeConfigMustNotContain !== undefined) {
-          process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN =
+          process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN =
             input.codexHomeConfigMustNotContain;
         } else {
-          delete process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN;
+          delete process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN;
         }
       });
 
       return {
         previousPath,
-        previousSynaraHome,
+        previousSaintHome,
         previousOutput,
         previousExitCode,
         previousStderr,
@@ -627,130 +624,130 @@ function withFakeCodexEnv<A, E, R>(input: FakeCodexOptions, effect: Effect.Effec
     (previous) =>
       Effect.sync(() => {
         process.env.PATH = previous.previousPath;
-        if (previous.previousSynaraHome === undefined) {
-          delete process.env.SYNARA_HOME;
+        if (previous.previousSaintHome === undefined) {
+          delete process.env.SAINT_HOME;
         } else {
-          process.env.SYNARA_HOME = previous.previousSynaraHome;
+          process.env.SAINT_HOME = previous.previousSaintHome;
         }
 
         if (previous.previousOutput === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_OUTPUT_B64;
+          delete process.env.SAINT_FAKE_CODEX_OUTPUT_B64;
         } else {
-          process.env.SYNARA_FAKE_CODEX_OUTPUT_B64 = previous.previousOutput;
+          process.env.SAINT_FAKE_CODEX_OUTPUT_B64 = previous.previousOutput;
         }
 
         if (previous.previousExitCode === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_EXIT_CODE;
+          delete process.env.SAINT_FAKE_CODEX_EXIT_CODE;
         } else {
-          process.env.SYNARA_FAKE_CODEX_EXIT_CODE = previous.previousExitCode;
+          process.env.SAINT_FAKE_CODEX_EXIT_CODE = previous.previousExitCode;
         }
 
         if (previous.previousStderr === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_STDERR;
+          delete process.env.SAINT_FAKE_CODEX_STDERR;
         } else {
-          process.env.SYNARA_FAKE_CODEX_STDERR = previous.previousStderr;
+          process.env.SAINT_FAKE_CODEX_STDERR = previous.previousStderr;
         }
 
         if (previous.previousRequireImage === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_IMAGE;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_IMAGE;
         } else {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_IMAGE = previous.previousRequireImage;
+          process.env.SAINT_FAKE_CODEX_REQUIRE_IMAGE = previous.previousRequireImage;
         }
 
         if (previous.previousStdinMustContain === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_STDIN_MUST_CONTAIN;
+          delete process.env.SAINT_FAKE_CODEX_STDIN_MUST_CONTAIN;
         } else {
-          process.env.SYNARA_FAKE_CODEX_STDIN_MUST_CONTAIN = previous.previousStdinMustContain;
+          process.env.SAINT_FAKE_CODEX_STDIN_MUST_CONTAIN = previous.previousStdinMustContain;
         }
 
         if (previous.previousStdinMustNotContain === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN;
+          delete process.env.SAINT_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN;
         } else {
-          process.env.SYNARA_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN =
+          process.env.SAINT_FAKE_CODEX_STDIN_MUST_NOT_CONTAIN =
             previous.previousStdinMustNotContain;
         }
 
         if (previous.previousRequireCodexHome === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_CODEX_HOME;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_CODEX_HOME;
         } else {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_CODEX_HOME = previous.previousRequireCodexHome;
+          process.env.SAINT_FAKE_CODEX_REQUIRE_CODEX_HOME = previous.previousRequireCodexHome;
         }
 
         if (previous.previousRequireAuthJson === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_AUTH_JSON;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_AUTH_JSON;
         } else {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_AUTH_JSON = previous.previousRequireAuthJson;
+          process.env.SAINT_FAKE_CODEX_REQUIRE_AUTH_JSON = previous.previousRequireAuthJson;
         }
 
         if (previous.previousForbidAuthJson === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_FORBID_AUTH_JSON;
+          delete process.env.SAINT_FAKE_CODEX_FORBID_AUTH_JSON;
         } else {
-          process.env.SYNARA_FAKE_CODEX_FORBID_AUTH_JSON = previous.previousForbidAuthJson;
+          process.env.SAINT_FAKE_CODEX_FORBID_AUTH_JSON = previous.previousForbidAuthJson;
         }
 
         if (previous.previousRequireSkipGitRepoCheck === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK;
         } else {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK =
+          process.env.SAINT_FAKE_CODEX_REQUIRE_SKIP_GIT_REPO_CHECK =
             previous.previousRequireSkipGitRepoCheck;
         }
 
         if (previous.previousRequireApprovalNever === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_APPROVAL_NEVER;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_APPROVAL_NEVER;
         } else {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_APPROVAL_NEVER =
+          process.env.SAINT_FAKE_CODEX_REQUIRE_APPROVAL_NEVER =
             previous.previousRequireApprovalNever;
         }
 
         if (previous.previousForbidIgnoreUserConfig === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG;
+          delete process.env.SAINT_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG;
         } else {
-          process.env.SYNARA_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG =
+          process.env.SAINT_FAKE_CODEX_FORBID_IGNORE_USER_CONFIG =
             previous.previousForbidIgnoreUserConfig;
         }
 
         if (previous.previousRequireAzureProviderRouting === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING;
         } else {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING =
+          process.env.SAINT_FAKE_CODEX_REQUIRE_AZURE_PROVIDER_ROUTING =
             previous.previousRequireAzureProviderRouting;
         }
 
         if (previous.previousRequireNoUserExtensions === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS;
+          delete process.env.SAINT_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS;
         } else {
-          process.env.SYNARA_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS =
+          process.env.SAINT_FAKE_CODEX_REQUIRE_NO_USER_EXTENSIONS =
             previous.previousRequireNoUserExtensions;
         }
 
         if (previous.previousRotatedAuth === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_ROTATED_AUTH;
+          delete process.env.SAINT_FAKE_CODEX_ROTATED_AUTH;
         } else {
-          process.env.SYNARA_FAKE_CODEX_ROTATED_AUTH = previous.previousRotatedAuth;
+          process.env.SAINT_FAKE_CODEX_ROTATED_AUTH = previous.previousRotatedAuth;
         }
 
         if (previous.previousCodexHomeConfigMustContain === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN;
+          delete process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN;
         } else {
-          process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN =
+          process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_CONTAIN =
             previous.previousCodexHomeConfigMustContain;
         }
 
         if (previous.previousCodexHomeConfigMustNotContain === undefined) {
-          delete process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN;
+          delete process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN;
         } else {
-          process.env.SYNARA_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN =
+          process.env.SAINT_FAKE_CODEX_CODEX_HOME_CONFIG_MUST_NOT_CONTAIN =
             previous.previousCodexHomeConfigMustNotContain;
         }
 
         for (const [key, value] of [
-          ["SYNARA_FAKE_CODEX_REQUIRE_SECURE_ISOLATION", previous.previousRequireSecureIsolation],
-          ["SYNARA_FAKE_CODEX_FORBIDDEN_CWD", previous.previousForbiddenCwd],
-          ["SYNARA_FAKE_CODEX_TRAP_TERM", previous.previousTrapTerm],
-          ["SYNARA_FAKE_CODEX_TERM_MARKER", previous.previousTermMarker],
-          ["SYNARA_FAKE_CODEX_PID_MARKER", previous.previousPidMarker],
-          ["SYNARA_FAKE_CODEX_READY_MARKER", previous.previousReadyMarker],
-          ["SYNARA_FAKE_CODEX_RESOURCE_MANIFEST", previous.previousResourceManifest],
+          ["SAINT_FAKE_CODEX_REQUIRE_SECURE_ISOLATION", previous.previousRequireSecureIsolation],
+          ["SAINT_FAKE_CODEX_FORBIDDEN_CWD", previous.previousForbiddenCwd],
+          ["SAINT_FAKE_CODEX_TRAP_TERM", previous.previousTrapTerm],
+          ["SAINT_FAKE_CODEX_TERM_MARKER", previous.previousTermMarker],
+          ["SAINT_FAKE_CODEX_PID_MARKER", previous.previousPidMarker],
+          ["SAINT_FAKE_CODEX_READY_MARKER", previous.previousReadyMarker],
+          ["SAINT_FAKE_CODEX_RESOURCE_MANIFEST", previous.previousResourceManifest],
         ] as const) {
           if (value === undefined) delete process.env[key];
           else process.env[key] = value;
@@ -1141,7 +1138,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const accountHome = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "synara-output-error-auth-",
+          prefix: "saint-output-error-auth-",
         });
         const authPath = path.join(accountHome, "auth.json");
         yield* fileSystem.writeFileString(authPath, baselineAuth);
@@ -1200,7 +1197,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const parent = yield* fs.makeTempDirectoryScoped({ prefix: "synara-missing-cwd-" });
+      const parent = yield* fs.makeTempDirectoryScoped({ prefix: "saint-missing-cwd-" });
       const missingCwd = path.join(parent, "removed-project");
       const textGeneration = yield* TextGeneration;
 
@@ -1221,7 +1218,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "synara-existing-cwd-" });
+      const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "saint-existing-cwd-" });
       const missingBinary = path.join(cwd, "missing-codex-binary");
       const textGeneration = yield* TextGeneration;
 
@@ -1265,7 +1262,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         codexHomeConfigMustNotContain: "sqlite_home",
         expectedChildEnv: { AZURE_OPENAI_API_KEY: "test-key" },
         forbiddenChildEnvKeys: [
-          "SYNARA_SENTINEL_SECRET",
+          "SAINT_SENTINEL_SECRET",
           "SSH_AUTH_SOCK",
           "BROWSER_WS_ENDPOINT",
           "NODE_OPTIONS",
@@ -1274,9 +1271,9 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const wrongCodexHome = yield* fs.makeTempDirectoryScoped({ prefix: "synara-wrong-codex-" });
+        const wrongCodexHome = yield* fs.makeTempDirectoryScoped({ prefix: "saint-wrong-codex-" });
         const customCodexHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-custom-codex-",
+          prefix: "saint-custom-codex-",
         });
         const previousCodexHome = process.env.CODEX_HOME;
 
@@ -1349,7 +1346,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
                 environment: {
                   PATH: "/provider-controlled/bin",
                   AZURE_OPENAI_API_KEY: "test-key",
-                  SYNARA_SENTINEL_SECRET: "must-not-pass",
+                  SAINT_SENTINEL_SECRET: "must-not-pass",
                   SSH_AUTH_SOCK: "/outside/ssh.sock",
                   BROWSER_WS_ENDPOINT: "ws://outside.test",
                   NODE_OPTIONS: "--require=/outside/agent.js",
@@ -1375,8 +1372,8 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
           "archived_sessions",
           "history.jsonl",
           "session_index.jsonl",
-          "synara-shared-continuation-v1.json",
-          "synara-shared-continuation-v2.json",
+          "saint-shared-continuation-v1.json",
+          "saint-shared-continuation-v2.json",
         ]) {
           expect(existsSync(path.join(customCodexHome, entry))).toBe(false);
         }
@@ -1413,10 +1410,10 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const configHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-config-codex-",
+          prefix: "saint-config-codex-",
         });
         const accountHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-authoritative-codex-",
+          prefix: "saint-authoritative-codex-",
         });
         const defaultAuth = '{"access_token":"default-account"}';
         const defaultAuthPath = path.join(configHome, "auth.json");
@@ -1454,7 +1451,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const accountHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-short-lived-auth-",
+          prefix: "saint-short-lived-auth-",
         });
         yield* fs.writeFileString(
           path.join(accountHome, "auth.json"),
@@ -1494,7 +1491,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const customCodexHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-keyring-codex-",
+          prefix: "saint-keyring-codex-",
         });
         yield* fs.writeFileString(
           path.join(customCodexHome, "config.toml"),
@@ -1530,9 +1527,9 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const legacyHome = yield* fs.makeTempDirectoryScoped({ prefix: "synara-legacy-codex-" });
+        const legacyHome = yield* fs.makeTempDirectoryScoped({ prefix: "saint-legacy-codex-" });
         const instanceHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-instance-codex-",
+          prefix: "saint-instance-codex-",
         });
         yield* fs.writeFileString(path.join(legacyHome, "config.toml"), 'model = "legacy"');
         yield* fs.writeFileString(
@@ -1569,7 +1566,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const customCodexHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-account-home-codex-",
+          prefix: "saint-account-home-codex-",
         });
         yield* fs.writeFileString(
           path.join(customCodexHome, "auth.json"),
@@ -1609,7 +1606,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const sharedCodexHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-shared-codex-",
+          prefix: "saint-shared-codex-",
         });
         yield* fs.writeFileString(
           path.join(sharedCodexHome, "auth.json"),
@@ -1656,7 +1653,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const sharedCodexHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-explicit-shared-codex-",
+          prefix: "saint-explicit-shared-codex-",
         });
         yield* fs.writeFileString(
           path.join(sharedCodexHome, "auth.json"),
@@ -1697,7 +1694,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const shadowHome = mkdtempSync(path.join(homedir(), ".synara-codex-shadow-test-"));
+        const shadowHome = mkdtempSync(path.join(homedir(), ".saint-codex-shadow-test-"));
         yield* Effect.addFinalizer(() =>
           Effect.sync(() => rmSync(shadowHome, { recursive: true, force: true })),
         );
@@ -1733,10 +1730,10 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const sharedCodexHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-shared-codex-",
+          prefix: "saint-shared-codex-",
         });
         const shadowHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-shadow-codex-",
+          prefix: "saint-shadow-codex-",
         });
         yield* fs.writeFileString(
           path.join(sharedCodexHome, "auth.json"),
@@ -1773,13 +1770,13 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const sharedCodexHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-shared-codex-",
+          prefix: "saint-shared-codex-",
         });
         const shadowTarget = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-shadow-target-codex-",
+          prefix: "saint-shadow-target-codex-",
         });
         const shadowAliasRoot = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-shadow-alias-codex-",
+          prefix: "saint-shadow-alias-codex-",
         });
         const shadowAlias = path.join(shadowAliasRoot, "shadow");
         yield* fs.writeFileString(
@@ -1821,11 +1818,11 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const defaultParent = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-default-parent-codex-",
+          prefix: "saint-default-parent-codex-",
         });
         const sharedCodexHome = path.join(defaultParent, "codex-home");
         const aliasRoot = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-shadow-parent-alias-codex-",
+          prefix: "saint-shadow-parent-alias-codex-",
         });
         const parentAlias = path.join(aliasRoot, "parent-alias");
         const aliasedShadowHome = path.join(parentAlias, "codex-home");
@@ -1868,7 +1865,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const sharedCodexHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-shared-codex-",
+          prefix: "saint-shared-codex-",
         });
         yield* fs.writeFileString(
           path.join(sharedCodexHome, "auth.json"),
@@ -1880,7 +1877,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
           accountId: "work",
         });
         expect(accountSegment).toBeDefined();
-        const accountOverlayHome = resolveSynaraCodexHomeOverlayPath(
+        const accountOverlayHome = resolveSaintCodexHomeOverlayPath(
           process.env,
           sharedCodexHome,
           accountSegment,
@@ -1935,7 +1932,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const sharedCodexHome = yield* fs.makeTempDirectoryScoped({
-          prefix: "synara-shared-codex-",
+          prefix: "saint-shared-codex-",
         });
         yield* fs.writeFileString(
           path.join(sharedCodexHome, "auth.json"),
@@ -1948,7 +1945,7 @@ it.layer(CodexTextGenerationTestLayer)("CodexTextGenerationLive", (it) => {
           accountId: "work",
         });
         expect(accountSegment).toBeDefined();
-        const accountOverlayHome = resolveSynaraCodexHomeOverlayPath(
+        const accountOverlayHome = resolveSaintCodexHomeOverlayPath(
           instanceEnv,
           sharedCodexHome,
           accountSegment,
@@ -1986,7 +1983,7 @@ it.effect("bounds post-root output drain and kills a pipe-holding POSIX grandchi
     if (process.platform === "win32") return;
     const fileSystem = yield* FileSystem.FileSystem;
     const markerDirectory = yield* fileSystem.makeTempDirectoryScoped({
-      prefix: "synara-codex-drain-markers-",
+      prefix: "saint-codex-drain-markers-",
     });
     const termMarkerPath = `${markerDirectory}/term`;
     const pidMarkerPath = `${markerDirectory}/pid`;
@@ -2030,7 +2027,7 @@ it.effect("kills a post-root POSIX grandchild even after it closes inherited pip
     if (process.platform === "win32") return;
     const fileSystem = yield* FileSystem.FileSystem;
     const markerDirectory = yield* fileSystem.makeTempDirectoryScoped({
-      prefix: "synara-codex-closed-pipe-markers-",
+      prefix: "saint-codex-closed-pipe-markers-",
     });
     const termMarkerPath = `${markerDirectory}/term`;
     const pidMarkerPath = `${markerDirectory}/pid`;
@@ -2074,7 +2071,7 @@ it.effect("escalates from TERM to KILL when a timed-out child traps TERM", () =>
     if (process.platform === "win32") return;
     const fileSystem = yield* FileSystem.FileSystem;
     const markerDirectory = yield* fileSystem.makeTempDirectoryScoped({
-      prefix: "synara-codex-term-markers-",
+      prefix: "saint-codex-term-markers-",
     });
     const termMarkerPath = `${markerDirectory}/term`;
     const pidMarkerPath = `${markerDirectory}/pid`;
@@ -2146,7 +2143,7 @@ for (const [diagnostic, denyTermination, longCleanup] of [
         if (process.platform === "win32") return;
         const fileSystem = yield* FileSystem.FileSystem;
         const directory = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "synara-codex-auth-failure-",
+          prefix: "saint-codex-auth-failure-",
         });
         const pidMarkerPath = `${directory}/pid`;
         const resourceManifestPath = `${directory}/resources.json`;

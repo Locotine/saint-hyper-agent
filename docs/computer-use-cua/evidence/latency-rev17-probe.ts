@@ -26,7 +26,7 @@ import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { CuaDriverHost } from "../../../apps/desktop/src/cuaDriverHost";
 
-const BINARY = "/Users/devin/repos/synara/apps/desktop/resources/cua-driver/cua-driver";
+const BINARY = "/Users/devin/repos/saint/apps/desktop/resources/cua-driver/cua-driver";
 const CAP = "latency-probe-capability-0123456789abcdef";
 const N_WARM = 30;
 const N_COLD = 3;
@@ -129,7 +129,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function makeHost(): Promise<HostHandle> {
   const host = new CuaDriverHost({
     binaryPath: BINARY,
-    bundleId: "com.synara.latency-probe",
+    bundleId: "com.saint.latency-probe",
     capability: CAP,
     setup: async () => {},
   });
@@ -217,7 +217,7 @@ async function main() {
   meta.date = new Date().toISOString();
   meta.binary = BINARY;
   meta.binaryProvenance = JSON.parse(
-    execSync(`cat /Users/devin/repos/synara/apps/desktop/resources/cua-driver/provenance.json`, {
+    execSync(`cat /Users/devin/repos/saint/apps/desktop/resources/cua-driver/provenance.json`, {
       encoding: "utf8",
     }),
   );
@@ -227,11 +227,11 @@ async function main() {
     meta.chip = execSync("sysctl -n machdep.cpu.brand_string", { encoding: "utf8" }).trim();
     meta.model = execSync("sysctl -n hw.model", { encoding: "utf8" }).trim();
   } catch {}
-  meta.commit = execSync("git -C /Users/devin/repos/synara-wt-latency rev-parse HEAD", {
+  meta.commit = execSync("git -C /Users/devin/repos/saint-wt-latency rev-parse HEAD", {
     encoding: "utf8",
   }).trim();
   meta.frontmostBefore = frontmost();
-  meta.warmFlagEnv = process.env.SYNARA_CUA_WARM_ON_FIRST_TOUCH ?? null;
+  meta.warmFlagEnv = process.env.SAINT_CUA_WARM_ON_FIRST_TOUCH ?? null;
   meta.nWarm = N_WARM;
   console.log("meta:", JSON.stringify(meta, null, 1));
 

@@ -13,13 +13,13 @@ import {
   type ClaudeCodeEffort,
   type ProviderKind,
   type UploadChatAttachment,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   ATTACHMENT_CANCEL_ROUTE_PATH,
   ATTACHMENT_UPLOAD_ROUTE_PATH,
-} from "@synara/shared/binaryTransfer";
-import { applyClaudePromptEffortPrefix, getModelCapabilities } from "@synara/shared/model";
-import { parseComputerInvocation } from "@synara/shared/computerInvocation";
+} from "@saint/shared/binaryTransfer";
+import { applyClaudePromptEffortPrefix, getModelCapabilities } from "@saint/shared/model";
+import { parseComputerInvocation } from "@saint/shared/computerInvocation";
 
 import {
   cloneComposerImageAttachment,
@@ -131,7 +131,7 @@ export async function prepareComposerImageAttachmentsFromFiles(input: {
       error =
         cause instanceof ComposerImagePreparationError
           ? cause.message
-          : `Synara could not prepare '${file.name || "image"}'.`;
+          : `Saint could not prepare '${file.name || "image"}'.`;
     }
   }
 

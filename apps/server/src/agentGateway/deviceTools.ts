@@ -6,17 +6,17 @@
  * requiring a live turn so a detached provider cell cannot drive a simulator
  * after its turn ended.
  *
- * Consent rides the Synara-owned approval flow (`authorizeAction`) for every
+ * Consent rides the Saint-owned approval flow (`authorizeAction`) for every
  * approval-required tool, mirroring the computer family: provider-native
  * permission bridges cannot see MCP calls, so a gated provider like OMP still
- * cannot ask about a device action unless Synara asks on its behalf — and a
+ * cannot ask about a device action unless Saint asks on its behalf — and a
  * gateless provider (`PROVIDERS_WITHOUT_APPROVAL_GATE`; Antigravity runs with
  * `--dangerously-skip-permissions`, Pi executes gateway tools with no approval
  * bridge) needs the same card or a prompt-injected agent could drive the
  * device with no user in the loop. `device_open_url` is always in that set:
  * it is an exfiltration vector (an arbitrary URL opened in the device's
  * browser), so it cancels before the effect, following the
- * `BrowserDownloadApprovalRequired` precedent. When no Synara authorize
+ * `BrowserDownloadApprovalRequired` precedent. When no Saint authorize
  * surface was supplied at all, mutating tools refuse with the
  * approval-unavailable error rather than running unasked.
  *
@@ -35,7 +35,7 @@ import {
   DEVICE_SWIPE_DURATION_MIN_MS,
   type DeviceHardwareButton,
   type DeviceOpenPaneReason,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect } from "effect";
 
 import type { DeviceConfiguration, DeviceTouchEdge } from "../device/DeviceBackend.ts";
@@ -218,7 +218,7 @@ const DEVICE_SCROLL_BUDGET_RANGE = {
 const DEVICE_APPROVAL_AGENT_GUIDANCE =
   "If this reports DeviceApprovalRequired, the action was refused before it ran because the session has no approval gate; explain that the user must perform it from the device pane and do not retry.";
 const DEVICE_BUILD_AGENT_GUIDANCE =
-  "Synara never builds the app; build it first for the booted device with xcodebuild -scheme <scheme> -destination 'platform=iOS Simulator,id=<udid>' -derivedDataPath <dir> build, whose app is <dir>/Build/Products/<Configuration>-iphonesimulator/<Name>.app. Do not use run commands that launch Simulator.app (expo run:ios, react-native run-ios, flutter run): Xcode 27+ replaced it with DeviceHub, so they fail. This tool surfaces the driven device in the pane.";
+  "Saint never builds the app; build it first for the booted device with xcodebuild -scheme <scheme> -destination 'platform=iOS Simulator,id=<udid>' -derivedDataPath <dir> build, whose app is <dir>/Build/Products/<Configuration>-iphonesimulator/<Name>.app. Do not use run commands that launch Simulator.app (expo run:ios, react-native run-ios, flutter run): Xcode 27+ replaced it with DeviceHub, so they fail. This tool surfaces the driven device in the pane.";
 const DEVICE_INPUT_RESULT_AGENT_GUIDANCE =
   "The result carries the settled screen and screenChanged: false means the action missed or changed nothing, and settled: false means the screen was still loading or animating (use device_wait before asserting). Read state from that screen instead of calling device_describe_ui again. If HID events were not delivered, nothing happened and the server already retried once, so surface the failure.";
 
@@ -415,7 +415,7 @@ function readConfigurations(args: Record<string, unknown>): DeviceConfiguration[
 
 export interface AgentGatewayDeviceToolsOptions {
   readonly manager: DeviceManager;
-  /** Synara-owned consent for approval-required calls; see computerTools.ts. */
+  /** Saint-owned consent for approval-required calls; see computerTools.ts. */
   readonly authorizeAction?: (
     name: string,
     args: Record<string, unknown>,
@@ -553,7 +553,7 @@ export function makeAgentGatewayDeviceTools(
       definition: {
         name: "device_list",
         description:
-          "List iOS simulators Synara can drive, with their runtime, boot state, and who booted them. Call this before any other device_* tool and use an already-booted device when one is available; booting another wastes time and can leave the user watching the wrong pane.",
+          "List iOS simulators Saint can drive, with their runtime, boot state, and who booted them. Call this before any other device_* tool and use an already-booted device when one is available; booting another wastes time and can leave the user watching the wrong pane.",
         inputSchema: {
           type: "object",
           properties: {
@@ -576,7 +576,7 @@ export function makeAgentGatewayDeviceTools(
       definition: {
         name: "device_boot",
         description: approvalRequiredDeviceDescription(
-          'Boot a simulator only when device_list finds nothing booted or the user named a different device. It boots headless and appears in the streamed pane, not in a window: never open Simulator.app or DeviceHub to "start" it. Synara caps the simulators it boots; kind "boot-limit-reached" lists devices to relay to the user so they can choose one to shut down, and must not be retried.',
+          'Boot a simulator only when device_list finds nothing booted or the user named a different device. It boots headless and appears in the streamed pane, not in a window: never open Simulator.app or DeviceHub to "start" it. Saint caps the simulators it boots; kind "boot-limit-reached" lists devices to relay to the user so they can choose one to shut down, and must not be retried.',
         ),
         inputSchema: {
           type: "object",
@@ -725,7 +725,7 @@ export function makeAgentGatewayDeviceTools(
       definition: {
         name: "device_tap",
         description: deviceInputDescription(
-          "Tap an element by identifier (its accessibilityIdentifier, the most stable handle when the app sets one) or label; add role only to disambiguate. Synara re-reads the tree, scrolls the element into view, and taps its activationPoint, which is required for a switch or other control merged into a row. holdMs above 500 is a long press. Use x and y only for an unlabeled target, copying device points from the screen snapshot or a device_screenshot (whose pixels are device points).",
+          "Tap an element by identifier (its accessibilityIdentifier, the most stable handle when the app sets one) or label; add role only to disambiguate. Saint re-reads the tree, scrolls the element into view, and taps its activationPoint, which is required for a switch or other control merged into a row. holdMs above 500 is a long press. Use x and y only for an unlabeled target, copying device points from the screen snapshot or a device_screenshot (whose pixels are device points).",
         ),
         inputSchema: {
           type: "object",
@@ -1101,7 +1101,7 @@ export function makeAgentGatewayDeviceTools(
       definition: {
         name: "device_scroll_to_element",
         description: deviceInputDescription(
-          "Scroll an element (by identifier or label) into view in one call. Synara swipes and re-reads the tree until the element reaches the tappable band, then returns its tap point. Use this instead of a device_swipe loop when reading or confirming content below the fold; device_tap already scrolls on its own.",
+          "Scroll an element (by identifier or label) into view in one call. Saint swipes and re-reads the tree until the element reaches the tappable band, then returns its tap point. Use this instead of a device_swipe loop when reading or confirming content below the fold; device_tap already scrolls on its own.",
         ),
         inputSchema: {
           type: "object",

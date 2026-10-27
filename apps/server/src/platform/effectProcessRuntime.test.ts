@@ -3,7 +3,7 @@
 // Layer: Server platform runtime test
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as executable from "@synara/shared/executable";
+import * as executable from "@saint/shared/executable";
 import os from "node:os";
 import path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -90,8 +90,8 @@ describe("spawnProviderProcess", () => {
     async (kind) => {
       const command =
         kind === "bare"
-          ? "synara-missing-priority-test-executable"
-          : path.join(os.tmpdir(), "synara-missing-priority-test-executable");
+          ? "saint-missing-priority-test-executable"
+          : path.join(os.tmpdir(), "saint-missing-priority-test-executable");
       const result = await Effect.runPromiseExit(
         Effect.gen(function* () {
           const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;

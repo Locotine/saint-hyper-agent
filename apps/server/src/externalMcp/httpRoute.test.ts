@@ -48,7 +48,7 @@ async function withExternalMcpServer(
         integration: {
           integrationId,
           name: "Route test",
-          audience: "synara.external-mcp",
+          audience: "saint.external-mcp",
           credentialHash: "hash-only",
           capabilities: ["projects:read"],
           projectIds: ["project-route-test"],
@@ -411,7 +411,7 @@ describe("externalMcpRouteLayer", () => {
         id: 2,
         method: "tools/call",
         params: {
-          name: "synara_create_task",
+          name: "saint_create_task",
           arguments: { prompt: "\u0000".repeat(100_000) },
         },
       };

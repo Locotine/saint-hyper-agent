@@ -6,8 +6,8 @@ import {
   TurnId,
   type OrchestrationThread,
   type RuntimeMode,
-  type SynaraCreateThreadsInput,
-} from "@synara/contracts";
+  type SaintCreateThreadsInput,
+} from "@saint/contracts";
 import { Effect, Layer, Option } from "effect";
 
 import {
@@ -93,7 +93,7 @@ function harness(name: string) {
       },
       null,
     );
-    const calls: SynaraCreateThreadsInput[] = [];
+    const calls: SaintCreateThreadsInput[] = [];
     const inheritedModes: Array<RuntimeMode | undefined> = [];
     let runtimeMode: RuntimeMode = "approval-required";
     const messages = [source];
@@ -161,7 +161,7 @@ function harness(name: string) {
         }).pipe(Effect.catch((error) => Effect.succeed(mcpToolResultError(error.message)))),
     } satisfies Dependencies;
     const gateway = makeHubWorkGateway(dependencies);
-    const input: SynaraCreateThreadsInput = {
+    const input: SaintCreateThreadsInput = {
       requestId: "first-request",
       threads: [1, 2].map((index) => ({
         prompt: `Task ${index}`,

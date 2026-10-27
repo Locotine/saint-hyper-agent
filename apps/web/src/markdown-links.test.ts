@@ -38,7 +38,7 @@ describe("resolveMarkdownFileLinkTarget", () => {
 
 describe("resolveUniqueAbsoluteSuffixTarget", () => {
   const skillFile = "/Users/tester/.agents/skills/annotate-pr/references/uploadthing.md";
-  const tempFile = "/tmp/synara-codex-workspaces/thread-1/notes.md";
+  const tempFile = "/tmp/saint-codex-workspaces/thread-1/notes.md";
 
   it("keeps line suffixes on the known absolute path", () => {
     expect(resolveUniqueAbsoluteSuffixTarget("notes.md:12", [tempFile])).toBe(`${tempFile}:12`);

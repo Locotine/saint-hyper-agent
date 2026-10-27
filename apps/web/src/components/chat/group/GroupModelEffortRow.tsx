@@ -6,7 +6,7 @@ import type {
   ProviderInstanceId,
   ProviderKind,
   ProviderModelDescriptor,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import {
   type AppSettings,

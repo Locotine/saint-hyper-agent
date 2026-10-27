@@ -10,9 +10,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  SYNARA_DESKTOP_UPDATE_CHANNEL,
-  SYNARA_PRODUCTION_BUNDLE_ID,
-} from "@synara/shared/desktopIdentity";
+  SAINT_DESKTOP_UPDATE_CHANNEL,
+  SAINT_PRODUCTION_BUNDLE_ID,
+} from "@saint/shared/desktopIdentity";
 
 import {
   readReleaseUpdatePolicyConfig,
@@ -50,10 +50,10 @@ function writeMacManifestFixtures(targetRoot: string): { arm64Path: string; x64P
     arm64Path,
     `version: 9.9.9-smoke.0
 files:
-  - url: Synara-9.9.9-smoke.0-arm64.zip
+  - url: Saint-9.9.9-smoke.0-arm64.zip
     sha512: arm64zip
     size: 125621344
-path: Synara-9.9.9-smoke.0-arm64.zip
+path: Saint-9.9.9-smoke.0-arm64.zip
 sha512: arm64zip
 releaseDate: '2026-03-08T10:32:14.587Z'
 `,
@@ -63,10 +63,10 @@ releaseDate: '2026-03-08T10:32:14.587Z'
     x64Path,
     `version: 9.9.9-smoke.0
 files:
-  - url: Synara-9.9.9-smoke.0-x64.zip
+  - url: Saint-9.9.9-smoke.0-x64.zip
     sha512: x64zip
     size: 132000112
-path: Synara-9.9.9-smoke.0-x64.zip
+path: Saint-9.9.9-smoke.0-x64.zip
 sha512: x64zip
 releaseDate: '2026-03-08T10:36:07.540Z'
 `,
@@ -91,23 +91,23 @@ function verifyCanonicalIdentity(): void {
   const serverPackage = JSON.parse(
     readFileSync(resolve(repoRoot, "apps/server/package.json"), "utf8"),
   ) as { name?: string; bin?: Record<string, string> };
-  if (serverPackage.name !== "@synara/cli") {
-    throw new Error(`Expected CLI package @synara/cli, got ${serverPackage.name ?? "<missing>"}.`);
+  if (serverPackage.name !== "@saint/cli") {
+    throw new Error(`Expected CLI package @saint/cli, got ${serverPackage.name ?? "<missing>"}.`);
   }
   const expectedBinaries = {
-    synara: "dist/index.mjs",
-    "synara-restore-migration-backup": "dist/restoreMigrationBackup.mjs",
+    saint: "dist/index.mjs",
+    "saint-restore-migration-backup": "dist/restoreMigrationBackup.mjs",
   };
   if (JSON.stringify(serverPackage.bin ?? {}) !== JSON.stringify(expectedBinaries)) {
     throw new Error(
-      "Expected the CLI to expose only the Synara entry point and migration recovery binary.",
+      "Expected the CLI to expose only the Saint entry point and migration recovery binary.",
     );
   }
-  if (SYNARA_PRODUCTION_BUNDLE_ID !== "com.emanueledipietro.synara") {
-    throw new Error(`Unexpected production bundle ID: ${SYNARA_PRODUCTION_BUNDLE_ID}.`);
+  if (SAINT_PRODUCTION_BUNDLE_ID !== "com.locotine.saint") {
+    throw new Error(`Unexpected production bundle ID: ${SAINT_PRODUCTION_BUNDLE_ID}.`);
   }
-  if (SYNARA_DESKTOP_UPDATE_CHANNEL !== "synara") {
-    throw new Error(`Unexpected desktop update channel: ${SYNARA_DESKTOP_UPDATE_CHANNEL}.`);
+  if (SAINT_DESKTOP_UPDATE_CHANNEL !== "saint") {
+    throw new Error(`Unexpected desktop update channel: ${SAINT_DESKTOP_UPDATE_CHANNEL}.`);
   }
 
   const releasePolicy = readReleaseUpdatePolicyConfig(repoRoot);
@@ -117,7 +117,7 @@ function verifyCanonicalIdentity(): void {
     !resolvedPolicy.makeLatest ||
     resolvedPolicy.mirrorToStableChannel
   ) {
-    throw new Error("Expected stable clean Synara releases to publish on GitHub Latest.");
+    throw new Error("Expected stable clean Saint releases to publish on GitHub Latest.");
   }
 }
 
@@ -474,8 +474,8 @@ async function verifyReleaseWorkflowSafety(): Promise<void> {
   for (const gate of [
     "  quality:\n    name: Quality gates\n    needs: preflight\n    runs-on: ubuntu-24.04\n    timeout-minutes: 15\n    permissions:\n      contents: read",
     "  server_tests:\n    name: Server tests (${{ matrix.shard }})\n    needs: preflight\n    if: needs.preflight.outputs.quality_gates == 'true'\n    runs-on: ubuntu-24.04\n    timeout-minutes: 15\n    permissions:\n      contents: read",
-    "bunx turbo run test --filter='!@synara/cli'",
-    "bunx turbo run test --filter=@synara/cli -- --shard=${{ matrix.shard }}",
+    "bunx turbo run test --filter='!@saint/cli'",
+    "bunx turbo run test --filter=@saint/cli -- --shard=${{ matrix.shard }}",
   ]) {
     assertContains(workflow, gate, "Expected read-only, sharded quality gates before publication.");
   }
@@ -494,7 +494,7 @@ async function verifyReleaseWorkflowSafety(): Promise<void> {
     "DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer",
     "runs-on: macos-26",
     "name: mac-icon-catalog",
-    'echo "SYNARA_MAC_ICON_CATALOG=$RUNNER_TEMP/mac-icon/Assets.car" >> "$GITHUB_ENV"',
+    'echo "SAINT_MAC_ICON_CATALOG=$RUNNER_TEMP/mac-icon/Assets.car" >> "$GITHUB_ENV"',
   ]) {
     assertContains(
       workflow + platformWorkflow,
@@ -534,7 +534,7 @@ async function verifyReleaseWorkflowSafety(): Promise<void> {
         );
         needs.preflight!.outputs = { publish_release: publish, is_prerelease: prerelease };
         if (
-          Boolean(allows(needs, { SYNARA_PUBLISH_CLI: "1" })) !==
+          Boolean(allows(needs, { SAINT_PUBLISH_CLI: "1" })) !==
           (publish === "true" && (name === "release" || prerelease === "false"))
         )
           throw new Error(`${name} publication policy changed.`);
@@ -549,7 +549,7 @@ async function verifyReleaseWorkflowSafety(): Promise<void> {
         );
         needs.preflight!.outputs = { publish_release: "true", is_prerelease: "false" };
         needs[gate]!.result = result;
-        if (allows(needs, { SYNARA_PUBLISH_CLI: "1" }))
+        if (allows(needs, { SAINT_PUBLISH_CLI: "1" }))
           throw new Error(`${name} admits ${gate}=${result}.`);
       }
   }
@@ -600,22 +600,22 @@ async function verifyReleaseWorkflowSafety(): Promise<void> {
   );
   assertContains(
     workflow,
-    "needs.preflight.outputs.publish_release == 'true' && vars.SYNARA_PUBLISH_CLI == '1'",
+    "needs.preflight.outputs.publish_release == 'true' && vars.SAINT_PUBLISH_CLI == '1'",
     "Expected CLI publication to require explicit publication mode.",
   );
   assertContains(
     workflow,
-    "needs.preflight.outputs.publish_release == 'true' && vars.SYNARA_FINALIZE_RELEASE == '1'",
+    "needs.preflight.outputs.publish_release == 'true' && vars.SAINT_FINALIZE_RELEASE == '1'",
     "Expected release finalization to require explicit publication mode.",
   );
   assertContains(
     workflow,
-    "vars.SYNARA_PUBLISH_CLI == '1' && needs.preflight.outputs.is_prerelease == 'false'",
+    "vars.SAINT_PUBLISH_CLI == '1' && needs.preflight.outputs.is_prerelease == 'false'",
     "Expected prereleases to be fenced out of the npm latest publish job.",
   );
   assertContains(
     workflow,
-    "vars.SYNARA_FINALIZE_RELEASE == '1' && needs.preflight.outputs.is_prerelease == 'false'",
+    "vars.SAINT_FINALIZE_RELEASE == '1' && needs.preflight.outputs.is_prerelease == 'false'",
     "Expected prereleases to be fenced out of the version-bump finalize job.",
   );
   assertContains(
@@ -670,8 +670,8 @@ async function verifyReleaseWorkflowSafety(): Promise<void> {
   );
   assertContains(
     iconJob,
-    "--app-icon Synara",
-    "Expected every flavor's icon catalog to keep the Synara asset name.",
+    "--app-icon Saint",
+    "Expected every flavor's icon catalog to keep the Saint asset name.",
   );
   const collectStep = packagingJob.slice(
     packagingJob.indexOf("  - name: Collect release assets"),
@@ -689,7 +689,7 @@ async function verifyReleaseWorkflowSafety(): Promise<void> {
   );
   assertContains(
     platformWorkflow,
-    "SYNARA_PUBLISH_RELEASE: ${{ inputs.publish_release }}",
+    "SAINT_PUBLISH_RELEASE: ${{ inputs.publish_release }}",
     "Expected artifact signing admission to know whether artifacts will be published.",
   );
   assertContains(
@@ -801,7 +801,7 @@ async function verifyReleaseWorkflowSafety(): Promise<void> {
   );
   assertContains(
     desktopBuildConfig,
-    "__SYNARA_WINDOWS_UPDATER_PUBLISHER__",
+    "__SAINT_WINDOWS_UPDATER_PUBLISHER__",
     "Expected the Windows updater publisher identity to be compiled into the main bundle.",
   );
 
@@ -818,7 +818,7 @@ async function verifyReleaseWorkflowSafety(): Promise<void> {
   const nextBetaJob = workflow.slice(workflow.indexOf("  cut_next_beta:\n"));
   assertContains(
     workflow,
-    "if: ${{ needs.preflight.outputs.publish_release == 'true' && vars.SYNARA_AUTO_BETA == '1' && needs.preflight.outputs.is_prerelease == 'false' }}",
+    "if: ${{ needs.preflight.outputs.publish_release == 'true' && vars.SAINT_AUTO_BETA == '1' && needs.preflight.outputs.is_prerelease == 'false' }}",
     "Expected the next-beta cut to require an opted-in stable publication.",
   );
   assertContains(
@@ -874,7 +874,7 @@ function verifyDesktopStageLockAuthority(): void {
   );
   assertNotContains(
     buildScript,
-    "--filter @synara/",
+    "--filter @saint/",
     "Desktop staging must not use Bun workspace filters because filtered hoisted installs can diverge from bun.lock.",
   );
   assertContains(
@@ -914,17 +914,17 @@ function verifyDesktopStageLockAuthority(): void {
   );
   assertContains(
     buildScript,
-    "synaraCommitHash: commitHash",
+    "saintCommitHash: commitHash",
     "Expected the staged package to carry its exact source commit.",
   );
   assertContains(
     buildScript,
-    "synaraLockfileSha256: resolvedLockfileSha256",
+    "saintLockfileSha256: resolvedLockfileSha256",
     "Expected the staged package to carry its repository lockfile digest.",
   );
   assertContains(
     buildScript,
-    "synaraWindowsPublisherSubject: resolvedBuildConfig.windowsPublisherSubject",
+    "saintWindowsPublisherSubject: resolvedBuildConfig.windowsPublisherSubject",
     "Expected signed Windows packages to carry the independently configured certificate subject DN.",
   );
 
@@ -942,7 +942,7 @@ function verifyDesktopStageLockAuthority(): void {
   }
 }
 
-const tempRoot = mkdtempSync(join(tmpdir(), "synara-release-smoke-"));
+const tempRoot = mkdtempSync(join(tmpdir(), "saint-release-smoke-"));
 
 try {
   verifyCanonicalIdentity();
@@ -989,12 +989,12 @@ try {
   const mergedManifest = readFileSync(arm64Path, "utf8");
   assertContains(
     mergedManifest,
-    "Synara-9.9.9-smoke.0-arm64.zip",
+    "Saint-9.9.9-smoke.0-arm64.zip",
     "Merged manifest is missing the arm64 asset.",
   );
   assertContains(
     mergedManifest,
-    "Synara-9.9.9-smoke.0-x64.zip",
+    "Saint-9.9.9-smoke.0-x64.zip",
     "Merged manifest is missing the x64 asset.",
   );
   assertNotContains(

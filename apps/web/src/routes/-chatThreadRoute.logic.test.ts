@@ -1,4 +1,4 @@
-import { ThreadId, TurnId } from "@synara/contracts";
+import { ThreadId, TurnId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -31,7 +31,7 @@ describe("resolveFilePreviewWorkspaceRoot", () => {
   it("uses a Studio thread working directory ahead of its container project", () => {
     expect(
       resolveFilePreviewWorkspaceRoot({
-        projectCwd: "/synara/studio",
+        projectCwd: "/saint/studio",
         threadEnvMode: "local",
         threadWorktreePath: null,
         threadWorkingDirectory: "/repo/external",

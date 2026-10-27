@@ -10,7 +10,7 @@ import type {
   ProviderApprovalDecision,
   RuntimeMode,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useEffect, useMemo, useState } from "react";
 
 import { isReasoningUpdateWorkEntry } from "~/components/chat/agentActivity.logic";

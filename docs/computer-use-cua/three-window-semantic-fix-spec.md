@@ -115,7 +115,7 @@ Result (`evidence/fixture-g5-set-value-2026-09-17.report.json`,
 3× `verified`/`confirmed` on the `cua-accessibility-background` route,
 2580/2580 focus samples on the sentinel, `overlap: true`, spans
 ~1.4 s/2.6 s/3.9 s. Full suite green three consecutive runs including
-`explicit-foreground-text` under `SYNARA_CUA_FIXTURE_FOREGROUND=approved-once`.
+`explicit-foreground-text` under `SAINT_CUA_FIXTURE_FOREGROUND=approved-once`.
 Gateway stub repaired to model task consent (`gateway.ts` — routine
 background approved, foreground denied, denials recorded), closing the two
 pre-existing gateway failures with their real assertions exercised.

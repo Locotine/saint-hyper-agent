@@ -7,7 +7,7 @@
 
 import "~/index.css";
 
-import { ProjectId } from "@synara/contracts";
+import { ProjectId } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { beforeEach, describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
@@ -18,7 +18,7 @@ import { useAuxiliarySurface } from "./useAuxiliarySurface";
 
 const GROUP_ID = ProjectId.makeUnsafe("group-under-test");
 const OTHER_GROUP_ID = ProjectId.makeUnsafe("group-other");
-const CLOSED_STORAGE_KEY = "synara:group-panel-closed:v1";
+const CLOSED_STORAGE_KEY = "saint:group-panel-closed:v1";
 
 function SurfaceProbe({
   projectId,

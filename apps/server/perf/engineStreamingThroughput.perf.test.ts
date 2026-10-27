@@ -1,7 +1,7 @@
 // Perf probe: orchestration engine throughput for streaming assistant deltas across T
 // concurrently streaming threads (file-backed WAL SQLite, real engine + projection pipeline).
 // Capacity probe only: provider journal, transport, renderer and provider children are excluded.
-//   SYNARA_PERF=1 bunx vitest run perf/engineStreamingThroughput.perf.test.ts
+//   SAINT_PERF=1 bunx vitest run perf/engineStreamingThroughput.perf.test.ts
 import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,7 +12,7 @@ import {
   MessageId,
   ProjectId,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -30,10 +30,10 @@ const OrchestrationProjectionSnapshotQueryLive = OrchestrationProjectionSnapshot
   Layer.provide(ServerSettingsService.layerTest()),
 );
 
-const ENABLED = process.env.SYNARA_PERF === "1";
-const DELTAS_PER_THREAD = Number(process.env.SYNARA_PERF_DELTAS ?? 1_500);
+const ENABLED = process.env.SAINT_PERF === "1";
+const DELTAS_PER_THREAD = Number(process.env.SAINT_PERF_DELTAS ?? 1_500);
 if (!Number.isInteger(DELTAS_PER_THREAD) || DELTAS_PER_THREAD <= 0) {
-  throw new Error("SYNARA_PERF_DELTAS must be a positive integer per thread");
+  throw new Error("SAINT_PERF_DELTAS must be a positive integer per thread");
 }
 const DELTA_TEXT = "x".repeat(66); // real DB average: ~66 chars per thread.message-sent event
 const THREAD_COUNTS = [1, 5, 10];
@@ -45,7 +45,7 @@ async function createSystem(dbPath: string) {
     Layer.provide(OrchestrationEventStoreLive),
     Layer.provide(OrchestrationCommandReceiptRepositoryLive),
     Layer.provide(makeSqlitePersistenceLive(dbPath)),
-    Layer.provideMerge(ServerConfig.layerTest(process.cwd(), { prefix: "synara-engine-perf-" })),
+    Layer.provideMerge(ServerConfig.layerTest(process.cwd(), { prefix: "saint-engine-perf-" })),
     Layer.provideMerge(NodeServices.layer),
   );
   const runtime = ManagedRuntime.make(layer);
@@ -58,7 +58,7 @@ describe.skipIf(!ENABLED)("engine streaming throughput", () => {
     const report: Record<string, unknown>[] = [];
     for (let repeat = -1; repeat < 3; repeat += 1) {
       for (const threadCount of repeat % 2 === 0 ? [...THREAD_COUNTS].reverse() : THREAD_COUNTS) {
-        const directory = mkdtempSync(join(tmpdir(), "synara-engine-measure-"));
+        const directory = mkdtempSync(join(tmpdir(), "saint-engine-measure-"));
         const dbPath = join(directory, "state.sqlite");
         const { engine, runtime } = await createSystem(dbPath);
         try {
@@ -165,7 +165,7 @@ describe.skipIf(!ENABLED)("engine streaming throughput", () => {
       }
     }
     writeFileSync(
-      process.env.SYNARA_PERF_OUT ?? "/tmp/synara-perf/engine-report.json",
+      process.env.SAINT_PERF_OUT ?? "/tmp/saint-perf/engine-report.json",
       JSON.stringify({ deltasPerThread: DELTAS_PER_THREAD, report }, null, 2),
     );
   }, 600_000);

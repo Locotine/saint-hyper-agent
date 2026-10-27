@@ -48,12 +48,12 @@ describe("providerContinuationIdentity", () => {
   });
 
   it("uses overlay-specific identities until shared Codex continuation preparation succeeds", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "synara-continuation-identity-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "saint-continuation-identity-"));
     try {
       const homePath = path.join(root, "codex-home");
       const personalShadowHomePath = path.join(root, "personal");
       const workShadowHomePath = path.join(root, "work");
-      const environment = { SYNARA_HOME: path.join(root, "synara-runtime") };
+      const environment = { SAINT_HOME: path.join(root, "saint-runtime") };
       for (const directoryPath of [homePath, personalShadowHomePath, workShadowHomePath]) {
         fs.mkdirSync(directoryPath, { recursive: true });
       }
@@ -111,10 +111,10 @@ describe("providerContinuationIdentity", () => {
   });
 
   it("atomically upgrades a healthy persisted v1 source to a generation identity", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "synara-continuation-v1-migration-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "saint-continuation-v1-migration-"));
     try {
       const homePath = path.join(root, "codex-home");
-      const environment = { SYNARA_HOME: path.join(root, "synara-runtime") };
+      const environment = { SAINT_HOME: path.join(root, "saint-runtime") };
       fs.mkdirSync(path.join(homePath, "sessions"), { recursive: true });
       fs.mkdirSync(path.join(homePath, "archived_sessions"), { recursive: true });
       fs.writeFileSync(path.join(homePath, "config.toml"), "", "utf8");
@@ -122,7 +122,7 @@ describe("providerContinuationIdentity", () => {
       fs.writeFileSync(path.join(homePath, "session_index.jsonl"), "", "utf8");
       const sourceIdentity = resolveCodexPathIdentity(homePath);
       fs.writeFileSync(
-        path.join(homePath, "synara-shared-continuation-v1.json"),
+        path.join(homePath, "saint-shared-continuation-v1.json"),
         `${JSON.stringify({ version: 1, sourceHomeIdentity: sourceIdentity })}\n`,
         "utf8",
       );
@@ -138,7 +138,7 @@ describe("providerContinuationIdentity", () => {
       assert.equal(parsed?.sourceIdentity, sourceIdentity);
       assert.equal(
         JSON.parse(
-          fs.readFileSync(path.join(homePath, "synara-shared-continuation-v2.json"), "utf8"),
+          fs.readFileSync(path.join(homePath, "saint-shared-continuation-v2.json"), "utf8"),
         ).migratedFromVersion,
         1,
       );
@@ -148,10 +148,10 @@ describe("providerContinuationIdentity", () => {
   });
 
   it("rejects a legacy identity when the same source path has a fresh v2 generation", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "synara-continuation-v1-replaced-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "saint-continuation-v1-replaced-"));
     try {
       const homePath = path.join(root, "codex-home");
-      const environment = { SYNARA_HOME: path.join(root, "synara-runtime") };
+      const environment = { SAINT_HOME: path.join(root, "saint-runtime") };
       fs.mkdirSync(homePath, { recursive: true });
       fs.writeFileSync(path.join(homePath, "config.toml"), "", "utf8");
       await buildCodexProcessEnv({ env: { ...process.env, ...environment }, homePath });

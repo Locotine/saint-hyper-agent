@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ProjectReadFileResult, ProjectWriteFileResult } from "@synara/contracts";
+import type { ProjectReadFileResult, ProjectWriteFileResult } from "@saint/contracts";
 
 const { api, refreshGit } = vi.hoisted(() => ({
   api: { projects: { writeFile: vi.fn(), readFile: vi.fn() } },

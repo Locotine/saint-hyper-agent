@@ -172,11 +172,11 @@ mechanism before review and continuing orchestration/projection lag after it is 
 Typical isolated capture command (temporary developer probe):
 
 ```sh
-SYNARA_HOME=/tmp/synara-perf-hot-path/home-fixture/dev \
-node --require /tmp/synara-perf-hot-path/review-probe.cjs --cpu-prof \
-  --cpu-prof-dir=/tmp/synara-perf-hot-path/evidence \
+SAINT_HOME=/tmp/saint-perf-hot-path/home-fixture/dev \
+node --require /tmp/saint-perf-hot-path/review-probe.cjs --cpu-prof \
+  --cpu-prof-dir=/tmp/saint-perf-hot-path/evidence \
   apps/server/dist/index.mjs \
-  --home-dir /tmp/synara-perf-hot-path/home-fixture \
+  --home-dir /tmp/saint-perf-hot-path/home-fixture \
   --host 127.0.0.1 --port 46171 --dev-url http://localhost:46172 \
   --no-browser --auth-token perf-isolated-token
 ```

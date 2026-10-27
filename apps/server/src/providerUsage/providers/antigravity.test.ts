@@ -8,7 +8,7 @@ import nodePath from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { outboundHttp } from "@synara/shared/outboundHttp";
+import { outboundHttp } from "@saint/shared/outboundHttp";
 
 import {
   antigravityUsageFetcher,
@@ -95,7 +95,7 @@ function stubOutboundFetch(
 }
 
 function makeGeminiHome(relativePath: string, creds: Record<string, unknown>) {
-  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "synara-agy-usage-"));
+  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-agy-usage-"));
   tempDirs.push(homeDir);
   const credPath = nodePath.join(homeDir, ...relativePath.split("/"));
   mkdirSync(nodePath.dirname(credPath), { recursive: true });
@@ -201,7 +201,7 @@ describe("parseAntigravityQuotaSummary", () => {
 
 describe("antigravityUsageFetcher", () => {
   it("returns needs-auth when no Gemini/agy credential is present", async () => {
-    const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "synara-agy-empty-"));
+    const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-agy-empty-"));
     tempDirs.push(homeDir);
     const snapshot = await antigravityUsageFetcher.fetch({
       homeDir,

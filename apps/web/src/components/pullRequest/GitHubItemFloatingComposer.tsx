@@ -7,7 +7,7 @@
 // Layer: Pull request presentation
 // Exports: GitHubItemFloatingComposer
 
-import type { ProjectId, ThreadId } from "@synara/contracts";
+import type { ProjectId, ThreadId } from "@saint/contracts";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import { getProviderInstanceOptions, useAppSettings } from "~/appSettings";

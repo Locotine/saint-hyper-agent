@@ -7,7 +7,7 @@ import nodePath from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { outboundHttp } from "@synara/shared/outboundHttp";
+import { outboundHttp } from "@saint/shared/outboundHttp";
 
 import {
   grokUsageFetcher,
@@ -46,7 +46,7 @@ function stubOutboundFetch(
 }
 
 function makeGrokHome(auth: Record<string, unknown>) {
-  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "synara-grok-usage-"));
+  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-grok-usage-"));
   tempDirs.push(homeDir);
   const grokDir = nodePath.join(homeDir, ".grok");
   mkdirSync(grokDir, { recursive: true });
@@ -115,7 +115,7 @@ describe("readGrokCachedLogin", () => {
 
   it("honors GROK_HOME", async () => {
     const homeDir = makeGrokHome({ [scope]: { key: "token", expires_at: future } });
-    const emptyHome = mkdtempSync(nodePath.join(os.tmpdir(), "synara-grok-usage-"));
+    const emptyHome = mkdtempSync(nodePath.join(os.tmpdir(), "saint-grok-usage-"));
     tempDirs.push(emptyHome);
     await expect(
       readGrokCachedLogin({ GROK_HOME: nodePath.join(homeDir, ".grok") }, emptyHome, NOW_MS),
@@ -149,7 +149,7 @@ describe("readGrokCachedLogin", () => {
   });
 
   it("returns null when grok has no cached login", async () => {
-    const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "synara-grok-usage-"));
+    const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-grok-usage-"));
     tempDirs.push(homeDir);
     await expect(readGrokCachedLogin({}, homeDir, NOW_MS)).resolves.toBeNull();
   });
@@ -205,7 +205,7 @@ describe("parseGrokApiKeyIdentity", () => {
 
 describe("grokUsageFetcher", () => {
   it("returns needs-auth when no SuperGrok session or API key is present", async () => {
-    const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "synara-grok-empty-"));
+    const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-grok-empty-"));
     tempDirs.push(homeDir);
     const snapshot = await grokUsageFetcher.fetch({
       homeDir,

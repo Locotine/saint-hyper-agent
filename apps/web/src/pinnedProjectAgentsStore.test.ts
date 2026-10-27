@@ -1,4 +1,4 @@
-import { ProjectId } from "@synara/contracts";
+import { ProjectId } from "@saint/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { pinId, prunePinnedIds, unpinId } from "./pinning.logic";

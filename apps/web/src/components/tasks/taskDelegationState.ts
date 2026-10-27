@@ -1,4 +1,4 @@
-import type { ThreadId, Todo, TodoId } from "@synara/contracts";
+import type { ThreadId, Todo, TodoId } from "@saint/contracts";
 import { create } from "zustand";
 
 import { isTaskLinkSettling, type TaskStatusKind } from "./tasks.logic";

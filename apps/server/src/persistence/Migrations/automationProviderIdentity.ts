@@ -1,4 +1,4 @@
-import { unresolvedAutomationInstanceId } from "@synara/shared/providerInstances";
+import { unresolvedAutomationInstanceId } from "@saint/shared/providerInstances";
 
 const PROVIDERS = [
   "codex",

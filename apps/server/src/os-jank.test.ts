@@ -80,7 +80,7 @@ describe("fixPath", () => {
     const env: NodeJS.ProcessEnv = {
       SHELL: "/bin/zsh",
       PATH: "/opt/homebrew/bin:/usr/bin",
-      SYNARA_PATH_HYDRATED: "1",
+      SAINT_PATH_HYDRATED: "1",
     };
     const readPath = vi.fn(() => "/should/not/run");
     const readLaunchctlPath = vi.fn(() => "/should/not/run");
@@ -115,7 +115,7 @@ describe("fixPath", () => {
     const env: NodeJS.ProcessEnv = {
       SHELL: "/bin/zsh",
       PATH: "",
-      SYNARA_PATH_HYDRATED: "1",
+      SAINT_PATH_HYDRATED: "1",
     };
     const readPath = vi.fn(() => "/opt/homebrew/bin");
 

@@ -1,10 +1,10 @@
 import { Effect, Fiber, FileSystem, Layer, Option, Schema, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
-import { sanitizeGeneratedThreadTitle } from "@synara/shared/chatThreads";
-import { supportsPosixPermissions } from "@synara/shared/filesystemPlatform";
-import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@synara/shared/git";
-import { getModelSelectionStringOptionValue, resolveApiModelId } from "@synara/shared/model";
+import { sanitizeGeneratedThreadTitle } from "@saint/shared/chatThreads";
+import { supportsPosixPermissions } from "@saint/shared/filesystemPlatform";
+import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@saint/shared/git";
+import { getModelSelectionStringOptionValue, resolveApiModelId } from "@saint/shared/model";
 
 import { TextGenerationError } from "../Errors.ts";
 import {
@@ -179,7 +179,7 @@ const makeClaudeTextGeneration = Effect.gen(function* () {
       // rather than silently running auxiliary generation with customizations.
       env[CLAUDE_SAFE_MODE_ENV_KEY] = "1";
       const isolatedCwd = yield* fileSystem
-        .makeTempDirectoryScoped({ prefix: "synara-claude-text-" })
+        .makeTempDirectoryScoped({ prefix: "saint-claude-text-" })
         .pipe(
           Effect.tap((directory) =>
             supportsPosixPermissions() ? fileSystem.chmod(directory, 0o700) : Effect.void,

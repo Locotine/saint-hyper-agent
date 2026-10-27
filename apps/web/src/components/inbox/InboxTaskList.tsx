@@ -5,8 +5,8 @@
 // Layer: Inbox UI
 // Exports: InboxTaskList, Group
 
-import type { ThreadId } from "@synara/contracts";
-import { pluralize } from "@synara/shared/text";
+import type { ThreadId } from "@saint/contracts";
+import { pluralize } from "@saint/shared/text";
 import { useId, type DragEvent, type ReactNode } from "react";
 
 import { Spinner } from "~/components/ui/spinner";

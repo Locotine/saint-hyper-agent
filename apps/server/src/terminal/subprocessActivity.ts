@@ -4,10 +4,7 @@
 
 import path from "node:path";
 
-import {
-  deriveTerminalProcessIdentity,
-  type TerminalCliKind,
-} from "@synara/shared/terminalThreads";
+import { deriveTerminalProcessIdentity, type TerminalCliKind } from "@saint/shared/terminalThreads";
 
 import { runProcess } from "../processRunner";
 import { parseProcessChildrenMap, type ProcessChildrenMap } from "./processTreeKiller";

@@ -26,7 +26,7 @@ import {
   ThreadEnvironmentMode,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -175,4 +175,4 @@ export interface ProjectionThreadRepositoryShape {
 export class ProjectionThreadRepository extends ServiceMap.Service<
   ProjectionThreadRepository,
   ProjectionThreadRepositoryShape
->()("synara/persistence/Services/ProjectionThreads/ProjectionThreadRepository") {}
+>()("saint/persistence/Services/ProjectionThreads/ProjectionThreadRepository") {}

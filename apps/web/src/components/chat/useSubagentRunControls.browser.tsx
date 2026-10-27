@@ -1,4 +1,4 @@
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { beforeEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

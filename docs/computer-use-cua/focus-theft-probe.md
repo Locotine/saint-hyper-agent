@@ -24,7 +24,7 @@ A `null` field is an observation gap (missing grant, unsampled tick), never a th
 - `apps/desktop/src/cuaFixtures/focusProbe.ts` — parser + analyzer + `startFocusProbe()` session helper used by fixtures.
 - `apps/desktop/src/cuaFixtures/focusProbe.test.ts` — analyzer unit tests (synthetic sample streams).
 - `scripts/computer-use-fixtures/focus-probe.ts` — standalone CLI runner for cert runs.
-- `scripts/computer-use-fixtures/build-focus-probe.sh` — clang build into `/private/tmp/synara-cua-implementation/focus-probe`.
+- `scripts/computer-use-fixtures/build-focus-probe.sh` — clang build into `/private/tmp/saint-cua-implementation/focus-probe`.
 
 ## Standalone use
 

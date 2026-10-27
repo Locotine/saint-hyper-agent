@@ -8,7 +8,7 @@ import type {
   ServerStopLocalServerInput,
   StatsGetRecapInput,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { ensureNativeApi } from "~/nativeApi";
 import { EXPENSIVE_READ_RETRY_OPTIONS } from "./expensiveReadRetry";
@@ -356,7 +356,7 @@ export function serverLocalServersQueryOptions(
 }
 
 // Sidebar project badges need a snapshot, but idle Home should not keep shelling out
-// through lsof/ps; active Synara-owned runs still poll for responsive status.
+// through lsof/ps; active Saint-owned runs still poll for responsive status.
 export function sidebarLocalServersQueryOptions(input: {
   hasActiveProjectRun: boolean;
   hasProjects: boolean;
@@ -452,7 +452,7 @@ export async function invalidateProviderUsageQueries(queryClient: QueryClient): 
 }
 
 // Local profile + shareable-card core statistics. The client passes its own fixed
-// UTC offset; all metrics are computed from Synara's local DB projections.
+// UTC offset; all metrics are computed from Saint's local DB projections.
 export function serverProfileStatsQueryOptions(input: { enabled?: boolean } = {}) {
   const utcOffsetMinutes = -new Date().getTimezoneOffset();
   return queryOptions({
@@ -489,7 +489,7 @@ export function serverProfileTokenStatsQueryOptions(input: { enabled?: boolean }
   });
 }
 
-// Inbox recap of one window (a working day and its slots), from Synara's local DB. A recap
+// Inbox recap of one window (a working day and its slots), from Saint's local DB. A recap
 // generated after its window ended is final and stays fresh. Anything earlier is refetched,
 // including yesterday's entry when it is the one "today" left behind after the day rolled
 // over (same window, same key). The current window refreshes while the Inbox is open.

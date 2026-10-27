@@ -23,17 +23,17 @@ const pillars = [
     Icon: LuHardDrive,
     title: "Workspace state stays on your machine",
     description:
-      "Projects, task history, settings, and local application state are stored by the desktop app on your machine rather than in a Synara-hosted workspace account.",
+      "Projects, task history, settings, and local application state are stored by the desktop app on your machine rather than in a Saint-hosted workspace account.",
   },
   {
     Icon: LuPlug,
     title: "Provider traffic goes to the selected provider",
     description:
-      "The coding-agent runtime receives the prompts, files, diffs, command output, and tool results required for that provider session. Synara does not proxy normal provider traffic through its own model service.",
+      "The coding-agent runtime receives the prompts, files, diffs, command output, and tool results required for that provider session. Saint does not proxy normal provider traffic through its own model service.",
   },
   {
     Icon: LuShieldCheck,
-    title: "No Synara account is required",
+    title: "No Saint account is required",
     description:
       "Install the desktop app and use the provider accounts already configured on your machine. Remote access remains an explicit, self-hosted capability.",
   },
@@ -54,8 +54,8 @@ export default function PrivacySection() {
         </p>
         <h2 className={`${heading} mt-3`}>Know where every part of the work goes.</h2>
         <p className={body}>
-          Synara keeps its workspace layer local and connects to the provider runtime you select.
-          The boundary is explicit: local application state stays on your machine, while provider
+          Saint keeps its workspace layer local and connects to the provider runtime you select. The
+          boundary is explicit: local application state stays on your machine, while provider
           sessions receive the context they need to perform the task.
         </p>
 

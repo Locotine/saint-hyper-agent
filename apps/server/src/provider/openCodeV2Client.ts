@@ -64,7 +64,7 @@ export async function openCodeV2ExecutionOutcome(
 }
 
 /**
- * Keep Synara's existing adapter contract while calling the native V2 SDK.
+ * Keep Saint's existing adapter contract while calling the native V2 SDK.
  * The V1 SDK remains the fallback for V1 installations. No mutating request is
  * replayed to discover a protocol and no V2 operation uses a V1 HTTP route.
  */
@@ -99,7 +99,7 @@ export function withOpenCodeV2Client(
       if (session.outcome === undefined || (session.time.idle ?? 0) < submitted) return undefined;
       return {
         id: `${sessionID}:${session.time.idle}`,
-        type: "synara.opencode.execution",
+        type: "saint.opencode.execution",
         properties: {
           sessionID,
           outcome: session.outcome,
@@ -111,7 +111,7 @@ export function withOpenCodeV2Client(
     },
   });
   // Every bridged method keeps the V1 SDK response envelope. Its generic
-  // throwOnError/responseStyle parameters are not part of Synara's usage.
+  // throwOnError/responseStyle parameters are not part of Saint's usage.
   function route<F extends (...args: never[]) => unknown>(
     old: F,
     run: (...args: Parameters<F>) => Promise<unknown>,
@@ -156,7 +156,7 @@ export function withOpenCodeV2Client(
     const sessionID = prompt.sessionID;
     if (prompt.system)
       await native.session.instructions.entry.put(
-        { sessionID, key: "synara", value: prompt.system },
+        { sessionID, key: "saint", value: prompt.system },
         requestOptions(options),
       );
     if (prompt.agent)
@@ -252,7 +252,7 @@ export function withOpenCodeV2Client(
     legacy.session.create.bind(legacy.session),
     async (params, options) => {
       // V1's SDK omits these fields from its types, although current V1 servers
-      // and Synara's callers already pass them through to session.create.
+      // and Saint's callers already pass them through to session.create.
       const creation = params as typeof params & { model?: ModelRef; agent?: string };
       return result(
         openCodeV2Session(
@@ -394,8 +394,8 @@ export function withOpenCodeV2Client(
     legacy.session.revert.bind(legacy.session),
     async (params, options) => {
       const transcript = await messages(params.sessionID, requestOptions(options));
-      // Synara passes the last retained assistant. Native V2 cuts before a user
-      // message and must not restore files (Synara owns workspace checkpoints).
+      // Saint passes the last retained assistant. Native V2 cuts before a user
+      // message and must not restore files (Saint owns workspace checkpoints).
       const targetIndex = params.messageID
         ? transcript.findIndex((entry) => entry.info.id === params.messageID)
         : -1;
@@ -464,7 +464,7 @@ export function withOpenCodeV2Client(
         // OpenCode 2.0.25 publishes connected before McpTool's 100ms
         // debounced registry reload. There is no catalog-ready API yet.
         // Give that reload a settling window before the first prompt;
-        // otherwise Code Mode search can return an empty Synara catalog.
+        // otherwise Code Mode search can return an empty Saint catalog.
         if (status === "connected") await delay(200, undefined, { signal });
         return result(Object.fromEntries(servers.map((server) => [server.name, server.status])));
       }

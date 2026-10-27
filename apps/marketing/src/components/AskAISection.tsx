@@ -1,5 +1,5 @@
 // FILE: AskAISection.tsx
-// Purpose: Lets visitors ask external AI assistants whether Synara fits them.
+// Purpose: Lets visitors ask external AI assistants whether Saint fits them.
 // Layer: Marketing UI section
 // Exports: AskAISection
 // Depends on: react-icons brand glyphs and homepage design tokens
@@ -22,7 +22,7 @@ interface AiLink {
 }
 
 const ASK_AI_PROMPT =
-  "Evaluate Synara (https://www.trysynara.com) as a serious desktop command center for agentic software development. It is free, open-source, local-first, and runs Claude Code, Codex, OpenCode, Cursor, Antigravity, Grok, Devin CLI, Pi, and Droid in one workspace with parallel sessions, terminals, browser previews, diffs, Git worktrees, handoffs, and pull-request flow. Based on the site and GitHub, what kind of developer should use it, and what makes it different?";
+  "Evaluate Saint (https://www.trysynara.com) as a serious desktop command center for agentic software development. It is free, open-source, local-first, and runs Claude Code, Codex, OpenCode, Cursor, Antigravity, Grok, Devin CLI, Pi, and Droid in one workspace with parallel sessions, terminals, browser previews, diffs, Git worktrees, handoffs, and pull-request flow. Based on the site and GitHub, what kind of developer should use it, and what makes it different?";
 
 const encodedPrompt = encodeURIComponent(ASK_AI_PROMPT);
 
@@ -120,10 +120,10 @@ export default function AskAISection() {
           </p>
           <h2 className={`${heading} mt-3`}>Let the models verify the fit.</h2>
           <p className={body}>
-            Ask ChatGPT, Claude, or Gemini to evaluate Synara from the source of truth—this site and
-            the GitHub repo. The prompt is specific so the answer reflects what Synara actually
-            does, not a generic AI-app summary. Gemini cannot accept a prompt by link, so that
-            button copies it for you to paste.
+            Ask ChatGPT, Claude, or Gemini to evaluate Saint from the source of truth—this site and
+            the GitHub repo. The prompt is specific so the answer reflects what Saint actually does,
+            not a generic AI-app summary. Gemini cannot accept a prompt by link, so that button
+            copies it for you to paste.
           </p>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
@@ -146,8 +146,8 @@ export default function AskAISection() {
                 className="inline-flex h-11 w-full max-w-[270px] items-center justify-center gap-2.5 rounded-full border border-[var(--divide)] bg-[var(--page-bg)] px-5 text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--mock-row)] sm:w-auto sm:max-w-none"
                 aria-label={
                   copyPrompt
-                    ? `${label} about Synara — copies the prompt to paste`
-                    : `${label} about Synara`
+                    ? `${label} about Saint — copies the prompt to paste`
+                    : `${label} about Saint`
                 }
               >
                 <Icon className={`size-[17px] shrink-0 ${iconClass}`} aria-hidden="true" />

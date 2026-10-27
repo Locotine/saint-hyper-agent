@@ -7,8 +7,8 @@
 // Layer: Chat composer UI
 // Exports: ComposerPendingApprovalPanel
 
-import { type ApprovalRequestId, type ProviderApprovalDecision } from "@synara/contracts";
-import { pendingRequestInstanceKey } from "@synara/shared/threadSummary";
+import { type ApprovalRequestId, type ProviderApprovalDecision } from "@saint/contracts";
+import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
 import { type KeyboardEvent, useRef } from "react";
 import { type PendingApproval } from "../../session-logic";
 import { cn } from "~/lib/utils";
@@ -74,7 +74,7 @@ const WITHOUT_SESSION_APPROVAL = APPROVAL_ACTIONS.filter(
   (action) => action.decision !== "acceptForSession",
 );
 
-// Synara-owned Computer consent: never session-wide, and each scope names its
+// Saint-owned Computer consent: never session-wide, and each scope names its
 // own decision. Visible use is separate from routine consent: allowing desktop
 // actions never covers taking the user's screen.
 const COMPUTER_SCOPES: Record<

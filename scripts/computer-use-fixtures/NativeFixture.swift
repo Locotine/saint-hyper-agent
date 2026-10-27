@@ -21,7 +21,7 @@ final class Controls: NSObject, NSTextFieldDelegate {
     window = NSWindow(contentRect: NSRect(x: 100 + offset, y: 200, width: 540, height: 320),
       styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
     super.init()
-    window.title = "Synara Native Fixture \(ProcessInfo.processInfo.processIdentifier) \(label)"
+    window.title = "Saint Native Fixture \(ProcessInfo.processInfo.processIdentifier) \(label)"
     window.isReleasedWhenClosed = false
     window.animationBehavior = .none
     text.frame = NSRect(x: 30, y: 170, width: 440, height: 32)

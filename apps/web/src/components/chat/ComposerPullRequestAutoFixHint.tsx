@@ -4,7 +4,7 @@
 // Layer: Chat composer UI
 // Exports: ComposerPullRequestAutoFixHint
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAppSettings } from "~/appSettings";

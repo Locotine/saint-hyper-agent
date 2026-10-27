@@ -15,34 +15,34 @@ const byName = new Map(tools.map((tool) => [tool.definition.name, tool] as const
 describe("project agent tool surface", () => {
   it("keeps every pre-hubs tool name and capability unchanged", () => {
     const expected = [
-      "synara_project_get_overview",
-      "synara_project_list_tasks",
-      "synara_project_read_document",
-      "synara_project_write_document",
-      "synara_project_report_result",
-      "synara_project_context",
+      "saint_project_get_overview",
+      "saint_project_list_tasks",
+      "saint_project_read_document",
+      "saint_project_write_document",
+      "saint_project_report_result",
+      "saint_project_context",
     ] as const;
     for (const name of expected) {
       expect(byName.has(name), `missing ${name}`).toBe(true);
     }
-    expect(byName.get("synara_project_write_document")?.requiresActiveTurn).toBe(true);
-    expect(byName.get("synara_project_report_result")?.requiresActiveTurn).toBe(true);
-    expect(byName.get("synara_project_get_overview")?.requiredCapability).toBe("thread:read");
-    expect(byName.get("synara_project_list_tasks")?.requiredCapability).toBe("thread:read");
-    expect(byName.get("synara_project_read_document")?.requiredCapability).toBe("thread:read");
-    expect(byName.get("synara_project_context")?.requiredCapability).toBe("thread:read");
-    expect(byName.get("synara_project_write_document")?.requiredCapability).toBe("thread:write");
-    expect(byName.get("synara_project_report_result")?.requiredCapability).toBe("thread:write");
+    expect(byName.get("saint_project_write_document")?.requiresActiveTurn).toBe(true);
+    expect(byName.get("saint_project_report_result")?.requiresActiveTurn).toBe(true);
+    expect(byName.get("saint_project_get_overview")?.requiredCapability).toBe("thread:read");
+    expect(byName.get("saint_project_list_tasks")?.requiredCapability).toBe("thread:read");
+    expect(byName.get("saint_project_read_document")?.requiredCapability).toBe("thread:read");
+    expect(byName.get("saint_project_context")?.requiredCapability).toBe("thread:read");
+    expect(byName.get("saint_project_write_document")?.requiredCapability).toBe("thread:write");
+    expect(byName.get("saint_project_report_result")?.requiredCapability).toBe("thread:write");
   });
 
   it("adds the six hub tools with the right capabilities", () => {
     const expected: Record<string, { capability: string; activeTurn: boolean | undefined }> = {
-      synara_project_remember: { capability: "thread:write", activeTurn: true },
-      synara_project_forget: { capability: "thread:write", activeTurn: true },
-      synara_project_link_repository: { capability: "thread:write", activeTurn: true },
-      synara_project_library_list: { capability: "thread:read", activeTurn: undefined },
-      synara_project_library_add: { capability: "thread:write", activeTurn: true },
-      synara_project_list_threads: { capability: "thread:read", activeTurn: undefined },
+      saint_project_remember: { capability: "thread:write", activeTurn: true },
+      saint_project_forget: { capability: "thread:write", activeTurn: true },
+      saint_project_link_repository: { capability: "thread:write", activeTurn: true },
+      saint_project_library_list: { capability: "thread:read", activeTurn: undefined },
+      saint_project_library_add: { capability: "thread:write", activeTurn: true },
+      saint_project_list_threads: { capability: "thread:read", activeTurn: undefined },
     };
     for (const [name, { capability, activeTurn }] of Object.entries(expected)) {
       const tool = byName.get(name);
@@ -61,17 +61,17 @@ describe("project agent tool surface", () => {
       )
         .slice()
         .sort();
-    expect(required("synara_project_remember")).toEqual(["note", "projectId"]);
-    expect(required("synara_project_forget")).toEqual(["path", "projectId"]);
+    expect(required("saint_project_remember")).toEqual(["note", "projectId"]);
+    expect(required("saint_project_forget")).toEqual(["path", "projectId"]);
     // Exactly one of linkedProjectId / workspacePath is enforced at runtime.
-    expect(required("synara_project_link_repository")).toEqual(["projectId"]);
-    expect(required("synara_project_library_list")).toEqual(["projectId"]);
-    expect(required("synara_project_library_add")).toEqual(["projectId", "sourcePath"]);
-    expect(required("synara_project_list_threads")).toEqual(["projectId"]);
+    expect(required("saint_project_link_repository")).toEqual(["projectId"]);
+    expect(required("saint_project_library_list")).toEqual(["projectId"]);
+    expect(required("saint_project_library_add")).toEqual(["projectId", "sourcePath"]);
+    expect(required("saint_project_list_threads")).toEqual(["projectId"]);
   });
 
   it("rejects link_repository calls that pass both selectors or neither", async () => {
-    const tool = byName.get("synara_project_link_repository");
+    const tool = byName.get("saint_project_link_repository");
     const context = {
       principal: { kind: "provider-session" as const },
       callerThreadId: "thread-1",
@@ -106,7 +106,7 @@ describe("project agent tool surface", () => {
     } as unknown as ToolContext;
 
     // note > 4000 chars and title > 160 chars are contract violations.
-    const remember = byName.get("synara_project_remember")!;
+    const remember = byName.get("saint_project_remember")!;
     const bigNote = await Effect.runPromise(
       remember.handler({ projectId: "p", note: "x".repeat(4_001) }, context),
     );
@@ -119,14 +119,14 @@ describe("project agent tool surface", () => {
     expect(JSON.stringify(missingProject)).toContain("Invalid tool input");
 
     // library_add paths are capped at 4096 chars.
-    const libraryAdd = byName.get("synara_project_library_add")!;
+    const libraryAdd = byName.get("saint_project_library_add")!;
     const longPath = await Effect.runPromise(
       libraryAdd.handler({ projectId: "p", sourcePath: "a".repeat(4_097) }, context),
     );
     expect(JSON.stringify(longPath)).toContain("Invalid tool input");
 
     // read_document rejects paths over the 512-char contract cap.
-    const readDocument = byName.get("synara_project_read_document")!;
+    const readDocument = byName.get("saint_project_read_document")!;
     const badPath = await Effect.runPromise(
       readDocument.handler({ projectId: "p", logicalPath: `${"x".repeat(513)}.md` }, context),
     );

@@ -1,4 +1,4 @@
-import { ProjectId, type GitHubInboxSort, type OrchestrationProject } from "@synara/contracts";
+import { ProjectId, type GitHubInboxSort, type OrchestrationProject } from "@saint/contracts";
 import { Deferred, Effect, Fiber } from "effect";
 import { describe, expect, it } from "vitest";
 

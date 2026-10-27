@@ -3,7 +3,7 @@
 // Layer: Web orchestration helper
 // Exports: releaseOrphanedWorktreeAfterArchive
 
-import type { GitRemoveWorktreeInput, ThreadId } from "@synara/contracts";
+import type { GitRemoveWorktreeInput, ThreadId } from "@saint/contracts";
 
 import { toastManager } from "../components/ui/toast";
 import { useStore } from "../store";

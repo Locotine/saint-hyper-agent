@@ -1,11 +1,11 @@
 # Beta diagnostics
 
-Synara Beta ships always-on diagnostics so the team can see crashes and release
+Saint Beta ships always-on diagnostics so the team can see crashes and release
 health on real machines instead of waiting for bug reports. This document is the
 authoritative description of what leaves your computer.
 
 **Stable builds collect nothing.** The diagnostics module is only constructed
-when the packaged build's `synaraDesktopFlavor` field equals `"beta"` — a field baked
+when the packaged build's `saintDesktopFlavor` field equals `"beta"` — a field baked
 in at build time that cannot be flipped by an environment variable. (The module
 source is bundled into the shared desktop code, but in a stable build it is
 never instantiated: no UI, environment variable, or IPC can enable it.)
@@ -127,7 +127,7 @@ the same failure do not emit another event; a new failed attempt does.
 
 `usage.daily` works differently from the other events: the main process cannot
 read the projection database, so the server writes
-`~/.synara-beta/diagnostics/usage-snapshot.json` every 6 hours (counts only —
+`~/.saint-beta/diagnostics/usage-snapshot.json` every 6 hours (counts only —
 provider names, thread and turn counts, project count) and the main process
 relays it once per UTC day. `beta.installed` is emitted once, on the first
 backend start after a fresh install, and says whether stable data was imported.
@@ -183,12 +183,12 @@ External IP addresses remain redacted and external ports remain distinct.
 
 ## Transport and storage
 
-Events are buffered to `~/.synara-beta/diagnostics/events.jsonl` and flushed in
-batches as NDJSON over HTTPS to `https://synara-beta-diagnostics.kartik-9f9.workers.dev`
-(override with `SYNARA_BETA_DIAGNOSTICS_URL` for local development; only `https://`
+Events are buffered to `~/.saint-beta/diagnostics/events.jsonl` and flushed in
+batches as NDJSON over HTTPS to `https://saint-beta-diagnostics.kartik-9f9.workers.dev`
+(override with `SAINT_BETA_DIAGNOSTICS_URL` for local development; only `https://`
 or loopback targets are accepted). Events land in a Cloudflare D1 database and
 are kept with no expiry date, so crash and error trends can be compared across
-all beta releases. Crash dumps land in the `synara-beta-crash-dumps` R2 bucket
+all beta releases. Crash dumps land in the `saint-beta-crash-dumps` R2 bucket
 and are also kept with no expiry date. The ingest worker
 and its private dashboard live outside this repository (they run on the
 maintainers' Cloudflare account). The worker re-runs the same allowlist and

@@ -3,13 +3,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { page } from "vitest/browser";
 import { beforeEach, describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
-import type { ServerCodexResetCredits } from "@synara/contracts";
+import type { ServerCodexResetCredits } from "@saint/contracts";
 
 import type { OpenUsageUsageLine } from "~/lib/openUsageRateLimits";
 import type { ProviderRateLimit } from "~/lib/rateLimits";
 import { ProviderUsagePanelContent } from "./ProviderUsagePanelContent";
 
-const APP_SETTINGS_STORAGE_KEY = "synara:app-settings:v1";
+const APP_SETTINGS_STORAGE_KEY = "saint:app-settings:v1";
 
 const now = Date.now();
 const rateLimits: ProviderRateLimit[] = [

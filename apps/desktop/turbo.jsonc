@@ -8,16 +8,16 @@
       "outputs": ["dist-electron/**"],
     },
     "dev": {
-      "dependsOn": ["@synara/cli#build"],
+      "dependsOn": ["@saint/cli#build"],
       "persistent": true,
     },
     "start": {
-      "dependsOn": ["build", "@synara/web#build", "@synara/cli#build"],
+      "dependsOn": ["build", "@saint/web#build", "@saint/cli#build"],
       "cache": false,
       "persistent": true,
     },
     "smoke-test": {
-      "dependsOn": ["build", "@synara/web#build", "@synara/cli#build"],
+      "dependsOn": ["build", "@saint/web#build", "@saint/cli#build"],
       "cache": false,
       "outputs": [],
     },

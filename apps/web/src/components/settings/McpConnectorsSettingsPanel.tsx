@@ -4,7 +4,7 @@
 // Layer: Settings UI components
 // Exports: McpConnectorsSettingsPanel
 
-import type { McpConnector } from "@synara/contracts";
+import type { McpConnector } from "@saint/contracts";
 import {
   defaultMcpConnectorName,
   MCP_CONNECTOR_CATEGORIES,
@@ -12,7 +12,7 @@ import {
   type McpConnectorCategory,
   type McpConnectorPreset,
   normalizeMcpConnectorUrl,
-} from "@synara/shared/mcpConnectors";
+} from "@saint/shared/mcpConnectors";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type FormEvent,
@@ -222,7 +222,7 @@ function AddCustomConnectorDialog(props: {
         <DialogHeader>
           <DialogTitle>Add a custom connector</DialogTitle>
           <DialogDescription>
-            Any remote MCP server. Synara signs in with OAuth when the server asks for it.
+            Any remote MCP server. Saint signs in with OAuth when the server asks for it.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
@@ -294,7 +294,7 @@ export function McpConnectorsSettingsPanel(props: { active: boolean }) {
 
   const disconnect = async (connector: McpConnector) => {
     const confirmed = await ensureNativeApi().dialogs.confirm(
-      `Disconnect ${connector.name}?\nAgents lose its tools, and Synara deletes its sign-in from this computer.`,
+      `Disconnect ${connector.name}?\nAgents lose its tools, and Saint deletes its sign-in from this computer.`,
     );
     if (confirmed) disconnectMutation.mutate(connector.connectorId);
   };

@@ -41,7 +41,7 @@ export function makeGitHubReadGate(options?: {
       ? Effect.fail(
           new GitHubCliError({
             operation: "withRead",
-            detail: "GitHub rate limit reached. Synara will retry after the limit resets.",
+            detail: "GitHub rate limit reached. Saint will retry after the limit resets.",
             reason: "rate-limited",
           }),
         )

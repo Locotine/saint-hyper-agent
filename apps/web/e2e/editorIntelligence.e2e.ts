@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { NativeApi } from "@synara/contracts";
+import type { NativeApi } from "@saint/contracts";
 import type { EditorDebugStore } from "../src/components/codeEditor/editorDebugStore";
 
 declare global {
@@ -31,7 +31,7 @@ const message = greet(person.name);
 console.log(message);
 `;
 test.beforeAll(async () => {
-  workspace = await mkdtemp(path.join(os.tmpdir(), "synara-editor-project-"));
+  workspace = await mkdtemp(path.join(os.tmpdir(), "saint-editor-project-"));
   await writeFile(
     path.join(workspace, "tsconfig.json"),
     JSON.stringify({ compilerOptions: { strict: true, target: "ES2022", module: "ESNext" } }),
@@ -106,7 +106,7 @@ async function seed(page: Page) {
   // Startup surfaces show once per server home and in sequence (welcome tour,
   // import announcement, feature tour); dismiss whichever appears so no modal
   // blocks the journey. Toasts also carry the dialog role and may arrive any time.
-  const welcome = page.getByRole("dialog", { name: "Welcome to Synara", exact: true });
+  const welcome = page.getByRole("dialog", { name: "Welcome to Saint", exact: true });
   const skipTour = welcome.getByRole("button", { name: "Skip setup", exact: true });
   await skipTour
     .waitFor({ state: "visible", timeout: 10_000 })
@@ -169,7 +169,7 @@ async function beginEditing(page: Page, relativePath: string) {
     if (await editFile.isVisible().catch(() => false)) break;
     await page.waitForTimeout(500);
   }
-  // File navigation opens Synara's read-only preview; enter editing via its native control.
+  // File navigation opens Saint's read-only preview; enter editing via its native control.
   const input = page.getByRole("textbox", { name: `Edit ${relativePath}`, exact: true });
   // A cold route can finish initializing its pane after the first click. Check
   // the editing result before another click so an already-open editor is kept.
@@ -193,7 +193,7 @@ async function position(page: Page, text: string, delta = 0) {
         .getEditors()
         .find(
           (candidate: { getModel(): { uri: { scheme: string } } | null }) =>
-            candidate.getModel()?.uri.scheme === "synara-workspace",
+            candidate.getModel()?.uri.scheme === "saint-workspace",
         );
       if (!editor) throw new Error("The real workspace editor did not mount.");
       const model = editor.getModel();
@@ -296,7 +296,7 @@ test("native editor intelligence, guarded persistence, navigation, and debugging
           .getEditors()
           .find(
             (candidate: { getModel(): { uri: { scheme: string } } | null }) =>
-              candidate.getModel()?.uri.scheme === "synara-workspace",
+              candidate.getModel()?.uri.scheme === "saint-workspace",
           )
           ?.getPosition()?.lineNumber;
       }),
@@ -543,7 +543,7 @@ test("retains a real debugger pause that arrives before the step acknowledgement
       )) as typeof import("../src/nativeApi");
       const model = monaco.editor
         .getEditors()
-        .find((editor) => editor.getModel()?.uri.scheme === "synara-workspace")
+        .find((editor) => editor.getModel()?.uri.scheme === "saint-workspace")
         ?.getModel();
       const entry = model && editorEntry(model);
       if (!entry?.cwd) throw new Error("Missing workspace editor.");

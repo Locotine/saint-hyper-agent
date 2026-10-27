@@ -2,7 +2,7 @@
 // Purpose: Lets a group link an existing ordinary project as a repository.
 // Layer: Group settings dialog
 
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import { useEffect, useMemo, useState } from "react";
 
 import type { Project } from "~/types";

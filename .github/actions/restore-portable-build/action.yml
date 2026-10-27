@@ -18,4 +18,4 @@ runs:
       run: |
         set -euo pipefail
         node scripts/import-portable-build.ts "$RUNNER_TEMP/portable-build" "$SOURCE_COMMIT"
-        echo "SYNARA_PORTABLE_BUILD_MANIFEST=$RUNNER_TEMP/portable-build/manifest.json" >> "$GITHUB_ENV"
+        echo "SAINT_PORTABLE_BUILD_MANIFEST=$RUNNER_TEMP/portable-build/manifest.json" >> "$GITHUB_ENV"

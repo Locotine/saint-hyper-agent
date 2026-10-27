@@ -1,4 +1,4 @@
-import type { OrchestrationEvent, OrchestrationThreadActivity, TurnId } from "@synara/contracts";
+import type { OrchestrationEvent, OrchestrationThreadActivity, TurnId } from "@saint/contracts";
 
 // Only explicit manual intent certifies the user Stop control. Automatic,
 // agent, steering and historical requests remain neutral without that actor.

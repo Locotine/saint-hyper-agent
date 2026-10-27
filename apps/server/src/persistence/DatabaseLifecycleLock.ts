@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 
 import { Effect } from "effect";
 
-import { supportsPosixPermissions, syncDirectoryEntry } from "@synara/shared/filesystemPlatform";
+import { supportsPosixPermissions, syncDirectoryEntry } from "@saint/shared/filesystemPlatform";
 import { PRIVATE_DIRECTORY_MODE, PRIVATE_FILE_MODE } from "../privatePathPermissions.ts";
 
 const OWNER_FILE_NAME = "owner.json";

@@ -8,7 +8,7 @@ apps/desktop/resources/cua-driver/cua-driver (sha256
 by an external trusted host — `CuaDriverHost` spawned from a shell whose
 ancestry holds TCC trust (the canary external-endpoint pattern documented
 in belief-canary-runbook.md), capability ≥ 32 chars, endpoint
-synara-cua-cyREYK/host.sock.
+saint-cua-cyREYK/host.sock.
 
 Target: a fresh Notes instance launched `open -g -j -n -a Notes`
 (pid 30289). The app presented two first-run sheets while hidden — a
@@ -107,8 +107,8 @@ window 1` fails with error -1719 invalid index — the note body lives
 
 Cleanup: Notes pid 30289 was quit after the run; the external host and
 its driver generations were stopped. Other cua-driver processes on the
-machine (pid 8012 — the running Synara Dev app; pid 27831 — a separate
-concurrent certification host, socket synara-cua-mWE552) were not
+machine (pid 8012 — the running Saint Dev app; pid 27831 — a separate
+concurrent certification host, socket saint-cua-mWE552) were not
 launched by this run and were left running.
 
 Raw transcript: docs/computer-use-cua/evidence/rev20-realapp-notes-2026-09-17-report.json

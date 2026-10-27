@@ -1,4 +1,4 @@
-import type { OrchestrationThreadActivity } from "@synara/contracts";
+import type { OrchestrationThreadActivity } from "@saint/contracts";
 import {
   ApprovalRequestId,
   CommandId,
@@ -8,7 +8,7 @@ import {
   RuntimeItemId,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -962,7 +962,7 @@ describe("provider runtime activity projection", () => {
         requestId: ApprovalRequestId.makeUnsafe("tool-request-1"),
         payload: {
           requestType: "tool_approval",
-          detail: "Allow Synara to launch the calculator?",
+          detail: "Allow Saint to launch the calculator?",
           args: {
             _meta: {
               tool_name: "computer_launch_app",
@@ -979,7 +979,7 @@ describe("provider runtime activity projection", () => {
       payload: {
         requestKind: "tool",
         requestType: "tool_approval",
-        detail: "Allow Synara to launch the calculator?",
+        detail: "Allow Saint to launch the calculator?",
         title: "Open Calculator",
         toolName: "computer_launch_app",
         toolParamsDisplay: [{ name: "app", value: "kcalc", display_name: "app" }],
@@ -1045,9 +1045,9 @@ describe("provider runtime activity projection", () => {
           requestId: ApprovalRequestId.makeUnsafe(`claude-${requestType}-1`),
           payload: {
             requestType,
-            detail: "mcp__synara__computer_launch_app: {}",
+            detail: "mcp__saint__computer_launch_app: {}",
             args: {
-              toolName: "mcp__synara__computer_launch_app",
+              toolName: "mcp__saint__computer_launch_app",
               input: { app: "kcalc", args: ["--hidpi"], headless: false },
               sessionApprovalAvailable: true,
               toolUseId: "toolu_01",
@@ -1062,7 +1062,7 @@ describe("provider runtime activity projection", () => {
         payload: {
           requestKind: "tool",
           requestType,
-          toolName: "mcp__synara__computer_launch_app",
+          toolName: "mcp__saint__computer_launch_app",
           toolParamsDisplay: [
             { name: "app", value: "kcalc" },
             { name: "args", value: '["--hidpi"]' },
@@ -1088,7 +1088,7 @@ describe("provider runtime activity projection", () => {
           args: {
             toolName: "mcp__github__create_issue",
             input: {
-              repo: "synara",
+              repo: "saint",
               token: "ghp_live_secret",
               headers: { Authorization: "Bearer live-secret", Accept: "application/json" },
               max_tokens: 5,
@@ -1126,7 +1126,7 @@ describe("provider runtime activity projection", () => {
 
     expect(claudeApproval?.payload).toMatchObject({
       toolParamsDisplay: [
-        { name: "repo", value: "synara" },
+        { name: "repo", value: "saint" },
         { name: "token", value: "[redacted]" },
         {
           name: "headers",
@@ -1193,7 +1193,7 @@ describe("provider runtime activity projection", () => {
     const payload = activity?.payload as { data?: Record<string, unknown> };
 
     expect(JSON.stringify(payload.data).length).toBeLessThanOrEqual(16_000);
-    expect(payload.data?.__synaraTruncated).toBe(true);
+    expect(payload.data?.__saintTruncated).toBe(true);
     expect(payload.data?.originalJsonChars).toBeGreaterThan(300_000);
   });
 
@@ -1430,7 +1430,7 @@ describe("provider runtime activity projection", () => {
       payload: {
         nativeEventType: "item/agentMessage/completed",
         detail: "Finished the refactor",
-        data: expect.objectContaining({ __synaraTruncated: true }),
+        data: expect.objectContaining({ __saintTruncated: true }),
       },
     });
     const serializedPayload = JSON.stringify(activity?.payload);

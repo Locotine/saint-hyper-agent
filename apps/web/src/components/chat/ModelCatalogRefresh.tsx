@@ -3,7 +3,7 @@
 // Layer: Chat picker UI
 
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
-import type { ProviderInstanceId, ProviderKind } from "@synara/contracts";
+import type { ProviderInstanceId, ProviderKind } from "@saint/contracts";
 import type { ProviderModelCatalog } from "../../hooks/useProviderModelCatalog";
 import { RefreshCwIcon } from "~/lib/icons";
 import { Button } from "../ui/button";

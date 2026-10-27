@@ -1,6 +1,6 @@
 // FILE: groupWorkspaceScaffold.test.ts
 // Purpose: Verifies group workspace cleanup — removes folders holding only
-//          Synara-generated files, keeps anything the user touched, and never
+//          Saint-generated files, keeps anything the user touched, and never
 //          escapes the managed groups root or follows symlinks.
 // Layer: Server workspace helper tests
 // Exports: Vitest suites for groupWorkspaceScaffold.ts
@@ -20,7 +20,7 @@ import {
 
 const tempDirectories: Array<string> = [];
 
-async function makeTempDir(prefix = "synara-groups-"): Promise<string> {
+async function makeTempDir(prefix = "saint-groups-"): Promise<string> {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
   tempDirectories.push(directory);
   return directory;
@@ -118,7 +118,7 @@ describe("cleanupGroupWorkspaceRoot", () => {
 
   it("keeps the folder when an entry is a symlink and never follows it", async () => {
     const groupsRoot = await makeTempDir();
-    const outside = await makeTempDir("synara-outside-");
+    const outside = await makeTempDir("saint-outside-");
     const secretPath = path.join(outside, "secret.txt");
     await fs.writeFile(secretPath, "do not touch");
     const workspaceRoot = path.join(groupsRoot, "alpha");
@@ -136,7 +136,7 @@ describe("cleanupGroupWorkspaceRoot", () => {
 
   it("skips a hub folder that is itself a symlink, leaving the target alone", async () => {
     const groupsRoot = await makeTempDir();
-    const target = await makeTempDir("synara-target-");
+    const target = await makeTempDir("saint-target-");
     const workspaceRoot = path.join(groupsRoot, "alpha");
     await fs.symlink(target, workspaceRoot);
 
@@ -151,7 +151,7 @@ describe("cleanupGroupWorkspaceRoot", () => {
 
   it("skips the hubs root itself and folders outside it", async () => {
     const groupsRoot = await makeTempDir();
-    const outside = await makeTempDir("synara-outside-");
+    const outside = await makeTempDir("saint-outside-");
 
     await expect(
       Effect.runPromise(

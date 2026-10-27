@@ -9,8 +9,8 @@ import {
   type OrchestrationLatestTurn,
   type OrchestrationThreadActivity,
   type TurnId,
-} from "@synara/contracts";
-import { readInlineVisualEmbedIds } from "@synara/shared/inlineVisual";
+} from "@saint/contracts";
+import { readInlineVisualEmbedIds } from "@saint/shared/inlineVisual";
 import { type TimelineEntry, type WorkLogEntry, formatElapsed } from "../../session-logic";
 import { isCodexRuntimeWarningType, type WorkLogUserInputExchangeItem } from "../../workLog";
 import { normalizeCompactToolLabel as normalizeCompactToolLabelValue } from "../../lib/toolCallLabel";
@@ -640,7 +640,7 @@ export type MessagesTimelineRow =
       entry: WorkLogEntry & { userInputExchange: ReadonlyArray<WorkLogUserInputExchangeItem> };
     }
   | {
-      // A visual the agent published with `synara_show_visual`. Like the plan
+      // A visual the agent published with `saint_show_visual`. Like the plan
       // card and answered questions it stays visible when the turn folds.
       kind: "inline-visual";
       id: string;
@@ -991,7 +991,7 @@ export function deriveTerminalAssistantMessageIds(
 export function isStandaloneWorkEntry(
   entry: Pick<
     WorkLogEntry,
-    | "synaraWorkerNotice"
+    | "saintWorkerNotice"
     | "providerHandoff"
     | "turnFailure"
     | "subagentRun"
@@ -1001,7 +1001,7 @@ export function isStandaloneWorkEntry(
   >,
 ): boolean {
   return Boolean(
-    entry.synaraWorkerNotice ||
+    entry.saintWorkerNotice ||
     entry.providerHandoff ||
     entry.turnFailure ||
     entry.subagentRun ||
@@ -1887,9 +1887,9 @@ function workLogAutomationsEqual(a: WorkLogEntry["automation"], b: WorkLogEntry[
   );
 }
 
-function workLogSynaraThreadCreationsEqual(
-  a: WorkLogEntry["synaraThreadCreation"],
-  b: WorkLogEntry["synaraThreadCreation"],
+function workLogSaintThreadCreationsEqual(
+  a: WorkLogEntry["saintThreadCreation"],
+  b: WorkLogEntry["saintThreadCreation"],
 ) {
   if (a === b) return true;
   if (!a || !b) return false;
@@ -2003,7 +2003,7 @@ function workLogEntryContentEqual(a: WorkLogEntry, b: WorkLogEntry): boolean {
     workLogSubagentsEqual(a.subagents, b.subagents) &&
     workLogSubagentRunsEqual(a.subagentRun, b.subagentRun) &&
     workLogAutomationsEqual(a.automation, b.automation) &&
-    workLogSynaraThreadCreationsEqual(a.synaraThreadCreation, b.synaraThreadCreation) &&
+    workLogSaintThreadCreationsEqual(a.saintThreadCreation, b.saintThreadCreation) &&
     workLogLiveActivitiesEqual(a.liveActivity, b.liveActivity) &&
     workLogToolDetailsEqual(a.toolDetails, b.toolDetails) &&
     workLogBackgroundTasksEqual(a.backgroundTask, b.backgroundTask) &&

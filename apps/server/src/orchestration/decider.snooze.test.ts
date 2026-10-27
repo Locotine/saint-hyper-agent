@@ -7,7 +7,7 @@ import {
   type OrchestrationEvent,
   type OrchestrationReadModel,
   type OrchestrationThread,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

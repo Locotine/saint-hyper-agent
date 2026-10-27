@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { basename } from "node:path";
 import { createRequire } from "node:module";
-import { SYNARA_PACKAGED_DESKTOP_FLAVORS } from "@synara/shared/desktopIdentity";
+import { SAINT_PACKAGED_DESKTOP_FLAVORS } from "@saint/shared/desktopIdentity";
 import { desktopIconAssetPaths } from "./lib/brand-assets.ts";
 
 import {
@@ -55,7 +55,7 @@ describe("createDesktopPlatformBuildConfig", () => {
   });
 
   it("names every packaged Icon Composer asset for CFBundleIconName", () => {
-    for (const flavor of SYNARA_PACKAGED_DESKTOP_FLAVORS) {
+    for (const flavor of SAINT_PACKAGED_DESKTOP_FLAVORS) {
       assert.equal(
         basename(desktopIconAssetPaths(flavor).macIconComposer, ".icon"),
         MAC_ICON_ASSET_NAME,
@@ -85,19 +85,19 @@ describe("createDesktopPlatformBuildConfig", () => {
     assert.equal(dmg.writeUpdateInfo, false);
     assert.equal(mac.entitlements, MAC_ENTITLEMENTS_PATH);
     assert.equal(mac.entitlementsInherit, MAC_INHERITED_ENTITLEMENTS_PATH);
-    assert.equal(MAC_APPSNAP_HELPER_BUNDLE_PATH, "Contents/Helpers/synara-appsnap-helper");
+    assert.equal(MAC_APPSNAP_HELPER_BUNDLE_PATH, "Contents/Helpers/saint-appsnap-helper");
     assert.deepStrictEqual(mac.binaries, [
-      "Contents/Helpers/synara-appsnap-helper",
-      "Contents/Frameworks/synara-window-material.node",
+      "Contents/Helpers/saint-appsnap-helper",
+      "Contents/Frameworks/saint-window-material.node",
       "Contents/Resources/cua-driver/cua-driver",
     ]);
     assert.equal(
       mac.x64ArchFiles,
-      "Contents/{Helpers/synara-appsnap-helper,Frameworks/synara-window-material.node,Resources/cua-driver/cua-driver}",
+      "Contents/{Helpers/saint-appsnap-helper,Frameworks/saint-window-material.node,Resources/cua-driver/cua-driver}",
     );
     assert.equal(
       MAC_APPSNAP_HELPER_STAGE_PATH,
-      "apps/desktop/native/appsnap/build/synara-appsnap-helper",
+      "apps/desktop/native/appsnap/build/saint-appsnap-helper",
     );
     assert.equal(MAC_APPSNAP_HELPER_ASAR_EXCLUSION, "!apps/desktop/native/appsnap/build/**");
     assert.equal(config.files?.[0], "**/*");
@@ -110,12 +110,12 @@ describe("createDesktopPlatformBuildConfig", () => {
         to: "Resources/cua-driver",
       },
       {
-        from: "apps/desktop/native/appsnap/build/synara-appsnap-helper",
-        to: "Helpers/synara-appsnap-helper",
+        from: "apps/desktop/native/appsnap/build/saint-appsnap-helper",
+        to: "Helpers/saint-appsnap-helper",
       },
       {
-        from: "apps/desktop/native/window-material/build/synara-window-material.node",
-        to: "Frameworks/synara-window-material.node",
+        from: "apps/desktop/native/window-material/build/saint-window-material.node",
+        to: "Frameworks/saint-window-material.node",
       },
       {
         from: MAC_DEVICE_HELPER_STAGE_PATH,
@@ -135,11 +135,11 @@ describe("createDesktopPlatformBuildConfig", () => {
     assert.equal(extendInfo.NSAudioCaptureUsageDescription, AUDIO_CAPTURE_USAGE_DESCRIPTION);
     assert.equal(
       extendInfo.NSScreenCaptureUsageDescription,
-      "Synara captures the windows you authorize for Computer use.",
+      "Saint captures the windows you authorize for Computer use.",
     );
     assert.equal(
       extendInfo.NSAccessibilityUsageDescription,
-      "Synara controls the windows you authorize for Computer use.",
+      "Saint controls the windows you authorize for Computer use.",
     );
   });
 
@@ -207,7 +207,7 @@ describe("createDesktopPlatformBuildConfig", () => {
     const win = createDesktopPlatformBuildConfig({
       platform: "win",
       target: "nsis",
-      windowsAzureSignOptions: { publisherName: "Synara" },
+      windowsAzureSignOptions: { publisherName: "Saint" },
     });
 
     assert.equal(linux.mac, undefined);
@@ -220,12 +220,13 @@ describe("createDesktopPlatformBuildConfig", () => {
     assert.deepStrictEqual(linux.asarUnpack, ["node_modules/node-pty/**"]);
     assert.deepStrictEqual(linux.linux, {
       target: ["AppImage"],
-      executableName: "synara",
+      executableName: "saint",
+      maintainer: "Locotine",
       icon: "icon.png",
       category: "Development",
       desktop: {
         entry: {
-          StartupWMClass: "synara",
+          StartupWMClass: "saint",
         },
       },
     });
@@ -234,15 +235,15 @@ describe("createDesktopPlatformBuildConfig", () => {
     assert.equal(win.extraFiles, undefined);
     assert.equal(win.extraResources, undefined);
     assert.deepStrictEqual(win.asarUnpack, ["node_modules/node-pty/**"]);
-    assert.equal(WINDOWS_INSTALLER_GUID, "368107a8-afe6-5db5-ab3b-d4f331684868");
+    assert.equal(WINDOWS_INSTALLER_GUID, "03736dce-37a8-431c-9e4d-359a0a86ee78");
     assert.deepStrictEqual(win.nsis, {
       guid: WINDOWS_INSTALLER_GUID,
     });
     assert.deepStrictEqual(win.win, {
       target: ["nsis"],
       icon: "icon.ico",
-      publisherName: "Synara",
-      azureSignOptions: { publisherName: "Synara" },
+      publisherName: "Saint",
+      azureSignOptions: { publisherName: "Saint" },
     });
   });
 

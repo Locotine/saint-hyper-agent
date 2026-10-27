@@ -8,13 +8,13 @@ import { existsSync } from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 
-import { resolveExecutable } from "@synara/shared/executable";
-import { supportsPosixPermissions } from "@synara/shared/filesystemPlatform";
+import { resolveExecutable } from "@saint/shared/executable";
+import { supportsPosixPermissions } from "@saint/shared/filesystemPlatform";
 import {
   type ProviderInteractionMode,
   type ProviderModelDescriptor,
   OMP_THINKING_LEVEL_OPTIONS,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, Scope, ServiceMap } from "effect";
 import * as AcpErrors from "./AcpErrors.ts";
 import type * as Acp from "@agentclientprotocol/sdk";
@@ -248,7 +248,7 @@ export function applyOmpAcpModelSelection<E>(input: {
     const mapError = (cause: AcpErrors.AcpError) =>
       input.mapError({ cause, method: "session/set_config_option" });
     const model = input.model.trim();
-    // `role:` was a Synara picker row key, never an OMP role selector. Refuse
+    // `role:` was a Saint picker row key, never an OMP role selector. Refuse
     // stale keys before either config write (and therefore before prompting).
     // An exact advertised model remains valid even if its opaque id uses this
     // prefix; don't infer a replacement from role names or catalog rankings.
@@ -292,7 +292,7 @@ export function applyOmpAcpModelSelection<E>(input: {
 /**
  * Applies OMP's native mode config option before a prompt is dispatched. OMP
  * advertises a `mode` select option (category "mode") with `default` always
- * present and `plan` only when plan mode is enabled. Synara's `plan`
+ * present and `plan` only when plan mode is enabled. Saint's `plan`
  * interaction mode routes to OMP `"plan"`; everything else passes through as
  * `default`. If the requested mode is not advertised (e.g. plan disabled), or
  * OMP did not advertise a mode option, OMP is left on its current (default) mode.

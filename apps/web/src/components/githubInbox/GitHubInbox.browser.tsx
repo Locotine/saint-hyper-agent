@@ -17,7 +17,7 @@ import {
   type ProjectId,
   type PullRequestActor,
   type PullRequestDetail,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { page, userEvent } from "vitest/browser";
@@ -322,7 +322,7 @@ const ALL_SECTIONS_OPEN = JSON.stringify({
 beforeEach(async () => {
   localStorage.clear();
   // Sections past the first two start folded; most tests want every row in view.
-  localStorage.setItem("synara:app-settings:v1", ALL_SECTIONS_OPEN);
+  localStorage.setItem("saint:app-settings:v1", ALL_SECTIONS_OPEN);
   latestSearch = {};
   api.list
     .mockReset()
@@ -470,7 +470,7 @@ describe("GitHubInbox list", () => {
     await mount({ type: "pullRequest", projectId: projectB });
     await expectRows([44]);
     await expect.element(page.getByRole("button", { name: "Remove filter: Beta" })).toBeVisible();
-    const saved = JSON.parse(localStorage.getItem("synara:app-settings:v1") ?? "{}");
+    const saved = JSON.parse(localStorage.getItem("saint:app-settings:v1") ?? "{}");
     expect(saved.githubInboxKind).toBe("issue");
     expect(saved.githubInboxProjectIds ?? []).toEqual([]);
   });
@@ -544,9 +544,9 @@ describe("GitHubInbox list", () => {
     await second.unmount();
     await mount({ state: "closed" });
     await expectRows([44, 42, 41]);
-    expect(
-      JSON.parse(localStorage.getItem("synara:app-settings:v1") ?? "{}").githubInboxState,
-    ).toBe("merged");
+    expect(JSON.parse(localStorage.getItem("saint:app-settings:v1") ?? "{}").githubInboxState).toBe(
+      "merged",
+    );
   });
 
   it("moves the kind selection with the arrow keys", async () => {
@@ -670,7 +670,7 @@ describe("GitHubInbox states", () => {
 
     await expect.element(page.getByText("GitHub rate limit reached")).toBeVisible();
     await expect
-      .element(page.getByText(/Synara pauses GitHub requests until the limit resets at/))
+      .element(page.getByText(/Saint pauses GitHub requests until the limit resets at/))
       .toBeVisible();
   });
 
@@ -708,7 +708,7 @@ describe("GitHubInbox states", () => {
 
 describe("GitHubInbox sections", () => {
   it("lists every row by latest activity in one open list, own rows included", async () => {
-    localStorage.setItem("synara:app-settings:v1", JSON.stringify({ githubInboxSort: "updated" }));
+    localStorage.setItem("saint:app-settings:v1", JSON.stringify({ githubInboxSort: "updated" }));
     // The viewer's own pull request is the oldest; it sits last, not in a section above the rest.
     api.list.mockResolvedValue(
       listResult({

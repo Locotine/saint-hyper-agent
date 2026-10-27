@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 
 import { Effect, Option, Ref, Schema, Scope } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
-import type { ProviderStartOptions } from "@synara/contracts";
+import type { ProviderStartOptions } from "@saint/contracts";
 
 import * as AcpErrors from "../../provider/acp/AcpErrors.ts";
 import type { AcpSessionRuntimeShape } from "../../provider/acp/AcpSessionRuntime.ts";

@@ -16,7 +16,7 @@ import {
   type DeviceCapabilityId,
   type DeviceCapabilityStatus,
   type DeviceToolchain,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { fitDeviceMessage } from "./DeviceBackend.ts";
 

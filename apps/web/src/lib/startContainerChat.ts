@@ -4,7 +4,7 @@
 // Layer: Web orchestration helper
 // Exports: Container-chat startup plus segment-aware fresh-chat dispatch.
 
-import type { ModelSelection, ProjectId, ProviderStartOptions, ThreadId } from "@synara/contracts";
+import type { ModelSelection, ProjectId, ProviderStartOptions, ThreadId } from "@saint/contracts";
 import type { Project } from "../types";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { isGroupContainerProject } from "./groupProjects";

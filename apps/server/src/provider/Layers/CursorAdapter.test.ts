@@ -7,7 +7,7 @@ import {
   type ProviderInstanceId,
   type ProviderRuntimeEvent,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import type * as Acp from "@agentclientprotocol/sdk";

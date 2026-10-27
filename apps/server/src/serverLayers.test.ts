@@ -11,7 +11,7 @@ import { ServerSettingsService } from "./serverSettings";
 describe("makeServerRuntimeServicesLayer", () => {
   it("boots the production runtime composition with server settings available to snapshots", async () => {
     const serverConfigLayer = ServerConfig.layerTest(process.cwd(), {
-      prefix: "synara-server-layers-test-",
+      prefix: "saint-server-layers-test-",
     }).pipe(Layer.provide(NodeServices.layer));
     const productionLayer = Layer.empty.pipe(
       Layer.provideMerge(makeServerRuntimeServicesLayer()),

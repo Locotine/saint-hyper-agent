@@ -5,9 +5,9 @@
 // Layer: UI state logic
 // Exports: open-list transitions, persisted-list normalization, tab derivation, close flow
 
-import type { ProjectId, ProviderKind, ThreadId } from "@synara/contracts";
+import type { ProjectId, ProviderKind, ThreadId } from "@saint/contracts";
 import { arrayMove } from "@dnd-kit/sortable";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 import { resolveThreadStatusPill } from "./components/Sidebar.logic";
 import { resolveSubagentPresentationForThread } from "./lib/subagentPresentation";

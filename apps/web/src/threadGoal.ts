@@ -1,4 +1,4 @@
-import { type ThreadGoalStartBehavior, type ThreadId } from "@synara/contracts";
+import { type ThreadGoalStartBehavior, type ThreadId } from "@saint/contracts";
 
 import { newCommandId } from "./lib/utils";
 import { readNativeApi } from "./nativeApi";
@@ -10,7 +10,7 @@ export async function dispatchThreadGoal(
 ): Promise<void> {
   const api = readNativeApi();
   if (!api) {
-    throw new Error("Synara API is unavailable.");
+    throw new Error("Saint API is unavailable.");
   }
   await api.orchestration.dispatchCommand({
     type: "thread.meta.update",
@@ -24,7 +24,7 @@ export async function dispatchThreadGoal(
 export async function dispatchThreadGoalPaused(threadId: ThreadId, paused: boolean): Promise<void> {
   const api = readNativeApi();
   if (!api) {
-    throw new Error("Synara API is unavailable.");
+    throw new Error("Saint API is unavailable.");
   }
   await api.orchestration.dispatchCommand({
     type: "thread.meta.update",

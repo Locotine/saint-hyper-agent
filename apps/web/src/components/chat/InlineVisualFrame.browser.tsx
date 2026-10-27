@@ -1,7 +1,7 @@
 import "../../index.css";
 
-import { type InlineVisualActivityPayload, type NativeApi, ThreadId } from "@synara/contracts";
-import { buildInlineVisualDocument } from "@synara/shared/inlineVisual";
+import { type InlineVisualActivityPayload, type NativeApi, ThreadId } from "@saint/contracts";
+import { buildInlineVisualDocument } from "@saint/shared/inlineVisual";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { page, userEvent } from "vitest/browser";
@@ -246,7 +246,7 @@ it("follows a theme change without reloading the page", async () => {
     });
     return null;
   }
-  const initialMode = localStorage.getItem("synara:theme");
+  const initialMode = localStorage.getItem("saint:theme");
   const { getInlineVisual } = await mount(
     {
       [themed.visualId]: `<p>themed</p><script>
@@ -280,8 +280,8 @@ it("follows a theme change without reloading the page", async () => {
     expect(getInlineVisual).toHaveBeenCalledTimes(1);
     expect(page.getByText("This visual stopped", { exact: false }).query()).toBeNull();
   } finally {
-    if (initialMode === null) localStorage.removeItem("synara:theme");
-    else localStorage.setItem("synara:theme", initialMode);
+    if (initialMode === null) localStorage.removeItem("saint:theme");
+    else localStorage.setItem("saint:theme", initialMode);
   }
 });
 
@@ -304,7 +304,7 @@ it("forwards a wheel over the page so the transcript can release follow", async 
 
   // Another window cannot fake the frame's messages.
   window.postMessage(
-    { jsonrpc: "2.0", method: "synara/notifications/scroll-intent", params: { upward: false } },
+    { jsonrpc: "2.0", method: "saint/notifications/scroll-intent", params: { upward: false } },
     "*",
   );
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -412,7 +412,7 @@ it("stops parsing before agent code when capability removal is unavailable", asy
       .poll(() =>
         messages.some(
           (message) =>
-            (message as { method?: string }).method === "synara/notifications/visual-stopped",
+            (message as { method?: string }).method === "saint/notifications/visual-stopped",
         ),
       )
       .toBe(true);

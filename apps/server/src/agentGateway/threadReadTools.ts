@@ -1,10 +1,10 @@
 import {
-  SYNARA_GATEWAY_MAX_THREADS_PER_OPERATION,
+  SAINT_GATEWAY_MAX_THREADS_PER_OPERATION,
   ThreadId,
   TurnId,
   type OrchestrationThreadShell,
   type ProviderKind,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Option } from "effect";
 
 import {
@@ -14,7 +14,7 @@ import {
 import type { ProjectionSnapshotQueryShape } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
 import type { ProjectionTurnRepositoryShape } from "../persistence/Services/ProjectionTurns.ts";
 import type { ProviderDiscoveryServiceShape } from "../provider/Services/ProviderDiscoveryService.ts";
-import { SYNARA_HARNESS_POLICY_VERSION } from "./harnessPolicy.ts";
+import { SAINT_HARNESS_POLICY_VERSION } from "./harnessPolicy.ts";
 import { mcpToolResultError, mcpToolResultJson } from "./protocol.ts";
 import {
   AGENT_GATEWAY_TARGET_OPTIONS_DESCRIPTION,
@@ -79,12 +79,12 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
   const contextTool: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_context",
+      name: "saint_context",
       description:
-        "Inspect the current Synara harness identity, caller thread/turn, and authorized coordination capabilities.",
+        "Inspect the current Saint harness identity, caller thread/turn, and authorized coordination capabilities.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       annotations: {
-        title: "Synara context",
+        title: "Saint context",
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
@@ -96,7 +96,7 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
         const caller = yield* requireThreadShell(context.callerThreadId);
         const turnId = caller.latestTurn?.state === "running" ? caller.latestTurn.turnId : null;
         return mcpToolResultJson({
-          harness: { name: "Synara", policyVersion: SYNARA_HARNESS_POLICY_VERSION },
+          harness: { name: "Saint", policyVersion: SAINT_HARNESS_POLICY_VERSION },
           caller: {
             threadId: caller.id,
             turnId,
@@ -117,11 +117,11 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
   const capabilitiesTool: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_capabilities",
-      description: `List canonical Synara provider/model targets, exact provider option keys, examples, and gateway limits used to validate thread creation. ${AGENT_GATEWAY_TARGET_OPTIONS_DESCRIPTION}`,
+      name: "saint_capabilities",
+      description: `List canonical Saint provider/model targets, exact provider option keys, examples, and gateway limits used to validate thread creation. ${AGENT_GATEWAY_TARGET_OPTIONS_DESCRIPTION}`,
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       annotations: {
-        title: "Synara capabilities",
+        title: "Saint capabilities",
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
@@ -165,7 +165,7 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
           targetConstruction,
           providers,
           limits: {
-            maxThreadsPerOperation: SYNARA_GATEWAY_MAX_THREADS_PER_OPERATION,
+            maxThreadsPerOperation: SAINT_GATEWAY_MAX_THREADS_PER_OPERATION,
             maxWaitMs: 60_000,
             oneCreationPlanPerActiveTurn: true,
           },
@@ -176,11 +176,11 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
   const listProjects: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_list_projects",
+      name: "saint_list_projects",
       description:
-        "List Synara projects (id, title, workspace root). System-managed containers (the Chats and Studio surfaces) are not projects and are excluded. Use before creating a thread in another project.",
+        "List Saint projects (id, title, workspace root). System-managed containers (the Chats and Studio surfaces) are not projects and are excluded. Use before creating a thread in another project.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      annotations: { title: "List Synara projects", ...READ_ONLY_TOOL_ANNOTATIONS },
+      annotations: { title: "List Saint projects", ...READ_ONLY_TOOL_ANNOTATIONS },
     },
     handler: () =>
       snapshotQuery.getShellSnapshot().pipe(
@@ -210,9 +210,9 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
   const listThreads: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_list_threads",
+      name: "saint_list_threads",
       description:
-        "Discover Synara threads by project, hierarchy, provider, model, status, title, creation source, or update window. Archived threads are hidden unless includeArchived is true.",
+        "Discover Saint threads by project, hierarchy, provider, model, status, title, creation source, or update window. Archived threads are hidden unless includeArchived is true.",
       inputSchema: {
         type: "object",
         properties: {
@@ -237,7 +237,7 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
         },
         additionalProperties: false,
       },
-      annotations: { title: "List Synara threads", ...READ_ONLY_TOOL_ANNOTATIONS },
+      annotations: { title: "List Saint threads", ...READ_ONLY_TOOL_ANNOTATIONS },
     },
     handler: (args, context) =>
       Effect.gen(function* () {
@@ -287,8 +287,8 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
   const readThread: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_read_thread",
-      description: `Read one Synara thread's status and recent messages (newest last). Pass nextCursor as cursor to page older messages. To read one settled long message losslessly, pass the summary's index, messageId, and messageVersion with messageOffsetChars 0, then follow messagePage.nextOffsetChars with the same identity and version.`,
+      name: "saint_read_thread",
+      description: `Read one Saint thread's status and recent messages (newest last). Pass nextCursor as cursor to page older messages. To read one settled long message losslessly, pass the summary's index, messageId, and messageVersion with messageOffsetChars 0, then follow messagePage.nextOffsetChars with the same identity and version.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -332,7 +332,7 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
         required: ["threadId"],
         additionalProperties: false,
       },
-      annotations: { title: "Read a Synara thread", ...READ_ONLY_TOOL_ANNOTATIONS },
+      annotations: { title: "Read a Saint thread", ...READ_ONLY_TOOL_ANNOTATIONS },
     },
     handler: (args, context) =>
       Effect.gen(function* () {
@@ -371,20 +371,20 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
   const waitForThreads: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_wait_for_threads",
-      description: `Wait for the pinned turns of 1–20 Synara threads and return every outcome in input order. When results are required, keep calling until allTerminal is true, passing the returned runIds to each subsequent call. A timedOut response is progress, not completion; do not finish or ask the user to check again while required work is pending. Assistant summaries are capped at ${WAIT_THREAD_SUMMARY_MAX_CHARS} characters; use each result's readThread call to page the full transcript. Timeouts never retry, replace, cancel, or create work.`,
+      name: "saint_wait_for_threads",
+      description: `Wait for the pinned turns of 1–20 Saint threads and return every outcome in input order. When results are required, keep calling until allTerminal is true, passing the returned runIds to each subsequent call. A timedOut response is progress, not completion; do not finish or ask the user to check again while required work is pending. Assistant summaries are capped at ${WAIT_THREAD_SUMMARY_MAX_CHARS} characters; use each result's readThread call to page the full transcript. Timeouts never retry, replace, cancel, or create work.`,
       inputSchema: {
         type: "object",
         properties: {
           threadIds: {
             type: "array",
             minItems: 1,
-            maxItems: SYNARA_GATEWAY_MAX_THREADS_PER_OPERATION,
+            maxItems: SAINT_GATEWAY_MAX_THREADS_PER_OPERATION,
             items: { type: "string" },
           },
           runIds: {
             type: "array",
-            maxItems: SYNARA_GATEWAY_MAX_THREADS_PER_OPERATION,
+            maxItems: SAINT_GATEWAY_MAX_THREADS_PER_OPERATION,
             items: { type: ["string", "null"] },
             description: "Optional pinned turn ids from a prior wait. Must match threadIds length.",
           },
@@ -399,7 +399,7 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
         additionalProperties: false,
       },
       annotations: {
-        title: "Wait for Synara threads",
+        title: "Wait for Saint threads",
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
@@ -494,7 +494,7 @@ export function makeThreadReadTools(input: ThreadReadToolsInput): ReadonlyArray<
                       summaryTruncated: false,
                       error: null as string | null,
                       readThread: {
-                        tool: "synara_read_thread" as const,
+                        tool: "saint_read_thread" as const,
                         arguments: { threadId: pin.threadId },
                       },
                     };

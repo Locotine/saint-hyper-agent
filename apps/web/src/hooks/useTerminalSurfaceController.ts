@@ -1,7 +1,7 @@
 // Shared lifecycle and metadata for a single terminal panel.
 
-import { type ThreadId } from "@synara/contracts";
-import { type TerminalCliKind } from "@synara/shared/terminalThreads";
+import { type ThreadId } from "@saint/contracts";
+import { type TerminalCliKind } from "@saint/shared/terminalThreads";
 import { useState } from "react";
 
 import {

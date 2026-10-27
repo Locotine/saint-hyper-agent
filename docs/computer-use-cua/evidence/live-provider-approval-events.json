@@ -20,7 +20,7 @@
             "lifecycleGeneration": "058b9a6d-8026-4a60-8b19-bfcf7a4d39e9",
             "requestKind": "tool",
             "requestType": "tool_approval",
-            "detail": "Allow the synara MCP server to run tool \"computer_click\"?",
+            "detail": "Allow the saint MCP server to run tool \"computer_click\"?",
             "toolParamsDisplay": [
               {
                 "display_name": "delivery_mode",
@@ -158,7 +158,7 @@
             "lifecycleGeneration": "13958ede-31ca-4bfe-8aa2-c59e9871dec5",
             "requestKind": "tool",
             "requestType": "tool_approval",
-            "detail": "Allow the synara MCP server to run tool \"computer_click\"?",
+            "detail": "Allow the saint MCP server to run tool \"computer_click\"?",
             "toolParamsDisplay": [
               {
                 "display_name": "delivery_mode",
@@ -277,7 +277,7 @@
   "uiObservations": [
     {
       "threadId": "f0109e57-2158-42f8-9122-94a557e6e1ec",
-      "title": "Test Computer Synara Fixture 99565",
+      "title": "Test Computer Saint Fixture 99565",
       "action": "Clicked the real Approve once button for the displayed background computer_click request.",
       "before": {
         "nativeSubmissions": 0,
@@ -291,7 +291,7 @@
     },
     {
       "threadId": "b0f0d466-8ed6-4b10-a6c6-64206521be84",
-      "title": "Test annullamento approvazione Synara",
+      "title": "Test annullamento approvazione Saint",
       "action": "Clicked the real Cancel turn button for the displayed background computer_click request.",
       "before": {
         "nativeSubmissions": 1,

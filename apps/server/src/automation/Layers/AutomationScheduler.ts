@@ -1,4 +1,4 @@
-import { type AutomationStreamEvent } from "@synara/contracts";
+import { type AutomationStreamEvent } from "@saint/contracts";
 import { Cause, Duration, Effect, Layer, Queue, Stream } from "effect";
 
 import { isServerGroupsEnabled } from "../../projectAgent/groupsBetaGate.ts";

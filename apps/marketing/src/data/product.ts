@@ -3,20 +3,20 @@
 //          structured data, FAQs, and AI-readable discovery surfaces.
 // Layer: static content (server/client importable).
 
-export const PRODUCT_NAME = "Synara";
+export const PRODUCT_NAME = "Saint";
 
 export const PRODUCT_CATEGORY = "The local-first workspace and control plane for coding agents.";
 
 export const PRODUCT_HERO_TITLE = "Run every coding agent in one workspace";
 
 export const PRODUCT_HERO_DESCRIPTION =
-  "Synara is the local-first command center for serious agentic work—run every coding agent in parallel and ship without losing context.";
+  "Saint is the local-first command center for serious agentic work—run every coding agent in parallel and ship without losing context.";
 
 export const PRODUCT_META_DESCRIPTION =
-  "Synara is a free, open-source, local-first workspace for coding agents with separate tasks, Git worktrees, terminals, browser verification, diffs, handoffs, and pull-request delivery.";
+  "Saint is a free, open-source, local-first workspace for coding agents with separate tasks, Git worktrees, terminals, browser verification, diffs, handoffs, and pull-request delivery.";
 
 export const PRODUCT_DESCRIPTION =
-  "Synara is a free, open-source, local-first workspace and control plane for coding agents. Run Claude Code, Codex, OpenCode, Cursor, Antigravity, Grok Build, Devin CLI, Pi, and Factory Droid across separate tasks with terminals, browser verification, diffs, Git worktrees, handoffs, and pull-request delivery in one desktop app.";
+  "Saint is a free, open-source, local-first workspace and control plane for coding agents. Run Claude Code, Codex, OpenCode, Cursor, Antigravity, Grok Build, Devin CLI, Pi, and Factory Droid across separate tasks with terminals, browser verification, diffs, Git worktrees, handoffs, and pull-request delivery in one desktop app.";
 
 export const SUPPORTED_PROVIDERS = [
   "Claude Code",

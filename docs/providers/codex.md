@@ -1,6 +1,6 @@
 # Codex provider accounts
 
-Synara can run multiple Codex accounts side by side. Each account has its own
+Saint can run multiple Codex accounts side by side. Each account has its own
 sign-in, so you log in to each one **once** and never need to log out to switch.
 Sessions, model discovery, health checks, and git text generation all route to
 the account selected for the thread.
@@ -28,8 +28,8 @@ message will use.
 
 ## How isolation works
 
-Codex reads state from `CODEX_HOME`. Synara asynchronously prepares a generated
-overlay under `$SYNARA_HOME/codex-home-overlay` (or the corresponding Synara
+Codex reads state from `CODEX_HOME`. Saint asynchronously prepares a generated
+overlay under `$SAINT_HOME/codex-home-overlay` (or the corresponding Saint
 runtime directory) and uses an account-specific subdirectory for isolated
 accounts:
 
@@ -40,7 +40,7 @@ accounts:
   account's **shadow auth home** instead. Missing files are allowed so Codex
   can create new account state lazily, while an existing private file that is
   itself a symlink is rejected to prevent accounts from aliasing credentials.
-- Synara writes the generated `config.toml` only inside the overlay and leaves
+- Saint writes the generated `config.toml` only inside the overlay and leaves
   the source configuration untouched.
 
 The default account uses the same overlay mechanism, with authentication and
@@ -53,7 +53,7 @@ default).
 2. Give it a label (e.g. "Work"). The account ID is filled in from the label
    (`codex_work`); it is the key threads use to find the account, so it cannot
    be changed later. Optionally pick an accent color.
-3. Leave **CODEX_HOME path** blank to let Synara keep the account's sign-in in
+3. Leave **CODEX_HOME path** blank to let Saint keep the account's sign-in in
    its own folder, then choose **Add account**.
 4. Select the new row. While it is not signed in, the editor shows the command
    to run, built from the account's **Terminal command** (`codex-work` for an
@@ -63,21 +63,21 @@ default).
    codex-work login
    ```
 
-   Run it in a Synara terminal, then choose **Refresh status** at the top of
+   Run it in a Saint terminal, then choose **Refresh status** at the top of
    the Providers settings. The row turns to `Authenticated`.
 
 5. Open the model picker in a new thread and pick a model from the account's
    tab.
 
 To reuse a Codex home you already signed in to, choose **Import directory**
-instead of **Add account**; Synara references the directory without moving it.
+instead of **Add account**; Saint references the directory without moving it.
 
 ### Keeping the sign-in in a directory you control
 
 Set **Shadow auth home** in the account's editor to a directory such as
 `~/.codex_work` to keep only the account's sign-in there while it shares
 settings and history with the default account. The login persists in
-`~/.codex_work/auth.json`. Synara links it into the account overlay when
+`~/.codex_work/auth.json`. Saint links it into the account overlay when
 possible, with a file-copy fallback on systems where file symlinks are
 unavailable, and never logs its contents. The overlay is refreshed during
 asynchronous process-environment preparation before Codex launches.

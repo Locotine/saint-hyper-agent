@@ -28,7 +28,7 @@ assert(existsSync(probePath), "Native driver probe is missing.");
 const candidate = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const evidence = resolve(outputDirectory, "evidence");
 mkdirSync(evidence, { recursive: true });
-const work = mkdtempSync(join(tmpdir(), "synara-cua-benchmark-"));
+const work = mkdtempSync(join(tmpdir(), "saint-cua-benchmark-"));
 const releasePath = "packages/shared/src/cuaDriverRelease.json";
 const provisionPath = "apps/desktop/scripts/provision-cua-driver.mjs";
 const exportedPaths = [
@@ -59,7 +59,7 @@ async function build(script: string, env: NodeJS.ProcessEnv, logPath: string): P
     [
       script,
       "--arch",
-      env.SYNARA_CUA_TARGET_ARCH || process.arch,
+      env.SAINT_CUA_TARGET_ARCH || process.arch,
       "--destination",
       join(env.CARGO_TARGET_DIR!, "staged"),
     ],
@@ -111,7 +111,7 @@ const snapshots = (
     "Cua license missing from benchmark snapshot.",
   );
   const patch = readFileSync(
-    join(checkout, "apps/desktop/patches/cua-driver/0001-synara-native.patch"),
+    join(checkout, "apps/desktop/patches/cua-driver/0001-saint-native.patch"),
   );
   assert.equal(createHash("sha256").update(patch).digest("hex"), release.patchSha256);
 
@@ -132,8 +132,8 @@ for (const { name, commit, directory, target, cargoHome, script } of prepareOnly
     CARGO_TARGET_DIR: target,
     CUA_DRIVER_RS_UPDATE_CHECK: "0",
   };
-  delete env.SYNARA_CUA_ARTIFACT_DIR;
-  delete env.SYNARA_CUA_SIGN_IDENTITY;
+  delete env.SAINT_CUA_ARTIFACT_DIR;
+  delete env.SAINT_CUA_SIGN_IDENTITY;
   console.log(`[cua-benchmark] ${name}: ${commit}; fresh Cargo home and target directory`);
   let log: string;
   try {

@@ -33,7 +33,7 @@ import {
   ThreadSessionStopRequestedPayload as ContractsThreadSessionStopRequestedPayloadSchema,
   ThreadSidechatActivityRecordedPayload as ContractsThreadSidechatActivityRecordedPayloadSchema,
   ThreadSidechatExpiredPayload as ContractsThreadSidechatExpiredPayloadSchema,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 // Server-internal alias surface, backed by contract schemas as the source of truth.
 export const SpaceCreatedPayload = ContractsSpaceCreatedPayloadSchema;

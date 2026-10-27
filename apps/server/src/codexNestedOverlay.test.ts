@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 async function fixture(withAuth = true) {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "synara-nested-codex-")));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "saint-nested-codex-")));
   roots.push(root);
   const sourceHome = path.join(root, "home");
   const parentRuntime = path.join(root, "parent");
@@ -39,14 +39,14 @@ async function fixture(withAuth = true) {
     fs.writeFileSync(path.join(sourceHome, "auth.json"), '{"OPENAI_API_KEY":"dummy-default"}');
   }
   const parentEnv = await buildCodexProcessEnv({
-    env: { CODEX_HOME: sourceHome, SYNARA_HOME: parentRuntime },
+    env: { CODEX_HOME: sourceHome, SAINT_HOME: parentRuntime },
     platform: "win32",
     appendConfigToml: buildCodexMcpConfigToml("http://127.0.0.1:61240/mcp"),
   });
   const parentOverlay = parentEnv.CODEX_HOME!;
   const parentConfig = fs.readFileSync(path.join(parentOverlay, "config.toml"), "utf8");
   const input: CodexProcessEnvInput = {
-    env: { ...parentEnv, SYNARA_HOME: childRuntime },
+    env: { ...parentEnv, SAINT_HOME: childRuntime },
     platform: "win32",
     appendConfigToml: buildCodexMcpConfigToml("http://127.0.0.1:64449/mcp"),
   };
@@ -66,7 +66,7 @@ describe("a nested default Codex source", () => {
   it("launches directly from a real parent overlay with one shared source and a new MCP endpoint", async () => {
     const f = await fixture();
     const parentIdentity = providerContinuationIdentity("codex", {
-      codex: { homePath: f.sourceHome, environment: { SYNARA_HOME: f.parentRuntime } },
+      codex: { homePath: f.sourceHome, environment: { SAINT_HOME: f.parentRuntime } },
     });
     const launch = await buildCodexProcessLaunchContext(f.input);
     const childOverlay = path.join(f.childRuntime, "codex-home-overlay");
@@ -91,7 +91,7 @@ describe("a nested default Codex source", () => {
     const childConfig = fs.readFileSync(path.join(childOverlay, "config.toml"), "utf8");
     expect(childConfig).toContain('url = "http://127.0.0.1:64449/mcp"');
     expect(childConfig).not.toContain("http://127.0.0.1:61240/mcp");
-    expect(childConfig.match(/^\[mcp_servers\.synara\]$/gm)).toHaveLength(1);
+    expect(childConfig.match(/^\[mcp_servers\.saint\]$/gm)).toHaveLength(1);
     expect(childConfig).toContain('[profiles.work]\nmodel = "gpt-5.6-sol"');
     expect(fs.readFileSync(path.join(f.parentOverlay, "config.toml"), "utf8")).toBe(f.parentConfig);
     expect(fs.readFileSync(path.join(f.sourceHome, "config.toml"), "utf8")).toBe(f.sourceConfig);
@@ -104,7 +104,7 @@ describe("a nested default Codex source", () => {
 
     vi.stubEnv("CODEX_HOME", f.parentOverlay);
     vi.stubEnv("CODEX_SQLITE_HOME", f.sourceHome);
-    vi.stubEnv("SYNARA_HOME", f.childRuntime);
+    vi.stubEnv("SAINT_HOME", f.childRuntime);
     expect(providerContinuationIdentity("codex", undefined)).toBe(parentIdentity);
     await expect(
       prepareProviderContinuationIdentity("codex", undefined, parentIdentity),
@@ -156,9 +156,9 @@ describe("a nested default Codex source", () => {
           '{"OPENAI_API_KEY":"dummy-private"}',
         );
     } else if (damage === "missing-marker") {
-      fs.unlinkSync(path.join(f.sourceHome, "synara-shared-continuation-v2.json"));
+      fs.unlinkSync(path.join(f.sourceHome, "saint-shared-continuation-v2.json"));
     } else if (damage === "wrong-marker") {
-      const markerPath = path.join(f.sourceHome, "synara-shared-continuation-v2.json");
+      const markerPath = path.join(f.sourceHome, "saint-shared-continuation-v2.json");
       const marker = JSON.parse(fs.readFileSync(markerPath, "utf8"));
       fs.writeFileSync(
         markerPath,

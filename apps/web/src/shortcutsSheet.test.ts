@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { STATIC_KEYBINDING_COMMANDS } from "@synara/contracts";
+import { STATIC_KEYBINDING_COMMANDS } from "@saint/contracts";
 
 import { buildShortcutSheetSections, listShortcutEditorDefinitions } from "./shortcutsSheet";
 import type { ProjectScript } from "./types";

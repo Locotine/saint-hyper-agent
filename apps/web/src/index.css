@@ -615,7 +615,7 @@
   --warning: var(--color-amber-500);
   --warning-foreground: var(--color-amber-700);
   --claude: #d97757;
-  /* Beta brand: vivid Xcode-blue tile, black Synara mark, white BETA pill.
+  /* Beta brand: vivid Xcode-blue tile, black Saint mark, white BETA pill.
      The update pill uses the gradient with white text; the Beta badge
      uses the white pill with blue ink, mirroring the pill baked into
      the desktop icon. Stable uses only the pill tokens, on its Beta card. */
@@ -1531,8 +1531,8 @@ label:has(> select#reasoning-effort) select {
     0 1px 4px -2px color-mix(in srgb, var(--color-black, #000) 16%, transparent);
 }
 
-/* Rounded chip holding the Synara mark in the box header, echoing the source
-   file's row gutter badge so the comment reads as "from Synara". */
+/* Rounded chip holding the Saint mark in the box header, echoing the source
+   file's row gutter badge so the comment reads as "from Saint". */
 .editor-file-viewer__comment-badge {
   display: inline-flex;
   align-items: center;
@@ -2974,7 +2974,7 @@ diffs-container {
   background: var(--color-background-surface);
 }
 
-/* Code, diff, and file viewers paint their own fill (`--synara-code-surface` in
+/* Code, diff, and file viewers paint their own fill (`--saint-code-surface` in
    diffRendering.ts). On whole-window glass they go clear like the surface around them in the
    dock and the editor workspace, so the pane reads as one sheet of glass instead of an opaque
    slab; only what content scrolls under (sticky diff headers, the gutter once a row scrolls
@@ -2987,7 +2987,7 @@ diffs-container {
   ) {
   --app-code-viewer-surface: transparent;
   --app-code-viewer-sticky-surface: color-mix(in srgb, var(--popover) 96%, transparent);
-  --app-code-viewer-gutter-animation: synara-code-gutter-backing;
+  --app-code-viewer-gutter-animation: saint-code-gutter-backing;
   --app-code-viewer-addition-row: color-mix(in srgb, var(--success) 10%, transparent);
   --app-code-viewer-deletion-row: color-mix(in srgb, var(--destructive) 10%, transparent);
 }
@@ -3630,7 +3630,7 @@ diffs-container {
   --picker-option-py: 0.3125rem;
 }
 
-/* Sidebar Synara/Studio surface switcher: tight shell inset, airy option rows.
+/* Sidebar Saint/Studio surface switcher: tight shell inset, airy option rows.
    Composer picker tokens otherwise pin option py to ~1px and win over Tailwind. */
 .sidebar-surface-picker-menu {
   --picker-menu-body-p: 0.25rem;

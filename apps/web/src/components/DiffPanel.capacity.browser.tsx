@@ -4,7 +4,7 @@
 
 import "../index.css";
 
-import { CheckpointRef, TurnId, type NativeApi } from "@synara/contracts";
+import { CheckpointRef, TurnId, type NativeApi } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { page } from "vitest/browser";
@@ -223,7 +223,7 @@ it("refreshes a live turn patch for each snapshot and its final checkpoint witho
       turnDiffSummaries: [
         {
           ...summary,
-          checkpointRef: CheckpointRef.makeUnsafe("refs/synara/checkpoints/thread/turn/2"),
+          checkpointRef: CheckpointRef.makeUnsafe("refs/saint/checkpoints/thread/turn/2"),
           status: "ready",
         },
       ],

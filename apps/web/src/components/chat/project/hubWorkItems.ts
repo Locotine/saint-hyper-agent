@@ -1,4 +1,4 @@
-import type { HubWorkItem, MessageId, ThreadId } from "@synara/contracts";
+import type { HubWorkItem, MessageId, ThreadId } from "@saint/contracts";
 
 export function mergeHubWorkItems(
   current: readonly HubWorkItem[],

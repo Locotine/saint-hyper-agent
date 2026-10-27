@@ -6,7 +6,7 @@
 // Layer: Pull request presentation
 // Exports: GitHubLabelChips, GitHubLabelDot
 
-import type { PullRequestLabel } from "@synara/contracts";
+import type { PullRequestLabel } from "@saint/contracts";
 
 import { Badge } from "~/components/ui/badge";
 import { cn } from "~/lib/utils";

@@ -6,7 +6,7 @@ import type {
   GitHubInboxSort,
   GitHubIssueCommentInput,
   GitHubIssueDetailInput,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 
 import { ensureNativeApi } from "~/nativeApi";

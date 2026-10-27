@@ -6,7 +6,7 @@ import {
   type OrchestrationEvent,
   type OrchestrationReadModel,
   type OrchestrationThread,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer, PubSub, Stream } from "effect";
 import { TestClock } from "effect/testing";

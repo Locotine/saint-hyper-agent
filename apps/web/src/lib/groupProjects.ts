@@ -4,9 +4,9 @@
 // Layer: Web orchestration helper
 // Exports: Group container lookup and creation helpers.
 
-import { type ProjectId, type ThreadId } from "@synara/contracts";
-import { isWorkspaceRootWithin, workspaceRootsEqual } from "@synara/shared/threadWorkspace";
-import { isGroupContainerKind } from "@synara/shared/projectContainers";
+import { type ProjectId, type ThreadId } from "@saint/contracts";
+import { isWorkspaceRootWithin, workspaceRootsEqual } from "@saint/shared/threadWorkspace";
+import { isGroupContainerKind } from "@saint/shared/projectContainers";
 
 import { GROUPS_ON } from "../betaFeatures";
 import type { DraftThreadState } from "../composerDraftStore";
@@ -14,7 +14,7 @@ import { readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
 import type { Project } from "../types";
-import { slugifyGroupTitle } from "@synara/shared/groupSlug";
+import { slugifyGroupTitle } from "@saint/shared/groupSlug";
 import {
   extractDuplicateProjectCreateProjectId,
   findContainerCandidateById,

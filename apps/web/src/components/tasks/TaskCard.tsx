@@ -7,7 +7,7 @@
 // Exports: TaskCard
 
 import { GLASS_RAISED_SURFACE_CLASS_NAME } from "~/surfaceStyles";
-import type { ProjectId, Todo, TodoUpdateInput } from "@synara/contracts";
+import type { ProjectId, Todo, TodoUpdateInput } from "@saint/contracts";
 import { useEffect, useRef } from "react";
 
 import { IconButton } from "~/components/ui/icon-button";

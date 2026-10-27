@@ -41,9 +41,9 @@ describe("desktop bundle file selection", () => {
 
   it("retains dependency source maps and sources in diagnostic builds", () => {
     for (const name of [
-      "SYNARA_WEB_SOURCEMAP",
-      "SYNARA_SERVER_SOURCEMAP",
-      "SYNARA_DESKTOP_SOURCEMAP",
+      "SAINT_WEB_SOURCEMAP",
+      "SAINT_SERVER_SOURCEMAP",
+      "SAINT_DESKTOP_SOURCEMAP",
     ]) {
       for (const value of ["1", " true ", "HIDDEN"]) {
         const diagnostics = preserveDependencyDiagnostics({ [name]: value });
@@ -54,7 +54,7 @@ describe("desktop bundle file selection", () => {
       }
     }
     expect(preserveDependencyDiagnostics({})).toBe(false);
-    expect(preserveDependencyDiagnostics({ SYNARA_SERVER_SOURCEMAP: "false" })).toBe(false);
+    expect(preserveDependencyDiagnostics({ SAINT_SERVER_SOURCEMAP: "false" })).toBe(false);
   });
 
   it("retains vendored licenses and non-TypeScript source assets", () => {
@@ -108,7 +108,7 @@ describe("desktop bundle file selection", () => {
           ).toBe(false);
         }
       }
-      expect(excluded("apps/desktop/prod-resources/synara.png", patterns)).toBe(false);
+      expect(excluded("apps/desktop/prod-resources/saint.png", patterns)).toBe(false);
       expect(excluded("apps/desktop/resources/entitlements.mac.plist", patterns)).toBe(false);
     }
   });

@@ -4,7 +4,7 @@ import {
   ThreadId,
   TurnId,
   type ProviderRuntimeEvent,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Deferred, Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -96,7 +96,7 @@ describe("provider runtime event ingress sizing", () => {
     const sized = compactProviderRuntimeEventForIngress(event);
     expect(sized.bytes).toBeLessThan(2000);
     expect(stringify).toHaveBeenCalledTimes(1);
-    expect(sized.event.raw?.payload).toMatchObject({ content: [{ synaraImageOmitted: true }] });
+    expect(sized.event.raw?.payload).toMatchObject({ content: [{ saintImageOmitted: true }] });
     expect(JSON.stringify(sized.event)).not.toContain(data);
     expect(image.data).toBe(data);
     expect(sized.bytes).toBe(Buffer.byteLength(JSON.stringify(sized.event), "utf8"));
@@ -123,7 +123,7 @@ describe("provider runtime event ingress sizing", () => {
 
     expect(sized.event).not.toBe(event);
     expect(sized.event.raw?.payload).toMatchObject({
-      synaraTruncated: true,
+      saintTruncated: true,
       originalBytes: expect.any(Number),
     });
     expect(callsBeforeAssertion).toBe(2);

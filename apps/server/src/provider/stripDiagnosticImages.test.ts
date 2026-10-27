@@ -20,12 +20,12 @@ describe("stripDiagnosticImages", () => {
       type: "image",
       mimeType: "image/png",
       width: 1280,
-      synaraImageOmitted: true,
+      saintImageOmitted: true,
       encodedLength: data.length,
       byteLength: 512 * 1024,
     });
     expect(output.payload[1]).toMatchObject({
-      source: { synaraImageOmitted: true, byteLength: 512 * 1024 },
+      source: { saintImageOmitted: true, byteLength: 512 * 1024 },
     });
     expect(output.raw.image).toBe(output.payload[0]);
     expect(output.payload[2]).toBe(text);
@@ -46,7 +46,7 @@ describe("stripDiagnosticImages", () => {
 
   it.each(["url", "image_url", "imageUrl"])("omits an inline image in %s", (key) => {
     expect(stripDiagnosticImages({ [key]: "data:image/png;base64,aGVsbG8=" })).toEqual({
-      [key]: { synaraImageOmitted: true, mimeType: "image/png", encodedLength: 30 },
+      [key]: { saintImageOmitted: true, mimeType: "image/png", encodedLength: 30 },
     });
   });
 
@@ -58,7 +58,7 @@ describe("stripDiagnosticImages", () => {
     expect(0 in output).toBe(false);
     expect(2 in output).toBe(false);
     expect(3 in output).toBe(false);
-    expect(output[1]).toMatchObject({ synaraImageOmitted: true, byteLength: 5 });
+    expect(output[1]).toMatchObject({ saintImageOmitted: true, byteLength: 5 });
   });
 
   it("does not retain the original image through a cycle or shared child", () => {
@@ -74,7 +74,7 @@ describe("stripDiagnosticImages", () => {
     expect(copiedChild.parent).toBe(output);
     expect(copiedChild.image).toEqual({
       type: "image",
-      synaraImageOmitted: true,
+      saintImageOmitted: true,
       encodedLength: 8,
       byteLength: 5,
     });

@@ -7,7 +7,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Effect, Layer } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ServerProviderUsageSnapshot } from "@synara/contracts";
+import type { ServerProviderUsageSnapshot } from "@saint/contracts";
 
 import { ServerConfig } from "../config";
 import { ServerSettingsService } from "../serverSettings";

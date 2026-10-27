@@ -3,7 +3,7 @@
 // compact always-visible action opens the file in the preferred editor.
 // Layer: Chat changed-files UI
 
-import type { EditorId, ResolvedKeybindingsConfig } from "@synara/contracts";
+import type { EditorId, ResolvedKeybindingsConfig } from "@saint/contracts";
 import type { CSSProperties } from "react";
 
 import { useCopyPathToClipboard } from "~/hooks/useCopyToClipboard";

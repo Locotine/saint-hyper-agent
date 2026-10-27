@@ -3,7 +3,7 @@
 // Layer: Orchestration domain helper
 // Exports: resolveForkSourceCutoff, ForkSourceCutoff
 
-import type { MessageId, OrchestrationMessage, TurnId } from "@synara/contracts";
+import type { MessageId, OrchestrationMessage, TurnId } from "@saint/contracts";
 
 /**
  * - `latest`: no explicit message was selected for this whole-thread fork, so

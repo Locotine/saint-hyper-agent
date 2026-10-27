@@ -4,7 +4,7 @@
 // Layer: App shell panel (rendered by ThreadSidebar while the Automations section is active)
 // Depends on: the shared automation list pieces and create dialog (routes/-automations.list).
 
-import type { AutomationDefinition } from "@synara/contracts";
+import type { AutomationDefinition } from "@saint/contracts";
 import { useNavigate, useParams } from "@tanstack/react-router";
 
 import { CentralIcon } from "~/lib/central-icons";

@@ -1,6 +1,6 @@
 import "../index.css";
 
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps } from "react";
 import { page } from "vitest/browser";
@@ -15,16 +15,16 @@ import type { Project, SidebarThreadSummary } from "../types";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
 import { useCreateProjectDialogStore } from "../createProjectDialogStore";
 
-const PROJECT_ID = ProjectId.makeUnsafe("project-picker-synara");
-const PROJECT_ROOT = "/Users/tester/projects/synara";
-const SELECTED_WORKTREE = "/Users/tester/worktrees/selected/synara";
+const PROJECT_ID = ProjectId.makeUnsafe("project-picker-saint");
+const PROJECT_ROOT = "/Users/tester/projects/saint";
+const SELECTED_WORKTREE = "/Users/tester/worktrees/selected/saint";
 
 const project: Project = {
   id: PROJECT_ID,
   kind: "project",
-  name: "synara",
-  remoteName: "synara",
-  folderName: "synara",
+  name: "saint",
+  remoteName: "saint",
+  folderName: "saint",
   localName: null,
   cwd: PROJECT_ROOT,
   defaultModelSelection: null,
@@ -37,7 +37,7 @@ function worktreeThread(id: string, worktreePath: string): SidebarThreadSummary 
   return {
     id: ThreadId.makeUnsafe(id),
     projectId: PROJECT_ID,
-    title: "Work on synara",
+    title: "Work on saint",
     modelSelection: { provider: "codex", model: "gpt-5.4" },
     interactionMode: "default",
     envMode: "worktree",
@@ -92,9 +92,9 @@ async function mountPicker(props: ComponentProps<typeof ProjectPicker> = {}) {
 describe("ProjectPicker workspace choices", () => {
   it("lists a registered project once despite its active thread worktrees", async () => {
     setThreads([
-      worktreeThread("first", "/Users/tester/worktrees/first/synara"),
-      worktreeThread("second", "/Users/tester/worktrees/second/synara"),
-      worktreeThread("third", "/Users/tester/worktrees/third/synara"),
+      worktreeThread("first", "/Users/tester/worktrees/first/saint"),
+      worktreeThread("second", "/Users/tester/worktrees/second/saint"),
+      worktreeThread("third", "/Users/tester/worktrees/third/saint"),
     ]);
     const onSelectProject = vi.fn();
     const onSelectWorkspaceRoot = vi.fn();
@@ -105,7 +105,7 @@ describe("ProjectPicker workspace choices", () => {
       await expect.element(page.getByPlaceholder("Search projects")).toBeVisible();
       expect(page.getByRole("option").elements()).toHaveLength(1);
 
-      await page.getByRole("option", { name: "synara", exact: true }).click();
+      await page.getByRole("option", { name: "saint", exact: true }).click();
       expect(onSelectProject).toHaveBeenCalledExactlyOnceWith(PROJECT_ID);
       expect(onSelectWorkspaceRoot).not.toHaveBeenCalled();
     } finally {
@@ -173,7 +173,7 @@ describe("ProjectPicker workspace choices", () => {
       await expect.element(page.getByPlaceholder("Search projects")).toBeVisible();
       expect(page.getByRole("option").elements()).toHaveLength(1);
 
-      setThreads([worktreeThread("new-worktree", "/Users/tester/worktrees/new/synara")]);
+      setThreads([worktreeThread("new-worktree", "/Users/tester/worktrees/new/saint")]);
       // Reopen after the store update so the assertion observes the updated choices.
       await page.getByTestId("workspace-picker-trigger").click();
       await expect.element(page.getByPlaceholder("Search projects")).not.toBeInTheDocument();
@@ -188,7 +188,7 @@ describe("ProjectPicker workspace choices", () => {
   it("keeps the selected worktree available without listing other thread worktrees", async () => {
     setThreads([
       worktreeThread("selected", SELECTED_WORKTREE),
-      worktreeThread("other", "/Users/tester/worktrees/other/synara"),
+      worktreeThread("other", "/Users/tester/worktrees/other/saint"),
     ]);
     const onSelectProject = vi.fn();
     const onSelectWorkspaceRoot = vi.fn();
@@ -199,9 +199,7 @@ describe("ProjectPicker workspace choices", () => {
     });
 
     try {
-      await expect
-        .element(page.getByTestId("workspace-picker-trigger"))
-        .toHaveTextContent("synara");
+      await expect.element(page.getByTestId("workspace-picker-trigger")).toHaveTextContent("saint");
       await expect
         .element(page.getByTestId("workspace-picker-trigger"))
         .toHaveTextContent(SELECTED_WORKTREE);
@@ -209,7 +207,7 @@ describe("ProjectPicker workspace choices", () => {
       await expect.element(page.getByPlaceholder("Search projects")).toBeVisible();
       expect(page.getByRole("option").elements()).toHaveLength(2);
       await expect
-        .element(page.getByRole("option", { name: `synara ${SELECTED_WORKTREE}`, exact: true }))
+        .element(page.getByRole("option", { name: `saint ${SELECTED_WORKTREE}`, exact: true }))
         .toBeVisible();
 
       // A raw workspace remains searchable and selectable by its exact path.

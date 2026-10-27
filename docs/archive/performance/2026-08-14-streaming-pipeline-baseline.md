@@ -22,7 +22,7 @@ of this cost).
   3 samples (quiet; spread <1%). 120 Hz display, M-series MacBook.
 - Instrumented runs (dev build + patched `Element.prototype.getBoundingClientRect`) kept
   **separate** from timing runs.
-- Raw sample JSONL: `/tmp/synara-baseline/*.jsonl` (this file records the medians).
+- Raw sample JSONL: `/tmp/saint-baseline/*.jsonl` (this file records the medians).
 
 **Caveats:** the harness measures the Chromium renderer main thread, not packaged-app
 process CPU%; it mounts only the transcript pane (no sidebar, `SplitChatSurface`,

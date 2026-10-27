@@ -10,7 +10,7 @@ import {
   type OrchestrationSearchThreadsInput,
   type OrchestrationSearchThreadsResult,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, ServiceMap } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
@@ -76,7 +76,7 @@ export interface ThreadSearchQueryShape {
 export class ThreadSearchQuery extends ServiceMap.Service<
   ThreadSearchQuery,
   ThreadSearchQueryShape
->()("synara/threadSearch/ThreadSearchQuery") {}
+>()("saint/threadSearch/ThreadSearchQuery") {}
 
 export const makeThreadSearchQuery = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;

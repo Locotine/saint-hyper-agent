@@ -167,7 +167,7 @@ for (const file of files) {
 
   forbid(
     "windowsProcess",
-    /from\s+["']@synara\/shared\/windowsProcess["']/,
+    /from\s+["']@saint\/shared\/windowsProcess["']/,
     "import the platform-neutral process runtime instead of windowsProcess",
   );
   forbid(

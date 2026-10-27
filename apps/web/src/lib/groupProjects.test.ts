@@ -2,7 +2,7 @@
 // Purpose: Verifies Group container detection for group rows, legacy Studio, and boot-time roots.
 // Layer: Web orchestration tests
 
-import { type ProjectId } from "@synara/contracts";
+import { type ProjectId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import type { Project } from "../types";
@@ -20,7 +20,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     remoteName: "Alpha",
     folderName: "alpha",
     localName: null,
-    cwd: "/Users/tester/Documents/Synara/Groups/alpha",
+    cwd: "/Users/tester/Documents/Saint/Groups/alpha",
     defaultModelSelection: null,
     expanded: false,
     spaceId: null,
@@ -31,9 +31,9 @@ function makeProject(overrides: Partial<Project> = {}): Project {
 
 const PATHS = {
   homeDir: "/Users/tester",
-  chatWorkspaceRoot: "/Users/tester/Documents/Synara",
-  studioWorkspaceRoot: "/Users/tester/Documents/Synara/Studio",
-  groupsWorkspaceRoot: "/Users/tester/Documents/Synara/Groups",
+  chatWorkspaceRoot: "/Users/tester/Documents/Saint",
+  studioWorkspaceRoot: "/Users/tester/Documents/Saint/Studio",
+  groupsWorkspaceRoot: "/Users/tester/Documents/Saint/Groups",
 };
 
 describe("isGroupContainerProject", () => {
@@ -48,7 +48,7 @@ describe("isGroupContainerProject", () => {
           id: "project-studio" as ProjectId,
           kind: "studio",
           name: "Studio",
-          cwd: "/Users/tester/Documents/Synara/Studio",
+          cwd: "/Users/tester/Documents/Saint/Studio",
         }),
         PATHS,
       ),
@@ -73,7 +73,7 @@ describe("isGroupContainerProject", () => {
       isGroupContainerProject(
         makeProject({
           kind: "studio",
-          cwd: "/Users/tester/Documents/Synara/Studio",
+          cwd: "/Users/tester/Documents/Saint/Studio",
         }),
         { homeDir: "/Users/tester" },
       ),
@@ -89,7 +89,7 @@ describe("findLegacyStudioContainerForAdoption", () => {
       name: "Studio",
       remoteName: "Studio",
       localName: null,
-      cwd: "/Users/tester/Documents/Synara/Studio",
+      cwd: "/Users/tester/Documents/Saint/Studio",
       ...overrides,
     });
 
@@ -122,7 +122,7 @@ describe("collectGroupProjectIds", () => {
     const studio = makeProject({
       id: "project-studio" as ProjectId,
       kind: "studio",
-      cwd: "/Users/tester/Documents/Synara/Studio",
+      cwd: "/Users/tester/Documents/Saint/Studio",
     });
     const ordinary = makeProject({
       id: "project-app" as ProjectId,

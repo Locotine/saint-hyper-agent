@@ -25,7 +25,7 @@ default. Verification notes record what was checked in the tree on branch
 
 - Recommendation: MIT, matching both parent licenses.
 - Safe default: MIT, since Apache 2.0 adds patent text nobody has reviewed here.
-- Verification: Synara repo is MIT, held by T3 Tools Inc and Emanuele Di Pietro
+- Verification: Saint repo is MIT, held by T3 Tools Inc and Emanuele Di Pietro
   (`LICENSE:1`, `:3`–`:4`). The Cua redistribution license is MIT, held by Cua
   AI, Inc (`docs/computer-use-cua/CUA-LICENSE.txt:1`, `:3`). Resolved
   2026-09-17: the root `package.json` now declares `"license": "MIT"` (`:4`),
@@ -37,7 +37,7 @@ default. Verification notes record what was checked in the tree on branch
 - Recommendation: general fixes go upstream first, then rebase the patch.
 - Safe default: patch only, no upstream sends, until a maintainer owns the flow.
 - Verification: the patch-plus-manifest pattern exists today
-  (`apps/desktop/patches/cua-driver/0001-synara-native.patch`,
+  (`apps/desktop/patches/cua-driver/0001-saint-native.patch`,
   `packages/shared/src/cuaDriverRelease.json:5`–`:6`, native revision 15). No
   upstream send process exists — unverified; none found in docs.
 
@@ -149,7 +149,7 @@ default. Verification notes record what was checked in the tree on branch
 
 ## 10. Release reuse
 
-- Recommendation: decide whether the open package reuses the Synara release
+- Recommendation: decide whether the open package reuses the Saint release
   workflow or gets its own signed pipeline.
 - Safe default: no open binaries until signing and provenance for the new repo
   are proven. Docs and source only.
@@ -166,7 +166,7 @@ default. Verification notes record what was checked in the tree on branch
 
 - The malware-risk conclusion stays labeled per handoff, never stated as proven
   (acceptance 17). Source: `workstream-f-opensource-spec.md` Approach, and
-  handoff `synara-cu-v2-mega-handoff-2026-09-16.md` section 5.7. Unverified by
+  handoff `saint-cu-v2-mega-handoff-2026-09-16.md` section 5.7. Unverified by
   this deliverable.
 - The disclosure channel and owner are placeholders in
   `security-disclosure-draft.md`. An unmonitored channel is a release blocker

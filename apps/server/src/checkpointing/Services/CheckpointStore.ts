@@ -14,7 +14,7 @@ import { ServiceMap } from "effect";
 import type { Effect } from "effect";
 
 import type { CheckpointStoreError } from "../Errors.ts";
-import { CheckpointRef, type ThreadId } from "@synara/contracts";
+import { CheckpointRef, type ThreadId } from "@saint/contracts";
 
 export interface CaptureCheckpointInput {
   readonly cwd: string;
@@ -141,5 +141,5 @@ export interface CheckpointStoreShape {
  * CheckpointStore - Service tag for checkpoint persistence and restore operations.
  */
 export class CheckpointStore extends ServiceMap.Service<CheckpointStore, CheckpointStoreShape>()(
-  "synara/checkpointing/Services/CheckpointStore",
+  "saint/checkpointing/Services/CheckpointStore",
 ) {}

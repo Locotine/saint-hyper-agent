@@ -4,7 +4,7 @@
 
 import "../../index.css";
 
-import type { PullRequestStack, PullRequestStackEntry } from "@synara/contracts";
+import type { PullRequestStack, PullRequestStackEntry } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

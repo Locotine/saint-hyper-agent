@@ -1,6 +1,6 @@
 // Runs the actual inline theme initializer in isolated Chromium documents.
 // node apps/marketing/scripts/theme-smoke.mjs [ThemeScript.tsx] [report.json]
-// SYNARA_PERF=1 records an older baseline without asserting idle behavior.
+// SAINT_PERF=1 records an older baseline without asserting idle behavior.
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
@@ -56,7 +56,7 @@ try {
       const isDark = () => page.evaluate(() => document.documentElement.classList.contains("dark"));
       const expectedDark = stored !== "light";
       assert.equal(await isDark(), expectedDark);
-      if (process.env.SYNARA_PERF !== "1") {
+      if (process.env.SAINT_PERF !== "1") {
         assert.equal(
           metrics.observerCallbacks,
           0,

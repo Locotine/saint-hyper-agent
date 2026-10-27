@@ -28,7 +28,7 @@ const Envelope = Schema.Struct({
   master: Schema.NullOr(MasterEnvelope),
 });
 type Envelope = typeof Envelope.Type;
-const AAD = Buffer.from("synara-browser-vault-key-v1");
+const AAD = Buffer.from("saint-browser-vault-key-v1");
 
 function decode(value: string, length: number): Buffer {
   const result = Buffer.from(value, "base64");

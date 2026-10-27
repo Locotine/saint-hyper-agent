@@ -1,4 +1,4 @@
-import { ProjectId, SpaceId } from "@synara/contracts";
+import { ProjectId, SpaceId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_VOID_SPACE } from "./lib/spaceGrouping";

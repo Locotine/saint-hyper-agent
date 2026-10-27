@@ -3,7 +3,7 @@
 // Layer: Sidebar UI
 
 import { useState } from "react";
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { ensureNativeApi } from "../nativeApi";
@@ -23,7 +23,7 @@ export function RelocateProjectDialog(props: {
     <RenameDialog
       open
       title="Change project path"
-      description="Enter the restored folder's path on the Synara server. Your existing project and conversations stay in place. This does not recover lost files or move/repair linked Git worktrees. Finish active turns first."
+      description="Enter the restored folder's path on the Saint server. Your existing project and conversations stay in place. This does not recover lost files or move/repair linked Git worktrees. Finish active turns first."
       initialValue={originalWorkspaceRoot}
       saveLabel="Change path"
       onOpenChange={props.onOpenChange}

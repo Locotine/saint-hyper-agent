@@ -46,12 +46,12 @@ describe("createDevinSessionConfig", () => {
 
     expect(generated.note).toBe("keep");
     expect(generated.mcpServers.github).toEqual({ url: "https://example.test/mcp" });
-    expect(generated.mcpServers.synara).toMatchObject({
+    expect(generated.mcpServers.saint).toMatchObject({
       command: process.execPath,
       args: ["/proxy.mjs"],
       env: {
-        SYNARA_AGENT_GATEWAY_URL: "http://127.0.0.1:3773/mcp",
-        SYNARA_AGENT_GATEWAY_BOOTSTRAP_TOKEN: "spent-one-shot-bootstrap",
+        SAINT_AGENT_GATEWAY_URL: "http://127.0.0.1:3773/mcp",
+        SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN: "spent-one-shot-bootstrap",
       },
       transport: "stdio",
     });
@@ -76,12 +76,12 @@ describe("createDevinSessionConfig", () => {
     expect((await stat(config.configPath)).mode & 0o777).toBe(0o600);
   });
 
-  it("rejects a reserved synara collision without changing user config", async () => {
+  it("rejects a reserved saint collision without changing user config", async () => {
     const input = await makeInput();
     const source = path.join(input.env.XDG_CONFIG_HOME, "devin", "mcp_config.json");
-    const original = JSON.stringify({ mcpServers: { synara: { command: "user-owned" } } });
+    const original = JSON.stringify({ mcpServers: { saint: { command: "user-owned" } } });
     await writeFile(source, original);
-    await expect(createDevinSessionConfig(input)).rejects.toThrow("reserved 'synara'");
+    await expect(createDevinSessionConfig(input)).rejects.toThrow("reserved 'saint'");
     expect(await readFile(source, "utf8")).toBe(original);
   });
 
@@ -120,8 +120,8 @@ describe("createDevinSessionConfig", () => {
     expect(config.childEnvironment.APPDATA).toBe(config.root);
     expect(JSON.parse(await readFile(config.configPath, "utf8")).mcpServers).toMatchObject({
       github: { url: "https://example.test/mcp" },
-      synara: { transport: "stdio" },
+      saint: { transport: "stdio" },
     });
-    expect(await readFile(sourceConfig, "utf8")).not.toContain("synara");
+    expect(await readFile(sourceConfig, "utf8")).not.toContain("saint");
   });
 });

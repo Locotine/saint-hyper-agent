@@ -1,5 +1,5 @@
 // FILE: api/feedback/route.ts
-// Purpose: Receives explicit Synara feedback and delivers it to the maintainer through Resend.
+// Purpose: Receives explicit Saint feedback and delivers it to the maintainer through Resend.
 // Layer: App Router route handler (Node.js runtime)
 // Depends on: Server-only Resend, recipient, and verified sender configuration.
 
@@ -8,7 +8,7 @@ import { consumeFeedbackRateLimit } from "@/lib/feedbackRateLimit";
 export const runtime = "nodejs";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
-const DEFAULT_FROM_EMAIL = "Synara Feedback <feedback@trysynara.com>";
+const DEFAULT_FROM_EMAIL = "Saint Feedback <feedback@trysynara.com>";
 const MAX_REQUEST_BYTES = 64 * 1024;
 const MAX_DETAILS_LENGTH = 5_000;
 const SEND_TIMEOUT_MS = 15_000;
@@ -56,7 +56,7 @@ const DIAGNOSTIC_FIELDS = [
 function corsOrigin(request: Request): string | null {
   const origin = request.headers.get("origin");
   if (!origin) return null;
-  if (origin === "synara://app") return origin;
+  if (origin === "saint://app") return origin;
 
   try {
     const url = new URL(origin);
@@ -81,7 +81,7 @@ function responseHeaders(origin: string | null): HeadersInit {
       ? {
           "access-control-allow-origin": origin,
           "access-control-allow-methods": "POST, OPTIONS",
-          "access-control-allow-headers": "content-type, x-synara-feedback",
+          "access-control-allow-headers": "content-type, x-saint-feedback",
         }
       : {}),
   };
@@ -164,7 +164,7 @@ function escapeHtml(value: string): string {
 
 function diagnosticSummary(feedback: ParsedFeedback): string {
   const diagnostics = feedback.diagnostics;
-  return `I had this issue in Synara: version(${String(diagnostics.appVersion)}), provider: ${String(diagnostics.provider)}, model: ${String(diagnostics.model)}, runtime mode: ${String(diagnostics.runtimeMode)}, interaction mode: ${String(diagnostics.interactionMode)}, session: ${String(diagnostics.sessionStatus)}, latest turn: ${String(diagnostics.latestTurnState)}.`;
+  return `I had this issue in Saint: version(${String(diagnostics.appVersion)}), provider: ${String(diagnostics.provider)}, model: ${String(diagnostics.model)}, runtime mode: ${String(diagnostics.runtimeMode)}, interaction mode: ${String(diagnostics.interactionMode)}, session: ${String(diagnostics.sessionStatus)}, latest turn: ${String(diagnostics.latestTurnState)}.`;
 }
 
 function diagnosticsLines(diagnostics: Record<string, DiagnosticValue>): string[] {
@@ -173,7 +173,7 @@ function diagnosticsLines(diagnostics: Record<string, DiagnosticValue>): string[
 
 async function sendEmail(feedback: ParsedFeedback): Promise<string> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
-  const toEmail = process.env.SYNARA_FEEDBACK_TO_EMAIL?.trim();
+  const toEmail = process.env.SAINT_FEEDBACK_TO_EMAIL?.trim();
   if (!apiKey || !toEmail) throw new Error("Feedback delivery is not configured.");
 
   const categoryLabel = feedback.category ? CATEGORY_LABELS[feedback.category] : "General";
@@ -201,9 +201,9 @@ async function sendEmail(feedback: ParsedFeedback): Promise<string> {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env.SYNARA_FEEDBACK_FROM_EMAIL?.trim() || DEFAULT_FROM_EMAIL,
+        from: process.env.SAINT_FEEDBACK_FROM_EMAIL?.trim() || DEFAULT_FROM_EMAIL,
         to: [toEmail],
-        subject: `[Synara Feedback] ${categoryLabel} · v${String(feedback.diagnostics.appVersion)}`,
+        subject: `[Saint Feedback] ${categoryLabel} · v${String(feedback.diagnostics.appVersion)}`,
         text,
         html,
       }),
@@ -241,7 +241,7 @@ export async function POST(request: Request): Promise<Response> {
   if (requestOrigin && !allowedOrigin) {
     return jsonResponse({ error: "Origin is not allowed." }, 403, null);
   }
-  if (request.headers.get("x-synara-feedback") !== "1") {
+  if (request.headers.get("x-saint-feedback") !== "1") {
     return jsonResponse({ error: "Invalid feedback client." }, 400, allowedOrigin);
   }
 

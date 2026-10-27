@@ -2,7 +2,7 @@
 // Purpose: Makes provider startup phases, failures, timeout, cancellation, and cleanup explicit.
 // Layer: Provider runtime infrastructure
 
-import { ExecutableNotFoundError } from "@synara/shared/platformProcess";
+import { ExecutableNotFoundError } from "@saint/shared/platformProcess";
 import { Duration, Effect, Option } from "effect";
 
 export type ProviderStartupPhase =

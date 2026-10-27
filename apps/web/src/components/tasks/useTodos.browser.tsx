@@ -4,7 +4,7 @@ import {
   type Todo,
   type TodoListResult,
   type TodoStreamEvent,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { flushSync } from "react-dom";

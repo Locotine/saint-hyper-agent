@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { OrchestrationProject } from "@synara/contracts";
+import { OrchestrationProject } from "@saint/contracts";
 import { Cause, Effect, Exit, Option, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { makeProjectWorktreeGuard } from "./wsRpc";
@@ -21,7 +21,7 @@ const project = (root: string, additionalFolders: string[]) =>
 
 describe("project worktree admission", () => {
   it("refuses a canonical project's alias before Git can create an orphaned worktree", async () => {
-    const fixture = await fs.mkdtemp(path.join(os.tmpdir(), "synara-project-worktree-"));
+    const fixture = await fs.mkdtemp(path.join(os.tmpdir(), "saint-project-worktree-"));
     try {
       const primary = path.join(fixture, "primary");
       const alias = path.join(fixture, "alias");

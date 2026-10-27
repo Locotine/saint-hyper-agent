@@ -25,7 +25,7 @@ The integration also closes local correctness gaps: calibrated scrolling now pas
 
 The release manifest and checked-in patch define the current native revision. The driver adds a side-effect-free `check_input_ready` tool, exact target/bounds admission, and current-Space invalidation during an action. Matching held-key/button releases remain permitted after invalidation or Stop. The authenticated cleanup acknowledgement and replacement-generation barrier remain in place.
 
-Synara's exposed AXPress and set-value paths choose their actuator before writing. A failed or uncertain AXPress, selection, numeric write or increment/decrement does not trigger a second actuator. The untargeted Safari JavaScript fallback is removed. Text entry retains the adapter's forced synthetic route; this does not qualify every unused raw upstream tool path. Foreground activation remains subject to explicit action approval and final native target checks.
+Saint's exposed AXPress and set-value paths choose their actuator before writing. A failed or uncertain AXPress, selection, numeric write or increment/decrement does not trigger a second actuator. The untargeted Safari JavaScript fallback is removed. Text entry retains the adapter's forced synthetic route; this does not qualify every unused raw upstream tool path. Foreground activation remains subject to explicit action approval and final native target checks.
 
 Native target checks and macOS delivery are separate operations. They reduce stale-target exposure but do not make input atomic against simultaneous human/window activity. A new Space change can still occur between the last check and an OS call. Unknown effects remain unknown and are not replayed.
 
@@ -59,7 +59,7 @@ The initial integration did not run `bun fmt`, `bun lint` or `bun typecheck` bec
 
 Revisions 6–9 change driver internals only; the integration-layer guarantees above are unchanged. The authoritative descriptions live in the [patch README](../../apps/desktop/patches/cua-driver/README.md). Verified live on the packaged app (signed build, real provider turns):
 
-- **Rev 6** — per-element AX attributes fetched in one `AXUIElementCopyMultipleAttributeValues` IPC; `SYNARA_CUA_BACKGROUND_OBSERVATION_MS` bounds background post-action observation.
+- **Rev 6** — per-element AX attributes fetched in one `AXUIElementCopyMultipleAttributeValues` IPC; `SAINT_CUA_BACKGROUND_OBSERVATION_MS` bounds background post-action observation.
 - **Rev 7** — bounded parallel attribute fetch across sibling arrays, serial assembly order preserved: measured tree walks ~673 ms → ~207 ms on the test desktop.
 - **Rev 8** — `CUA_DRIVER_EMBEDDED_HOST_PID` liveness poll (`kill(pid, 0)`, 2 s) alongside stdin EOF; immune to leaked lifetime fds.
 - **Rev 9** — `catch_unwind` around the serve thread guarantees `exit(0)` runs; a panicking shutdown can no longer strand the process under the AppKit run loop.

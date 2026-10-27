@@ -7,7 +7,7 @@
 // Layer: Web hook
 // Exports: useStartGitHubItemThread, GitHubItemThreadAction
 
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 

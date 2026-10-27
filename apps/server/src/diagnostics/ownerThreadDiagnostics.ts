@@ -1,7 +1,7 @@
 import {
   ServerReadThreadDiagnosticsResult,
   type ServerReadThreadDiagnosticsInput,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Schema } from "effect";
 import {
   makeThreadDiagnosticPageReaders,

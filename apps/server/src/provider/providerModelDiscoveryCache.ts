@@ -9,7 +9,7 @@
 // Exports: makeProviderModelDiscoveryCache, ProviderModelDiscoveryCache,
 //          providerModelDiscoveryCacheKey, PROVIDER_MODEL_DISCOVERY_* defaults
 
-import type { ProviderListModelsInput, ProviderListModelsResult } from "@synara/contracts";
+import type { ProviderListModelsInput, ProviderListModelsResult } from "@saint/contracts";
 import { Deferred, Effect, Exit, Option } from "effect";
 
 import { ProviderAdapterRequestError } from "./Errors.ts";

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProviderChildEnvironment,
   registerProviderCredentialKey,
-  stripSynaraControlPlaneEnvironment,
+  stripSaintControlPlaneEnvironment,
   withoutProviderCredentialEnvironment,
 } from "./providerChildEnvironment";
 
@@ -24,33 +24,33 @@ it("gives launched programs no control-plane authority, injection hooks, or prov
   const parent = {
     PATH: "/usr/bin",
     APP_ENV: "development",
-    SYNARA_AUTH_TOKEN: "server-only",
-    Synara_Auth_Token: "windows-case-variant",
+    SAINT_AUTH_TOKEN: "server-only",
+    Saint_Auth_Token: "windows-case-variant",
     NODE_OPTIONS: "--require=/unrelated/preload.cjs",
     node_path: "/unrelated/modules",
     BUN_OPTIONS: "--preload=/unrelated/preload.ts",
     ELECTRON_RUN_AS_NODE: "1",
     OPENAI_API_KEY: "ambient-openai",
   };
-  expect(withoutProviderCredentialEnvironment(stripSynaraControlPlaneEnvironment(parent))).toEqual({
+  expect(withoutProviderCredentialEnvironment(stripSaintControlPlaneEnvironment(parent))).toEqual({
     PATH: "/usr/bin",
     APP_ENV: "development",
   });
-  expect(parent.SYNARA_AUTH_TOKEN).toBe("server-only");
+  expect(parent.SAINT_AUTH_TOKEN).toBe("server-only");
 });
 
 describe("buildProviderChildEnvironment", () => {
-  it("strips Synara control-plane and inherited native capabilities", () => {
+  it("strips Saint control-plane and inherited native capabilities", () => {
     const env = buildProviderChildEnvironment({
       provider: "antigravity",
       baseEnv: {
         PATH: "/usr/bin",
         HOME: "/home/test",
         GEMINI_API_KEY: "provider-key",
-        SYNARA_AUTH_TOKEN: "control-plane-secret",
-        SYNARA_BROWSER_USE_PIPE_PATH: "/tmp/browser.sock",
-        SYNARA_BROWSER_HOST_CAPABILITY: "private-desktop-capability",
-        SYNARA_BROWSER_HOST_CAPABILITY_FD: "3",
+        SAINT_AUTH_TOKEN: "control-plane-secret",
+        SAINT_BROWSER_USE_PIPE_PATH: "/tmp/browser.sock",
+        SAINT_BROWSER_HOST_CAPABILITY: "private-desktop-capability",
+        SAINT_BROWSER_HOST_CAPABILITY_FD: "3",
         NODE_OPTIONS: "--require=/tmp/inject.js",
         NODE_REPL_SANDBOX_ALLOWED_UNIX_SOCKETS: "/tmp/other.sock",
       },
@@ -67,16 +67,16 @@ describe("buildProviderChildEnvironment", () => {
     const env = buildProviderChildEnvironment({
       provider: "codex",
       baseEnv: {
-        SYNARA_AUTH_TOKEN: "control-plane-secret",
-        SYNARA_BROWSER_USE_PIPE_PATH: "/tmp/browser.sock",
+        SAINT_AUTH_TOKEN: "control-plane-secret",
+        SAINT_BROWSER_USE_PIPE_PATH: "/tmp/browser.sock",
         NODE_REPL_SANDBOX_ALLOWED_UNIX_SOCKETS: "/tmp/browser.sock",
       },
-      inheritedSynaraKeys: ["SYNARA_BROWSER_USE_PIPE_PATH"],
+      inheritedSaintKeys: ["SAINT_BROWSER_USE_PIPE_PATH"],
       inheritedNativeCapabilityKeys: ["NODE_REPL_SANDBOX_ALLOWED_UNIX_SOCKETS"],
     });
 
     expect(env).toEqual({
-      SYNARA_BROWSER_USE_PIPE_PATH: "/tmp/browser.sock",
+      SAINT_BROWSER_USE_PIPE_PATH: "/tmp/browser.sock",
       NODE_REPL_SANDBOX_ALLOWED_UNIX_SOCKETS: "/tmp/browser.sock",
     });
   });
@@ -87,7 +87,7 @@ describe("buildProviderChildEnvironment", () => {
       baseEnv: { PATH: "/usr/bin" },
       overrides: {
         OPENCODE_EXPERIMENTAL_WEBSOCKETS: "true",
-        SYNARA_AUTH_TOKEN: "overlaid-control-plane-secret",
+        SAINT_AUTH_TOKEN: "overlaid-control-plane-secret",
         NODE_OPTIONS: "--require=/tmp/inject.js",
       },
     });
@@ -160,11 +160,11 @@ describe("buildProviderChildEnvironment", () => {
       baseEnv: {
         XAI_API_KEY: "grok-secret",
         ANTHROPIC_API_KEY: "unrelated-secret",
-        SYNARA_AUTH_TOKEN: "control-plane-secret",
+        SAINT_AUTH_TOKEN: "control-plane-secret",
       },
     });
     const descendantScript =
-      "process.stdout.write(JSON.stringify({ xai: process.env.XAI_API_KEY, anthropic: process.env.ANTHROPIC_API_KEY, synara: process.env.SYNARA_AUTH_TOKEN }))";
+      "process.stdout.write(JSON.stringify({ xai: process.env.XAI_API_KEY, anthropic: process.env.ANTHROPIC_API_KEY, saint: process.env.SAINT_AUTH_TOKEN }))";
     const parentScript = `const { spawnSync } = require("node:child_process"); const result = spawnSync(process.execPath, ["-e", ${JSON.stringify(descendantScript)}], { env: process.env, encoding: "utf8" }); process.stdout.write(result.stdout); process.stderr.write(result.stderr); process.exit(result.status ?? 1);`;
     const result = spawnSync(process.execPath, ["-e", parentScript], {
       env,

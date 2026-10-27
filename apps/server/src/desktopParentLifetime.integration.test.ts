@@ -48,7 +48,7 @@ describePosix("desktop parent loss subprocess integration", () => {
   let fixtureDirectory: string;
   let bundledFixture: string;
   beforeAll(async () => {
-    fixtureDirectory = await fsPromises.mkdtemp(path.join(os.tmpdir(), "synara-parent-fixture-"));
+    fixtureDirectory = await fsPromises.mkdtemp(path.join(os.tmpdir(), "saint-parent-fixture-"));
     bundledFixture = path.join(fixtureDirectory, "backend.mjs");
     // Exercise the production Node runtime, including code requiring TS
     // transforms, rather than relying on Node's strip-only TypeScript loader.
@@ -60,7 +60,7 @@ describePosix("desktop parent loss subprocess integration", () => {
   it.each(["close", "crash", "stubborn"] as const)(
     "releases database ownership after %s without admitting a concurrent owner",
     async (mode) => {
-      const directory = await fsPromises.mkdtemp(path.join(os.tmpdir(), "synara-parent-lifetime-"));
+      const directory = await fsPromises.mkdtemp(path.join(os.tmpdir(), "saint-parent-lifetime-"));
       const dbPath = path.join(directory, "state.sqlite");
       const statePath = path.join(directory, "ready.json");
       const owner = spawn(

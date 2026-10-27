@@ -24,18 +24,18 @@ export const WS_STREAM_LIMITS = {
 } as const;
 
 export const WS_COMPATIBILITY_QUERY = {
-  clientBuild: "x-synara-client-build",
-  protocolEpoch: "x-synara-protocol-epoch",
-  protocolRevision: "x-synara-protocol-revision",
-  serverInstanceId: "x-synara-server-instance",
+  clientBuild: "x-saint-client-build",
+  protocolEpoch: "x-saint-protocol-epoch",
+  protocolRevision: "x-saint-protocol-revision",
+  serverInstanceId: "x-saint-server-instance",
 } as const;
 
 export const WS_NEGOTIATE_QUERY = {
-  clientBuild: "x-synara-client-build",
-  protocolEpoch: "x-synara-protocol-epoch",
-  minRevision: "x-synara-protocol-min-revision",
-  maxRevision: "x-synara-protocol-max-revision",
-  requiredCapability: "x-synara-required-capability",
+  clientBuild: "x-saint-client-build",
+  protocolEpoch: "x-saint-protocol-epoch",
+  minRevision: "x-saint-protocol-min-revision",
+  maxRevision: "x-saint-protocol-max-revision",
+  requiredCapability: "x-saint-required-capability",
 } as const;
 
 export const WS_GITHUB_PROJECT_PROVISIONING_CAPABILITY = "projects.github-provisioning";

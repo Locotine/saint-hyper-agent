@@ -5,7 +5,7 @@ import type {
   DesktopAudioInputDevice,
   DesktopAudioLevelSource,
   DesktopAudioLevelStatus,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 const MAX_HELPER_STDERR_CHARS = 4_000;
 const LIST_INPUTS_TIMEOUT_MS = 5_000;

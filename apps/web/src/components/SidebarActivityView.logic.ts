@@ -3,7 +3,7 @@
 // Exports: eligibility, stable ordering, settle helpers, the view-model builder, and the
 //          Priority ranking behind the section, the bell's dot, and "next needing attention".
 
-import type { ProjectId, ThreadId } from "@synara/contracts";
+import type { ProjectId, ThreadId } from "@saint/contracts";
 import type { SidebarThreadSummary } from "../types";
 import {
   hasUnseenCompletion,
@@ -305,7 +305,7 @@ export type ActivityScopeOption =
 
 /**
  * Scope menu entries: every real project with eligible activity, busiest first.
- * Project-less chats (chat/group-kind containers) collapse into ONE "Synara"
+ * Project-less chats (chat/group-kind containers) collapse into ONE "Saint"
  * entry instead of one look-alike row per hidden container project.
  */
 export function collectActivityScopeOptions(

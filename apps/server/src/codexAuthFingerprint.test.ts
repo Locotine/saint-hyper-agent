@@ -15,7 +15,7 @@ function fixture() {
   const homePath = path.join(root, "home");
   fs.mkdirSync(homePath);
   fs.writeFileSync(path.join(homePath, "config.toml"), 'cli_auth_credentials_store = "file"\n');
-  return { root, homePath, env: { CODEX_HOME: homePath, SYNARA_HOME: root } };
+  return { root, homePath, env: { CODEX_HOME: homePath, SAINT_HOME: root } };
 }
 
 describe("asynchronous Codex auth freshness", () => {

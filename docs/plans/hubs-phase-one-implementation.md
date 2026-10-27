@@ -40,7 +40,7 @@ Le verifiche automatiche coprono SQLite e filesystem reali, confini della saga c
 | Link locali della documentazione e `git diff --check`     | Pass                                                         |
 
 L'esecuzione diretta del pacchetto server con l'ambiente ereditato della sessione ha prodotto un
-timeout nel test del refresh provider. Con il runner ufficiale `bun run test --filter=@synara/cli`,
+timeout nel test del refresh provider. Con il runner ufficiale `bun run test --filter=@saint/cli`,
 che filtra quell'ambiente, sono passati sia i 110 casi ProviderHealth sia l'intera suite server.
 Non sono state modificate le logiche ProviderHealth per aggirare il test.
 

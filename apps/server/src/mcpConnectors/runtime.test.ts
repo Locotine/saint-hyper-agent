@@ -309,7 +309,7 @@ describe("McpConnectorRuntime.connect", () => {
     });
   });
 
-  it("explains vendors that refuse to register Synara", async () => {
+  it("explains vendors that refuse to register Saint", async () => {
     const harness = makeRuntime();
     mocks.probe.mockResolvedValue({
       kind: "oauth",
@@ -318,7 +318,7 @@ describe("McpConnectorRuntime.connect", () => {
     });
     mocks.auth.mockRejectedValue(new Error("HTTP 403: Forbidden"));
     await expect(harness.runtime.connect({ url: "https://mcp.vendor.com/mcp" })).rejects.toThrow(
-      "vendor.com did not let Synara register as an app (HTTP 403).",
+      "vendor.com did not let Saint register as an app (HTTP 403).",
     );
   });
 
@@ -450,7 +450,7 @@ describe("McpConnectorRuntime.completeAuthorization", () => {
     expect(outcome).toEqual({
       ok: false,
       title: "Linear was not connected",
-      message: "Linear did not authorize Synara: The user said no",
+      message: "Linear did not authorize Saint: The user said no",
     });
     expect(harness.runtime.list()).toEqual([]);
   });
@@ -755,7 +755,7 @@ describe("McpConnectorRuntime.forward", () => {
 
     expect(result.body).toMatchObject({
       value: {
-        error: { message: "Synara could not refresh access to Supabase. Try again shortly." },
+        error: { message: "Saint could not refresh access to Supabase. Try again shortly." },
       },
     });
     expect(harness.runtime.list()[0]?.status).toBe("connected");

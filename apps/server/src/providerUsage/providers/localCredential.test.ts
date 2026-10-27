@@ -14,7 +14,7 @@ const NOW_MS = 1_780_000_000_000;
 const tempDirs: string[] = [];
 
 function makeHome(): string {
-  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "synara-local-usage-"));
+  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-local-usage-"));
   tempDirs.push(homeDir);
   return homeDir;
 }

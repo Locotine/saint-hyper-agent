@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 it("reads visible OMP session messages and the last-used model", async () => {
-  const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "synara-omp-agent-"));
+  const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "saint-omp-agent-"));
   tempDirs.push(agentDir);
   const sessionDir = path.join(agentDir, "sessions", "-tmp-project");
   await fs.mkdir(sessionDir, { recursive: true });
@@ -37,7 +37,7 @@ it("reads visible OMP session messages and the last-used model", async () => {
           content: [
             {
               type: "text",
-              text: "<synara_host_context>workspace /tmp/project</synara_host_context>hello there",
+              text: "<saint_host_context>workspace /tmp/project</saint_host_context>hello there",
             },
           ],
           timestamp: 1,
@@ -102,7 +102,7 @@ it("reads visible OMP session messages and the last-used model", async () => {
 });
 
 it("returns null when the session id does not match a session file", async () => {
-  const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "synara-omp-agent-"));
+  const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "saint-omp-agent-"));
   tempDirs.push(agentDir);
   const sessionDir = path.join(agentDir, "sessions", "-tmp-project");
   await fs.mkdir(sessionDir, { recursive: true });
@@ -115,7 +115,7 @@ it("returns null when the session id does not match a session file", async () =>
 });
 
 it("rejects session ids that could traverse outside the sessions directory", async () => {
-  const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "synara-omp-agent-"));
+  const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "saint-omp-agent-"));
   tempDirs.push(agentDir);
 
   await expect(readOmpSessionHistory(agentDir, "../escape")).resolves.toBeNull();

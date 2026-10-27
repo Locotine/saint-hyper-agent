@@ -36,18 +36,18 @@ import {
   type ProviderInstanceId,
   type ProviderRuntimeEvent,
   type ProviderSession,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   mergeProviderStartOptions,
   providerStartOptionsFromInstance,
   type ResolvedProviderInstance,
   resolveModelSelectionInstanceId,
   resolveProviderInstance,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 import {
   providerSupportsAutoRuntimeMode,
   unsupportedAutoRuntimeModeMessage,
-} from "@synara/shared/runtimeMode";
+} from "@saint/shared/runtimeMode";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -64,7 +64,7 @@ import {
   Scope,
   Stream,
 } from "effect";
-import { nonEmptyTrimmed } from "@synara/shared/text";
+import { nonEmptyTrimmed } from "@saint/shared/text";
 import { computerApprovalGate } from "../../computer/ComputerApprovalGate.ts";
 
 import {
@@ -166,7 +166,7 @@ export interface ProviderServiceLiveOptions {
 const DEFAULT_PROVIDER_RUNTIME_IDLE_STOP_MS = 10 * 60 * 1000;
 export const PROVIDER_RUNTIME_EVENT_BUFFER_CAPACITY = 2_048;
 export const PROVIDER_RUNTIME_QUARANTINE_CAUSE_MAX_BYTES = 16 * 1024;
-const configuredProviderRuntimeIdleStopMs = process.env.SYNARA_PROVIDER_RUNTIME_IDLE_STOP_MS;
+const configuredProviderRuntimeIdleStopMs = process.env.SAINT_PROVIDER_RUNTIME_IDLE_STOP_MS;
 const PROVIDER_RUNTIME_IDLE_STOP_MS = Number.isFinite(Number(configuredProviderRuntimeIdleStopMs))
   ? Math.max(0, Number(configuredProviderRuntimeIdleStopMs))
   : DEFAULT_PROVIDER_RUNTIME_IDLE_STOP_MS;
@@ -306,7 +306,7 @@ function toRuntimePayloadFromSession(
     readonly modelSelection?: unknown;
     readonly providerOptions?: unknown;
     readonly enableComputerControl?: boolean;
-    readonly autoApproveSynaraTools?: boolean;
+    readonly autoApproveSaintTools?: boolean;
     /** Extra folders of a multi-folder project, so recovery restarts with the same grant. */
     readonly additionalDirectories?: ReadonlyArray<string>;
     readonly providerInstanceId?: string;
@@ -374,8 +374,8 @@ function toRuntimePayloadFromSession(
     ...(extra?.enableComputerControl !== undefined
       ? { enableComputerControl: extra.enableComputerControl }
       : {}),
-    ...(extra?.autoApproveSynaraTools !== undefined
-      ? { autoApproveSynaraTools: extra.autoApproveSynaraTools }
+    ...(extra?.autoApproveSaintTools !== undefined
+      ? { autoApproveSaintTools: extra.autoApproveSaintTools }
       : {}),
     ...(extra?.additionalDirectories !== undefined
       ? { additionalDirectories: [...extra.additionalDirectories] }
@@ -449,10 +449,10 @@ function readPersistedComputerControl(
   return runtimePayloadRecord(runtimePayload).enableComputerControl === true;
 }
 
-function readPersistedAutoApproveSynaraTools(
+function readPersistedAutoApproveSaintTools(
   runtimePayload: ProviderRuntimeBinding["runtimePayload"],
 ): boolean {
-  return runtimePayloadRecord(runtimePayload).autoApproveSynaraTools === true;
+  return runtimePayloadRecord(runtimePayload).autoApproveSaintTools === true;
 }
 
 function readPersistedAdditionalDirectories(
@@ -1589,7 +1589,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
         readonly modelSelection?: unknown;
         readonly providerOptions?: unknown;
         readonly enableComputerControl?: boolean;
-        readonly autoApproveSynaraTools?: boolean;
+        readonly autoApproveSaintTools?: boolean;
         readonly additionalDirectories?: ReadonlyArray<string>;
         readonly providerInstanceId?: string;
         readonly lastRuntimeEvent?: string;
@@ -2572,7 +2572,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
             }
 
             const persistedComputerControl = readPersistedComputerControl(binding.runtimePayload);
-            const persistedAutoApproveSynaraTools = readPersistedAutoApproveSynaraTools(
+            const persistedAutoApproveSaintTools = readPersistedAutoApproveSaintTools(
               binding.runtimePayload,
             );
             const persistedAdditionalDirectories = readPersistedAdditionalDirectories(
@@ -2594,7 +2594,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
               ...(resolved.modelSelection ? { modelSelection: resolved.modelSelection } : {}),
               ...(resolved.providerOptions ? { providerOptions: resolved.providerOptions } : {}),
               ...(persistedComputerControl ? { enableComputerControl: true } : {}),
-              ...(persistedAutoApproveSynaraTools ? { autoApproveSynaraTools: true } : {}),
+              ...(persistedAutoApproveSaintTools ? { autoApproveSaintTools: true } : {}),
               ...(persistedAdditionalDirectories.length > 0
                 ? { additionalDirectories: persistedAdditionalDirectories }
                 : {}),
@@ -2626,7 +2626,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
                 ...(resolved.modelSelection ? { modelSelection: resolved.modelSelection } : {}),
                 ...(resolved.providerOptions ? { providerOptions: resolved.providerOptions } : {}),
                 ...(persistedComputerControl ? { enableComputerControl: true } : {}),
-                ...(persistedAutoApproveSynaraTools ? { autoApproveSynaraTools: true } : {}),
+                ...(persistedAutoApproveSaintTools ? { autoApproveSaintTools: true } : {}),
                 additionalDirectories: persistedAdditionalDirectories,
                 launchOptionsAuthoritative: true,
               }).pipe(
@@ -2639,8 +2639,8 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
                         runtimePayload: {
                           [AGENT_GATEWAY_CREDENTIAL_ROTATION_REQUIRED]: false,
                           ...(persistedComputerControl ? { enableComputerControl: true } : {}),
-                          ...(persistedAutoApproveSynaraTools
-                            ? { autoApproveSynaraTools: true }
+                          ...(persistedAutoApproveSaintTools
+                            ? { autoApproveSaintTools: true }
                             : {}),
                         },
                       })
@@ -3246,10 +3246,10 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
                 (persistedBinding !== undefined && bindingMatchesResolvedInstance
                   ? readPersistedComputerControl(persistedBinding.runtimePayload)
                   : false);
-              const effectiveAutoApproveSynaraTools =
-                input.autoApproveSynaraTools ??
+              const effectiveAutoApproveSaintTools =
+                input.autoApproveSaintTools ??
                 (persistedBinding?.provider === input.provider
-                  ? readPersistedAutoApproveSynaraTools(persistedBinding.runtimePayload)
+                  ? readPersistedAutoApproveSaintTools(persistedBinding.runtimePayload)
                   : false);
               let replacementStarted = false;
               const startupLifecycle = new ProviderStartupLifecycle();
@@ -3268,7 +3268,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
                   provider: resolved.instance.driver,
                   providerInstanceId: resolved.instance.instanceId,
                   enableComputerControl: effectiveComputerControl,
-                  autoApproveSynaraTools: effectiveAutoApproveSynaraTools,
+                  autoApproveSaintTools: effectiveAutoApproveSaintTools,
                   lifecycleGeneration: lease.generation,
                   ...(resolved.modelSelection !== undefined
                     ? { modelSelection: resolved.modelSelection }
@@ -3373,7 +3373,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
                     providerOptions: effectiveProviderOptions,
                     providerInstanceId: resolved.instance.instanceId,
                     enableComputerControl: effectiveComputerControl,
-                    autoApproveSynaraTools: effectiveAutoApproveSynaraTools,
+                    autoApproveSaintTools: effectiveAutoApproveSaintTools,
                     additionalDirectories: input.additionalDirectories ?? [],
                     lifecycleGeneration: lease.generation,
                     launchOptionsAuthoritative: true,
@@ -3436,7 +3436,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
               const previousComputerControl = readPersistedComputerControl(
                 persistedBinding.runtimePayload,
               );
-              const previousAutoApproveSynaraTools = readPersistedAutoApproveSynaraTools(
+              const previousAutoApproveSaintTools = readPersistedAutoApproveSaintTools(
                 persistedBinding.runtimePayload,
               );
               const previousAdditionalDirectories = readPersistedAdditionalDirectories(
@@ -3450,8 +3450,8 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
               // previous binding's value is recycled with its generation.
               const restoredComputerControl =
                 input.enableComputerControl ?? previousComputerControl;
-              const restoredAutoApproveSynaraTools =
-                input.autoApproveSynaraTools ?? previousAutoApproveSynaraTools;
+              const restoredAutoApproveSaintTools =
+                input.autoApproveSaintTools ?? previousAutoApproveSaintTools;
               const previousCwd = readPersistedCwd(persistedBinding.runtimePayload);
               yield* previousAdapter.stopSession(threadId);
 
@@ -3483,9 +3483,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
                             ? { providerOptions: previousProviderOptions }
                             : {}),
                           ...(restoredComputerControl ? { enableComputerControl: true } : {}),
-                          ...(restoredAutoApproveSynaraTools
-                            ? { autoApproveSynaraTools: true }
-                            : {}),
+                          ...(restoredAutoApproveSaintTools ? { autoApproveSaintTools: true } : {}),
                           ...(previousAdditionalDirectories.length > 0
                             ? { additionalDirectories: previousAdditionalDirectories }
                             : {}),
@@ -3512,7 +3510,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
                             modelSelection: previousModelSelection,
                             providerOptions: previousProviderOptions,
                             enableComputerControl: restoredComputerControl,
-                            autoApproveSynaraTools: restoredAutoApproveSynaraTools,
+                            autoApproveSaintTools: restoredAutoApproveSaintTools,
                             additionalDirectories: previousAdditionalDirectories,
                             runtimePayload: {
                               providerOptionsCredentialsFingerprint:
@@ -3827,7 +3825,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
                 // The fork writes the thread's first binding row, so the flag
                 // must land here or resumeSession re-leases without it.
                 ...(input.enableComputerControl ? { enableComputerControl: true } : {}),
-                ...(input.autoApproveSynaraTools ? { autoApproveSynaraTools: true } : {}),
+                ...(input.autoApproveSaintTools ? { autoApproveSaintTools: true } : {}),
                 additionalDirectories: input.additionalDirectories ?? [],
                 lastRuntimeEvent: "provider.thread.forked",
                 lastRuntimeEventAt: new Date().toISOString(),

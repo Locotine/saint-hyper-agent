@@ -1,7 +1,7 @@
 import "../../index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ResolvedKeybindingRule } from "@synara/contracts";
+import type { ResolvedKeybindingRule } from "@saint/contracts";
 import { afterEach, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";

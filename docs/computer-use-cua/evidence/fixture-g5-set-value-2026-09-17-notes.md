@@ -3,7 +3,7 @@
 Machine: disposable VM (M4 Pro, macOS 26.5.2), fixture direct-exec'd under a
 TCC-responsible shell holding Accessibility + Screen Recording. Fixture bundle
 rebuilt from `apps/desktop/src/cuaFixtures/electron.ts` at this branch;
-`SYNARA_CUA_FIXTURE_FOREGROUND=approved-once` set (no operator on this VM).
+`SAINT_CUA_FIXTURE_FOREGROUND=approved-once` set (no operator on this VM).
 Report: `fixture-g5-set-value-2026-09-17.report.json`.
 
 ## Result — full fixture green

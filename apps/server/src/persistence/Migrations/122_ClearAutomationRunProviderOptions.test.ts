@@ -3,7 +3,7 @@
 // Layer: Persistence migration test.
 
 import { assert, it } from "@effect/vitest";
-import { AutomationRunId } from "@synara/contracts";
+import { AutomationRunId } from "@saint/contracts";
 import { Effect, Layer, Option } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
@@ -105,7 +105,7 @@ layer("122_ClearAutomationRunProviderOptions", (it) => {
         WHERE run_id = 'run-legacy-options'
       `;
       assert.deepStrictEqual(rows, [
-        { instanceId: "synara_unresolved_automation_codex", providerOptions: null },
+        { instanceId: "saint_unresolved_automation_codex", providerOptions: null },
       ]);
     }),
   );
@@ -179,7 +179,7 @@ layer("122_ClearAutomationRunProviderOptions", (it) => {
         {
           runId: "run-ambiguous-active",
           status: "interrupted",
-          instanceId: "synara_unresolved_automation_claudeAgent",
+          instanceId: "saint_unresolved_automation_claudeAgent",
           providerOptions: null,
           claimedBy: null,
           leaseExpiresAt: null,
@@ -187,7 +187,7 @@ layer("122_ClearAutomationRunProviderOptions", (it) => {
         {
           runId: "run-ambiguous-complete",
           status: "succeeded",
-          instanceId: "synara_unresolved_automation_claudeAgent",
+          instanceId: "saint_unresolved_automation_claudeAgent",
           providerOptions: null,
           claimedBy: null,
           leaseExpiresAt: null,
@@ -202,7 +202,7 @@ layer("122_ClearAutomationRunProviderOptions", (it) => {
       if (Option.isSome(decoded)) {
         assert.strictEqual(
           decoded.value.permissionSnapshot.modelSelection.instanceId,
-          "synara_unresolved_automation_claudeAgent",
+          "saint_unresolved_automation_claudeAgent",
         );
         assert.isUndefined(decoded.value.permissionSnapshot.providerOptions);
       }
@@ -255,7 +255,7 @@ layer("122_ClearAutomationRunProviderOptions", (it) => {
       assert.notInclude(rows[0]?.snapshot ?? "", "secret");
       assert.strictEqual(
         JSON.parse(rows[0]?.snapshot ?? "{}").modelSelection?.instanceId,
-        "synara_unresolved_automation_codex",
+        "saint_unresolved_automation_codex",
       );
       assert.isNotNull(rows[0]?.finishedAt ?? null);
 
@@ -268,7 +268,7 @@ layer("122_ClearAutomationRunProviderOptions", (it) => {
         assert.strictEqual(decoded.value.status, "interrupted");
         assert.strictEqual(
           decoded.value.permissionSnapshot.modelSelection.instanceId,
-          "synara_unresolved_automation_codex",
+          "saint_unresolved_automation_codex",
         );
         assert.deepStrictEqual(decoded.value.permissionSnapshot.allowedCapabilities, []);
       }

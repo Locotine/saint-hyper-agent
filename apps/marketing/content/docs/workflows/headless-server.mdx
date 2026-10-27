@@ -1,9 +1,9 @@
 ---
 title: Headless server
-description: Install Synara’s release tarball, run the web workspace without Electron, verify readiness, and expose it remotely only with deliberate authentication and transport controls.
+description: Install Saint’s release tarball, run the web workspace without Electron, verify readiness, and expose it remotely only with deliberate authentication and transport controls.
 ---
 
-Synara releases include `synara-server-<version>.tar.gz` for running the same local server and web client without the Electron desktop shell. Use it for a supervised local service, a dedicated development machine, or an environment where the desktop package is not appropriate.
+Saint releases include `saint-server-<version>.tar.gz` for running the same local server and web client without the Electron desktop shell. Use it for a supervised local service, a dedicated development machine, or an environment where the desktop package is not appropriate.
 
 The tarball is not a single static binary. It contains the built application, package metadata, and the source-shipped iOS device helper; install its production Node dependencies before starting it.
 
@@ -12,9 +12,9 @@ The tarball is not a single static binary. It contains the built application, pa
 - Node.js `22.19` or newer in the supported engine range
 - `npm` for installing the production dependencies
 - At least one supported provider CLI installed and authenticated for the service account
-- A private directory for Synara state
+- A private directory for Saint state
 
-Provider credentials and model access still belong to the provider runtime. Running the headless package does not create a Synara-hosted account or move provider authentication into the tarball.
+Provider credentials and model access still belong to the provider runtime. Running the headless package does not create a Saint-hosted account or move provider authentication into the tarball.
 
 ## Install the release tarball
 
@@ -23,7 +23,7 @@ Provider credentials and model access still belong to the provider runtime. Runn
 
 ### Download the matching release asset
 
-Open the official [GitHub release](https://github.com/Emanuele-web04/synara/releases) and download `synara-server-<version>.tar.gz` for the exact Synara version you intend to run.
+Open the official [GitHub release](https://github.com/Emanuele-web04/synara/releases) and download `saint-server-<version>.tar.gz` for the exact Saint version you intend to run.
 
 </Step>
 <Step>
@@ -31,9 +31,9 @@ Open the official [GitHub release](https://github.com/Emanuele-web04/synara/rele
 ### Extract it into a dedicated directory
 
 ```bash
-mkdir synara-server
-tar -xzf synara-server-0.7.3.tar.gz -C synara-server
-cd synara-server
+mkdir saint-server
+tar -xzf saint-server-0.7.3.tar.gz -C saint-server
+cd saint-server
 ```
 
 The extracted root contains only `dist/` and `package.json`.
@@ -55,10 +55,10 @@ Keep the generated dependency directory beside the extracted `package.json` and 
 ### Start loopback-only first
 
 ```bash
-node dist/index.mjs --no-browser --home-dir /absolute/path/to/synara-data
+node dist/index.mjs --no-browser --home-dir /absolute/path/to/saint-data
 ```
 
-Synara binds to `127.0.0.1` unless you explicitly choose a different host. The data directory stores server state separately from the extracted application, which makes replacing the release files safer.
+Saint binds to `127.0.0.1` unless you explicitly choose a different host. The data directory stores server state separately from the extracted application, which makes replacing the release files safer.
 
 </Step>
 </Steps>
@@ -68,46 +68,46 @@ Synara binds to `127.0.0.1` unless you explicitly choose a different host. The d
 From the extracted directory, probe the runtime associated with the same data directory:
 
 ```bash
-node dist/index.mjs server status --home-dir /absolute/path/to/synara-data
+node dist/index.mjs server status --home-dir /absolute/path/to/saint-data
 ```
 
-The status command discovers the persisted runtime origin, verifies that it is the Synara process recorded for that data directory, calls `/health`, and reports whether startup and projection are ready. It exits non-zero when discovery, identity verification, reachability, or readiness fails.
+The status command discovers the persisted runtime origin, verifies that it is the Saint process recorded for that data directory, calls `/health`, and reports whether startup and projection are ready. It exits non-zero when discovery, identity verification, reachability, or readiness fails.
 
 For machine-readable output:
 
 ```bash
-node dist/index.mjs server status --home-dir /absolute/path/to/synara-data --json
+node dist/index.mjs server status --home-dir /absolute/path/to/saint-data --json
 ```
 
 To probe a specific HTTP(S) origin instead of discovering one:
 
 ```bash
-node dist/index.mjs server status --url "$SYNARA_SERVER_ORIGIN" --json
+node dist/index.mjs server status --url "$SAINT_SERVER_ORIGIN" --json
 ```
 
 An explicit URL must use HTTP or HTTPS and cannot contain embedded credentials.
 
 ## Choose the data directory deliberately
 
-Pass `--home-dir` consistently to the server, status checks, and any External MCP bridge. Different data directories are different Synara installations: they have separate projects, tasks, settings, runtime identity, and integration credentials.
+Pass `--home-dir` consistently to the server, status checks, and any External MCP bridge. Different data directories are different Saint installations: they have separate projects, tasks, settings, runtime identity, and integration credentials.
 
-Do not point two live Synara servers at the same data directory. Do not store the data directory inside a repository an agent can rewrite.
+Do not point two live Saint servers at the same data directory. Do not store the data directory inside a repository an agent can rewrite.
 
 ## Remote access is opt-in
 
 The safe default is loopback-only. Binding a wildcard or non-loopback address requires an authentication token and one of these explicit transport decisions:
 
-- Set `--public-url "$SYNARA_PUBLIC_URL"` to an HTTPS origin when a trusted reverse proxy terminates TLS.
+- Set `--public-url "$SAINT_PUBLIC_URL"` to an HTTPS origin when a trusted reverse proxy terminates TLS.
 - Set `--allow-insecure-remote` only for an authenticated connection on a trusted private network where plaintext transport is a deliberate risk acceptance.
 
-Prefer service-manager environment variables for secrets instead of placing a token in shell history. The corresponding variables are `SYNARA_AUTH_TOKEN`, `SYNARA_PUBLIC_URL`, `SYNARA_HOST`, and `SYNARA_ALLOW_INSECURE_REMOTE`.
+Prefer service-manager environment variables for secrets instead of placing a token in shell history. The corresponding variables are `SAINT_AUTH_TOKEN`, `SAINT_PUBLIC_URL`, `SAINT_HOST`, and `SAINT_ALLOW_INSECURE_REMOTE`.
 
 <Callout type="warn" title="Do not publish the raw server port">
   A successful loopback launch is not permission to forward the port to the internet. Configure
   authentication and trusted TLS termination before changing the bind host.
 </Callout>
 
-Remote access disables Synara’s loopback-only External MCP HTTP endpoint. External MCP clients should normally remain local and use their paired stdio launcher; see [External MCP](/docs/workflows/external-mcp).
+Remote access disables Saint’s loopback-only External MCP HTTP endpoint. External MCP clients should normally remain local and use their paired stdio launcher; see [External MCP](/docs/workflows/external-mcp).
 
 ## Updating a headless installation
 
@@ -119,7 +119,7 @@ Remote access disables Synara’s loopback-only External MCP HTTP endpoint. Exte
 6. Start it with the same `--home-dir` and access policy.
 7. Run `server status` and complete one small task before removing the previous application directory.
 
-Do not overwrite the state directory with files from the tarball. Application files and Synara data have separate lifecycles.
+Do not overwrite the state directory with files from the tarball. Application files and Saint data have separate lifecycles.
 
 ## Completion checklist
 

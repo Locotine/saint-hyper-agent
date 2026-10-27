@@ -320,7 +320,7 @@ export class BetterwrightCdpTarget {
       if (method === "Page.bringToFront" && !this.childSessions.has(sessionId!)) return {};
       // Never take native focus for agent input. CDP delivers input to a native
       // page's own widget without it, and on macOS/Linux webContents.focus()
-      // also raises Synara's window. Whatever the user was typing elsewhere
+      // also raises Saint's window. Whatever the user was typing elsewhere
       // then lands in the agent page and reads as a human takeover. Guests
       // still need DOM focus, scoped below. Restore only focus owned by a
       // still-active dispatch; teardown must never undo a later human takeover.

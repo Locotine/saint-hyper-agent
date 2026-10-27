@@ -111,7 +111,7 @@ try {
   }
   assert.match(
     homepage,
-    /<title>Synara — AI Coding Workspace for Claude Code, Codex &amp; Cursor<\/title>/,
+    /<title>Saint — AI Coding Workspace for Claude Code, Codex &amp; Cursor<\/title>/,
   );
   assert.match(
     homepage,
@@ -122,9 +122,9 @@ try {
   assert.ok(homepage.includes('"@type":"FAQPage"'));
 
   const install = await readRoute("/install", /text\/html/i);
-  assert.ok(install.includes("Download Synara"));
+  assert.ok(install.includes("Download Saint"));
   assert.ok(install.includes("coding-agent runtime already authenticated"));
-  assert.match(install, /<title>Download Synara — Coding Agent Workspace<\/title>/);
+  assert.match(install, /<title>Download Saint — Coding Agent Workspace<\/title>/);
 
   const docs = await readRoute("/docs", /text\/html/i);
   assert.match(
@@ -139,8 +139,8 @@ try {
   assert.ok(docs.includes('"@type":"BreadcrumbList"'), "docs page is missing breadcrumb JSON-LD");
 
   const docsIndexMarkdown = await readRoute("/docs.md", /text\/markdown/i);
-  assert.ok(docsIndexMarkdown.includes("# Synara documentation"));
-  assert.ok(docsIndexMarkdown.includes("## What is Synara?"));
+  assert.ok(docsIndexMarkdown.includes("# Saint documentation"));
+  assert.ok(docsIndexMarkdown.includes("## What is Saint?"));
 
   const { body: docsMarkdown, response: docsMarkdownResponse } = await getRoute(
     "/docs/providers/claude-code.md",

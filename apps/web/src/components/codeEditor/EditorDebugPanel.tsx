@@ -7,7 +7,7 @@
 //             header-control primitives.
 
 import { useEffect, useId, useState } from "react";
-import type { EditorDebugActionResult, EditorDebugFrame } from "@synara/contracts";
+import type { EditorDebugActionResult, EditorDebugFrame } from "@saint/contracts";
 
 import {
   ArrowDownIcon,

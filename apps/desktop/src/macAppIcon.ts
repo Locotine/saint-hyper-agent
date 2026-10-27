@@ -6,7 +6,7 @@ import * as Crypto from "node:crypto";
 import * as FS from "node:fs/promises";
 import * as Path from "node:path";
 
-import { execProcessFile } from "@synara/shared/processRuntime";
+import { execProcessFile } from "@saint/shared/processRuntime";
 
 import {
   bundleSignatureFromStats,

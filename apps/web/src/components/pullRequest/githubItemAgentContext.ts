@@ -10,7 +10,7 @@ import type {
   ProjectId,
   PullRequestDetail,
   ThreadSidechatContext,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import type { GitHubItemCardSource } from "~/components/chat/environment/environmentPullRequest.logic";
 import { pullRequestStateLabel } from "./PullRequestStateGlyph";

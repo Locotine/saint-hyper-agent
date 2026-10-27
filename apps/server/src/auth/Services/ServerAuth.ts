@@ -11,7 +11,7 @@ import type {
   AuthWebSocketTokenResult,
   ServerAuthDescriptor,
   ServerAuthSessionMethod,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Data, DateTime, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -89,5 +89,5 @@ export interface ServerAuthShape {
 }
 
 export class ServerAuth extends ServiceMap.Service<ServerAuth, ServerAuthShape>()(
-  "synara/auth/Services/ServerAuth",
+  "saint/auth/Services/ServerAuth",
 ) {}

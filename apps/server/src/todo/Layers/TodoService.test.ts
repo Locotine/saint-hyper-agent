@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId, TodoId, type TodoStreamEvent } from "@synara/contracts";
+import { ProjectId, ThreadId, TodoId, type TodoStreamEvent } from "@saint/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Exit, Layer, Queue, Stream } from "effect";
 

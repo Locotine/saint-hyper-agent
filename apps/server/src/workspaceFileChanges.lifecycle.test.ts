@@ -20,7 +20,7 @@ afterEach(async () => {
 });
 
 it("watches only one parent, coalesces a burst at 100ms, and closes on cancellation", async () => {
-  workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "synara-watch-lifecycle-"));
+  workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "saint-watch-lifecycle-"));
   await fs.writeFile(path.join(workspaceRoot, "target.ts"), "contents");
   let notify: ((kind: string, filename: string | null) => void) | undefined;
   class TestWatcher extends EventEmitter implements FSWatcher {

@@ -1,4 +1,4 @@
-import type { ProviderRuntimeEvent } from "@synara/contracts";
+import type { ProviderRuntimeEvent } from "@saint/contracts";
 import { isDeepStrictEqual } from "node:util";
 
 export const PROVIDER_RUNTIME_TEXT_BATCH_WINDOW_MS = 25;

@@ -1,4 +1,4 @@
-import type { ProjectDigestFocusItem } from "@synara/contracts";
+import type { ProjectDigestFocusItem } from "@saint/contracts";
 
 export function wakeReceiptRequestId(input: {
   readonly projectId: string;

@@ -1,5 +1,5 @@
 /**
- * Public contracts for the Synara agent-control gateway.
+ * Public contracts for the Saint agent-control gateway.
  *
  * New gateway tools decode these schemas before doing any work. Keeping the
  * limits here ensures the MCP surface, server implementation, and tests share
@@ -13,11 +13,11 @@ import { ProviderModelDescriptor } from "./providerDiscovery";
 import { ProviderInstanceId } from "./providerInstance";
 import { ServerProviderAuthStatus } from "./server";
 
-export const SYNARA_GATEWAY_MAX_THREADS_PER_OPERATION = 20;
-export const SYNARA_GATEWAY_MAX_REQUEST_ID_LENGTH = 256;
-export const SYNARA_GATEWAY_MAX_WAIT_MS = 60_000;
+export const SAINT_GATEWAY_MAX_THREADS_PER_OPERATION = 20;
+export const SAINT_GATEWAY_MAX_REQUEST_ID_LENGTH = 256;
+export const SAINT_GATEWAY_MAX_WAIT_MS = 60_000;
 
-export const SynaraGatewayErrorCode = Schema.Literals([
+export const SaintGatewayErrorCode = Schema.Literals([
   "caller_session_inactive",
   "caller_turn_inactive",
   "capability_denied",
@@ -31,23 +31,23 @@ export const SynaraGatewayErrorCode = Schema.Literals([
   "wait_timed_out",
   "operation_failed",
 ]);
-export type SynaraGatewayErrorCode = typeof SynaraGatewayErrorCode.Type;
+export type SaintGatewayErrorCode = typeof SaintGatewayErrorCode.Type;
 
-export const SynaraGatewayError = Schema.Struct({
-  code: SynaraGatewayErrorCode,
+export const SaintGatewayError = Schema.Struct({
+  code: SaintGatewayErrorCode,
   message: Schema.String,
   details: Schema.optional(Schema.Unknown),
 });
-export type SynaraGatewayError = typeof SynaraGatewayError.Type;
+export type SaintGatewayError = typeof SaintGatewayError.Type;
 
-export const SynaraGatewayErrorResult = Schema.Struct({
-  error: SynaraGatewayError,
+export const SaintGatewayErrorResult = Schema.Struct({
+  error: SaintGatewayError,
 });
-export type SynaraGatewayErrorResult = typeof SynaraGatewayErrorResult.Type;
+export type SaintGatewayErrorResult = typeof SaintGatewayErrorResult.Type;
 
-export const SynaraContextResult = Schema.Struct({
+export const SaintContextResult = Schema.Struct({
   harness: Schema.Struct({
-    name: Schema.Literal("Synara"),
+    name: Schema.Literal("Saint"),
     policyVersion: Schema.String,
   }),
   caller: Schema.Struct({
@@ -63,9 +63,9 @@ export const SynaraContextResult = Schema.Struct({
     automations: Schema.Boolean,
   }),
 });
-export type SynaraContextResult = typeof SynaraContextResult.Type;
+export type SaintContextResult = typeof SaintContextResult.Type;
 
-export const SynaraCreateThreadSpec = Schema.Struct({
+export const SaintCreateThreadSpec = Schema.Struct({
   prompt: Schema.String.check(Schema.isNonEmpty()),
   contextMessageIds: Schema.optional(
     Schema.Array(Schema.String.check(Schema.isNonEmpty())).check(Schema.isMaxLength(16)),
@@ -93,82 +93,82 @@ export const SynaraCreateThreadSpec = Schema.Struct({
   // It authorizes nothing and is not part of task identity.
   routingReason: Schema.optional(Schema.String.check(Schema.isMaxLength(500))),
 });
-export type SynaraCreateThreadSpec = typeof SynaraCreateThreadSpec.Type;
+export type SaintCreateThreadSpec = typeof SaintCreateThreadSpec.Type;
 
-const SynaraGatewayRequestId = Schema.String.check(Schema.isNonEmpty()).check(
-  Schema.isMaxLength(SYNARA_GATEWAY_MAX_REQUEST_ID_LENGTH),
+const SaintGatewayRequestId = Schema.String.check(Schema.isNonEmpty()).check(
+  Schema.isMaxLength(SAINT_GATEWAY_MAX_REQUEST_ID_LENGTH),
 );
 
-export const SynaraCreateThreadsInput = Schema.Struct({
-  requestId: SynaraGatewayRequestId,
-  threads: Schema.Array(SynaraCreateThreadSpec)
+export const SaintCreateThreadsInput = Schema.Struct({
+  requestId: SaintGatewayRequestId,
+  threads: Schema.Array(SaintCreateThreadSpec)
     .check(Schema.isMinLength(1))
-    .check(Schema.isMaxLength(SYNARA_GATEWAY_MAX_THREADS_PER_OPERATION)),
+    .check(Schema.isMaxLength(SAINT_GATEWAY_MAX_THREADS_PER_OPERATION)),
 }).annotate({ parseOptions: { onExcessProperty: "error" } });
-export type SynaraCreateThreadsInput = typeof SynaraCreateThreadsInput.Type;
+export type SaintCreateThreadsInput = typeof SaintCreateThreadsInput.Type;
 
-export const SynaraProviderInstanceCatalog = Schema.Struct({
+export const SaintProviderInstanceCatalog = Schema.Struct({
   instanceId: ProviderInstanceId,
   displayName: Schema.String.check(Schema.isNonEmpty()),
   isDefault: Schema.Boolean,
   enabled: Schema.Boolean,
 });
-export type SynaraProviderInstanceCatalog = typeof SynaraProviderInstanceCatalog.Type;
+export type SaintProviderInstanceCatalog = typeof SaintProviderInstanceCatalog.Type;
 
-export const SynaraProviderCatalog = Schema.Struct({
+export const SaintProviderCatalog = Schema.Struct({
   provider: ProviderKind,
   defaultModel: Schema.NullOr(Schema.String),
   models: Schema.Array(ProviderModelDescriptor),
   // Optional for older MCP clients that decode a capability response from a
   // server predating provider-instance discovery. Current servers always emit
   // the field, including an empty array when no extra instances are configured.
-  instances: Schema.optional(Schema.Array(SynaraProviderInstanceCatalog)),
+  instances: Schema.optional(Schema.Array(SaintProviderInstanceCatalog)),
   enabled: Schema.Boolean,
   available: Schema.Boolean,
   authStatus: Schema.optional(ServerProviderAuthStatus),
   source: Schema.optional(Schema.String),
   error: Schema.optional(Schema.String),
 });
-export type SynaraProviderCatalog = typeof SynaraProviderCatalog.Type;
+export type SaintProviderCatalog = typeof SaintProviderCatalog.Type;
 
-export const SynaraGatewayTargetOptionValue = Schema.Union([
+export const SaintGatewayTargetOptionValue = Schema.Union([
   Schema.String,
   Schema.Number,
   Schema.Boolean,
 ]);
-export type SynaraGatewayTargetOptionValue = typeof SynaraGatewayTargetOptionValue.Type;
+export type SaintGatewayTargetOptionValue = typeof SaintGatewayTargetOptionValue.Type;
 
-export const SynaraGatewayTargetOptionRule = Schema.Struct({
+export const SaintGatewayTargetOptionRule = Schema.Struct({
   key: Schema.String,
   valueType: Schema.Literals(["string", "number", "boolean"]),
-  allowedValues: Schema.Array(SynaraGatewayTargetOptionValue),
+  allowedValues: Schema.Array(SaintGatewayTargetOptionValue),
   allowedValuesSource: Schema.Literals(["provider-contract", "model-discovery"]),
 });
-export type SynaraGatewayTargetOptionRule = typeof SynaraGatewayTargetOptionRule.Type;
+export type SaintGatewayTargetOptionRule = typeof SaintGatewayTargetOptionRule.Type;
 
-export const SynaraGatewayTargetConstruction = Schema.Struct({
+export const SaintGatewayTargetConstruction = Schema.Struct({
   modelValueSource: Schema.Literal("providers[].models[].slug"),
   primaryOptionKey: Schema.String,
   alternativeOptionKeys: Schema.Array(Schema.String),
   optionSelectionRule: Schema.String,
-  providerOptions: Schema.Array(SynaraGatewayTargetOptionRule),
-  optionsByModel: Schema.Record(Schema.String, Schema.Array(SynaraGatewayTargetOptionRule)),
+  providerOptions: Schema.Array(SaintGatewayTargetOptionRule),
+  optionsByModel: Schema.Record(Schema.String, Schema.Array(SaintGatewayTargetOptionRule)),
   exampleTarget: Schema.NullOr(ModelSelection),
 });
-export type SynaraGatewayTargetConstruction = typeof SynaraGatewayTargetConstruction.Type;
+export type SaintGatewayTargetConstruction = typeof SaintGatewayTargetConstruction.Type;
 
-export const SynaraCapabilitiesResult = Schema.Struct({
-  targetConstruction: Schema.Record(Schema.String, SynaraGatewayTargetConstruction),
-  providers: Schema.Array(SynaraProviderCatalog),
+export const SaintCapabilitiesResult = Schema.Struct({
+  targetConstruction: Schema.Record(Schema.String, SaintGatewayTargetConstruction),
+  providers: Schema.Array(SaintProviderCatalog),
   limits: Schema.Struct({
     maxThreadsPerOperation: Schema.Int,
     maxWaitMs: Schema.Int,
     oneCreationPlanPerActiveTurn: Schema.Boolean,
   }),
 });
-export type SynaraCapabilitiesResult = typeof SynaraCapabilitiesResult.Type;
+export type SaintCapabilitiesResult = typeof SaintCapabilitiesResult.Type;
 
-export const SynaraCreatedThreadResult = Schema.Struct({
+export const SaintCreatedThreadResult = Schema.Struct({
   index: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   threadId: ThreadId,
   projectId: ProjectId,
@@ -185,36 +185,36 @@ export const SynaraCreatedThreadResult = Schema.Struct({
   link: Schema.optional(Schema.String),
   status: Schema.Literal("task_dispatched"),
 });
-export type SynaraCreatedThreadResult = typeof SynaraCreatedThreadResult.Type;
+export type SaintCreatedThreadResult = typeof SaintCreatedThreadResult.Type;
 
-export const SynaraCreateThreadsResult = Schema.Struct({
+export const SaintCreateThreadsResult = Schema.Struct({
   operationId: Schema.String,
-  requestId: SynaraGatewayRequestId,
+  requestId: SaintGatewayRequestId,
   requestedCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   createdCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   threadIds: Schema.Array(ThreadId),
-  threads: Schema.Array(SynaraCreatedThreadResult),
+  threads: Schema.Array(SaintCreatedThreadResult),
 });
-export type SynaraCreateThreadsResult = typeof SynaraCreateThreadsResult.Type;
+export type SaintCreateThreadsResult = typeof SaintCreateThreadsResult.Type;
 
-export const SynaraWaitForThreadsInput = Schema.Struct({
+export const SaintWaitForThreadsInput = Schema.Struct({
   threadIds: Schema.Array(ThreadId)
     .check(Schema.isMinLength(1))
-    .check(Schema.isMaxLength(SYNARA_GATEWAY_MAX_THREADS_PER_OPERATION)),
+    .check(Schema.isMaxLength(SAINT_GATEWAY_MAX_THREADS_PER_OPERATION)),
   runIds: Schema.optional(
     Schema.Array(Schema.NullOr(TurnId)).check(
-      Schema.isMaxLength(SYNARA_GATEWAY_MAX_THREADS_PER_OPERATION),
+      Schema.isMaxLength(SAINT_GATEWAY_MAX_THREADS_PER_OPERATION),
     ),
   ),
   timeoutMs: Schema.optional(
     Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).check(
-      Schema.isLessThanOrEqualTo(SYNARA_GATEWAY_MAX_WAIT_MS),
+      Schema.isLessThanOrEqualTo(SAINT_GATEWAY_MAX_WAIT_MS),
     ),
   ),
 }).annotate({ parseOptions: { onExcessProperty: "error" } });
-export type SynaraWaitForThreadsInput = typeof SynaraWaitForThreadsInput.Type;
+export type SaintWaitForThreadsInput = typeof SaintWaitForThreadsInput.Type;
 
-export const SynaraWaitedThreadResult = Schema.Struct({
+export const SaintWaitedThreadResult = Schema.Struct({
   threadId: ThreadId,
   runId: Schema.NullOr(TurnId),
   state: Schema.Literals(["idle", "pending", "running", "completed", "error", "interrupted"]),
@@ -224,17 +224,17 @@ export const SynaraWaitedThreadResult = Schema.Struct({
   summaryTruncated: Schema.Boolean,
   error: Schema.NullOr(Schema.String),
   readThread: Schema.Struct({
-    tool: Schema.Literal("synara_read_thread"),
+    tool: Schema.Literal("saint_read_thread"),
     arguments: Schema.Struct({ threadId: ThreadId }),
   }),
 });
-export type SynaraWaitedThreadResult = typeof SynaraWaitedThreadResult.Type;
+export type SaintWaitedThreadResult = typeof SaintWaitedThreadResult.Type;
 
-export const SynaraWaitForThreadsResult = Schema.Struct({
+export const SaintWaitForThreadsResult = Schema.Struct({
   callerThreadId: ThreadId,
   runIds: Schema.Array(Schema.NullOr(TurnId)),
   allTerminal: Schema.Boolean,
   timedOut: Schema.Boolean,
-  threads: Schema.Array(SynaraWaitedThreadResult),
+  threads: Schema.Array(SaintWaitedThreadResult),
 });
-export type SynaraWaitForThreadsResult = typeof SynaraWaitForThreadsResult.Type;
+export type SaintWaitForThreadsResult = typeof SaintWaitForThreadsResult.Type;

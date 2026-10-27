@@ -5,7 +5,7 @@
 // Layer: UI shared component/helper
 // Exports: ConnectorIcon, createConnectorIconElement
 
-import { defaultMcpConnectorName, MCP_CONNECTOR_PRESETS } from "@synara/shared/mcpConnectors";
+import { defaultMcpConnectorName, MCP_CONNECTOR_PRESETS } from "@saint/shared/mcpConnectors";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {

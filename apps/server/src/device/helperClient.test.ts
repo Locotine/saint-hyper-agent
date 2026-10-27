@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { decodeDeviceFrame, encodeDeviceFrame } from "@synara/shared/deviceFrame";
+import { decodeDeviceFrame, encodeDeviceFrame } from "@saint/shared/deviceFrame";
 
 import {
   DeviceFramePrefixParser,

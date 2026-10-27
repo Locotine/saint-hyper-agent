@@ -290,6 +290,8 @@ import {
 import {
   ProjectCreateLocalFilePreviewGrantInput,
   ProjectCreateLocalFilePreviewGrantResult,
+  ProjectCreateHtmlPreviewGrantInput,
+  ProjectCreateHtmlPreviewGrantResult,
   ProjectDevServerEvent,
   ProjectDiscoverScriptsInput,
   ProjectDiscoverScriptsResult,
@@ -483,6 +485,15 @@ export const WsOrchestrationGetTurnDiffRpc = Rpc.make(ORCHESTRATION_WS_METHODS.g
   success: OrchestrationRpcSchemas.getTurnDiff.output,
   error: WsRpcError,
 });
+
+export const WsOrchestrationGetThreadTranscriptRpc = Rpc.make(
+  ORCHESTRATION_WS_METHODS.getThreadTranscript,
+  {
+    payload: OrchestrationRpcSchemas.getThreadTranscript.input,
+    success: OrchestrationRpcSchemas.getThreadTranscript.output,
+    error: WsRpcError,
+  },
+);
 
 export const WsOrchestrationGetInlineVisualRpc = Rpc.make(
   ORCHESTRATION_WS_METHODS.getInlineVisual,
@@ -689,6 +700,15 @@ export const WsProjectsCreateLocalFilePreviewGrantRpc = Rpc.make(
   {
     payload: ProjectCreateLocalFilePreviewGrantInput,
     success: ProjectCreateLocalFilePreviewGrantResult,
+    error: WsRpcError,
+  },
+);
+
+export const WsProjectsCreateHtmlPreviewGrantRpc = Rpc.make(
+  WS_METHODS.projectsCreateHtmlPreviewGrant,
+  {
+    payload: ProjectCreateHtmlPreviewGrantInput,
+    success: ProjectCreateHtmlPreviewGrantResult,
     error: WsRpcError,
   },
 );
@@ -1988,6 +2008,7 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsOrchestrationGetTurnDiffRpc,
   WsOrchestrationGetFullThreadDiffRpc,
   WsOrchestrationGetInlineVisualRpc,
+  WsOrchestrationGetThreadTranscriptRpc,
   WsOrchestrationReplayEventsRpc,
   WsOrchestrationListProviderDeliveryBlockersRpc,
   WsOrchestrationReconcileProviderDeliveryRpc,
@@ -2012,6 +2033,7 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsProjectsResolveWorkspaceFileReferencesRpc,
   WsProjectsResolveOutOfRootFileReferenceRpc,
   WsProjectsCreateLocalFilePreviewGrantRpc,
+  WsProjectsCreateHtmlPreviewGrantRpc,
   WsProjectsWriteFileRpc,
   WsProjectsRunDevServerRpc,
   WsProjectsStopDevServerRpc,

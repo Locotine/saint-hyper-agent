@@ -2,7 +2,7 @@
 
 ## Decision
 
-Keep the repaired Synara authority/provider/transport/UI stack and one pinned Cua native backend. The implementation demonstrates feasibility for a GUI-hosted macOS integration. **It is not qualified for general release.** Required native cancellation guarantees, simultaneous human-input behavior, a signed production host and broader target coverage remain open.
+Keep the repaired Saint authority/provider/transport/UI stack and one pinned Cua native backend. The implementation demonstrates feasibility for a GUI-hosted macOS integration. **It is not qualified for general release.** Required native cancellation guarantees, simultaneous human-input behavior, a signed production host and broader target coverage remain open.
 
 The selection order is correctness and permission attribution, required application/mode coverage, maintainability, then measured cost. This work does not establish that Cua is faster than the Swift proposal. It also does not retain Swift as a silent fallback.
 
@@ -11,7 +11,7 @@ The selection order is correctness and permission attribution, required applicat
 | Boundary                 | Evidence                                                                                                                       | Practical limit                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
 | Driver provenance        | Release archive checksum, executable version, copied license/provenance; pinned source inspected                               | No independently reproduced Rust build                                                      |
-| GUI ownership            | Real Electron fixture launching embedded native child; native permission source identifies the host and responsible parent     | Ad-hoc fixture, not production Synara signing/notarization                                  |
+| GUI ownership            | Real Electron fixture launching embedded native child; native permission source identifies the host and responsible parent     | Ad-hoc fixture, not production Saint signing/notarization                                   |
 | Desktop startup          | Desktop bundle build; actual isolated server startup after fixing the desktop identity export                                  | Isolated web server cannot confer native GUI authority                                      |
 | Provider authority       | Focused gateway, registry, manager and provider approval tests; real gateway-handler-to-native fixture                         | Caller context is controlled; no paid provider end-to-end turn against the desktop was sent |
 | Off / queued input       | Revocation captured at submission; off/on and archive/restore regression cases                                                 | Native in-flight held-input cleanup is still unproven                                       |
@@ -24,7 +24,7 @@ The selection order is correctness and permission attribution, required applicat
 
 Only owned fixtures were eligible input targets. The runner required exact PID, window title and native window ID. Permission setup was explicitly authorized by the user, and authentication remained with the user.
 
-The initial successful Electron run used host PID 64563, driver PID 64580, window A 3046 and sibling B 3047. A background click produced exactly one application-owned counter increment. The returned driver verification was insufficient, so Synara correctly reported an uncertain delivery rather than asserting success from dispatch alone. The fixture's independent counter established the observed effect.
+The initial successful Electron run used host PID 64563, driver PID 64580, window A 3046 and sibling B 3047. A background click produced exactly one application-owned counter increment. The returned driver verification was insufficient, so Saint correctly reported an uncertain delivery rather than asserting success from dispatch alone. The fixture's independent counter established the observed effect.
 
 With both same-PID windows open, Cua refused keyboard input with `same_pid_keyboard_ambiguity`. After target close, Cua refused with `off_space_or_ax_unresolved`. Inspection of the actual replies established the native refusal discriminator (`structuredContent.effect === "refused"`); the adapter was corrected to map these to `not-dispatched`. The original run's old adapter had conservatively returned `dispatched-unknown`, so its report is not evidence of the corrected mapping. Focused regression cases cover that mapping.
 
@@ -77,7 +77,7 @@ Run 12 also exposed variability in the original Electron cases: its AX-routed cl
 ### Permission findings
 
 - Placing the ad-hoc bundle only in a temporary directory left LaunchServices unable to resolve its identity reliably. An installed copy in `~/Applications` and explicit registration resolved that test setup problem.
-- A different ad-hoc code signature can leave a stale TCC grant. Only the fixture's Accessibility and ScreenCapture entries were reset/re-added, with explicit authorization; personal Synara grants were untouched.
+- A different ad-hoc code signature can leave a stale TCC grant. Only the fixture's Accessibility and ScreenCapture entries were reset/re-added, with explicit authorization; personal Saint grants were untouched.
 - Launching `Contents/MacOS/Electron` directly from the shell caused Screen Recording to be attributed to the Codex responsibility chain and returned false. Launching the actual bundle through LaunchServices obtained the fixture's own grants.
 - A bundle-ID environment variable is not a substitute for real GUI hosting. The native result and TCC diagnostic attribution were checked rather than trusting a settings switch alone.
 - System Settings' AX modal can be reported even when the user does not see it on their current desktop. Authentication was confirmed by the user and subsequent state changes, not inferred from that AX result.
@@ -114,13 +114,13 @@ Run 13 kept the native overlay but tried its documented `--glide-ms 50 --dwell-m
 
 The [official release list](https://github.com/trycua/cua/releases), checked on 7 September 2026, still lists 0.24.0 as the newest driver release. No newer published driver was available there to qualify these gaps; the pin was retained.
 
-In the pinned source, a plain background coordinate click can return after successful `AXPress`, with its effect still unverified. Its public arguments provide no switch to force synthetic pixel delivery. Changing click count or modifiers would change the requested action, so Synara does not use that as a workaround. See [`platform-macos/src/tools/click.rs`](https://github.com/trycua/cua/blob/4b3396d9fe4bd3cf723b0eb8db83c18a8764b520/libs/cua-driver/rust/crates/platform-macos/src/tools/click.rs#L890).
+In the pinned source, a plain background coordinate click can return after successful `AXPress`, with its effect still unverified. Its public arguments provide no switch to force synthetic pixel delivery. Changing click count or modifiers would change the requested action, so Saint does not use that as a workaround. See [`platform-macos/src/tools/click.rs`](https://github.com/trycua/cua/blob/4b3396d9fe4bd3cf723b0eb8db83c18a8764b520/libs/cua-driver/rust/crates/platform-macos/src/tools/click.rs#L890).
 
 `end_session` may defer cleanup until an in-flight action finishes. Graceful daemon shutdown drains session/runtime state, but this does not establish held-input release: the native typing loop posts key down, waits, then posts key up. Forced termination can interrupt that sequence. These are source findings, not a native cancellation pass. See [`session_tools.rs`](https://github.com/trycua/cua/blob/4b3396d9fe4bd3cf723b0eb8db83c18a8764b520/libs/cua-driver/rust/crates/cua-driver-core/src/session_tools.rs#L446), [`serve.rs`](https://github.com/trycua/cua/blob/4b3396d9fe4bd3cf723b0eb8db83c18a8764b520/libs/cua-driver/rust/crates/cua-driver/src/serve.rs#L1399), and [`input/keyboard.rs`](https://github.com/trycua/cua/blob/4b3396d9fe4bd3cf723b0eb8db83c18a8764b520/libs/cua-driver/rust/crates/platform-macos/src/input/keyboard.rs#L54).
 
 ## Verification ledger
 
-Temporary logs are under `/private/tmp/synara-cua-implementation/`. Counts overlap; do not sum them into a purported repository-wide total.
+Temporary logs are under `/private/tmp/saint-cua-implementation/`. Counts overlap; do not sum them into a purported repository-wide total.
 
 | Run                                                                                                                        | Result                                                                                                                                                                                             |
 | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -148,15 +148,15 @@ Temporary logs are under `/private/tmp/synara-cua-implementation/`. Counts overl
 | `server-integration-final-tests.log`: Computer, gateway, runtime ingestion, startup pending interactions and Codex manager | All 45 selected files passed: 887 passed, 2 skipped. Local socket access was permitted; no real desktop input was issued. This is the integration selection, not the entire repository test suite. |
 | `bun fmt`, `bun lint`, `bun typecheck`                                                                                     | **Not run: explicitly not authorized. Required repository gates remain outstanding.**                                                                                                              |
 
-The isolated development server was stopped after verification; ports 58317 and 9860 had no listeners. Fixture runs completed their teardown. The installed fixture and preserved prior builds remain available for review; no user Synara instance was stopped. `git diff --check` passed.
+The isolated development server was stopped after verification; ports 58317 and 9860 had no listeners. Fixture runs completed their teardown. The installed fixture and preserved prior builds remain available for review; no user Saint instance was stopped. `git diff --check` passed.
 
 ## Release gates
 
 1. **Held-input cancellation:** Cua 0.24.0 exposes no cooperative cancel/held-key-release endpoint suitable for this adapter. Terminating and awaiting its process prevents later native admission, but cannot prove that every key/button down already posted to the OS receives a matching release. Do not claim Stop rolls back input or guarantees this cleanup. Qualify an upstream mechanism or narrow/remove operations that require the missing guarantee before release.
-2. **Atomic target validity:** Synara rejects known moved/closed/out-of-bounds targets, but the last check and native dispatch are separate. Qualify rapid move/resize/close/Space transitions and do not describe the current checks as an atomic fence.
+2. **Atomic target validity:** Saint rejects known moved/closed/out-of-bounds targets, but the last check and native dispatch are separate. Qualify rapid move/resize/close/Space transitions and do not describe the current checks as an atomic fence.
 3. **Human desktop interference:** background mode does not promise unchanged focus or input isolation. Test simultaneous human typing, app switching and pointer movement only in an explicitly arranged safe session. No personal application was used as an input target here.
 4. **Native/application coverage:** resolve variable Electron background click/text delivery; qualify remaining required application, drag/modifier and error cases. AppKit click and explicitly approved Electron foreground text now have passing native evidence. Refusals are valid outcomes but do not count as supported input coverage.
-5. **Production host lifecycle:** build/sign/notarize the actual Synara host; grant, restart, revoke/regrant, upgrade and crash it. The current ad-hoc fixture establishes only part of this path.
+5. **Production host lifecycle:** build/sign/notarize the actual Saint host; grant, restart, revoke/regrant, upgrade and crash it. The current ad-hoc fixture establishes only part of this path.
 6. **Display/OS matrix and cost:** diagnose the observed 3.23 GiB driver RSS peak. Mixed scale, secondary monitor, Spaces, relevant macOS versions and load behavior remain unqualified. Measure stable percentiles and incremental resource cost only after required correctness passes.
 7. **Repository gates:** execute the required formatting, lint and type checks when authorized, fix any findings and then complete the appropriate final checks. No merge-ready claim is made.
 
@@ -164,8 +164,8 @@ The isolated development server was stopped after verification; ports 58317 and 
 
 | Concern                   | Current Cua integration                                     | Reviewed Swift proposal                                                                           |
 | ------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Synara policy/ownership   | Repaired shared stack remains responsible                   | Needs the same shared repairs; changing language does not solve authority                         |
-| Native maintenance        | Reuses pinned Cua app policies and native implementation    | Synara would own more private input/observation behavior                                          |
+| Saint policy/ownership    | Repaired shared stack remains responsible                   | Needs the same shared repairs; changing language does not solve authority                         |
+| Native maintenance        | Reuses pinned Cua app policies and native implementation    | Saint would own more private input/observation behavior                                           |
 | Ambiguous effects         | Explicit effects; no automatic retry                        | The reviewed path had replay after uncertain native verification; it must be repaired if retained |
 | Retirement                | Await actual child exit before replacement                  | Reviewed early replacement admission was a demonstrated defect                                    |
 | Held-key cleanup          | Unqualified after forced termination                        | Must also be demonstrated; do not assume Swift fixes it                                           |

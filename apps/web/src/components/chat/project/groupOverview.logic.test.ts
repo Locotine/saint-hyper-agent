@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { AutomationDefinition, ProjectId, type ProjectTask, ThreadId } from "@synara/contracts";
+import { AutomationDefinition, ProjectId, type ProjectTask, ThreadId } from "@saint/contracts";
 
 import { useStore } from "../../../store";
 import type { SidebarThreadSummary } from "../../../types";

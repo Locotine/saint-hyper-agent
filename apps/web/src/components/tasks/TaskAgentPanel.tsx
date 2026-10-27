@@ -6,8 +6,8 @@
 // Layer: Tasks UI component
 // Exports: TaskAgentPanel
 
-import { PROVIDER_DISPLAY_NAMES, type ThreadId, type TodoUpdateInput } from "@synara/contracts";
-import { formatModelDisplayName } from "@synara/shared/model";
+import { PROVIDER_DISPLAY_NAMES, type ThreadId, type TodoUpdateInput } from "@saint/contracts";
+import { formatModelDisplayName } from "@saint/shared/model";
 
 import ChatMarkdown from "~/components/ChatMarkdown";
 import { ComposerPendingApprovalPanel } from "~/components/chat/ComposerPendingApprovalPanel";

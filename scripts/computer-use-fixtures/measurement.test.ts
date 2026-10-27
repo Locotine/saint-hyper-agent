@@ -67,7 +67,7 @@ function fixtures() {
 
 function reader(input: ReturnType<typeof fixtures>, pageSize = 25): DiagnosticToolCaller {
   return async (name, args) => {
-    const runtime = name === "synara_read_thread_runtime_events";
+    const runtime = name === "saint_read_thread_runtime_events";
     const all = runtime ? input.runtime : input.journal;
     const end = typeof args.cursor === "string" ? Number(args.cursor) : all.length;
     const start = Math.max(0, end - pageSize);

@@ -1,9 +1,9 @@
 ---
 title: Cursor
-description: Install, authenticate, verify, and run Cursor Agent through Synara.
+description: Install, authenticate, verify, and run Cursor Agent through Saint.
 ---
 
-Synara connects to Cursor’s terminal agent runtime rather than embedding the Cursor editor. Cursor owns the account, model access, and agent service; Synara provides the surrounding task, working directory, transcript, approvals, Git review, and delivery workflow.
+Saint connects to Cursor’s terminal agent runtime rather than embedding the Cursor editor. Cursor owns the account, model access, and agent service; Saint provides the surrounding task, working directory, transcript, approvals, Git review, and delivery workflow.
 
 ## Install
 
@@ -13,7 +13,7 @@ Install Cursor Agent with Cursor’s official installer:
 curl https://cursor.com/install -fsS | bash
 ```
 
-Synara looks for the `cursor-agent` executable. Verify it after installation:
+Saint looks for the `cursor-agent` executable. Verify it after installation:
 
 ```bash
 cursor-agent --version
@@ -35,7 +35,7 @@ Check the current state with:
 cursor-agent status
 ```
 
-For automation, Cursor Agent can also use `CURSOR_API_KEY`. Keep API keys in environment variables or secure secret storage, not in project files, documentation, or Synara prompts.
+For automation, Cursor Agent can also use `CURSOR_API_KEY`. Keep API keys in environment variables or secure secret storage, not in project files, documentation, or Saint prompts.
 
 ## Verify
 
@@ -53,23 +53,23 @@ cd /path/to/test-repository
 cursor-agent
 ```
 
-Ask a harmless read-only question. This verifies the executable, account, model service, and repository access before Synara is involved.
+Ask a harmless read-only question. This verifies the executable, account, model service, and repository access before Saint is involved.
 
-## Connect to Synara
+## Connect to Saint
 
 <Steps>
 <Step>
 
 ### Enable Cursor
 
-Open provider settings and confirm that Synara detects Cursor Agent.
+Open provider settings and confirm that Saint detects Cursor Agent.
 
 </Step>
 <Step>
 
 ### Confirm the executable
 
-Synara prefers `cursor-agent`. It can also resolve supported Cursor launcher paths and a configured custom executable. Avoid a generic `agent` command unless it is known to belong to Cursor.
+Saint prefers `cursor-agent`. It can also resolve supported Cursor launcher paths and a configured custom executable. Avoid a generic `agent` command unless it is known to belong to Cursor.
 
 </Step>
 <Step>
@@ -88,19 +88,19 @@ Use a clean test repository and review the selected model, permissions, and envi
 </Step>
 </Steps>
 
-## Capabilities in Synara
+## Capabilities in Saint
 
 Cursor sessions can expose:
 
 - Cursor’s available model catalog
 - Tool calls, terminal commands, and file changes
 - Approval and permission events supported by the runtime
-- Session output through Synara’s shared conversation view
+- Session output through Saint’s shared conversation view
 - Custom binary selection
 - Cursor account and usage health where available
 - Task-level Git, terminal, browser, diff, and pull-request workflows
 
-Synara does not currently classify Cursor Agent as supporting native live-turn steering. Use the controls shown in the active task rather than assuming a follow-up can always be injected into an already-running Cursor turn.
+Saint does not currently classify Cursor Agent as supporting native live-turn steering. Use the controls shown in the active task rather than assuming a follow-up can always be injected into an already-running Cursor turn.
 
 Cursor’s own rules, MCP configuration, permissions, and account settings remain provider-owned and can change session behavior.
 
@@ -112,7 +112,7 @@ Cursor Agent attempts to update automatically. You can also update it explicitly
 cursor-agent update
 ```
 
-Restart Synara after updating or replacing the executable.
+Restart Saint after updating or replacing the executable.
 
 ## Troubleshooting
 
@@ -120,16 +120,16 @@ Restart Synara after updating or replacing the executable.
 
 1. Run `cursor-agent --version` from a fresh terminal.
 2. Confirm `~/.local/bin` or the installer directory is on `PATH`.
-3. Check that Synara is not pointing at an old custom path.
-4. Restart Synara after installation or shell-profile changes.
+3. Check that Saint is not pointing at an old custom path.
+4. Restart Saint after installation or shell-profile changes.
 
 ### Cursor is detected but not authenticated
 
-Run `cursor-agent status`, then `cursor-agent login`. For API-key authentication, verify that `CURSOR_API_KEY` is available to the process that launches Synara.
+Run `cursor-agent status`, then `cursor-agent login`. For API-key authentication, verify that `CURSOR_API_KEY` is available to the process that launches Saint.
 
 ### The wrong executable is used
 
-Cursor installations may expose `cursor-agent`, the `cursor` editor launcher, or older launcher layouts. Point Synara at the intended Cursor-owned executable and avoid unrelated commands named `agent`.
+Cursor installations may expose `cursor-agent`, the `cursor` editor launcher, or older launcher layouts. Point Saint at the intended Cursor-owned executable and avoid unrelated commands named `agent`.
 
 ### Models differ from the Cursor editor
 

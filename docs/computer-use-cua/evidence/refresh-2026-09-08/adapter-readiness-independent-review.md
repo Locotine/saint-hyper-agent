@@ -1,6 +1,6 @@
 # Independent Cua readiness and Space-pause review
 
-Read-only source review of current adapter/protocol against `/private/tmp/synara-best-integration/before`; no native input, capture, build or test execution. Native revision 2 implementation was still in progress at the first pass.
+Read-only source review of current adapter/protocol against `/private/tmp/saint-best-integration/before`; no native input, capture, build or test execution. Native revision 2 implementation was still in progress at the first pass.
 
 ## Current adapter and host result
 
@@ -15,7 +15,7 @@ No must-fix regression found in the changes inspected.
 
 ## Evidence and final parity checks
 
-Observed existing log `/private/tmp/synara-best-integration/cua-adapter-tests.log` records 24 passing adapter tests. I inspected the new test bodies rather than rerunning them. They cover exact readiness success/wrong ID/false reply, invisible target pause with continued observation, native refusal versus uncertain transport effect, and a drag moving after capture.
+Observed existing log `/private/tmp/saint-best-integration/cua-adapter-tests.log` records 24 passing adapter tests. I inspected the new test bodies rather than rerunning them. They cover exact readiness success/wrong ID/false reply, invisible target pause with continued observation, native refusal versus uncertain transport effect, and a drag moving after capture.
 
 Useful focused additions before finalizing: native readiness Space-refusal mapping through `checkInputReady`, and successful approved drag forwarding its captured expected bounds. The existing move test proves refusal but not the successful drag argument shape.
 

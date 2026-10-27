@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, realpath, rm, stat, symlink, writeFile } from
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative } from "node:path";
 
-import type { BrowserCssSelector } from "@synara/contracts";
+import type { BrowserCssSelector } from "@saint/contracts";
 import type { WebContents } from "electron";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -23,7 +23,7 @@ vi.mock("electron", () => ({
 const temporaryDirectories: string[] = [];
 
 const workspaceFixture = async () => {
-  const base = await mkdtemp(join(tmpdir(), "synara-browser-upload-"));
+  const base = await mkdtemp(join(tmpdir(), "saint-browser-upload-"));
   temporaryDirectories.push(base);
   const workspaceRoot = join(base, "workspace");
   await mkdir(join(workspaceRoot, "fixtures"), { recursive: true });
@@ -55,7 +55,7 @@ const createRuntime = (
       if (expression.includes("const matches = []")) {
         return { result: { value: { count: 1, generation: 1 } } };
       }
-      if (expression.includes("globalThis.__synaraBrowserAutomationV1.currentTarget")) {
+      if (expression.includes("globalThis.__saintBrowserAutomationV1.currentTarget")) {
         return { result: { objectId: "file-input", subtype: "node" } };
       }
     }

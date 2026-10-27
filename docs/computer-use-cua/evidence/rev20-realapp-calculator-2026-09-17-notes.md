@@ -6,7 +6,7 @@ a53aca2e440161a2776a255fa8a9c856ddb4dada69927fd5bab08fc6b936623b
 apps/desktop/resources/cua-driver/cua-driver (sha256
 601382877c7af04543a32959ddff31743425a8d4fdfc4d1d5529d5c1f03589c4) served
 by the same external trusted host as the Notes run (capability ≥ 32
-chars, endpoint synara-cua-cyREYK/host.sock).
+chars, endpoint saint-cua-cyREYK/host.sock).
 
 Target: a fresh Calculator instance launched `open -g -n -a Calculator`
 (pid 30509, window_id 775, "Calculator", 230x408 at 350,559,

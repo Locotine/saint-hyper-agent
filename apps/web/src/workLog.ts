@@ -14,34 +14,31 @@ import {
   type ToolLifecycleItemType,
   type TurnId,
   type UserInputQuestion,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Option, Schema } from "effect";
 import {
   decodeSubagentAgentStates,
   extractSubagentIdentityHints,
   decodeSubagentReceiverAgents,
   decodeSubagentReceiverThreadIds,
-} from "@synara/shared/subagents";
+} from "@saint/shared/subagents";
 import {
   approvalRequestKindFromRequestType,
   pendingRequestInstanceKey,
   type ApprovalRequestKind,
-} from "@synara/shared/threadSummary";
-import {
-  stripTrailingToolExitCode,
-  summarizeToolRawOutput,
-} from "@synara/shared/toolOutputSummary";
-import { pluralize, stripTerminalControlSequences } from "@synara/shared/text";
-import { suppressCoordinatorCheckinMessages } from "@synara/shared/coordinatorCheckin";
-import { PROVIDER_DESCRIPTORS } from "@synara/shared/providerMetadata";
+} from "@saint/shared/threadSummary";
+import { stripTrailingToolExitCode, summarizeToolRawOutput } from "@saint/shared/toolOutputSummary";
+import { pluralize, stripTerminalControlSequences } from "@saint/shared/text";
+import { suppressCoordinatorCheckinMessages } from "@saint/shared/coordinatorCheckin";
+import { PROVIDER_DESCRIPTORS } from "@saint/shared/providerMetadata";
 import {
   deriveReadableToolTitle,
-  deriveSynaraMcpToolTitle,
+  deriveSaintMcpToolTitle,
   extractMcpServerName,
   isGenericToolTitle,
   normalizeCompactToolLabel,
   normalizeToolTextForComparison,
-  type SynaraMcpToolStatus,
+  type SaintMcpToolStatus,
 } from "./lib/toolCallLabel";
 import { toolArgumentSummaryToolName } from "./lib/toolArgumentSummary";
 import { computerToolName, describeComputerToolCall } from "./lib/computerToolPresentation";
@@ -125,10 +122,10 @@ export interface WorkLogComputerSetupRequired {
    */
   buildSignature?: ComputerBuildSignature;
   /**
-   * The app macOS files this Synara's grants against, when a desktop shell told
+   * The app macOS files this Saint's grants against, when a desktop shell told
    * the server which flavor it is. The card's `tccutil` advice names it, and
    * absent means that advice is withheld rather than guessed — a guessed
-   * identifier resets a different Synara's grants.
+   * identifier resets a different Saint's grants.
    */
   bundleId?: string;
 }
@@ -155,7 +152,7 @@ export interface WorkLogEntry {
   /** MCP server that served the call; picks the row's icon (connector, brand). */
   mcpServer?: string;
   toolCallId?: string;
-  toolStatus?: SynaraMcpToolStatus;
+  toolStatus?: SaintMcpToolStatus;
   liveActivity?: WorkLogLiveActivity;
   toolDetails?: WorkLogToolDetails;
   itemType?: ToolLifecycleItemType;
@@ -166,11 +163,11 @@ export interface WorkLogEntry {
   // it as the subagent card (see SubagentRunCard.logic.ts).
   subagentRun?: WorkLogSubagentRun;
   automation?: WorkLogAutomation;
-  synaraThreadCreation?: WorkLogSynaraThreadCreation;
+  saintThreadCreation?: WorkLogSaintThreadCreation;
   // Deterministic coordinator-monitor rows (worker settled / stuck /
   // batch roll-up) render as compact centered pills in the coordinator
   // conversation, each carrying a link into the reported thread.
-  synaraWorkerNotice?: WorkLogSynaraWorkerNotice;
+  saintWorkerNotice?: WorkLogSaintWorkerNotice;
   // Completion notices and Monitor updates both anchor the response they woke.
   monitorNotification?: {
     taskId: string;
@@ -201,7 +198,7 @@ export interface WorkLogEntry {
   // renders as a question/answer exchange that stays visible outside the
   // collapsed turn instead of as two bare "User input" log lines.
   userInputExchange?: ReadonlyArray<WorkLogUserInputExchangeItem>;
-  // A visual the agent published with `synara_show_visual`. Like an answered
+  // A visual the agent published with `saint_show_visual`. Like an answered
   // question, it renders as its own row that stays visible outside the
   // collapsed turn; the document is fetched by id when the row mounts.
   inlineVisual?: InlineVisualActivityPayload;
@@ -255,7 +252,7 @@ export interface WorkLogComputerControlDenied {
   toolName: string | null;
 }
 
-export interface WorkLogSynaraCreatedThread {
+export interface WorkLogSaintCreatedThread {
   threadId: string;
   title: string;
   provider: ProviderKind;
@@ -264,14 +261,14 @@ export interface WorkLogSynaraCreatedThread {
   status: string;
 }
 
-export interface WorkLogSynaraThreadCreation {
+export interface WorkLogSaintThreadCreation {
   operationId: string;
   requestedCount: number;
   createdCount: number;
-  threads: ReadonlyArray<WorkLogSynaraCreatedThread>;
+  threads: ReadonlyArray<WorkLogSaintCreatedThread>;
 }
 
-export interface WorkLogSynaraWorkerNoticeThread {
+export interface WorkLogSaintWorkerNoticeThread {
   threadId: string;
   title: string;
   outcome: string | null;
@@ -313,12 +310,12 @@ export interface WorkLogSubagentProgress {
   outcome?: "completed" | "failed" | "stopped";
 }
 
-export interface WorkLogSynaraWorkerNotice {
+export interface WorkLogSaintWorkerNotice {
   kind: "settled" | "stuck" | "needs-you" | "rollup";
   marker: string | null;
   phrase: string | null;
-  threads: ReadonlyArray<WorkLogSynaraWorkerNoticeThread>;
-  /** Synara-native action ids on a needs-you card (retry / stop / open). */
+  threads: ReadonlyArray<WorkLogSaintWorkerNoticeThread>;
+  /** Saint-native action ids on a needs-you card (retry / stop / open). */
   actions?: ReadonlyArray<"retry" | "stop" | "open">;
 }
 
@@ -1266,10 +1263,10 @@ function shouldKeepActivityForWorkLog(
   // coordinator conversation is all turns, so the turn filter would hide every
   // settle/stuck/roll-up pill.
   if (
-    activity.kind === "synara.worker.settled" ||
-    activity.kind === "synara.worker.stuck" ||
-    activity.kind === "synara.worker.needs-you" ||
-    activity.kind === "synara.workers.settled"
+    activity.kind === "saint.worker.settled" ||
+    activity.kind === "saint.worker.stuck" ||
+    activity.kind === "saint.worker.needs-you" ||
+    activity.kind === "saint.workers.settled"
   ) {
     return true;
   }
@@ -1356,9 +1353,9 @@ function extractWorkLogAutomation(
   };
 }
 
-function extractWorkLogSynaraThreadCreation(
+function extractWorkLogSaintThreadCreation(
   payload: Record<string, unknown> | null,
-): WorkLogSynaraThreadCreation | null {
+): WorkLogSaintThreadCreation | null {
   if (!payload) {
     return null;
   }
@@ -1367,7 +1364,7 @@ function extractWorkLogSynaraThreadCreation(
   if (!operationId || rawThreads.length === 0) {
     return null;
   }
-  const threads = rawThreads.flatMap((value): WorkLogSynaraCreatedThread[] => {
+  const threads = rawThreads.flatMap((value): WorkLogSaintCreatedThread[] => {
     const thread = asRecord(value);
     const threadId = asTrimmedString(thread?.threadId);
     const title = asTrimmedString(thread?.title);
@@ -1403,18 +1400,18 @@ function extractWorkLogSynaraThreadCreation(
   return { operationId, requestedCount, createdCount, threads };
 }
 
-function extractWorkLogSynaraWorkerNotice(
+function extractWorkLogSaintWorkerNotice(
   payload: Record<string, unknown> | null,
   activityKind: OrchestrationThreadActivity["kind"],
-): WorkLogSynaraWorkerNotice | null {
+): WorkLogSaintWorkerNotice | null {
   if (!payload || payload.source !== "worker_monitor") {
     return null;
   }
-  const parseThreads = (values: unknown): WorkLogSynaraWorkerNoticeThread[] => {
+  const parseThreads = (values: unknown): WorkLogSaintWorkerNoticeThread[] => {
     if (!Array.isArray(values)) {
       return [];
     }
-    return values.flatMap((value): WorkLogSynaraWorkerNoticeThread[] => {
+    return values.flatMap((value): WorkLogSaintWorkerNoticeThread[] => {
       const thread = asRecord(value);
       const threadId = asTrimmedString(thread?.threadId);
       const title = asTrimmedString(thread?.title);
@@ -1433,14 +1430,14 @@ function extractWorkLogSynaraWorkerNotice(
       ];
     });
   };
-  if (activityKind === "synara.workers.settled") {
+  if (activityKind === "saint.workers.settled") {
     const threads = parseThreads(payload.threads);
     return threads.length > 0 ? { kind: "rollup", marker: null, phrase: null, threads } : null;
   }
   if (
-    activityKind === "synara.worker.settled" ||
-    activityKind === "synara.worker.stuck" ||
-    activityKind === "synara.worker.needs-you"
+    activityKind === "saint.worker.settled" ||
+    activityKind === "saint.worker.stuck" ||
+    activityKind === "saint.worker.needs-you"
   ) {
     const threads = parseThreads([payload.thread]);
     if (threads.length === 0) {
@@ -1454,9 +1451,9 @@ function extractWorkLogSynaraWorkerNotice(
       : undefined;
     return {
       kind:
-        activityKind === "synara.worker.needs-you"
+        activityKind === "saint.worker.needs-you"
           ? "needs-you"
-          : activityKind === "synara.worker.stuck"
+          : activityKind === "saint.worker.stuck"
             ? "stuck"
             : "settled",
       marker: asTrimmedString(payload.marker) ?? null,
@@ -1662,7 +1659,7 @@ export function parseUserInputQuestions(
   return parsed.length > 0 ? parsed : null;
 }
 
-// Answers arrive keyed by question id (Codex, Synara UI) or by question text
+// Answers arrive keyed by question id (Codex, Saint UI) or by question text
 // (Claude's AskUserQuestion), as a string, a list, or `{ answers: [...] }`.
 function formatUserInputAnswer(
   answers: Record<string, unknown> | null,
@@ -1959,21 +1956,21 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
       entry.inlineVisual = inlineVisual;
     }
   }
-  if (activity.kind === "synara.threads.created") {
-    const synaraThreadCreation = extractWorkLogSynaraThreadCreation(payload);
-    if (synaraThreadCreation) {
-      entry.synaraThreadCreation = synaraThreadCreation;
+  if (activity.kind === "saint.threads.created") {
+    const saintThreadCreation = extractWorkLogSaintThreadCreation(payload);
+    if (saintThreadCreation) {
+      entry.saintThreadCreation = saintThreadCreation;
     }
   }
   if (
-    activity.kind === "synara.worker.settled" ||
-    activity.kind === "synara.worker.stuck" ||
-    activity.kind === "synara.worker.needs-you" ||
-    activity.kind === "synara.workers.settled"
+    activity.kind === "saint.worker.settled" ||
+    activity.kind === "saint.worker.stuck" ||
+    activity.kind === "saint.worker.needs-you" ||
+    activity.kind === "saint.workers.settled"
   ) {
-    const notice = extractWorkLogSynaraWorkerNotice(payload, activity.kind);
+    const notice = extractWorkLogSaintWorkerNotice(payload, activity.kind);
     if (notice) {
-      entry.synaraWorkerNotice = notice;
+      entry.saintWorkerNotice = notice;
     }
   }
   if (activity.kind === COMPUTER_SETUP_REQUIRED_ACTIVITY_KIND) {
@@ -2015,7 +2012,7 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
   const readableTitle =
     extractCollabActionTitle(payload) ??
     computerToolDescription?.summary ??
-    deriveSynaraMcpToolTitle({
+    deriveSaintMcpToolTitle({
       toolName,
       title: commandActionDisplay?.title ?? title,
       fallbackLabel: activity.summary,
@@ -2114,7 +2111,7 @@ function deriveProviderRuntimeReconciliationCollapseKey(
 function deriveToolLifecycleStatus(
   activityKind: OrchestrationThreadActivity["kind"],
   payload: Record<string, unknown> | null,
-): SynaraMcpToolStatus | undefined {
+): SaintMcpToolStatus | undefined {
   if (!isRenderableToolLifecycleActivity(activityKind)) return undefined;
   if (isFailedToolLifecyclePayload(payload)) return "failed";
   if (isCancelledToolLifecyclePayload(payload)) return "cancelled";
@@ -2547,7 +2544,7 @@ function mergeDerivedWorkLogEntries(
     : (next.requestKind ?? previous.requestKind);
   const subagents = next.subagents ?? previous.subagents;
   const subagentAction = next.subagentAction ?? previous.subagentAction;
-  const synaraThreadCreation = next.synaraThreadCreation ?? previous.synaraThreadCreation;
+  const saintThreadCreation = next.saintThreadCreation ?? previous.saintThreadCreation;
   const collapseKey = next.collapseKey ?? previous.collapseKey;
   const toolName = next.toolName ?? previous.toolName;
   const mcpServer = next.mcpServer ?? previous.mcpServer;
@@ -2582,7 +2579,7 @@ function mergeDerivedWorkLogEntries(
     ...(requestKind ? { requestKind } : {}),
     ...(subagents ? { subagents } : {}),
     ...(subagentAction ? { subagentAction } : {}),
-    ...(synaraThreadCreation ? { synaraThreadCreation } : {}),
+    ...(saintThreadCreation ? { saintThreadCreation } : {}),
     ...(collapseKey ? { collapseKey } : {}),
     ...(toolName ? { toolName } : {}),
     ...(mcpServer ? { mcpServer } : {}),

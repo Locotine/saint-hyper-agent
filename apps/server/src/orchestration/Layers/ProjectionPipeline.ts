@@ -2,19 +2,19 @@ import {
   makeMessageTextChunks,
   encodeMessageTextFallback,
 } from "../../persistence/messageTextChunks.ts";
-import { ApprovalRequestId, CommandId, type OrchestrationEvent } from "@synara/contracts";
-import { resolveHumanMessageAt } from "@synara/shared/threadSummary";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
-import { clearRemovedAsyncUserInputResponses } from "@synara/shared/asyncUserInput";
-import { isGroupContainerKind } from "@synara/shared/projectContainers";
+import { ApprovalRequestId, CommandId, type OrchestrationEvent } from "@saint/contracts";
+import { resolveHumanMessageAt } from "@saint/shared/threadSummary";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
+import { clearRemovedAsyncUserInputResponses } from "@saint/shared/asyncUserInput";
+import { isGroupContainerKind } from "@saint/shared/projectContainers";
 import {
   addPinnedMessage,
   removePinnedMessage,
   setPinnedMessageDone,
   setPinnedMessageLabel,
-} from "@synara/shared/pinnedMessages";
-import { createStalePendingInteractionMatcher } from "@synara/shared/pendingInteractions";
-import { resolveModelSelectionInstanceId } from "@synara/shared/providerInstances";
+} from "@saint/shared/pinnedMessages";
+import { createStalePendingInteractionMatcher } from "@saint/shared/pendingInteractions";
+import { resolveModelSelectionInstanceId } from "@saint/shared/providerInstances";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Effect, FileSystem, Layer, Option, Path, Stream } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -60,7 +60,7 @@ import { ProjectionTurnRepositoryLive } from "../../persistence/Layers/Projectio
 import { ProjectionThreadRepositoryLive } from "../../persistence/Layers/ProjectionThreads.ts";
 import { ManagedAttachmentRepositoryLive } from "../../persistence/Layers/ManagedAttachments.ts";
 import { ServerConfig } from "../../config.ts";
-import { deriveTurnStopActivity } from "@synara/shared/turnStopActivity";
+import { deriveTurnStopActivity } from "@saint/shared/turnStopActivity";
 import {
   OrchestrationProjectionPipeline,
   type OrchestrationProjectionPipelineShape,

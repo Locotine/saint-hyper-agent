@@ -14,15 +14,15 @@ const credentials = {
 
 describe("macOS DMG finalization", () => {
   it("requires exactly one DMG artifact", () => {
-    expect(resolveSingleMacDmgFileName(["Synara-0.6.0-arm64.zip", "Synara-0.6.0-arm64.dmg"])).toBe(
-      "Synara-0.6.0-arm64.dmg",
+    expect(resolveSingleMacDmgFileName(["Saint-0.6.0-arm64.zip", "Saint-0.6.0-arm64.dmg"])).toBe(
+      "Saint-0.6.0-arm64.dmg",
     );
     expect(() => resolveSingleMacDmgFileName([])).toThrow("found 0");
     expect(() => resolveSingleMacDmgFileName(["a.dmg", "b.dmg"])).toThrow("found 2");
   });
 
   it("sign-checks, notarizes, staples, and validates the final DMG in order", () => {
-    const dmgPath = "/tmp/Synara-0.6.0-arm64.dmg";
+    const dmgPath = "/tmp/Saint-0.6.0-arm64.dmg";
     const commands = buildMacDmgFinalizationCommands(dmgPath, credentials);
 
     expect(commands.map(({ command, args }) => [command, args[0], args[1]])).toEqual([
@@ -48,7 +48,7 @@ describe("macOS DMG finalization", () => {
 
   it("fails closed when Apple notarization credentials are unavailable", () => {
     expect(() =>
-      buildMacDmgFinalizationCommands("/tmp/Synara.dmg", {
+      buildMacDmgFinalizationCommands("/tmp/Saint.dmg", {
         appleApiKey: undefined,
         appleApiKeyId: undefined,
         appleApiIssuer: undefined,
@@ -59,28 +59,28 @@ describe("macOS DMG finalization", () => {
   it("copies the final app and rebuilds the unsigned DMG from that payload", () => {
     expect(
       buildUnsignedMacDmgCommands(
-        "/tmp/dist/mac-arm64/Synara.app",
+        "/tmp/dist/mac-arm64/Saint.app",
         "/tmp/image-root",
-        "/tmp/dist/Synara-arm64.dmg",
-        "Synara",
+        "/tmp/dist/Saint-arm64.dmg",
+        "Saint",
       ),
     ).toEqual([
       {
         command: "ditto",
-        args: ["/tmp/dist/mac-arm64/Synara.app", "/tmp/image-root/Synara.app"],
+        args: ["/tmp/dist/mac-arm64/Saint.app", "/tmp/image-root/Saint.app"],
       },
       {
         command: "hdiutil",
         args: [
           "create",
           "-volname",
-          "Synara",
+          "Saint",
           "-srcfolder",
           "/tmp/image-root",
           "-ov",
           "-format",
           "UDZO",
-          "/tmp/dist/Synara-arm64.dmg",
+          "/tmp/dist/Saint-arm64.dmg",
         ],
       },
     ]);

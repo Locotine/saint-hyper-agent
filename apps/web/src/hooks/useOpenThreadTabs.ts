@@ -6,7 +6,7 @@
 // Exports: useOpenThreadTabs, useRecordOpenThreadTab, useActivateThreadTab,
 //          useReadRouteThreadId
 
-import type { ProjectId, ThreadId } from "@synara/contracts";
+import type { ProjectId, ThreadId } from "@saint/contracts";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { useShallow } from "zustand/react/shallow";

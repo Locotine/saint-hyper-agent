@@ -1,9 +1,9 @@
 import { Effect, Layer, Schema } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
-import type { DroidModelSelection, ProviderStartOptions } from "@synara/contracts";
-import { sanitizeGeneratedThreadTitle } from "@synara/shared/chatThreads";
-import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@synara/shared/git";
+import type { DroidModelSelection, ProviderStartOptions } from "@saint/contracts";
+import { sanitizeGeneratedThreadTitle } from "@saint/shared/chatThreads";
+import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@saint/shared/git";
 
 import {
   applyDroidAcpInteractionMode,
@@ -76,7 +76,7 @@ const droidAcpConfig: AcpTextGenerationConfig<DroidModelSelection, DroidAcpRunti
       childProcessSpawner,
       droidSettings: settings,
       cwd,
-      clientInfo: { name: "synara-git-text", version: "0.0.0" },
+      clientInfo: { name: "saint-git-text", version: "0.0.0" },
     }),
   prepareRuntime: ({
     runtime,

@@ -1,5 +1,5 @@
 // FILE: AcpElicitationSupport.test.ts
-// Purpose: Verifies ACP form schemas and Synara answers round-trip without losing primitive types.
+// Purpose: Verifies ACP form schemas and Saint answers round-trip without losing primitive types.
 // Layer: Provider ACP tests
 // Depends on: AcpElicitationSupport.
 
@@ -73,7 +73,7 @@ const droidRequest = {
 };
 
 describe("ACP elicitation mapping", () => {
-  it("maps primitive form fields to Synara questions", () => {
+  it("maps primitive form fields to Saint questions", () => {
     expect(elicitationQuestionsFromRequest(request)).toEqual([
       {
         id: "environment",

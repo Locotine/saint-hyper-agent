@@ -11,8 +11,8 @@ import {
   type ProviderKind,
   type ResolvedKeybindingsConfig,
   type ThreadId,
-} from "@synara/contracts";
-import { isGenericChatThreadTitle } from "@synara/shared/chatThreads";
+} from "@saint/contracts";
+import { isGenericChatThreadTitle } from "@saint/shared/chatThreads";
 import React, { useEffect, useRef, useState } from "react";
 import type { ThreadPrimarySurface } from "../../types";
 import GitActionsControl from "../GitActionsControl";
@@ -77,6 +77,8 @@ import type { ThreadHandoffTarget } from "~/lib/threadHandoff";
  */
 const HEADER_COMPACT_BREAKPOINT = 700;
 
+const EMPTY_HANDOFF_TARGETS: ReadonlyArray<ThreadHandoffTarget> = [];
+
 interface ChatHeaderProps {
   activeThreadId: ThreadId;
   activeThreadTitle: string;
@@ -109,6 +111,8 @@ interface ChatHeaderProps {
   handoffActionTargets: ReadonlyArray<ThreadHandoffTarget>;
   /** Subset of `handoffActionTargets` that can continue in this same thread. */
   continueHandoffActionTargets: ReadonlyArray<ThreadHandoffTarget>;
+  /** Targets of a transcript handoff, the source agent included. */
+  transcriptHandoffActionTargets?: ReadonlyArray<ThreadHandoffTarget>;
   // Coordinator threads pass false — a hand-off copy would read as a second
   // coordinator, so the action itself is hidden rather than disabled.
   showHandoffAction?: boolean;
@@ -152,6 +156,8 @@ interface ChatHeaderProps {
   onToggleDiff: () => void;
   onRegisterCommitAndPushTrigger?: (trigger: (() => void) | null) => void;
   onCreateHandoff: (target: ThreadHandoffTarget) => void;
+  /** Starts a fresh session in a new thread from the source transcript (Orca-style). */
+  onCreateTranscriptHandoff?: (target: ThreadHandoffTarget) => void;
   onContinueHandoff: (target: ThreadHandoffTarget) => void;
   onNavigateToThread: (threadId: ThreadId) => void;
   onRenameThread: () => void;
@@ -440,6 +446,7 @@ export function ChatHeader({
   handoffDisabled,
   handoffActionTargets,
   continueHandoffActionTargets,
+  transcriptHandoffActionTargets = EMPTY_HANDOFF_TARGETS,
   showHandoffAction: showHandoffActionProp,
   showHeaderActions: showHeaderActionsProp,
   gitCwd,
@@ -463,6 +470,7 @@ export function ChatHeader({
   onToggleDiff,
   onRegisterCommitAndPushTrigger,
   onCreateHandoff,
+  onCreateTranscriptHandoff,
   onContinueHandoff,
   onNavigateToThread,
   onRenameThread,
@@ -737,7 +745,12 @@ export function ChatHeader({
                         type="button"
                         tone="surface"
                         label={handoffActionLabel}
-                        disabled={handoffDisabled || handoffActionTargets.length === 0}
+                        disabled={
+                          handoffDisabled ||
+                          (handoffActionTargets.length === 0 &&
+                            (!onCreateTranscriptHandoff ||
+                              transcriptHandoffActionTargets.length === 0))
+                        }
                       />
                     }
                   >
@@ -767,19 +780,39 @@ export function ChatHeader({
                   <MenuSeparator />
                 </>
               ) : null}
-              <MenuGroup>
-                <MenuGroupLabel>Continue in a new thread</MenuGroupLabel>
-                {handoffActionTargets.map((target) => (
-                  <MenuItem
-                    key={target.instanceId}
-                    data-handoff-destination="new-thread"
-                    onClick={() => onCreateHandoff(target)}
-                  >
-                    {renderProviderIcon(target.provider, "size-3.5 shrink-0 opacity-100")}
-                    <span>{target.label}</span>
-                  </MenuItem>
-                ))}
-              </MenuGroup>
+              {handoffActionTargets.length > 0 ? (
+                <MenuGroup>
+                  <MenuGroupLabel>Continue in a new thread</MenuGroupLabel>
+                  {handoffActionTargets.map((target) => (
+                    <MenuItem
+                      key={target.instanceId}
+                      data-handoff-destination="new-thread"
+                      onClick={() => onCreateHandoff(target)}
+                    >
+                      {renderProviderIcon(target.provider, "size-3.5 shrink-0 opacity-100")}
+                      <span>{target.label}</span>
+                    </MenuItem>
+                  ))}
+                </MenuGroup>
+              ) : null}
+              {onCreateTranscriptHandoff && transcriptHandoffActionTargets.length > 0 ? (
+                <>
+                  {handoffActionTargets.length > 0 ? <MenuSeparator /> : null}
+                  <MenuGroup>
+                    <MenuGroupLabel>Fresh session from transcript</MenuGroupLabel>
+                    {transcriptHandoffActionTargets.map((target) => (
+                      <MenuItem
+                        key={target.instanceId}
+                        data-handoff-destination="transcript"
+                        onClick={() => onCreateTranscriptHandoff(target)}
+                      >
+                        {renderProviderIcon(target.provider, "size-3.5 shrink-0 opacity-100")}
+                        <span>{target.label}</span>
+                      </MenuItem>
+                    ))}
+                  </MenuGroup>
+                </>
+              ) : null}
             </ComposerPickerMenuPopup>
           </Menu>
         ) : null}

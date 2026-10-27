@@ -3,8 +3,8 @@ import * as OS from "node:os";
 import { join } from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import type { ProviderInstanceId, ServerProviderStatus } from "@synara/contracts";
-import { DEFAULT_SERVER_SETTINGS, ServerProviderUpdateError } from "@synara/contracts";
+import type { ProviderInstanceId, ServerProviderStatus } from "@saint/contracts";
+import { DEFAULT_SERVER_SETTINGS, ServerProviderUpdateError } from "@saint/contracts";
 import { describe, it, assert } from "@effect/vitest";
 import {
   Deferred,
@@ -23,7 +23,7 @@ import * as PlatformError from "effect/PlatformError";
 import { ChildProcessSpawner } from "effect/unstable/process";
 import { vi } from "vitest";
 
-import { SYNARA_CODEX_HOME_OVERLAY_DIR } from "../../codexHomePaths";
+import { SAINT_CODEX_HOME_OVERLAY_DIR } from "../../codexHomePaths";
 import { CODEX_CLI_UNPARSEABLE_VERSION_MESSAGE } from "../codexCliVersion.ts";
 import { claudeIsolatedHomePath } from "../claudeEnvironment";
 import { ServerConfig } from "../../config";
@@ -353,9 +353,9 @@ function withTempCodexHome(configContent?: string) {
   return Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const tmpDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "synara-test-codex-" });
+    const tmpDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "saint-test-codex-" });
     const runtimeDir = yield* fileSystem.makeTempDirectoryScoped({
-      prefix: "synara-test-runtime-",
+      prefix: "saint-test-runtime-",
     });
 
     yield* Effect.acquireRelease(
@@ -364,7 +364,7 @@ function withTempCodexHome(configContent?: string) {
         // the resolved CODEX_HOME during this test.
         const overrides: Record<string, string> = {
           CODEX_HOME: tmpDir,
-          SYNARA_HOME: runtimeDir,
+          SAINT_HOME: runtimeDir,
         };
         const restore: Record<string, string | undefined> = {};
         for (const [key, value] of Object.entries(overrides)) {
@@ -727,7 +727,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         available: false,
         authStatus: "unknown",
         checkedAt: "2026-06-16T12:00:00.000Z",
-        message: "Provider is disabled in Synara settings.",
+        message: "Provider is disabled in Saint settings.",
       });
     });
 
@@ -741,7 +741,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
 
       assert.strictEqual(statuses.length, 10);
       assert.strictEqual(codex?.available, false);
-      assert.strictEqual(codex?.message, "Provider is disabled in Synara settings.");
+      assert.strictEqual(codex?.message, "Provider is disabled in Saint settings.");
     });
 
     it("changes projected statuses for settings-only instance updates", () => {
@@ -779,7 +779,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
       assert.strictEqual(previousWork?.displayName, "Work Codex");
       assert.strictEqual(nextWork?.displayName, "Renamed Codex");
       assert.strictEqual(nextWork?.available, false);
-      assert.strictEqual(nextWork?.message, "Provider is disabled in Synara settings.");
+      assert.strictEqual(nextWork?.message, "Provider is disabled in Saint settings.");
       assert.strictEqual(providerStatusesEqual(previousStatuses, nextStatuses), false);
     });
 
@@ -939,7 +939,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
       assert.strictEqual(unsupported?.availability, "unavailable");
       assert.strictEqual(
         unsupported?.unavailableReason,
-        "Provider driver 'customFork' is not supported by this Synara build.",
+        "Provider driver 'customFork' is not supported by this Saint build.",
       );
     });
 
@@ -971,7 +971,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         const cachedCodex = yield* readProviderStatusCache(cachePath);
 
         assert.strictEqual(codex?.available, false);
-        assert.strictEqual(codex?.message, "Provider is disabled in Synara settings.");
+        assert.strictEqual(codex?.message, "Provider is disabled in Saint settings.");
         assert.deepStrictEqual(cachedCodex, cachedReadyCodexStatus);
       }),
     );
@@ -1018,7 +1018,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
           const disabledCodex = disabledStatuses.find((status) => status.provider === "codex");
 
           assert.strictEqual(disabledCodex?.available, false);
-          assert.strictEqual(disabledCodex?.message, "Provider is disabled in Synara settings.");
+          assert.strictEqual(disabledCodex?.message, "Provider is disabled in Saint settings.");
 
           yield* serverSettings.updateSettings({
             providers: {
@@ -1032,7 +1032,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
           const currentCodex = currentStatuses.find((status) => status.provider === "codex");
           assert.strictEqual(currentCodex?.available, true);
           assert.strictEqual(currentCodex?.authStatus, "authenticated");
-          assert.notStrictEqual(currentCodex?.message, "Provider is disabled in Synara settings.");
+          assert.notStrictEqual(currentCodex?.message, "Provider is disabled in Saint settings.");
           assert.strictEqual(spawnCount, 0);
         }).pipe(Effect.provide(layer));
       }),
@@ -1046,7 +1046,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         assert.strictEqual(statuses.length, 10);
         for (const status of statuses) {
           assert.strictEqual(status.available, false);
-          assert.strictEqual(status.message, "Provider is disabled in Synara settings.");
+          assert.strictEqual(status.message, "Provider is disabled in Saint settings.");
           assert.strictEqual(status.versionAdvisory?.status, "unknown");
           assert.strictEqual(status.versionAdvisory?.canUpdate, false);
           assert.strictEqual(status.versionAdvisory?.updateCommand, null);
@@ -1152,15 +1152,15 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
           assert.ok(commands.some((command) => command.includes("droid")));
           assert.notStrictEqual(
             statuses.find((status) => status.provider === "opencode")?.message,
-            "Provider is disabled in Synara settings.",
+            "Provider is disabled in Saint settings.",
           );
           assert.notStrictEqual(
             statuses.find((status) => status.provider === "pi")?.message,
-            "Provider is disabled in Synara settings.",
+            "Provider is disabled in Saint settings.",
           );
           assert.notStrictEqual(
             statuses.find((status) => status.provider === "droid")?.message,
-            "Provider is disabled in Synara settings.",
+            "Provider is disabled in Saint settings.",
           );
         }).pipe(Effect.provide(layer));
       }),
@@ -1173,7 +1173,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
 
         assert.ok(error instanceof ServerProviderUpdateError);
         assert.strictEqual(error.provider, "opencode");
-        assert.strictEqual(error.reason, "Provider is disabled in Synara settings.");
+        assert.strictEqual(error.reason, "Provider is disabled in Saint settings.");
       }).pipe(Effect.provide(disabledProviderHealthLayer)),
     );
 
@@ -1417,7 +1417,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         authStatus: "unknown",
         checkedAt: "2026-09-04T01:04:00.000Z",
         message:
-          "Pi SDK is bundled, but the CLI health check timed out before Synara could verify the installed version.",
+          "Pi SDK is bundled, but the CLI health check timed out before Saint could verify the installed version.",
       } satisfies ServerProviderStatus;
 
       assert.deepStrictEqual(
@@ -1634,13 +1634,13 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
           'model_provider = "portkey"\n',
         );
         const configuredHome = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "synara-configured-codex-",
+          prefix: "saint-configured-codex-",
         });
         yield* fileSystem.writeFileString(
           path.join(configuredHome, "config.toml"),
           'model_provider = "openai"\n',
         );
-        expectedCodexHome = path.join(runtimeDir, SYNARA_CODEX_HOME_OVERLAY_DIR);
+        expectedCodexHome = path.join(runtimeDir, SAINT_CODEX_HOME_OVERLAY_DIR);
 
         const status = yield* makeCheckCodexProviderStatus("codex", configuredHome);
         assert.strictEqual(status.status, "ready");
@@ -1670,7 +1670,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         const path = yield* Path.Path;
         const { tmpDir } = yield* withTempCodexHome();
         const shadowHome = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "synara-codex-shadow-",
+          prefix: "saint-codex-shadow-",
         });
         yield* fileSystem.writeFileString(path.join(tmpDir, "auth.json"), "{}");
         yield* Effect.sync(() =>
@@ -1712,7 +1712,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         assert.strictEqual(status.authStatus, "unknown");
         assert.strictEqual(
           status.message,
-          "Codex CLI v0.104.0 is too old for Synara. Upgrade to v0.105.0 or newer and restart Synara.",
+          "Codex CLI v0.104.0 is too old for Saint. Upgrade to v0.105.0 or newer and restart Saint.",
         );
       }).pipe(
         Effect.provide(
@@ -2182,15 +2182,15 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
       const env = makeClaudeProbeEnv(
         "~/.claude-work",
         { PROVIDER_TEST_INSTANCE: "claude-work" },
-        "/tmp/synara-test-home",
+        "/tmp/saint-test-home",
       );
 
-      assert.strictEqual(env.HOME, "/tmp/synara-test-home/.claude-work");
+      assert.strictEqual(env.HOME, "/tmp/saint-test-home/.claude-work");
       assert.strictEqual(env.PROVIDER_TEST_INSTANCE, "claude-work");
     });
 
     it.effect("scopes environment-only Claude health probes to the selected instance", () => {
-      const isolationRootDir = "/tmp/synara-provider-health-state";
+      const isolationRootDir = "/tmp/saint-provider-health-state";
       const providerInstanceId = "claude_work" as ProviderInstanceId;
       return makeCheckClaudeProviderStatus(
         undefined,
@@ -2720,7 +2720,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
       Effect.gen(function* () {
         // A timeout stays advisory even without Pi credentials: a slow CLI must not flip Pi off.
         const probe = yield* checkPiProviderStatus(
-          join(OS.tmpdir(), "synara-pi-health-no-credentials"),
+          join(OS.tmpdir(), "saint-pi-health-no-credentials"),
         ).pipe(
           Effect.provide(hangingSpawnerLayer({ shouldHang: () => true, onKill: () => {} })),
           Effect.forkChild,
@@ -2762,7 +2762,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         assert.strictEqual(status.status, "ready");
         assert.strictEqual(
           status.message,
-          "Pi CLI is installed. Synara will use Pi agent dir /tmp/pi-agent.",
+          "Pi CLI is installed. Saint will use Pi agent dir /tmp/pi-agent.",
         );
       }).pipe(
         Effect.provide(
@@ -2796,7 +2796,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     );
 
     it.effect("reports Pi as not set up when the CLI is missing and no credentials exist", () => {
-      const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       // An empty credentials file is not evidence of an SDK-only setup.
       writeFileSync(join(agentDir, "auth.json"), "");
       return Effect.gen(function* () {
@@ -2819,7 +2819,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     it.effect(
       "reports Pi as not set up when another `pi` exits nonzero without credentials",
       () => {
-        const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+        const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
         return Effect.gen(function* () {
           try {
             const status = yield* checkPiProviderStatus(agentDir);
@@ -2837,7 +2837,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     );
 
     it.effect("keeps SDK-only Pi usable when the CLI is missing but credentials exist", () => {
-      const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       writeFileSync(join(agentDir, "auth.json"), '{"anthropic":{"type":"api_key","key":"x"}}');
       return Effect.gen(function* () {
         try {
@@ -2848,7 +2848,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
           assert.strictEqual(status.authStatus, "unknown");
           assert.strictEqual(
             status.message,
-            "Pi SDK is bundled, but the Pi CLI (`pi`) is not on PATH, so Synara could not verify the installed CLI version.",
+            "Pi SDK is bundled, but the Pi CLI (`pi`) is not on PATH, so Saint could not verify the installed CLI version.",
           );
         } finally {
           rmSync(agentDir, { recursive: true, force: true });
@@ -2857,7 +2857,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     });
 
     it.effect("keeps SDK-only Pi usable when only custom models are configured", () => {
-      const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       writeFileSync(
         join(agentDir, "models.json"),
         '{"providers":{"local":{"baseUrl":"http://localhost:11434/v1","models":[{"id":"local-model","name":"Local model","contextWindow":4096,"maxTokens":1024,"input":["text"],"reasoning":false,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0}}]}}}',
@@ -2874,7 +2874,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     });
 
     it.effect("keeps SDK-only Pi usable with a built-in models.json API key override", () => {
-      const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       writeFileSync(
         join(agentDir, "models.json"),
         '{"providers":{"openai":{"apiKey":"test-key"}}}',
@@ -2894,7 +2894,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     });
 
     it.effect("preserves a usable OAuth access token without a refresh token", () => {
-      const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       writeFileSync(
         join(agentDir, "auth.json"),
         JSON.stringify({
@@ -2921,7 +2921,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     });
 
     it.effect("preserves SDK credentials outside the shared API-key override mapping", () => {
-      const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       return Effect.gen(function* () {
         try {
           for (const environment of [
@@ -2949,7 +2949,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     it.effect(
       "keeps an isolated Pi account usable when its instance environment has an API key",
       () => {
-        const isolationRoot = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+        const isolationRoot = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
         return Effect.gen(function* () {
           try {
             const status = yield* checkPiProviderStatus(
@@ -2969,7 +2969,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     );
 
     it.effect("keeps SDK-only Pi usable with an inherited default-account API key", () => {
-      const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       vi.stubEnv("ANTHROPIC_API_KEY", "sk-test-default-account");
       return Effect.gen(function* () {
         try {
@@ -2989,7 +2989,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     });
 
     it.effect("does not mistake SDK-created empty or invalid files for Pi setup", () => {
-      const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       return Effect.gen(function* () {
         try {
           // Pi itself creates auth.json with {} before any login exists.
@@ -3010,7 +3010,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     });
 
     it.effect("preserves SDK-only Pi accounts using cloud credentials rather than API keys", () => {
-      const agentDir = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const agentDir = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       const adcPath = join(agentDir, "adc.json");
       writeFileSync(adcPath, "{}");
       return Effect.gen(function* () {
@@ -3066,7 +3066,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     });
 
     it.effect("resolves an isolated Pi account's agent dir inside its private home", () => {
-      const isolationRoot = mkdtempSync(join(OS.tmpdir(), "synara-pi-health-"));
+      const isolationRoot = mkdtempSync(join(OS.tmpdir(), "saint-pi-health-"));
       const agentDir = join(
         providerIsolatedHomePath({
           driver: "pi",
@@ -3105,7 +3105,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
 
   describe("checkOmpProviderStatus", () => {
     it.effect("probes the selected instance environment instead of ambient OMP", () => {
-      const isolationRoot = mkdtempSync(join(OS.tmpdir(), "synara-omp-health-"));
+      const isolationRoot = mkdtempSync(join(OS.tmpdir(), "saint-omp-health-"));
       const binaryDir = join(isolationRoot, "bin");
       mkdirSync(binaryDir, { recursive: true });
       const binaryPath = join(binaryDir, "omp");
@@ -3150,7 +3150,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
         assert.strictEqual(status.version, "1.0.11");
         assert.strictEqual(
           status.message,
-          "Antigravity CLI 1.0.11 is too old for Synara. Upgrade to 1.0.12 or newer.",
+          "Antigravity CLI 1.0.11 is too old for Saint. Upgrade to 1.0.12 or newer.",
         );
       }).pipe(
         Effect.provide(
@@ -3380,7 +3380,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
     );
 
     it.effect("isolates Grok cached logins by account home", () => {
-      const testRoot = mkdtempSync(join(OS.tmpdir(), "synara-grok-health-"));
+      const testRoot = mkdtempSync(join(OS.tmpdir(), "saint-grok-health-"));
       const ambientHome = join(testRoot, "ambient");
       const workHome = join(
         providerIsolatedHomePath({

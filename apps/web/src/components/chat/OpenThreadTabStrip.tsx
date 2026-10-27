@@ -7,7 +7,7 @@
 // Depends on: open-thread tab hooks/store, the shared SurfaceContentTabs, and the sidebar's
 //             thread context menu.
 
-import type { ProjectId, ResolvedKeybindingsConfig, ThreadId } from "@synara/contracts";
+import type { ProjectId, ResolvedKeybindingsConfig, ThreadId } from "@saint/contracts";
 import { useEffect, useState, type RefObject } from "react";
 
 import { useComposerDraftStore } from "~/composerDraftStore";

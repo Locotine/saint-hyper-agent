@@ -17,7 +17,7 @@ describe("createRemoteServerInstallManifest", () => {
       catalog,
     });
     expect(manifest.packageJson).toEqual({
-      name: "synara-remote-server",
+      name: "saint-remote-server",
       version: "1.2.3",
       private: true,
       type: "module",
@@ -27,6 +27,25 @@ describe("createRemoteServerInstallManifest", () => {
         "@effect/platform-node": "https://pkg.example/@effect/platform-node@abc",
       },
       overrides: {},
+    });
+  });
+
+  it("leaves out the SDKs of providers a remote server does not run", () => {
+    const manifest = createRemoteServerInstallManifest({
+      serverPackageJson: {
+        version: "1.2.3",
+        dependencies: {
+          ws: "^8.21.0",
+          "@earendil-works/pi-coding-agent": "^0.87.1",
+          "@agentclientprotocol/sdk": "^0.20.0",
+          "@anthropic-ai/claude-agent-sdk": "0.3.296",
+        },
+      },
+      catalog,
+    });
+    expect(manifest.packageJson.dependencies).toEqual({
+      ws: "^8.21.0",
+      "@anthropic-ai/claude-agent-sdk": "0.3.296",
     });
   });
 
@@ -77,7 +96,7 @@ describe("createRemoteServerInstallManifest", () => {
   it("refuses workspace and unresolved catalog dependencies", () => {
     expect(() =>
       createRemoteServerInstallManifest({
-        serverPackageJson: { version: "1.0.0", dependencies: { "@synara/shared": "workspace:*" } },
+        serverPackageJson: { version: "1.0.0", dependencies: { "@saint/shared": "workspace:*" } },
         catalog,
       }),
     ).toThrow(/workspace package/);

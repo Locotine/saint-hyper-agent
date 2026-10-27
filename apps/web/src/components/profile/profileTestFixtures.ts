@@ -1,5 +1,5 @@
 // Shared profile regression fixtures.
-import type { ProfileStats, ProfileTokenStats } from "@synara/contracts";
+import type { ProfileStats, ProfileTokenStats } from "@saint/contracts";
 
 export const promptHeatmapCell = {
   day: "2026-07-01",
@@ -18,7 +18,7 @@ export const tokenHeatmapCell = {
 export const baseStats = {
   generatedAt: "2026-07-02T10:00:00.000Z",
   timezone: { utcOffsetMinutes: 0, today: "2026-07-02" },
-  identity: { homeDirBasename: "synara", initials: "S", defaultHandle: "@synara" },
+  identity: { homeDirBasename: "saint", initials: "S", defaultHandle: "@saint" },
   activity: {
     currentStreakDays: 0,
     longestStreakDays: 0,

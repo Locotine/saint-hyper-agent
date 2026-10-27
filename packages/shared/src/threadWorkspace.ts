@@ -104,7 +104,7 @@ export function isWorkspaceRootWithin(
 // Per-thread scratch working directories (under a per-user cache container)
 // used when a provider session starts before any project workspace exists,
 // e.g. a chat's first turn racing its workspace provisioning.
-export const SCRATCH_WORKSPACES_DIRNAME = "synara-codex-workspaces";
+export const SCRATCH_WORKSPACES_DIRNAME = "saint-codex-workspaces";
 
 // True when an absolute path points inside a per-thread scratch workspace.
 // This is a string-level gate on purpose: the web client uses it to decide

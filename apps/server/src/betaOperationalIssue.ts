@@ -1,4 +1,4 @@
-import { DESKTOP_DIAGNOSTIC_ISSUE_PREFIX, DesktopDiagnosticIssue } from "@synara/contracts";
+import { DESKTOP_DIAGNOSTIC_ISSUE_PREFIX, DesktopDiagnosticIssue } from "@saint/contracts";
 import { Schema } from "effect";
 import { SERVER_DESKTOP_FLAVOR } from "./betaFeatureGate";
 

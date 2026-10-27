@@ -1,5 +1,5 @@
 // FILE: codexProcessEnv.ts
-// Purpose: Builds the exact environment used when Synara launches Codex subprocesses.
+// Purpose: Builds the exact environment used when Saint launches Codex subprocesses.
 // Layer: Server runtime utility
 // Exports: Codex process env builder and browser-plugin overlay helpers.
 // Depends on: Codex home path helpers, shared Codex config parsing, login-shell env reader.
@@ -10,18 +10,18 @@ import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { parse as parseToml } from "smol-toml";
 
-import { readActiveCodexProviderEnvKey } from "@synara/shared/codexConfig";
+import { readActiveCodexProviderEnvKey } from "@saint/shared/codexConfig";
 import {
   readEnvironmentFromLoginShell,
   resolveLoginShell,
   type ShellEnvironmentReader,
-} from "@synara/shared/shell";
+} from "@saint/shared/shell";
 
 import {
   resolveBaseCodexHomePath,
   resolveCodexHomeOverlayAccountSegment,
-  resolveSynaraCodexHomeOverlayPath,
-  SYNARA_CODEX_HOME_OVERLAY_DIR,
+  resolveSaintCodexHomeOverlayPath,
+  SAINT_CODEX_HOME_OVERLAY_DIR,
 } from "./codexHomePaths.ts";
 import {
   codexAuthFs,
@@ -48,27 +48,27 @@ const CODEX_ACCOUNT_PRIVATE_STATE_FILES = new Set(["auth.json", "models_cache.js
 // SQLite databases and their WAL/SHM/journal sidecars are never mirrored into
 // the overlay. SQLite derives sidecar paths from the path it opened the
 // database through, and on Windows deleting a sidecar through a symlink only
-// removes the link, so a per-file mirror lets Synara's app-server and an
+// removes the link, so a per-file mirror lets Saint's app-server and an
 // external `codex` CLI end up with two WALs on one database. The overlay
 // instead points CODEX_SQLITE_HOME at the source home so every process opens
 // the same files through the same path.
 const CODEX_SQLITE_STATE_ENTRY_PATTERN = /^.+\.sqlite(?:-(?:wal|shm|journal))?$/;
-const SYNARA_CONFIG_SUPPRESSIONS_FILE = "synara-config-suppressions-v1.json";
-const LEGACY_SYNARA_SHARED_CONTINUATION_MARKER_FILE = "synara-shared-continuation-v1.json";
-const SYNARA_SHARED_CONTINUATION_MARKER_FILE = "synara-shared-continuation-v2.json";
-const SYNARA_SHARED_CONTINUATION_MARKER_VERSION = 2;
+const SAINT_CONFIG_SUPPRESSIONS_FILE = "saint-config-suppressions-v1.json";
+const LEGACY_SAINT_SHARED_CONTINUATION_MARKER_FILE = "saint-shared-continuation-v1.json";
+const SAINT_SHARED_CONTINUATION_MARKER_FILE = "saint-shared-continuation-v2.json";
+const SAINT_SHARED_CONTINUATION_MARKER_VERSION = 2;
 const SHARED_CONTINUATION_GENERATION_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SYNARA_SHARED_CONTINUATION_LOCK_DIRECTORY = ".synara-shared-continuation-v1.lock";
-const SYNARA_SHARED_CONTINUATION_LOCK_OWNER_FILE = "owner.json";
-const SYNARA_SHARED_CONTINUATION_LOCK_QUARANTINE_INFIX = ".quarantine-";
-const SYNARA_SHARED_CONTINUATION_LOCK_TIMEOUT_MS = 10_000;
-const SYNARA_SHARED_CONTINUATION_LOCK_POLL_MS = 25;
-const SYNARA_SHARED_CONTINUATION_ORPHAN_LOCK_GRACE_MS = 2_000;
+const SAINT_SHARED_CONTINUATION_LOCK_DIRECTORY = ".saint-shared-continuation-v1.lock";
+const SAINT_SHARED_CONTINUATION_LOCK_OWNER_FILE = "owner.json";
+const SAINT_SHARED_CONTINUATION_LOCK_QUARANTINE_INFIX = ".quarantine-";
+const SAINT_SHARED_CONTINUATION_LOCK_TIMEOUT_MS = 10_000;
+const SAINT_SHARED_CONTINUATION_LOCK_POLL_MS = 25;
+const SAINT_SHARED_CONTINUATION_ORPHAN_LOCK_GRACE_MS = 2_000;
 const REQUIRED_SHARED_CONTINUATION_DIRECTORIES = ["sessions", "archived_sessions"] as const;
 const REQUIRED_SHARED_CONTINUATION_FILES = ["history.jsonl", "session_index.jsonl"] as const;
-const SYNARA_MANAGED_MCP_TABLE_HEADER = "[mcp_servers.synara]";
-export const SYNARA_COMPETING_BROWSER_PLUGIN_SECTION_HEADERS = [
+const SAINT_MANAGED_MCP_TABLE_HEADER = "[mcp_servers.saint]";
+export const SAINT_COMPETING_BROWSER_PLUGIN_SECTION_HEADERS = [
   '[plugins."browser@openai-bundled"]',
   '[plugins."chrome@openai-bundled"]',
   '[plugins."computer-use@openai-bundled"]',
@@ -262,7 +262,7 @@ function parseManagedCodexConfig(config: string): {
     root = parseToml(config) as Record<string, unknown>;
   } catch (error) {
     throw new Error(
-      "Codex config.toml must be valid TOML so Synara can verify managed account state safely.",
+      "Codex config.toml must be valid TOML so Saint can verify managed account state safely.",
       { cause: error },
     );
   }
@@ -296,7 +296,7 @@ function assertCodexSqliteHomeMatchesSource(input: {
   ) {
     const displayPath = typeof configured === "string" && configured ? configured : "<invalid>";
     throw new Error(
-      `Codex config sqlite_home at ${displayPath} must resolve to the source CODEX_HOME ${path.resolve(input.sourceHomePath)} so Synara account overlays share one continuation database.`,
+      `Codex config sqlite_home at ${displayPath} must resolve to the source CODEX_HOME ${path.resolve(input.sourceHomePath)} so Saint account overlays share one continuation database.`,
     );
   }
 }
@@ -324,7 +324,7 @@ function assertManagedCodexHomeUsesObservableAuth(input: {
   if (mode !== "keyring" && mode !== "auto") return;
   const accountLabel = input.accountId?.trim() || "default";
   throw new Error(
-    `Codex account '${accountLabel}' uses cli_auth_credentials_store = "${mode}". Synara-managed Codex homes require file-backed Codex auth so account changes can invalidate long-lived app-server sessions; set the root cli_auth_credentials_store = "file" before starting this account.`,
+    `Codex account '${accountLabel}' uses cli_auth_credentials_store = "${mode}". Saint-managed Codex homes require file-backed Codex auth so account changes can invalidate long-lived app-server sessions; set the root cli_auth_credentials_store = "file" before starting this account.`,
   );
 }
 
@@ -815,7 +815,7 @@ function* resolveCodexProcessSourceEnvironmentIo(
     return env;
   }
   const overlayHomePath = resolveBaseCodexHomePath(env);
-  if (path.basename(overlayHomePath) !== SYNARA_CODEX_HOME_OVERLAY_DIR) return env;
+  if (path.basename(overlayHomePath) !== SAINT_CODEX_HOME_OVERLAY_DIR) return env;
   const sourceHomePath = resolveBaseCodexHomePath(env, sourceHint);
   try {
     if (yield* codexPathsReferenceSameLocationIo(overlayHomePath, sourceHomePath)) return env;
@@ -833,7 +833,7 @@ function* resolveCodexProcessSourceEnvironmentIo(
     }
     const markerBytes = yield* readCodexPreparedHomeFileSnapshotIo(
       source,
-      SYNARA_SHARED_CONTINUATION_MARKER_FILE,
+      SAINT_SHARED_CONTINUATION_MARKER_FILE,
     );
     if (markerBytes === undefined) return env;
     const marker = JSON.parse(markerBytes.toString("utf8")) as {
@@ -843,7 +843,7 @@ function* resolveCodexProcessSourceEnvironmentIo(
       migratedFromVersion?: unknown;
     } | null;
     if (
-      marker?.version !== SYNARA_SHARED_CONTINUATION_MARKER_VERSION ||
+      marker?.version !== SAINT_SHARED_CONTINUATION_MARKER_VERSION ||
       marker.sourceHomeIdentity !== (yield* resolveCodexPathIdentityIo(sourceHomePath)) ||
       typeof marker.generation !== "string" ||
       !SHARED_CONTINUATION_GENERATION_PATTERN.test(marker.generation) ||
@@ -924,7 +924,7 @@ function* prepareCodexAuthTrackingIo(
     ...(input.accountId ? { accountId: input.accountId } : {}),
     ...(shadowHomePath ? { shadowHomePath } : {}),
   });
-  const overlayHomePath = resolveSynaraCodexHomeOverlayPath(env, sourceHomePath, accountSegment);
+  const overlayHomePath = resolveSaintCodexHomeOverlayPath(env, sourceHomePath, accountSegment);
   const authoritativeAuthHomePath =
     shadowHomePath ??
     (accountSegment && !hasDedicatedAccountHome ? overlayHomePath : sourceHomePath);
@@ -992,7 +992,7 @@ function isSafePluginSectionHeader(value: unknown): value is string {
   );
 }
 
-export async function readSynaraConfigSuppressions(markerPath: string): Promise<readonly string[]> {
+export async function readSaintConfigSuppressions(markerPath: string): Promise<readonly string[]> {
   try {
     const parsed = JSON.parse(await fs.readFile(markerPath, "utf8")) as unknown;
     if (typeof parsed !== "object" || parsed === null) return [];
@@ -1063,7 +1063,7 @@ export function disableCodexConfigSections(
       : undefined;
     if (enabledValueIndex !== undefined) {
       if (!/^(?:true|false)[\t ]*(?:#.*)?$/.test(line.slice(enabledValueIndex))) {
-        throw new Error("Codex plugin enabled must be a boolean before Synara can disable it.");
+        throw new Error("Codex plugin enabled must be a boolean before Saint can disable it.");
       }
       output.push("enabled = false");
       targetSectionHasEnabled = true;
@@ -1092,14 +1092,14 @@ export function disableCompetingCodexBrowserPluginsInConfig(config: string): str
   return disableCodexConfigSections(
     config,
     [
-      ...SYNARA_COMPETING_BROWSER_PLUGIN_SECTION_HEADERS,
+      ...SAINT_COMPETING_BROWSER_PLUGIN_SECTION_HEADERS,
       ...findConflictingLocalBrowserPluginSections(config),
     ],
     true,
   );
 }
 
-async function writeSynaraConfigSuppressions(
+async function writeSaintConfigSuppressions(
   markerPath: string,
   sectionHeaders: readonly string[],
 ): Promise<void> {
@@ -1223,15 +1223,15 @@ interface SharedContinuationMigration {
 }
 
 function sharedContinuationMarkerPath(sourceHomePath: string): string {
-  return path.join(sourceHomePath, SYNARA_SHARED_CONTINUATION_MARKER_FILE);
+  return path.join(sourceHomePath, SAINT_SHARED_CONTINUATION_MARKER_FILE);
 }
 
 function legacySharedContinuationMarkerPath(sourceHomePath: string): string {
-  return path.join(sourceHomePath, LEGACY_SYNARA_SHARED_CONTINUATION_MARKER_FILE);
+  return path.join(sourceHomePath, LEGACY_SAINT_SHARED_CONTINUATION_MARKER_FILE);
 }
 
 function sharedContinuationLockPath(sourceHomePath: string): string {
-  return path.join(sourceHomePath, SYNARA_SHARED_CONTINUATION_LOCK_DIRECTORY);
+  return path.join(sourceHomePath, SAINT_SHARED_CONTINUATION_LOCK_DIRECTORY);
 }
 
 function errorCode(error: unknown): string | undefined {
@@ -1276,7 +1276,7 @@ async function readSharedContinuationLock(
     if (!lockStat.isDirectory() || lockStat.isSymbolicLink()) {
       throw new Error(`Codex continuation lock at ${lockPath} must be a real directory.`);
     }
-    const ownerPath = path.join(lockPath, SYNARA_SHARED_CONTINUATION_LOCK_OWNER_FILE);
+    const ownerPath = path.join(lockPath, SAINT_SHARED_CONTINUATION_LOCK_OWNER_FILE);
     const ownerStat = await lstatIfExists(ownerPath);
     if (ownerStat && (!ownerStat.isFile() || ownerStat.isSymbolicLink())) {
       throw new Error(`Codex continuation lock owner at ${ownerPath} must be a regular file.`);
@@ -1343,7 +1343,7 @@ function sameSharedContinuationLock(
 async function quarantineObservedSharedContinuationLock(input: {
   readonly observed: SharedContinuationLockSnapshot;
 }): Promise<boolean> {
-  const quarantinePath = `${input.observed.lockPath}${SYNARA_SHARED_CONTINUATION_LOCK_QUARANTINE_INFIX}${randomUUID()}`;
+  const quarantinePath = `${input.observed.lockPath}${SAINT_SHARED_CONTINUATION_LOCK_QUARANTINE_INFIX}${randomUUID()}`;
   try {
     await fs.rename(input.observed.lockPath, quarantinePath);
   } catch (error) {
@@ -1379,7 +1379,7 @@ function sharedContinuationLockIsStale(snapshot: SharedContinuationLockSnapshot)
   if (snapshot.pid !== undefined) {
     return !processIsAlive(snapshot.pid);
   }
-  return Date.now() - snapshot.createdAtMs >= SYNARA_SHARED_CONTINUATION_ORPHAN_LOCK_GRACE_MS;
+  return Date.now() - snapshot.createdAtMs >= SAINT_SHARED_CONTINUATION_ORPHAN_LOCK_GRACE_MS;
 }
 
 async function withSharedContinuationLock<T>(
@@ -1413,7 +1413,7 @@ async function withSharedContinuationLock<T>(
       }
       try {
         await fs.writeFile(
-          path.join(lockPath, SYNARA_SHARED_CONTINUATION_LOCK_OWNER_FILE),
+          path.join(lockPath, SAINT_SHARED_CONTINUATION_LOCK_OWNER_FILE),
           `${JSON.stringify({ token, pid: process.pid, createdAtMs: Date.now() })}\n`,
           { encoding: "utf8", flag: "wx", mode: 0o600 },
         );
@@ -1444,10 +1444,10 @@ async function withSharedContinuationLock<T>(
         continue;
       }
     }
-    if (Date.now() - startedAt >= SYNARA_SHARED_CONTINUATION_LOCK_TIMEOUT_MS) {
+    if (Date.now() - startedAt >= SAINT_SHARED_CONTINUATION_LOCK_TIMEOUT_MS) {
       throw new Error(`Timed out waiting for Codex continuation-state lock at ${lockPath}.`);
     }
-    await sleep(SYNARA_SHARED_CONTINUATION_LOCK_POLL_MS);
+    await sleep(SAINT_SHARED_CONTINUATION_LOCK_POLL_MS);
   }
 
   try {
@@ -1480,9 +1480,9 @@ function isSharedContinuationEntry(entryName: string): boolean {
 
 function isSharedContinuationLockEntry(entryName: string): boolean {
   return (
-    entryName === SYNARA_SHARED_CONTINUATION_LOCK_DIRECTORY ||
+    entryName === SAINT_SHARED_CONTINUATION_LOCK_DIRECTORY ||
     entryName.startsWith(
-      `${SYNARA_SHARED_CONTINUATION_LOCK_DIRECTORY}${SYNARA_SHARED_CONTINUATION_LOCK_QUARANTINE_INFIX}`,
+      `${SAINT_SHARED_CONTINUATION_LOCK_DIRECTORY}${SAINT_SHARED_CONTINUATION_LOCK_QUARANTINE_INFIX}`,
     )
   );
 }
@@ -1861,7 +1861,7 @@ function readSharedContinuationV2Marker(
       readonly migratedFromVersion?: unknown;
     };
     if (
-      marker.version === SYNARA_SHARED_CONTINUATION_MARKER_VERSION &&
+      marker.version === SAINT_SHARED_CONTINUATION_MARKER_VERSION &&
       marker.sourceHomeIdentity === resolveCodexPathIdentity(sourceHomePath) &&
       typeof marker.generation === "string" &&
       SHARED_CONTINUATION_GENERATION_PATTERN.test(marker.generation) &&
@@ -1895,7 +1895,7 @@ function sharedContinuationMarkerContent(
   metadata: SharedContinuationGenerationMetadata,
 ): string {
   return `${JSON.stringify({
-    version: SYNARA_SHARED_CONTINUATION_MARKER_VERSION,
+    version: SAINT_SHARED_CONTINUATION_MARKER_VERSION,
     sourceHomeIdentity: resolveCodexPathIdentity(sourceHomePath),
     generation: metadata.generation,
     ...(metadata.migratedFromVersion === 1 ? { migratedFromVersion: 1 } : {}),
@@ -1909,7 +1909,7 @@ async function writeSharedContinuationV2Marker(
   const markerPath = sharedContinuationMarkerPath(sourceHomePath);
   const temporaryPath = path.join(
     sourceHomePath,
-    `.synara-shared-continuation-v2.${process.pid}.${randomUUID()}.tmp`,
+    `.saint-shared-continuation-v2.${process.pid}.${randomUUID()}.tmp`,
   );
   try {
     await fs.writeFile(temporaryPath, sharedContinuationMarkerContent(sourceHomePath, metadata), {
@@ -2086,7 +2086,7 @@ export function readCodexSharedContinuationGeneration(
   const shadowHomePath = input.shadowHomePath
     ? resolveBaseCodexHomePath(env, input.shadowHomePath)
     : undefined;
-  const overlayHomePath = resolveSynaraCodexHomeOverlayPath(
+  const overlayHomePath = resolveSaintCodexHomeOverlayPath(
     env,
     sourceHomePath,
     resolveCodexHomeOverlayAccountSegment({
@@ -2121,9 +2121,9 @@ export function isCodexSharedContinuationStatePrepared(input: CodexSourceHomeInp
 }
 
 /**
- * Removes SQLite links that earlier Synara releases mirrored into the overlay.
+ * Removes SQLite links that earlier Saint releases mirrored into the overlay.
  * Only symlinks are removed: a regular database file in the overlay is left
- * untouched because Synara no longer owns or reads it.
+ * untouched because Saint no longer owns or reads it.
  */
 async function removeLegacyCodexOverlaySqliteLinks(overlayHomePath: string): Promise<void> {
   for (const entry of await fs.readdir(overlayHomePath)) {
@@ -2233,9 +2233,9 @@ function findManagedConfigBlock(
     }
     const rawLine = config.lines[index] ?? "";
     const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-    if (line === SYNARA_MANAGED_CODEX_CONFIG_BEGIN) {
+    if (line === SAINT_MANAGED_CODEX_CONFIG_BEGIN) {
       begin = index;
-    } else if (line === SYNARA_MANAGED_CODEX_CONFIG_END && begin !== undefined) {
+    } else if (line === SAINT_MANAGED_CODEX_CONFIG_END && begin !== undefined) {
       return { begin, end: index };
     }
   }
@@ -2247,8 +2247,8 @@ function appendConfigBlock(config: string, block: string): string {
   return base.length > 0 ? `${base}\n\n${block}\n` : `${block}\n`;
 }
 
-export const SYNARA_MANAGED_CODEX_CONFIG_BEGIN = "# >>> synara managed config >>>";
-export const SYNARA_MANAGED_CODEX_CONFIG_END = "# <<< synara managed config <<<";
+export const SAINT_MANAGED_CODEX_CONFIG_BEGIN = "# >>> saint managed config >>>";
+export const SAINT_MANAGED_CODEX_CONFIG_END = "# <<< saint managed config <<<";
 
 export function extractManagedCodexConfigSection(config: string): string | undefined {
   const parsed = splitConfigLines(config);
@@ -2512,7 +2512,7 @@ export function mergeShellEnvPolicyExclude(config: string, envVarName: string): 
 
 function appendManagedCodexConfigSection(config: string, section: string): string {
   let overlayConfig = config;
-  const managedMcpTableName = normalizeTomlTableHeaderName(SYNARA_MANAGED_MCP_TABLE_HEADER);
+  const managedMcpTableName = normalizeTomlTableHeaderName(SAINT_MANAGED_MCP_TABLE_HEADER);
   const managedMcpDescendantPrefix = `${managedMcpTableName!.slice(0, -1)},`;
   const tables: string[] = [];
 
@@ -2527,10 +2527,10 @@ function appendManagedCodexConfigSection(config: string, section: string): strin
       continue;
     }
     if (tableName === managedMcpTableName) {
-      // The session-scoped gateway entry is authoritative inside Synara's
+      // The session-scoped gateway entry is authoritative inside Saint's
       // overlay. The user's source config remains untouched.
-      overlayConfig = removeTomlTableNamespace(overlayConfig, SYNARA_MANAGED_MCP_TABLE_HEADER);
-      // Recover only the fields Synara generates for its HTTP gateway. Saved
+      overlayConfig = removeTomlTableNamespace(overlayConfig, SAINT_MANAGED_MCP_TABLE_HEADER);
+      // Recover only the fields Saint generates for its HTTP gateway. Saved
       // stdio fields (including multiline args/env) make Codex reject the config.
       tables.push(
         [
@@ -2552,7 +2552,7 @@ function appendManagedCodexConfigSection(config: string, section: string): strin
   // unmatched begin marker left in place must not suppress the new block.
   return appendConfigBlock(
     overlayConfig,
-    `${SYNARA_MANAGED_CODEX_CONFIG_BEGIN}\n${tables.join("\n\n")}\n${SYNARA_MANAGED_CODEX_CONFIG_END}`,
+    `${SAINT_MANAGED_CODEX_CONFIG_BEGIN}\n${tables.join("\n\n")}\n${SAINT_MANAGED_CODEX_CONFIG_END}`,
   );
 }
 
@@ -2594,7 +2594,7 @@ async function serializeCodexOverlayPreparation<A>(
   }
 }
 
-async function prepareSynaraCodexHomeOverlayUnlocked(input: {
+async function prepareSaintCodexHomeOverlayUnlocked(input: {
   readonly env: NodeJS.ProcessEnv;
   readonly homePath?: string;
   readonly shadowHomePath?: string;
@@ -2661,7 +2661,7 @@ async function prepareSynaraCodexHomeOverlayUnlocked(input: {
     ...(input.accountId ? { accountId: input.accountId } : {}),
     ...(shadowHomePath ? { shadowHomePath } : {}),
   });
-  const overlayHomePath = resolveSynaraCodexHomeOverlayPath(
+  const overlayHomePath = resolveSaintCodexHomeOverlayPath(
     input.env,
     sourceHomePath,
     accountSegment,
@@ -2700,8 +2700,8 @@ async function prepareSynaraCodexHomeOverlayUnlocked(input: {
     for (const entry of prioritizeCodexOverlayEntries(await fs.readdir(sourceHomePath))) {
       if (
         entry === "config.toml" ||
-        entry === LEGACY_SYNARA_SHARED_CONTINUATION_MARKER_FILE ||
-        entry === SYNARA_SHARED_CONTINUATION_MARKER_FILE ||
+        entry === LEGACY_SAINT_SHARED_CONTINUATION_MARKER_FILE ||
+        entry === SAINT_SHARED_CONTINUATION_MARKER_FILE ||
         isSharedContinuationLockEntry(entry) ||
         isCodexSqliteStateEntry(entry) ||
         isSharedContinuationEntry(entry)
@@ -2785,17 +2785,17 @@ async function prepareSynaraCodexHomeOverlayUnlocked(input: {
     }
   }
 
-  const suppressionMarkerPath = path.join(overlayHomePath, SYNARA_CONFIG_SUPPRESSIONS_FILE);
+  const suppressionMarkerPath = path.join(overlayHomePath, SAINT_CONFIG_SUPPRESSIONS_FILE);
   const suppressedSections = [
     ...new Set([
-      ...SYNARA_COMPETING_BROWSER_PLUGIN_SECTION_HEADERS,
+      ...SAINT_COMPETING_BROWSER_PLUGIN_SECTION_HEADERS,
       ...findConflictingLocalBrowserPluginSections(sourceConfig),
-      ...(await readSynaraConfigSuppressions(suppressionMarkerPath)),
+      ...(await readSaintConfigSuppressions(suppressionMarkerPath)),
     ]),
   ].slice(0, MAX_CONFIG_SUPPRESSION_SECTIONS);
   const overlayConfigPath = path.join(overlayHomePath, "config.toml");
-  // A development/Canary Synara can be launched from a terminal managed by
-  // another Synara instance. In that case CODEX_HOME points at the parent
+  // A development/Canary Saint can be launched from a terminal managed by
+  // another Saint instance. In that case CODEX_HOME points at the parent
   // instance's overlay, whose managed block contains the parent's MCP port.
   // Drop that complete block on every rebuild, including probes that append
   // no section of their own, so the parent's endpoint never reaches this
@@ -2822,14 +2822,14 @@ async function prepareSynaraCodexHomeOverlayUnlocked(input: {
     }
   }
   await writeCodexOverlayConfigAtomically(overlayConfigPath, overlayConfig);
-  await writeSynaraConfigSuppressions(suppressionMarkerPath, suppressedSections);
+  await writeSaintConfigSuppressions(suppressionMarkerPath, suppressedSections);
 
   assertSharedCodexContinuationGenerationPrepared(sourceHomePath, continuationMetadata.generation);
 
   return overlayHomePath;
 }
 
-async function prepareSynaraCodexHomeOverlay(input: {
+async function prepareSaintCodexHomeOverlay(input: {
   readonly env: NodeJS.ProcessEnv;
   readonly homePath?: string;
   readonly shadowHomePath?: string;
@@ -2843,7 +2843,7 @@ async function prepareSynaraCodexHomeOverlay(input: {
   const shadowHomePath = input.shadowHomePath
     ? resolveBaseCodexHomePath(input.env, input.shadowHomePath)
     : undefined;
-  const overlayHomePath = resolveSynaraCodexHomeOverlayPath(
+  const overlayHomePath = resolveSaintCodexHomeOverlayPath(
     input.env,
     sourceHomePath,
     resolveCodexHomeOverlayAccountSegment({
@@ -2867,7 +2867,7 @@ async function prepareSynaraCodexHomeOverlay(input: {
     return undefined;
   }
   return serializeCodexOverlayPreparation(overlayHomePath, () =>
-    prepareSynaraCodexHomeOverlayUnlocked(input),
+    prepareSaintCodexHomeOverlayUnlocked(input),
   );
 }
 
@@ -2889,7 +2889,7 @@ async function prepareCodexHomeOverlayWithSourcePolicy(
   continuationSourcePolicy: SharedContinuationSourcePolicy,
 ): Promise<string | undefined> {
   const env = await runCodexAuthIoAsync(resolveCodexProcessSourceEnvironmentIo(input));
-  return prepareSynaraCodexHomeOverlay({
+  return prepareSaintCodexHomeOverlay({
     env,
     ...(input.homePath ? { homePath: input.homePath } : {}),
     ...(input.shadowHomePath ? { shadowHomePath: input.shadowHomePath } : {}),

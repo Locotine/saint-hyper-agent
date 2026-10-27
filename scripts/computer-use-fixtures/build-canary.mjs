@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const destination = "/private/tmp/synara-cua-implementation/Synara Cua Canary.app";
+const destination = "/private/tmp/saint-cua-implementation/Saint Cua Canary.app";
 const resources = join(destination, "Contents/Resources");
 const plist = join(destination, "Contents/Info.plist");
 
@@ -42,9 +42,9 @@ run("/usr/bin/clang", [
 ]);
 
 for (const [key, value] of Object.entries({
-  CFBundleIdentifier: "com.synara.cua-canary",
-  CFBundleName: "Synara Cua Canary",
-  CFBundleDisplayName: "Synara Cua Canary",
+  CFBundleIdentifier: "com.saint.cua-canary",
+  CFBundleName: "Saint Cua Canary",
+  CFBundleDisplayName: "Saint Cua Canary",
   NSAccessibilityUsageDescription:
     "Canary probe: test background input into this bundle's own windows.",
   NSScreenCaptureUsageDescription:
@@ -69,7 +69,7 @@ run("bun", [
 ]);
 await writeFile(
   join(resources, "app/package.json"),
-  JSON.stringify({ name: "synara-cua-canary", main: "canary.cjs" }),
+  JSON.stringify({ name: "saint-cua-canary", main: "canary.cjs" }),
 );
 await cp(join(root, "apps/desktop/resources/cua-driver"), join(resources, "cua-driver"), {
   recursive: true,

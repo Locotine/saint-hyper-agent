@@ -6,7 +6,7 @@ import type {
   GitHubIssueDetail,
   GitHubIssueDetailInput,
   OrchestrationProject,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -51,4 +51,4 @@ export interface GitHubInboxServiceShape extends GitHubInboxSharedReads {
 export class GitHubInboxService extends ServiceMap.Service<
   GitHubInboxService,
   GitHubInboxServiceShape
->()("synara/githubInbox/Services/GitHubInboxService") {}
+>()("saint/githubInbox/Services/GitHubInboxService") {}

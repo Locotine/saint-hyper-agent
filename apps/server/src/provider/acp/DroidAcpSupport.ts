@@ -7,14 +7,14 @@ import { existsSync } from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 
-import { resolveExecutable } from "@synara/shared/executable";
-import { supportsPosixPermissions } from "@synara/shared/filesystemPlatform";
+import { resolveExecutable } from "@saint/shared/executable";
+import { supportsPosixPermissions } from "@saint/shared/filesystemPlatform";
 import {
   type DroidModelOptions,
   type ProviderListModelsResult,
   type ProviderInteractionMode,
   type ProviderModelDescriptor,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, Scope, ServiceMap } from "effect";
 import * as AcpErrors from "./AcpErrors.ts";
 import type * as Acp from "@agentclientprotocol/sdk";

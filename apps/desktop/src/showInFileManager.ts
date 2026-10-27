@@ -4,7 +4,7 @@
 // Depends on: Electron shell methods and the shared macOS app bundle predicate.
 
 import type { Shell } from "electron";
-import { isMacAppBundlePath } from "@synara/shared/filesystemPlatform";
+import { isMacAppBundlePath } from "@saint/shared/filesystemPlatform";
 
 /**
  * Folders open in the file manager and files are revealed inside their folder.

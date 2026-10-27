@@ -4,7 +4,7 @@
  * The repository only persists rows; the service owns ids, timestamps, patch
  * semantics, and change events.
  */
-import { Todo, TodoId } from "@synara/contracts";
+import { Todo, TodoId } from "@saint/contracts";
 import { Schema, ServiceMap } from "effect";
 import type { Effect, Option } from "effect";
 
@@ -36,5 +36,5 @@ export interface TodoRepositoryShape {
 }
 
 export class TodoRepository extends ServiceMap.Service<TodoRepository, TodoRepositoryShape>()(
-  "synara/persistence/Services/TodoRepository",
+  "saint/persistence/Services/TodoRepository",
 ) {}

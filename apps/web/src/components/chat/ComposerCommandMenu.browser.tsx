@@ -86,7 +86,7 @@ describe("ComposerCommandMenu provider command notices", () => {
   });
 
   it("explains an unavailable provider command from a warning tooltip", async () => {
-    const notice = "/design needs Claude Artifacts, which are off in Synara sessions by default.";
+    const notice = "/design needs Claude Artifacts, which are off in Saint sessions by default.";
     const summary = "Artifacts are off. Turn them on in Settings.";
     const menu = await mountMenu({
       isLoading: false,

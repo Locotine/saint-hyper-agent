@@ -8,7 +8,7 @@ import {
   type ProviderKind,
   type ProviderPluginDescriptor,
   type ProviderSkillDescriptor,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 import React, { useMemo, type ReactNode, useDeferredValue, useState } from "react";
 import { PROVIDER_ICON_COMPONENT_BY_PROVIDER } from "./ProviderIcon";

@@ -15,7 +15,7 @@ import {
   DEVICE_FRAME_MAGIC,
   DEVICE_FRAME_MAX_DEVICE_ID_BYTES,
   DEVICE_FRAME_VERSION,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 interface TestFrame {
   readonly sequence: number;

@@ -2,7 +2,7 @@
 // Purpose: Serializes image preparation, exposes pending UI state, and cancels stale draft work.
 // Layer: Web composer hook
 
-import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS, type ThreadId } from "@synara/contracts";
+import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS, type ThreadId } from "@saint/contracts";
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
 import type { ComposerImageAttachment } from "../composerDraftStore";
@@ -73,7 +73,7 @@ export class ComposerImageIntakeQueue {
       })
       .catch((cause) => {
         if (this.#isStale(generation)) return;
-        job.onError(cause instanceof Error ? cause.message : "Synara could not prepare image.");
+        job.onError(cause instanceof Error ? cause.message : "Saint could not prepare image.");
       })
       .finally(() => {
         if (this.#isStale(generation)) return;

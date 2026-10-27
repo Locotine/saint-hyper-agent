@@ -28,10 +28,10 @@ await mkdir(resolve(outputDirectory), { recursive: true });
 const directory = await mkdtemp(join(resolve(outputDirectory), "background-input-"));
 const targetDirectory = join(directory, "target");
 const sentinelPath =
-  process.env.SYNARA_CUA_FIXTURE_NATIVE_TARGET || join(directory, "native-sentinel");
-const focusProbe = process.env.SYNARA_CUA_FOCUS_PROBE || join(directory, "focus-probe");
+  process.env.SAINT_CUA_FIXTURE_NATIVE_TARGET || join(directory, "native-sentinel");
+const focusProbe = process.env.SAINT_CUA_FOCUS_PROBE || join(directory, "focus-probe");
 const reportPath = join(directory, "report.json");
-if (!process.env.SYNARA_CUA_FOCUS_PROBE)
+if (!process.env.SAINT_CUA_FOCUS_PROBE)
   execFileSync("/usr/bin/clang", [
     "-fobjc-arc",
     "-O2",
@@ -76,7 +76,7 @@ if (!initial || initial.app === "loginwindow" || initial.pid <= 0) {
   console.log(JSON.stringify({ blocked: report.blocked, initial }));
   process.exit(2);
 }
-if (ownedSentinel && !process.env.SYNARA_CUA_FIXTURE_NATIVE_TARGET)
+if (ownedSentinel && !process.env.SAINT_CUA_FIXTURE_NATIVE_TARGET)
   execFileSync("/usr/bin/xcrun", [
     "swiftc",
     "-module-cache-path",
@@ -92,7 +92,7 @@ await copyFile(
 );
 await writeFile(
   join(targetDirectory, "package.json"),
-  JSON.stringify({ name: "synara-background-input-fixture", main: "main.cjs" }),
+  JSON.stringify({ name: "saint-background-input-fixture", main: "main.cjs" }),
 );
 const children = [];
 let driver, target, sentinel, sampler;
@@ -243,7 +243,7 @@ try {
     env: {
       ...process.env,
       ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
-      SYNARA_BACKGROUND_FIXTURE_DIRECTORY: directory,
+      SAINT_BACKGROUND_FIXTURE_DIRECTORY: directory,
     },
   });
   const ready = await waitFor(() => target.lines.find((row) => row.event === "ready"), 15000);
@@ -312,7 +312,7 @@ try {
   let selectedWindow;
   for (const label of ["A", "B"]) {
     const matches = windows.filter(
-      (window) => window.title === `Synara Background Fixture ${target.pid} ${label}`,
+      (window) => window.title === `Saint Background Fixture ${target.pid} ${label}`,
     );
     assert.equal(matches.length, 1, "Target must match PID and unique fixture title.");
     const candidate = matches[0];
@@ -347,7 +347,7 @@ try {
   assert.ok(Number.isInteger(a.window_id));
   report.windows = windows;
   for (const window of windows)
-    if (window.title?.startsWith(`Synara Background Fixture ${target.pid} `))
+    if (window.title?.startsWith(`Saint Background Fixture ${target.pid} `))
       ownedWindows.add(window.window_id ?? window.id);
   const snapshot = async () =>
     structured(
@@ -395,7 +395,7 @@ try {
   });
   await runCase("enter-to-nonkey-sibling-refused-before-dispatch", async () => {
     const sibling = windows.filter(
-      (window) => window.title === `Synara Background Fixture ${target.pid} ${siblingLabel}`,
+      (window) => window.title === `Saint Background Fixture ${target.pid} ${siblingLabel}`,
     );
     assert.equal(sibling.length, 1);
     const b = { pid: target.pid, window_id: sibling[0].window_id ?? sibling[0].id };

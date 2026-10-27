@@ -731,7 +731,7 @@ export const MODEL_OPTIONS_BY_PROVIDER = {
     },
   ],
   // Antigravity owns its model catalog. The web app populates this provider from
-  // `agy models` so CLI updates appear without a Synara release.
+  // `agy models` so CLI updates appear without a Saint release.
   antigravity: [],
   grok: [
     {

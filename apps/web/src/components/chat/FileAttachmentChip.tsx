@@ -3,7 +3,7 @@
 // Layer: Chat attachment presentation
 // Depends on: shared byte formatting, chat attachment types, and compact chip styles.
 
-import { formatBytes } from "@synara/shared/formatBytes";
+import { formatBytes } from "@saint/shared/formatBytes";
 
 import { basenameOfPath } from "~/file-icons";
 import { FileIcon } from "~/lib/icons";

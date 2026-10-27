@@ -3,8 +3,8 @@
 // Layer: UI hook
 // Exports: useRecentViewSwitcher
 
-import { ThreadId } from "@synara/contracts";
-import type { ResolvedTerminalVisualIdentity } from "@synara/shared/terminalThreads";
+import { ThreadId } from "@saint/contracts";
+import type { ResolvedTerminalVisualIdentity } from "@saint/shared/terminalThreads";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
@@ -34,7 +34,7 @@ import {
 } from "../terminalVisualIdentity";
 import { useCommittedPathname } from "./useCommittedPathname";
 import type { useHandleNewThread } from "./useHandleNewThread";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 type NewThreadContext = ReturnType<typeof useHandleNewThread>;
 

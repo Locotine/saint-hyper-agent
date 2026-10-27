@@ -3,7 +3,7 @@
 //          panel column shows (Home or Spaces), and the Spaces drill-in project.
 // Layer: Web UI store (sessionStorage, modeled on spacesUiStore)
 
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import { create } from "zustand";
 
 import {
@@ -14,7 +14,7 @@ import {
   type RailRouteItemId,
 } from "./appRail.logic";
 
-const STORAGE_KEY = "synara:rail-shell:v1";
+const STORAGE_KEY = "saint:rail-shell:v1";
 
 interface PersistedRailShellState {
   activeItem: RailItemId;

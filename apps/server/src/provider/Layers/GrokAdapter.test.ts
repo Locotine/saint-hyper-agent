@@ -3,7 +3,7 @@
 // Layer: Provider adapter tests
 // Depends on: GrokAdapter helper exports and shared contract ids.
 
-import { TurnId } from "@synara/contracts";
+import { TurnId } from "@saint/contracts";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import {
@@ -55,7 +55,7 @@ describe("GrokAdapter runtime event scoping", () => {
     const env = buildGrokModelDiscoveryEnv(
       {
         instanceId: "grok_work",
-        isolationRootDir: mkdtempSync(join(tmpdir(), "synara-grok-discovery-")),
+        isolationRootDir: mkdtempSync(join(tmpdir(), "saint-grok-discovery-")),
         environment: { GROK_CODE_XAI_API_KEY: "selected-account-b" },
       },
       {
@@ -73,8 +73,8 @@ describe("GrokAdapter runtime event scoping", () => {
     expect(env.HTTPS_PROXY).toBe("http://proxy.example");
   });
 
-  it("uses the configured Synara state root for nondefault discovery without env", () => {
-    const stateDir = mkdtempSync(join(tmpdir(), "synara-grok-discovery-"));
+  it("uses the configured Saint state root for nondefault discovery without env", () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "saint-grok-discovery-"));
     const env = buildGrokModelDiscoveryEnv({
       instanceId: "grok_work",
       homeDir: "/home/user",
@@ -115,7 +115,7 @@ describe("Grok native plan approval", () => {
         text: "Design the change",
         interactionMode: "plan",
       }),
-    ).toMatch(/^Synara requested Grok's native plan mode\./u);
+    ).toMatch(/^Saint requested Grok's native plan mode\./u);
   });
 
   it("sets Grok's native prompt mode idempotently on every turn", () => {
@@ -127,28 +127,28 @@ describe("Grok native plan approval", () => {
   it("backs native Plan mode with a fail-closed pre-tool hook", () => {
     expect(
       resolveGrokPlanHookResponse("plan", {
-        hookCallbackId: "synara-plan-guard",
+        hookCallbackId: "saint-plan-guard",
         hookEventName: "pre_tool_use",
         toolName: "read_file",
       }),
     ).toEqual({});
     expect(
       resolveGrokPlanHookResponse("plan", {
-        hookCallbackId: "synara-plan-guard",
+        hookCallbackId: "saint-plan-guard",
         hookEventName: "pre_tool_use",
         toolName: "run_terminal_cmd",
       }),
     ).toMatchObject({ decision: "deny" });
     expect(
       resolveGrokPlanHookResponse("plan", {
-        hookCallbackId: "synara-plan-guard",
+        hookCallbackId: "saint-plan-guard",
         hookEventName: "pre_tool_use",
         toolName: "future_mutating_tool",
       }),
     ).toMatchObject({ decision: "deny" });
     expect(
       resolveGrokPlanHookResponse("default", {
-        hookCallbackId: "synara-plan-guard",
+        hookCallbackId: "saint-plan-guard",
         hookEventName: "pre_tool_use",
         toolName: "run_terminal_cmd",
       }),
@@ -204,11 +204,11 @@ describe("Grok native plan approval", () => {
     expect(extractGrokExitPlanMarkdown(request)).toBeUndefined();
   });
 
-  it("keeps native plan mode gated after Synara captures the plan", () => {
+  it("keeps native plan mode gated after Saint captures the plan", () => {
     expect(makeGrokExitPlanModeCapturedResponse()).toEqual({
       outcome: "cancelled",
       feedback:
-        "Synara captured this plan for user review. Do not revise or implement it now. End this turn and wait for the user's next message.",
+        "Saint captured this plan for user review. Do not revise or implement it now. End this turn and wait for the user's next message.",
     });
   });
 
@@ -259,7 +259,7 @@ describe("Grok native user questions", () => {
     ]);
   });
 
-  it("maps Synara answers to Grok's question-text keyed response", () => {
+  it("maps Saint answers to Grok's question-text keyed response", () => {
     expect(extractGrokUserInputQuestions(request)[0]).toMatchObject({
       id: "grok-question-0",
       header: "Verification",

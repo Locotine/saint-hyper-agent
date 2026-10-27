@@ -13,7 +13,7 @@ afterEach(() => {
 // No network: the download is stubbed to fail, which is enough to prove a corrupt
 // install is removed and retried once instead of blocking the debugger.
 it("replaces a corrupt install with one shared download instead of failing on it", async () => {
-  const state = await mkdtemp(path.join(os.tmpdir(), "synara-js-debug-install-"));
+  const state = await mkdtemp(path.join(os.tmpdir(), "saint-js-debug-install-"));
   try {
     const download = vi.fn(
       async (_url: string | URL | Request) => new Response(null, { status: 503 }),

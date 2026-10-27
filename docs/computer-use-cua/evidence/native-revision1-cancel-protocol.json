@@ -1,5 +1,5 @@
 {
-  "driver": "/private/tmp/synara-cua-native-patch/artifact-universal/cua-driver",
+  "driver": "/private/tmp/saint-cua-native-patch/artifact-universal/cua-driver",
   "driverPid": 86475,
   "inputToolsCalled": 0,
   "cases": [
@@ -31,7 +31,7 @@
     "embedded": true,
     "mcp_protocol_version": "2025-06-18",
     "pid": 86475,
-    "synara_native_revision": 1,
+    "saint_native_revision": 1,
     "tools_list_schema_version": "1"
   },
   "exit": {

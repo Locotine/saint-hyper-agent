@@ -3,7 +3,7 @@
 // Layer: Routing support
 // Exports: empty-startup snapshot recovery helper shared by chat index and thread routes.
 
-import type { NativeApi } from "@synara/contracts";
+import type { NativeApi } from "@saint/contracts";
 
 import { EMPTY_ROUTE_RESTORE_FALLBACK_DELAY_MS } from "./chatRouteRestore";
 import { requestEmptyRouteRestoreRefresh } from "./routeRestoreRefreshCoordinator";

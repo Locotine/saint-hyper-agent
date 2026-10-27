@@ -6,7 +6,7 @@
 // Depends on: GroupThreadsSection with a stubbed project agent.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 

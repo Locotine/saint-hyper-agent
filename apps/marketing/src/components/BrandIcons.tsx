@@ -84,7 +84,7 @@ export function PiIcon({ className }: IconProps) {
   );
 }
 
-/** Devin mark supplied with Synara's provider icon set. */
+/** Devin mark supplied with Saint's provider icon set. */
 export function DevinIcon({ className }: IconProps) {
   return (
     <span className={`relative inline-block shrink-0 ${className ?? ""}`} aria-hidden="true">

@@ -15,19 +15,19 @@ import {
   ProviderKind,
   SERVER_VOICE_TRANSCRIPTION_MAX_AUDIO_BYTES,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   ATTACHMENT_CANCEL_ROUTE_PATH,
   ATTACHMENT_UPLOAD_ROUTE_PATH,
   LIBRARY_UPLOAD_ROUTE_PATH,
   VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH,
-} from "@synara/shared/binaryTransfer";
-import { EDITOR_ICON_ROUTE_PATH } from "@synara/shared/editorIcons";
-import { threadExportBlockedReason } from "@synara/shared/threadExport";
+} from "@saint/shared/binaryTransfer";
+import { EDITOR_ICON_ROUTE_PATH } from "@saint/shared/editorIcons";
+import { threadExportBlockedReason } from "@saint/shared/threadExport";
 import {
   providerStartOptionsFromInstance,
   resolveProviderInstance,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 import { Cause, DateTime, Effect, FileSystem, Layer, Option, Path, Schema, Stream } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
@@ -69,6 +69,8 @@ import {
 import { ProjectAgentRepository } from "./persistence/Services/ProjectAgentRepository";
 import { resolveCachedEditorIcon } from "./editorAppIcons";
 import { LOCAL_IMAGE_ROUTE_PATH, resolveAllowedLocalPreviewFile } from "./localImageFiles.ts";
+import { resolveHtmlPreviewFile } from "./htmlPreviewFiles.ts";
+import { HTML_PREVIEW_ROUTE_PATH } from "@saint/shared/localPreviewFiles";
 import type { ProjectFaviconResolverShape } from "./project/Services/ProjectFaviconResolver";
 import { resolveScratchWorkspacesRoot } from "./scratchWorkspaces.ts";
 import { ProjectFaviconResolver } from "./project/Services/ProjectFaviconResolver";
@@ -243,6 +245,7 @@ export function makeEffectHttpRouteLayer(
     siteFaviconEffectRouteLayer,
     editorIconEffectRouteLayer,
     localImageEffectRouteLayer,
+    htmlPreviewEffectRouteLayer,
     binaryUploadEffectRouteLayer,
     attachmentsEffectRouteLayer,
     staticAndDevEffectRouteLayer,
@@ -268,7 +271,7 @@ export function makeDesktopShutdownEffectRouteLayer(shutdownController: ServerSh
           {
             status: authorization.status,
             ...(authorization.status === 401
-              ? { headers: { "WWW-Authenticate": 'Bearer realm="synara-desktop-shutdown"' } }
+              ? { headers: { "WWW-Authenticate": 'Bearer realm="saint-desktop-shutdown"' } }
               : {}),
           },
         );
@@ -305,7 +308,7 @@ export function makeDesktopComputerEmergencyStopRouteLayer() {
           {
             status: authorization.status,
             ...(authorization.status === 401
-              ? { headers: { "WWW-Authenticate": 'Bearer realm="synara-desktop-emergency-stop"' } }
+              ? { headers: { "WWW-Authenticate": 'Bearer realm="saint-desktop-emergency-stop"' } }
               : {}),
           },
         );
@@ -810,7 +813,7 @@ const threadExportEffectRouteLayer = HttpRouter.add(
     }
 
     // Error responses need the trusted-origin CORS headers too: the desktop
-    // app fetches cross-origin (synara://app), and without them the browser masks
+    // app fetches cross-origin (saint://app), and without them the browser masks
     // a 400/404/409 body as an opaque network failure.
     const corsHeaders = localPreviewCorsHeaders({ config, request, url });
 
@@ -1005,6 +1008,51 @@ export const localImageEffectRouteLayer = HttpRouter.add(
       },
     });
   }).pipe(Effect.catchTag("AuthError", (error) => Effect.succeed(authErrorResponse(error)))),
+);
+
+/**
+ * Every preview response is a sandboxed document with an opaque origin, even
+ * when opened directly, so a previewed page can never act as the app or read
+ * the server's cookies. Scripts, forms and popups still run.
+ */
+const HTML_PREVIEW_SECURITY_HEADERS = {
+  "Content-Security-Policy":
+    "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "Cache-Control": "private, no-store",
+} as const;
+
+// The grant in the path is the credential: an iframe's relative asset requests
+// cannot carry a token, and grants come only from the authenticated
+// `projects.createHtmlPreviewGrant` RPC, scoped to one folder.
+export const htmlPreviewEffectRouteLayer = HttpRouter.add(
+  "GET",
+  `${HTML_PREVIEW_ROUTE_PATH}/*`,
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const url = HttpServerRequest.toURL(request);
+    if (!url) return HttpServerResponse.text("Bad Request", { status: 400 });
+    const previewFile = yield* Effect.promise(() =>
+      resolveHtmlPreviewFile({
+        routePath: url.pathname.slice(HTML_PREVIEW_ROUTE_PATH.length),
+      }).catch(() => null),
+    );
+    if (!previewFile) {
+      return HttpServerResponse.text("Not Found", {
+        status: 404,
+        headers: HTML_PREVIEW_SECURITY_HEADERS,
+      });
+    }
+    const fileSystem = yield* FileSystem.FileSystem;
+    // Streamed, so a preview of any size starts rendering right away.
+    return streamedFileResponse({
+      fileSystem,
+      path: previewFile.path,
+      sizeBytes: previewFile.sizeBytes,
+      headers: HTML_PREVIEW_SECURITY_HEADERS,
+    });
+  }),
 );
 
 const binaryUploadEffectHandler = Effect.gen(function* () {

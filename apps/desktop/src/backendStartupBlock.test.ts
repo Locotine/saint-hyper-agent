@@ -5,7 +5,7 @@ import {
   serializeMigrationSchemaTooNewStartupBlock,
   type MigrationDivergenceConsentChallenge,
   type MigrationSchemaTooNewStartupBlock,
-} from "@synara/shared/migrationRecovery";
+} from "@saint/shared/migrationRecovery";
 
 import { BackendStartupBlockDetector } from "./backendStartupBlock";
 
@@ -172,7 +172,7 @@ describe("BackendStartupBlockDetector", () => {
   it("fails closed instead of retrying a malformed structured block", () => {
     const detector = new BackendStartupBlockDetector();
 
-    detector.push("SYNARA_MIGRATION_SCHEMA_TOO_NEW={not-json}\n");
+    detector.push("SAINT_MIGRATION_SCHEMA_TOO_NEW={not-json}\n");
 
     expect(detector.read()).toEqual({ kind: "migration-startup-block-invalid" });
   });

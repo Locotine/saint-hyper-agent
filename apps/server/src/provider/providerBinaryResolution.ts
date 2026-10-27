@@ -10,7 +10,7 @@ import {
   executableCandidates,
   executableNameCandidates,
   isExecutableFile,
-} from "@synara/shared/executable";
+} from "@saint/shared/executable";
 
 import { buildProviderChildEnvironment } from "../providerChildEnvironment.ts";
 

@@ -1,4 +1,4 @@
-import type { EditorIntelligenceInput, EditorIntelligenceResult } from "@synara/contracts";
+import type { EditorIntelligenceInput, EditorIntelligenceResult } from "@saint/contracts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 interface CompilerWorker {

@@ -4,13 +4,13 @@ import { NonNegativeInt, ThreadId, TrimmedNonEmptyString } from "./baseSchemas";
 
 /**
  * Inline visuals: what an agent publishes into its own thread with the
- * `synara_show_visual` gateway tool. Usually a component spec (see
+ * `saint_show_visual` gateway tool. Usually a component spec (see
  * inlineVisualSpec.ts) that clients draw with their own components; for a view
  * the spec cannot express, a self-contained HTML document that clients run in a
  * sandboxed desktop frame. The server stores the source and records a
  * small `visual.shown` activity; clients fetch the source by id.
  */
-export const INLINE_VISUAL_TOOL_NAME = "synara_show_visual";
+export const INLINE_VISUAL_TOOL_NAME = "saint_show_visual";
 export const INLINE_VISUAL_ACTIVITY_KIND = "visual.shown";
 
 /** Kept well under the 1 MiB gateway request limit, since JSON escaping can double HTML. */
@@ -59,4 +59,4 @@ export type OrchestrationGetInlineVisualResult = typeof OrchestrationGetInlineVi
  * The fenced block an agent writes in its reply to place a visual there, with
  * the visual id as its only line. Clients draw the visual in its place.
  */
-export const INLINE_VISUAL_EMBED_FENCE = "synara-visual";
+export const INLINE_VISUAL_EMBED_FENCE = "saint-visual";

@@ -13,7 +13,7 @@ bun scripts/computer-use-fixtures/sample-packaged-resources.ts \
   --pid "$PACKAGED_MAIN_PID" \
   --seconds 180 \
   --interval-ms 1000 \
-  --out /private/tmp/synara-packaged-resources-001.jsonl
+  --out /private/tmp/saint-packaged-resources-001.jsonl
 ```
 
 Wait for `Resource sampler ready` before starting the measured workload. The

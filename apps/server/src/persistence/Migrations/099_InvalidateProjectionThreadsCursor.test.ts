@@ -6,7 +6,7 @@ import {
   ProjectId,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";

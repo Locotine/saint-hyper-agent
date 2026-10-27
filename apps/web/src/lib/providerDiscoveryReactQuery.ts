@@ -8,7 +8,7 @@ import type {
   ProviderListPluginsResult,
   ProviderListSkillsResult,
   ProviderSkillsCatalogResult,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { queryOptions } from "@tanstack/react-query";
 import { ensureNativeApi } from "~/nativeApi";
 import {

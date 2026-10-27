@@ -10,7 +10,7 @@ import {
 
 const START = "Sun Sep 20 10:00:00 2026";
 const LATER = "Sun Sep 20 10:00:02 2026";
-const APP = "/Applications/Synara Cua.app/Contents/MacOS/Synara Cua";
+const APP = "/Applications/Saint Cua.app/Contents/MacOS/Saint Cua";
 
 function processRow(pid: number, parentPid: number, startedAt = START): ResourceProcess {
   return {

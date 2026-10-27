@@ -10,7 +10,7 @@
 Remove `effect-acp` from the providers and shared ACP runtime currently present on `main`.
 
 Keep the Effect framework. Effect continues to own scopes, typed failures, queues, cancellation,
-process supervision, teardown, and Synara lifecycle policy. The official
+process supervision, teardown, and Saint lifecycle policy. The official
 `@agentclientprotocol/sdk` becomes the only owner of standard ACP transport, validation, method
 definitions, and request/response types.
 
@@ -30,9 +30,9 @@ definitions, and request/response types.
 Production ACP code may depend on:
 
 1. `@agentclientprotocol/sdk` for the standard ACP protocol and types.
-2. `effect` for Synara runtime and lifecycle ownership.
+2. `effect` for Saint runtime and lifecycle ownership.
 3. Two small local modules beside the ACP runtime:
-   - `AcpErrors.ts`, containing only the Effect-native errors Synara still consumes;
+   - `AcpErrors.ts`, containing only the Effect-native errors Saint still consumes;
    - `AcpExtensions.ts`, containing only the minimal config-option codecs that genuinely require
      runtime decoding.
 
@@ -56,7 +56,7 @@ The final tree must not contain:
 ## Implementation result
 
 - Standard ACP types now come directly from pinned `@agentclientprotocol/sdk` 1.2.1.
-- `AcpErrors.ts` owns only Synara's three Effect-native runtime errors, and `AcpExtensions.ts` owns
+- `AcpErrors.ts` owns only Saint's three Effect-native runtime errors, and `AcpExtensions.ts` owns
   only the two required config-option codecs.
 - The redundant `session/update` decode and official-SDK array conversion helpers are deleted;
   elicitation handlers use the official SDK response shape directly.
@@ -108,7 +108,7 @@ phase must be behavior-neutral.
 
 Create `apps/server/src/provider/acp/AcpExtensions.ts` containing only:
 
-1. A minimal Effect codec for the parts of `SessionConfigOption` Synara reads.
+1. A minimal Effect codec for the parts of `SessionConfigOption` Saint reads.
 2. A minimal `SetSessionConfigOptionResponse` codec built from that config-option codec.
 
 The two retained runtime decode sites are:
@@ -140,13 +140,13 @@ Required changes:
    - `ElicitationResponse` → `CreateElicitationResponse`;
    - `ElicitationCompleteNotification` → `CompleteElicitationNotification`.
 3. Delete the redundant Effect-Schema decode of `session/update`; the official SDK already validates
-   it before invoking Synara's handler.
+   it before invoking Saint's handler.
 4. Delete `toOfficialMcpServers` and `toOfficialContentBlocks`. Construct fresh arrays only at
    readonly-to-mutable call sites when required.
 5. Make elicitation handlers return the SDK response shape directly and delete the transitional
    response reshape.
 6. Keep `officialSdkError()` as the single SDK-error-to-local-Effect-error translation.
-7. Normalize SDK `null` values at consumption sites where Synara uses `undefined`; do not introduce
+7. Normalize SDK `null` values at consumption sites where Saint uses `undefined`; do not introduce
    compatibility aliases or unsafe casts.
 
 **Gate:** shared runtime/model/conformance suites plus server typecheck.
@@ -209,7 +209,7 @@ Stop and report rather than forcing the migration if:
 The migration is complete only when:
 
 - the official SDK is the sole standard ACP type and wire authority;
-- Effect still owns Synara runtime/lifecycle policy;
+- Effect still owns Saint runtime/lifecycle policy;
 - live source imports from `effect-acp` are zero;
 - `packages/effect-acp` and all live workspace/release/lockfile references are deleted;
 - focused ACP gates and the final workspace verification are green.

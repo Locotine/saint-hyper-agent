@@ -137,7 +137,7 @@ This Beta covers all **59 feature commits** from `v1.0.2-beta.1` through `4b2441
 
 ### Added
 
-- **Connect your tools to Synara Beta.** Sign in to remote MCP services from Settings → Connectors and use their tools in supported agent sessions. Claude, Codex and OpenCode support remote HTTP connectors; ACP providers require advertised HTTP MCP support. Pi, Devin and Antigravity do not. New sessions receive connected tools. Custom URLs require public HTTPS; sign-in requires loopback. Slack needs your own OAuth app and an updated redirect URL when the desktop port changes. Stable keeps Connectors disabled.
+- **Connect your tools to Saint Beta.** Sign in to remote MCP services from Settings → Connectors and use their tools in supported agent sessions. Claude, Codex and OpenCode support remote HTTP connectors; ACP providers require advertised HTTP MCP support. Pi, Devin and Antigravity do not. New sessions receive connected tools. Custom URLs require public HTTPS; sign-in requires loopback. Slack needs your own OAuth app and an updated redirect URL when the desktop port changes. Stable keeps Connectors disabled.
 - **Interactive visuals inside your conversations.** Agents can now show charts, tables, comparisons, checklists and calculators directly in Beta chats. Native components follow your theme and font size. Desktop apps also support isolated, self-contained HTML views; browser-hosted clients show native components only. Visuals stay with their chat in the current app’s data home.
 - **A compact composer with room for your work.** Short drafts fit into a single row that expands for longer messages. Goals, tasks and changes sit in floating capsules above it. Open a capsule for details or use the + menu for extras. Plans remain accessible, queued drafts survive layout changes, and narrow editor panes keep branch and model controls readable. Notices and task controls use the same compact layout.
 - **Find the chats that need you next.** Activity’s Priority section puts approvals, questions and ready plans ahead of unseen results and running work. Rows hold their place while you work through them; Clear read refreshes the list. Use mod+alt+a to cycle through chats waiting on you and unseen work. Native subagent chats stay in their parent’s cards and roster instead of filling the sidebar.
@@ -310,7 +310,7 @@ This Stable release audits **280 commits and 82 merged pull requests** from **v1
 #### Ask your agent to maintain Tasks
 
 - Supported sessions can create, list and update Tasks to-dos from a chat: notes, priority, due date, project and completion state. Changes reach open windows without a reload.
-- Retried creates use a request ID to avoid duplicates. These tools maintain the list; they do not dispatch a to-do to an agent. Synara permissions still apply.
+- Retried creates use a request ID to avoid duplicates. These tools maintain the list; they do not dispatch a to-do to an agent. Saint permissions still apply.
 
 #### Choose the account your integrations use
 
@@ -405,11 +405,11 @@ These notes audit **259 commits**, including merges, from **v1.0.1** through fea
 #### Ask your agent to maintain Tasks
 
 - Supported agent sessions can create, list and update the to-dos in your Tasks list directly from a chat.
-- Set notes, priority, due date and project, mark a to-do complete or reopen it. Retried creates use a request ID to avoid duplicates. These tools maintain the list; they do not dispatch the to-do to an agent. Synara permissions still apply.
+- Set notes, priority, due date and project, mark a to-do complete or reopen it. Retried creates use a request ID to avoid duplicates. These tools maintain the list; they do not dispatch the to-do to an agent. Saint permissions still apply.
 
 #### Resolve Hub worker approvals in one place
 
-- In Synara Beta, pending worker approvals appear above the coordinator composer, with links to the worker conversation.
+- In Saint Beta, pending worker approvals appear above the coordinator composer, with links to the worker conversation.
 - Approve once, allow the session when supported, decline or cancel the worker turn. Answering in either conversation clears the request in both. Only you can approve; the coordinator has no approval tool. Queued Hub tasks inherit the coordinator access mode unless explicitly overridden.
 
 ### Changed
@@ -469,7 +469,7 @@ These notes audit **259 commits**, including merges, from **v1.0.1** through fea
 #### OpenCode v2
 
 - Connect the new OpenCode v2 runtime while retaining support for existing v1 servers.
-- Synara detects the server API before sending work and uses the v2 client for models, agents, sessions, streaming, approvals, attachments, forks, rollback and compaction. Keep your OpenCode account and data when migrating. Standard questions appear in Synara; complex forms must be completed in OpenCode. Task-scoped MCP readiness is checked after registration.
+- Saint detects the server API before sending work and uses the v2 client for models, agents, sessions, streaming, approvals, attachments, forks, rollback and compaction. Keep your OpenCode account and data when migrating. Standard questions appear in Saint; complex forms must be completed in OpenCode. Task-scoped MCP readiness is checked after registration.
 
 #### Multiple folders in one project
 
@@ -523,9 +523,9 @@ These notes audit **259 commits**, including merges, from **v1.0.1** through fea
 - Move Kanban cards from their context menu and use the full commit-and-push row to open Git actions.
 - Git dialogs expose their submit shortcuts. Branch creation avoids namespace conflicts, and checkpoint scheduling reserves capacity for reads and checkpoint work so unrelated workspaces can advance.
 
-#### Synara is the default theme
+#### Saint is the default theme
 
-- New installations start with the complete Synara theme, including the matching controls and workspace styling.
+- New installations start with the complete Saint theme, including the matching controls and workspace styling.
 - Sidebar text stays sharp after display changes, metadata glyphs align consistently, and the chat header remains draggable. Embedded browser pages retain an opaque backdrop and remain visible behind toolbar overlays.
 
 #### Smoother streaming and recovery
@@ -556,7 +556,7 @@ These notes audit **259 commits**, including merges, from **v1.0.1** through fea
 - Main CI passed after rerunning one intermittent sidebar-hover geometry failure; all four variants passed locally without source changes.
 - The first two publication attempts stopped before the Windows scan on the local signature timestamp. The installed version already matched Microsoft's current release. Qualification now retries MMPC, then independently verifies the current Microsoft version when the local timestamp exceeds 24 hours. Missing, stale or unverified signatures still fail closed; protection, exclusions, detections and unchanged-artifact checks remain mandatory.
 - [Publication passed](https://github.com/Emanuele-web04/synara/actions/runs/37850836681) on all four platforms from `f44ce959bdeedf5e2dfe117d362ef4e08386b3c3`: signed/notarized macOS, Linux and unsigned Windows packaging, provenance, packaged startup smoke and Defender. The Windows scan used definitions `1.459.629.0`, found no threats and preserved the installer bytes.
-- [v1.0.1](https://github.com/Emanuele-web04/synara/releases/tag/v1.0.1) is public GitHub Latest with 18 assets. All four installer URLs return HTTP 200; the six updater manifests report 1.0.1 and the `synara` aliases match `latest` byte-for-byte. Public installer digests match their source provenance; historical v0.4.2 is unchanged. A manual installed-app upgrade and Windows 11 browser-download qualification have not been exercised locally.
+- [v1.0.1](https://github.com/Emanuele-web04/synara/releases/tag/v1.0.1) is public GitHub Latest with 18 assets. All four installer URLs return HTTP 200; the six updater manifests report 1.0.1 and the `saint` aliases match `latest` byte-for-byte. Public installer digests match their source provenance; historical v0.4.2 is unchanged. A manual installed-app upgrade and Windows 11 browser-download qualification have not been exercised locally.
 - Multi-folder projects support Local mode with Codex and Claude; extra folders are outside primary-folder Git checkpoints and undo. Hubs and diagnostics remain Beta-only.
 - Windows x64 is published unsigned under the version-scoped release policy; packaging, provenance, startup smoke and Defender checks remain required.
 
@@ -564,7 +564,7 @@ These notes audit **259 commits**, including merges, from **v1.0.1** through fea
 
 ## [1.0.0] — 2026-10-05
 
-**Synara 1.0.0 Stable brings the new workspace rail, multi-account providers, same-chat handoffs, Inbox, Auto-fix CI and Oh My Pi to Stable, together with a redesigned review workflow and one terminal pane per chat.**
+**Saint 1.0.0 Stable brings the new workspace rail, multi-account providers, same-chat handoffs, Inbox, Auto-fix CI and Oh My Pi to Stable, together with a redesigned review workflow and one terminal pane per chat.**
 
 This release inventory covers **496 commits**, including merges, from **v0.9.2** through **84daea248**. It incorporates the Stable-compatible changes introduced in **v1.0.0-beta.1** and all subsequent fixes through the terminal workspace merge. **Hubs and the Tasks to-do list remain Beta-only.** Stable keeps Kanban and does not send Beta diagnostics. Stable and Beta retain separate apps, data homes and update feeds; Beta data is not copied back to Stable.
 
@@ -635,7 +635,7 @@ Computer Use, Kanban, remote connections, project import, split panes, dictation
 #### A tour of what changed
 
 - A feature tour introduces the new workspace, provider accounts and review workflow.
-- Synara 1.0.0 is a Stable release. Hubs and the Tasks to-do list remain exclusive to Synara Beta, with separate data and update feeds. Stable does not send Beta diagnostics.
+- Saint 1.0.0 is a Stable release. Hubs and the Tasks to-do list remain exclusive to Saint Beta, with separate data and update feeds. Stable does not send Beta diagnostics.
 
 #### Choose how Git changes are written
 
@@ -711,14 +711,14 @@ Computer Use, Kanban, remote connections, project import, split panes, dictation
 
 #### Large Git actions survive reconnects
 
-- Keep long pushes and other Git actions running while Synara reconnects, then resume their progress without launching them twice.
-- Git transfer progress remains visible. Recovery requires the same running server; if the result is unavailable after a restart, Synara asks you to check the repository before retrying.
+- Keep long pushes and other Git actions running while Saint reconnects, then resume their progress without launching them twice.
+- Git transfer progress remains visible. Recovery requires the same running server; if the result is unavailable after a restart, Saint asks you to check the repository before retrying.
 
 ### Fixed
 
 #### Recover message delivery after disconnects
 
-- Synara checks whether an interrupted send was accepted before deciding what happens next.
+- Saint checks whether an interrupted send was accepted before deciding what happens next.
 - Accepted commands are not blindly resent; rejected commands restore the draft. Delivery settlement requires a compatible server. HTTP fallback failures now settle and surface useful errors. Blocked provider delivery now includes the reason when a chat is quarantined, and its unblock action works reliably.
 
 #### More dependable provider sessions
@@ -738,7 +738,7 @@ Computer Use, Kanban, remote connections, project import, split panes, dictation
 
 #### Clearer close and quit confirmation
 
-- Confirm closing the desktop window or quitting Synara, with running work shown before you leave.
+- Confirm closing the desktop window or quitting Saint, with running work shown before you leave.
 - Startup also recovers stale database lock directories that contain only Finder metadata; a live database owner is still protected.
 
 ### Verification
@@ -752,7 +752,7 @@ Computer Use, Kanban, remote connections, project import, split panes, dictation
 
 ## [1.0.0-beta.1] — 2026-10-04
 
-**Synara 1.0.0 starts in Beta: a new workspace rail, multi-account providers, Hubs, Tasks, Inbox, same-chat handoffs and a redesigned review workflow.** This is a Beta-only release. Stable remains **0.9.2**; its app, data directory and update feed are unchanged.
+**Saint 1.0.0 starts in Beta: a new workspace rail, multi-account providers, Hubs, Tasks, Inbox, same-chat handoffs and a redesigned review workflow.** This is a Beta-only release. Stable remains **0.9.2**; its app, data directory and update feed are unchanged.
 
 This inventory compares the actual **v0.9.2** source with **212dd3bc8**, covering **466 commits**, including merge commits. Follow-up work on features introduced in this range is incorporated into the feature description. Computer Use, Kanban, remote connections, project import, split panes, dictation, provider handoffs and Oh My Pi in Beta already existed in 0.9.2 and are not presented as newly invented features.
 
@@ -760,7 +760,7 @@ This inventory compares the actual **v0.9.2** source with **212dd3bc8**, coverin
 
 #### Hubs: give larger work a team
 
-- Bring a coordinator and worker agents together around shared instructions, linked projects and a versioned Library in Synara Beta.
+- Bring a coordinator and worker agents together around shared instructions, linked projects and a versioned Library in Saint Beta.
 - Delegate independent work, preserve the original request and attachments, follow durable work cards and checklists, and receive a combined completion summary. The queue supports 1–8 parallel workers (3 by default), with visible waiting, failure and recovery states. New repository work defaults to isolated worktrees; explicit environment choices are respected.
 
 #### Tasks: a backlog you can hand to an agent
@@ -826,7 +826,7 @@ This inventory compares the actual **v0.9.2** source with **212dd3bc8**, coverin
 #### A tour of what changed
 
 - A feature tour introduces the new workspace, accounts, review workflow and Beta Hubs.
-- This release is Synara Beta only. Stable remains at 0.9.2 with its existing features and separate data and update feed.
+- This release is Saint Beta only. Stable remains at 0.9.2 with its existing features and separate data and update feed.
 
 ### Changed
 
@@ -887,7 +887,7 @@ This inventory compares the actual **v0.9.2** source with **212dd3bc8**, coverin
 
 #### Recover message delivery after disconnects
 
-- Synara checks whether an interrupted send was accepted before deciding what happens next.
+- Saint checks whether an interrupted send was accepted before deciding what happens next.
 - Accepted commands are not blindly resent; rejected commands restore the draft. Delivery settlement requires a compatible server. HTTP fallback failures now settle and surface useful errors.
 
 #### More dependable provider sessions
@@ -976,12 +976,12 @@ This inventory compares the actual **v0.9.2** source with **212dd3bc8**, coverin
 
 ## [0.9.2] — 2026-09-25
 
-**Synara Beta arrives as a separate app, with Oh My Pi available in Beta.** The stable 0.9.2 release includes the path to try Beta and a set of reliability fixes; OMP remains gated off in Stable.
+**Saint Beta arrives as a separate app, with Oh My Pi available in Beta.** The stable 0.9.2 release includes the path to try Beta and a set of reliability fixes; OMP remains gated off in Stable.
 
 ### Added
 
-- Synara Beta installs alongside Stable with its own data directory and update feed. On macOS, Settings → General can install Beta, copy Stable data into it after confirmation, or open an existing Beta installation. Beta sends crash reports and anonymous usage statistics; Stable does not.
-- Oh My Pi (OMP) is an ACP provider in Synara Beta only. It discovers models with `omp models --json` and presents the thinking levels reported for each model. Install and authenticate OMP separately; runtime and account configuration determine availability.
+- Saint Beta installs alongside Stable with its own data directory and update feed. On macOS, Settings → General can install Beta, copy Stable data into it after confirmation, or open an existing Beta installation. Beta sends crash reports and anonymous usage statistics; Stable does not.
+- Oh My Pi (OMP) is an ACP provider in Saint Beta only. It discovers models with `omp models --json` and presents the thinking levels reported for each model. Install and authenticate OMP separately; runtime and account configuration determine availability.
 - Computer asks for approval before bringing a Mac app into the foreground.
 
 ### Changed
@@ -1006,7 +1006,7 @@ This inventory compares the actual **v0.9.2** source with **212dd3bc8**, coverin
 
 ## [0.9.1] — 2026-09-22
 
-**Claude Opus 5.5 and GPT-6 Sol & Luna lead this update.** Synara also improves environment task navigation, OpenCode startup, Computer control feedback, and several high-frequency paths.
+**Claude Opus 5.5 and GPT-6 Sol & Luna lead this update.** Saint also improves environment task navigation, OpenCode startup, Computer control feedback, and several high-frequency paths.
 
 ### Added
 
@@ -1040,7 +1040,7 @@ This inventory compares the actual **v0.9.2** source with **212dd3bc8**, coverin
 
 ## [0.9.0] — 2026-09-21
 
-**Computer Use arrives in beta, available on macOS only at the moment. Linux is coming soon.** Ask Synara to operate Mac apps and browsers with `/computer-use`, follow the targeted window in a preview, and stop the task from chat. The rest of this release brings project import, richer provider controls, clearer review workflows and many reliability fixes.
+**Computer Use arrives in beta, available on macOS only at the moment. Linux is coming soon.** Ask Saint to operate Mac apps and browsers with `/computer-use`, follow the targeted window in a preview, and stop the task from chat. The rest of this release brings project import, richer provider controls, clearer review workflows and many reliability fixes.
 
 ### Added
 
@@ -1181,7 +1181,7 @@ Audited all 450 commits in the complete `v0.8.4..f3cffcb66` ancestry, including 
 
 #### Workspace editing, diffs and documents
 
-- Edit workspace text files directly from Explorer and the full editor; edit the working side directly from supported Git diff views. The editors use the same Pierre/Shiki stack as Synara's diff rendering, including app fonts, theme and syntax highlighting. Explorer uses a numbered plain-text fallback for larger files; the full file and diff editors continue to use Pierre. ([#561](https://github.com/Emanuele-web04/synara/pull/561), [#1123](https://github.com/Emanuele-web04/synara/pull/1123))
+- Edit workspace text files directly from Explorer and the full editor; edit the working side directly from supported Git diff views. The editors use the same Pierre/Shiki stack as Saint's diff rendering, including app fonts, theme and syntax highlighting. Explorer uses a numbered plain-text fallback for larger files; the full file and diff editors continue to use Pierre. ([#561](https://github.com/Emanuele-web04/synara/pull/561), [#1123](https://github.com/Emanuele-web04/synara/pull/1123))
 - Undo, redo and undoable revert-all header controls, an immediate Save action and configurable Cmd/Ctrl+S binding. ([#561](https://github.com/Emanuele-web04/synara/pull/561))
 - Shared file drafts and writer across Explorer, file editor and diff editor. Autosave follows a 400 ms typing pause; switching files/pages and sending prompts wait for pending writes. Successful edits refresh Unstaged changes without staging files. ([#1186](https://github.com/Emanuele-web04/synara/pull/1186))
 - Conflict-aware saves preserve original encoding and line endings; failed/conflicting saves retain the draft, expose errors, stop automatic retries and offer explicit recovery. In-flight saves finish before leaving; new typing during a disk reload is protected. Reload/discard and explicit full-editor Overwrite are distinct recovery choices. ([#561](https://github.com/Emanuele-web04/synara/pull/561), [#1186](https://github.com/Emanuele-web04/synara/pull/1186))
@@ -1194,10 +1194,10 @@ Audited all 450 commits in the complete `v0.8.4..f3cffcb66` ancestry, including 
 
 #### Browser sessions and application capture
 
-- Replace the former desktop browser automation implementation with BetterWright; agents retain navigation, snapshots, screenshots, scripting and related browser actions through Synara's browser tools. ([#1114](https://github.com/Emanuele-web04/synara/pull/1114))
+- Replace the former desktop browser automation implementation with BetterWright; agents retain navigation, snapshots, screenshots, scripting and related browser actions through Saint's browser tools. ([#1114](https://github.com/Emanuele-web04/synara/pull/1114))
 - Import existing site login cookies into the current embedded browser site and restore eligible imported sessions across restarts using protected local storage. Current-site import is scoped to the visible destination and guarded against navigation during the operation. All sites in this profile is also available with an explicit consent checkbox. ([#1114](https://github.com/Emanuele-web04/synara/pull/1114))
 - Browser cookies and sign-ins are shared across tasks. Saved Logins interface with save/update prompts, optional autosaving of accepted logins, account list, deletion, lock/unlock and password reveal protected by a master password. Agent access is optional account metadata discovery only. ([#1114](https://github.com/Emanuele-web04/synara/pull/1114))
-- Popups open as tabs inside Synara, supporting in-app sign-in flows without losing the browser context. Popup navigation and downloads retain their existing guards. ([#1114](https://github.com/Emanuele-web04/synara/pull/1114))
+- Popups open as tabs inside Saint, supporting in-app sign-in flows without losing the browser context. Popup navigation and downloads retain their existing guards. ([#1114](https://github.com/Emanuele-web04/synara/pull/1114))
 - Floating browser previews expand into the interactive browser panel. Collapsed previews are deliberately noninteractive; automation still operates against its own target and hidden browser execution remains responsive. ([#1114](https://github.com/Emanuele-web04/synara/pull/1114))
 - Refreshed Safari import setup with app icon, Finder flow and macOS Full Disk Access explanation, preserving previous onboarding choices and providing a way to reopen setup. ([#1114](https://github.com/Emanuele-web04/synara/pull/1114), commit 3b16d6d00)
 - AppSnap window picker: attach a chosen open application window, with app icons/titles, capture readiness, bounded retries and target validation. ([#1141](https://github.com/Emanuele-web04/synara/pull/1141))
@@ -1346,7 +1346,7 @@ Synthetic history with 6,000 messages and 6,000 tool activities, each with a 16 
 | Bulk activities          |            255.92 → 115.16 MiB |         55.0% |                  19.15 → 7.21 ms |
 | Single-thread activities |            379.66 → 275.58 MiB |         27.4% |                177.51 → 19.22 ms |
 
-RSS includes the query worker and warmup; it is not the whole Synara footprint. Returned JavaScript heap is essentially unchanged. These short samples do not measure peak application RAM, crash frequency or leak freedom. [Historical report](https://github.com/Emanuele-web04/synara/blob/325779db29cad03a8da9e81f409fd211dc848357/docs/performance/2026-09-09-memory-crash/report.md), [baseline samples](https://github.com/Emanuele-web04/synara/blob/325779db29cad03a8da9e81f409fd211dc848357/docs/performance/2026-09-09-memory-crash/baseline.json), [optimized samples](https://github.com/Emanuele-web04/synara/blob/325779db29cad03a8da9e81f409fd211dc848357/docs/performance/2026-09-09-memory-crash/optimized.json).
+RSS includes the query worker and warmup; it is not the whole Saint footprint. Returned JavaScript heap is essentially unchanged. These short samples do not measure peak application RAM, crash frequency or leak freedom. [Historical report](https://github.com/Emanuele-web04/synara/blob/325779db29cad03a8da9e81f409fd211dc848357/docs/performance/2026-09-09-memory-crash/report.md), [baseline samples](https://github.com/Emanuele-web04/synara/blob/325779db29cad03a8da9e81f409fd211dc848357/docs/performance/2026-09-09-memory-crash/baseline.json), [optimized samples](https://github.com/Emanuele-web04/synara/blob/325779db29cad03a8da9e81f409fd211dc848357/docs/performance/2026-09-09-memory-crash/optimized.json).
 
 #### Provider retained memory
 
@@ -1411,7 +1411,7 @@ A retained synthetic Node SQLite result for **600 chats / 300,000 historical tur
 - The public website content is prepared and verified locally; its separate commit/push is optional and has not been performed by this release preparation. The pre-existing local installer-count commit is preserved.
 - The first hosted release preflight stopped on `apps/desktop/src/browserAutomation/browserVault.test.ts` → `preserves saved passwords when provenance persistence fails (update=false)` exceeding 5 seconds. The provenance cases perform five production scrypt derivations and durable writes; neighboring hosted cases took 4.49 and 4.36 seconds. The real-crypto suite now has a scoped 15-second timeout, with cryptographic parameters and assertions preserved. Both related suites passed all 14 tests locally; a fresh full run after this test-only change again passed all 11,400 tests in 949 files, with the same configured skips.
 - Marketing CI passed functional, accessibility and production-performance checks but rejected the docs screenshot because the new guide section changed the page from 1,908 to 2,054 pixels high. The Linux actual image was identical across all three attempts and was visually reviewed before updating the expected snapshot. The refreshed macOS snapshot passed a fresh focused comparison in marketing and an independent zero-difference comparison in the public website. This is an intentional content-baseline update, with screenshot tolerances unchanged.
-- Native packaging, provenance, platform startup smoke and uploaded artifacts are checked by the tag's release workflow. Windows publication uses `SYNARA_ALLOW_UNSIGNED_WINDOWS_RELEASE=0.8.4`; macOS signing/notarization remains required. Local source tests and historical performance fixtures do not certify live provider sessions, macOS permission flows, hardware GPU savings or every installed-platform interaction.
+- Native packaging, provenance, platform startup smoke and uploaded artifacts are checked by the tag's release workflow. Windows publication uses `SAINT_ALLOW_UNSIGNED_WINDOWS_RELEASE=0.8.4`; macOS signing/notarization remains required. Local source tests and historical performance fixtures do not certify live provider sessions, macOS permission flows, hardware GPU savings or every installed-platform interaction.
 - The next hosted attempt passed preflight, Linux and Windows packaging/startup, but both signed/notarized macOS artifacts timed out waiting for startup proof after 60 seconds. Code inspection found eager OS-key creation in the new empty vault/session stores before backend startup. Initialization is now deferred until needed, with focused first-use, concurrency, disposal and corrupt-store coverage. The startup verifier also prints bounded process/log tails before cleanup on failure; its timeout and proof requirements remain unchanged. The full post-fix suite passed all 11,406 tests in 949 files; formatting, lint, all seven workspace typechecks, release smoke and all five build tasks passed. Native confirmation is supplied by the subsequent release run.
 - Main CI passed after rerunning the unchanged-head Studio browser job: its first attempt timed out in `coalesces repeated Studio new-chat clicks and stays in Studio after navigation settles`. No assertion or production code was changed for that rerun. Marketing CI passed with the reviewed documentation snapshots.
 
@@ -1554,7 +1554,7 @@ This release includes 43 commits since v0.8.1, covering measured performance imp
 
 - Added app-owned `/rename <title>` for a direct title change and bare `/rename` for conversation-based title generation. Empty drafts need a message before generation; newer title changes win over stale generated results.
 - Added **Add to chat** for selections in rendered Markdown previews.
-- Added **Automatically open simulator** so users can keep working in Simulator.app without automatically reopening Synara's mirrored pane. Manual opening remains available.
+- Added **Automatically open simulator** so users can keep working in Simulator.app without automatically reopening Saint's mirrored pane. Manual opening remains available.
 - Added startup phase-duration diagnostics and benchmark fixtures with raw measurements for streaming, file sorting, tool output, browser diagnostics, and native typechecking.
 
 ### Changed
@@ -1669,7 +1669,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Centralized supervised process-tree teardown and made success require proof that the owned root and captured descendants exited; Windows escalation revalidates creation identity before signalling.
 - Changed the Git text-generation picker to include only dedicated one-shot backends: Codex, Cursor, OpenCode, and Factory Droid.
 - Tightened composer vertical spacing and aligned picker capsules, project reset highlighting, and folder/reset icon treatment.
-- Bumped Synara release package versions to `0.8.1` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.8.1` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -1708,7 +1708,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Added in-thread transcript search through a floating Cmd/Ctrl+F panel with live result counts, previous and next navigation, keyboard controls, match highlighting, and focused scrolling across real conversation messages.
 - Added server-backed provider enablement so disabling a provider stops its lifecycle execution rather than only hiding it in the client.
 - Added provider-originated context-change events to the conversation so compaction and other runtime context transitions remain visible and attributable.
-- Added usage coverage for every enabled provider whose account state Synara can verify, with shared refresh, caching, and presentation behavior.
+- Added usage coverage for every enabled provider whose account state Saint can verify, with shared refresh, caching, and presentation behavior.
 - Added customizable ordering for the primary sidebar navigation, including drag-and-drop controls, durable local persistence, cross-window synchronization, forward-compatible defaults, and invalid-state recovery.
 - Added durable parent-linked side-chat panes with persisted leases, restoration after refresh, safe expiry, and lease preservation across archive and unarchive operations.
 - Added macOS Reveal in Finder for changed files and split the edited-file actions into explicit Open, Reveal, and Copy Path operations.
@@ -1738,7 +1738,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Made Claude Auto context variants match their exact advertised context limits and fail closed when a model descriptor is ambiguous.
 - Made long-thread pagination lossless across message boundaries, bound continuations to the original message version and offset, and count Unicode-safe character offsets instead of byte slicing.
 - Refreshed provider usage from the post-compaction boundary so stale pre-compaction accounting is not presented as current state.
-- Bumped Synara release package versions to `0.8.0` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.8.0` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -1794,15 +1794,15 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Added
 
-- Added a desktop quit confirmation that lists every running or connecting chat before Synara closes, with Cancel and Quit actions and a persisted "Resume chats automatically" choice.
+- Added a desktop quit confirmation that lists every running or connecting chat before Saint closes, with Cancel and Quit actions and a persisted "Resume chats automatically" choice.
 - Added durable quit-resume records: confirmed quits snapshot exact in-flight turn identities before interruption, consume the record once at next startup, and dispatch one ordinary continuation only when the task and project are still eligible and unchanged.
 - Added a draggable, eight-way resizable browser panel that floats over the owning conversation, shares its existing browser tabs and cookies, stays clamped to the visible chat surface, and can move back into the right sidebar without creating a second live guest.
-- Added provider-usage adapters and UI coverage for Antigravity, Cursor, Grok, OpenCode, and locally authenticated providers, extending the existing Codex and Claude usage views to every signed-in provider Synara can verify.
+- Added provider-usage adapters and UI coverage for Antigravity, Cursor, Grok, OpenCode, and locally authenticated providers, extending the existing Codex and Claude usage views to every signed-in provider Saint can verify.
 - Added provider-specific usage explanations for runtimes that expose local authentication but no machine-readable personal quota, plus shared caching, cooldown, stale-snapshot, pacing, and learn-more behavior.
 - Added first-class Windows WSL workspace launching: `\\\\wsl.localhost` and `\\\\wsl$` paths resolve to `wsl.exe --distribution <distro> --cd <linux-path> --exec ...`, and ACP session payloads receive the corresponding Linux cwd.
 - Added a custom title-bar preference for Windows and Linux under Settings → Appearance, including native window controls, persisted boot-time frame selection, explicit restart-required state, and a one-click relaunch action.
-- Added `synara-server-<version>.tar.gz` to GitHub releases, built from the staged server package and bundled web client alongside the desktop artifacts.
-- Added `synara server status`, with persisted-runtime discovery, explicit `--url`, optional `--json`, runtime identity verification, `/health` projection readiness, a three-second bounded probe, and a non-zero exit when the server is not ready.
+- Added `saint-server-<version>.tar.gz` to GitHub releases, built from the staged server package and bundled web client alongside the desktop artifacts.
+- Added `saint server status`, with persisted-runtime discovery, explicit `--url`, optional `--json`, runtime identity verification, `/health` projection readiness, a three-second bounded probe, and a non-zero exit when the server is not ready.
 - Added cross-provider side chats through `/side <provider> <prompt>`, accepting provider kinds or display names, validating installed targets, and retaining the guarded source-thread relationship.
 - Added shell-visible Windows ICO generation and refresh support so runtime app-icon changes propagate to the taskbar and revert cleanly to the default icon.
 
@@ -1819,7 +1819,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Restyled the running-chat quit dialog to match the command palette and refined its keyboard, disabled, overflow, and progress states.
 - Extracted the browser tab strip into a focused component and made new-tab selection preserve the current tab context and ownership more predictably.
 - Refreshed the README and internal architecture, provider, CI, packaging, quick-start, and workspace-layout documentation to match the shipped runtime.
-- Bumped Synara release package versions to `0.7.3` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.7.3` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -1836,7 +1836,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Fixed local-folder mentions rejecting UNC paths, the project browser misreading Windows home paths, and Windows workspace comparisons treating case-only differences as different roots.
 - Fixed runtime Windows taskbar-icon changes updating Electron state without producing a shell-visible ICO or refreshing Explorer's cached icon.
 - Fixed custom title-bar preferences drifting between renderer settings and the frame state read before `BrowserWindow` creation.
-- Fixed permanent task deletion reclaiming unowned worktrees; cleanup now preserves paths Synara does not own while still removing eligible managed worktrees.
+- Fixed permanent task deletion reclaiming unowned worktrees; cleanup now preserves paths Saint does not own while still removing eligible managed worktrees.
 - Fixed duplicate approval responses being accepted after reconnect or retry by persisting idempotency at the orchestration decider.
 - Fixed malformed feature-flag storage leaving stale values cached instead of returning to canonical defaults.
 - Fixed diagnostic resume cursors being accepted beyond the current high-water mark.
@@ -1882,7 +1882,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Added stacked pull-request support with stack position badges, ordered stack navigation, stack-aware readiness and merge confirmations, GitHub async-merge polling, fallback compatibility, and repository-wide cache refresh after stack mutations.
 - Added message-level thread forking, visible fork-source dividers, source-aware fork titles, and native session forks across Claude, Cursor, Droid, Grok, and OpenCode in addition to Codex.
 - Added configurable chat-width presets for focused, standard, and wide transcript layouts.
-- Added file-link context actions for copying paths, opening files in Synara, and revealing supported references in the workspace.
+- Added file-link context actions for copying paths, opening files in Saint, and revealing supported references in the workspace.
 - Added reproducible production-path streaming benchmarks covering reducer, store, selector, derivation, layout, frame, and flush behavior.
 - Added a dark-mode macOS dock icon that follows system appearance automatically.
 
@@ -1901,7 +1901,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Improved model and usage discovery by isolating malformed descriptors, exposing Pi's maximum thinking level, bounding Codex archive reads to 64 KiB tail chunks, and humanizing unknown rate-limit windows.
 - Improved cross-platform presentation with runtime Windows taskbar-icon refresh, simpler sidebar control icons, refined fork and message-action glyphs, and day-aware message timestamps.
 - Hardened release automation with least-privilege token permissions, explicit clean-lane policy checks, deterministic Windows dependency installation, and version-scoped unsigned-Windows publication support.
-- Bumped Synara release package versions to `0.7.2` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.7.2` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -1922,7 +1922,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Fixed malformed provider model descriptors invalidating otherwise healthy catalogues, warm model discovery covering only one provider, and Pi's highest supported thinking level being omitted.
 - Fixed Codex usage polling loading entire archives and risking backend heap growth; archive scans now read backward in bounded chunks, split CRLF records correctly, and skip oversized trailing records without retaining them.
 - Fixed file and snippet search escaping the active workspace scope, stale queries opening the wrong result set, and search palette presentation retaining unnecessary surrounding UI.
-- Fixed iOS Simulator helper first-run deadlocks, stale attachments acknowledging input against dead boots, silent undelivered HID events, out-of-bounds taps being clamped, helper cache staleness, and Synara-owned simulators being orphaned after crashes.
+- Fixed iOS Simulator helper first-run deadlocks, stale attachments acknowledging input against dead boots, silent undelivered HID events, out-of-bounds taps being clamped, helper cache staleness, and Saint-owned simulators being orphaned after crashes.
 - Fixed source-control and transcript polish issues including footer ordering, misleading rate-limit labels, day-ambiguous timestamps, and inconsistent action-icon alignment.
 - Fixed a release-blocking TypeScript mismatch in the Codex usage tail-read test by explicitly typing the positional `FileHandle.read` spy calls without weakening runtime assertions.
 
@@ -1939,7 +1939,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Added
 
-- Added editable Explorer previews with dirty-state tracking, guarded saves, path validation, and clearer file breadcrumbs for focused code and text edits inside Synara.
+- Added editable Explorer previews with dirty-state tracking, guarded saves, path validation, and clearer file breadcrumbs for focused code and text edits inside Saint.
 - Added a complete commit-push-create-PR workflow with draft or ready-for-review actions, progress-aware controls, safer upstream handling, and post-action refresh that cannot hold the successful Git action open.
 - Added live thread Git metadata propagation so branch, worktree, push, and pull-request changes made during a turn update task state without waiting for a later manual refresh.
 - Added worktree setup progress, cancellation before dispatch, and a local-checkout action, while restoring automatic branch creation and attachment for worktree tasks.
@@ -1964,7 +1964,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Improved project-picker search focus, shared picker composition, conditional keybinding edits, terminal exit shortcuts, and shortcut Settings layout.
 - Refined translucent sidebar and floating-composer surfaces, strengthened production backdrop-filter preservation and fallbacks, and aligned icon and theme preview presentation.
 - Changed the shared toast default to 10 seconds while retaining explicit persistent notices, and moved thread errors from inline banners to the common error-toast path.
-- Bumped Synara release package versions to `0.7.1` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.7.1` across server, desktop, web, and contracts packages and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -1996,9 +1996,9 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ## 0.7.0 - 2026-08-05
 
-**A review of the Synara codebase found an analytics configuration that came from the original T3 Code codebase when Synara was created as a clone in March. We did not add it, and we have no access to the PostHog project receiving the events.**
+**A review of the Saint codebase found an analytics configuration that came from the original T3 Code codebase when Saint was created as a clone in March. We did not add it, and we have no access to the PostHog project receiving the events.**
 
-**The configuration has been removed. Synara no longer sends remote product analytics. The events did not include prompts, source code, filenames, or file contents.**
+**The configuration has been removed. Saint no longer sends remote product analytics. The events did not include prompts, source code, filenames, or file contents.**
 
 **We're sorry this wasn't caught earlier**
 
@@ -2017,14 +2017,14 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Reduced background transcript work by narrowing thread-detail subscriptions and snapshot queries to the conversations that need live detail while retaining visible and docked task state through refresh races.
 - Improved terminal lifecycle handling so a natural shell exit clears activity and closes only the exited tab without a destructive-close confirmation, placeholder cleanup, or duplicate fallback exit command.
 - Gave temporary-thread user messages a distinct dashed outline while preserving the final message-bubble geometry.
-- Bumped Synara release package versions to `0.6.7` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.6.7` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
 - Fixed unreplayable runtime commands being reconsidered after restart; terminal or otherwise non-replayable work is now quarantined and reconciled explicitly.
 - Fixed side-chat creation races that could duplicate the seed prompt, lose retained detail, activate the wrong route, or leave dock state out of sync with the created task.
 - Fixed terminal Add to chat actions routing to the wrong composer and naturally exited terminals retaining activity, showing destructive-close prompts, or issuing a second exit command.
-- Fixed foreground completion notifications appearing while Synara or its native browser pane already had the user's attention, and aligned toast visibility with side-chat split and dock routes.
+- Fixed foreground completion notifications appearing while Saint or its native browser pane already had the user's attention, and aligned toast visibility with side-chat split and dock routes.
 - Fixed stale provider update notices by retrying refreshes on focus, strengthening refresh scheduling, and preserving verified provider availability while checks overlap.
 - Fixed delayed runtime and pending-interaction events settling the wrong request, overwriting newer lifecycle state, or leaving task projections inconsistent after recovery.
 
@@ -2052,7 +2052,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Improved provider model discovery and selection by normalizing Pi extension metadata without losing resolvable identities, distinguishing favourite models by provider, and preserving accessible model-cost context.
 - Bounded deferred chat mounting and changed sent-message anchoring from a teleport or asymptotic chase into a tested fixed-duration glide using one monotonic clock.
 - Refreshed recent activity, browser-opening workflows, desktop chrome/zoom behavior, and sidebar state projection so application surfaces converge more predictably after delayed runtime updates.
-- Bumped Synara release package versions to `0.6.6` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.6.6` across the server, desktop, web, and contracts packages.
 
 ### Fixed
 
@@ -2084,7 +2084,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Refined Activity rows into a denser two-line presentation, renamed settled work to Done, kept urgent state visible on completed rows, and made new-chat creation use the latest project relevant to the current Activity scope.
 - Improved session orchestration, runtime activity attribution, workspace-root resolution, and worktree handoff metadata so conversation and cwd-bound surfaces converge sooner after delayed lifecycle events or repository changes.
 - Improved browser tool presentation, sidebar surface-picker styling, thread hover-card active states, and accessible Search targeting.
-- Bumped Synara release package versions to `0.6.5` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.6.5` across the server, desktop, web, and contracts packages.
 
 ### Fixed
 
@@ -2107,7 +2107,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Added
 
-- Added provider-agnostic browser automation backed by Synara's shared visible Electron WebView. Supported agents can inspect bounded semantic snapshots, capture screenshots and diagnostics, navigate tabs, click, hover, drag, type, select, press keys, scroll, wait for page conditions, evaluate bounded expressions, handle dialogs, upload workspace-relative files, and observe explicit popup, download, timeout, and host-boundary states without creating a hidden browser.
+- Added provider-agnostic browser automation backed by Saint's shared visible Electron WebView. Supported agents can inspect bounded semantic snapshots, capture screenshots and diagnostics, navigate tabs, click, hover, drag, type, select, press keys, scroll, wait for page conditions, evaluate bounded expressions, handle dialogs, upload workspace-relative files, and observe explicit popup, download, timeout, and host-boundary states without creating a hidden browser.
 - Added DOM annotations for the visible browser so users can select one or more page elements, attach optional comments, and send precise, compact context through the composer. Annotation transport is versioned, count- and field-bounded, keeps exact-page affinity local, and strips document-only metadata before provider injection.
 - Added provider-aware runtime modes and Auto/auto-approval support across the orchestration, automation, gateway, Codex, Claude, and ACP paths. Approval-required, Auto, and Full access selections now carry capability checks, privilege limits, and explicit pending-approval state.
 - Added a right-dock launcher for opening Review, Terminal, Browser, Files, Side chat, and Source control panes from one place, with keep-mounted live panes and project/repository-aware availability.
@@ -2122,7 +2122,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Improved runtime-mode and model pickers with capability-aware options, clearer effort labels, Claude model discovery on cold starts, and thread hover-card details for the active provider and model.
 - Changed Environment and Git action presentation so branches behind upstream surface Pull before commit, push, or PR actions, using one consistent working-tree and upstream state model.
 - Recovered missed draft promotions during event routing and capped stacked composer panels so large agent fleets cannot hide the composer.
-- Bumped Synara release package versions to `0.6.4` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.6.4` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -2160,7 +2160,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Improved thread snapshot projection, visible-detail retention, store normalization, and refresh re-arming across lease, subscription, eviction, and reconnect races.
 - Improved provider runtime activity attribution so late or replayed terminal events settle the intended turn without duplicating work-log output.
 - Changed grouped file-change undo to revert every represented turn newest-first and stop on the first failure rather than silently leaving the card partially applied.
-- Bumped Synara release package versions to `0.6.3` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.6.3` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -2211,7 +2211,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Reorganized Settings by user intent and consolidated shared settings cards, empty states, elevated surfaces, and hover styles.
 - Improved completion notifications so bounded Markdown summaries preserve fenced and nested code, technical context, references, delimiters, and turn-scoped copy while remaining safe to render.
 - Improved composer command-menu loading and empty states, shared picker styling, and React Compiler-friendly code paths.
-- Bumped Synara release package versions to `0.6.2` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.6.2` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -2220,7 +2220,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Fixed provider status disappearing or being replaced by stale data while a reconnect refresh was in flight.
 - Fixed unowned thread details surviving lease, reconnect, and snapshot races.
 - Fixed permanently quarantined threads that previously exposed the delivery blocker but offered no client recovery path.
-- Fixed desktop renderer crashes that could leave Synara blank instead of recovering within a bounded retry policy.
+- Fixed desktop renderer crashes that could leave Saint blank instead of recovering within a bounded retry policy.
 - Fixed competing SQLite access that could proceed without proving exclusive database ownership.
 - Fixed startup overhead from repeated shell probes, eagerly loaded provider SDKs and diff parsers, redundant orchestration reads, and over-frequent process-tree inspection.
 - Fixed orphaned or interrupted migration artifacts not being reclaimed under the expanded retention policy.
@@ -2257,7 +2257,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Refactored desktop backend supervision, shutdown, and process-tree teardown so replacement and restart only proceed after the previous runtime is proven stopped.
 - Reduced redundant projection, thread-detail subscription, terminal-state, and sidebar work during active conversations.
 - Aligned Pi model discovery with the current ModelRuntime SDK and tightened Claude, OpenCode, Codex, Cursor, Droid, Grok, and Antigravity session lifecycle handling.
-- Bumped Synara release package versions to `0.6.1` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.6.1` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -2282,28 +2282,28 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Added
 
-- Added the Synara Agent Gateway, a built-in MCP app-control surface automatically available to supported provider sessions so agents can understand and operate Synara itself.
-- Added 23 internal Synara MCP tools for discovering context and capabilities; listing projects and tasks; reading transcripts; waiting for one or many tasks; creating one task or an exact parallel batch; continuing, steering, queuing, or interrupting work; renaming and archiving tasks; and inspecting activity, orchestration events, provider runtime events, and synthesized diagnostics.
+- Added the Saint Agent Gateway, a built-in MCP app-control surface automatically available to supported provider sessions so agents can understand and operate Saint itself.
+- Added 23 internal Saint MCP tools for discovering context and capabilities; listing projects and tasks; reading transcripts; waiting for one or many tasks; creating one task or an exact parallel batch; continuing, steering, queuing, or interrupting work; renaming and archiving tasks; and inspecting activity, orchestration events, provider runtime events, and synthesized diagnostics.
 - Added durable, idempotent multi-task creation across providers and models, with isolated worktrees, explicit target selection, privilege caps, crash recovery, operation ownership, compensation, result waiting, and visible provenance for agent-created work.
-- Added agent-facing MCP tools for creating, suggesting, listing, viewing, replacing, pausing, deleting, remembering, and reporting results from Synara automations.
+- Added agent-facing MCP tools for creating, suggesting, listing, viewing, replacing, pausing, deleting, remembering, and reporting results from Saint automations.
 - Added guided External MCP integrations for Codex, Claude Code, and other agentic MCP clients, plus copy-ready manual configuration for Claude Desktop and clients that cannot complete the setup prompt.
-- Added a one-prompt external setup flow for agentic clients with resumable pairing, automatic local stdio configuration, connection verification, and the exact executable and Synara data directory from the running installation.
+- Added a one-prompt external setup flow for agentic clients with resumable pairing, automatic local stdio configuration, connection verification, and the exact executable and Saint data directory from the running installation.
 - Added External MCP tools for one-call workspace overview, allowed-project discovery, provider/model capability discovery, idempotent task creation, bounded task waiting, and paginated task reading.
 - Added all-or-selected project authorization, expiring and revocable credentials, capability-filtered tool catalogs, per-minute and active-task limits, durable request replay, and explicit advanced permissions for project-wide task reading, local-checkout execution, and full-access execution.
 - Added Project Spaces with names, curated icons, persisted ordering, project assignment, drag-and-drop movement, bulk moves, activity indicators, and a Void view for unassigned projects.
 - Added `Cmd/Ctrl+Alt+1–9` Space switching, shortcut labels in tooltips and the shortcuts sheet, and inline Space creation while adding a project.
 - Added first-class Claude Task subagents as navigable child tasks with live status, recent tool traces, usage, model and effort information, steering, stop-all, and foreground/background controls.
 - Added live workflow run cards with phases, agent metrics, saved run identity, pause and resume, optional phase filtering, and explicit background-state notices.
-- Added cross-task composer mentions that attach bounded recent transcript context from another Synara task with its project and provider identity.
+- Added cross-task composer mentions that attach bounded recent transcript context from another Saint task with its project and provider identity.
 - Added a global Commit and Push shortcut that follows the active task's available Git action.
 - Added configurable AppSnap global shortcuts with validation, persistence, and conflict detection.
-- Added an isolated Synara Canary workflow for clean-checkout desktop testing and attachment uploads.
+- Added an isolated Saint Canary workflow for clean-checkout desktop testing and attachment uploads.
 - Added a Studio folder row that opens the selected folder in the platform file manager.
 
 ### Changed
 
-- Agents now receive explicit Synara operating guidance: when to delegate parallel work, wait for every requested result, prefer Synara diagnostics over raw database inspection, respect worktree and full-access boundaries, and suggest rather than silently enable automations.
-- Agent-created and externally created work remains ordinary standalone Synara tasks with visible origin, independent lifecycle, and results that users and other agents can follow.
+- Agents now receive explicit Saint operating guidance: when to delegate parallel work, wait for every requested result, prefer Saint diagnostics over raw database inspection, respect worktree and full-access boundaries, and suggest rather than silently enable automations.
+- Agent-created and externally created work remains ordinary standalone Saint tasks with visible origin, independent lifecycle, and results that users and other agents can follow.
 - External MCP setup defaults new work to managed worktrees and approval-required execution; higher-impact runtime modes remain separate explicit grants.
 - External MCP credentials use a dedicated audience and never appear in client configuration. Pairing uses a short-lived code, stores the resulting credential privately, and verifies the live loopback runtime before forwarding authority.
 - Automations now support standalone and heartbeat modes, persistent memory, heartbeat cooldowns, notification and completion policies, maximum runs, proposal review, run envelopes, and runtime reconciliation after interruptions or restarts.
@@ -2311,7 +2311,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Manual turns preserve their selected runtime and environment modes when they supersede automation work, and superseded heartbeat runs settle as interrupted.
 - Project creation now uses a dedicated searchable dialog and shared picker surfaces across project, model, provider, and settings controls.
 - Studio shows Git controls only when its selected folder is a repository; ordinary folders no longer imply that Git must be initialized.
-- Live and attention-needing tasks receive clearer sidebar priority, while cross-task attribution is simplified to a single Synara label.
+- Live and attention-needing tasks receive clearer sidebar priority, while cross-task attribution is simplified to a single Saint label.
 - Workflow and subagent chrome now uses one calmer stacked surface with state-driven color, compact phase pills, aligned rows, hover actions, and concise model labels.
 - Chat Markdown headings now have visible hierarchy instead of rendering like body text.
 - Provider and model picker popups retain a stable width and use more consistent spacing.
@@ -2327,19 +2327,19 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Provider updates install into the same npm prefix as the detected executable, preventing a successful update from landing in a different Node installation.
 - The CLI publish flow now builds an isolated package stage and includes the migration-backup restore executable.
 - The running-task spinner is slimmer and slower, dialog and input chrome is more consistent, composer picker rows are easier to scan, sidebar branding is quieter, and the retired World Cup playground has been removed.
-- Bumped Synara release package versions to `0.6.0` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.6.0` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
-- Fixed Synara browser-control discovery and desktop browser RPC negotiation, session ownership, teardown, reconnect, and fixture readiness.
+- Fixed Saint browser-control discovery and desktop browser RPC negotiation, session ownership, teardown, reconnect, and fixture readiness.
 - Fixed blank provider `PATH` defaults being rejected or replaced incorrectly.
-- Fixed MCP `serve` and `pair` ignoring `--home-dir`, which could connect an integration to the wrong Synara data directory.
+- Fixed MCP `serve` and `pair` ignoring `--home-dir`, which could connect an integration to the wrong Saint data directory.
 - Fixed External MCP trust and lifecycle boundaries around credential selection, pairing retries, restart discovery, concurrent waits, cancellation, capacity compensation, revoked or expired credential checks, and loopback-only enforcement.
-- Fixed External MCP documentation omitting the primary `synara_overview` discovery tool and describing a superseded client-picker setup flow.
+- Fixed External MCP documentation omitting the primary `saint_overview` discovery tool and describing a superseded client-picker setup flow.
 - Fixed Agent Gateway privilege-escalation paths so approval-required or worktree-isolated callers cannot create or control higher-privilege tasks by proxy.
 - Fixed gateway credentials leaking into spawned shell subprocesses and preserved that exclusion through Codex overlay rewrites.
 - Fixed agent task creation recovery, cleanup ownership, shared-session queue reservations, wait behavior, deleted-caller authority, and interrupted worktree cleanup.
-- Fixed `synara_list_projects` exposing system-managed Chat, Studio, and legacy Home containers as ordinary projects.
+- Fixed `saint_list_projects` exposing system-managed Chat, Studio, and legacy Home containers as ordinary projects.
 - Fixed task-list truncation counts and pinned parent/child sidebar behavior.
 - Fixed active-turn checkpoint revert races; undo is rejected while provider work is genuinely in flight but remains available after terminal errors.
 - Fixed queued sends and steers racing task settlement or provider-session ownership.
@@ -2347,12 +2347,12 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Fixed Claude reroute pinning, excessive transcript replay, thinking and effort restarts, stale resume behavior, rate-limit blowups, and background-task process shutdown.
 - Fixed Claude subagent stops being resurrected by late messages, parent interrupts being cleared by child events, background actions targeting already-backgrounded work, and final workflow snapshots being overwritten.
 - Fixed OpenCode quiet-completion detection following stale rather than latest activity.
-- Fixed OpenCode `/review` being forwarded as plain text instead of opening Synara's review flow.
+- Fixed OpenCode `/review` being forwarded as plain text instead of opening Saint's review flow.
 - Fixed unmapped Codex child events contaminating the owning task.
 - Fixed the Claude context meter ignoring `autoCompactWindow`, failing to refresh after live changes, or carrying stale values through handoffs.
 - Fixed Pi discovery omitting authenticated Claude Fable 5 and Opus 4.8 models.
 - Fixed namespaced Cursor and Grok ACP model identifiers and ACP permission-mode handling across Cursor, Droid, Grok, and OpenCode.
-- Fixed Antigravity's global capture hook launching the Synara GUI outside active sessions.
+- Fixed Antigravity's global capture hook launching the Saint GUI outside active sessions.
 - Fixed provider update success messages when a second Node or npm installation remained selected.
 - Fixed file-icon lookup keys such as `constructor` or `__proto__` crashing a conversation.
 - Fixed duplicate composer clearance and preserved transcript scroll position when stacked panels change.
@@ -2362,7 +2362,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Fixed durable secret writes and thread-deletion cleanup so interruption or restart cannot leave empty credentials, resurrect queued turns, or repeatedly retry deleted work.
 - Fixed pull-request review badges briefly showing incomplete counts.
 - Fixed macOS `Cmd+K` search while leaving native `Ctrl+K` line editing available.
-- Fixed missing project directories being reported as "Codex not installed"; Synara now identifies the missing working directory and offers relocation guidance.
+- Fixed missing project directories being reported as "Codex not installed"; Saint now identifies the missing working directory and offers relocation guidance.
 - Fixed automation heartbeat cooldown incorrectly throttling an automation's own next run.
 - Fixed automation memory writes requiring redundant IDs or content fields when the active automation context already identifies the target.
 
@@ -2389,10 +2389,10 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Reworked live-turn settlement to follow the owning provider session, preventing transcript chrome from remaining active after a turn has already completed.
 - Optimized chat reconciliation and event projection to reduce repeated scans and redundant updates during active conversations and sidebar-driven state changes.
 - Coalesced pull-request entries through shared list logic and unified picker popup interactions across the workspace.
-- Replaced Pierre-branded side-panel diff headers with Synara's shared visual chrome.
+- Replaced Pierre-branded side-panel diff headers with Saint's shared visual chrome.
 - Retired the legacy Gemini keybinding and updated provider documentation for Antigravity.
 - Reset bundled theme seeds consistently so shipped theme changes apply predictably without disturbing user-created themes.
-- Bumped Synara release package versions to `0.5.5` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.5.5` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -2504,7 +2504,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Fixed model cycling and runtime-discovered reasoning options so the active provider's available choices remain consistent while a conversation is open.
 - Fixed task-list projection so unfinished work is not hidden when a turn settles.
 - Fixed startup on large databases by replacing the quadratic activity-sequence backfill with an indexed linear migration; the recovered 1.1 GB production database retained all 21 projects, 70 threads, 14,683 messages, and 180,862 activities.
-- Fixed stable updater feeds to publish both GitHub Latest metadata and the `synara-*` channel aliases expected by installed desktop builds.
+- Fixed stable updater feeds to publish both GitHub Latest metadata and the `saint-*` channel aliases expected by installed desktop builds.
 
 ### Verification
 
@@ -2525,9 +2525,9 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Completed the Synara identity cutover across desktop packaging, the renderer origin, workspace packages, the public CLI, runtime variables, storage, Git metadata, assets, documentation, and release automation.
-- Set the production bundle ID and Windows AUMID to `com.emanueledipietro.synara`, with `.dev` used only for development.
-- Published the CLI identity as `@synara/cli` with the `synara` executable and moved all first-party workspaces to `@synara/*`.
+- Completed the Saint identity cutover across desktop packaging, the renderer origin, workspace packages, the public CLI, runtime variables, storage, Git metadata, assets, documentation, and release automation.
+- Set the production bundle ID and Windows AUMID to `com.locotine.saint`, with `.dev` used only for development.
+- Published the CLI identity as `@saint/cli` with the `saint` executable and moved all first-party workspaces to `@saint/*`.
 - Kept persisted renderer state available through the 0.4.2 origin bridge and retained brand-neutral structural access to existing checkpoint refs and migration lineage.
 - Deferred secondary chat dock panels and added a repeatable LCP measurement script so the main conversation can become interactive sooner.
 - Hardened the staged updater feed, compatibility-channel checks, and desktop startup around bundle swaps.
@@ -2545,17 +2545,17 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed across all 8 packages; only existing TS44 informational JSON/schema-preference messages were reported.
 - `bun run release:smoke` passed with Bun temporary staging available; it reported `@pierre/diffs@1.2.12` as newer than the pinned `1.2.8`.
 - `bun run build` passed with 6 successful tasks and the existing Astro, tsdown/plugin-timing, desktop module-type, and large Vite chunk warnings.
-- Final full `bun run test` passed: 10 Turbo tasks; `@synara/web` passed 200 files / 2,426 tests, and `@synara/cli` passed 152 files / 1,698 tests with 1 skipped file and 6 skipped tests. The initial run was interrupted while waiting on the serial server suite; the final rerun completed cleanly.
+- Final full `bun run test` passed: 10 Turbo tasks; `@saint/web` passed 200 files / 2,426 tests, and `@saint/cli` passed 152 files / 1,698 tests with 1 skipped file and 6 skipped tests. The initial run was interrupted while waiting on the serial server suite; the final rerun completed cleanly.
 
 ### Upgrade note
 
-- Launch Synara 0.4.2 once before upgrading so renderer-local UI state is exported before 0.5.0 adopts the canonical `synara://app` origin.
+- Launch Saint 0.4.2 once before upgrading so renderer-local UI state is exported before 0.5.0 adopts the canonical `saint://app` origin.
 
 ## 0.4.2 - 2026-07-09
 
 ### Added
 
-- Added the Synara identity bridge that exports canonical renderer storage before the packaged origin changes.
+- Added the Saint identity bridge that exports canonical renderer storage before the packaged origin changes.
 - Added per-thread 1M-token context window tracking for Claude sessions, with automatic compaction handling and context-usage warnings near the window limit.
 - Added fallback model pinning for Claude after a safeguard reroute, cleared when the user explicitly selects a different model.
 - Added a durable desktop update install marker that verifies installs across restarts, plus an install watchdog with recovery and macOS ShipIt/launchctl update diagnostics.
@@ -2566,8 +2566,8 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 - Claude model and context-window switches now happen in-session instead of forcing a full session restart, sharply reducing restarts and runaway token usage.
 - Canonicalized migration and checkpoint metadata while keeping existing persisted refs readable.
-- Enforced the staged Synara update feed end to end, with fail-closed preflight checks in the release pipeline.
-- Made Windows code signing optional in the release pipeline and finalized Synara license attribution.
+- Enforced the staged Saint update feed end to end, with fail-closed preflight checks in the release pipeline.
+- Made Windows code signing optional in the release pipeline and finalized Saint license attribution.
 
 ### Fixed
 
@@ -2583,7 +2583,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Upgrade note
 
-- Launch Synara 0.4.2 at least once before installing the next release. This preserves drafts, pins, theme, browser state, and other local UI state through the identity cutover.
+- Launch Saint 0.4.2 at least once before installing the next release. This preserves drafts, pins, theme, browser state, and other local UI state through the identity cutover.
 - Earlier command and environment aliases are accepted by 0.4.2 only and are removed by the following release.
 
 ## 0.4.1 - 2026-07-09
@@ -2600,7 +2600,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Refined chat and Studio creation, routing, and restore flows to use canonical containers, wait for hydration when needed, and avoid overlapping fresh-chat creation.
 - Refined session orchestration and transcript rendering so active work, sidebar visibility, and worktree setup remain predictable across streaming, reconnects, and segment switches.
 - Refined Studio scaffolding and project ownership rules to preserve clear workspace boundaries during retries, restores, and partial creation states.
-- Bumped Synara release package versions to `0.4.1` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.4.1` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 
 ### Fixed
 
@@ -2629,7 +2629,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.4.0` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.4.0` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 - Refined prompt history navigation so stale navigation state resets cleanly and optimistic prompt-history entries do not duplicate after sends.
 - Refined PR snapshot loading to dedupe GitHub field lists, format merge-head details more consistently, and keep long review previews readable.
 - Refined provider usage type handling around Claude summaries and rate-limit responses.
@@ -2649,9 +2649,9 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed across all 8 packages in 18.277s with the existing TS44 informational JSON/schema-preference messages.
 - `bun run release:smoke` passed and refreshed install/lockfile state. It noted an available newer `@pierre/diffs@1.2.12` while keeping the current dependency range unchanged.
 - `bun run build` passed: 6 tasks successful in 16.479s. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, desktop typeless-module, Rolldown/Babel plugin timing, and large Vite chunk warnings.
-- Full `bun run test` passed: 10 tasks successful in 6m35.477s. `@synara/web` passed 194 files / 2352 tests, and `synara` passed 145 files with 1 skipped file, 1593 passed tests, and 6 skipped tests.
+- Full `bun run test` passed: 10 tasks successful in 6m35.477s. `@saint/web` passed 194 files / 2352 tests, and `saint` passed 145 files with 1 skipped file, 1593 passed tests, and 6 skipped tests.
 - `bun install` refreshed `bun.lock` after the package-version bump and reported no dependency changes.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.4.0`, and `npm run lint` passed.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.4.0`, and `npm run lint` passed.
 
 ## 0.3.9 - 2026-07-05
 
@@ -2666,7 +2666,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.9` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.3.9` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 - Refined `/export` to stream archive entries incrementally, deflate large entries without buffering the whole ZIP, and avoid offering export while a turn is running or still streaming.
 - Refined thread purge behavior so archived profile aggregates continue contributing to profile queries after thread rows are removed.
 - Refined terminal shutdown so disposal waits for kill escalation instead of returning while stubborn process trees may still be alive.
@@ -2688,9 +2688,9 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON/schema-preference messages.
 - `bun run release:smoke` passed and refreshed install/lockfile state. It noted an available newer `@pierre/diffs@1.2.12` while keeping the current dependency range unchanged.
 - `bun run build` passed: 6 tasks successful in 18.768s. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, desktop typeless-module, Rolldown/Babel plugin timing, and large Vite chunk warnings.
-- Full `bun run test` passed: 10 tasks successful in 6m35.955s. `@synara/web` passed 193 files / 2316 tests, and `synara` passed 144 files with 1 skipped file, 1575 passed tests, and 6 skipped tests.
+- Full `bun run test` passed: 10 tasks successful in 6m35.955s. `@saint/web` passed 193 files / 2316 tests, and `saint` passed 144 files with 1 skipped file, 1575 passed tests, and 6 skipped tests.
 - `bun install` refreshed `bun.lock` after the package-version bump and reported no dependency changes.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.3.9`, and `npm run lint` passed.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.3.9`, and `npm run lint` passed.
 
 ## 0.3.8 - 2026-07-03
 
@@ -2704,7 +2704,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.8` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.3.8` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 - Refined ACP session runtime and Grok adapter handling around resume replay, compaction, JSON-RPC ordering, provider runtime ingestion, and provider service session state.
 - Refined worktree setup timeline rendering so setup rows expose active/failed/done state more predictably and failed local dispatches clear on the next send.
 - Reworked pending approval UI around the shared `ComposerChoiceRow` structure, trimming duplicate action styling and aligning it with pending input panels.
@@ -2724,13 +2724,13 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 - `bun run fmt:check` passed across 1518 files.
 - `bun run lint` passed with 162 warnings, 0 errors.
-- Initial `bun run typecheck` failed in `@synara/web` on `apps/web/src/components/ChatView.tsx` because `beginLocalDispatch` passed an explicit `options: undefined` into an exact-optional helper; after the targeted fix, `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON/schema-preference messages.
+- Initial `bun run typecheck` failed in `@saint/web` on `apps/web/src/components/ChatView.tsx` because `beginLocalDispatch` passed an explicit `options: undefined` into an exact-optional helper; after the targeted fix, `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON/schema-preference messages.
 - `bun run release:smoke` passed and refreshed install/lockfile state. It noted an available newer `@pierre/diffs@1.2.12` while keeping the current dependency range unchanged.
 - `bun run build` passed: 6 tasks successful in 23.921s. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, desktop typeless-module, Rolldown/Babel plugin timing, and large Vite chunk warnings.
-- Initial full `bun run test` failed in `@synara/web` with one timeout: `apps/web/src/components/ChatMarkdown.test.tsx > ChatMarkdown > uses the theme foreground token for markdown text`. No stale duplicate test processes were present; the targeted rerun `bun run test src/components/ChatMarkdown.test.tsx -t "uses the theme foreground token for markdown text"` from `apps/web` passed in 1.01s.
-- Final full `bun run test` passed: 10 tasks successful in 9m28.476s. `@synara/web` passed 193 files / 2308 tests, `synara` passed 140 files with 1 skipped file, 1547 passed tests, and 6 skipped tests.
+- Initial full `bun run test` failed in `@saint/web` with one timeout: `apps/web/src/components/ChatMarkdown.test.tsx > ChatMarkdown > uses the theme foreground token for markdown text`. No stale duplicate test processes were present; the targeted rerun `bun run test src/components/ChatMarkdown.test.tsx -t "uses the theme foreground token for markdown text"` from `apps/web` passed in 1.01s.
+- Final full `bun run test` passed: 10 tasks successful in 9m28.476s. `@saint/web` passed 193 files / 2308 tests, `saint` passed 140 files with 1 skipped file, 1547 passed tests, and 6 skipped tests.
 - `bun install` refreshed `bun.lock` after the package-version bump and reported no dependency changes.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.3.8`, and `npm run lint` passed.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.3.8`, and `npm run lint` passed.
 
 ## 0.3.7 - 2026-07-02
 
@@ -2745,7 +2745,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.7` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
+- Bumped Saint release package versions to `0.3.7` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace metadata.
 - Moved the sidebar Chats section into the scrollable sidebar content, added an accessible disclosure state, and reused the shared disclosure chevron.
 - Refined the desktop update action styling to use the info color while active downloads show a compact percent pill.
 - Refined Claude provider health to retry structured `loggedIn:false` false negatives once, read verified local credential metadata, and preserve subscription/auth labels more reliably.
@@ -2767,9 +2767,9 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON/schema-preference messages.
 - `bun run release:smoke` passed and refreshed install/lockfile state. It noted an available newer `@pierre/diffs@1.2.12` while keeping the current dependency range unchanged.
 - `bun run build` passed: 6 tasks successful in 14.425s. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, Rolldown/Babel plugin timing, desktop typeless-module, and large Vite chunk warnings.
-- `bun run test` passed: 10 tasks successful in 5m23.405s. `@synara/web` passed 191 files / 2274 tests. `effect-acp` passed 3 files / 24 tests. `synara` passed 140 files with 1 skipped file, 1532 passed tests, and 6 skipped tests.
+- `bun run test` passed: 10 tasks successful in 5m23.405s. `@saint/web` passed 191 files / 2274 tests. `effect-acp` passed 3 files / 24 tests. `saint` passed 140 files with 1 skipped file, 1532 passed tests, and 6 skipped tests.
 - `bun install` refreshed `bun.lock` after the package-version bump and reported no dependency changes.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.3.7`, and `npm run lint` passed.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.3.7`, and `npm run lint` passed.
 
 ## 0.3.6 - 2026-06-30
 
@@ -2783,7 +2783,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.6` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.3.6` across the server, desktop, web, and contracts packages.
 - Refined Cursor agent command resolution so fallback launchers prefer known-safe agent paths and reject unsafe editor fallbacks.
 - Refined checkpoint and transcript handling around turn completion, live trail rendering, and message timeline integration.
 - Refined Sonnet 5 model variant metadata, sidebar status icons, command-row branding, tool-call labels, chat bubble padding, and model effort picker copy.
@@ -2804,8 +2804,8 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed and refreshed install/lockfile state.
 - `bun run build` passed. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, desktop typeless-module, and large Vite chunk warnings.
-- `bun run test` passed: 10 tasks successful in 5m38.929s. `@synara/web` passed 191 files / 2273 tests. `synara` passed 138 files with 1 skipped file, 1517 passed tests, and 6 skipped tests.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` and `npm run lint` passed.
+- `bun run test` passed: 10 tasks successful in 5m38.929s. `@saint/web` passed 191 files / 2273 tests. `saint` passed 138 files with 1 skipped file, 1517 passed tests, and 6 skipped tests.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` and `npm run lint` passed.
 
 ## 0.3.5 - 2026-06-30
 
@@ -2818,7 +2818,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.5` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace package versions.
+- Bumped Saint release package versions to `0.3.5` across the server, desktop, web, and contracts packages, and refreshed `bun.lock` workspace package versions.
 - Reworked temporary chat promotion so draft/temporary threads move into durable chat flow more predictably across ChatView, sidebar state, session logic, and route activation.
 - Replaced archive confirmation friction with immediate archive plus undo toast, including sidebar row actions, settings primitives, and shared error messaging polish.
 - Refined pending user-input panels, queued composer state, work rows, tool details, markdown spacing, composer picker styling, model/traits pickers, and chat timeline presentation.
@@ -2839,8 +2839,8 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed and refreshed install/lockfile state. It reported a slow filesystem warning for the Bun install cache during the final pass.
 - `bun run build` passed. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, desktop typeless-module, and large Vite chunk warnings.
-- `bun run test` passed: 10 tasks successful in 6m9.469s. `@synara/web` passed 190 files / 2229 tests. `synara` passed 137 files with 1 skipped file, 1492 passed tests, and 6 skipped tests.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.3.5`, and `npm run lint` passed.
+- `bun run test` passed: 10 tasks successful in 6m9.469s. `@saint/web` passed 190 files / 2229 tests. `saint` passed 137 files with 1 skipped file, 1492 passed tests, and 6 skipped tests.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.3.5`, and `npm run lint` passed.
 
 ## 0.3.4 - 2026-06-29
 
@@ -2854,7 +2854,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.4` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.3.4` across the server, desktop, web, and contracts packages.
 - Refined transcript streaming and session-state handling so live assistant output, tool rows, and bottom-stick behavior stay separated more predictably.
 - Made Claude provider health prefer usable local CLI credentials before inheriting direct credential env keys into subprocesses.
 - Made Cursor provider probing use a safer headless environment for ACP commands.
@@ -2872,18 +2872,18 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 - `bun run fmt:check` passed.
 - `bun run lint` passed with 155 warnings, 0 errors.
-- Initial `bun run typecheck` failed in `@synara/web` on `apps/web/src/components/ChatView.browser.tsx` because a browser `scrollTo` test helper produced explicit `undefined` optional fields; after that fix it failed in `synara` on `apps/server/src/provider/Layers/ProviderHealth.ts` and `ProviderHealth.test.ts` for the same exact-optional pattern and an unsupported Effect platform error tag; after targeted fixes, `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
+- Initial `bun run typecheck` failed in `@saint/web` on `apps/web/src/components/ChatView.browser.tsx` because a browser `scrollTo` test helper produced explicit `undefined` optional fields; after that fix it failed in `saint` on `apps/server/src/provider/Layers/ProviderHealth.ts` and `ProviderHealth.test.ts` for the same exact-optional pattern and an unsupported Effect platform error tag; after targeted fixes, `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed and refreshed install/lockfile state.
 - `bun run build` passed. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, desktop typeless-module, and large Vite chunk warnings.
-- Initial `bun run test` failed in `@synara/web` on `apps/web/src/appSettings.test.ts` because the persisted-settings decode-default fixture still expected `enableAssistantStreaming: false`; after updating the fixture to the new default, the targeted app settings test passed.
-- Final `bun run test` passed: 10 tasks successful in 6m5.217s. `synara` passed 137 files with 1 skipped file, 1492 passed tests, and 6 skipped tests.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.3.4`, and `npm run lint` passed.
+- Initial `bun run test` failed in `@saint/web` on `apps/web/src/appSettings.test.ts` because the persisted-settings decode-default fixture still expected `enableAssistantStreaming: false`; after updating the fixture to the new default, the targeted app settings test passed.
+- Final `bun run test` passed: 10 tasks successful in 6m5.217s. `saint` passed 137 files with 1 skipped file, 1492 passed tests, and 6 skipped tests.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.3.4`, and `npm run lint` passed.
 
 ## 0.3.3 - 2026-06-28
 
 ### Added
 
-- Added Windows packaged-app editor discovery so VS Code and VS Code Insiders installed from the Microsoft Store can be launched from Synara.
+- Added Windows packaged-app editor discovery so VS Code and VS Code Insiders installed from the Microsoft Store can be launched from Saint.
 - Added Windows editor URI fallback handling when the normal editor command is unavailable or unsuitable.
 - Added a provider update-check preference across server settings, web app settings, settings search, provider health, and update notification filtering.
 - Added shared workspace explorer keyboard navigation coverage and a dedicated keyboard shortcuts settings panel.
@@ -2891,8 +2891,8 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.3` across the server, desktop, web, and contracts packages.
-- Refreshed Synara icon and logo assets across desktop resources, marketing assets, web favicons, app icons, and shared brand assets.
+- Bumped Saint release package versions to `0.3.3` across the server, desktop, web, and contracts packages.
+- Refreshed Saint icon and logo assets across desktop resources, marketing assets, web favicons, app icons, and shared brand assets.
 - Corrected macOS app icon packaging after the Ventura rounded-icon pass and removed the temporary literal Dock icon workaround.
 - Unified workspace explorer presentation, file row styling, diff stat labels, DockExplorerPane behavior, and shortcut settings navigation.
 - Reduced idle local server polling by giving server React Query a calmer idle refresh cadence while preserving active-session refresh behavior.
@@ -2910,11 +2910,11 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 - Initial `bun run fmt:check` failed on `apps/server/src/editorAppDiscovery.ts`, `apps/server/src/open.test.ts`, and `scripts/build-desktop-artifact.ts`; after targeted `bunx oxfmt` on those files, `bun run fmt:check` passed.
 - `bun run lint` passed with 155 warnings, 0 errors.
-- Initial `bun run typecheck` failed in `@synara/web` because `wsNativeApi.test.ts` missed the new `enableProviderUpdateChecks` setting; after that fix it failed in `synara` because `apps/server/src/open.ts` used unavailable `Effect.catchAll`; after both fixes, `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
+- Initial `bun run typecheck` failed in `@saint/web` because `wsNativeApi.test.ts` missed the new `enableProviderUpdateChecks` setting; after that fix it failed in `saint` because `apps/server/src/open.ts` used unavailable `Effect.catchAll`; after both fixes, `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed and refreshed install/lockfile state.
 - `bun run build` passed. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, desktop typeless-module, and large Vite chunk warnings.
-- `bun run test` passed: 10 tasks successful in 5m8.962s. `@synara/web` passed 188 files / 2212 tests. `synara` passed 136 files with 1 skipped file, 1475 passed tests, and 6 skipped tests.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.3.3`, and `npm run lint` passed.
+- `bun run test` passed: 10 tasks successful in 5m8.962s. `@saint/web` passed 188 files / 2212 tests. `saint` passed 136 files with 1 skipped file, 1475 passed tests, and 6 skipped tests.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.3.3`, and `npm run lint` passed.
 
 ## 0.3.2 - 2026-06-27
 
@@ -2927,7 +2927,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.2` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.3.2` across the server, desktop, web, and contracts packages.
 - Refactored transcript scrolling and session-state handling so ChatView owns less browser-specific behavior directly and live transcript/layout state has clearer boundaries.
 - Refactored composer chrome measurement, right-dock metadata, workspace preview headers, and the workspace explorer into reusable pieces.
 - Made project and home-chat container selection more explicit by sharing project creation/recovery, draft-thread mapping, and chat-container selection helpers across sidebar and toolbar entrypoints.
@@ -2946,11 +2946,11 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 - Initial `bun run fmt:check` failed on `apps/web/src/components/RouteInsetSurface.tsx`; after targeted `bunx oxfmt` on that file, `bun run fmt:check` passed.
 - `bun run lint` passed with 154 warnings, 0 errors.
-- Initial `bun run typecheck` failed in `@synara/web` on exact optional property handling in `Sidebar.tsx`, `composerDraftStore.ts`, and `chatProjects.ts`; after targeted fixes, `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
+- Initial `bun run typecheck` failed in `@saint/web` on exact optional property handling in `Sidebar.tsx`, `composerDraftStore.ts`, and `chatProjects.ts`; after targeted fixes, `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed. It refreshed install/lockfile state during `bun install`, with no remaining `bun.lock` diff.
 - `bun run build` passed. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, desktop typeless-module, and large Vite chunk warnings.
-- `bun run test` passed: 10 tasks successful in 5m44.64s. `@synara/web` passed 187 files / 2205 tests. `synara` passed 136 files with 1 skipped file, 1464 passed tests, and 6 skipped tests.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.3.2`, and `npm run lint` passed.
+- `bun run test` passed: 10 tasks successful in 5m44.64s. `@saint/web` passed 187 files / 2205 tests. `saint` passed 136 files with 1 skipped file, 1464 passed tests, and 6 skipped tests.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.3.2`, and `npm run lint` passed.
 
 ## 0.3.1 - 2026-06-26
 
@@ -2963,7 +2963,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.1` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.3.1` across the server, desktop, web, and contracts packages.
 - Refined session orchestration and transcript handling so assistant messages, tool/work rows, collapsed turns, runtime activity, and sidechat state stay separated more predictably.
 - Improved chat header, recent-view, sidebar, split-chat, and hover-card navigation for multi-pane workflows.
 - Tightened keyboard shortcut defaults and persisted keybinding migrations for chat creation, terminal creation, navigation, and duplicate/stale binding rows.
@@ -2990,14 +2990,14 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed and left `bun.lock` unchanged.
 - `bun run build` passed. The build still reports existing Astro `transformWithEsbuild`, tsdown/plugin timing, desktop typeless-module, and large Vite chunk warnings.
-- `bun run test` passed: 10 tasks successful in 5m6s. `@synara/web` passed 182 files / 2164 tests. `synara` passed 135 files with 1 skipped file, 1456 passed tests, and 6 skipped tests.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.3.1`, and `npm run lint` passed.
+- `bun run test` passed: 10 tasks successful in 5m6s. `@saint/web` passed 182 files / 2164 tests. `saint` passed 135 files with 1 skipped file, 1456 passed tests, and 6 skipped tests.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.3.1`, and `npm run lint` passed.
 
 ## 0.3.0 - 2026-06-24
 
 ### Added
 
-- Added first-class Automations as a real Synara workspace surface, including contracts, persistence, scheduler leases, run tracking, RPC methods, sidebar navigation, list/detail routes, Current/Paused views, inline detail editing, previous-run history, and triage actions.
+- Added first-class Automations as a real Saint workspace surface, including contracts, persistence, scheduler leases, run tracking, RPC methods, sidebar navigation, list/detail routes, Current/Paused views, inline detail editing, previous-run history, and triage actions.
 - Added automation scheduler and composer flows so saved prompts can run manually, once, on intervals, daily, on weekdays, weekly, or from cron-like schedules.
 - Added heartbeat automations that continue an existing target thread on each scheduled wake while preserving the normal provider/session/approval/worktree pipeline.
 - Added AI-evaluated heartbeat stop clauses through completion policies, natural-language stop conditions, completion-evaluation results, and visible stop reasons in run history.
@@ -3007,13 +3007,13 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Added DST and long-downtime scheduler coverage for spring-forward gaps, fall-back duplicate hours, and coalesced missed interval runs.
 - Added generic chat file attachments alongside image attachments, with shared contracts, upload storage, composer paste/drop support, provider prompt projection, optimistic timeline rendering, Kanban dispatch, recap/bootstrap support, and reusable file attachment cards/chips.
 - Added automation cards in the chat transcript after automation creation, and added thread automation summaries in the Environment panel.
-- Added blob-based browser download handling for local image/generated markdown image downloads so failed local-image responses stay inside Synara instead of navigating the app window to an API error page.
+- Added blob-based browser download handling for local image/generated markdown image downloads so failed local-image responses stay inside Saint instead of navigating the app window to an API error page.
 - Added OpenCode CLI-only model discovery fallback so the model picker can still discover available models when the managed server or inventory path fails.
 - Added profile skill usage counting coverage for retention-hidden threads and repeated slash/dollar skill invocations.
 
 ### Changed
 
-- Bumped Synara release package versions to `0.3.0` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.3.0` across the server, desktop, web, and contracts packages.
 - Reworked automation UI toward a Codex-style surface, including the sidebar badge, Current/Paused list, centered detail layout, inline rail editing, schedule editing, target-thread display, max-iteration controls, stop-on-error handling, and previous-run actions.
 - Expanded automation composer parsing and review so explicit/generated prompts, schedule phrases, stop clauses, bounded fast loops, restored plan source metadata, queued plan follow-ups, and inline composer editing are handled consistently.
 - Made generated automation intents require confirmation before creation, while preserving deterministic local auto-submit behavior for explicitly parsed bounded fast loops.
@@ -3053,8 +3053,8 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed across all 8 packages with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed and refreshed install/lockfile state.
 - `bun run build` passed. The build still reports existing large web chunk/plugin timing warnings, the Astro `transformWithEsbuild` deprecation warning, and the desktop `tsdown.config.ts` typeless-module warning.
-- `bun run test` passed: 10 tasks successful in 8m53s. `@synara/web` passed 180 files / 2102 tests. `synara` passed 135 files with 1 skipped file, 1418 passed tests, and 6 skipped tests. The server suite was long-running but completed cleanly without a teardown stall.
-- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/synara-website`: `npm run build` prerendered `/changelog/v0.3.0`, and `npm run lint` passed.
+- `bun run test` passed: 10 tasks successful in 8m53s. `@saint/web` passed 180 files / 2102 tests. `saint` passed 135 files with 1 skipped file, 1418 passed tests, and 6 skipped tests. The server suite was long-running but completed cleanly without a teardown stall.
+- Website changelog mirror checks passed in `/Users/emanueledipietro/Developer/saint-website`: `npm run build` prerendered `/changelog/v0.3.0`, and `npm run lint` passed.
 
 ## 0.2.41 - 2026-06-17
 
@@ -3065,7 +3065,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.2.41` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.2.41` across the server, desktop, web, and contracts packages.
 - Kept the shared project-action dialog path mounted while hiding the visible inline project script runner from the chat header.
 - Improved header handoff failure handling by checking provider send availability before creating a handoff and showing a toast when the target is unavailable.
 
@@ -3081,12 +3081,12 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed and left the worktree unchanged.
 - `bun run build` passed. Vite still warns about large web chunks and plugin timings; desktop build still reports the existing typeless `tsdown.config.ts` module warning.
-- Root `bun run test` did not complete cleanly in two attempts: both runs reached a green `@synara/web` suite (169 files / 1954 tests), then stalled in the `apps/server` Vitest tail. The stale duplicate root/Vitest processes were stopped before continuing verification.
+- Root `bun run test` did not complete cleanly in two attempts: both runs reached a green `@saint/web` suite (169 files / 1954 tests), then stalled in the `apps/server` Vitest tail. The stale duplicate root/Vitest processes were stopped before continuing verification.
 - Direct `bun run test` from `apps/server` also stalled before reporting test-file progress, only printing Node SQLite experimental warnings, so it is not counted as passed.
 - Direct package tests passed for the release-relevant and non-server packages: `apps/web` 169 files / 1954 tests, `packages/contracts` 9 files / 90 tests, `packages/shared` 24 files / 228 tests, `packages/effect-acp` 3 files / 24 tests, `apps/desktop` 19 files / 149 tests, and `scripts` 5 files / 36 tests.
 - `apps/marketing` has no `test` script.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.2.41`.
-- `npm run lint` in `/Users/emanueledipietro/Developer/synara-website` passed.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.2.41`.
+- `npm run lint` in `/Users/emanueledipietro/Developer/saint-website` passed.
 
 ## 0.2.4 - 2026-06-17
 
@@ -3097,7 +3097,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.2.4` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.2.4` across the server, desktop, web, and contracts packages.
 - Improved remembered chat route restore so stale empty startup snapshots do not immediately send users to the empty chat route.
 - Removed the old handoff shortcut from the chat header to keep primary conversation controls quieter.
 
@@ -3114,9 +3114,9 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed and refreshed release install/lockfile state.
 - `bun run build` passed. Vite still warns about large web chunks and plugin timings; desktop build still reports the existing typeless `tsdown.config.ts` module warning.
-- `bun run test` passed: 10 tasks successful, including `@synara/web` 169 files / 1954 tests and `synara` 129 files passed / 1 skipped with 1255 passed / 6 skipped.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.2.4`.
-- `npm run lint` in `/Users/emanueledipietro/Developer/synara-website` passed.
+- `bun run test` passed: 10 tasks successful, including `@saint/web` 169 files / 1954 tests and `saint` 129 files passed / 1 skipped with 1255 passed / 6 skipped.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.2.4`.
+- `npm run lint` in `/Users/emanueledipietro/Developer/saint-website` passed.
 
 ## 0.2.3 - 2026-06-16
 
@@ -3128,7 +3128,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Bumped Synara release package versions to `0.2.3` across the server, desktop, web, and contracts packages.
+- Bumped Saint release package versions to `0.2.3` across the server, desktop, web, and contracts packages.
 - Improved profile skill usage counting by combining structured skill references, mentions, agent references, and legacy text-token backfill while filtering obvious non-skill slash/dollar tokens.
 - Kept large pasted prompt content out of the visible composer body by storing it as structured prompt context, making long prompts easier to scan and refine.
 
@@ -3145,9 +3145,9 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed and refreshed release install/lockfile state.
 - `bun run build` passed. Vite still warns about large web chunks and plugin timings; desktop build still reports the existing typeless `tsdown.config.ts` module warning.
-- `bun run test` passed: 10 tasks successful, including `@synara/web` 168 files / 1949 tests and `synara` 129 files passed / 1 skipped with 1246 passed / 6 skipped.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.2.3`.
-- `npm run lint` in `/Users/emanueledipietro/Developer/synara-website` passed.
+- `bun run test` passed: 10 tasks successful, including `@saint/web` 168 files / 1949 tests and `saint` 129 files passed / 1 skipped with 1246 passed / 6 skipped.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.2.3`.
+- `npm run lint` in `/Users/emanueledipietro/Developer/saint-website` passed.
 
 ## 0.2.2 - 2026-06-14
 
@@ -3178,16 +3178,16 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run build` passed. Vite still warns about large web chunks and plugin timings; desktop build still reports the existing typeless `tsdown.config.ts` module warning.
 - Initial full `bun run test` failed in `packages/effect-acp` on 5000ms child-process fixture timeouts, then repeated with timeouts in `packages/effect-acp/src/client.test.ts` and `packages/effect-acp/src/protocol.test.ts`. Targeted reruns passed after adding explicit fixture timeouts.
 - A subsequent root `bun run test` reached green server test output but did not return because the server Vitest process kept worker forks alive during Turbo teardown. Direct server testing showed the suite exits cleanly with `--maxWorkers=1 --no-file-parallelism`, so the server test script was updated accordingly.
-- Final `bun run test` passed: 10 tasks successful, including `@synara/web` 167 files / 1935 tests, `effect-acp` 3 files / 24 tests, and `synara` 129 files passed / 1 skipped with 1241 passed / 6 skipped.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.2.2`.
-- `npm run lint` in `/Users/emanueledipietro/Developer/synara-website` passed.
+- Final `bun run test` passed: 10 tasks successful, including `@saint/web` 167 files / 1935 tests, `effect-acp` 3 files / 24 tests, and `saint` 129 files passed / 1 skipped with 1241 passed / 6 skipped.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.2.2`.
+- `npm run lint` in `/Users/emanueledipietro/Developer/saint-website` passed.
 
 ## 0.2.1 - 2026-06-14
 
 ### Added
 
 - Added inline file comments from composer and preview surfaces, including line comment boxes, comment summary chips, draft persistence, reference attachment support, chat timeline rendering, and file-comment parsing helpers.
-- Added startup turn reconciliation for provider restarts so Synara can recover unfinished turns from persisted runtime state instead of leaving stale active work behind.
+- Added startup turn reconciliation for provider restarts so Saint can recover unfinished turns from persisted runtime state instead of leaving stale active work behind.
 - Added an ACP idle watchdog used by ACP-backed providers so quiet turns can complete or fail more predictably when runtime events stop flowing.
 - Added partial workspace reference lookup helpers and tests so shortened file references can resolve to the intended workspace entry.
 
@@ -3216,8 +3216,8 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - Final `bun run test` from `apps/web` passed: 165 files passed, 1909 tests passed.
 - Final `bun run test` from `packages/effect-acp` passed: 3 files passed, 24 tests passed.
 - Final direct server rerun `bun run test -- --maxWorkers=1` from `apps/server` passed: 128 files passed, 1 skipped; 1238 tests passed, 6 skipped.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.2.1`.
-- `npm run lint` in `/Users/emanueledipietro/Developer/synara-website` passed.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.2.1`.
+- `npm run lint` in `/Users/emanueledipietro/Developer/saint-website` passed.
 
 ## 0.2.0 - 2026-06-13
 
@@ -3262,14 +3262,14 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - First full `bun run test` before release-note edits did not pass: `apps/server/integration/orchestrationEngine.integration.test.ts` failed `runs a single turn end-to-end and persists checkpoint state in sqlite + git`, and `apps/server/src/orchestration/Layers/CheckpointReactor.test.ts` failed `captures pre-turn baseline on turn.started and post-turn checkpoint on turn.completed`. The run then hung during teardown and was stopped after identifying and killing the stale `bun`/`turbo`/Vitest worker processes.
 - Targeted rerun `bun run test src/orchestration/Layers/CheckpointReactor.test.ts -t "captures pre-turn baseline on turn.started and post-turn checkpoint on turn.completed"` from `apps/server` passed: 1 test passed, 15 skipped.
 - Targeted rerun `bun run test integration/orchestrationEngine.integration.test.ts -t "runs a single turn end-to-end and persists checkpoint state in sqlite + git"` from `apps/server` could not reproduce the live integration test because the file uses `it.live`; the standard targeted Vitest command skipped all 12 tests.
-- Final full `bun run test` after version and release-note edits did not pass: `packages/effect-acp/src/client.test.ts` timed out in `returns formatted invalid params when a typed extension request payload is wrong`, and `packages/effect-acp/src/protocol.test.ts` timed out in `does not emit a second process-exit error after a decode failure`. Turbo reported 7 successful tasks, canceled `synara:test` and `@synara/web:test` with code 130, and exited with `effect-acp#test` failed.
+- Final full `bun run test` after version and release-note edits did not pass: `packages/effect-acp/src/client.test.ts` timed out in `returns formatted invalid params when a typed extension request payload is wrong`, and `packages/effect-acp/src/protocol.test.ts` timed out in `does not emit a second process-exit error after a decode failure`. Turbo reported 7 successful tasks, canceled `saint:test` and `@saint/web:test` with code 130, and exited with `effect-acp#test` failed.
 - Targeted rerun `bun run test src/client.test.ts -t "returns formatted invalid params when a typed extension request payload is wrong"` from `packages/effect-acp` passed: 1 test passed, 4 skipped.
 - Targeted rerun `bun run test src/protocol.test.ts -t "does not emit a second process-exit error after a decode failure"` from `packages/effect-acp` passed: 1 test passed, 16 skipped.
 - Full `packages/effect-acp` rerun passed: 3 files passed, 24 tests passed.
 - Full `apps/web` rerun passed: 164 files passed, 1894 tests passed.
 - Direct server rerun `bun run test -- --maxWorkers=1` from `apps/server` passed: 126 files passed, 1 skipped; 1214 tests passed, 6 skipped.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.2.0`.
-- `npm run lint` in `/Users/emanueledipietro/Developer/synara-website` passed.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.2.0`.
+- `npm run lint` in `/Users/emanueledipietro/Developer/saint-website` passed.
 
 ## 0.1.9 - 2026-06-12
 
@@ -3303,13 +3303,13 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run release:smoke` passed.
 - `bun run build` passed. Vite still warns about large web chunks and plugin timings; desktop build still reports the existing typeless `tsdown.config.ts` module warning.
 - First `bun run test` attempt visibly completed the long web/server/integration suites without an assertion failure, then hung during final server Vitest teardown with two workers still alive; it was interrupted and is not counted as a full pass.
-- Final full `bun run test` after release-note and version edits failed in `packages/effect-acp/src/client.test.ts` on two 5000ms timeouts: `returns formatted invalid params when a typed extension request payload is wrong` and `replays buffered notifications to handlers registered after they arrive`. Turbo canceled `synara:test` with code 130 after the `effect-acp` failure, so the full run is not counted as passed.
+- Final full `bun run test` after release-note and version edits failed in `packages/effect-acp/src/client.test.ts` on two 5000ms timeouts: `returns formatted invalid params when a typed extension request payload is wrong` and `replays buffered notifications to handlers registered after they arrive`. Turbo canceled `saint:test` with code 130 after the `effect-acp` failure, so the full run is not counted as passed.
 - Targeted rerun `bun run test src/client.test.ts -t "returns formatted invalid params when a typed extension request payload is wrong|replays buffered notifications to handlers registered after they arrive"` from `packages/effect-acp` passed: 2 tests passed, 3 skipped.
 - Full `packages/effect-acp` rerun passed: 3 files passed, 24 tests passed.
 - Full `apps/web` rerun passed: 160 files passed, 1838 tests passed.
 - Direct server rerun `bun run test -- --maxWorkers=1` from `apps/server` passed: 125 files passed, 1 skipped; 1197 tests passed, 6 skipped.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.1.9`.
-- `npm run lint` in `/Users/emanueledipietro/Developer/synara-website` passed.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.1.9`.
+- `npm run lint` in `/Users/emanueledipietro/Developer/saint-website` passed.
 
 ## 0.1.8 - 2026-06-11
 
@@ -3325,7 +3325,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 - Refined the chat header, chat view, composer controls, model/trait/open-in pickers, inline chips, transcript selection actions, and code-selection flows so references and controls stay easier to scan during active work.
 - Reworked the diff panel toolbar, file list, and patch viewport behavior to make large diffs easier to navigate from both repository and turn contexts.
-- Reworked provider skill discovery so provider-native skill lists can merge with Synara's catalog and fall back cleanly when a provider cannot answer.
+- Reworked provider skill discovery so provider-native skill lists can merge with Saint's catalog and fall back cleanly when a provider cannot answer.
 - Reconciled legacy migration trackers before running migrations and tightened older sidechat/pinned-thread migration paths.
 - Updated desktop stage dependency overrides to keep `@pierre/diffs` pinned to `1.2.8`.
 - Tightened terminal environment propagation, terminal manager behavior, workspace path containment, and provider command/runtime plumbing around recent server contracts.
@@ -3346,11 +3346,11 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` passed with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed.
 - `bun run build` passed. Vite still warns about large web chunks and plugin timings; desktop build still reports the existing typeless `tsdown.config.ts` module warning.
-- First `bun run test` attempt was interrupted by SIGTERM after partial success; no assertion failure was reported before termination, and `@synara/web:test` had already passed 152 files / 1740 tests.
+- First `bun run test` attempt was interrupted by SIGTERM after partial success; no assertion failure was reported before termination, and `@saint/web:test` had already passed 152 files / 1740 tests.
 - Final rerun `bun run test` after version and release-note edits passed: 10 tasks successful; scripts 5 files / 36 tests, desktop 19 files / 149 tests, contracts 9 files / 90 tests, shared 22 files / 188 tests, effect-acp 3 files / 24 tests, web 152 files / 1740 tests, server 123 files passed / 1 skipped with 1187 passed / 6 skipped.
 - The rerun still logged expected test-harness WARN/ERROR lines from failure-path coverage and native binding/provider-binary mocks.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.1.8`.
-- `npm run lint` in `/Users/emanueledipietro/Developer/synara-website` passed.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.1.8`.
+- `npm run lint` in `/Users/emanueledipietro/Developer/saint-website` passed.
 
 ## 0.1.7 - 2026-06-10
 
@@ -3388,14 +3388,14 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run typecheck` initially failed in `apps/web/src/components/chat/TraitsPicker.browser.tsx`, `apps/web/src/store.ts`, `apps/server/src/provider/Layers/CursorAdapter.ts`, and `apps/server/src/wsRpc.ts`; after targeted fixes, `bun run typecheck` passed with the existing TS44 informational JSON messages.
 - `bun run release:smoke` passed.
 - `bun run build` passed. Vite still warns about large web chunks and plugin timings.
-- `bun run test` failed in `packages/effect-acp/src/client.test.ts` on `returns formatted invalid params when a typed extension request payload is wrong` and `replays buffered notifications to handlers registered after they arrive`, both with 5000ms timeouts; Turbo then canceled `synara:test` and `@synara/web:test` with code 130.
+- `bun run test` failed in `packages/effect-acp/src/client.test.ts` on `returns formatted invalid params when a typed extension request payload is wrong` and `replays buffered notifications to handlers registered after they arrive`, both with 5000ms timeouts; Turbo then canceled `saint:test` and `@saint/web:test` with code 130.
 - `bun run test src/client.test.ts -t "returns formatted invalid params when a typed extension request payload is wrong|replays buffered notifications to handlers registered after they arrive"` from `packages/effect-acp` passed (2 tests passed, 3 skipped).
 - `bun run test` from `packages/effect-acp` passed (3 files passed; 24 tests passed).
 - `bun run test` from `apps/server` passed (118 files passed, 1 skipped; 1136 tests passed, 6 skipped).
 - `bun run test` from `apps/web` passed (147 files passed; 1690 tests passed).
 - Final `bun run fmt:check` passed.
 - Final `bun run lint` passed with 148 warnings, 0 errors.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.1.7`.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.1.7`.
 
 ## 0.1.6 - 2026-06-09
 
@@ -3439,7 +3439,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run test` from `apps/desktop` passed (18 files passed; 141 tests passed).
 - `bun run test` from `scripts` passed (5 files passed; 36 tests passed).
 - `apps/marketing` has no `test` script.
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website` passed and generated `/changelog/v0.1.6`.
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website` passed and generated `/changelog/v0.1.6`.
 
 ## 0.1.5 - 2026-06-08
 
@@ -3451,7 +3451,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 
 ### Changed
 
-- Refreshed README/release messaging and Synara desktop update flow documentation around the current app positioning.
+- Refreshed README/release messaging and Saint desktop update flow documentation around the current app positioning.
 - Reworked the diff panel around explicit repo-vs-turn state, searchable file filtering, and smaller view components.
 - Unified composer stacked panels above the input so plan activity, queued follow-ups, and live file-change rows share width, border, radius, and dark-mode opacity.
 - Refined chat markdown spacing, composer command menu selection, provider/plugin discovery normalization, and file/plugin icon rendering in sent messages.
@@ -3475,7 +3475,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run test src/whatsNew/logic.test.ts` from `apps/web`
 - `bun run test src/components/ChatMarkdown.test.tsx` from `apps/web`
 - `bun run test` from `apps/web` (132 test files passed; 1588 tests passed)
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website`
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website`
 
 ## 0.1.4 - 2026-06-07
 
@@ -3515,7 +3515,7 @@ These are recorded before/after experiments for the merged changes, not a new v0
 - `bun run test` (109 test files passed, 1 skipped; 1068 tests passed, 6 skipped; 6m13s)
 - `bun install` after version bump to update `bun.lock`
 - `bun run test src/whatsNew/logic.test.ts` from `apps/web` after release-note edits (12 tests passed)
-- `npm run build` in `/Users/emanueledipietro/Developer/synara-website`
+- `npm run build` in `/Users/emanueledipietro/Developer/saint-website`
 
 ## 0.1.3 - 2026-06-05
 

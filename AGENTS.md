@@ -1,6 +1,6 @@
-# Synara agent instructions
+# Saint agent instructions
 
-Synara is a multi-provider coding-agent workspace with web, server, CLI, and desktop surfaces. Prioritize correctness, reliability, and predictable performance during streaming, reconnects, cancellation, and recovery. Do not treat the project as a disposable early prototype or use this file as permission for unrelated rewrites.
+Saint is a multi-provider coding-agent workspace with web, server, CLI, and desktop surfaces. Prioritize correctness, reliability, and predictable performance during streaming, reconnects, cancellation, and recovery. Do not treat the project as a disposable early prototype or use this file as permission for unrelated rewrites.
 
 ## Contracts and ownership
 
@@ -21,10 +21,10 @@ Read only what the task needs:
 
 ## Beta and Stable
 
-Synara ships two desktop apps from the same `main`: **Synara** (Stable) and **Synara Beta**. [BETA.md](BETA.md) has the full picture; these rules apply to every change:
+Saint ships two desktop apps from the same `main`: **Saint** (Stable) and **Saint Beta**. [BETA.md](BETA.md) has the full picture; these rules apply to every change:
 
 - There is no Beta branch. Merge into `main`; the release tag picks the app (`vX.Y.Z` is Stable, `vX.Y.Z-beta.N` is Beta). Beta tags carry the _next_ Stable version (`v0.9.2` → `v0.9.3-beta.1`).
-- Beta and Stable have separate identities, data homes (`~/.synara` vs `~/.synara-beta`), and update feeds. Do not add code that reads, writes, or updates across them, except the one-way Stable → Beta copy in the Beta channel code.
+- Beta and Stable have separate identities, data homes (`~/.saint` vs `~/.saint-beta`), and update feeds. Do not add code that reads, writes, or updates across them, except the one-way Stable → Beta copy in the Beta channel code.
 - Everything you merge ships in both apps. To keep a feature out of Stable, add its key to `BETA_ONLY_FEATURES` in `packages/shared/src/betaFeatures.ts`, refuse it on the server (authoritative), hide its entry points on the web, and make persisted state for it inert on Stable. Hiding UI alone is not a gate.
 - Migrations run in both apps. A migration added for a Beta-only feature must be additive so Stable ignores it safely.
 - Diagnostics are Beta-only. Never send diagnostics from Stable, and route every field through the shared allowlist and `diagnosticsRedaction.ts`. Never collect chat content, prompts, file contents, project names, credentials, or identity.
@@ -44,9 +44,9 @@ Synara ships two desktop apps from the same `main`: **Synara** (Stable) and **Sy
 
 ## Local instance isolation
 
-Use a separate home directory and unused server/web ports when another Synara instance is running. Check the dev runner's dry-run output before starting an isolated instance; do not reset the user's database or reuse production state to make a test pass.
+Use a separate home directory and unused server/web ports when another Saint instance is running. Check the dev runner's dry-run output before starting an isolated instance; do not reset the user's database or reuse production state to make a test pass.
 
-For browser development, an inherited `SYNARA_AUTH_TOKEN` must match the client configuration; remove it only from the isolated test process when appropriate, never from production policy. Check both IPv4 and IPv6 listeners. An empty UI with a healthy `orchestration.getSnapshot` is a connection/hydration lead, not permission to alter SQLite data.
+For browser development, an inherited `SAINT_AUTH_TOKEN` must match the client configuration; remove it only from the isolated test process when appropriate, never from production policy. Check both IPv4 and IPv6 listeners. An empty UI with a healthy `orchestration.getSnapshot` is a connection/hydration lead, not permission to alter SQLite data.
 
 ## Reporting style
 

@@ -20,7 +20,7 @@ describe("browser MCP tool error encoder", () => {
         {
           type: "text",
           text: stableJsonStringify({
-            type: "synara_browser_error",
+            type: "saint_browser_error",
             version: 1,
             error: STALE_REFERENCE_ERROR,
           }),

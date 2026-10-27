@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runBetterwright } from "../src/browserAutomation/betterwrightRuntime";
 
-const home = mkdtempSync(join(tmpdir(), "synara-browser-recovery-"));
+const home = mkdtempSync(join(tmpdir(), "saint-browser-recovery-"));
 app.setPath("userData", join(home, "electron"));
 const watchdog = setTimeout(() => app.exit(1), 60_000);
 

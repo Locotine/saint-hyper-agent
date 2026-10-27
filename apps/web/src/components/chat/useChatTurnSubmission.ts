@@ -1,7 +1,7 @@
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
-import { resolveComputerInvocationMode } from "@synara/shared/computerInvocation";
-import { projectFoldersSessionIssue } from "@synara/shared/projectFolders";
+import { resolveComputerInvocationMode } from "@saint/shared/computerInvocation";
+import { projectFoldersSessionIssue } from "@saint/shared/projectFolders";
 import {
   prepareComputerPermissionGuide,
   readLocalComputerPermissionBridge,

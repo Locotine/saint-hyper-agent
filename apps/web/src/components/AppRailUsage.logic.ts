@@ -1,9 +1,9 @@
 // FILE: AppRailUsage.logic.ts
 // Purpose: Pure selection rules for the provider usage rings at the bottom of the app rail.
 
-import type { ProviderInstanceId, ProviderKind } from "@synara/contracts";
-import type { ResolvedProviderInstance } from "@synara/shared/providerInstances";
-import { PROVIDER_USAGE_PROVIDERS, providerUsageDisplayName } from "@synara/shared/providerUsage";
+import type { ProviderInstanceId, ProviderKind } from "@saint/contracts";
+import type { ResolvedProviderInstance } from "@saint/shared/providerInstances";
+import { PROVIDER_USAGE_PROVIDERS, providerUsageDisplayName } from "@saint/shared/providerUsage";
 
 import type { RailUsageWindow } from "~/appSettings";
 import { providerAccountQualifiedLabel } from "~/lib/providerInstancePresentation";

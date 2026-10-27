@@ -2,18 +2,18 @@ import * as FS from "node:fs/promises";
 import * as OS from "node:os";
 import * as Path from "node:path";
 
-import { execProcessFile } from "@synara/shared/processRuntime";
+import { execProcessFile } from "@saint/shared/processRuntime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { persistMacAppIcon } from "./macAppIcon";
 
-vi.mock("@synara/shared/processRuntime", () => ({ execProcessFile: vi.fn() }));
+vi.mock("@saint/shared/processRuntime", () => ({ execProcessFile: vi.fn() }));
 
 let cacheDirectory: string;
-const bundlePath = "/Applications/Synara's $(literal) App.app";
+const bundlePath = "/Applications/Saint's $(literal) App.app";
 
 beforeEach(async () => {
-  cacheDirectory = await FS.mkdtemp(Path.join(OS.tmpdir(), "synara-mac-icon-test-"));
+  cacheDirectory = await FS.mkdtemp(Path.join(OS.tmpdir(), "saint-mac-icon-test-"));
   vi.mocked(execProcessFile).mockReset();
   vi.mocked(execProcessFile).mockImplementation((_command, _args, _options, callback) => {
     callback(null, "", "");
@@ -67,7 +67,7 @@ describe("persistent macOS app icons", () => {
   });
 
   it("re-stamps a replacement bundle even when its directory mtime is preserved", async () => {
-    const target = Path.join(cacheDirectory, "Synara.app");
+    const target = Path.join(cacheDirectory, "Saint.app");
     await FS.mkdir(target);
     const fixedTime = new Date("2026-01-01T00:00:00.000Z");
     await FS.utimes(target, fixedTime, fixedTime);
@@ -92,7 +92,7 @@ describe("persistent macOS app icons", () => {
   });
 
   it("records the bundle after a successful native write and retries a failed new choice", async () => {
-    const target = Path.join(cacheDirectory, "Synara.app");
+    const target = Path.join(cacheDirectory, "Saint.app");
     await FS.mkdir(target);
     // Native custom-icon writes change the bundle directory's metadata.
     vi.mocked(execProcessFile).mockImplementationOnce((_command, _args, _options, callback) => {
@@ -118,7 +118,7 @@ describe("persistent macOS app icons", () => {
   });
 
   it("retries when the bundle is replaced while a native write is completing", async () => {
-    const target = Path.join(cacheDirectory, "Synara.app");
+    const target = Path.join(cacheDirectory, "Saint.app");
     await FS.mkdir(target);
     vi.mocked(execProcessFile).mockImplementationOnce((_command, _args, _options, callback) => {
       void FS.rename(target, `${target}.previous`).then(async () => {

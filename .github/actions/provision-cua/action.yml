@@ -33,7 +33,7 @@ runs:
           echo "Only macOS can cross-compile Cua ($host_arch host, $target_arch target)." >&2
           exit 1
         fi
-        echo "SYNARA_CUA_TARGET_ARCH=$target_arch" >> "$GITHUB_ENV"
+        echo "SAINT_CUA_TARGET_ARCH=$target_arch" >> "$GITHUB_ENV"
         if [[ "$RUNNER_OS" == "macOS" ]]; then
           test -d /Applications/Xcode_16.4.app/Contents/Developer
           echo 'DEVELOPER_DIR=/Applications/Xcode_16.4.app/Contents/Developer' >> "$GITHUB_ENV"
@@ -111,8 +111,8 @@ runs:
         CACHE_KEY: ${{ steps.key.outputs.key }}
       run: |
         set -euo pipefail
-        unset SYNARA_CUA_ARTIFACT_DIR SYNARA_CUA_SIGN_IDENTITY
-        node apps/desktop/scripts/provision-cua-driver.mjs --arch "$SYNARA_CUA_TARGET_ARCH" --destination "$RUNNER_TEMP/cua-artifact"
+        unset SAINT_CUA_ARTIFACT_DIR SAINT_CUA_SIGN_IDENTITY
+        node apps/desktop/scripts/provision-cua-driver.mjs --arch "$SAINT_CUA_TARGET_ARCH" --destination "$RUNNER_TEMP/cua-artifact"
         printf '%s\n' "$CACHE_KEY" > "$RUNNER_TEMP/cua-artifact/build-key.txt"
 
     - name: Validate and stage cached Cua
@@ -126,9 +126,9 @@ runs:
       run: |
         set -euo pipefail
         test "$(cat "$RUNNER_TEMP/cua-artifact/build-key.txt")" = "$CACHE_KEY"
-        unset SYNARA_CUA_SIGN_IDENTITY
-        node apps/desktop/scripts/provision-cua-driver.mjs --arch "$SYNARA_CUA_TARGET_ARCH" --artifact-dir "$RUNNER_TEMP/cua-artifact" --destination "$RUNNER_TEMP/cua-verified"
-        echo "SYNARA_CUA_ARTIFACT_DIR=$RUNNER_TEMP/cua-verified" >> "$GITHUB_ENV"
+        unset SAINT_CUA_SIGN_IDENTITY
+        node apps/desktop/scripts/provision-cua-driver.mjs --arch "$SAINT_CUA_TARGET_ARCH" --artifact-dir "$RUNNER_TEMP/cua-artifact" --destination "$RUNNER_TEMP/cua-verified"
+        echo "SAINT_CUA_ARTIFACT_DIR=$RUNNER_TEMP/cua-verified" >> "$GITHUB_ENV"
         echo "Cua exact cache hit: $CACHE_HIT; persistent run: $PERSISTENT_RUN; prepared artifact: $PREPARED_ARTIFACT; key: $CACHE_KEY" >> "$GITHUB_STEP_SUMMARY"
 
     - name: Save trusted default-branch Cua artifact

@@ -85,7 +85,7 @@ layer("121_ClearAutomationDefinitionProviderOptions", (it) => {
       `;
       assert.deepStrictEqual(rows, [
         {
-          instanceId: "synara_unresolved_automation_codex",
+          instanceId: "saint_unresolved_automation_codex",
           legacyProvider: null,
           modelOptions: null,
           providerOptions: null,
@@ -147,7 +147,7 @@ layer("121_ClearAutomationDefinitionProviderOptions", (it) => {
         {
           enabled: 0,
           nextRunAt: null,
-          instanceId: "synara_unresolved_automation_claudeAgent",
+          instanceId: "saint_unresolved_automation_claudeAgent",
           providerOptions: null,
         },
       ]);
@@ -246,7 +246,7 @@ layer("121_ClearAutomationDefinitionProviderOptions", (it) => {
         {
           enabled: 0,
           nextRunAt: null,
-          instanceId: "synara_unresolved_automation_codex",
+          instanceId: "saint_unresolved_automation_codex",
           providerOptions: null,
         },
       ]);
@@ -334,32 +334,32 @@ layer("121_ClearAutomationDefinitionProviderOptions", (it) => {
           {
             automationId: "automation-account-with-empty-environment",
             enabled: 0,
-            instanceId: "synara_unresolved_automation_codex",
+            instanceId: "saint_unresolved_automation_codex",
           },
           {
             automationId: "automation-account-with-environment",
             enabled: 0,
-            instanceId: "synara_unresolved_automation_codex",
+            instanceId: "saint_unresolved_automation_codex",
           },
           {
             automationId: "automation-account-with-malformed-home",
             enabled: 0,
-            instanceId: "synara_unresolved_automation_codex",
+            instanceId: "saint_unresolved_automation_codex",
           },
           {
             automationId: "automation-empty-account-id",
             enabled: 0,
-            instanceId: "synara_unresolved_automation_codex",
+            instanceId: "saint_unresolved_automation_codex",
           },
           {
             automationId: "automation-empty-environment",
             enabled: 0,
-            instanceId: "synara_unresolved_automation_claudeAgent",
+            instanceId: "saint_unresolved_automation_claudeAgent",
           },
           {
             automationId: "automation-empty-home",
             enabled: 0,
-            instanceId: "synara_unresolved_automation_claudeAgent",
+            instanceId: "saint_unresolved_automation_claudeAgent",
           },
         ]);
       }),

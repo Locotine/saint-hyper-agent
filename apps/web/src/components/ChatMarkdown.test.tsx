@@ -26,7 +26,7 @@ function renderWithQueryClient(ui: ReactElement) {
   return renderToStaticMarkup(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
-async function renderMarkdown(text: string, cwd = "C:\\Users\\LENOVO\\synara") {
+async function renderMarkdown(text: string, cwd = "C:\\Users\\LENOVO\\saint") {
   const { default: ChatMarkdown } = await import("./ChatMarkdown");
 
   return renderWithQueryClient(<ChatMarkdown text={text} cwd={cwd} isStreaming={false} />);
@@ -165,7 +165,7 @@ describe("ChatMarkdown", () => {
       "$$\n x^2 \n$$",
       "> [!NOTE]\n> Searchable alert",
       "[local notes](file:///tmp/notes.md)",
-      "[thread link](thread://thread-abc) and [Synara link](synara://thread/thread-def)",
+      "[thread link](thread://thread-abc) and [Saint link](saint://thread/thread-def)",
       "- [ ] Task",
     ].join("\n\n");
     const rendered = renderWithQueryClient(
@@ -186,7 +186,7 @@ describe("ChatMarkdown", () => {
     expect(rendered).toContain('href="/tmp/notes.md"');
     expect(rendered).toContain('type="checkbox"');
     expect(rendered).not.toContain("thread://");
-    expect(rendered).not.toContain("synara://");
+    expect(rendered).not.toContain("saint://");
     expect(rendered).toContain("<button");
   });
 
@@ -197,9 +197,9 @@ describe("ChatMarkdown", () => {
     expect(markup).toContain("[!NOTE] not an alert");
   });
 
-  it("renders synara://thread links as thread buttons, accepting encoded titles", async () => {
+  it("renders saint://thread links as thread buttons, accepting encoded titles", async () => {
     const markup = await renderMarkdownWithThreadOpener(
-      "Finished [Mars public opinion research](synara://thread/Mars%20public%20opinion%20research) and [raw id](synara://thread/thread-abc-123).",
+      "Finished [Mars public opinion research](saint://thread/Mars%20public%20opinion%20research) and [raw id](saint://thread/thread-abc-123).",
     );
 
     // Both links take the thread-button branch instead of rendering as raw
@@ -207,7 +207,7 @@ describe("ChatMarkdown", () => {
     expect(markup).toContain("<button");
     expect(markup).toContain("Mars public opinion research");
     expect(markup).toContain("raw id");
-    expect(markup).not.toContain("synara://thread/");
+    expect(markup).not.toContain("saint://thread/");
   });
 
   it("renders thread:// links as thread buttons", async () => {
@@ -494,25 +494,25 @@ $$
         "",
         "- `scripts/delete_uploadthing.py`",
       ].join("\n"),
-      "/Users/tester/Documents/Synara/thread",
+      "/Users/tester/Documents/Saint/thread",
     );
 
     expect(markup).toContain(
       'title="/Users/tester/.agents/skills/annotate-pr/scripts/delete_uploadthing.py"',
     );
     expect(markup).not.toContain(
-      'href="/Users/tester/Documents/Synara/thread/scripts/delete_uploadthing.py"',
+      'href="/Users/tester/Documents/Saint/thread/scripts/delete_uploadthing.py"',
     );
   });
 
   it("chips a line-suffixed relative file against a directory declared in the same message", async () => {
     const markup = await renderMarkdown(
       ["**Dir:** `/Users/tester/.agents/skills/annotate-pr`", "", "- `SKILL.md:1`"].join("\n"),
-      "/Users/tester/Documents/Synara/thread",
+      "/Users/tester/Documents/Saint/thread",
     );
 
     expect(markup).toContain('title="/Users/tester/.agents/skills/annotate-pr/SKILL.md"');
-    expect(markup).not.toContain('href="/Users/tester/Documents/Synara/thread/SKILL.md"');
+    expect(markup).not.toContain('href="/Users/tester/Documents/Saint/thread/SKILL.md"');
   });
 });
 

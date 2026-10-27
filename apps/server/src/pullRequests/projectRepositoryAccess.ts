@@ -2,7 +2,7 @@
 // read or mutation names a project and a repository; both must be live and must belong together
 // before any `gh` command runs.
 
-import type { OrchestrationProject, OrchestrationProjectShell, ProjectId } from "@synara/contracts";
+import type { OrchestrationProject, OrchestrationProjectShell, ProjectId } from "@saint/contracts";
 import { Effect } from "effect";
 
 import { GitHubCliError } from "../git/Errors";

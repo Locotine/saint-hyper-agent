@@ -31,7 +31,7 @@ import {
   TurnId,
   type ProviderSessionStartInput,
   type RuntimeMode,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   getDevinStaticModelVariants,
   getModelCapabilities,
@@ -40,7 +40,7 @@ import {
   normalizeModelSlug,
   resolveDevinModelVariant,
   trimOrNull,
-} from "@synara/shared/model";
+} from "@saint/shared/model";
 import {
   Cause,
   DateTime,
@@ -62,8 +62,8 @@ import { makeEffectProcessCommand } from "../../platform/effectProcessRuntime.ts
 import type * as Acp from "@agentclientprotocol/sdk";
 
 import {
-  type SynaraHarnessPolicyDeliveryState,
-  takeSynaraHarnessPolicyTextPartForProviderSession,
+  type SaintHarnessPolicyDeliveryState,
+  takeSaintHarnessPolicyTextPartForProviderSession,
 } from "../../agentGateway/harnessPolicy.ts";
 import { AgentGatewayCredentials } from "../../agentGateway/Services/AgentGatewayCredentials.ts";
 import {
@@ -165,11 +165,11 @@ import { DevinAdapter, type DevinAdapterShape } from "../Services/DevinAdapter.t
 
 const PROVIDER = "devin" as const;
 
-export const takeDevinSynaraHarnessPolicyTextPart = (
-  state: SynaraHarnessPolicyDeliveryState,
+export const takeDevinSaintHarnessPolicyTextPart = (
+  state: SaintHarnessPolicyDeliveryState,
   scopedGatewayConnectionAvailable: boolean,
 ) =>
-  takeSynaraHarnessPolicyTextPartForProviderSession(state, {
+  takeSaintHarnessPolicyTextPartForProviderSession(state, {
     provider: PROVIDER,
     scopedGatewayConnectionAvailable,
   });
@@ -177,7 +177,7 @@ export const takeDevinSynaraHarnessPolicyTextPart = (
 const DEVIN_RESUME_VERSION = 1 as const;
 
 const DEVIN_TURN_IDLE_TIMEOUT_MS = resolveAcpTurnIdleTimeoutMs({
-  envVar: "SYNARA_DEVIN_TURN_IDLE_TIMEOUT_MS",
+  envVar: "SAINT_DEVIN_TURN_IDLE_TIMEOUT_MS",
   defaultMs: 30 * 60 * 1000,
 });
 
@@ -238,12 +238,12 @@ function resolveDevinWedgeRecoveryOptions(
 ): DevinWedgeRecoveryOptions {
   return {
     stallFuseMs: resolveDevinOptionalTimeoutMs({
-      envVar: "SYNARA_DEVIN_STALL_FUSE_MS",
+      envVar: "SAINT_DEVIN_STALL_FUSE_MS",
       defaultMs: 90_000,
       env,
     }),
     spawnStallTimeoutMs: resolveDevinOptionalTimeoutMs({
-      envVar: "SYNARA_DEVIN_SPAWN_STALL_TIMEOUT_MS",
+      envVar: "SAINT_DEVIN_SPAWN_STALL_TIMEOUT_MS",
       defaultMs: 30_000,
       env,
     }),
@@ -307,7 +307,7 @@ const DEVIN_COMMAND_DISCOVERY_CACHE_MS = 5 * 60_000;
 const DEVIN_DISCOVERY_CACHE_MAX_ENTRIES = 16;
 const DEVIN_ACP_TRANSPORT_DEBUG_MARKER = "devin-acp-meta-stripper-v2";
 const DEVIN_ACP_LOG_PAYLOAD_LIMIT = 4_000;
-const DEVIN_ACP_DEBUG_ENV = "SYNARA_DEVIN_ACP_DEBUG";
+const DEVIN_ACP_DEBUG_ENV = "SAINT_DEVIN_ACP_DEBUG";
 const LEGACY_DEVIN_ACP_DEBUG_ENV = "DP_DEVIN_ACP_DEBUG";
 // On session/load, Devin can replay old ACP updates after the session reports
 // ready; suppression stays active until that stream goes quiet.
@@ -324,7 +324,7 @@ const DEVIN_RESUME_REPLAY_HARD_TIMEOUT_MS = 30_000;
 const DEVIN_TURN_SETTLE_DRAIN_MAX_WAIT_MS = 1_000;
 const DEVIN_TURN_SETTLE_DRAIN_POLL_MS = 25;
 // Reuses the turn idle timeout value as a generous ceiling (compactions stream
-// activity well under it); override it with SYNARA_DEVIN_TURN_IDLE_TIMEOUT_MS.
+// activity well under it); override it with SAINT_DEVIN_TURN_IDLE_TIMEOUT_MS.
 const DEVIN_COMPACT_TIMEOUT_MS = DEVIN_TURN_IDLE_TIMEOUT_MS;
 // After a timed-out /compact the cancel is only best-effort: the child may
 // still stream stale compaction updates for a moment. Hold new turns for this
@@ -361,12 +361,12 @@ export function resolveDevinAdapterTimeouts(
 ): DevinAdapterTimeouts {
   return {
     turnIdleMs: resolveAcpTurnIdleTimeoutMs({
-      envVar: "SYNARA_DEVIN_TURN_IDLE_TIMEOUT_MS",
+      envVar: "SAINT_DEVIN_TURN_IDLE_TIMEOUT_MS",
       defaultMs: 30 * 60 * 1000,
       env,
     }),
     toolIdleMs: resolveAcpTurnIdleTimeoutMs({
-      envVar: "SYNARA_DEVIN_TOOL_IDLE_TIMEOUT_MS",
+      envVar: "SAINT_DEVIN_TOOL_IDLE_TIMEOUT_MS",
       defaultMs: 60 * 60 * 1000,
       env,
     }),
@@ -420,7 +420,7 @@ interface DevinBackgroundShellState {
   status: "running" | "completed" | "failed" | "stopped";
 }
 
-interface DevinSessionContext extends SynaraHarnessPolicyDeliveryState {
+interface DevinSessionContext extends SaintHarnessPolicyDeliveryState {
   readonly threadId: ThreadId;
   readonly acpSessionId: string;
   readonly lifecycleGeneration: string | undefined;
@@ -1404,7 +1404,7 @@ export function buildDevinPromptMeta(interactionMode: ProviderInteractionMode): 
 } {
   // Devin ACP reconciles its native Plan tracker from session/prompt `_meta.mode`.
   // This is idempotent, so reconnects cannot invert the provider state when
-  // Synara sends the desired mode again.
+  // Saint sends the desired mode again.
   return { mode: interactionMode === "plan" ? "plan" : "agent" };
 }
 
@@ -1799,7 +1799,7 @@ export function makeDevinAdapter(
         childProcessSpawner,
         cwd: input.cwd,
         runtimeMode: "approval-required",
-        clientInfo: { name: "Synara Command Discovery", version: "0.0.0" },
+        clientInfo: { name: "Saint Command Discovery", version: "0.0.0" },
       });
 
     const discoverDevinModelsUncached = (
@@ -2041,7 +2041,7 @@ export function makeDevinAdapter(
               : asDevinSubagentToolCallState(toolCall, subagent),
             providerRefs: devinProviderRefsForAgent(ctx, subagent.parentAgentId),
             rawPayload: {
-              source: "synara.devin.subagent-control",
+              source: "saint.devin.subagent-control",
               toolCallId: subagent.toolCallId,
               agentId: subagent.agentId,
               status: subagent.status,
@@ -2541,7 +2541,7 @@ export function makeDevinAdapter(
               if (!gatewaySessionLease || !agentGatewayCredentials) return undefined;
               const bootstrapToken = gatewaySessionLease.issueStdioBootstrapToken?.();
               if (!bootstrapToken)
-                throw new Error("Synara gateway bootstrap token was unavailable.");
+                throw new Error("Saint gateway bootstrap token was unavailable.");
               return createDevinSessionConfig({
                 connection: gatewaySessionLease.connection,
                 stdioProxy: agentGatewayCredentials.stdioProxy,
@@ -2675,7 +2675,7 @@ export function makeDevinAdapter(
             childProcessSpawner,
             cwd,
             runtimeMode: input.runtimeMode,
-            clientInfo: { name: "Synara", version: "0.0.0" },
+            clientInfo: { name: "Saint", version: "0.0.0" },
             clientCapabilities: {
               elicitation: { form: {} },
               _meta: {
@@ -2751,7 +2751,7 @@ export function makeDevinAdapter(
                   activeTurn: ownerAgentId
                     ? owner?.status === "running" && requestInteractionMode !== undefined
                     : ctx?.activeTurnId !== undefined,
-                  autoApproveSynaraTools: input.autoApproveSynaraTools === true,
+                  autoApproveSaintTools: input.autoApproveSaintTools === true,
                   gatewaySessionActive: gatewaySessionLease !== undefined,
                   toolCall: {
                     kind: permissionRequest.kind,
@@ -3239,7 +3239,7 @@ export function makeDevinAdapter(
                             subagent.status = replayCompletion.success ? "completed" : "failed";
                             if (replayCompletion.summary)
                               subagent.summary = replayCompletion.summary;
-                            // Only replay a correction when Synara persisted
+                            // Only replay a correction when Saint persisted
                             // evidence that it stopped this task before the
                             // process restarted. Ordinary replay is silent.
                             if (ctx.pendingTaskReconciliations.delete(subagent.agentId)) {
@@ -3926,7 +3926,7 @@ export function makeDevinAdapter(
                 payload: {
                   message: detail,
                   class: "transport_error",
-                  detail: { reason: "synara.devin.wedge-recovery" },
+                  detail: { reason: "saint.devin.wedge-recovery" },
                 },
               });
             }),
@@ -4075,7 +4075,7 @@ export function makeDevinAdapter(
           });
         }
 
-        const harnessPolicy = takeDevinSynaraHarnessPolicyTextPart(
+        const harnessPolicy = takeDevinSaintHarnessPolicyTextPart(
           ctx,
           ctx.devinSessionConfig?.installed === true,
         );
@@ -4283,7 +4283,7 @@ export function makeDevinAdapter(
                     stopReason:
                       completion.state === "cancelled" &&
                       wedgeRecoveries.get(input.threadId)?.turnId === turnId
-                        ? "synara.devin.wedge-recovery"
+                        ? "saint.devin.wedge-recovery"
                         : (result.stopReason ?? null),
                     ...(completion.errorMessage !== undefined
                       ? { errorMessage: completion.errorMessage }
@@ -4325,7 +4325,7 @@ export function makeDevinAdapter(
                   // Keep technical recovery distinct from a user's goal pause.
                   stopReason:
                     wedgeRecoveries.get(input.threadId)?.turnId === turnId
-                      ? "synara.devin.wedge-recovery"
+                      ? "saint.devin.wedge-recovery"
                       : "cancelled",
                   ...completedCost,
                 },

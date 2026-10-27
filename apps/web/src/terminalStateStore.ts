@@ -6,8 +6,8 @@
  */
 
 import { randomTerminalId } from "./components/terminal/terminalIds";
-import { type TerminalActivityState, type TerminalCliKind } from "@synara/shared/terminalThreads";
-import type { ThreadId } from "@synara/contracts";
+import { type TerminalActivityState, type TerminalCliKind } from "@saint/shared/terminalThreads";
+import type { ThreadId } from "@saint/contracts";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { createDeferredPersistStorage, flushStorageBeforePageHide } from "./lib/storage";
@@ -37,7 +37,7 @@ export interface ThreadTerminalState {
   dockTerminalIdsByPaneId?: Record<string, string>;
 }
 
-const TERMINAL_STATE_STORAGE_KEY = "synara:terminal-state:v1";
+const TERMINAL_STATE_STORAGE_KEY = "saint:terminal-state:v1";
 
 function normalizeTerminalIds(terminalIds: string[]): string[] {
   const ids = [...new Set(terminalIds.map((id) => id.trim()).filter((id) => id.length > 0))];

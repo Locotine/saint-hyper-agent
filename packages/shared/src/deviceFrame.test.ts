@@ -1,4 +1,4 @@
-import { DEVICE_FRAME_HEADER_FIXED_BYTES } from "@synara/contracts";
+import { DEVICE_FRAME_HEADER_FIXED_BYTES } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { DeviceFrameEncodeError, decodeDeviceFrame, encodeDeviceFrame } from "./deviceFrame";

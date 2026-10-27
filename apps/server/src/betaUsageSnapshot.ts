@@ -1,5 +1,5 @@
 // FILE: betaUsageSnapshot.ts
-// Purpose: Computes the anonymous last-24h usage snapshot for Synara Beta.
+// Purpose: Computes the anonymous last-24h usage snapshot for Saint Beta.
 // Layer: Server maintenance task — runs only on beta-flavor desktop builds.
 //
 // The desktop main process cannot reach the projection database, so the server

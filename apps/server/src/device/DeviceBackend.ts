@@ -25,8 +25,8 @@ import type {
   DeviceScreenshotResult,
   DeviceStartRecordingResult,
   DeviceStopRecordingResult,
-} from "@synara/contracts";
-import { DEVICE_MESSAGE_MAX_LENGTH } from "@synara/contracts";
+} from "@saint/contracts";
+import { DEVICE_MESSAGE_MAX_LENGTH } from "@saint/contracts";
 
 /**
  * One encoded video frame as the backend produces it. `sequence` is owned by
@@ -150,7 +150,7 @@ export interface DeviceLogResult {
   readonly process: string | null;
   /** Unified log (os_log, Logger, NSLog) for the app's process. */
   readonly log: readonly string[];
-  /** stdout/stderr (`print`) of the last launch through Synara, when captured. */
+  /** stdout/stderr (`print`) of the last launch through Saint, when captured. */
   readonly console: readonly string[];
   readonly consoleUnavailableReason?: string;
   readonly crashes: readonly DeviceCrashReport[];

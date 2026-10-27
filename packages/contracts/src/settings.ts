@@ -64,7 +64,7 @@ export const ClaudeServerProviderSettings = Schema.Struct({
   // Agent SDK sessions unless the host opts in.
   enableArtifacts: Schema.Boolean.pipe(Schema.withDecodingDefault(() => false)),
   // Off by default: embedded (SDK) Claude Code never asks before resuming a
-  // large session after a long pause. When on, Synara asks the way Claude
+  // large session after a long pause. When on, Saint asks the way Claude
   // Code's interactive resume prompt does.
   confirmColdCacheResume: Schema.Boolean.pipe(Schema.withDecodingDefault(() => false)),
 });

@@ -103,7 +103,7 @@ async function runBrowserPerformanceAudit(browser) {
   };
 
   await page.addInitScript(() => {
-    window.__synaraPerformance = {
+    window.__saintPerformance = {
       lcpMs: 0,
       cls: 0,
       longTasks: [],
@@ -123,14 +123,14 @@ async function runBrowserPerformanceAudit(browser) {
     new PerformanceObserver((list) => {
       const entries = list.getEntries();
       const last = entries.at(-1);
-      if (last) window.__synaraPerformance.lcpMs = last.startTime;
+      if (last) window.__saintPerformance.lcpMs = last.startTime;
     }).observe({ type: "largest-contentful-paint", buffered: true });
 
     new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (!entry.hadRecentInput) {
-          window.__synaraPerformance.cls += entry.value;
-          window.__synaraPerformance.layoutShifts.push({
+          window.__saintPerformance.cls += entry.value;
+          window.__saintPerformance.layoutShifts.push({
             value: entry.value,
             sources: (entry.sources ?? []).map((source) => ({
               node: describeNode(source.node),
@@ -145,7 +145,7 @@ async function runBrowserPerformanceAudit(browser) {
     if (PerformanceObserver.supportedEntryTypes.includes("longtask")) {
       new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          window.__synaraPerformance.longTasks.push(entry.duration);
+          window.__saintPerformance.longTasks.push(entry.duration);
         }
       }).observe({ type: "longtask", buffered: true });
     }
@@ -215,16 +215,16 @@ async function runBrowserPerformanceAudit(browser) {
     const paints = Object.fromEntries(
       performance.getEntriesByType("paint").map((entry) => [entry.name, entry.startTime]),
     );
-    const longTasks = window.__synaraPerformance.longTasks;
+    const longTasks = window.__saintPerformance.longTasks;
     return {
       status: document.readyState,
       ttfbMs: navigation.responseStart - navigation.requestStart,
       domContentLoadedMs: navigation.domContentLoadedEventEnd - navigation.startTime,
       loadMs: navigation.loadEventEnd - navigation.startTime,
       firstContentfulPaintMs: paints["first-contentful-paint"] ?? 0,
-      lcpMs: window.__synaraPerformance.lcpMs,
-      cls: window.__synaraPerformance.cls,
-      layoutShifts: window.__synaraPerformance.layoutShifts,
+      lcpMs: window.__saintPerformance.lcpMs,
+      cls: window.__saintPerformance.cls,
+      layoutShifts: window.__saintPerformance.layoutShifts,
       longTaskCount: longTasks.length,
       longTaskTotalMs: longTasks.reduce((sum, duration) => sum + duration, 0),
       longTaskMaxMs: Math.max(0, ...longTasks),

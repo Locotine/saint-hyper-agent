@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { THREAD_GOAL_INLINE_MAX_CHARS } from "@synara/contracts";
+import { THREAD_GOAL_INLINE_MAX_CHARS } from "@saint/contracts";
 
 import { ensurePrivateDirectorySync, repairPrivateFile } from "../privatePathPermissions";
 

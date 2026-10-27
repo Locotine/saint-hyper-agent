@@ -5,7 +5,7 @@
 // must survive that visit — and survive a temporarily visible dock browser — so
 // the card returns when the owning thread is shown without a docked live guest.
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { create } from "zustand";
 
 interface FloatingBrowserRequestStore {

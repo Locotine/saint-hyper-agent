@@ -57,7 +57,7 @@ describe("buildInlineVisualDocument", () => {
         "--Bad Name": "blue",
       },
     });
-    const style = /<style id="synara-visual-theme">([^]*?)<\/style>/.exec(document)?.[1] ?? "";
+    const style = /<style id="saint-visual-theme">([^]*?)<\/style>/.exec(document)?.[1] ?? "";
 
     expect(style).toContain("color-scheme:light;");
     expect(style).toContain("--foreground:red/stylescriptalert(1)/script;");
@@ -89,10 +89,10 @@ describe("readInlineVisualFrameMessage", () => {
     [rpc("ui/open-link", { url: `https://example.com/${"a".repeat(2100)}` }, 1), undefined],
     [rpc("ui/open-link", { url: "https://example.com" }), undefined],
     [
-      rpc("synara/notifications/scroll-intent", { upward: true }),
+      rpc("saint/notifications/scroll-intent", { upward: true }),
       { type: "scroll-intent", upward: true },
     ],
-    [rpc("synara/notifications/scroll-intent", { upward: "yes" }), undefined],
+    [rpc("saint/notifications/scroll-intent", { upward: "yes" }), undefined],
     [rpc("tools/call", { name: "x" }, 1), undefined],
     [{ method: "ui/notifications/size-changed", params: { height: 10 } }, undefined],
     ["ui/notifications/size-changed", undefined],
@@ -119,11 +119,11 @@ describe("readInlineVisualEmbedIds", () => {
   it("finds the visuals a reply places, in order", () => {
     const text = [
       "Intro.",
-      "```synara-visual",
+      "```saint-visual",
       id("a"),
       "```",
       "Middle.",
-      "~~~ synara-visual",
+      "~~~ saint-visual",
       `  ${id("b")}`,
       "~~~",
     ].join("\n");
@@ -132,16 +132,16 @@ describe("readInlineVisualEmbedIds", () => {
 
   it("ignores other fences, inline mentions, and malformed ids", () => {
     expect(readInlineVisualEmbedIds("```ts\n" + id("a") + "\n```")).toEqual([]);
-    expect(readInlineVisualEmbedIds("see synara-visual " + id("a"))).toEqual([]);
-    expect(readInlineVisualEmbedIds("```synara-visual\nvis_123\n```")).toEqual([]);
+    expect(readInlineVisualEmbedIds("see saint-visual " + id("a"))).toEqual([]);
+    expect(readInlineVisualEmbedIds("```saint-visual\nvis_123\n```")).toEqual([]);
   });
 });
 
 it("does not claim incomplete or extra-content fences as placed visuals", () => {
   const id = `vis_${"a".repeat(32)}`;
-  expect(readInlineVisualEmbedIds(`\`\`\`synara-visual\n${id}\nextra narration\n\`\`\``)).toEqual(
+  expect(readInlineVisualEmbedIds(`\`\`\`saint-visual\n${id}\nextra narration\n\`\`\``)).toEqual(
     [],
   );
-  expect(readInlineVisualEmbedIds(`\`\`\`synara-visual\n${id}`)).toEqual([]);
-  expect(readInlineVisualEmbedIds(`\`\`\`synara-visual\n${id}\n\`\`\``)).toEqual([id]);
+  expect(readInlineVisualEmbedIds(`\`\`\`saint-visual\n${id}`)).toEqual([]);
+  expect(readInlineVisualEmbedIds(`\`\`\`saint-visual\n${id}\n\`\`\``)).toEqual([id]);
 });

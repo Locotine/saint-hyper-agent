@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRef } from "react";
-import type { ProjectReadFileResult, ProjectWriteFileResult } from "@synara/contracts";
+import type { ProjectReadFileResult, ProjectWriteFileResult } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

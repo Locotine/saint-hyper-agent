@@ -1,4 +1,4 @@
-import { MessageId, ThreadId, TurnId } from "@synara/contracts";
+import { MessageId, ThreadId, TurnId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "vitest-browser-react";
 import { useStore } from "../store";
@@ -273,9 +273,9 @@ it("reuses an unconfirmed request after remount and persisted state hydration", 
   const original = mocks.dispatchCommand.mock.calls[0]![0];
   await first.unmount();
   // Simulate a page reload: the persisted request is all the new hook inherits.
-  const saved = sessionStorage.getItem("synara:claude-compaction-requests")!;
+  const saved = sessionStorage.getItem("saint:claude-compaction-requests")!;
   useClaudeCompactionRequests.setState({ requests: {} });
-  sessionStorage.setItem("synara:claude-compaction-requests", saved);
+  sessionStorage.setItem("saint:claude-compaction-requests", saved);
   await useClaudeCompactionRequests.persist.rehydrate();
   const second = await renderHook(() =>
     useClaudeContextCompaction({ threadId, disabledReason: null, ...callbacks() }),

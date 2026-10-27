@@ -8,7 +8,7 @@ import {
   type ProviderInstanceId,
   type ProviderKind,
   type ServerProviderStatus,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { type CSSProperties, type ReactNode } from "react";
 
 import { PlusIcon, StarFilledIcon } from "~/lib/icons";

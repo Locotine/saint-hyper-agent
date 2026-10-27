@@ -2,7 +2,7 @@
  * HTTP routes for Connectors.
  *
  * - `GET /oauth/mcp/callback`: the OAuth redirect target. The browser carries
- *   no Synara session, so the single-use `state` minted with the sign-in is
+ *   no Saint session, so the single-use `state` minted with the sign-in is
  *   the only authority here.
  * - `POST|DELETE /mcp/connectors/:connectorId`: the MCP endpoint provider
  *   sessions call, authenticated with the same per-session bearer as `/mcp`.
@@ -38,14 +38,14 @@ function escapeHtml(value: string): string {
 export function renderConnectorCallbackPage(outcome: McpConnectorCallbackOutcome): string {
   const title = outcome.ok ? `${outcome.name} is connected` : outcome.title;
   const message = outcome.ok
-    ? "You can close this tab and return to Synara."
+    ? "You can close this tab and return to Saint."
     : `${outcome.message} You can close this tab.`;
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(title)} · Synara</title>
+<title>${escapeHtml(title)} · Saint</title>
 <style>
 :root { color-scheme: light dark; }
 body { margin: 0; min-height: 100vh; display: grid; place-items: center;

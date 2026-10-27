@@ -5,7 +5,7 @@ Captured on macOS with Node 24.13.1, Bun 1.4.2, and codex-cli 0.154.0.
 ## Browser fixture
 
 The images and video render the actual `AsyncUserInputCard`, shared `UserInputQuestionForm`, and
-Synara CSS in a transcript fixture. They do not claim packaged desktop validation.
+Saint CSS in a transcript fixture. They do not claim packaged desktop validation.
 
 - [Before](before.png): the existing plain-text representation of the question.
 - [Capsule](capsule.png): a question-mark icon and question count, collapsed initially.
@@ -24,7 +24,7 @@ The focused transcript tests also cover tail anchors and row overlap.
 ## Native app-server smoke
 
 An isolated temporary Codex home and empty workspace exercised the installed
-app-server without modifying Synara's application state. The CLI selected its
+app-server without modifying Saint's application state. The CLI selected its
 default model (`gpt-6-astra`); no product model setting was changed.
 
 Both requests emitted `item/completed` with an `agentMessage` containing

@@ -8,7 +8,7 @@ import { isPlainObject, sanitizeStringKeyedRecord } from "./persistedRecord";
 import type { AppState } from "./storeState";
 import type { SidebarThreadSummary } from "./types";
 
-export const THREAD_VISITED_STORAGE_KEY = "synara:thread-visited:v1";
+export const THREAD_VISITED_STORAGE_KEY = "saint:thread-visited:v1";
 export const MAX_PERSISTED_VISITED_THREADS = 500;
 
 interface PersistedThreadVisitedState {

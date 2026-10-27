@@ -16,7 +16,7 @@ typedef struct {
   unsigned int msgh_local_port;
   unsigned int msgh_voucher_port;
   unsigned int msgh_id;
-} SynaraIndigoMachHeader;
+} SaintIndigoMachHeader;
 
 typedef struct {
   unsigned int field1;
@@ -37,7 +37,7 @@ typedef struct {
   double field16;
   double field17;
   double field18;
-} SynaraIndigoTouch;
+} SaintIndigoTouch;
 
 typedef struct {
   unsigned int eventSource;
@@ -45,27 +45,27 @@ typedef struct {
   unsigned int eventTarget;
   unsigned int keyCode;
   unsigned int field5;
-} SynaraIndigoButton;
+} SaintIndigoButton;
 
 typedef union {
-  SynaraIndigoTouch touch;
-  SynaraIndigoButton button;
+  SaintIndigoTouch touch;
+  SaintIndigoButton button;
   unsigned char raw[144];
-} SynaraIndigoEvent;
+} SaintIndigoEvent;
 
 typedef struct {
   unsigned int field1;
   unsigned long long timestamp;
   unsigned int field3;
-  SynaraIndigoEvent event;
-} SynaraIndigoPayload;
+  SaintIndigoEvent event;
+} SaintIndigoPayload;
 
 typedef struct {
-  SynaraIndigoMachHeader header;
+  SaintIndigoMachHeader header;
   unsigned int innerSize;
   unsigned char eventType;
-  SynaraIndigoPayload payload;
-} SynaraIndigoMessage;
+  SaintIndigoPayload payload;
+} SaintIndigoMessage;
 
 #pragma pack(pop)
 
@@ -91,57 +91,57 @@ static const int kButtonOpUp = 0x2;
 // The mouse/touch seed message target, ported from idb.
 static const int kTouchTarget = 0x32;
 
-typedef SynaraIndigoMessage *(*SynaraIndigoButtonFn)(int keyCode, int op, int target);
-typedef SynaraIndigoMessage *(*SynaraIndigoKeyboardFn)(uint32_t usage, int op);
-typedef SynaraIndigoMessage *(*SynaraIndigoMouseFn)(CGPoint *point0, CGPoint *point1, int target,
+typedef SaintIndigoMessage *(*SaintIndigoButtonFn)(int keyCode, int op, int target);
+typedef SaintIndigoMessage *(*SaintIndigoKeyboardFn)(uint32_t usage, int op);
+typedef SaintIndigoMessage *(*SaintIndigoMouseFn)(CGPoint *point0, CGPoint *point1, int target,
                                                     int eventType, BOOL extra);
-typedef SynaraIndigoMessage *(*SynaraIndigoArbitraryFn)(int target, uint32_t page, uint32_t usage,
+typedef SaintIndigoMessage *(*SaintIndigoArbitraryFn)(int target, uint32_t page, uint32_t usage,
                                                         int op);
 
-BOOL SynaraHardwareButtonFromName(NSString *name, SynaraHardwareButton *outButton) {
+BOOL SaintHardwareButtonFromName(NSString *name, SaintHardwareButton *outButton) {
   NSDictionary<NSString *, NSNumber *> *map = @{
-    @"home": @(SynaraHardwareButtonHome),
-    @"lock": @(SynaraHardwareButtonLock),
-    @"side": @(SynaraHardwareButtonSide),
-    @"siri": @(SynaraHardwareButtonSiri),
-    @"volume-up": @(SynaraHardwareButtonVolumeUp),
-    @"volume-down": @(SynaraHardwareButtonVolumeDown),
+    @"home": @(SaintHardwareButtonHome),
+    @"lock": @(SaintHardwareButtonLock),
+    @"side": @(SaintHardwareButtonSide),
+    @"siri": @(SaintHardwareButtonSiri),
+    @"volume-up": @(SaintHardwareButtonVolumeUp),
+    @"volume-down": @(SaintHardwareButtonVolumeDown),
   };
   NSNumber *found = map[name.lowercaseString];
   if (found == nil) {
     return NO;
   }
   if (outButton != NULL) {
-    *outButton = (SynaraHardwareButton)found.integerValue;
+    *outButton = (SaintHardwareButton)found.integerValue;
   }
   return YES;
 }
 
-static int SynaraButtonSource(SynaraHardwareButton button) {
+static int SaintButtonSource(SaintHardwareButton button) {
   switch (button) {
-    case SynaraHardwareButtonHome: return kButtonSourceHome;
-    case SynaraHardwareButtonLock: return kButtonSourceLock;
-    case SynaraHardwareButtonSide: return kButtonSourceSide;
-    case SynaraHardwareButtonSiri: return kButtonSourceSiri;
-    case SynaraHardwareButtonVolumeUp:
-    case SynaraHardwareButtonVolumeDown: return -1;
+    case SaintHardwareButtonHome: return kButtonSourceHome;
+    case SaintHardwareButtonLock: return kButtonSourceLock;
+    case SaintHardwareButtonSide: return kButtonSourceSide;
+    case SaintHardwareButtonSiri: return kButtonSourceSiri;
+    case SaintHardwareButtonVolumeUp:
+    case SaintHardwareButtonVolumeDown: return -1;
   }
   return kButtonSourceHome;
 }
 
 /// Consumer-page usage for the two volume keys, or 0 for the buttons that
 /// travel as Indigo button events instead.
-static uint32_t SynaraConsumerUsage(SynaraHardwareButton button) {
+static uint32_t SaintConsumerUsage(SaintHardwareButton button) {
   switch (button) {
-    case SynaraHardwareButtonVolumeUp: return kHIDUsageVolumeIncrement;
-    case SynaraHardwareButtonVolumeDown: return kHIDUsageVolumeDecrement;
+    case SaintHardwareButtonVolumeUp: return kHIDUsageVolumeIncrement;
+    case SaintHardwareButtonVolumeDown: return kHIDUsageVolumeDecrement;
     default: return 0;
   }
 }
 
 /// USB HID usage for a printable ASCII character, plus whether shift is needed.
 /// Returns 0 for characters with no mapping.
-static uint32_t SynaraUsageForCharacter(unichar c, BOOL *outShift) {
+static uint32_t SaintUsageForCharacter(unichar c, BOOL *outShift) {
   BOOL shift = NO;
   uint32_t usage = 0;
 
@@ -212,28 +212,28 @@ static const NSTimeInterval kDTUHIDReadyTimeout = 9.0;
 static const NSTimeInterval kDTUHIDFlushTimeout = 2.0;
 
 // Consumer-page usages for the hardware buttons on the DTUHID transport.
-static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
+static uint16_t SaintConsumerUsageForButton(SaintHardwareButton button) {
   switch (button) {
-    case SynaraHardwareButtonHome: return 0x40;        // Menu
-    case SynaraHardwareButtonLock: return 0x30;        // Power
-    case SynaraHardwareButtonSide: return 0x30;        // Power: same physical button
-    case SynaraHardwareButtonSiri: return 0xcf;        // Voice Command
-    case SynaraHardwareButtonVolumeUp: return 0xe9;    // Volume Increment
-    case SynaraHardwareButtonVolumeDown: return 0xea;  // Volume Decrement
+    case SaintHardwareButtonHome: return 0x40;        // Menu
+    case SaintHardwareButtonLock: return 0x30;        // Power
+    case SaintHardwareButtonSide: return 0x30;        // Power: same physical button
+    case SaintHardwareButtonSiri: return 0xcf;        // Voice Command
+    case SaintHardwareButtonVolumeUp: return 0xe9;    // Volume Increment
+    case SaintHardwareButtonVolumeDown: return 0xea;  // Volume Decrement
   }
   return 0x40;
 }
 
-@implementation SynaraHIDBridge {
+@implementation SaintHIDBridge {
   id _client;
   dispatch_queue_t _sendQueue;
-  SynaraIndigoButtonFn _buttonFn;
-  SynaraIndigoKeyboardFn _keyboardFn;
-  SynaraIndigoMouseFn _mouseFn;
-  SynaraIndigoArbitraryFn _arbitraryFn;
+  SaintIndigoButtonFn _buttonFn;
+  SaintIndigoKeyboardFn _keyboardFn;
+  SaintIndigoMouseFn _mouseFn;
+  SaintIndigoArbitraryFn _arbitraryFn;
   NSInteger _undelivered;
   NSString *_undeliveredReason;
-  SynaraDTUHIDTransport *_dtuhid;
+  SaintDTUHIDTransport *_dtuhid;
   NSInteger _sentEvents;
   NSTimeInterval _inputDeadline;
 
@@ -315,12 +315,12 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
 - (BOOL)attachToDevice:(id)device error:(NSError **)error {
   // From Xcode 27 the guest ignores Indigo input while accepting the send, so a
   // legacy client there only produces taps that are acked and never land.
-  if (SynaraCoreSimulatorUsesDTUHID()) {
+  if (SaintCoreSimulatorUsesDTUHID()) {
     [_dtuhid invalidate];
-    _dtuhid = [[SynaraDTUHIDTransport alloc] initWithDevice:device];
+    _dtuhid = [[SaintDTUHIDTransport alloc] initWithDevice:device];
     return YES;
   }
-  NSString *developerDir = NSProcessInfo.processInfo.environment[@"SYNARA_DEVELOPER_DIR"];
+  NSString *developerDir = NSProcessInfo.processInfo.environment[@"SAINT_DEVELOPER_DIR"];
   if (developerDir.length == 0) {
     developerDir = @"/Applications/Xcode.app/Contents/Developer";
   }
@@ -340,7 +340,7 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
   }
   if (kit == NULL) {
     if (error) {
-      *error = [NSError errorWithDomain:@"dev.synara.device-helper.hid"
+      *error = [NSError errorWithDomain:@"dev.saint.device-helper.hid"
                                    code:1
                                userInfo:@{NSLocalizedDescriptionKey:
                                             [NSString stringWithFormat:@"cannot load SimulatorKit at %@",
@@ -349,13 +349,13 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
     return NO;
   }
 
-  _arbitraryFn = (SynaraIndigoArbitraryFn)dlsym(kit, "IndigoHIDMessageForHIDArbitrary");
-  _buttonFn = (SynaraIndigoButtonFn)dlsym(kit, "IndigoHIDMessageForButton");
-  _keyboardFn = (SynaraIndigoKeyboardFn)dlsym(kit, "IndigoHIDMessageForKeyboardArbitrary");
-  _mouseFn = (SynaraIndigoMouseFn)dlsym(kit, "IndigoHIDMessageForMouseNSEvent");
+  _arbitraryFn = (SaintIndigoArbitraryFn)dlsym(kit, "IndigoHIDMessageForHIDArbitrary");
+  _buttonFn = (SaintIndigoButtonFn)dlsym(kit, "IndigoHIDMessageForButton");
+  _keyboardFn = (SaintIndigoKeyboardFn)dlsym(kit, "IndigoHIDMessageForKeyboardArbitrary");
+  _mouseFn = (SaintIndigoMouseFn)dlsym(kit, "IndigoHIDMessageForMouseNSEvent");
   if (_buttonFn == NULL || _keyboardFn == NULL || _mouseFn == NULL || _arbitraryFn == NULL) {
     if (error) {
-      *error = [NSError errorWithDomain:@"dev.synara.device-helper.hid"
+      *error = [NSError errorWithDomain:@"dev.saint.device-helper.hid"
                                    code:2
                                userInfo:@{NSLocalizedDescriptionKey: @"SimulatorKit Indigo symbols missing"}];
     }
@@ -368,7 +368,7 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
   }
   if (clientClass == nil) {
     if (error) {
-      *error = [NSError errorWithDomain:@"dev.synara.device-helper.hid"
+      *error = [NSError errorWithDomain:@"dev.saint.device-helper.hid"
                                    code:3
                                userInfo:@{NSLocalizedDescriptionKey: @"SimDeviceLegacyHIDClient class missing"}];
     }
@@ -381,7 +381,7 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
   id client = ((id (*)(id, SEL, id, NSError **))objc_msgSend)(allocated, initSelector, device, &initError);
   if (client == nil) {
     if (error) {
-      *error = initError ?: [NSError errorWithDomain:@"dev.synara.device-helper.hid"
+      *error = initError ?: [NSError errorWithDomain:@"dev.saint.device-helper.hid"
                                                 code:4
                                             userInfo:@{NSLocalizedDescriptionKey: @"HID client init failed"}];
     }
@@ -389,11 +389,11 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
   }
 
   _client = client;
-  _sendQueue = dispatch_queue_create("dev.synara.device-helper.hid", DISPATCH_QUEUE_SERIAL);
+  _sendQueue = dispatch_queue_create("dev.saint.device-helper.hid", DISPATCH_QUEUE_SERIAL);
   return YES;
 }
 
-- (void)sendMessage:(SynaraIndigoMessage *)message {
+- (void)sendMessage:(SaintIndigoMessage *)message {
   if (_client == nil || message == NULL) {
     [self noteUndelivered];
     return;
@@ -403,14 +403,14 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
     // Errors here are per-event and non-fatal; the stream keeps going.
   };
   _sentEvents += 1;
-  ((void (*)(id, SEL, SynaraIndigoMessage *, BOOL, dispatch_queue_t, void (^)(NSError *)))objc_msgSend)(
+  ((void (*)(id, SEL, SaintIndigoMessage *, BOOL, dispatch_queue_t, void (^)(NSError *)))objc_msgSend)(
       _client, selector, message, YES, _sendQueue, completion);
 }
 
 - (void)sendTouchAtX:(double)x y:(double)y down:(BOOL)down {
   if (_dtuhid != nil) {
     if (![self dtuhidReady]) return;
-    [self dtuhidSent:[_dtuhid sendTouchAtX:x y:y down:down edge:SynaraTouchEdgeNone]];
+    [self dtuhidSent:[_dtuhid sendTouchAtX:x y:y down:down edge:SaintTouchEdgeNone]];
     if (!down) [self dtuhidFlush];
     return;
   }
@@ -419,7 +419,7 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
     return;
   }
   CGPoint point = CGPointMake(x, y);
-  SynaraIndigoMessage *seed = _mouseFn(&point, NULL, kTouchTarget, down ? kButtonOpDown : kButtonOpUp, NO);
+  SaintIndigoMessage *seed = _mouseFn(&point, NULL, kTouchTarget, down ? kButtonOpDown : kButtonOpUp, NO);
   if (seed == NULL) {
     [self noteUndelivered];
     return;
@@ -427,8 +427,8 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
 
   // A touch is delivered as two payloads in one message; the seed only supplies
   // the first, so it is duplicated and the digitizer fields fixed up.
-  size_t stride = sizeof(SynaraIndigoPayload);
-  SynaraIndigoMessage *message = calloc(1, sizeof(SynaraIndigoMessage) + stride);
+  size_t stride = sizeof(SaintIndigoPayload);
+  SaintIndigoMessage *message = calloc(1, sizeof(SaintIndigoMessage) + stride);
   if (message == NULL) {
     free(seed);
     [self noteUndelivered];
@@ -439,14 +439,14 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
   message->payload.field1 = 0x0000000b;
   message->payload.timestamp = mach_absolute_time();
 
-  memcpy(&message->payload.event.touch, &seed->payload.event.touch, sizeof(SynaraIndigoTouch));
+  memcpy(&message->payload.event.touch, &seed->payload.event.touch, sizeof(SaintIndigoTouch));
   message->payload.event.touch.xRatio = x;
   message->payload.event.touch.yRatio = y;
 
   void *first = &message->payload;
   void *second = (void *)((uintptr_t)first + stride);
   memcpy(second, first, stride);
-  SynaraIndigoPayload *secondPayload = (SynaraIndigoPayload *)second;
+  SaintIndigoPayload *secondPayload = (SaintIndigoPayload *)second;
   secondPayload->event.touch.field1 = 0x00000001;
   secondPayload->event.touch.field2 = 0x00000002;
 
@@ -470,7 +470,7 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
               toX:(double)endX
              endY:(double)endY
        durationMs:(NSInteger)durationMs
-             edge:(SynaraTouchEdge)edge {
+             edge:(SaintTouchEdge)edge {
   NSInteger duration = MAX(durationMs, 1);
   // ~120Hz of interpolation, bounded so a long drag stays cheap.
   NSInteger steps = MIN(MAX(duration / 8, 2), 240);
@@ -520,7 +520,7 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
     [self noteUndelivered];
     return;
   }
-  SynaraIndigoMessage *message = _keyboardFn(usage, down ? kButtonOpDown : kButtonOpUp);
+  SaintIndigoMessage *message = _keyboardFn(usage, down ? kButtonOpDown : kButtonOpUp);
   [self sendMessage:message];
 }
 
@@ -543,7 +543,7 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
       break;
     }
     BOOL needsShift = NO;
-    uint32_t usage = SynaraUsageForCharacter([text characterAtIndex:index], &needsShift);
+    uint32_t usage = SaintUsageForCharacter([text characterAtIndex:index], &needsShift);
     if (usage == 0) { skipped++; continue; }
     if (needsShift) {
       NSInteger sent = _sentEvents;
@@ -587,15 +587,15 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
   return skipped;
 }
 
-- (void)sendButton:(SynaraHardwareButton)button down:(BOOL)down {
+- (void)sendButton:(SaintHardwareButton)button down:(BOOL)down {
   if (_dtuhid != nil) {
     if (![self dtuhidReady]) return;
-    [self dtuhidSent:[_dtuhid sendConsumerUsage:SynaraConsumerUsageForButton(button) down:down]];
+    [self dtuhidSent:[_dtuhid sendConsumerUsage:SaintConsumerUsageForButton(button) down:down]];
     if (!down) [self dtuhidFlush];
     return;
   }
   int op = down ? kButtonOpDown : kButtonOpUp;
-  uint32_t consumerUsage = SynaraConsumerUsage(button);
+  uint32_t consumerUsage = SaintConsumerUsage(button);
 
   if (consumerUsage != 0) {
     if (_arbitraryFn == NULL) {
@@ -610,7 +610,7 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
     [self noteUndelivered];
     return;
   }
-  [self sendMessage:_buttonFn(SynaraButtonSource(button), op, kButtonTargetHardware)];
+  [self sendMessage:_buttonFn(SaintButtonSource(button), op, kButtonTargetHardware)];
 }
 
 - (void)invalidate {
@@ -618,7 +618,7 @@ static uint16_t SynaraConsumerUsageForButton(SynaraHardwareButton button) {
   _dtuhid = nil;
 }
 
-- (void)tapButton:(SynaraHardwareButton)button {
+- (void)tapButton:(SaintHardwareButton)button {
   [self sendButton:button down:YES];
   usleep(90000);
   [self sendButton:button down:NO];

@@ -6,7 +6,7 @@ import {
   type NativeApi,
   type ProjectId,
   SpaceId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const projection = vi.hoisted(() => ({

@@ -36,7 +36,7 @@ function renderInline(text: string): ReactNode {
 
 export default function ChangelogContent({
   releases = getSortedReleases(),
-  title = "What's new in Synara.",
+  title = "What's new in Saint.",
   description = "New providers, performance work, and the steady polish that makes the app faster and sturdier. Every release is logged here — the same notes you see in the app's \"What's new\" dialog.",
 }: {
   releases?: ChangelogEntry[];
@@ -111,7 +111,7 @@ export default function ChangelogContent({
                 href="/install"
                 className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--btn-primary-bg)] px-5 py-2.5 text-[13px] font-medium text-[var(--btn-primary-fg)] transition-opacity hover:opacity-90"
               >
-                Download Synara
+                Download Saint
                 <LuArrowDownToLine className="size-4" aria-hidden="true" />
               </Link>
             </div>
@@ -140,10 +140,10 @@ function Release({ entry }: { entry: ChangelogEntry }) {
           aria-hidden="true"
           className="size-3 opacity-0 transition-opacity group-hover:opacity-100"
         />
-        <span className="sr-only">— link to Synara {entry.version}</span>
+        <span className="sr-only">— link to Saint {entry.version}</span>
       </Link>
       <h2 className="mt-1.5 text-[1.1875rem] font-medium leading-[1.2] tracking-[-0.02em] text-[var(--text-primary)] sm:text-[1.375rem]">
-        Synara <span className="font-normal text-[var(--text-tertiary)]">{entry.version}</span>
+        Saint <span className="font-normal text-[var(--text-tertiary)]">{entry.version}</span>
       </h2>
 
       {single ? (

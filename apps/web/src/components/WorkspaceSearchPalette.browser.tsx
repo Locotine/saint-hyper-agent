@@ -6,8 +6,8 @@
 
 import "../index.css";
 
-import type { NativeApi } from "@synara/contracts";
-import { PROJECT_SEARCH_CONTENT_MIN_QUERY_LENGTH } from "@synara/contracts";
+import type { NativeApi } from "@saint/contracts";
+import { PROJECT_SEARCH_CONTENT_MIN_QUERY_LENGTH } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { page, userEvent } from "vitest/browser";
 import { expect, it, vi } from "vitest";
@@ -304,8 +304,8 @@ it("uses a custom server home for home-relative paths outside conventional home 
         <WorkspaceSearchPalette
           open
           mode="files"
-          cwd="/srv/synara/workspace"
-          homeDir="/srv/synara-user"
+          cwd="/srv/saint/workspace"
+          homeDir="/srv/saint-user"
           onOpenChange={handlers.onOpenChange}
           onOpenFile={handlers.onOpenFile}
           onOpenDirectory={handlers.onOpenDirectory}
@@ -316,7 +316,7 @@ it("uses a custom server home for home-relative paths outside conventional home 
     await expect.element(page.getByText("todo.md")).toBeVisible();
     await userEvent.keyboard("{Enter}");
     await vi.waitFor(() =>
-      expect(handlers.onOpenFile).toHaveBeenCalledWith("/srv/synara-user/notes/todo.md"),
+      expect(handlers.onOpenFile).toHaveBeenCalledWith("/srv/saint-user/notes/todo.md"),
     );
     expect(searchEntries).not.toHaveBeenCalled();
   } finally {

@@ -1,4 +1,4 @@
-import { isBetaFeatureEnabled } from "@synara/shared/betaFeatures";
+import { isBetaFeatureEnabled } from "@saint/shared/betaFeatures";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createMemoryHistory,
@@ -98,9 +98,7 @@ it("offers Tasks in the Stable Inbox", async () => {
   );
   try {
     await expect.element(view.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
-    await expect
-      .element(view.getByText("The day recap needs a newer Synara server."))
-      .toBeVisible();
+    await expect.element(view.getByText("The day recap needs a newer Saint server.")).toBeVisible();
     expect(fixture.getRecap).toHaveBeenCalled();
     expect(fixture.navigate).not.toHaveBeenCalled();
     expect(fixture.listTodos).toHaveBeenCalled();

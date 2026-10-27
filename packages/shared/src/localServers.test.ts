@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ServerLocalServerProcess } from "@synara/contracts";
+import type { ServerLocalServerProcess } from "@saint/contracts";
 
 import {
   localServerAddressLabel,
@@ -40,9 +40,7 @@ describe("localServerAddressLabel", () => {
 
 describe("localServerFolderLabel", () => {
   it("ignores a trailing separator", () => {
-    expect(localServerFolderLabel(makeServer({ cwd: "/Users/me/Developer/synara/" }))).toBe(
-      "synara",
-    );
+    expect(localServerFolderLabel(makeServer({ cwd: "/Users/me/Developer/saint/" }))).toBe("saint");
   });
 
   it("tolerates Windows separators", () => {

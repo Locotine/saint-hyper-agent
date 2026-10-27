@@ -2,7 +2,7 @@
  * Durable "Auto-fix CI" state, one row per watched pull request of a chat. A row exists only
  * while auto-fix is on for that PR; turning it off deletes the row.
  */
-import { PullRequestAutoFixState, ThreadId, TrimmedNonEmptyString } from "@synara/contracts";
+import { PullRequestAutoFixState, ThreadId, TrimmedNonEmptyString } from "@saint/contracts";
 import { Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -42,4 +42,4 @@ export interface PullRequestAutoFixRepositoryShape {
 export class PullRequestAutoFixRepository extends ServiceMap.Service<
   PullRequestAutoFixRepository,
   PullRequestAutoFixRepositoryShape
->()("synara/persistence/Services/PullRequestAutoFixRepository/PullRequestAutoFixRepository") {}
+>()("saint/persistence/Services/PullRequestAutoFixRepository/PullRequestAutoFixRepository") {}

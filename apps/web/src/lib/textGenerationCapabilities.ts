@@ -6,7 +6,7 @@ import {
   GIT_TEXT_GENERATION_PROVIDERS,
   type ModelSelection,
   type ProviderKind,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 const TEXT_GENERATION_PROVIDERS = new Set<ProviderKind>(GIT_TEXT_GENERATION_PROVIDERS);
 

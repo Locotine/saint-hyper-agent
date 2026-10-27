@@ -3,7 +3,7 @@
 // Layer: Web desktop-capability helper
 // Exports: readDesktopWindowTranslucency
 
-import type { DesktopWindowTranslucency } from "@synara/contracts";
+import type { DesktopWindowTranslucency } from "@saint/contracts";
 
 /**
  * `native` on macOS (vibrancy plus adjustable blur), `compositor` on Hyprland (the compositor

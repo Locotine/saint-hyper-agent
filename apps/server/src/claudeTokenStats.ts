@@ -147,7 +147,7 @@ export function claudeTokenActivityCtes(sql: SqlClient.SqlClient, scope?: TokenS
     ),
     -- Claude Code restores a resumed session's saved usage totals into the
     -- first result of each new process, so that result's modelUsage spans
-    -- earlier turns. Results written before Synara withheld it still carry it:
+    -- earlier turns. Results written before Saint withheld it still carry it:
     -- find the first turn of every process that resumed an earlier one.
     claude_generation_turns AS (
       SELECT c.thread_id, c.turn_id, t.generation, t.native_session_id,

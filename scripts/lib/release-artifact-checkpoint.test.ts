@@ -18,12 +18,12 @@ function checkpoint(
   platform: "linux" | "mac" | "win" = "linux",
   flavor: "production" | "beta" = "production",
 ) {
-  const assetsDirectory = mkdtempSync(join(tmpdir(), "synara-checkpoint-"));
+  const assetsDirectory = mkdtempSync(join(tmpdir(), "saint-checkpoint-"));
   roots.push(assetsDirectory);
   const version = flavor === "beta" ? "1.2.3-beta.1" : "1.2.3";
   // Electron Builder's AppImage target emits x86_64 while provenance records x64.
   const nativeFileArch = platform === "linux" ? "x86_64" : "x64";
-  const stem = `${flavor === "beta" ? "Synara-Beta" : "Synara"}-${version}-${nativeFileArch}`;
+  const stem = `${flavor === "beta" ? "Saint-Beta" : "Saint"}-${version}-${nativeFileArch}`;
   const payload = `${stem}.${platform === "mac" ? "dmg" : platform === "win" ? "exe" : "AppImage"}`;
   const updater =
     platform === "mac"
@@ -40,7 +40,7 @@ function checkpoint(
           identity: {
             teamId: "EXPECTEDTEAM",
             authorities: ["Developer ID Application"],
-            appBundle: "Synara.app",
+            appBundle: "Saint.app",
             diskImage: payload,
           },
           checks: ["codesign --verify app", "stapler validate app"],
@@ -106,7 +106,7 @@ function signedWindowsCheckpoint() {
       scheme: "windows-authenticode",
       identity: [
         {
-          fileName: "Synara-1.2.3-x64.exe",
+          fileName: "Saint-1.2.3-x64.exe",
           publisher: "Acme",
           subject: "O=Acme Software, CN=Acme, C=IT",
           thumbprint: "C".repeat(40),
@@ -147,7 +147,7 @@ describe("same-run release artifact checkpoint", () => {
 
   it("rejects a Linux AppImage using the manifest architecture alias", async () => {
     const { input, payloadPath, changeManifest } = checkpoint();
-    const incorrectFileName = "Synara-1.2.3-x64.AppImage";
+    const incorrectFileName = "Saint-1.2.3-x64.AppImage";
     renameSync(payloadPath, join(input.assetsDirectory, incorrectFileName));
     changeManifest((manifest) => {
       manifest.artifacts[0].fileName = incorrectFileName;

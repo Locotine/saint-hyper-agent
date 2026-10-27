@@ -1,4 +1,4 @@
-import type { ServerProviderStatus } from "@synara/contracts";
+import type { ServerProviderStatus } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

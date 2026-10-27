@@ -1,9 +1,9 @@
 ---
 title: Automations
-description: Schedule recurring Synara work with reviewable runs, bounded ownership, and explicit stop conditions.
+description: Schedule recurring Saint work with reviewable runs, bounded ownership, and explicit stop conditions.
 ---
 
-Automations schedule agent work through the same task, provider, environment, and turn pipeline as interactive Synara work. They remove the need to start every run manually; they do not remove the need to constrain, monitor, and review the result.
+Automations schedule agent work through the same task, provider, environment, and turn pipeline as interactive Saint work. They remove the need to start every run manually; they do not remove the need to constrain, monitor, and review the result.
 
 ## Good automation candidates
 
@@ -45,13 +45,13 @@ Before enabling the draft, verify:
 - Exact prompt
 - Stop condition, if any
 - Whether the task may mutate files or remote systems
-- How many consecutive failures are allowed before Synara disables the automation
+- How many consecutive failures are allowed before Saint disables the automation
 
 Do not accept a generated schedule merely because the natural-language interpretation looks plausible.
 
 ## Exact targets and staged drafts
 
-Using targets discovered from `synara_capabilities`, agent-authored standalone and dedicated automations can specify an exact provider, model, and supported options. Synara validates that target against live provider availability and model discovery in the automation project before saving it. When the user explicitly requests creation, the agent can leave the automation disabled (`enabled: false`) for review; inspect its saved model selection before enabling runs.
+Using targets discovered from `saint_capabilities`, agent-authored standalone and dedicated automations can specify an exact provider, model, and supported options. Saint validates that target against live provider availability and model discovery in the automation project before saving it. When the user explicitly requests creation, the agent can leave the automation disabled (`enabled: false`) for review; inspect its saved model selection before enabling runs.
 
 Heartbeat automations continue an existing task session and inherit its provider selection. An explicit replacement target is rejected for a heartbeat. For updates to a standalone or dedicated automation, omitting the target preserves the saved selection. Once a dedicated automation has started its task, its provider is fixed; supported models and options can still change within that provider. Create another automation to use a different provider. A disabled definition is separate from a pending automation proposal.
 
@@ -101,7 +101,7 @@ Do not depend on hidden context from a previous interactive conversation. The du
 
 ## Heartbeat automations and stop conditions
 
-A heartbeat automation repeats until its natural-language stop condition is satisfied. After a successful run, Synara can evaluate the condition and disable the automation with a recorded reason.
+A heartbeat automation repeats until its natural-language stop condition is satisfied. After a successful run, Saint can evaluate the condition and disable the automation with a recorded reason.
 
 Use stop clauses for measurable completion:
 
@@ -130,7 +130,7 @@ A successful scheduler dispatch does not mean the agent’s work was correct.
 
 ## Choose a failure policy
 
-The **On failure** policy controls how many consecutive failed runs Synara tolerates before disabling the automation:
+The **On failure** policy controls how many consecutive failed runs Saint tolerates before disabling the automation:
 
 | Policy                | Behavior                                                            |
 | --------------------- | ------------------------------------------------------------------- |
@@ -141,7 +141,7 @@ The **On failure** policy controls how many consecutive failed runs Synara toler
 
 A successful run resets the consecutive-failure count. Duplicate reconciliation of the same run does not count as another failure.
 
-When the threshold is reached, Synara records the failure count and disable reason. Re-enabling is deliberate: inspect the failed runs, environment, provider state, and prompt before turning the automation back on. Choosing **Keep running** does not automatically restart an automation that was already disabled by failures.
+When the threshold is reached, Saint records the failure count and disable reason. Re-enabling is deliberate: inspect the failed runs, environment, provider state, and prompt before turning the automation back on. Choosing **Keep running** does not automatically restart an automation that was already disabled by failures.
 
 This policy is separate from maximum iterations and natural-language completion conditions. Whichever applicable stop boundary is reached first can disable future runs with its own recorded reason.
 
@@ -189,7 +189,7 @@ A timeout is not proof that the action did not happen.
 
 ### The run never starts
 
-Check whether the automation is paused, the schedule and timezone are correct, Synara is available, and the provider is installed and authenticated.
+Check whether the automation is paused, the schedule and timezone are correct, Saint is available, and the provider is installed and authenticated.
 
 ### The run starts in the wrong repository state
 

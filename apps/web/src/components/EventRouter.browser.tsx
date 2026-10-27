@@ -19,7 +19,7 @@ import {
   type ServerConfig,
   type WsWelcomePayload,
   WS_METHODS,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { HttpResponse, http, ws } from "msw";
 import { setupWorker } from "msw/browser";
@@ -1293,7 +1293,7 @@ describe("EventRouter scoped orchestration sync", () => {
     fixture = {
       ...fixture,
       snapshot: createSnapshot({
-        creationSource: "synara_mcp",
+        creationSource: "saint_mcp",
         sourceThreadId: OTHER_THREAD_ID,
         messages: [],
         session: null,
@@ -1341,7 +1341,7 @@ describe("EventRouter scoped orchestration sync", () => {
     fixture = {
       ...fixture,
       snapshot: createSnapshot({
-        creationSource: "synara_mcp",
+        creationSource: "saint_mcp",
         sourceThreadId: OTHER_THREAD_ID,
         messages: [],
         latestTurn: null,
@@ -1424,7 +1424,7 @@ describe("EventRouter scoped orchestration sync", () => {
 
   it("does not poll a hydrated non-actionable approval", async () => {
     const baseSnapshot = createSnapshot({
-      creationSource: "synara_mcp",
+      creationSource: "saint_mcp",
       sourceThreadId: OTHER_THREAD_ID,
       messages: [],
       session: null,

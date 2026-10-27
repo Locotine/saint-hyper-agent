@@ -4,7 +4,7 @@
 // Layer: Chat hooks
 // Exports: useSubagentRunControls
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { useCallback } from "react";
 
 import { newCommandId } from "~/lib/utils";

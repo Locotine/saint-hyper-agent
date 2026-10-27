@@ -11,7 +11,7 @@ it.layer(NodeServices.layer)("stageDesktopRuntimeResources", (it) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped({ prefix: "synara-runtime-resources-" });
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "saint-runtime-resources-" });
       const buildResources = path.join(root, "resources");
       const runtimeResources = path.join(root, "prod-resources");
       const runtimeFiles = [
@@ -20,7 +20,7 @@ it.layer(NodeServices.layer)("stageDesktopRuntimeResources", (it) => {
         "app-icon-macos.png",
         "app-icon-linux.png",
         "app-icon-windows.ico",
-        "synara.png",
+        "saint.png",
         "entitlements.mac.plist",
         "nested/runtime.dat",
       ];
@@ -57,7 +57,7 @@ it.layer(NodeServices.layer)("stageDesktopRuntimeResources", (it) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped({ prefix: "synara-beta-icon-resources-" });
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "saint-beta-icon-resources-" });
       const buildResources = path.join(root, "build");
       const runtimeResources = path.join(root, "runtime");
       const repositoryRoot = path.join(root, "repository");

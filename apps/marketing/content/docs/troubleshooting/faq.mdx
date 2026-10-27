@@ -1,39 +1,39 @@
 ---
 title: Frequently asked questions
-description: Answers to common Synara setup, provider, privacy, Git, workflow, automation, and troubleshooting questions.
+description: Answers to common Saint setup, provider, privacy, Git, workflow, automation, and troubleshooting questions.
 ---
 
-These answers describe the shared Synara model. Provider availability, models, limits, permissions, and session behavior can still vary by runtime, account, operating system, and release.
+These answers describe the shared Saint model. Provider availability, models, limits, permissions, and session behavior can still vary by runtime, account, operating system, and release.
 
 <Accordions>
-<Accordion title="What is Synara?">
+<Accordion title="What is Saint?">
 
-Synara is a local desktop workspace and control plane for coding-agent runtimes. It keeps tasks, provider sessions, terminals, browser work, diffs, branches, worktrees, approvals, handoffs, automations, and orchestration in one reviewable environment.
+Saint is a local desktop workspace and control plane for coding-agent runtimes. It keeps tasks, provider sessions, terminals, browser work, diffs, branches, worktrees, approvals, handoffs, automations, and orchestration in one reviewable environment.
 
 </Accordion>
-<Accordion title="Does Synara include model access or a subscription?">
+<Accordion title="Does Saint include model access or a subscription?">
 
 No. Install and authenticate the provider runtimes you want to use. Provider accounts, subscriptions, API keys, models, usage limits, and service availability remain provider-owned.
 
 </Accordion>
 <Accordion title="Which providers are supported?">
 
-Synara supports Claude Code, Codex, OpenCode, Cursor, Antigravity, Grok Build, Devin CLI, Pi, and Factory Droid. The authoritative list for your installation is the provider settings shown by that build. See [Provider guides](/docs/providers).
+Saint supports Claude Code, Codex, OpenCode, Cursor, Antigravity, Grok Build, Devin CLI, Pi, and Factory Droid. The authoritative list for your installation is the provider settings shown by that build. See [Provider guides](/docs/providers).
 
 </Accordion>
-<Accordion title="Why does Synara not detect a provider that works in my terminal?">
+<Accordion title="Why does Saint not detect a provider that works in my terminal?">
 
-The desktop process may have a different `PATH`, environment, executable selection, or custom binary path. Open a fresh terminal, record the resolved executable and version, check Synara’s provider settings, and fully restart Synara. See [Provider troubleshooting](/docs/troubleshooting/providers).
+The desktop process may have a different `PATH`, environment, executable selection, or custom binary path. Open a fresh terminal, record the resolved executable and version, check Saint’s provider settings, and fully restart Saint. See [Provider troubleshooting](/docs/troubleshooting/providers).
 
 </Accordion>
 <Accordion title="Why are models missing?">
 
-Model discovery can depend on the installed CLI, account, subscription, region, organization policy, project configuration, working directory, credentials, and provider service. Verify the model through the exact provider executable Synara uses.
+Model discovery can depend on the installed CLI, account, subscription, region, organization policy, project configuration, working directory, credentials, and provider service. Verify the model through the exact provider executable Saint uses.
 
 </Accordion>
-<Accordion title="Does Synara upload my repository to a Synara cloud account?">
+<Accordion title="Does Saint upload my repository to a Saint cloud account?">
 
-Synara does not require a Synara cloud account for the local workspace. The provider you select receives the prompts, file content, diffs, terminal output, browser results, or other context needed for that provider session. Review the provider’s own privacy and data policies.
+Saint does not require a Saint cloud account for the local workspace. The provider you select receives the prompts, file content, diffs, terminal output, browser results, or other context needed for that provider session. Review the provider’s own privacy and data policies.
 
 </Accordion>
 <Accordion title="Can I use a repository that is not on GitHub?">
@@ -51,7 +51,7 @@ Basic work can run in a folder, but Git provides the strongest review and recove
 Use a worktree when another task may touch the same repository, when you want a dedicated branch and terminal environment, or when an experiment should be easy to review or discard. Do not let two writing tasks share one checkout. See [Worktrees](/docs/workflows/worktrees).
 
 </Accordion>
-<Accordion title="Is a detached HEAD in a Synara worktree an error?">
+<Accordion title="Is a detached HEAD in a Saint worktree an error?">
 
 Not necessarily. Managed worktrees can begin from a selected base ref without immediately attaching a named branch. Inspect the task environment and intended delivery branch before changing it.
 
@@ -108,7 +108,7 @@ Studio is a workspace for long-running, artifact-oriented work with dedicated pr
 </Accordion>
 <Accordion title="What is the Agent Gateway?">
 
-The Agent Gateway is Synara’s internal, thread-scoped MCP surface for authorized provider sessions. It can inspect projects and tasks, coordinate bounded task creation, wait for work, steer eligible tasks, use supported browser tools, and manage supported automations within capability and privilege boundaries.
+The Agent Gateway is Saint’s internal, thread-scoped MCP surface for authorized provider sessions. It can inspect projects and tasks, coordinate bounded task creation, wait for work, steer eligible tasks, use supported browser tools, and manage supported automations within capability and privilege boundaries.
 
 </Accordion>
 <Accordion title="What is External MCP?">
@@ -116,9 +116,9 @@ The Agent Gateway is Synara’s internal, thread-scoped MCP surface for authoriz
 External MCP is a smaller, user-created integration for another local application. It uses pairing, project allowlists, capability scopes, safe execution defaults, rate limits, active-task limits, expiring credentials, audit records, and immediate revocation. It is separate from the internal Agent Gateway.
 
 </Accordion>
-<Accordion title="Can External MCP expose Synara over the network?">
+<Accordion title="Can External MCP expose Saint over the network?">
 
-The external endpoint is available only while Synara is loopback-only. Configuring remote or published access disables that endpoint rather than exposing its credentials and tools remotely.
+The external endpoint is available only while Saint is loopback-only. Configuring remote or published access disables that endpoint rather than exposing its credentials and tools remotely.
 
 </Accordion>
 <Accordion title="Where should I start when something fails?">
@@ -126,14 +126,14 @@ The external endpoint is available only while Synara is loopback-only. Configuri
 Preserve the work, identify the failing layer, reproduce the smallest failure, capture exact evidence, change one variable, and verify the recovery. Start at [Troubleshooting](/docs/troubleshooting).
 
 </Accordion>
-<Accordion title="Are Synara diagnostics safe to post publicly?">
+<Accordion title="Are Saint diagnostics safe to post publicly?">
 
 Not without review. Diagnostic tools redact common secret patterns and bound output, but they can still include private prompts, source fragments, paths, URLs, identifiers, and novel secret formats. Manually redact every shared artifact. See [Diagnostics](/docs/troubleshooting/diagnostics).
 
 </Accordion>
 <Accordion title="What information belongs in a bug report?">
 
-Include the Synara version and build type, operating system, provider executable and version, model and options, task environment, minimal reproduction, expected and actual behavior, exact error and time range, verification attempts, and a manually redacted diagnostic sample. See [Report a problem](/docs/troubleshooting/report-a-problem).
+Include the Saint version and build type, operating system, provider executable and version, model and options, task environment, minimal reproduction, expected and actual behavior, exact error and time range, verification attempts, and a manually redacted diagnostic sample. See [Report a problem](/docs/troubleshooting/report-a-problem).
 
 </Accordion>
 <Accordion title="What is the difference between stable behavior and current main?">

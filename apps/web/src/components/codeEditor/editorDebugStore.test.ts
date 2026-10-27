@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import type { EditorDebugActionInput } from "@synara/contracts";
+import type { EditorDebugActionInput } from "@saint/contracts";
 import { afterEach, expect, it, vi } from "vitest";
 
 const { api } = vi.hoisted(() => ({

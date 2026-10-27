@@ -4,7 +4,7 @@ description: Pins, notes, recaps, split views, exports, and the fastest paths be
 ---
 
 <Callout type="info" title="Stable and Beta availability">
-  Tasks is available in **Synara 1.0.1 Stable**. Hubs are available in **Synara 1.0.2 Stable** and
+  Tasks is available in **Saint 1.0.1 Stable**. Hubs are available in **Saint 1.0.2 Stable** and
   Beta. These 1.0.2 features are available in Stable and Beta.
 </Callout>
 
@@ -16,7 +16,7 @@ Projects, threads, and individual transcript messages can be pinned. Pinned mess
 
 ## Find text in the current conversation
 
-Press `mod+f` to open the floating transcript search. Synara highlights matching message text, shows the active result and total count, and supports previous/next navigation without treating tool-only activity as conversation text.
+Press `mod+f` to open the floating transcript search. Saint highlights matching message text, shows the active result and total count, and supports previous/next navigation without treating tool-only activity as conversation text.
 
 Close the panel to remove its temporary highlights. Transcript search does not change messages or pinned content. Saved transcript highlights, underlines, and markers were removed in 0.8.4; pinned messages and thread notes remain available.
 
@@ -32,7 +32,7 @@ Drag a chat into a split pane to keep two tasks visible side by side — even ac
 
 The recent-view switcher gives keyboard-first navigation through recent chats, terminals, and workspace surfaces, with keycap hints. Combined with the [keyboard shortcuts](/docs/reference/keyboard-shortcuts), you rarely need the pointer.
 
-The primary sidebar destinations can also be dragged into your preferred order. Synara keeps that order across windows and restarts while adding newly introduced destinations to a sensible default position.
+The primary sidebar destinations can also be dragged into your preferred order. Saint keeps that order across windows and restarts while adding newly introduced destinations to a sensible default position.
 
 ## Edit files beside the chat
 
@@ -44,7 +44,7 @@ The Explorer now edits files with syntax highlighting and a numbered plain-text 
 
 Open text, image, PDF, and diff views revalidate when workspace files change. Unsaved text edits are protected from background replacement. Check the task's checkout before treating an updated preview as evidence from a particular branch.
 
-Choose **Split diff** or **Stacked diff** in Diff options. Synara remembers this choice when you reopen the panel and after an app restart. In 1.0.2 Stable and Beta, choices are independent per chat. Settings → Behavior → Diff layout supplies the default for chats without a saved choice; changing that default does not overwrite existing chat choices.
+Choose **Split diff** or **Stacked diff** in Diff options. Saint remembers this choice when you reopen the panel and after an app restart. In 1.0.2 Stable and Beta, choices are independent per chat. Settings → Behavior → Diff layout supplies the default for chats without a saved choice; changing that default does not overwrite existing chat choices.
 
 ## Read larger documents
 
@@ -78,7 +78,7 @@ In a saved, idle chat, run `/export` (or use the command menu) to download a ZIP
 
 ## Imported history and recent activity
 
-[Import projects](/docs/features/project-import) brings local Codex and Claude Code conversations into Synara, including a replacement-folder choice for moved projects. Activity ordering follows the latest human message, so background assistant work does not continually promote untouched conversations.
+[Import projects](/docs/features/project-import) brings local Codex and Claude Code conversations into Saint, including a replacement-folder choice for moved projects. Activity ordering follows the latest human message, so background assistant work does not continually promote untouched conversations.
 
 Drag a chat into another pane to open a split view, or into the composer to add a chat mention. The command palette and recent-view switcher share the file picker's visual layout.
 
@@ -92,7 +92,7 @@ Saved chats appear in the horizontal tab strip. Unsent drafts remain out of the 
 
 Use the thread's **Snooze** menu for 30 minutes, 1 hour, 2 hours, tomorrow at 9am, or a custom future time. Tomorrow uses your local calendar. Snoozing postpones attention; it does not cancel a running turn.
 
-The thread returns to recent activity at the deadline and uses your notification settings for a reminder. If Synara and its server were closed, overdue reminders recover when they restart. See [Tasks and Inbox](/docs/features/tasks-and-inbox) for managing the wider backlog.
+The thread returns to recent activity at the deadline and uses your notification settings for a reminder. If Saint and its server were closed, overdue reminders recover when they restart. See [Tasks and Inbox](/docs/features/tasks-and-inbox) for managing the wider backlog.
 
 In 1.0.0, snoozed chats are excluded from inactivity cleanup. Opening a returned chat marks it seen. Closing a split preserves the surviving chat, and closing the last open tab returns to the unsent draft.
 
@@ -104,7 +104,7 @@ The palette also offers navigation to available Inbox, Kanban/Tasks, Hubs and Au
 
 Thread hover cards preview unsent draft text. Marking a chat **Done** offers an eight-second **Undo** toast; undoing the focused chat returns to it. On the per-project Kanban board, sendable draft cards offer **Move to In Progress**, using the same action as dragging. Derived columns and pending or unsendable drafts do not offer manual moves.
 
-Source evidence: Synara `48603e869`, the audited release head for `1.0.1-beta.2`. `apps/server/src/threadSearch.ts`, `apps/web/src/components/SidebarSearchPalette.tsx`, `apps/web/src/components/Sidebar.tsx`, and `apps/web/src/hooks/useSidebarThreadActions.ts`.
+Source evidence: Saint `48603e869`, the audited release head for `1.0.1-beta.2`. `apps/server/src/threadSearch.ts`, `apps/web/src/components/SidebarSearchPalette.tsx`, `apps/web/src/components/Sidebar.tsx`, and `apps/web/src/hooks/useSidebarThreadActions.ts`.
 
 For long conversations, see [conversation history and reload recovery](/docs/features/conversation-history). Provider-native child agents appear in [Subagents](/docs/features/subagents).
 

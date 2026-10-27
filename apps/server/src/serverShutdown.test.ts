@@ -91,7 +91,7 @@ describe("desktop shutdown authorization", () => {
   it.each([
     ["web mode", { mode: "web" as const }],
     ["a wildcard IPv4 bind", { host: "0.0.0.0" }],
-    ["a public URL", { publicUrl: new URL("https://synara.example.test/") }],
+    ["a public URL", { publicUrl: new URL("https://saint.example.test/") }],
     ["a missing token", { desktopShutdownToken: undefined }],
     ["an empty token", { desktopShutdownToken: "   " }],
   ] satisfies ReadonlyArray<readonly [string, Partial<ShutdownConfig>]>)(
@@ -137,11 +137,11 @@ describe("desktop shutdown authorization", () => {
       provider: "codex",
       baseEnv: {
         PATH: process.env.PATH,
-        SYNARA_DESKTOP_SHUTDOWN_TOKEN: SHUTDOWN_TOKEN,
+        SAINT_DESKTOP_SHUTDOWN_TOKEN: SHUTDOWN_TOKEN,
       },
     });
 
     expect(providerEnvironment.PATH).toBe(process.env.PATH);
-    expect(providerEnvironment.SYNARA_DESKTOP_SHUTDOWN_TOKEN).toBeUndefined();
+    expect(providerEnvironment.SAINT_DESKTOP_SHUTDOWN_TOKEN).toBeUndefined();
   });
 });

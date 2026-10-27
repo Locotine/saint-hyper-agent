@@ -1,4 +1,4 @@
-import { TASKS_UNAVAILABLE_ERROR_CODE } from "@synara/contracts";
+import { TASKS_UNAVAILABLE_ERROR_CODE } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { isTasksRefusal, isTasksSurfaceEnabled, noteTasksRefusal } from "./tasksSurface";

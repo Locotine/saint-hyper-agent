@@ -8,7 +8,7 @@ import { renderHook } from "vitest-browser-react";
 
 import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from "~/hooks/useLocalStorage";
 
-const STORAGE_KEY = "synara:test:use-local-storage-clear";
+const STORAGE_KEY = "saint:test:use-local-storage-clear";
 
 beforeEach(() => {
   window.localStorage.removeItem(STORAGE_KEY);

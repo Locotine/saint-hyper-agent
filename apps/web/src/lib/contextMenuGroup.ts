@@ -5,7 +5,7 @@
 // Why: Menus stay compact when variants of one action (handoff targets, copy variants, fork
 //      targets, hub moves) share a row instead of each taking a top-level line.
 
-import type { ContextMenuItem } from "@synara/contracts";
+import type { ContextMenuItem } from "@saint/contracts";
 
 export interface ContextMenuGroupChild<T extends string> extends ContextMenuItem<T> {
   /** Full label used when this is the only child and the group collapses to a plain row. */

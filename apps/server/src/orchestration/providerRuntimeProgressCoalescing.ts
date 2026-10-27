@@ -1,4 +1,4 @@
-import { isToolLifecycleItemType, type ProviderRuntimeEvent } from "@synara/contracts";
+import { isToolLifecycleItemType, type ProviderRuntimeEvent } from "@saint/contracts";
 
 export const PROVIDER_RUNTIME_PROGRESS_WINDOW_MS = 50;
 

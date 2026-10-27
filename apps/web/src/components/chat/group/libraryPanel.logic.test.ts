@@ -1,4 +1,4 @@
-import type { LibraryEntry } from "@synara/contracts";
+import type { LibraryEntry } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {

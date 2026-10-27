@@ -98,7 +98,7 @@ export async function runNativeFixture(
       observedTarget = candidates.find(
         (window) =>
           window.pid === child.pid &&
-          window.title === `Synara Native Fixture ${child.pid} A` &&
+          window.title === `Saint Native Fixture ${child.pid} A` &&
           window.id === `cua:${child.pid}:${declared.windowId}`,
       );
       if (!observedTarget) await pause(300);

@@ -16,8 +16,8 @@ import {
   WS_METHODS,
   type OrchestrationLatestTurn,
   type ServerConfig,
-} from "@synara/contracts";
-import { SYNARA_DESKTOP_SMOKE_USER_DATA_ENV } from "@synara/shared/desktopIdentity";
+} from "@saint/contracts";
+import { SAINT_DESKTOP_SMOKE_USER_DATA_ENV } from "@saint/shared/desktopIdentity";
 import { Schema, type Effect } from "effect";
 import {
   startFocusProbe,
@@ -150,17 +150,17 @@ async function main() {
     });
     const environment: NodeJS.ProcessEnv = {
       ...process.env,
-      SYNARA_HOME: home,
-      SYNARA_DESKTOP_FLAVOR: "cua",
-      [SYNARA_DESKTOP_SMOKE_USER_DATA_ENV]: profile,
+      SAINT_HOME: home,
+      SAINT_DESKTOP_FLAVOR: "cua",
+      [SAINT_DESKTOP_SMOKE_USER_DATA_ENV]: profile,
     };
     for (const key of [
       "ELECTRON_RUN_AS_NODE",
-      "SYNARA_DESKTOP_WS_URL",
-      "SYNARA_AUTH_TOKEN",
-      "SYNARA_AGENT_GATEWAY_TOKEN",
-      "SYNARA_AGENT_GATEWAY_BOOTSTRAP_TOKEN",
-      "SYNARA_SOURCE_DESKTOP_BUILD_MARKER",
+      "SAINT_DESKTOP_WS_URL",
+      "SAINT_AUTH_TOKEN",
+      "SAINT_AGENT_GATEWAY_TOKEN",
+      "SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN",
+      "SAINT_SOURCE_DESKTOP_BUILD_MARKER",
     ]) {
       delete environment[key];
     }
@@ -172,11 +172,11 @@ async function main() {
         "-a",
         bundle,
         "--env",
-        `SYNARA_HOME=${home}`,
+        `SAINT_HOME=${home}`,
         "--env",
-        `${SYNARA_DESKTOP_SMOKE_USER_DATA_ENV}=${profile}`,
+        `${SAINT_DESKTOP_SMOKE_USER_DATA_ENV}=${profile}`,
         "--env",
-        "SYNARA_DESKTOP_FLAVOR=cua",
+        "SAINT_DESKTOP_FLAVOR=cua",
         "--args",
         `--remote-debugging-port=${port}`,
         "--remote-debugging-address=127.0.0.1",
@@ -356,7 +356,7 @@ async function main() {
       client.run(
         client.api[WS_METHODS.serverReadThreadDiagnostics]({
           ...args,
-          source: name === "synara_read_thread_events" ? "events" : "runtime",
+          source: name === "saint_read_thread_events" ? "events" : "runtime",
           threadId: ThreadId.makeUnsafe(String(args.threadId)),
         }),
       );
@@ -412,7 +412,7 @@ async function main() {
       run.window = resolveFixtureComputerWindow(listing.windows, before.a);
       const count = stop ? 30 : 1;
       const prompt = [
-        "Use Synara native Computer Use for this authorized, harmless fixture task.",
+        "Use Saint native Computer Use for this authorized, harmless fixture task.",
         `In app ${JSON.stringify(run.window.appName)}, window ${JSON.stringify(run.window.title)},`,
         `use the exact string windowId ${JSON.stringify(run.window.id)} returned by Computer.`,
         `click the Counter button ${count} time${count === 1 ? "" : "s"} in the background.`,
@@ -751,7 +751,7 @@ async function main() {
         `${prepared ? "Prepared for permission setup" : "Permission preparation incomplete"}; acceptance not run: ${runDirectory}`,
       );
       console.info(
-        "The isolated Synara Cua app remains open. Grant its permissions, then rerun with --attach and the acceptance options.",
+        "The isolated Saint Cua app remains open. Grant its permissions, then rerun with --attach and the acceptance options.",
       );
       if (!prepared) process.exitCode = 2;
     }
@@ -808,7 +808,7 @@ async function main() {
   );
   console.info(
     cleanup.target && cleanup.human
-      ? "Fixture targets closed; the isolated Synara Cua app is left open for inspection."
+      ? "Fixture targets closed; the isolated Saint Cua app is left open for inspection."
       : "Native fixture cleanup is incomplete; inspect summary.json before another run.",
   );
   if (!accepted) process.exitCode = 2;

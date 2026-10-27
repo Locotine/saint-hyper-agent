@@ -14,7 +14,7 @@ if (process.argv[2] !== "--run" || !process.argv[3]) {
   process.exit(0);
 }
 
-const root = await mkdtemp(join(tmpdir(), "synara-context-probe-"));
+const root = await mkdtemp(join(tmpdir(), "saint-context-probe-"));
 const requests = [];
 const server = createServer((request, response) => {
   requests.push(request.url);

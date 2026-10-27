@@ -3,7 +3,7 @@
 //   and settings, including the explicit state of a selection whose account is gone.
 // Layer: Web presentation helper
 
-import type { ProviderInstanceId, ProviderKind } from "@synara/contracts";
+import type { ProviderInstanceId, ProviderKind } from "@saint/contracts";
 
 export const MISSING_PROVIDER_INSTANCE_LABEL = "Missing account";
 

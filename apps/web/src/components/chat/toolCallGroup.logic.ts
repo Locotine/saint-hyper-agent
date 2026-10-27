@@ -8,7 +8,7 @@
 //          ToolCallGroupSummary, isSummarizableToolCallEntry,
 //          classifyToolCallSummaryCategory, summarizeToolCallGroup
 
-import { pluralize } from "@synara/shared/text";
+import { pluralize } from "@saint/shared/text";
 import { isFileChangeWorkLogEntry, type WorkLogEntry } from "../../session-logic";
 import { extractToolArgumentField } from "../../lib/toolArgumentSummary";
 import {
@@ -78,7 +78,7 @@ export function isSummarizableToolCallEntry(entry: WorkLogEntry): boolean {
         entry.toolStatus === "failed" &&
         entry.activityKind?.startsWith("tool.") === true)) &&
     !(entry.toolCallId && isReasoningUpdateWorkEntry(entry)) &&
-    !entry.synaraThreadCreation &&
+    !entry.saintThreadCreation &&
     !entry.automation &&
     !entry.subagentAction &&
     !entry.backgroundTask &&

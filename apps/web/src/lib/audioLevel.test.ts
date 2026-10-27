@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getAudioLevelSubscriber } from "./audioLevel";
 
 vi.mock("~/betaFeatures", async () => {
-  const { isBetaFeatureEnabled } = await import("@synara/shared/betaFeatures");
+  const { isBetaFeatureEnabled } = await import("@saint/shared/betaFeatures");
   return { isBetaFeatureOn: (feature: string) => isBetaFeatureEnabled(feature, "production") };
 });
 

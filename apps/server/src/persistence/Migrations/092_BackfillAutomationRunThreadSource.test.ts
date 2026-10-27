@@ -89,7 +89,7 @@ describe("092_BackfillAutomationRunThreadSource", () => {
           (
             'event-normal', 'thread', ${normalThreadId}, 1, 'thread.created',
             '2026-08-01T10:00:00.000Z', 'command-normal', 'client',
-            ${`{"threadId":"${normalThreadId}","title":"Normal","creationSource":"synara_mcp"}`}, '{}'
+            ${`{"threadId":"${normalThreadId}","title":"Normal","creationSource":"saint_mcp"}`}, '{}'
           )
       `;
 
@@ -127,7 +127,7 @@ describe("092_BackfillAutomationRunThreadSource", () => {
         })),
         [
           { eventId: "event-dedicated", creationSource: undefined },
-          { eventId: "event-normal", creationSource: "synara_mcp" },
+          { eventId: "event-normal", creationSource: "saint_mcp" },
           { eventId: "event-run", creationSource: "automation_run" },
         ],
       );

@@ -10,7 +10,7 @@
 // Exports: PullRequestPrimaryAction, resolvePullRequestPrimaryAction, PullRequestPrimaryButton,
 //          PullRequestDraftStateItems, PullRequestActionMenuItems
 
-import type { PullRequestDetail, PullRequestMergeMethod, ProjectId } from "@synara/contracts";
+import type { PullRequestDetail, PullRequestMergeMethod, ProjectId } from "@saint/contracts";
 import type { ComponentProps } from "react";
 
 import { MENU_ICON_CLASS_NAME } from "~/components/chat/composerPickerStyles";

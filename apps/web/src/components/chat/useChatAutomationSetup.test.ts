@@ -2,7 +2,7 @@
 // Purpose: Characterizes automation draft restoration and draft warning rebuilds.
 // Layer: Chat automation setup hook tests
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const automationMocks = vi.hoisted(() => ({

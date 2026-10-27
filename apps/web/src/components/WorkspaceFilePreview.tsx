@@ -5,18 +5,19 @@
 // Layer: Web chat presentation component
 // Exports: WorkspaceFilePreview, isMarkdownPreviewablePath
 
-import type { ProjectFileChangeEvent, ProjectReadFileResult } from "@synara/contracts";
+import type { ProjectFileChangeEvent, ProjectReadFileResult } from "@saint/contracts";
 import {
+  isHtmlPreviewablePath,
   isSupportedLocalImagePath,
   isSupportedLocalPdfPath,
   lowerCaseExtensionOf,
-} from "@synara/shared/localPreviewFiles";
+} from "@saint/shared/localPreviewFiles";
 import {
   isLocalAbsolutePath,
   isWorkspaceRelativePathSafe,
   joinWorkspaceRelativePath,
-} from "@synara/shared/path";
-import { isScratchWorkspacePath } from "@synara/shared/threadWorkspace";
+} from "@saint/shared/path";
+import { isScratchWorkspacePath } from "@saint/shared/threadWorkspace";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Component,
@@ -77,6 +78,7 @@ import { WorkspaceFilePreviewHeader } from "./chat/WorkspaceFilePreviewHeader";
 import { TranscriptSelectionAction } from "./chat/TranscriptSelectionAction";
 import { useCodeSelectionAction } from "./chat/useCodeSelectionAction";
 import { LocalImagePreview } from "./LocalImagePreview";
+import { HtmlFilePreview } from "./HtmlFilePreview";
 import { PdfFilePreview } from "./PdfFilePreview";
 import { Skeleton } from "./ui/skeleton";
 import { CodeEditorPane } from "./codeEditor/CodeEditorPane";
@@ -506,6 +508,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
   const fileNeedsLocalPreviewGrant =
     filePath !== null && fileIsLocalAbsolute && !fileIsScratchBinaryPreview;
   const fileIsMarkdown = filePath !== null && isMarkdownPreviewablePath(filePath);
+  const fileIsHtml = filePath !== null && isHtmlPreviewablePath(filePath);
   // Per-file overrides of the markdown-preview default, keyed like the
   // relocation request so each file remembers its own view mode for the
   // surface's lifetime. Deriving (instead of syncing state in an effect)
@@ -518,7 +521,10 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
   const markdownPreviewEnabled =
     props.markdownPreviewEnabled ??
     markdownPreviewOverrides.get(markdownPreviewKey) ??
-    markdownPreviewDefault;
+    // HTML opens rendered; Source stays one click away.
+    (fileIsHtml || markdownPreviewDefault);
+  // The rendered page streams from the server, so the text read is skipped.
+  const showHtmlPreview = fileIsHtml && markdownPreviewEnabled;
   const localPreviewGrantQuery = useQuery(
     projectLocalPreviewGrantQueryOptions({
       path: filePath,
@@ -542,6 +548,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
         filePath !== null &&
         !fileIsImage &&
         !fileIsPdf &&
+        !showHtmlPreview &&
         (fileNeedsLocalPreviewGrant ? localPreviewGrant !== null : props.workspaceRoot !== null),
     }),
   );
@@ -699,6 +706,10 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
 
   const handleFileReload = useCallback(() => {
     if (!filePath) return;
+    if (showHtmlPreview) {
+      setBinaryPreviewRevision((current) => current + 1);
+      return;
+    }
     if (fileIsImage || fileIsPdf) {
       setBinaryPreviewReloading(true);
       setBinaryPreviewRevision((current) => current + 1);
@@ -708,7 +719,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
       cwd: workspaceRoot,
       relativePath: filePath,
     });
-  }, [fileIsImage, fileIsPdf, filePath, queryClient, workspaceRoot]);
+  }, [fileIsImage, fileIsPdf, filePath, queryClient, showHtmlPreview, workspaceRoot]);
 
   const handleEditBufferReload = editor.reloadFromDisk;
   // Wait for the file read before asking for the working-tree diff: while the
@@ -970,8 +981,8 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
       <WorkspaceFilePreviewHeader
         workspaceRoot={props.workspaceRoot}
         filePath={filePath}
-        isMarkdown={fileIsMarkdown}
-        markdownPreviewEnabled={showMarkdownPreview}
+        isMarkdown={fileIsMarkdown || fileIsHtml}
+        markdownPreviewEnabled={showMarkdownPreview || showHtmlPreview}
         onMarkdownPreviewChange={handleMarkdownPreviewChange}
         onReferenceInChat={onReferenceInChat}
         onAskWhyInChat={onAskWhyInChat}
@@ -1051,6 +1062,15 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
       ) : null}
       {locatingOutOfRootFile ? (
         <FilePreviewLoadingState />
+      ) : showHtmlPreview ? (
+        <HtmlFilePreview
+          absolutePath={
+            props.workspaceRoot && isWorkspaceRelativePathSafe(filePath)
+              ? joinWorkspaceRelativePath(props.workspaceRoot, filePath)
+              : filePath
+          }
+          cacheKey={binaryPreviewRevision}
+        />
       ) : fileIsImage ? (
         <div
           className="editor-file-viewer min-h-0 flex-1 overflow-auto"

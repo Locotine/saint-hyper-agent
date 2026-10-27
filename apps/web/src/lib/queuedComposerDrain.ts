@@ -6,7 +6,7 @@
 //          locked-dispatch helper, steer-gate sharing, stop hold, ChatView
 //          claim/release, watcher start
 
-import type { AssistantDeliveryMode, MessageId, ThreadId } from "@synara/contracts";
+import type { AssistantDeliveryMode, MessageId, ThreadId } from "@saint/contracts";
 
 import {
   createLocalDispatchSnapshot,

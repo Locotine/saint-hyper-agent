@@ -4,7 +4,7 @@ import {
   type ModelSelection,
   type ProviderKind,
   type ProviderStartOptions,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 export const GIT_TEXT_GENERATION_PROVIDER_ORDER = GIT_TEXT_GENERATION_PROVIDERS;
 export type { GitTextGenerationProvider };

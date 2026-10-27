@@ -26,15 +26,15 @@ Hardware: Apple M5, 10 cores, 32 GiB RAM; macOS 26.6 / Darwin 25.6.0. Node 24.13
 - Other applications remained running. Initial process inventory showed substantial unrelated Codex/WindowServer/browser load. No processes were killed. Use the ranges below; short samples do not certify long-session memory stability.
 - This component probe excludes EventRouter, transport, sidebar, BranchToolbar, the full transcript list, Electron integration, providers and MCP processes. Ten synthetic retained transcripts are a stress workload; actual detail subscriptions are capped at eight per client.
 
-Saved source baseline, builds, commands and complete logs are in `/private/tmp/synara-perf-independent-20260905`. The baseline source is archived as `baseline-source/source.tar`; output builds are `baseline-dist`, `optimized-dist`, and `final-dist`. Paired evidence was captured before the last selector-cache lifetime correction, which only changes open/close ownership. A final production build and two 10-stream confirmation samples exercised that correction: zero hidden hook renders, zero code remounts, correct text, no errors; visible total CPU 3.063 s and renderer RSS 349.8 MiB. These confirmation samples are separate from the three-sample comparison.
+Saved source baseline, builds, commands and complete logs are in `/private/tmp/saint-perf-independent-20260905`. The baseline source is archived as `baseline-source/source.tar`; output builds are `baseline-dist`, `optimized-dist`, and `final-dist`. Paired evidence was captured before the last selector-cache lifetime correction, which only changes open/close ownership. A final production build and two 10-stream confirmation samples exercised that correction: zero hidden hook renders, zero code remounts, correct text, no errors; visible total CPU 3.063 s and renderer RSS 349.8 MiB. These confirmation samples are separate from the three-sample comparison.
 
 Commands from the repository root:
 
 ```sh
-bun run --cwd apps/web build --config perf/vite.config.ts --outDir /private/tmp/synara-perf-independent-20260905/baseline-dist
+bun run --cwd apps/web build --config perf/vite.config.ts --outDir /private/tmp/saint-perf-independent-20260905/baseline-dist
 # Make the scoped production changes, then preserve their build separately:
-bun run --cwd apps/web build --config perf/vite.config.ts --outDir /private/tmp/synara-perf-independent-20260905/optimized-dist
-node apps/web/perf/concurrent-runner.mjs /private/tmp/synara-perf-independent-20260905 paired
+bun run --cwd apps/web build --config perf/vite.config.ts --outDir /private/tmp/saint-perf-independent-20260905/optimized-dist
+node apps/web/perf/concurrent-runner.mjs /private/tmp/saint-perf-independent-20260905 paired
 ```
 
 The runner serves only the local build directory and closes its isolated browser/server. Rebuilding baseline requires the saved pre-change source; do not overwrite baseline with current source and call it a before measurement.
@@ -106,7 +106,7 @@ GPU-process CPU changes are small and variable, especially for hidden streams. D
 The prior engine test held total deltas constant, so per-task transcript size shrank as concurrency increased. The corrected probe uses real file-backed WAL SQLite, constant **300 × 66 characters per task**, one discarded 30-delta-per-task pass across 1/5/10 tasks, followed by three measured passes with reversed task-count order and fresh temporary databases. Measured databases receive no streaming warmup. It records process CPU, sampled RSS, dispatch tails and WAL size, and asserts the final text of every task.
 
 ```sh
-SYNARA_PERF=1 SYNARA_PERF_DELTAS=300 SYNARA_PERF_OUT=/private/tmp/synara-perf-independent-20260905/engine-wal.json bun run --cwd apps/server test -- perf/engineStreamingThroughput.perf.test.ts
+SAINT_PERF=1 SAINT_PERF_DELTAS=300 SAINT_PERF_OUT=/private/tmp/saint-perf-independent-20260905/engine-wal.json bun run --cwd apps/server test -- perf/engineStreamingThroughput.perf.test.ts
 ```
 
 | Tasks | Deltas | Median CPU ms | Median elapsed ms | Median dispatch p95 ms | Worst dispatch ms |
@@ -119,13 +119,13 @@ Raw data: [engine-wal.json](engine-wal.json). This is an engine/projection **cap
 
 The read-only server audit found these specific remaining measurement targets:
 
-| Area                  | Verified mechanism                                                                                                                                                | Next bounded experiment                                                                                                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Event fanout          | `apps/server/src/wsRpc.ts` subscribes to the global event stream before per-thread filtering. Work scales with events × subscriptions (including across clients). | 1/5/8 actual detail subscriptions with fixed per-task ingress; measure server CPU and delivery p95 before considering keyed routing.                                     |
-| Runtime journal       | Persisted events are read back and acknowledged individually; cursor acknowledgement involves multiple queries/transaction work.                                  | Measure SQL/transaction count and journal lag through real provider ingestion using a fake local producer. Preserve crash/replay boundaries.                             |
-| Queue RAM             | Callback ingress has a 32 MiB budget; later queues are bounded by 2,048 items, not bytes.                                                                         | Stall a fake downstream consumer and inject distinct large tool outputs across ten tasks; measure retained bytes and terminal-event delivery. No silent event dropping.  |
-| Active/idle providers | Codex sessions own provider processes; ordinary idle session retention is ten minutes.                                                                            | Measure a real ten-session process tree and post-completion retirement separately from Synara renderer/server. Shorter idle retention would not fix active-provider RAM. |
-| Transcript storage    | Each streamed SQL append rewrites accumulated text; UI retention counts entries, not bytes.                                                                       | Larger fixed per-task messages and long mixed tool-output sessions; measure WAL/I/O, heap retention and delivery tails.                                                  |
+| Area                  | Verified mechanism                                                                                                                                                | Next bounded experiment                                                                                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Event fanout          | `apps/server/src/wsRpc.ts` subscribes to the global event stream before per-thread filtering. Work scales with events × subscriptions (including across clients). | 1/5/8 actual detail subscriptions with fixed per-task ingress; measure server CPU and delivery p95 before considering keyed routing.                                    |
+| Runtime journal       | Persisted events are read back and acknowledged individually; cursor acknowledgement involves multiple queries/transaction work.                                  | Measure SQL/transaction count and journal lag through real provider ingestion using a fake local producer. Preserve crash/replay boundaries.                            |
+| Queue RAM             | Callback ingress has a 32 MiB budget; later queues are bounded by 2,048 items, not bytes.                                                                         | Stall a fake downstream consumer and inject distinct large tool outputs across ten tasks; measure retained bytes and terminal-event delivery. No silent event dropping. |
+| Active/idle providers | Codex sessions own provider processes; ordinary idle session retention is ten minutes.                                                                            | Measure a real ten-session process tree and post-completion retirement separately from Saint renderer/server. Shorter idle retention would not fix active-provider RAM. |
+| Transcript storage    | Each streamed SQL append rewrites accumulated text; UI retention counts entries, not bytes.                                                                       | Larger fixed per-task messages and long mixed tool-output sessions; measure WAL/I/O, heap retention and delivery tails.                                                 |
 
 The installed `@pierre/diffs` 1.2.12 already shares a singleton worker pool across providers/panels. It eagerly starts 2–6 workers on the first provider mount and terminates on the last unmount. The previous claim of a pool per panel was incorrect. Its two 240-entry AST caches remain a large-diff RAM hypothesis, not a demonstrated leak.
 

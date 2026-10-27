@@ -22,7 +22,7 @@ Required artifacts:
   model explicitly; the runner neither chooses a different provider/model nor
   changes credentials. Node/Bun and workspace dependencies must be installed.
 
-Install the exact Cua bundle at `~/Applications/Synara Cua.app` before permission
+Install the exact Cua bundle at `~/Applications/Saint Cua.app` before permission
 setup. A bundle under `/tmp` or macOS temporary folders can run while
 LaunchServices cannot resolve its bundle ID, preventing macOS from applying its
 permissions. Both runners now refuse temporary paths and require the read-only
@@ -40,7 +40,7 @@ promise permission persistence after rebuilding or replacing it.
 (
   set -eu
   : "${BUILT_CUA_BUNDLE:?Set BUILT_CUA_BUNDLE to the exact packaged Cua app}"
-  cua_install_path="$HOME/Applications/Synara Cua.app"
+  cua_install_path="$HOME/Applications/Saint Cua.app"
   if [ -e "$cua_install_path" ]; then
     printf '%s\n' 'Destination exists; verify that copy before continuing.' >&2
     exit 1
@@ -81,8 +81,8 @@ does not prove native permission grants.
 ```sh
 nice -n 10 bun scripts/computer-use-fixtures/packaged-e2e.ts \
   --prepare-only \
-  --bundle "$HOME/Applications/Synara Cua.app" \
-  --home /private/tmp/synara-computer-fixture-run-001 \
+  --bundle "$HOME/Applications/Saint Cua.app" \
+  --home /private/tmp/saint-computer-fixture-run-001 \
   --cdp-port 49231
 ```
 
@@ -94,8 +94,8 @@ acceptance artifacts and explicit provider/model:
 ```sh
 nice -n 10 bun scripts/computer-use-fixtures/packaged-e2e.ts \
   --attach \
-  --bundle "$HOME/Applications/Synara Cua.app" \
-  --home /private/tmp/synara-computer-fixture-run-001 \
+  --bundle "$HOME/Applications/Saint Cua.app" \
+  --home /private/tmp/saint-computer-fixture-run-001 \
   --cdp-port 49231 \
   --native-fixture "$NATIVE_FIXTURE_EXECUTABLE" \
   --focus-probe "$FOCUS_PROBE_EXECUTABLE" \

@@ -5,7 +5,7 @@ import { SegmentedPicker } from "./SegmentedPicker";
 export type ProjectSource = "local" | "github";
 
 /**
- * The compact raised-thumb picker previously used for the Synara/Groups switch,
+ * The compact raised-thumb picker previously used for the Saint/Groups switch,
  * adapted to choose how a project is added.
  */
 export function ProjectSourceSegmentedPicker(props: {
@@ -35,7 +35,7 @@ export function ProjectSourceSegmentedPicker(props: {
           disabled: !props.githubAvailable,
           ...(props.githubAvailable
             ? {}
-            : { title: "Update the Synara server to add GitHub projects." }),
+            : { title: "Update the Saint server to add GitHub projects." }),
         },
       ]}
     />

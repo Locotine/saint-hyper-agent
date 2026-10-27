@@ -2,7 +2,7 @@
 // Purpose: Derives stable, shell-neutral command names for provider instances.
 // Layer: Shared provider presentation/runtime utility
 
-import type { ProviderInstanceId, ProviderKind } from "@synara/contracts";
+import type { ProviderInstanceId, ProviderKind } from "@saint/contracts";
 
 export const PROVIDER_CLI_COMMAND_BY_KIND = {
   codex: "codex",
@@ -66,7 +66,7 @@ export function providerCliCommandName(input: {
 export const PROVIDER_AUTHENTICATION = {
   codex: {
     args: ["login"],
-    instructions: "Complete the browser sign-in. Synara will check this account afterward.",
+    instructions: "Complete the browser sign-in. Saint will check this account afterward.",
   },
   claudeAgent: {
     args: ["auth", "login"],

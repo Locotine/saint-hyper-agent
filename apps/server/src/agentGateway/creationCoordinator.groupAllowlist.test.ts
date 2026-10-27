@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ProjectId } from "@synara/contracts";
+import { ProjectId } from "@saint/contracts";
 
 import { isAllowedGroupCoordinatorCreateTarget } from "../projectAgent/groupCreateAllowlist.ts";
 

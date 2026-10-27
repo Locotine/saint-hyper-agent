@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 
-import type { DesktopCustomTitleBarState } from "@synara/contracts";
+import type { DesktopCustomTitleBarState } from "@saint/contracts";
 
 import { isElectron } from "~/env";
 import { getNavigatorPlatform, isLinuxPlatform, isWindowsPlatform } from "~/lib/utils";

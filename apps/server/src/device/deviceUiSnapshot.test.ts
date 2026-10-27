@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { DeviceUiNode } from "@synara/contracts";
+import type { DeviceUiNode } from "@saint/contracts";
 
 import { effectiveValue, formatUiSnapshot, uiFingerprint } from "./deviceUiSnapshot.ts";
 import { planScrollStep } from "./uiTreeTargeting.ts";

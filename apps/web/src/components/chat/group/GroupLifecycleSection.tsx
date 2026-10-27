@@ -151,8 +151,8 @@ export function GroupLifecycleSection(props: {
               <p className="text-ui font-medium text-destructive">Delete hub</p>
               <p className="text-ui-sm text-muted-foreground">
                 Deletes the hub, its coordinator, context, and automations. The Library is moved to
-                the trash when possible. The hub folder under ~/Documents/Synara/Groups is removed
-                only when it holds nothing but Synara-generated files; if it has your files it is
+                the trash when possible. The hub folder under ~/Documents/Saint/Groups is removed
+                only when it holds nothing but Saint-generated files; if it has your files it is
                 kept and you get its path. Linked repositories and their threads are untouched.
               </p>
             </div>

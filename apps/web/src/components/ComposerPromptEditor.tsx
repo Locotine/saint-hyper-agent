@@ -63,7 +63,7 @@ import {
 import { parseBareComposerLink } from "~/lib/linkChips";
 import { type TerminalContextDraft } from "~/lib/terminalContext";
 import { shouldCollapsePastedText } from "~/lib/composerPastedText";
-import type { ProviderMentionReference } from "@synara/contracts";
+import type { ProviderMentionReference } from "@saint/contracts";
 import { useStore } from "~/store";
 import { createComposerThreadMentionSourcesSelector } from "~/storeSelectors";
 import { resolveThreadDisplayProvider } from "~/lib/threadDisplayProvider";
@@ -1304,7 +1304,7 @@ export const ComposerPromptEditor = forwardRef<
   const normalizedMentionReferences = mentionReferences ?? [];
   const initialMentionReferencesRef = useRef(normalizedMentionReferences);
   const initialConfig: InitialConfigType = {
-    namespace: "synara-composer-editor",
+    namespace: "saint-composer-editor",
     editable: true,
     nodes: [...COMPOSER_NODE_CLASSES],
     editorState: () => {

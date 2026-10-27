@@ -7,7 +7,7 @@ protocol, same machine as the baseline
 reducer → store → selectors → derivations → `ChatTranscriptPane`; production build with
 `react-dom/profiling`; 200 seed messages; warm-up run + page reload between samples;
 5 streaming samples, 3 quiet samples, 60 s each. Raw JSONL:
-baseline `/tmp/synara-baseline/*.jsonl`, optimized `/tmp/synara-optimized/*.jsonl`.
+baseline `/tmp/saint-baseline/*.jsonl`, optimized `/tmp/saint-optimized/*.jsonl`.
 
 **Measurement boundary:** these recorded samples predate the profiler-boundary correction
 in this PR, so `React commit time` covers the transcript subtree but not the parent selector

@@ -1,5 +1,5 @@
 // FILE: automationIntent.ts
-// Purpose: Detects when a normal chat prompt is actually asking Synara to create an automation.
+// Purpose: Detects when a normal chat prompt is actually asking Saint to create an automation.
 // Layer: Web composer helper
 // Exports: automation intent parsers, resolver, and cadence/name formatters.
 // Depends on: AutomationSchedule contract shared with the automation API.
@@ -9,10 +9,10 @@ import type {
   AutomationMode,
   AutomationSchedule,
   ServerGenerateAutomationIntentResult,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
-import { completionPolicyFromStopWhen } from "@synara/shared/automationCompletionPolicy";
-import { automationRequiresTargetThread } from "@synara/shared/automationMode";
+import { completionPolicyFromStopWhen } from "@saint/shared/automationCompletionPolicy";
+import { automationRequiresTargetThread } from "@saint/shared/automationMode";
 
 export interface ChatAutomationIntent {
   readonly name: string;

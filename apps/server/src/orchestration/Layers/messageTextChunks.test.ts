@@ -9,7 +9,7 @@ import {
   MessageId,
   ProjectId,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, ManagedRuntime, Option, Stream } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { expect, it } from "vitest";
@@ -50,7 +50,7 @@ async function openSystem(dir?: string) {
         dir ? makeSqlitePersistenceLive(join(dir, "state.sqlite")) : SqlitePersistenceMemory,
       ),
       Layer.provideMerge(
-        ServerConfig.layerTest(process.cwd(), dir ?? { prefix: "synara-text-chunks-" }),
+        ServerConfig.layerTest(process.cwd(), dir ?? { prefix: "saint-text-chunks-" }),
       ),
       Layer.provideMerge(NodeServices.layer),
     ),
@@ -141,7 +141,7 @@ async function assertReaders(system: Awaited<ReturnType<typeof openSystem>>, tex
 }
 
 it("stores contiguous CJK token deltas as one segment across reload and settlement", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "synara-cjk-chunks-"));
+  const dir = await mkdtemp(join(tmpdir(), "saint-cjk-chunks-"));
   let system = await openSystem(dir);
   const text = "知道。\n\n- 前端 Web：`/project/web`\n- `erp-code` 是 ERP 项目。";
   try {
@@ -174,7 +174,7 @@ it.each([
 ])(
   "preserves split Unicode across segments, restart and completion in every reader: %j / %j",
   async (first, second) => {
-    const dir = await mkdtemp(join(tmpdir(), "synara-chunk-restart-"));
+    const dir = await mkdtemp(join(tmpdir(), "saint-chunk-restart-"));
     let system = await openSystem(dir);
     try {
       await system.seed();
@@ -225,7 +225,7 @@ it.each([
 );
 
 it("completes an older resumed message outside the transcript window after restart", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "synara-old-chunk-message-"));
+  const dir = await mkdtemp(join(tmpdir(), "saint-old-chunk-message-"));
   let system = await openSystem(dir);
   try {
     await system.seed();
@@ -436,7 +436,7 @@ it("preserves cached text on completion when the projection message row is missi
 });
 
 it("settles a late delta for a finalized message instead of reopening it, across restart", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "synara-late-delta-"));
+  const dir = await mkdtemp(join(tmpdir(), "saint-late-delta-"));
   let system = await openSystem(dir);
   const engineMessage = async () =>
     (await system.run(system.engine.getReadModel())).threads

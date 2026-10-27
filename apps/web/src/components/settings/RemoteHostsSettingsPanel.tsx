@@ -1,9 +1,9 @@
 // FILE: RemoteHostsSettingsPanel.tsx
-// Purpose: Settings › Remote hosts: connect to a Synara server on another machine over SSH.
+// Purpose: Settings › Remote hosts: connect to a Saint server on another machine over SSH.
 // Layer: Settings UI (desktop Beta only; the main process owns ssh, install and tunnels)
 // Exports: RemoteHostsSettingsPanel
 
-import type { DesktopRemoteSshSavedHost, DesktopRemoteSshState } from "@synara/contracts";
+import type { DesktopRemoteSshSavedHost, DesktopRemoteSshState } from "@saint/contracts";
 import { useEffect, useState } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -72,7 +72,7 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
       <SettingsSection title="Connect a host">
         <SettingsRow
           title="SSH host"
-          description="An alias from ~/.ssh/config or user@hostname. Synara signs in with your SSH keys and agent; password prompts are not supported."
+          description="An alias from ~/.ssh/config or user@hostname. Saint signs in with your SSH keys and agent; password prompts are not supported."
           control={
             <Input
               className="w-full sm:w-64"
@@ -101,7 +101,7 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
         </SettingsRow>
         <SettingsRow
           title="Remote folder"
-          description="Where Synara is installed and keeps its data on the host, relative to the remote home folder. Use a folder of your own on shared accounts."
+          description="Where Saint is installed and keeps its data on the host, relative to the remote home folder. Use a folder of your own on shared accounts."
           control={
             <Input
               className="w-full sm:w-64"
@@ -115,7 +115,7 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
         />
         <SettingsRow
           title="Connect"
-          description="Installs this Synara version on the host when needed, starts its server in tmux, and opens it in a new window through an SSH tunnel."
+          description="Installs this Saint version on the host when needed, starts its server in tmux, and opens it in a new window through an SSH tunnel."
           control={
             <Button
               size="sm"
@@ -163,10 +163,12 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
           description={
             <ul className="list-disc space-y-1 pl-4">
               <li>Key-based SSH access from this computer.</li>
-              <li>Node.js 24 or newer and npm on the login shell's PATH.</li>
+              <li>
+                Node.js 22.16 or newer (23.11+ on the 23 line) and npm on the login shell's PATH.
+              </li>
               <li>
                 tmux, so the server and its agents keep running after you disconnect. Without it
-                Synara starts the server with nohup.
+                Saint starts the server with nohup.
               </li>
               <li>
                 On Linux, a C/C++ toolchain and Python, which npm uses to build the terminal module.

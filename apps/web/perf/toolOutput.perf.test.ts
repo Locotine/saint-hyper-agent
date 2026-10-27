@@ -1,10 +1,10 @@
 // Opt-in CPU probe; no provider, database, network, or browser is needed.
-// SYNARA_PERF=1 SYNARA_PERF_OUT=/tmp/tool-output.json bun run --cwd apps/web test perf/toolOutput.perf.test.ts
+// SAINT_PERF=1 SAINT_PERF_OUT=/tmp/tool-output.json bun run --cwd apps/web test perf/toolOutput.perf.test.ts
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import os from "node:os";
-import { MessageId } from "@synara/contracts";
-import { summarizeToolRawOutput } from "@synara/shared/toolOutputSummary";
+import { MessageId } from "@saint/contracts";
+import { summarizeToolRawOutput } from "@saint/shared/toolOutputSummary";
 import { expect, it } from "vitest";
 
 import { deriveWorkLogToolDetails } from "../src/lib/toolCallDetails";
@@ -18,7 +18,7 @@ const SAMPLES = 11;
 const percentile = (values: number[], p: number) =>
   values.toSorted((a, b) => a - b)[Math.ceil(values.length * p) - 1]!;
 
-it.skipIf(process.env.SYNARA_PERF !== "1")(
+it.skipIf(process.env.SAINT_PERF !== "1")(
   "measures tool-output and transcript CPU paths",
   () => {
     const cases: { name: string; iterations: number; run: () => unknown }[] = [];
@@ -125,7 +125,7 @@ it.skipIf(process.env.SYNARA_PERF !== "1")(
     };
     console.table(report.map(({ name, medianMs, p95Ms }) => ({ name, medianMs, p95Ms })));
     writeFileSync(
-      process.env.SYNARA_PERF_OUT ?? "/tmp/synara-tool-output.json",
+      process.env.SAINT_PERF_OUT ?? "/tmp/saint-tool-output.json",
       JSON.stringify(output, null, 2),
     );
   },

@@ -6,8 +6,8 @@ import {
   type ServerProviderUsageSnapshot,
   type TerminalEvent,
   type TerminalOpenInput,
-} from "@synara/contracts";
-import { PROVIDER_DESCRIPTORS } from "@synara/shared/providerMetadata";
+} from "@saint/contracts";
+import { PROVIDER_DESCRIPTORS } from "@saint/shared/providerMetadata";
 import { page, userEvent } from "vitest/browser";
 import { beforeEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
@@ -132,7 +132,7 @@ it("saves provider CPU priority opt-out and exposes reset to the default", async
   const result = await render(
     <ProvidersSettingsPanel {...props} updateSettings={updateSettings} />,
   );
-  const control = page.getByRole("switch", { name: "Keep Synara responsive" });
+  const control = page.getByRole("switch", { name: "Keep Saint responsive" });
   await expect.element(control).toBeChecked();
   await control.click();
   expect(updateSettings).toHaveBeenCalledWith({ lowerProviderProcessPriority: false });
@@ -143,7 +143,7 @@ it("saves provider CPU priority opt-out and exposes reset to the default", async
       updateSettings={updateSettings}
     />,
   );
-  await page.getByRole("button", { name: "Reset Keep Synara responsive to default" }).click();
+  await page.getByRole("button", { name: "Reset Keep Saint responsive to default" }).click();
   expect(updateSettings).toHaveBeenLastCalledWith({ lowerProviderProcessPriority: true });
   expect(control.element().closest('[data-slot="settings-row"]')?.textContent).toContain(
     "Restart existing sessions",

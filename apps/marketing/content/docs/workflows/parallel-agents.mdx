@@ -13,7 +13,7 @@ Parallel work is safe when each unit has an explicit objective, isolated write o
 | Provider-native subagents   | Children of one provider turn                    | Bounded research or delegated subtasks         |
 | Separate top-level tasks    | Independent transcripts and provider sessions    | Independently reviewable deliverables          |
 | Worktree-backed tasks       | Independent tasks, directories, and branch state | Concurrent edits in one repository             |
-| Agent Gateway orchestration | One Synara task coordinates other Synara tasks   | Structured multi-task execution and monitoring |
+| Agent Gateway orchestration | One Saint task coordinates other Saint tasks     | Structured multi-task execution and monitoring |
 
 Use the smallest level that creates a real boundary. More agents are not a substitute for decomposition.
 
@@ -42,7 +42,7 @@ Avoid plans such as “three agents finish the feature.” They do not define fi
 
 ## Separate top-level tasks
 
-Create separate Synara tasks when work needs its own:
+Create separate Saint tasks when work needs its own:
 
 - Objective and transcript
 - Provider and model
@@ -55,7 +55,7 @@ Use separate worktrees whenever two top-level tasks can edit the same repository
 
 ## Provider-native subagents
 
-Some providers can create child agents or tasks inside one provider session. Synara can project supported child activity into the task UI, including identity, status, and tool activity.
+Some providers can create child agents or tasks inside one provider session. Saint can project supported child activity into the task UI, including identity, status, and tool activity.
 
 Use provider-native subagents for:
 
@@ -64,13 +64,13 @@ Use provider-native subagents for:
 - Focused test design
 - Small delegated changes that the parent will integrate immediately
 
-The parent task remains the owner. Provider-native children are not automatically separate Synara tasks, branches, or worktrees.
+The parent task remains the owner. Provider-native children are not automatically separate Saint tasks, branches, or worktrees.
 
 A `/subagents` prompt can encourage a capable provider to delegate, but the exact child behavior remains provider-specific.
 
 ## Agent Gateway orchestration
 
-The [Agent Gateway](/docs/workflows/agent-gateway) lets supported Synara provider sessions create, read, wait for, steer, interrupt, title, and archive ordinary Synara tasks through app-owned MCP tools.
+The [Agent Gateway](/docs/workflows/agent-gateway) lets supported Saint provider sessions create, read, wait for, steer, interrupt, title, and archive ordinary Saint tasks through app-owned MCP tools.
 
 Use it when the coordinating task can:
 

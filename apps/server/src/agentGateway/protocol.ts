@@ -1,5 +1,5 @@
 /**
- * Minimal MCP (Model Context Protocol) JSON-RPC handling for the Synara agent
+ * Minimal MCP (Model Context Protocol) JSON-RPC handling for the Saint agent
  * gateway.
  *
  * Implements the stateless subset of the MCP streamable-HTTP transport the
@@ -170,8 +170,8 @@ export function buildMcpInitializeResult(input: {
       tools: { listChanged: false },
     },
     serverInfo: {
-      name: "synara",
-      title: "Synara App Control",
+      name: "saint",
+      title: "Saint App Control",
       version: input.serverVersion,
     },
     instructions: input.instructions,

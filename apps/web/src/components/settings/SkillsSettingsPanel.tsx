@@ -1,10 +1,10 @@
 // FILE: SkillsSettingsPanel.tsx
 // Purpose: Settings → Skills panel. Lists every skill from the unified cross-provider
-// catalog (~/.synara/skills plus each provider's skills folder), shows which provider
+// catalog (~/.saint/skills plus each provider's skills folder), shows which provider
 // a skill comes from, and lets the user enable/disable each one. Disabled skills are
 // hidden from the composer skill picker on every provider.
 
-import type { ProviderKind, ServerSettings } from "@synara/contracts";
+import type { ProviderKind, ServerSettings } from "@saint/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -100,17 +100,17 @@ export function SkillsSettingsPanel() {
 
   const totalSkills = skillGroups.length;
   const enabledSkills = skillGroups.filter((group) => !disabledSkillNames.has(group.key)).length;
-  const synaraSkillsDir = catalogQuery.data?.synaraSkillsDir;
+  const saintSkillsDir = catalogQuery.data?.saintSkillsDir;
 
   return (
     <div className="space-y-8">
       <SettingsSection title="Portable skills">
         <SettingsRow
-          title="Synara skills folder"
-          description="Skills placed here are available on every provider. When a provider already ships its own copy of a skill, that copy is used; otherwise Synara's copy is the fallback."
+          title="Saint skills folder"
+          description="Skills placed here are available on every provider. When a provider already ships its own copy of a skill, that copy is used; otherwise Saint's copy is the fallback."
           status={
-            synaraSkillsDir ? (
-              <code className="break-all text-ui-sm text-muted-foreground">{synaraSkillsDir}</code>
+            saintSkillsDir ? (
+              <code className="break-all text-ui-sm text-muted-foreground">{saintSkillsDir}</code>
             ) : null
           }
           control={
@@ -127,7 +127,7 @@ export function SkillsSettingsPanel() {
         <SettingsSection title="Skills">
           <SettingsRow
             title="Skill discovery failed"
-            description="Synara could not scan the skill folders. Retry after checking that the server is running."
+            description="Saint could not scan the skill folders. Retry after checking that the server is running."
           />
         </SettingsSection>
       ) : null}
@@ -136,7 +136,7 @@ export function SkillsSettingsPanel() {
         <SettingsSection title="Skills">
           <SettingsRow
             title="No skills found"
-            description="Add a skill folder containing a SKILL.md to the Synara skills folder above, or install skills for any supported provider."
+            description="Add a skill folder containing a SKILL.md to the Saint skills folder above, or install skills for any supported provider."
           />
         </SettingsSection>
       ) : null}

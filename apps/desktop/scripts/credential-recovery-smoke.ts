@@ -9,9 +9,9 @@ import { BrowserVault } from "../src/browserAutomation/browserVault";
 import { browserEvaluationOutput } from "../src/browserAutomation/waitAndEvaluate";
 
 // Hidden, synthetic-only regression for PR #1028. Never attaches to a user tab.
-const home = mkdtempSync(join(tmpdir(), "synara-credential-boundary-"));
+const home = mkdtempSync(join(tmpdir(), "saint-credential-boundary-"));
 app.setPath("userData", join(home, "electron"));
-process.env.SYNARA_HOME = home;
+process.env.SAINT_HOME = home;
 const watchdog = setTimeout(() => {
   console.error("Credential boundary smoke timed out; no credential values logged.");
   app.exit(1);

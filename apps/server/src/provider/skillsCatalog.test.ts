@@ -9,7 +9,7 @@ import { access } from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import type { ProviderSkillDescriptor } from "@synara/contracts";
+import type { ProviderSkillDescriptor } from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -23,7 +23,7 @@ import { pathIsWithin } from "./claudePluginSkills.ts";
 
 let root: string;
 let homeDir: string;
-let synaraBaseDir: string;
+let saintBaseDir: string;
 
 async function writeSkill(skillDir: string, name: string, description: string): Promise<void> {
   await mkdir(skillDir, { recursive: true });
@@ -53,9 +53,9 @@ async function writeClaudePluginManifest(
 
 beforeEach(() => {
   clearSkillsCatalogCacheForTests();
-  root = mkdtempSync(path.join(os.tmpdir(), "synara-skills-catalog-"));
+  root = mkdtempSync(path.join(os.tmpdir(), "saint-skills-catalog-"));
   homeDir = path.join(root, "home");
-  synaraBaseDir = path.join(homeDir, ".synara");
+  saintBaseDir = path.join(homeDir, ".saint");
 });
 
 afterEach(() => {
@@ -151,13 +151,13 @@ describe("pathIsWithin", () => {
 });
 
 describe("discoverSkillsCatalog", () => {
-  it("creates the Synara skills folder on first discovery", async () => {
-    await discoverSkillsCatalog({ homeDir, synaraBaseDir });
-    await expect(access(path.join(synaraBaseDir, "skills"))).resolves.toBeUndefined();
+  it("creates the Saint skills folder on first discovery", async () => {
+    await discoverSkillsCatalog({ homeDir, saintBaseDir });
+    await expect(access(path.join(saintBaseDir, "skills"))).resolves.toBeUndefined();
   });
 
-  it("aggregates skills from synara and provider home folders with origin scopes", async () => {
-    await writeSkill(path.join(synaraBaseDir, "skills", "portable"), "portable", "Synara skill");
+  it("aggregates skills from saint and provider home folders with origin scopes", async () => {
+    await writeSkill(path.join(saintBaseDir, "skills", "portable"), "portable", "Saint skill");
     await writeSkill(path.join(homeDir, ".codex", "skills", "codex-only"), "codex-only", "Codex");
     await writeSkill(
       path.join(homeDir, ".claude", "skills", "claude-only"),
@@ -192,10 +192,10 @@ describe("discoverSkillsCatalog", () => {
     );
     await writeSkill(path.join(homeDir, ".pi", "agent", "skills", "pi-only"), "pi-only", "Pi");
 
-    const skills = await discoverSkillsCatalog({ homeDir, synaraBaseDir });
+    const skills = await discoverSkillsCatalog({ homeDir, saintBaseDir });
     const byName = new Map(skills.map((skill) => [skill.name, skill]));
 
-    expect(byName.get("portable")?.scope).toBe("synara");
+    expect(byName.get("portable")?.scope).toBe("saint");
     expect(byName.get("codex-only")?.scope).toBe("codex");
     expect(byName.get("claude-only")?.scope).toBe("claude");
     expect(byName.get("cursor-only")?.scope).toBe("cursor");
@@ -224,7 +224,7 @@ describe("discoverSkillsCatalog", () => {
 
     const ompSkills = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       provider: "omp",
       agentDir: ompAgentDir,
     });
@@ -233,7 +233,7 @@ describe("discoverSkillsCatalog", () => {
 
     const piSkills = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       provider: "pi",
       agentDir: piAgentDir,
     });
@@ -262,7 +262,7 @@ describe("discoverSkillsCatalog", () => {
     const skills = await discoverSkillsCatalog({
       cwd,
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       provider: "devin",
     });
 
@@ -296,7 +296,7 @@ describe("discoverSkillsCatalog", () => {
 
     const skills = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       provider: "grok",
     });
 
@@ -321,7 +321,7 @@ describe("discoverSkillsCatalog", () => {
 
     const skills = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       includeDuplicateOrigins: true,
     });
 
@@ -350,7 +350,7 @@ describe("discoverSkillsCatalog", () => {
       "workflow-kit@alpha": [{ scope: "user", installPath: alphaInstallPath }],
     });
 
-    const skills = await discoverSkillsCatalog({ homeDir, synaraBaseDir });
+    const skills = await discoverSkillsCatalog({ homeDir, saintBaseDir });
     const featureDelivery = skills.find((skill) => skill.name === "workflow-kit:feature-delivery");
 
     expect(featureDelivery?.description).toBe("Alpha copy");
@@ -383,7 +383,7 @@ describe("discoverSkillsCatalog", () => {
       ],
     });
 
-    const skills = await discoverSkillsCatalog({ cwd, homeDir, synaraBaseDir });
+    const skills = await discoverSkillsCatalog({ cwd, homeDir, saintBaseDir });
     expect(skills.map((skill) => skill.name)).toEqual(
       expect.arrayContaining(["user-tools:user-skill", "project-tools:project-skill"]),
     );
@@ -414,7 +414,7 @@ describe("discoverSkillsCatalog", () => {
       ],
     });
 
-    const skills = await discoverSkillsCatalog({ cwd, homeDir, synaraBaseDir });
+    const skills = await discoverSkillsCatalog({ cwd, homeDir, saintBaseDir });
     expect(skills.map((skill) => skill.name)).toContain("workflow-kit:project-only");
     expect(skills.map((skill) => skill.name)).not.toContain("workflow-kit:user-only");
   });
@@ -442,7 +442,7 @@ describe("discoverSkillsCatalog", () => {
       "wrong-shape@plugins": { scope: "user", installPath: validInstallPath },
     });
 
-    const skills = await discoverSkillsCatalog({ homeDir, synaraBaseDir });
+    const skills = await discoverSkillsCatalog({ homeDir, saintBaseDir });
     expect(skills.map((skill) => skill.name)).toContain("valid:valid-skill");
     expect(skills.some((skill) => skill.name.includes("outside-skill"))).toBe(false);
     expect(skills.filter((skill) => skill.name === "valid:valid-skill")).toHaveLength(1);
@@ -456,7 +456,7 @@ describe("discoverSkillsCatalog", () => {
 
     const skills = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       includeDuplicateOrigins: true,
     });
 
@@ -469,46 +469,46 @@ describe("discoverSkillsCatalog", () => {
     await writeSkill(path.join(homeDir, ".codex", "skills", "reviewer"), "reviewer", "Codex");
     await writeSkill(path.join(homeDir, ".claude", "skills", "reviewer"), "reviewer", "Claude");
 
-    const defaultCatalog = await discoverSkillsCatalog({ homeDir, synaraBaseDir });
+    const defaultCatalog = await discoverSkillsCatalog({ homeDir, saintBaseDir });
     expect(defaultCatalog.filter((skill) => skill.name === "reviewer")).toHaveLength(1);
     expect(defaultCatalog.find((skill) => skill.name === "reviewer")?.scope).toBe("codex");
 
     const settingsCatalog = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       includeDuplicateOrigins: true,
     });
     expect(settingsCatalog.filter((skill) => skill.name === "reviewer")).toHaveLength(2);
     expect(settingsCatalog.map((skill) => skill.scope).sort()).toEqual(["claude", "codex"]);
   });
 
-  it("prefers the provider-native copy and falls back to Synara for that provider", async () => {
-    await writeSkill(path.join(synaraBaseDir, "skills", "shared"), "shared", "Synara copy");
+  it("prefers the provider-native copy and falls back to Saint for that provider", async () => {
+    await writeSkill(path.join(saintBaseDir, "skills", "shared"), "shared", "Saint copy");
     await writeSkill(path.join(homeDir, ".codex", "skills", "shared"), "shared", "Codex copy");
-    await writeSkill(path.join(synaraBaseDir, "skills", "only-synara"), "only-synara", "Fallback");
+    await writeSkill(path.join(saintBaseDir, "skills", "only-saint"), "only-saint", "Fallback");
 
-    const codexView = await discoverSkillsCatalog({ homeDir, synaraBaseDir, provider: "codex" });
+    const codexView = await discoverSkillsCatalog({ homeDir, saintBaseDir, provider: "codex" });
     const codexShared = codexView.find((skill) => skill.name === "shared");
     expect(codexShared?.scope).toBe("codex");
     expect(codexShared?.path).toContain(path.join(".codex", "skills"));
-    expect(codexView.some((skill) => skill.name === "only-synara")).toBe(true);
+    expect(codexView.some((skill) => skill.name === "only-saint")).toBe(true);
 
-    // A provider without its own copy resolves the Synara fallback.
+    // A provider without its own copy resolves the Saint fallback.
     const claudeView = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       provider: "claudeAgent",
     });
     const claudeShared = claudeView.find((skill) => skill.name === "shared");
-    expect(claudeShared?.scope).toBe("synara");
+    expect(claudeShared?.scope).toBe("saint");
   });
 
-  it("uses documented provider alias roots before Synara fallbacks", async () => {
-    await writeSkill(path.join(synaraBaseDir, "skills", "shared"), "shared", "Synara copy");
+  it("uses documented provider alias roots before Saint fallbacks", async () => {
+    await writeSkill(path.join(saintBaseDir, "skills", "shared"), "shared", "Saint copy");
     await writeSkill(path.join(homeDir, ".agents", "skills", "shared"), "shared", "Agents alias");
     const antigravityView = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       provider: "antigravity",
     });
 
@@ -516,19 +516,19 @@ describe("discoverSkillsCatalog", () => {
   });
 
   it("uses provider-native roots before shared aliases for Grok and Pi", async () => {
-    await writeSkill(path.join(synaraBaseDir, "skills", "shared"), "shared", "Synara copy");
+    await writeSkill(path.join(saintBaseDir, "skills", "shared"), "shared", "Saint copy");
     await writeSkill(path.join(homeDir, ".agents", "skills", "shared"), "shared", "Agents alias");
     await writeSkill(path.join(homeDir, ".grok", "skills", "shared"), "shared", "Grok copy");
     await writeSkill(path.join(homeDir, ".pi", "agent", "skills", "shared"), "shared", "Pi copy");
 
     const grokView = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       provider: "grok",
     });
     const piView = await discoverSkillsCatalog({
       homeDir,
-      synaraBaseDir,
+      saintBaseDir,
       provider: "pi",
     });
 
@@ -550,7 +550,7 @@ description: Direct Pi markdown skill
 `,
     );
 
-    const skills = await discoverSkillsCatalog({ homeDir, synaraBaseDir });
+    const skills = await discoverSkillsCatalog({ homeDir, saintBaseDir });
 
     const directSkill = skills.find((skill) => skill.name === "direct-review");
     expect(directSkill?.scope).toBe("pi");
@@ -558,31 +558,31 @@ description: Direct Pi markdown skill
   });
 
   it("serves cached results within the TTL and rescans on forceReload", async () => {
-    await writeSkill(path.join(synaraBaseDir, "skills", "first"), "first", "First skill");
+    await writeSkill(path.join(saintBaseDir, "skills", "first"), "first", "First skill");
 
-    const initial = await discoverSkillsCatalog({ homeDir, synaraBaseDir });
+    const initial = await discoverSkillsCatalog({ homeDir, saintBaseDir });
     expect(initial.map((skill) => skill.name)).toEqual(["first"]);
 
     // A skill added after the first scan is invisible to the cached entry...
-    await writeSkill(path.join(synaraBaseDir, "skills", "second"), "second", "Second skill");
-    const cached = await discoverSkillsCatalog({ homeDir, synaraBaseDir });
+    await writeSkill(path.join(saintBaseDir, "skills", "second"), "second", "Second skill");
+    const cached = await discoverSkillsCatalog({ homeDir, saintBaseDir });
     expect(cached.map((skill) => skill.name)).toEqual(["first"]);
 
     // ...but forceReload bypasses the cache and refreshes it.
-    const reloaded = await discoverSkillsCatalog({ homeDir, synaraBaseDir, forceReload: true });
+    const reloaded = await discoverSkillsCatalog({ homeDir, saintBaseDir, forceReload: true });
     expect(reloaded.map((skill) => skill.name).sort()).toEqual(["first", "second"]);
   });
 
-  it("includes project-level .synara skills when a cwd is provided", async () => {
+  it("includes project-level .saint skills when a cwd is provided", async () => {
     const cwd = path.join(root, "repo", "packages", "web");
     await mkdir(cwd, { recursive: true });
     await writeSkill(
-      path.join(root, "repo", ".synara", "skills", "repo-skill"),
+      path.join(root, "repo", ".saint", "skills", "repo-skill"),
       "repo-skill",
       "Project skill",
     );
 
-    const skills = await discoverSkillsCatalog({ cwd, homeDir, synaraBaseDir });
+    const skills = await discoverSkillsCatalog({ cwd, homeDir, saintBaseDir });
     expect(skills.find((skill) => skill.name === "repo-skill")?.scope).toBe("project");
   });
 
@@ -592,21 +592,21 @@ description: Direct Pi markdown skill
     const cwd = path.join(homeDir, "projects", "app");
     await mkdir(cwd, { recursive: true });
     await writeSkill(path.join(homeDir, ".codex", "skills", "from-codex"), "from-codex", "Codex");
-    await writeSkill(path.join(synaraBaseDir, "skills", "portable"), "portable", "Synara");
+    await writeSkill(path.join(saintBaseDir, "skills", "portable"), "portable", "Saint");
 
-    const skills = await discoverSkillsCatalog({ cwd, homeDir, synaraBaseDir });
+    const skills = await discoverSkillsCatalog({ cwd, homeDir, saintBaseDir });
 
     const names = skills.map((skill) => skill.name);
     expect(names.filter((name) => name === "from-codex")).toHaveLength(1);
     expect(skills.find((skill) => skill.name === "from-codex")?.scope).toBe("codex");
-    expect(skills.find((skill) => skill.name === "portable")?.scope).toBe("synara");
+    expect(skills.find((skill) => skill.name === "portable")?.scope).toBe("saint");
   });
 
   it("dedupes same-named skills within a root deterministically", async () => {
-    await writeSkill(path.join(synaraBaseDir, "skills", "zeta"), "twin", "Copy in zeta");
-    await writeSkill(path.join(synaraBaseDir, "skills", "alpha"), "twin", "Copy in alpha");
+    await writeSkill(path.join(saintBaseDir, "skills", "zeta"), "twin", "Copy in zeta");
+    await writeSkill(path.join(saintBaseDir, "skills", "alpha"), "twin", "Copy in alpha");
 
-    const skills = await discoverSkillsCatalog({ homeDir, synaraBaseDir });
+    const skills = await discoverSkillsCatalog({ homeDir, saintBaseDir });
     const twins = skills.filter((skill) => skill.name === "twin");
     expect(twins).toHaveLength(1);
     expect(twins[0]?.path).toContain(path.join("skills", "alpha"));
@@ -624,7 +624,7 @@ describe("mergeSkillsIntoCatalog", () => {
   it("keeps provider-native entries and appends catalog-only entries", () => {
     const merged = mergeSkillsIntoCatalog({
       native: [descriptor("shared", "codex-native")],
-      catalog: [descriptor("Shared", "synara"), descriptor("extra", "synara")],
+      catalog: [descriptor("Shared", "saint"), descriptor("extra", "saint")],
     });
     expect(merged).toHaveLength(2);
     expect(merged.find((skill) => skill.name.toLowerCase() === "shared")?.scope).toBe(

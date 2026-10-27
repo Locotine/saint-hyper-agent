@@ -4,7 +4,7 @@
 // Layer: Settings UI components
 // Depends on: dialog primitives, settings select control, account presentation helpers.
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderKind } from "@saint/contracts";
 import { type FormEvent, useId, useState } from "react";
 
 import {

@@ -42,7 +42,7 @@ jobs:
           release=packages/shared/src/cuaDriverRelease.json
           source_commit=$(jq -r .source "$release")
           rust_version=$(jq -r .rustVersion "$release")
-          patch_file="$GITHUB_WORKSPACE/apps/desktop/patches/cua-driver/0001-synara-native.patch"
+          patch_file="$GITHUB_WORKSPACE/apps/desktop/patches/cua-driver/0001-saint-native.patch"
           expected=$(jq -r .patchSha256 "$release")
           actual=$(shasum -a 256 "$patch_file" | cut -d ' ' -f 1)
           test "$actual" = "$expected"

@@ -6,7 +6,7 @@
 // Layer: Chat right-dock UI
 // Exports: SidechatDockPane, useSidechatDockPanePruning
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { useEffect, useSyncExternalStore } from "react";
 
 import type { DockPaneRuntimeMode } from "~/lib/dockPaneActivation";

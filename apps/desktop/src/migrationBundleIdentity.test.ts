@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
-import { migrationRuntimeSourceDigest } from "@synara/shared/migrationRecovery";
+import { migrationRuntimeSourceDigest } from "@saint/shared/migrationRecovery";
 
 import { inspectDesktopMigrationRuntimeIdentity } from "./migrationBundleIdentity";
 
@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 function sourceCheckout(source: string): string {
-  const appRoot = fs.mkdtempSync(path.join(os.tmpdir(), "synara-desktop-migration-bundle-"));
+  const appRoot = fs.mkdtempSync(path.join(os.tmpdir(), "saint-desktop-migration-bundle-"));
   tempDirectories.push(appRoot);
   const sourcePath = path.join(appRoot, "apps/server/src/persistence/Migrations.ts");
   fs.mkdirSync(path.dirname(sourcePath), { recursive: true });

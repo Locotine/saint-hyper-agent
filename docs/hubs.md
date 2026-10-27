@@ -7,11 +7,11 @@ same instructions and memory, and files the threads deliver land in one shared L
 A hub does not need a repository. It works just as well for research, writing, planning, or any
 other non-code work.
 
-> **Stable and Beta.** Hubs are available in Synara 1.0.2 Stable and Synara Beta.
+> **Stable and Beta.** Hubs are available in Saint 1.0.2 Stable and Saint Beta.
 > Each app keeps its own Hubs, chats, settings, and data home; Beta data is not copied back to Stable.
 
 > **Compatibility:** Existing hubs keep their files and saved settings. The on-disk parent folder
-> remains `~/Documents/Synara/Groups/`; the stored feature key and API identifiers retain `groups`.
+> remains `~/Documents/Saint/Groups/`; the stored feature key and API identifiers retain `groups`.
 > The canonical navigation route is `/hubs`; existing `/groups` and `/studio` links redirect there.
 
 > **Before you begin:** Hubs appear under the **Hubs** tab of the sidebar switcher. If you do
@@ -30,15 +30,15 @@ other non-code work.
 ## Create a hub
 
 1. Open the **Hubs** tab in the sidebar and choose **New hub**.
-2. Type a **Hub name** and choose **Create hub**. Synara creates a folder for the hub under
-   `~/Documents/Synara/Groups/`.
+2. Type a **Hub name** and choose **Create hub**. Saint creates a folder for the hub under
+   `~/Documents/Saint/Groups/`.
 3. The **Set up your hub** dialog opens. On **General**, set the goal, the hub's icon and
    color, and the coordinator and thread models.
 4. Optionally add **Hub instructions** on **Memory** and link repositories on **Environment**.
 5. Choose **Create hub**. Setup does not launch a model.
 
 If you choose **Cancel** on a brand-new hub that has no threads, files, or linked repositories
-yet, Synara asks **Discard this hub?** Choose **Discard hub** to remove it, or **Keep hub** to
+yet, Saint asks **Discard this hub?** Choose **Discard hub** to remove it, or **Keep hub** to
 finish setup later. A hub you keep shows its name with **Set up** in the sidebar; click it to
 reopen setup.
 
@@ -83,23 +83,23 @@ When a request could mean either "do it now" or "just suggest", the coordinator 
 list of suggested threads (title, repository, one-line brief) and waits for your confirmation.
 Tell it once if you always want this, and it will remember.
 
-The coordinator's own Synara tools (starting threads, saving memory, adding Library files, linking
+The coordinator's own Saint tools (starting threads, saving memory, adding Library files, linking
 repositories) run without asking for approval while the hub is active, including with Codex.
 File edits, shell commands, and other tools follow the thread's access mode. Full Access also
-allows workers to use their authorized Synara tools without an extra provider approval.
+allows workers to use their authorized Saint tools without an extra provider approval.
 Coordinator check-ins use the access mode currently selected in the coordinator chat. A change
 during a running turn applies on its next turn. New workers inherit the coordinator's access mode;
 if their provider or model cannot use inherited Auto mode, they start in Ask for approval.
 Devin uses its Code or Ask Everytime mode for approval-required workers, depending on its catalog.
-In a paused or archived hub, the coordinator's automatic Synara tool grant ends and its
+In a paused or archived hub, the coordinator's automatic Saint tool grant ends and its
 tools follow the thread's access mode again. Gateway permissions still apply to every call.
 
-After it starts threads, Synara watches them for you (see
+After it starts threads, Saint watches them for you (see
 [How monitoring works](#how-monitoring-works)). Status updates appear in the coordinator
 conversation as part of its reply, each with a link to the thread.
 
 Inside a thread the coordinator started, the task is labelled with the hub, for example **Sent by
-the Release Synara coordinator**.
+the Release Saint coordinator**.
 Click it to go back to the coordinator conversation.
 
 Follow-ups to a running thread are **queued** by default: the thread finishes its current turn
@@ -186,7 +186,7 @@ to the window and within 30 seconds while the window is visible.
 
 ## How monitoring works
 
-Monitoring is done by the Synara server, by fixed rules. It does not depend on the model
+Monitoring is done by the Saint server, by fixed rules. It does not depend on the model
 remembering to check.
 
 - **Every thread the coordinator starts is tracked**, whether or not the hub has a goal.
@@ -203,7 +203,7 @@ remembering to check.
 - **Stuck threads.** The server reacts to events as they happen, and runs a health check every
   minute for the rest:
 
-  | Situation                                                    | What Synara does                                                |
+  | Situation                                                    | What Saint does                                                 |
   | ------------------------------------------------------------ | --------------------------------------------------------------- |
   | A turn fails, is interrupted, or the session errors or stops | Reports it and wakes the coordinator                            |
   | The session died but still looks "running" (after 90 s)      | Reports "lost its session" and wakes the coordinator            |
@@ -215,9 +215,9 @@ remembering to check.
   | Automatic recovery used up (2 attempts)                      | Marks the thread **Waiting on you**, wakes the coordinator once |
 
   A **Waiting on you** line has three buttons: **Retry** (re-sends the task), **Stop worker**, and
-  **Open thread**. After that, Synara takes no more automatic action on that thread.
+  **Open thread**. After that, Saint takes no more automatic action on that thread.
 
-- **Your turns are yours.** If you send a message in a thread yourself, Synara never nudges,
+- **Your turns are yours.** If you send a message in a thread yourself, Saint never nudges,
   interrupts, or re-sends that turn.
 - **Background check-ins stay out of the chat.** The coordinator also runs short background
   check-ins when hub events happen. They never appear in the conversation; what each one
@@ -227,7 +227,7 @@ remembering to check.
 ## The Hubs panel
 
 Open the **Hubs** panel with the **Hub** button in the chat header. It opens by default in a
-hub's chats, including a new hub's first visit, until you close it; Synara remembers the close
+hub's chats, including a new hub's first visit, until you close it; Saint remembers the close
 for that hub.
 
 From top to bottom:
@@ -277,15 +277,15 @@ including threads in linked repositories, receives a context packet with:
 - The list of **linked repositories** and the **Library** location
 - The hub's default thread model
 
-Each section of that packet names who wrote it — your instructions, Synara's own records, hub
-memory and decisions, a report from another thread, or Synara's role rules — and the packet
+Each section of that packet names who wrote it — your instructions, Saint's own records, hub
+memory and decisions, a report from another thread, or Saint's role rules — and the packet
 states that only you grant authority. A memory note, decision, task description, or worker
 report is context: it never expands your authorized scope or authorizes spending or external actions on its own.
 
 The packet also follows the thread's role. A coordinator additionally gets its playbook, watch
 rules, worker roster, and worker reports; a worker or manual member thread gets its assignment
 and the shared hub context instead. Workers cannot route other threads; manual member threads retain ordinary user-directed tools. Your own edits to the
-playbook are kept as written — Synara only refreshes a playbook it authored itself.
+playbook are kept as written — Saint only refreshes a playbook it authored itself.
 
 Edit these in hub settings → **Memory**:
 
@@ -338,7 +338,7 @@ the remote must already work with your saved SSH key or Git credentials.
 
 ## Linked repositories
 
-Link an existing Synara project to let the coordinator start threads in it. Use **Add repository**
+Link an existing Saint project to let the coordinator start threads in it. Use **Add repository**
 in settings → **Environment**, or ask the coordinator to link it. Only you can unlink a repository
 (**Remove**). Linking and unlinking apply immediately.
 
@@ -364,9 +364,9 @@ When you delete a hub:
 
 - Linked repositories and their threads are never deleted.
 - The default Library folder is moved to the trash when possible.
-- A Library folder you chose yourself is never moved or deleted; Synara tells you where it was left.
-- The hub folder under `~/Documents/Synara/Groups/` is removed only when it holds nothing but the
-  files Synara created there. If you or a thread added anything, the folder is kept. The delete
+- A Library folder you chose yourself is never moved or deleted; Saint tells you where it was left.
+- The hub folder under `~/Documents/Saint/Groups/` is removed only when it holds nothing but the
+  files Saint created there. If you or a thread added anything, the folder is kept. The delete
   notice lists every kept folder, with a copy button for each path.
 
 **Change the coordinator's model.** Pick a new **Coordinator model** in settings → **General** →
@@ -374,7 +374,7 @@ When you delete a hub:
 that provider is turned off or not installed, the save is refused and the coordinator keeps running
 on its old model.
 
-**Continue as a hub.** Right-click an ordinary thread and choose **Continue as a hub**. Synara
+**Continue as a hub.** Right-click an ordinary thread and choose **Continue as a hub**. Saint
 creates a new hub named after the thread, links the thread's project, and opens hub setup. The
 coordinator is then asked to read the thread and continue its work. **Move to hub…** does the
 same for an existing hub.
@@ -398,15 +398,15 @@ like the composer.
 
 ## Where data lives on disk
 
-| Data                            | Location                                                             |
-| ------------------------------- | -------------------------------------------------------------------- |
-| Hub folder                      | `~/Documents/Synara/Groups/<group-name>/`                            |
-| Instructions, memory, decisions | `~/.synara/userdata/project-context/<project-id>/` (Markdown mirror) |
-| Library (default)               | `~/.synara/userdata/project-context/<project-id>/library/`           |
-| Library (custom)                | The folder you chose in **Library hosting** → **Location**           |
+| Data                            | Location                                                            |
+| ------------------------------- | ------------------------------------------------------------------- |
+| Hub folder                      | `~/Documents/Saint/Groups/<group-name>/`                            |
+| Instructions, memory, decisions | `~/.saint/userdata/project-context/<project-id>/` (Markdown mirror) |
+| Library (default)               | `~/.saint/userdata/project-context/<project-id>/library/`           |
+| Library (custom)                | The folder you chose in **Library hosting** → **Location**          |
 
-Synara's database is the source of truth; the Markdown files are a mirror. `~/.synara` moves if you
-set `SYNARA_HOME`.
+Saint's database is the source of truth; the Markdown files are a mirror. `~/.saint` moves if you
+set `SAINT_HOME`.
 
 ## Limits and troubleshooting
 
@@ -428,7 +428,7 @@ set `SYNARA_HOME`.
 
 Hubs follow the same idea as Claude Code
 [Projects](https://code.claude.com/docs/en/claude-projects) and Cursor Projects: one place that
-holds shared instructions, memory, and files for related work. Synara adds a coordinator that starts
+holds shared instructions, memory, and files for related work. Saint adds a coordinator that starts
 threads for you, server-side monitoring that reports on and recovers those threads, a live panel of
-every thread and PR, and a Git-versioned Library. Threads can use any provider Synara supports, and
+every thread and PR, and a Git-versioned Library. Threads can use any provider Saint supports, and
 a hub can span several repositories or none.

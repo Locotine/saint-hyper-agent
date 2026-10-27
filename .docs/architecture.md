@@ -1,12 +1,12 @@
 # Architecture
 
-Synara is a local-first orchestration application with three main runtime surfaces:
+Saint is a local-first orchestration application with three main runtime surfaces:
 
 - the React web client in `apps/web`;
 - the server/runtime in `apps/server`;
 - the Electron desktop shell in `apps/desktop`.
 
-The server owns durable orchestration, provider sessions, Git/worktree state, terminals, automation, device/browser integrations, and the typed HTTP/WebSocket RPC surface. Provider-native protocols stay behind adapter boundaries; the web app consumes Synara contracts rather than talking to coding-agent CLIs directly.
+The server owns durable orchestration, provider sessions, Git/worktree state, terminals, automation, device/browser integrations, and the typed HTTP/WebSocket RPC surface. Provider-native protocols stay behind adapter boundaries; the web app consumes Saint contracts rather than talking to coding-agent CLIs directly.
 
 ```text
 ┌──────────────────────────────────────────────┐
@@ -124,7 +124,7 @@ Provider-specific session ids, process lifecycle, wire formats, model discovery,
 
 ## Persistence and local resources
 
-Synara's server owns the local durable state and resource lifecycles:
+Saint's server owns the local durable state and resource lifecycles:
 
 - SQLite persistence and projections under `apps/server/src/persistence`;
 - managed Git/worktree operations under `apps/server/src/git` and checkpointing/orchestration services;
@@ -136,7 +136,7 @@ This ownership is why the web client can reload or reconnect without becoming th
 
 ## Desktop shell
 
-`apps/desktop` is a native host, not a second orchestration implementation. It supervises a desktop-scoped Synara backend, loads the shared web UI, and provides OS/Electron integrations such as window lifecycle, native menus/shortcuts, updates, and platform-specific bridges.
+`apps/desktop` is a native host, not a second orchestration implementation. It supervises a desktop-scoped Saint backend, loads the shared web UI, and provides OS/Electron integrations such as window lifecycle, native menus/shortcuts, updates, and platform-specific bridges.
 
 Browser/web mode and desktop mode therefore share the same server contracts and most UI code.
 
@@ -149,7 +149,7 @@ For orchestration state, the client uses two principal subscription shapes:
 - a lightweight shell stream for projects/thread summaries and application-level navigation state;
 - scoped thread-detail streams for full conversation/activity state.
 
-Streams support snapshot/replay recovery and client-side sequence fences. A late query or replay must not roll the client behind a newer live sequence; when recovery cannot be proven safe, Synara prefers a fresh snapshot.
+Streams support snapshot/replay recovery and client-side sequence fences. A late query or replay must not roll the client behind a newer live sequence; when recovery cannot be proven safe, Saint prefers a fresh snapshot.
 
 ## Design rules
 

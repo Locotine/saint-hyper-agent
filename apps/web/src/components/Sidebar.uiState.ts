@@ -3,11 +3,11 @@
 // Layer: Browser storage helper
 // Exports: sidebar UI state read/write helpers.
 
-import { normalizeWorkspaceRootForComparison } from "@synara/shared/threadWorkspace";
+import { normalizeWorkspaceRootForComparison } from "@saint/shared/threadWorkspace";
 import type { LastThreadRoute } from "../chatRouteRestore";
 import type { ActivityGroupMode, ActivityScopeSelection } from "./SidebarActivityView.logic";
 
-const SIDEBAR_UI_STATE_STORAGE_KEY = "synara:sidebar-ui:v1";
+const SIDEBAR_UI_STATE_STORAGE_KEY = "saint:sidebar-ui:v1";
 
 // Same-tab readers (the Inbox) hear the sidebar's own writes; "storage" events only
 // reach other tabs.

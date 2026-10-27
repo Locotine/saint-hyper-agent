@@ -4,7 +4,7 @@
 
 import { useEffect, useRef } from "react";
 
-import type { DesktopAppIcon } from "@synara/contracts";
+import type { DesktopAppIcon } from "@saint/contracts";
 import { useAppSettings } from "~/appSettings";
 
 interface DesktopAppIconSynchronizerInput {

@@ -14,7 +14,7 @@ import {
   ProjectKind,
   ProjectScript,
   SpaceId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -102,4 +102,4 @@ export interface ProjectionProjectRepositoryShape {
 export class ProjectionProjectRepository extends ServiceMap.Service<
   ProjectionProjectRepository,
   ProjectionProjectRepositoryShape
->()("synara/persistence/Services/ProjectionProjects/ProjectionProjectRepository") {}
+>()("saint/persistence/Services/ProjectionProjects/ProjectionProjectRepository") {}

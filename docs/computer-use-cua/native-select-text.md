@@ -1,11 +1,11 @@
 # Native `select_text` design note
 
-Parity matrix item 13 adds `computer_select_text` to Synara. The agent-facing
+Parity matrix item 13 adds `computer_select_text` to Saint. The agent-facing
 layers live in this repository (contracts, manager, gateway, WebSocket); the
 actual range write lives in the native Cua driver, whose source checkout is
-not edited by Synara workstreams. This note documents the ready-to-apply
+not edited by Saint workstreams. This note documents the ready-to-apply
 native diff at
-the `select_text` hunks inside [`apps/desktop/patches/cua-driver/0001-synara-native.patch`](../../apps/desktop/patches/cua-driver/0001-synara-native.patch)
+the `select_text` hunks inside [`apps/desktop/patches/cua-driver/0001-saint-native.patch`](../../apps/desktop/patches/cua-driver/0001-saint-native.patch)
 and the invariants it preserves.
 
 ## Supported operation
@@ -39,15 +39,15 @@ The emitted legacy payload carries `path: "ax"`, a `verified` flag, and an
 - `verified: true` + `effect: "confirmed"` + `evidence: value_readback` —
   only when the post-write read-back reports exactly the requested range.
   The record publishes `AccessibilityReadback` evidence, so `Confirmed`
-  survives projection; Synara maps this to `effect: "verified"`.
+  survives projection; Saint maps this to `effect: "verified"`.
 - `effect: "unconfirmed"` — a read-back ran and returned a different range
   (the app clamped or ignored the write). Projects to `Unverifiable` →
-  Synara `dispatched-unknown`. Never replayed automatically.
+  Saint `dispatched-unknown`. Never replayed automatically.
 - `effect: "unverifiable"` — the attribute could not be read back at all,
   or the write returned a non-success `AXError` after dispatch. Same
   projection, same "observe fresh state; do not replay" guidance.
 - Refusals go through `AxActionFailure::refused` → `effect: "refused"` →
-  Synara `not-dispatched`.
+  Saint `not-dispatched`.
 
 A successful `AXUIElementSetAttributeValue` return code alone is never
 reported as confirmed — the same trap `set_value` documents for AXValue
@@ -114,7 +114,7 @@ not proof the renderer selected anything.
   (element-addressed → `prepare_exact_semantic` + concurrent semantic
   lease), the `native_target` prepare list, the `_native_input` lease list,
   and the membership test vectors.
-- `cua-driver/src/serve.rs` — `synara_native_revision` literal `18 → 19`
+- `cua-driver/src/serve.rs` — `saint_native_revision` literal `18 → 19`
   (authored intent; actually applied `19 → 20` — see "As applied" below).
 
 The tool is deliberately absent from `cua-driver-contract/src/desktop.rs`
@@ -126,17 +126,17 @@ regenerated only when a portable contract is added.
 
 - Authored base: native revision 18 — the `wait_for_settle` /
   `InputGeneration` working tree at upstream `fc188250` (`d2c9c68` in the
-  Synara checkout). Hunks anchor on rev-18 symbols (`mod wait_for_settle;`,
+  Saint checkout). Hunks anchor on rev-18 symbols (`mod wait_for_settle;`,
   `InputGeneration` call sites) and fail loudly on a revision 17 tree
   rather than silently misapplying.
-- Apply: the `select_text.rs` new-file hunk plus registration hunks are carried inside `apps/desktop/patches/cua-driver/0001-synara-native.patch` (folded during the `7fe7c33f` rebase — the former standalone `0002-select-text.patch` was retired)
+- Apply: the `select_text.rs` new-file hunk plus registration hunks are carried inside `apps/desktop/patches/cua-driver/0001-saint-native.patch` (folded during the `7fe7c33f` rebase — the former standalone `0002-select-text.patch` was retired)
   at the driver source root.
 - **As applied 2026-09-23**: the rev-19 keymap stream had already landed
   by the time this patch was staged, so it was applied on top of the
-  staged rev-19 tree — every hunk except the `synara_native_revision`
+  staged rev-19 tree — every hunk except the `saint_native_revision`
   literal applied clean, and the literal was bumped `19 → 20` by hand
   (exactly the concurrency case `native-keymap-notes.md` documents). The
-  change is folded into `0001-synara-native.patch` (sha
+  change is folded into `0001-saint-native.patch` (sha
   `7a2698bbd3b2cf49dd07e1fe0f06db84c4d7a5009d82469f9f24b10887f88919`);
   `cuaDriverRelease.json` pins `nativeRevision: 20` and the packaged
   binary is the rev-20 arm64 build. This file remains the authored record;

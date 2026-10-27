@@ -5,8 +5,8 @@
 // Depends on: the shared provider-usage menu model and panel content, so the rail reads the
 //             same numbers as the chat header chip, the Environment panel, and Settings.
 
-import { DEFAULT_SERVER_SETTINGS_VIEW, type ServerProviderUsageSnapshot } from "@synara/contracts";
-import { deriveProviderInstances } from "@synara/shared/providerInstances";
+import { DEFAULT_SERVER_SETTINGS_VIEW, type ServerProviderUsageSnapshot } from "@saint/contracts";
+import { deriveProviderInstances } from "@saint/shared/providerInstances";
 import { useQuery } from "@tanstack/react-query";
 
 import { useAppSettings, type RailUsageWindow } from "~/appSettings";

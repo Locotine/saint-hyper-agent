@@ -7,7 +7,7 @@ import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { useOnboardingDialogStore } from "~/onboarding/onboardingDialogStore";
 import { useProjectImportDialogStore } from "./projectImportDialogStore";
 
-export const PROJECT_IMPORT_ANNOUNCEMENT_STORAGE_KEY = "synara:project-import-announcement:v1";
+export const PROJECT_IMPORT_ANNOUNCEMENT_STORAGE_KEY = "saint:project-import-announcement:v1";
 const AnnouncementSchema = Schema.Array(Schema.String);
 const EMPTY_INSTALLATIONS: readonly string[] = [];
 

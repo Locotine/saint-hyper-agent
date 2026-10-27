@@ -1,4 +1,4 @@
-import type { NativeApi } from "@synara/contracts";
+import type { NativeApi } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, vi } from "vitest";
 import { cleanup } from "vitest-browser-react";

@@ -8,7 +8,7 @@ import {
   TurnId,
   type OrchestrationReadModel,
   type OrchestrationShellSnapshot,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -152,7 +152,7 @@ describe("store facade", () => {
     );
 
     const next = setThreadWorkspace(state, ThreadId.makeUnsafe("thread-1"), {
-      branch: "synara/abc123ef",
+      branch: "saint/abc123ef",
     });
 
     expect(threadsOf(next)[0]?.branch).toBe("feature/semantic-branch");
@@ -164,11 +164,11 @@ describe("store facade", () => {
       makeState(
         makeThread({
           envMode: "worktree",
-          branch: "synara/tmp-working",
+          branch: "saint/tmp-working",
           worktreePath: "/tmp/project/.worktrees/tmp-working",
           associatedWorktreePath: "/tmp/project/.worktrees/tmp-working",
-          associatedWorktreeBranch: "synara/tmp-working",
-          associatedWorktreeRef: "synara/tmp-working",
+          associatedWorktreeBranch: "saint/tmp-working",
+          associatedWorktreeRef: "saint/tmp-working",
         }),
       ),
       threadId,
@@ -182,11 +182,11 @@ describe("store facade", () => {
       makeReadModel(
         makeReadModelThread({
           envMode: "worktree",
-          branch: "synara/tmp-working",
+          branch: "saint/tmp-working",
           worktreePath: "/tmp/project/.worktrees/tmp-working",
           associatedWorktreePath: "/tmp/project/.worktrees/tmp-working",
-          associatedWorktreeBranch: "synara/tmp-working",
-          associatedWorktreeRef: "synara/tmp-working",
+          associatedWorktreeBranch: "saint/tmp-working",
+          associatedWorktreeRef: "saint/tmp-working",
           createBranchFlowCompleted: false,
           updatedAt: "2026-02-27T00:05:00.000Z",
         }),
@@ -463,7 +463,7 @@ describe("store facade", () => {
     const aliasedState = renameProjectLocally(
       makeState(makeThread()),
       ProjectId.makeUnsafe("project-1"),
-      "synara",
+      "saint",
     );
 
     const next = syncServerReadModel(
@@ -476,8 +476,8 @@ describe("store facade", () => {
     );
 
     expect(next.projects[0]).toMatchObject({
-      name: "synara",
-      localName: "synara",
+      name: "saint",
+      localName: "saint",
       remoteName: "Project",
       folderName: "project",
     });
@@ -490,7 +490,7 @@ describe("store facade", () => {
       PERSISTED_STATE_KEY,
       JSON.stringify({
         projectNamesByCwd: {
-          "/tmp/project": "synara",
+          "/tmp/project": "saint",
         },
       }),
     );
@@ -505,8 +505,8 @@ describe("store facade", () => {
         projects: [
           makeProject({
             id: projectId,
-            name: "synara",
-            localName: "synara",
+            name: "saint",
+            localName: "saint",
           }),
         ],
         sidebarThreadSummaryById: {},
@@ -556,12 +556,12 @@ describe("store facade", () => {
         threadsHydrated: true,
       }));
 
-      freshStore.useStore.getState().renameProjectLocally(projectId, "synara");
+      freshStore.useStore.getState().renameProjectLocally(projectId, "saint");
 
       expect(setItem).toHaveBeenCalled();
       expect(JSON.parse(storage.get(PERSISTED_STATE_KEY) ?? "{}")).toMatchObject({
         projectNamesByCwd: {
-          "/tmp/project": "synara",
+          "/tmp/project": "saint",
         },
       });
     } finally {

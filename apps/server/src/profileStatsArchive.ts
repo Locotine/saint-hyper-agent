@@ -11,8 +11,8 @@ import {
   ThreadId,
   TurnId,
   type ThreadEnvironmentMode,
-} from "@synara/contracts";
-import { resolveThreadWorkspaceCwd } from "@synara/shared/threadEnvironment";
+} from "@saint/contracts";
+import { resolveThreadWorkspaceCwd } from "@saint/shared/threadEnvironment";
 import { Cause, Effect, Layer, ServiceMap } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { redactCreationPlanForPurgedCaller } from "./agentGateway/operationPlan.ts";
@@ -62,7 +62,7 @@ interface TokenActivityRow {
   readonly counterProvider?: string | null;
   // Native/provider session that owns the cumulative counter. Provider
   // processes can restart or switch native conversations while staying on the
-  // same Synara thread, so each session needs an independent baseline.
+  // same Saint thread, so each session needs an independent baseline.
   readonly usageSessionId?: string | null;
   readonly dispatchOrigin?: string | null;
   readonly createdAt: string | null;
@@ -483,7 +483,7 @@ export interface ProfileStatsArchiveShape {
 export class ProfileStatsArchive extends ServiceMap.Service<
   ProfileStatsArchive,
   ProfileStatsArchiveShape
->()("synara/profileStats/ProfileStatsArchive") {}
+>()("saint/profileStats/ProfileStatsArchive") {}
 
 const makeProfileStatsArchive = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;

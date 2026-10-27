@@ -1,4 +1,4 @@
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { readNativeApi } from "~/nativeApi";

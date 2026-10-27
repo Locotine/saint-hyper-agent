@@ -11,7 +11,7 @@ import { ComputerShield } from "./computerShield";
  * refusal, silent-wedge, and crash shapes.
  */
 async function fixture(options: { mode?: "ok" | "refuse" | "silent" | "die" } = {}) {
-  const directory = await mkdtemp(join(tmpdir(), "synara-shield-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "saint-shield-test-"));
   cleanups.push(() => rm(directory, { recursive: true, force: true }));
   const log = join(directory, "commands.jsonl");
   const binary = join(directory, "helper");
@@ -92,11 +92,11 @@ describe("ComputerShield", () => {
   it("engages on first use and confirms before resolving", async () => {
     const f = await fixture();
     await f.shield.engage(
-      { shieldId: "shield-1", frame: FRAME, windowId: 42, pid: 7, label: "Synara activating Calc" },
+      { shieldId: "shield-1", frame: FRAME, windowId: 42, pid: 7, label: "Saint activating Calc" },
       TASK,
     );
     const lines = (await f.commands()).map((row) => row.line);
-    expect(lines).toEqual(["engage shield-1 100 50 400 300 Synara activating Calc"]);
+    expect(lines).toEqual(["engage shield-1 100 50 400 300 Saint activating Calc"]);
   });
 
   it("releases a live shield by id", async () => {

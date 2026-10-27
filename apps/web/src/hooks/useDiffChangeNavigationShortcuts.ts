@@ -1,4 +1,4 @@
-import type { ResolvedKeybindingsConfig } from "@synara/contracts";
+import type { ResolvedKeybindingsConfig } from "@saint/contracts";
 import { useEffect, type RefObject } from "react";
 
 import { isEditableEventTarget } from "../lib/editableEventTarget";

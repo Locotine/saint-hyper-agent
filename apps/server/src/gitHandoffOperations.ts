@@ -2,8 +2,8 @@ import {
   GitHandoffThreadInput,
   GitHandoffThreadResult,
   type OrchestrationCommand,
-} from "@synara/contracts";
-import { resolveWorktreeHandoffWorkspaceMetadata } from "@synara/shared/worktreeHandoff";
+} from "@saint/contracts";
+import { resolveWorktreeHandoffWorkspaceMetadata } from "@saint/shared/worktreeHandoff";
 import { Data, Effect, Schema } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 

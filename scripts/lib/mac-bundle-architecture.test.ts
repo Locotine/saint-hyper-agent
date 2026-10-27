@@ -30,9 +30,9 @@ function universal(...cpuTypes: number[]): Buffer {
 }
 
 function appWith(files: Record<string, Buffer>): string {
-  const root = mkdtempSync(join(tmpdir(), "synara-mac-arch-test-"));
+  const root = mkdtempSync(join(tmpdir(), "saint-mac-arch-test-"));
   roots.push(root);
-  const app = join(root, "Synara.app");
+  const app = join(root, "Saint.app");
   for (const [path, bytes] of Object.entries(files)) {
     mkdirSync(dirname(join(app, path)), { recursive: true });
     writeFileSync(join(app, path), bytes);
@@ -44,7 +44,7 @@ describe("packaged macOS architecture", () => {
   it("rejects a host-only helper in a cross-built Intel app", () => {
     const javaClass = Buffer.from([0xca, 0xfe, 0xba, 0xbe, 0x00, 0x00, 0x00, 0x41]);
     const app = appWith({
-      "Contents/MacOS/Synara": thin(X64),
+      "Contents/MacOS/Saint": thin(X64),
       "Contents/Frameworks/Electron Framework": universal(ARM64, X64),
       "Contents/Resources/helper": thin(ARM64),
       "Contents/Resources/node_modules/node-pty/prebuilds/darwin-arm64/pty.node": thin(ARM64),
@@ -59,7 +59,7 @@ describe("packaged macOS architecture", () => {
       "Contents/Resources/node_modules/node-pty/prebuilds/darwin-x64/pty.node (arm64; expected x64)",
     ]);
     expect(findMacBundleArchitectureMismatches(app, "arm64")).toEqual([
-      "Contents/MacOS/Synara (x64; expected arm64)",
+      "Contents/MacOS/Saint (x64; expected arm64)",
       "Contents/Resources/node_modules/node-pty/prebuilds/darwin-x64/pty.node (arm64; expected x64)",
     ]);
   });

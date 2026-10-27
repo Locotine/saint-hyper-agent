@@ -1,4 +1,4 @@
-import { OrchestrationProposedPlanId } from "@synara/contracts";
+import { OrchestrationProposedPlanId } from "@saint/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 

@@ -3,23 +3,23 @@
 // Layer: Desktop IPC + ChatGPT upload bridge
 // Depends on: Codex auth discovery, Electron net uploads, and the shared server voice contract.
 
-import { spawnProcess } from "@synara/shared/processRuntime";
+import { spawnProcess } from "@saint/shared/processRuntime";
 
 import { app, ipcMain } from "electron";
 import type {
   ServerVoiceTranscriptionInput,
   ServerVoiceTranscriptionResult,
-} from "@synara/contracts";
-import { SERVER_VOICE_TRANSCRIPTION_MAX_AUDIO_BYTES } from "@synara/contracts";
+} from "@saint/contracts";
+import { SERVER_VOICE_TRANSCRIPTION_MAX_AUDIO_BYTES } from "@saint/contracts";
 import {
   CHATGPT_VOICE_TRANSCRIPTION_URL,
   requestChatGptVoiceTranscription,
-} from "@synara/shared/chatGptVoiceTranscription";
+} from "@saint/shared/chatGptVoiceTranscription";
 import {
   decodeOutboundJson,
   decodeOutboundText,
   type OutboundHttpResponse,
-} from "@synara/shared/outboundHttp";
+} from "@saint/shared/outboundHttp";
 import { SERVER_TRANSCRIBE_VOICE_CHANNEL } from "./ipcChannels";
 
 const MAX_VOICE_DURATION_MS = 120_000;
@@ -194,8 +194,8 @@ async function resolveDesktopVoiceAuth(
         method: "initialize",
         params: {
           clientInfo: {
-            name: "synara-desktop",
-            title: "Synara Desktop",
+            name: "saint-desktop",
+            title: "Saint Desktop",
             version: app.getVersion(),
           },
           capabilities: { experimentalApi: true },

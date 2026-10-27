@@ -1,4 +1,4 @@
-# Synara Computer Use — v3 completion plan
+# Saint Computer Use — v3 completion plan
 
 Status: active working plan (2026-10-02). Base: `pr-1227` @ `c052a8c38`,
 packaged cua-driver 0.28.2 / native rev 20 / source `fc188250b`. Supersedes
@@ -65,7 +65,7 @@ change. Then the same surface on Windows and Linux.
 10. Cross-platform: **partially unblocked 2026-10-02** — the provisioner
     stages checksum-verified upstream win32/linux bundles (`--platform`,
     `patched:false` provenance), `ComputerService` routes a configured
-    `SYNARA_CUA_HOST_SOCKET` endpoint on any platform instead of refusing
+    `SAINT_CUA_HOST_SOCKET` endpoint on any platform instead of refusing
     by platform identity, and `CuaDriverHost` runs standalone
     (`cuaDriverHostStandalone.ts`) against an unpatched driver:
     `nativeRevision:null` skips the patch-only spawn flags and the
@@ -122,7 +122,7 @@ change. Then the same surface on Windows and Linux.
 **Deliverable:** `scripts/computer-use-fixtures/live-cert.ts` —
 one command, ~60–90 s, zero operator interaction.
 
-- Boot trusted host + packaged driver (merged code), isolated SYNARA_HOME.
+- Boot trusted host + packaged driver (merged code), isolated SAINT_HOME.
 - Spawn targets: `open -g` visible, `open -j` hidden, minimized, second
   TextEdit instance — never steal frontmost.
 - Invariant monitor (~50 Hz): frontmost pid, key window, active Space,
@@ -210,7 +210,7 @@ must pass it before and after.
 Upstream already ships `platform-windows` (UIA cache, `fg_bypass`,
 SendInput-class inject, capture, MSAA, overlay), `platform-linux`
 (AT-SPI, X11, Wayland `ext_screencopy`, Hyprland input), `cua-driver-uia`.
-The engine is cross-platform; Synara's wall is `ComputerService.ts`'s
+The engine is cross-platform; Saint's wall is `ComputerService.ts`'s
 darwin gate plus provisioning/transport/native helpers.
 
 Work items:
@@ -227,11 +227,11 @@ Work items:
    unix socket elsewhere (the driver socket likewise); chmod is skipped
    on pipes. `cuaDriverHostStandalone.ts` is the non-macOS entry: it
    resolves the provisioned binary, takes the capability from
-   `SYNARA_CUA_HOST_CAPABILITY` or `--capability-file` (never argv),
+   `SAINT_CUA_HOST_CAPABILITY` or `--capability-file` (never argv),
    clears stale sockets, and runs the host with `nativeRevision:null`.
 3. ~~`ComputerService` darwin gate → platform detection~~ — **done.**
    The gate is now endpoint presence: darwin uses the bundled host, any
-   platform with `SYNARA_CUA_HOST_SOCKET` routes `CuaComputerBackend`,
+   platform with `SAINT_CUA_HOST_SOCKET` routes `CuaComputerBackend`,
    and no endpoint fails closed (`unsupported-platform`/`backend-
 unavailable`). Unit-covered for win32+endpoint, win32 without, and
    the fake override.

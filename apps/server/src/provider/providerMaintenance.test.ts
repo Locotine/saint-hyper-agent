@@ -91,7 +91,7 @@ function fileNameOf(probedPath: string): string {
 describe("providerMaintenance", () => {
   it("pins the npm global prefix that owns the detected binary", () => {
     // npm's global prefix follows the node that runs it, so without --prefix a
-    // second node install (e.g. nvm) would receive the update while Synara
+    // second node install (e.g. nvm) would receive the update while Saint
     // keeps checking the copy it originally detected.
     assert.strictEqual(
       deriveNpmGlobalPrefix("/opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js"),

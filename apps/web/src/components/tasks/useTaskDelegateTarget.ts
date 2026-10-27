@@ -5,7 +5,7 @@
 // Layer: Tasks UI hook
 // Exports: useTaskDelegateTarget, DelegateTarget, TaskDelegateTargetState
 
-import type { ProjectId, Todo } from "@synara/contracts";
+import type { ProjectId, Todo } from "@saint/contracts";
 import { useMemo, useState } from "react";
 
 import { useLatestProjectStore } from "../../latestProjectStore";

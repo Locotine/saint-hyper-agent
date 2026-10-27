@@ -4,15 +4,15 @@ import {
   type OrchestrationThreadActivity,
   type TurnId,
   type UserInputQuestion,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   createStalePendingInteractionMatcher,
   isPendingInteractionResponseClaimable,
-} from "@synara/shared/pendingInteractions";
+} from "@saint/shared/pendingInteractions";
 import {
   approvalRequestKindFromRequestType,
   pendingRequestInstanceKey,
-} from "@synara/shared/threadSummary";
+} from "@saint/shared/threadSummary";
 
 import { orderedActivities, parseUserInputQuestions } from "./workLog";
 

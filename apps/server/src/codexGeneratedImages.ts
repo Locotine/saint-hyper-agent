@@ -13,12 +13,12 @@ import {
   type ProviderInstanceId,
   type ServerSettings,
   type ThreadId,
-} from "@synara/contracts";
-import { isSupportedLocalImagePath as isSupportedLocalImagePathShared } from "@synara/shared/localPreviewFiles";
+} from "@saint/contracts";
+import { isSupportedLocalImagePath as isSupportedLocalImagePathShared } from "@saint/shared/localPreviewFiles";
 import {
   deriveProviderInstances,
   providerStartOptionsFromInstance,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 
 import {
   type CodexHomePathsInput,
@@ -83,7 +83,7 @@ export interface CodexGeneratedImageHomeContext {
   readonly shadowHomePath?: string | undefined;
   readonly accountId?: string | undefined;
   /**
-   * Per-instance launch environment. Its `SYNARA_HOME` selects the managed
+   * Per-instance launch environment. Its `SAINT_HOME` selects the managed
    * overlay for that child independently of the server process environment.
    */
   readonly environment?: Readonly<Record<string, string>> | undefined;
@@ -91,7 +91,7 @@ export interface CodexGeneratedImageHomeContext {
 
 export type CodexGeneratedImageHomeCandidate = string | CodexGeneratedImageHomeContext;
 
-const CODEX_HOME_CONTEXT_ENV_KEYS = ["CODEX_HOME", "SYNARA_HOME"] as const;
+const CODEX_HOME_CONTEXT_ENV_KEYS = ["CODEX_HOME", "SAINT_HOME"] as const;
 
 function codexHomePathsInputFromContext(
   codexHome?: CodexGeneratedImageHomeCandidate,
@@ -125,7 +125,7 @@ function codexHomeCandidateKey(candidate: CodexGeneratedImageHomeCandidate): str
 
 /**
  * Resolves the home directory the codex app-server child process actually
- * writes images under for the current process env. Synara uses its isolated
+ * writes images under for the current process env. Saint uses its isolated
  * Codex overlay, not the user's source `~/.codex` directory.
  */
 export function resolveCodexHomePath(codexHome?: string | CodexGeneratedImageHomeContext): string {

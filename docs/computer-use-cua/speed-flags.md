@@ -1,9 +1,9 @@
 # Workstream C speed flags
 
 Every latency optimization on the computer-use path ships behind its own
-`SYNARA_CUA_*` environment flag, opt-in, with the pre-workstream-C behavior as
+`SAINT_CUA_*` environment flag, opt-in, with the pre-workstream-C behavior as
 the default. The point of one flag per change is isolation: a live run flips
-exactly one variable, and `SYNARA_CUA_TIMING_LOG` is what turns that run into
+exactly one variable, and `SAINT_CUA_TIMING_LOG` is what turns that run into
 numbers.
 
 This file is the flag reference. The rationale and budget targets live in
@@ -11,15 +11,15 @@ This file is the flag reference. The rationale and budget targets live in
 
 ## Flag table
 
-| Flag                             | Default | Effect when set                                                                                                                                                                  | Lives in                                          |
-| -------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `SYNARA_CUA_TIMING_LOG`          | off     | Emits one `[computer-timing]` line per computer call: per-leg ms, counters, total.                                                                                               | `apps/server/src/computer/computerCallContext.ts` |
-| `SYNARA_CUA_ACTION_SETTLE_MS`    | `300`   | Overrides the fixed post-action settle sleep; `0` removes it. Invalid values fall back to `300`.                                                                                 | `apps/server/src/computer/ComputerManager.ts`     |
-| `SYNARA_CUA_CONDITIONAL_SETTLE`  | on      | Skips the settle sleep only when the action's delivery verdict already proves its effect — or a scroll leg's measured travel proves arrival. `0`/`off` restores the always-wait. | `apps/server/src/computer/ComputerManager.ts`     |
-| `SYNARA_CUA_AX_ONLY_GET_STATE`   | removed | Retired: omitting `include_screenshot` selects the driver's default-capture path; the request now always sends explicit `false` on tree-only reads.                              | —                                                 |
-| `SYNARA_CUA_CAPTURE_REUSE`       | on      | Explicit reads return the previous `screenshotId` when the fresh capture is byte-identical. `0`/`off` ships every frame.                                                         | `apps/server/src/agentGateway/computerTools.ts`   |
-| `SYNARA_CUA_PREVIEW_STILL_MS`    | `2000`  | Overrides the pane still-capture cadence; clamped to the publisher's 100 ms floor.                                                                                               | `apps/server/src/computer/CuaComputerBackend.ts`  |
-| `SYNARA_CUA_WARM_ON_FIRST_TOUCH` | off     | Spawns the driver and runs the validated handshake on the first probe or permission check.                                                                                       | `apps/desktop/src/cuaDriverHost.ts`               |
+| Flag                            | Default | Effect when set                                                                                                                                                                  | Lives in                                          |
+| ------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `SAINT_CUA_TIMING_LOG`          | off     | Emits one `[computer-timing]` line per computer call: per-leg ms, counters, total.                                                                                               | `apps/server/src/computer/computerCallContext.ts` |
+| `SAINT_CUA_ACTION_SETTLE_MS`    | `300`   | Overrides the fixed post-action settle sleep; `0` removes it. Invalid values fall back to `300`.                                                                                 | `apps/server/src/computer/ComputerManager.ts`     |
+| `SAINT_CUA_CONDITIONAL_SETTLE`  | on      | Skips the settle sleep only when the action's delivery verdict already proves its effect — or a scroll leg's measured travel proves arrival. `0`/`off` restores the always-wait. | `apps/server/src/computer/ComputerManager.ts`     |
+| `SAINT_CUA_AX_ONLY_GET_STATE`   | removed | Retired: omitting `include_screenshot` selects the driver's default-capture path; the request now always sends explicit `false` on tree-only reads.                              | —                                                 |
+| `SAINT_CUA_CAPTURE_REUSE`       | on      | Explicit reads return the previous `screenshotId` when the fresh capture is byte-identical. `0`/`off` ships every frame.                                                         | `apps/server/src/agentGateway/computerTools.ts`   |
+| `SAINT_CUA_PREVIEW_STILL_MS`    | `2000`  | Overrides the pane still-capture cadence; clamped to the publisher's 100 ms floor.                                                                                               | `apps/server/src/computer/CuaComputerBackend.ts`  |
+| `SAINT_CUA_WARM_ON_FIRST_TOUCH` | off     | Spawns the driver and runs the validated handshake on the first probe or permission check.                                                                                       | `apps/desktop/src/cuaDriverHost.ts`               |
 
 Boolean flags accept `1`, `true`, `on`, `yes` (case-insensitive, trimmed);
 everything else — including `0`, `false`, `off`, `no` — counts as unset.
@@ -28,7 +28,7 @@ they ship on, and only `0`, `false`, `off`, or `no` turns them off.
 
 ## What each flag does, and what it must never do
 
-### `SYNARA_CUA_TIMING_LOG` (inherited from `78bc88bae`)
+### `SAINT_CUA_TIMING_LOG` (inherited from `78bc88bae`)
 
 Creates a per-call context on AsyncLocalStorage so the legs of one tool call —
 `resolve`, `dispatch`, `settle`, `observe`, plus the native calls beneath —
@@ -40,7 +40,7 @@ the default path allocates nothing.
 Also emits `settle_skipped=1` as a counter whenever conditional settle waived
 the wait, which is what makes the A/B comparison legible.
 
-### `SYNARA_CUA_ACTION_SETTLE_MS` (inherited from `78bc88bae`)
+### `SAINT_CUA_ACTION_SETTLE_MS` (inherited from `78bc88bae`)
 
 The post-action settle is a fixed `setTimeout` before the screenshot that
 rides on an action result — the repaint window the observation exists to
@@ -49,7 +49,7 @@ override (`actionSettleMs`, used by tests) still wins over the environment.
 With `0`, observation freshness depends entirely on the capture itself being
 post-paint, so pair it with the timing log before believing it.
 
-### `SYNARA_CUA_CONDITIONAL_SETTLE` (inherited from `78bc88bae`; graduated to default-on)
+### `SAINT_CUA_CONDITIONAL_SETTLE` (inherited from `78bc88bae`; graduated to default-on)
 
 Now on by default — the flag is only a kill switch. The skip still requires **positive** proof on the same call: the backend's
 `effect: "verified"` or a `verified: "confirmed"` read-back. It never fires
@@ -76,7 +76,7 @@ leg's own before-frame. Worst case the flag costs one extra capture per leg —
 exactly when the speculation fails — while the best case removes the settle
 from every leg after a window's first.
 
-### `SYNARA_CUA_AX_ONLY_GET_STATE` (retired)
+### `SAINT_CUA_AX_ONLY_GET_STATE` (retired)
 
 The flag omitted `include_screenshot`/`max_dimension` from tree-only
 `get_window_state` calls, intending to pin a no-capture contract on the wire.
@@ -89,7 +89,7 @@ pinned contract. Separately, the pinned upstream `7fe7c33f` already gates
 both capture and attachment on `should_capture`, so the rev-17 "cached frame
 attaches regardless" finding no longer needs a native change.
 
-### `SYNARA_CUA_CAPTURE_REUSE` (added with this change; graduated to default-on)
+### `SAINT_CUA_CAPTURE_REUSE` (added with this change; graduated to default-on)
 
 Extends the post-action observer's existing dedupe to explicit perception
 reads (`computer_get_state`, `computer_screenshot`). The fresh capture always
@@ -101,7 +101,7 @@ there is, so this never serves a stale image; what it saves is the image part
 of the tool result. Reuse is per thread: another conversation's identical
 pixels still ship in full, because that model has never seen them.
 
-### `SYNARA_CUA_PREVIEW_STILL_MS` (added with this change)
+### `SAINT_CUA_PREVIEW_STILL_MS` (added with this change)
 
 The pane's still publisher captures a whole-desktop PNG on a timer; the flag
 retunes that cadence (default 2000 ms). The publisher's 100 ms floor still
@@ -109,7 +109,7 @@ applies — a lower value would only queue captures faster than one encode can
 finish. The action path never reads the still stream, so this flag is a pure
 background-cost knob.
 
-### `SYNARA_CUA_WARM_ON_FIRST_TOUCH` (added with this change)
+### `SAINT_CUA_WARM_ON_FIRST_TOUCH` (added with this change)
 
 Driver startup splits into `ensureSpawned` (spawn plus the validated metadata
 handshake) and `openSession` (`start_session` plus once-per-generation cursor
@@ -132,18 +132,18 @@ Per the spec, each flag wants an isolated before/after on a warm host:
 
 ```sh
 # Baseline: all defaults, timing on.
-SYNARA_CUA_TIMING_LOG=1 <run the computer-use path>
+SAINT_CUA_TIMING_LOG=1 <run the computer-use path>
 
 # Then one variable at a time, e.g.
-SYNARA_CUA_TIMING_LOG=1 SYNARA_CUA_ACTION_SETTLE_MS=150 <same run>
-SYNARA_CUA_TIMING_LOG=1 SYNARA_CUA_CONDITIONAL_SETTLE=1 <same run>
+SAINT_CUA_TIMING_LOG=1 SAINT_CUA_ACTION_SETTLE_MS=150 <same run>
+SAINT_CUA_TIMING_LOG=1 SAINT_CUA_CONDITIONAL_SETTLE=1 <same run>
 ```
 
 The `[computer-timing]` line splits each call into `resolve_ms`,
 `dispatch_ms`, `settle_ms`, `observe_ms`, and the native legs beneath them,
 so a flag's effect is readable per operation rather than only end-to-end.
 Cold start (spawn + handshake + session) is a separate row from warm turns —
-`SYNARA_CUA_WARM_ON_FIRST_TOUCH` moves that cost to the first touch; it does
+`SAINT_CUA_WARM_ON_FIRST_TOUCH` moves that cost to the first touch; it does
 not remove it.
 
 ## Landed versus still open

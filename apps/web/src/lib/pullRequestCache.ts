@@ -7,7 +7,7 @@ import type {
   PullRequestProjectContext,
   PullRequestSetPinnedInput,
   PullRequestState,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   coalescePullRequestListEntries,
   pullRequestListEntryHasProject,
@@ -15,7 +15,7 @@ import {
   pullRequestListProjectPin,
   pullRequestListRepositoryIdentity,
   updatePullRequestListEntryProjectPin,
-} from "@synara/shared/githubRepository";
+} from "@saint/shared/githubRepository";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 
 import { GITHUB_INBOX_STATES } from "./githubInboxQueryOptions";

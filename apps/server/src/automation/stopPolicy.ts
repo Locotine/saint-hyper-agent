@@ -1,4 +1,4 @@
-import { DEFAULT_AUTOMATION_STOP_AFTER_CONSECUTIVE_FAILURES } from "@synara/contracts";
+import { DEFAULT_AUTOMATION_STOP_AFTER_CONSECUTIVE_FAILURES } from "@saint/contracts";
 
 export function resolveAutomationStopPolicy(
   input: {

@@ -8,7 +8,7 @@
 import { parseDiffFromFile } from "@pierre/diffs";
 import type { EditorOptions } from "@pierre/diffs/edit";
 import { File, FileDiff } from "@pierre/diffs/react";
-import { normalizeLineEndings } from "@synara/shared/text";
+import { normalizeLineEndings } from "@saint/shared/text";
 import { useMemo, useRef, useState, type RefObject } from "react";
 
 import { buildDiffPanelUnsafeCSS, resolveDiffThemeName } from "~/lib/diffRendering";

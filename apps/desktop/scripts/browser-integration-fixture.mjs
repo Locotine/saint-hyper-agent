@@ -1,14 +1,14 @@
 import { createServer } from "node:http";
 
 const shell = (body) =>
-  `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Synara browser fixture</title><style>body{max-width:640px;margin:48px auto;padding:0 24px;font:16px system-ui;color:#202020;background:#fff}label{display:block;margin:16px 0}input,button{font:inherit;padding:10px}input:not([type=file]){display:block;width:min(100%,320px);box-sizing:border-box}button{cursor:pointer}a{display:inline-block;margin:16px 16px 16px 0}h1{font-size:28px}</style>${body}</html>`;
+  `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Saint browser fixture</title><style>body{max-width:640px;margin:48px auto;padding:0 24px;font:16px system-ui;color:#202020;background:#fff}label{display:block;margin:16px 0}input,button{font:inherit;padding:10px}input:not([type=file]){display:block;width:min(100%,320px);box-sizing:border-box}button{cursor:pointer}a{display:inline-block;margin:16px 16px 16px 0}h1{font-size:28px}</style>${body}</html>`;
 const login = shell(
   `<h1>Fixture sign-in</h1><form action="/signin" method="post"><label>Username<input name="username" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button>Sign in</button></form><a href="/info" target="_blank">Open another tab</a>`,
 );
 const signup = shell(
   `<h1>Fixture signup</h1><form action="/signup" method="post"><label>Username<input name="username" autocomplete="username" required></label><label>New password<input name="password" type="password" autocomplete="new-password" required></label><label>Confirm password<input name="confirm" type="password" autocomplete="new-password" required></label><button>Create account</button></form>`,
 );
-const accounts = new Map([["fixture-user", "SynaraFixtureOnly42!"]]);
+const accounts = new Map([["fixture-user", "SaintFixtureOnly42!"]]);
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://fixture.test");
   response.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -16,7 +16,7 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/session-rotate") {
     response.setHeader(
       "Set-Cookie",
-      "synara_synthetic_import=synthetic-session-only; Path=/; HttpOnly; SameSite=Lax",
+      "saint_synthetic_import=synthetic-session-only; Path=/; HttpOnly; SameSite=Lax",
     );
     response.end(shell("<h1>Synthetic session rotated</h1>"));
     return;
@@ -24,7 +24,7 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/session-logout") {
     response.setHeader(
       "Set-Cookie",
-      "synara_synthetic_import=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+      "saint_synthetic_import=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
     );
     response.end(shell("<h1>Synthetic session logged out</h1>"));
     return;
@@ -32,7 +32,7 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/session-check") {
     const present = request.headers.cookie
       ?.split(";")
-      .some((part) => part.trim() === "synara_synthetic_import=synthetic-session-only");
+      .some((part) => part.trim() === "saint_synthetic_import=synthetic-session-only");
     response.end(
       shell(`<h1>${present ? "Session continuity verified" : "Session continuity absent"}</h1>`),
     );
@@ -41,7 +41,7 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/cookie-check") {
     const imported = request.headers.cookie
       ?.split(";")
-      .some((part) => part.trim() === "synara_synthetic_import=synthetic-only");
+      .some((part) => part.trim() === "saint_synthetic_import=synthetic-only");
     response.end(
       shell(`<h1>${imported ? "Synthetic import verified" : "Synthetic import missing"}</h1>`),
     );
@@ -67,7 +67,7 @@ const server = createServer(async (request, response) => {
       response
         .writeHead(303, {
           Location: "/account",
-          "Set-Cookie": "synara_fixture=accepted; Path=/; HttpOnly; SameSite=Lax",
+          "Set-Cookie": "saint_fixture=accepted; Path=/; HttpOnly; SameSite=Lax",
         })
         .end();
       return;
@@ -90,7 +90,7 @@ const server = createServer(async (request, response) => {
       response
         .writeHead(303, {
           Location: "/account",
-          "Set-Cookie": "synara_fixture=accepted; Path=/; HttpOnly; SameSite=Lax",
+          "Set-Cookie": "saint_fixture=accepted; Path=/; HttpOnly; SameSite=Lax",
         })
         .end();
       return;
@@ -99,7 +99,7 @@ const server = createServer(async (request, response) => {
       response
         .writeHead(303, {
           Location: "/",
-          "Set-Cookie": "synara_fixture=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+          "Set-Cookie": "saint_fixture=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
         })
         .end();
       return;
@@ -114,7 +114,7 @@ const server = createServer(async (request, response) => {
     }
   }
   if (url.pathname === "/account") {
-    if (!request.headers.cookie?.includes("synara_fixture=accepted")) {
+    if (!request.headers.cookie?.includes("saint_fixture=accepted")) {
       response.writeHead(303, { Location: "/" }).end();
       return;
     }
@@ -129,9 +129,9 @@ const server = createServer(async (request, response) => {
     response
       .writeHead(200, {
         "Content-Type": "text/plain",
-        "Content-Disposition": 'attachment; filename="synara-fixture.txt"',
+        "Content-Disposition": 'attachment; filename="saint-fixture.txt"',
       })
-      .end("Synthetic Synara browser fixture.\n");
+      .end("Synthetic Saint browser fixture.\n");
     return;
   }
   response.end(
@@ -142,7 +142,7 @@ const server = createServer(async (request, response) => {
         : login,
   );
 });
-server.listen(Number(process.env.SYNARA_FIXTURE_PORT ?? 0), "127.0.0.1", () => {
+server.listen(Number(process.env.SAINT_FIXTURE_PORT ?? 0), "127.0.0.1", () => {
   const address = server.address();
   if (address && typeof address !== "string") console.log(`http://127.0.0.1:${address.port}`);
 });

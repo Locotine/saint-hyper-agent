@@ -16,11 +16,11 @@ import {
 describe("canary tooling", () => {
   it("keeps managed source and Canary data separate from Stable", () => {
     expect(resolveCanaryPaths({}, "/Users/tester")).toEqual({
-      home: "/Users/tester/.synara-canary",
-      source: "/Users/tester/.cache/synara-canary/source",
-      state: "/Users/tester/.synara-canary/canary-state.json",
-      pid: "/Users/tester/.synara-canary/canary.pid",
-      log: "/Users/tester/.synara-canary/canary.log",
+      home: "/Users/tester/.saint-canary",
+      source: "/Users/tester/.cache/saint-canary/source",
+      state: "/Users/tester/.saint-canary/canary-state.json",
+      pid: "/Users/tester/.saint-canary/canary.pid",
+      log: "/Users/tester/.saint-canary/canary.log",
     });
   });
 
@@ -28,8 +28,8 @@ describe("canary tooling", () => {
     expect(
       resolveCanaryPaths(
         {
-          SYNARA_CANARY_HOME: "/tmp/canary-data",
-          SYNARA_CANARY_SOURCE: "/tmp/canary-source",
+          SAINT_CANARY_HOME: "/tmp/canary-data",
+          SAINT_CANARY_SOURCE: "/tmp/canary-source",
         },
         "/Users/tester",
       ),
@@ -44,32 +44,32 @@ describe("canary tooling", () => {
 
   it("tracks main by default and accepts a stacked PR ref", () => {
     expect(parseCanaryArgs(["update"])).toEqual({ command: "update", ref: null });
-    expect(parseCanaryArgs(["setup", "--ref", "codex/synara-canary"])).toEqual({
+    expect(parseCanaryArgs(["setup", "--ref", "codex/saint-canary"])).toEqual({
       command: "setup",
-      ref: "codex/synara-canary",
+      ref: "codex/saint-canary",
     });
   });
 
   it("checks out the managed source during clone so the cleanliness guard starts clean", () => {
-    expect(canaryCloneArgs("git@example.com:synara.git", "/tmp/canary-source")).toEqual([
+    expect(canaryCloneArgs("git@example.com:saint.git", "/tmp/canary-source")).toEqual([
       "clone",
       "--",
-      "git@example.com:synara.git",
+      "git@example.com:saint.git",
       "/tmp/canary-source",
     ]);
   });
 
   it("keeps updating the selected stacked ref until explicitly moved to main", () => {
     expect(resolveCanaryRef(parseCanaryArgs(["setup"]), null)).toBe("main");
-    expect(resolveCanaryRef(parseCanaryArgs(["update"]), "codex/synara-canary")).toBe(
-      "codex/synara-canary",
+    expect(resolveCanaryRef(parseCanaryArgs(["update"]), "codex/saint-canary")).toBe(
+      "codex/saint-canary",
     );
     expect(resolveCanaryRef(parseCanaryArgs(["update", "--ref", "main"]), "old-ref")).toBe("main");
   });
 
   it("matches only the Canary app's main process in its managed checkout", () => {
-    const source = "/Users/tester/.cache/synara-canary/source";
-    const app = `${source}/apps/desktop/.electron-runtime/Synara Canary.app/Contents/MacOS/Electron`;
+    const source = "/Users/tester/.cache/saint-canary/source";
+    const app = `${source}/apps/desktop/.electron-runtime/Saint Canary.app/Contents/MacOS/Electron`;
     const pattern = new RegExp(canaryAppCommandPattern(source), "u");
     expect(pattern.test(`${app} ${source}/apps/desktop/dist-electron/main.js`)).toBe(true);
     // The app stops its own backend; another checkout's app is not Canary.
@@ -78,7 +78,7 @@ describe("canary tooling", () => {
     ).toBe(false);
     expect(
       pattern.test(
-        "/Users/tester/synara/apps/desktop/.electron-runtime/Synara (Dev).app/Contents/MacOS/Electron /Users/tester/synara/apps/desktop/dist-electron/main.js",
+        "/Users/tester/saint/apps/desktop/.electron-runtime/Saint (Dev).app/Contents/MacOS/Electron /Users/tester/saint/apps/desktop/dist-electron/main.js",
       ),
     ).toBe(false);
   });
@@ -86,7 +86,7 @@ describe("canary tooling", () => {
   it.runIf(process.platform === "darwin")(
     "stops the app that LaunchServices started, even after its launcher is gone",
     async () => {
-      const root = FS.realpathSync(FS.mkdtempSync(Path.join(OS.tmpdir(), "synara-canary-stop-")));
+      const root = FS.realpathSync(FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-canary-stop-")));
       // A configured source may be a symlink and contain spaces or regex characters.
       const source = Path.join(root, "a (b)+[c]{d}|$^.*?\\");
       const desktop = Path.join(source, "apps/desktop");
@@ -95,12 +95,12 @@ describe("canary tooling", () => {
       FS.writeFileSync(main, "setTimeout(() => {}, 60_000);\n");
       FS.symlinkSync(source, Path.join(root, "link"));
       const paths = resolveCanaryPaths({
-        SYNARA_CANARY_HOME: Path.join(root, "home"),
-        SYNARA_CANARY_SOURCE: Path.join(root, "link"),
+        SAINT_CANARY_HOME: Path.join(root, "home"),
+        SAINT_CANARY_SOURCE: Path.join(root, "link"),
       });
       // The launcher opens the app by its real path, and the app outlives the launcher.
       const app = spawn(process.execPath, [main], {
-        argv0: Path.join(desktop, ".electron-runtime/Synara Canary.app/Contents/MacOS/Electron"),
+        argv0: Path.join(desktop, ".electron-runtime/Saint Canary.app/Contents/MacOS/Electron"),
         stdio: "ignore",
       });
       try {

@@ -1,12 +1,12 @@
 import * as Crypto from "node:crypto";
 
-import type { WsRpcError } from "@synara/contracts";
+import type { WsRpcError } from "@saint/contracts";
 import {
   classifyWsRequest,
   makeWsRequestCapacityError,
   WS_REQUEST_CLASS_LIMITS,
   type WsRequestClass,
-} from "@synara/shared/wsRequestClass";
+} from "@saint/shared/wsRequestClass";
 import { Effect, Ref } from "effect";
 
 export interface WsRequestLease {

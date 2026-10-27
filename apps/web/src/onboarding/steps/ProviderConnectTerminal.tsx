@@ -4,7 +4,7 @@
 //          and disposes every session on unmount.
 // Layer: Web UI component
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderKind } from "@saint/contracts";
 import { useEffect, useRef } from "react";
 
 import ThreadTerminalDrawer from "~/components/ThreadTerminalDrawer";

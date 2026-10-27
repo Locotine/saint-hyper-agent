@@ -85,7 +85,7 @@ it("provides a document.modelContext compatibility bridge before native WebMCP e
 
   const bridge = (
     globalThis as typeof globalThis & {
-      readonly __synaraWebMcpBridgeV1: {
+      readonly __saintWebMcpBridgeV1: {
         readonly list: () => Promise<{
           readonly implementation: string;
           readonly tools: ReadonlyArray<{
@@ -103,7 +103,7 @@ it("provides a document.modelContext compatibility bridge before native WebMCP e
         ) => Promise<unknown>;
       };
     }
-  ).__synaraWebMcpBridgeV1;
+  ).__saintWebMcpBridgeV1;
   const listed = await bridge.list();
 
   expect(listed.implementation).toBe("compatibility");

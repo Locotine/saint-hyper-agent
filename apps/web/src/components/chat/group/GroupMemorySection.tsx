@@ -2,7 +2,7 @@ import {
   MEMORY_AUTO_DOCUMENT_PATH,
   MEMORY_DOCUMENT_PREFIX,
   MEMORY_THREAD_DOCUMENT_PREFIX,
-} from "@synara/shared/projectAgent";
+} from "@saint/shared/projectAgent";
 import { useEffect, useState } from "react";
 
 import ChatMarkdown from "~/components/ChatMarkdown";

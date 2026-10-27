@@ -63,6 +63,7 @@ export const ORCHESTRATION_WS_METHODS = {
   getTurnDiff: "orchestration.getTurnDiff",
   getFullThreadDiff: "orchestration.getFullThreadDiff",
   getInlineVisual: "orchestration.getInlineVisual",
+  getThreadTranscript: "orchestration.getThreadTranscript",
   replayEvents: "orchestration.replayEvents",
   listProviderDeliveryBlockers: "orchestration.listProviderDeliveryBlockers",
   reconcileProviderDelivery: "orchestration.reconcileProviderDelivery",
@@ -513,7 +514,7 @@ export const TurnDispatchMode = Schema.Literals(["queue", "steer"]);
 export type TurnDispatchMode = typeof TurnDispatchMode.Type;
 export const DEFAULT_TURN_DISPATCH_MODE: TurnDispatchMode = "queue";
 // Marks who dispatched a user turn: a person typing, an automation run, or
-// another agent through the Synara agent gateway (MCP tools).
+// another agent through the Saint agent gateway (MCP tools).
 // Absent is treated as "user"; only server-dispatched turns carry the flag.
 export const MessageDispatchOrigin = Schema.Literals(["user", "automation", "agent"]);
 export type MessageDispatchOrigin = typeof MessageDispatchOrigin.Type;
@@ -521,7 +522,7 @@ export type MessageDispatchOrigin = typeof MessageDispatchOrigin.Type;
 // create. Dedicated automations' own threads stay unmarked: they are persistent
 // conversations the user keeps, not run artifacts.
 export const ThreadCreationSource = Schema.Literals([
-  "synara_mcp",
+  "saint_mcp",
   "external_mcp",
   "provider_native",
   "automation_run",
@@ -2952,6 +2953,18 @@ export type OrchestrationRepairStateInput = typeof OrchestrationRepairStateInput
 const OrchestrationRepairStateResult = OrchestrationReadModel;
 export type OrchestrationRepairStateResult = typeof OrchestrationRepairStateResult.Type;
 
+export const OrchestrationGetThreadTranscriptInput = Schema.Struct({ threadId: ThreadId });
+export type OrchestrationGetThreadTranscriptInput =
+  typeof OrchestrationGetThreadTranscriptInput.Type;
+
+/** Where the thread's current provider session keeps its native transcript, when known. */
+export const OrchestrationGetThreadTranscriptResult = Schema.Struct({
+  provider: Schema.NullOr(Schema.String),
+  transcriptPath: Schema.NullOr(Schema.String),
+});
+export type OrchestrationGetThreadTranscriptResult =
+  typeof OrchestrationGetThreadTranscriptResult.Type;
+
 export const OrchestrationGetTurnDiffInput = TurnCountRange.mapFields(
   Struct.assign({
     threadId: ThreadId,
@@ -3214,6 +3227,10 @@ export const OrchestrationRpcSchemas = {
   getInlineVisual: {
     input: OrchestrationGetInlineVisualInput,
     output: OrchestrationGetInlineVisualResult,
+  },
+  getThreadTranscript: {
+    input: OrchestrationGetThreadTranscriptInput,
+    output: OrchestrationGetThreadTranscriptResult,
   },
   replayEvents: {
     input: OrchestrationReplayEventsInput,

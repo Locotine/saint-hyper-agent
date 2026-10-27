@@ -22,7 +22,7 @@ import {
   ModelSelection,
   ProviderStartOptions,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, Option, Schema } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";

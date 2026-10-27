@@ -4,9 +4,9 @@ import {
   listCookieSourceProfiles,
   NetworkPolicy,
 } from "betterwright";
-import type { BrowserCookieImportInput, BrowserCookieImportResult } from "@synara/contracts";
+import type { BrowserCookieImportInput, BrowserCookieImportResult } from "@saint/contracts";
 import type { DesktopBrowserManager } from "../browserManager";
-import { synaraHostTarget } from "./betterwrightHostTarget";
+import { saintHostTarget } from "./betterwrightHostTarget";
 
 const SOURCES = new Set(["chrome", "safari", "edge"]);
 
@@ -68,7 +68,7 @@ export class BrowserCookieImport {
       // no signal, so mid-sync cancellation works by revoking the transport
       // (stop() below), not through this controller.
       const interrupt = new AbortController();
-      const hostTarget = synaraHostTarget(runtime.webContents, {
+      const hostTarget = saintHostTarget(runtime.webContents, {
         cookieImport: true,
         signal: interrupt.signal,
       });

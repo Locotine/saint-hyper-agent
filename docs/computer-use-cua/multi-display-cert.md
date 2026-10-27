@@ -1,6 +1,6 @@
 # Multi-display certification
 
-Synara computer use targets **windows**, and window bounds live in the
+Saint computer use targets **windows**, and window bounds live in the
 desktop-global logical coordinate space — a display arranged left or above the
 main display gives its windows negative `x`/`y`. Every action the agent takes
 is either window-scoped (exact `element_token` / `window_id` addressing) or
@@ -45,7 +45,7 @@ sh scripts/computer-use-fixtures/build-display-ctl.sh
 sh scripts/computer-use-fixtures/build-focus-probe.sh
 ```
 
-Both binaries land in `/private/tmp/synara-cua-implementation/` alongside the
+Both binaries land in `/private/tmp/saint-cua-implementation/` alongside the
 compiled `native-fixture` targets, which the harness builds on demand with
 `swiftc`.
 
@@ -57,7 +57,7 @@ bun scripts/computer-use-fixtures/multi-display-cert.ts \
   --driver apps/desktop/resources/cua-driver/cua-driver
 
 # Or attach to an already-trusted driver host (env vars work too:
-# SYNARA_CUA_CERT_ENDPOINT / SYNARA_CUA_CERT_CAPABILITY):
+# SAINT_CUA_CERT_ENDPOINT / SAINT_CUA_CERT_CAPABILITY):
 bun scripts/computer-use-fixtures/multi-display-cert.ts \
   --endpoint /path/to/host.sock --capability <token>
 
@@ -74,9 +74,9 @@ Full option list (`--help`): `--driver`, `--endpoint`, `--capability`,
 `--targets fixture|textedit`, `--interactive`, `--report <path>`,
 `--keep-targets`, `--display-ctl <path>`, `--focus-probe <path>` /
 `--no-focus-probe`, `--fixture <path>`, `--max-displays <n>` (default 4).
-Environment fallbacks: `SYNARA_CUA_DRIVER`, `SYNARA_CUA_CERT_ENDPOINT`,
-`SYNARA_CUA_CERT_CAPABILITY`, `SYNARA_CUA_DISPLAY_CTL`,
-`SYNARA_CUA_NATIVE_FIXTURE`.
+Environment fallbacks: `SAINT_CUA_DRIVER`, `SAINT_CUA_CERT_ENDPOINT`,
+`SAINT_CUA_CERT_CAPABILITY`, `SAINT_CUA_DISPLAY_CTL`,
+`SAINT_CUA_NATIVE_FIXTURE`.
 
 Exit codes:
 
@@ -179,7 +179,7 @@ two-display Mac:
 ## Report shape
 
 `--report` (default
-`/private/tmp/synara-cua-implementation/multi-display-cert-<timestamp>.json`)
+`/private/tmp/saint-cua-implementation/multi-display-cert-<timestamp>.json`)
 writes:
 
 | Field            | Contents                                                                                                                         |

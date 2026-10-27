@@ -79,9 +79,9 @@ describe("connector names", () => {
     expect(mcpConnectorServerName("acme_docs")).toBe("acme_docs_connector");
   });
 
-  it("never yields a name that passes for Synara's own server", () => {
-    expect(mcpConnectorSlug("Synara")).toBe("custom_synara");
-    expect(mcpConnectorSlug("synara tools").startsWith("synara")).toBe(false);
+  it("never yields a name that passes for Saint's own server", () => {
+    expect(mcpConnectorSlug("Saint")).toBe("custom_saint");
+    expect(mcpConnectorSlug("saint tools").startsWith("saint")).toBe(false);
   });
 });
 

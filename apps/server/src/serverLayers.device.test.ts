@@ -9,7 +9,7 @@ import {
   ThreadId,
   TurnId,
   DEFAULT_PROVIDER_INTERACTION_MODE,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { DeviceManager } from "./device/DeviceManager";
 import { FakeDeviceBackend } from "./device/FakeDeviceBackend";
@@ -97,7 +97,7 @@ describe("production simulator lifecycle composition", () => {
   it("delivers terminal events to the same device manager the server exposes", async () => {
     const before = liveDevices.created.length;
     const config = ServerConfig.layerTest(process.cwd(), {
-      prefix: "synara-device-lifecycle-wiring-",
+      prefix: "saint-device-lifecycle-wiring-",
     }).pipe(Layer.provide(NodeServices.layer));
     const production = Layer.empty.pipe(
       Layer.provideMerge(makeServerRuntimeServicesLayer()),

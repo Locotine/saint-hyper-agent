@@ -17,5 +17,5 @@ export interface DevinAdapterShape extends ProviderAdapterShape<ProviderAdapterE
 }
 
 export class DevinAdapter extends ServiceMap.Service<DevinAdapter, DevinAdapterShape>()(
-  "synara/provider/Services/DevinAdapter",
+  "saint/provider/Services/DevinAdapter",
 ) {}

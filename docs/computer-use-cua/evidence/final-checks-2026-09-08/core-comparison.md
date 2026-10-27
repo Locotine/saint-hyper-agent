@@ -6,7 +6,7 @@ Compared the integrated worktree with the frozen refreshed PR822 (`bf70dfd0e7ee1
 
 ## Selected improvements present
 
-Paths below are relative to `/Users/emanueledipietro/.codex/worktrees/702b/synara`; line anchors were refreshed after the current formatting pass.
+Paths below are relative to `/Users/emanueledipietro/.codex/worktrees/702b/saint`; line anchors were refreshed after the current formatting pass.
 
 | Area                         | Current evidence and integration decision                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -23,11 +23,11 @@ Paths below are relative to `/Users/emanueledipietro/.codex/worktrees/702b/synar
 
 Before the fix, `wsComputerHandlers.attempt` discarded `Effect.tryPromise`'s AbortSignal, and the desktop queue did not inherit the caller's live signal. A human pane click/key queued behind another operation could dispatch after its RPC was interrupted. This weakness existed in the refreshed upstream path as well; it was not introduced by the selected imports.
 
-The independent actual-source/FakeComputerBackend reproduction recorded zero inputs before interruption and **one input after queue drain**, for both pane key and click. Re-running the same script after the fix recorded **zero inputs after queue drain in both cases**. Evidence with source hashes: `/private/tmp/synara-socket-cancel-repro/result-before.json` and `/private/tmp/synara-socket-cancel-repro/result-after.json`.
+The independent actual-source/FakeComputerBackend reproduction recorded zero inputs before interruption and **one input after queue drain**, for both pane key and click. Re-running the same script after the fix recorded **zero inputs after queue drain in both cases**. Evidence with source hashes: `/private/tmp/saint-socket-cancel-repro/result-before.json` and `/private/tmp/saint-socket-cancel-repro/result-after.json`.
 
 The fixed `apps/server/src/computer/wsComputerHandlers.ts:63` binds the RPC signal through the desktop scope. `DesktopOperationQueue.ts:56,80` composes inherited live, explicit admission and shutdown signals, including explicit reentrant cancellation, while retaining the lane until the underlying native promise and cleanup settle. Root also added the expired-scope admission guard at `ComputerManager.ts:959`, so detached pane targeting cannot acquire a fresh transaction after its original call completes. Read-only/cosmetic work can still shed an expired turn signal, and `withoutDesktopCancellation` remains available for intentional release cleanup.
 
-**23 focused tests passed** across `wsComputerHandlers.test.ts` and `DesktopOperationQueue.test.ts`: queued click/scroll/key interruption; active cancellation reaching backend work; cleanup retaining the lane; detached pane refusal; inherited and explicit cancellation composition; and nested-scope restoration. Log: `/private/tmp/synara-final-checks/pane-cancellation-tests.log`. These tests use a fake backend and send no OS input. Root owns the subsequent full verification pass.
+**23 focused tests passed** across `wsComputerHandlers.test.ts` and `DesktopOperationQueue.test.ts`: queued click/scroll/key interruption; active cancellation reaching backend work; cleanup retaining the lane; detached pane refusal; inherited and explicit cancellation composition; and nested-scope restoration. Log: `/private/tmp/saint-final-checks/pane-cancellation-tests.log`. These tests use a fake backend and send no OS input. Root owns the subsequent full verification pass.
 
 ## Safeguards retained and scope limits
 
@@ -36,4 +36,4 @@ The fixed `apps/server/src/computer/wsComputerHandlers.ts:63` binds the RPC sign
 - Connection-owned event interests are removed on socket close and cannot be registered late. Provider image stripping leaves model-delivery objects intact. Existing bounded Codex native callback ingress and SDK-owned retention are separate from canonical diagnostic retention.
 - Broader Swift-native capture, accessibility and input capabilities are adapter work, not a missing manager/schema flag. Native runtime qualification and equivalent-workload RSS measurements belong to the separate native/performance verification. Prior functional/helper tests were inspected; only the new handler/queue regression suite was rerun in this pass.
 
-Independent supporting audit: `/private/tmp/synara-final-checks/retention-socket-audit.md` (its actionable section intentionally describes the reproduced pre-fix source).
+Independent supporting audit: `/private/tmp/saint-final-checks/retention-socket-audit.md` (its actionable section intentionally describes the reproduced pre-fix source).

@@ -2,9 +2,9 @@ import path from "node:path";
 import { realpath } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type { ChildProcess } from "node:child_process";
-import { spawnProcess } from "@synara/shared/processRuntime";
-import { resolveExecutable } from "@synara/shared/executable";
-import { isPathInside } from "@synara/shared/pathContainment";
+import { spawnProcess } from "@saint/shared/processRuntime";
+import { resolveExecutable } from "@saint/shared/executable";
+import { isPathInside } from "@saint/shared/pathContainment";
 import type {
   EditorDebugActionInput,
   EditorDebugActionResult,
@@ -12,10 +12,10 @@ import type {
   EditorDebugEvent,
   EditorDebugSnapshot,
   EditorDebugStartInput,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { createProtocolProcessTeardown } from "../platform/protocolProcessTeardown";
 import {
-  stripSynaraControlPlaneEnvironment,
+  stripSaintControlPlaneEnvironment,
   withoutProviderCredentialEnvironment,
 } from "../providerChildEnvironment";
 import {
@@ -213,11 +213,11 @@ export class EditorDebugService {
       );
     });
     if (signal?.aborted || this.disposed) throw new Error("Debug launch was cancelled.");
-    // The adapter and debuggee get the user's environment, never Synara's authority or
+    // The adapter and debuggee get the user's environment, never Saint's authority or
     // provider credentials. Packaged desktop reuses Electron's executable, so Node mode is
     // set explicitly rather than inherited.
     const env = withoutProviderCredentialEnvironment(
-      stripSynaraControlPlaneEnvironment(process.env),
+      stripSaintControlPlaneEnvironment(process.env),
     );
     if (process.versions.electron) env.ELECTRON_RUN_AS_NODE = "1";
     const node = process.versions.bun ? resolveExecutable("node", { cwd, env }) : process.execPath;
@@ -398,7 +398,7 @@ export class EditorDebugService {
     };
     dap.onRequest = async (command, args) => {
       if (command !== "startDebugging")
-        throw new Error(`Synara does not support the adapter's ${command} request.`);
+        throw new Error(`Saint does not support the adapter's ${command} request.`);
       const config = dapObject(args.configuration);
       if (
         typeof config.__pendingTargetId !== "string" ||
@@ -421,8 +421,8 @@ export class EditorDebugService {
       return {};
     };
     await dap.request("initialize", {
-      clientID: "synara",
-      clientName: "Synara",
+      clientID: "saint",
+      clientName: "Saint",
       adapterID: "pwa-node",
       locale: "en",
       linesStartAt1: true,

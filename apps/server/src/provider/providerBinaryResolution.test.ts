@@ -19,7 +19,7 @@ describe("commandExistsOnPath", () => {
   it.skipIf(process.platform === "win32")(
     "rejects non-executable files and directories in PATH",
     () => {
-      const home = mkdtempSync(join(tmpdir(), "synara-provider-cli-"));
+      const home = mkdtempSync(join(tmpdir(), "saint-provider-cli-"));
       const commandPath = join(home, "codex");
       const options = { platform: "linux" as const, env: { PATH: home } };
       try {
@@ -87,7 +87,7 @@ describe("openCodeBinarySearchDirectories", () => {
     ["Library", "Application Support", "fnm", "node-versions", "v24.13.1", "installation", "bin"],
     [".local", "share", "fnm", "node-versions", "v24.13.1", "installation", "bin"],
   ])("discovers a new version-manager install after an earlier lookup (%j)", (...segments) => {
-    const home = mkdtempSync(join(tmpdir(), "synara-opencode-refresh-"));
+    const home = mkdtempSync(join(tmpdir(), "saint-opencode-refresh-"));
     const env = { HOME: home, PATH: "/usr/bin:/bin" };
     const binDirectory = join(home, ...segments);
     try {

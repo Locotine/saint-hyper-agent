@@ -5,8 +5,8 @@ import {
   type DeviceDescriptor,
   type DeviceUdid,
   type ThreadDeviceState,
-} from "@synara/contracts";
-import type { DeviceFrame } from "@synara/shared/deviceFrame";
+} from "@saint/contracts";
+import type { DeviceFrame } from "@saint/shared/deviceFrame";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
@@ -41,7 +41,7 @@ const devices: DeviceDescriptor[] = [SLIM, SLIM_2].map((udid, index) => ({
   name: index === 0 ? "iOS 27 Slim" : "iOS 27 Slim 2",
   runtime: "iOS 27.0",
   state: "booted",
-  bootSource: index === 0 ? "user" : "synara",
+  bootSource: index === 0 ? "user" : "saint",
   geometry: { pointWidth: 402, pointHeight: 874, scale: 3 },
 }));
 

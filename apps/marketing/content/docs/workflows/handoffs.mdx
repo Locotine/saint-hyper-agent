@@ -1,9 +1,9 @@
 ---
 title: Provider handoffs
-description: Continue the same Synara task and working environment with another provider.
+description: Continue the same Saint task and working environment with another provider.
 ---
 
-A provider handoff changes which provider continues one Synara task. Use it when the objective and environment should remain the same but another runtime is better suited to the next phase or useful as an independent second opinion.
+A provider handoff changes which provider continues one Saint task. Use it when the objective and environment should remain the same but another runtime is better suited to the next phase or useful as an independent second opinion.
 
 ## Handoff or new task
 
@@ -79,22 +79,22 @@ Tell the receiving provider whether it should investigate, review, continue impl
 </Step>
 </Steps>
 
-## What Synara preserves
+## What Saint preserves
 
 The task remains associated with:
 
 - Its project
 - Local checkout or managed worktree
 - Branch and file changes
-- Synara transcript and task metadata
+- Saint transcript and task metadata
 - Prior tool activity and user decisions available in task context
 - Git and terminal surfaces belonging to the task
 
-Synara supplies a bounded recap for continuation. The receiving provider should still inspect the actual repository state rather than trusting a summary alone.
+Saint supplies a bounded recap for continuation. The receiving provider should still inspect the actual repository state rather than trusting a summary alone.
 
 ## What does not transfer
 
-Provider-native state does not become portable merely because the Synara task continues.
+Provider-native state does not become portable merely because the Saint task continues.
 
 The receiving provider does not inherit another provider’s:
 
@@ -179,7 +179,7 @@ Separate or revert them. The handoff does not expand the original ownership boun
 - [ ] Only reviewed combined changes are committed
 
 <Callout type="warn" title="A handoff changes the worker, not the owner">
-  The Synara task still owns one body of work. Create a separate task and worktree when both
+  The Saint task still owns one body of work. Create a separate task and worktree when both
   providers should proceed independently.
 </Callout>
 
@@ -187,4 +187,4 @@ Separate or revert them. The handoff does not expand the original ownership boun
 
 Send, **Continue task** and **Implement** use the same provider-handoff path. Saving Auto access mode leaves a pending provider switch to Send. Queued messages follow the chat's current provider and model instead of switching it back; unsupported Auto falls back to Ask for approval. A stored provider change cannot silently terminate background work.
 
-If Codex cannot resume its saved native session, Synara can start fresh and pass the saved conversation context, including a handoff session that never wrote a first rollout. A recovery notice discloses omitted or shortened messages. Review the recovered conversation and workspace before assuming that every detail transferred. Native runtime warnings are visible in chat.
+If Codex cannot resume its saved native session, Saint can start fresh and pass the saved conversation context, including a handoff session that never wrote a first rollout. A recovery notice discloses omitted or shortened messages. Review the recovered conversation and workspace before assuming that every detail transferred. Native runtime warnings are visible in chat.

@@ -18,7 +18,7 @@ import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { CuaDriverHost } from "../../../apps/desktop/src/cuaDriverHost";
 
-const BINARY = "/Users/devin/repos/synara/apps/desktop/resources/cua-driver/cua-driver";
+const BINARY = "/Users/devin/repos/saint/apps/desktop/resources/cua-driver/cua-driver";
 const CAP = "latency-probe-capability-0123456789abcdef";
 const N_COLD = 20;
 const N_WARM = 30;
@@ -85,7 +85,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function makeHost() {
   const host = new CuaDriverHost({
     binaryPath: BINARY,
-    bundleId: "com.synara.latency-probe",
+    bundleId: "com.saint.latency-probe",
     capability: CAP,
     setup: async () => {},
   });

@@ -4,8 +4,8 @@
 // Layer: Web runtime helper (desktop bridge consumer)
 // Exports: getAudioLevelSubscriber, isAudioLevelAvailable
 
-import type { DesktopAudioLevelSource } from "@synara/contracts";
-import { AUDIO_TRAIL_BETA_FEATURE } from "@synara/shared/betaFeatures";
+import type { DesktopAudioLevelSource } from "@saint/contracts";
+import { AUDIO_TRAIL_BETA_FEATURE } from "@saint/shared/betaFeatures";
 import { isBetaFeatureOn } from "~/betaFeatures";
 import { isMacNavigatorPlatform } from "./utils";
 
@@ -53,7 +53,7 @@ function sameRequest(left: AudioLevelRequest | null, right: AudioLevelRequest | 
 }
 
 // The desktop only reads audio while a visible window wants it, so a hidden or
-// minimized Synara releases the audio tap and microphone (and their indicators).
+// minimized Saint releases the audio tap and microphone (and their indicators).
 function syncDesktopSubscription(): void {
   if (!window.desktopBridge?.audioLevel) return;
   const wanted = wantedRequest();

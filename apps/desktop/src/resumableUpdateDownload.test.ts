@@ -167,11 +167,11 @@ describe("buildDownloadHeaders", () => {
 
   it("preserves a caller-provided User-Agent", () => {
     const headers = buildDownloadHeaders({
-      callHeaders: { "User-Agent": "synara/1.0" },
+      callHeaders: { "User-Agent": "saint/1.0" },
       startOffset: 0,
       attachAuth: true,
     });
-    expect(headers["User-Agent"]).toBe("synara/1.0");
+    expect(headers["User-Agent"]).toBe("saint/1.0");
   });
 });
 

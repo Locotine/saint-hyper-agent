@@ -3,7 +3,7 @@ import {
   DEFAULT_PROVIDER_INTERACTION_MODE,
   OrchestrationCommand,
   type OrchestrationReadModel,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 

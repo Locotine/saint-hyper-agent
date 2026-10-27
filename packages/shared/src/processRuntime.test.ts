@@ -67,8 +67,8 @@ describe("processRuntime", () => {
     async (kind) => {
       const command =
         kind === "bare"
-          ? "synara-missing-priority-test-executable"
-          : path.join(os.tmpdir(), "synara-missing-priority-test-executable");
+          ? "saint-missing-priority-test-executable"
+          : path.join(os.tmpdir(), "saint-missing-priority-test-executable");
       const serverPriority = os.getPriority();
       const child = spawnProcess(command, [], {
         lowerPriority: true,
@@ -157,9 +157,9 @@ describe("processRuntime", () => {
     "runs intentional shell snippets with the supplied environment",
     () => {
       expect(
-        execShellCommandSync('printf "%s" "$SYNARA_PROCESS_RUNTIME_TEST"', {
+        execShellCommandSync('printf "%s" "$SAINT_PROCESS_RUNTIME_TEST"', {
           encoding: "utf8",
-          env: { ...process.env, SYNARA_PROCESS_RUNTIME_TEST: "shell-ok" },
+          env: { ...process.env, SAINT_PROCESS_RUNTIME_TEST: "shell-ok" },
         }),
       ).toBe("shell-ok");
     },

@@ -10,7 +10,7 @@
 // workflowElapsedMs, buildWorkflowResumePrompt, and the shared collectTaskSnapshots
 // fold (also read by the Environment panel's subagent roster)
 
-import { ThreadId, type OrchestrationThreadActivity } from "@synara/contracts";
+import { ThreadId, type OrchestrationThreadActivity } from "@saint/contracts";
 
 import { orderedActivities } from "../../session-logic";
 import { formatSubagentModelLabel, type SubagentStatusKind } from "../../lib/subagentPresentation";

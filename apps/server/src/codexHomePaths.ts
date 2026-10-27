@@ -13,8 +13,8 @@ import path from "node:path";
 
 import { expandProviderAccountHomePath } from "./providerAccountHomePath.ts";
 
-export const SYNARA_CODEX_HOME_OVERLAY_DIR = "codex-home-overlay";
-export const SYNARA_CODEX_HOME_ACCOUNT_OVERLAYS_DIR = "accounts";
+export const SAINT_CODEX_HOME_OVERLAY_DIR = "codex-home-overlay";
+export const SAINT_CODEX_HOME_ACCOUNT_OVERLAYS_DIR = "accounts";
 
 export interface CodexHomePathsInput {
   readonly env?: NodeJS.ProcessEnv;
@@ -32,16 +32,16 @@ export function resolveBaseCodexHomePath(
   );
 }
 
-export function resolveSynaraCodexHomeOverlayPath(
+export function resolveSaintCodexHomeOverlayPath(
   env: NodeJS.ProcessEnv,
   sourceHomePath: string,
   accountSegment?: string,
 ): string {
-  const runtimeHome = env.SYNARA_HOME?.trim();
-  const overlayRoot = runtimeHome || path.join(path.dirname(sourceHomePath), ".synara", "runtime");
-  const overlayHome = path.join(overlayRoot, SYNARA_CODEX_HOME_OVERLAY_DIR);
+  const runtimeHome = env.SAINT_HOME?.trim();
+  const overlayRoot = runtimeHome || path.join(path.dirname(sourceHomePath), ".saint", "runtime");
+  const overlayHome = path.join(overlayRoot, SAINT_CODEX_HOME_OVERLAY_DIR);
   return accountSegment
-    ? path.join(overlayHome, SYNARA_CODEX_HOME_ACCOUNT_OVERLAYS_DIR, accountSegment)
+    ? path.join(overlayHome, SAINT_CODEX_HOME_ACCOUNT_OVERLAYS_DIR, accountSegment)
     : overlayHome;
 }
 
@@ -68,13 +68,13 @@ export function resolveCodexHomeOverlayAccountSegment(
 
 /**
  * Returns the home directory that the codex app-server child process actually
- * writes under. Synara keeps its generated config isolated from the user's
+ * writes under. Saint keeps its generated config isolated from the user's
  * source Codex home while linking shared state such as authentication.
  */
 export function resolveActiveCodexHomeWritePath(input: CodexHomePathsInput = {}): string {
   const env = input.env ?? process.env;
   const source = resolveBaseCodexHomePath(env, input.homePath);
-  const overlay = resolveSynaraCodexHomeOverlayPath(
+  const overlay = resolveSaintCodexHomeOverlayPath(
     env,
     source,
     resolveCodexHomeOverlayAccountSegment({
@@ -109,8 +109,8 @@ export function resolveCodexHomeAllowlistCandidates(
     ...(input.accountId ? { accountId: input.accountId } : {}),
     ...(shadow ? { shadowHomePath: shadow } : {}),
   });
-  const overlay = resolveSynaraCodexHomeOverlayPath(env, source, accountSegment);
-  const legacyOverlay = resolveSynaraCodexHomeOverlayPath(env, source);
+  const overlay = resolveSaintCodexHomeOverlayPath(env, source, accountSegment);
+  const legacyOverlay = resolveSaintCodexHomeOverlayPath(env, source);
   const sourceResolved = path.resolve(source);
   const overlayResolved = path.resolve(overlay);
   const candidates = sourceResolved === overlayResolved ? [source] : [source, overlay];

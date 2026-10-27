@@ -13,7 +13,7 @@ import {
   type OrchestrationThreadShell,
   type ProviderSession,
   type ProviderRuntimeEvent,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   Cause,
   Deferred,
@@ -27,7 +27,7 @@ import {
   ServiceMap,
   Stream,
 } from "effect";
-import { makeKeyedDrainableWorker } from "@synara/shared/KeyedDrainableWorker";
+import { makeKeyedDrainableWorker } from "@saint/shared/KeyedDrainableWorker";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import {
   CHECKPOINT_RUNTIME_CONSUMER,
@@ -39,7 +39,7 @@ import { OrchestrationEventStore } from "../../persistence/Services/Orchestratio
 import { OrchestrationEventStoreLive } from "../../persistence/Layers/OrchestrationEventStore.ts";
 import { OrchestrationEventDeliveryRepository } from "../../persistence/Services/OrchestrationEventDeliveries.ts";
 import { OrchestrationEventDeliveryRepositoryLive } from "../../persistence/Layers/OrchestrationEventDeliveries.ts";
-import { isProviderKind } from "@synara/shared/providerInstances";
+import { isProviderKind } from "@saint/shared/providerInstances";
 
 import { parseCheckpointFilesFromUnifiedDiff } from "../../checkpointing/Diffs.ts";
 import {
@@ -86,7 +86,7 @@ class PinnedCheckpointWorkspace extends ServiceMap.Service<
     readonly isGitRepository: boolean;
     readonly identity?: string | undefined;
   }
->()("synara/checkpoint/PinnedWorkspace") {}
+>()("saint/checkpoint/PinnedWorkspace") {}
 
 type ReactorInput =
   | {

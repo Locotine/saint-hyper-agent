@@ -1,4 +1,4 @@
-import { WsRpcError, type OrchestrationEvent } from "@synara/contracts";
+import { WsRpcError, type OrchestrationEvent } from "@saint/contracts";
 import { Deferred, Effect, Exit, Scope, Stream } from "effect";
 
 import { makeFailingLiveUiStream, type BufferLiveUiStreamOptions } from "./wsStreamBackpressure";

@@ -8,8 +8,8 @@ import type {
   OrchestrationThread,
   OrchestrationThreadShell,
   ServerProviderStatus,
-} from "@synara/contracts";
-import { MessageId, ProjectId, TurnId } from "@synara/contracts";
+} from "@saint/contracts";
+import { MessageId, ProjectId, TurnId } from "@saint/contracts";
 import { Effect, Layer, Option, Stream } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { afterEach, describe, expect, it } from "vitest";
@@ -89,7 +89,7 @@ afterEach(() => {
 
 describe("external MCP computer control scope", () => {
   it("requires the computer:control capability and forwards enableComputerControl to the turn", async () => {
-    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-external-cc-"));
+    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-external-cc-"));
     temporaryDirectories.push(baseDir);
     const workspaceRoot = path.join(baseDir, "project");
     const worktreesDir = path.join(baseDir, "worktrees");
@@ -295,19 +295,14 @@ describe("external MCP computer control scope", () => {
           expiresInDays: 30,
         });
         yield* service.pair(plain.pairingCode, "syn_mcp_v1_cc-plain-secret");
-        const denied = yield* callTool(
-          gateway,
-          "syn_mcp_v1_cc-plain-secret",
-          "synara_create_task",
-          {
-            requestId: "cc-denied",
-            projectId: PROJECT_ID,
-            provider: "codex",
-            model: "gpt-5.5",
-            prompt: "denied task",
-            enableComputerControl: true,
-          },
-        );
+        const denied = yield* callTool(gateway, "syn_mcp_v1_cc-plain-secret", "saint_create_task", {
+          requestId: "cc-denied",
+          projectId: PROJECT_ID,
+          provider: "codex",
+          model: "gpt-5.5",
+          prompt: "denied task",
+          enableComputerControl: true,
+        });
         expect(JSON.stringify(denied.body)).toContain("capability_denied");
         expect(JSON.stringify(denied.body)).toContain("computer:control");
         expect(dispatched.filter((c) => c.type === "thread.turn.start")).toHaveLength(0);
@@ -316,7 +311,7 @@ describe("external MCP computer control scope", () => {
         const allowedPlain = yield* callTool(
           gateway,
           "syn_mcp_v1_cc-plain-secret",
-          "synara_create_task",
+          "saint_create_task",
           {
             requestId: "cc-plain",
             projectId: PROJECT_ID,
@@ -350,7 +345,7 @@ describe("external MCP computer control scope", () => {
         const granted = yield* callTool(
           gateway,
           "syn_mcp_v1_cc-scoped-secret",
-          "synara_create_task",
+          "saint_create_task",
           {
             requestId: "cc-granted",
             projectId: PROJECT_ID,

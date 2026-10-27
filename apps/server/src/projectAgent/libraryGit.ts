@@ -1,7 +1,7 @@
 // FILE: libraryGit.ts
 // Purpose: Git operations for the per-group Library — one in-flight queue per
 //          library root serializes init/mutate/push so parallel uploads cannot
-//          interleave add/commit. Commits are authored as the Synara Library
+//          interleave add/commit. Commits are authored as the Saint Library
 //          identity; remote pushes are best-effort, non-interactive, and never
 //          block a write.
 // Layer: Server domain helper
@@ -12,17 +12,17 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { LIBRARY_REMOTE_URL_PATTERN, type LibraryCommit } from "@synara/contracts";
+import { LIBRARY_REMOTE_URL_PATTERN, type LibraryCommit } from "@saint/contracts";
 import { Effect, Semaphore } from "effect";
 
 import { GitCommandError } from "../git/Errors.ts";
 import type { GitCoreShape } from "../git/Services/GitCore.ts";
 
 const LIBRARY_AUTHOR_ENV = {
-  GIT_AUTHOR_NAME: "Synara Library",
-  GIT_AUTHOR_EMAIL: "library@synara.local",
-  GIT_COMMITTER_NAME: "Synara Library",
-  GIT_COMMITTER_EMAIL: "library@synara.local",
+  GIT_AUTHOR_NAME: "Saint Library",
+  GIT_AUTHOR_EMAIL: "library@saint.local",
+  GIT_COMMITTER_NAME: "Saint Library",
+  GIT_COMMITTER_EMAIL: "library@saint.local",
 } satisfies NodeJS.ProcessEnv;
 
 // Literal pathspecs keep names like `*.md` or `:(glob)` from being interpreted;
@@ -382,7 +382,7 @@ interface LibraryPushRecord {
 
 // Durable record of the last push attempt, kept beside the repo metadata so it
 // survives restarts (the library's .git dir is always a real directory here).
-const pushStatusPath = (root: string) => path.join(root, ".git", "synara-push-status.json");
+const pushStatusPath = (root: string) => path.join(root, ".git", "saint-push-status.json");
 
 const readPushRecord = (root: string) =>
   Effect.promise(async (): Promise<LibraryPushRecord | null> => {
@@ -425,7 +425,7 @@ export function readLibraryPushStatus(root: string): Effect.Effect<
   }));
 }
 
-const REMOTE_NAME = "synara-library";
+const REMOTE_NAME = "saint-library";
 
 // Pushes to `libraryRemoteUrl` when `libraryPushOnChange` is set. The remote URL
 // is managed under a fixed name so edits to the URL re-point the same remote.

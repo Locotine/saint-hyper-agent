@@ -1,18 +1,18 @@
 ---
 name: verify
-description: Run an isolated Synara instance and verify UI behavior with real provider sessions.
+description: Run an isolated Saint instance and verify UI behavior with real provider sessions.
 ---
 
-# Verify: run Synara locally for runtime verification
+# Verify: run Saint locally for runtime verification
 
-How to launch an isolated Synara instance (server + web) to observe UI changes, without touching `~/.synara` or the default dev ports.
+How to launch an isolated Saint instance (server + web) to observe UI changes, without touching `~/.saint` or the default dev ports.
 
 ## Launch
 
 ```bash
 # 1. Server (from the directory you want as the workspace/project cwd):
-SYNARA_HOME=<scratch>/synara-home \
-SYNARA_PORT=3899 SYNARA_MODE=web SYNARA_NO_BROWSER=1 \
+SAINT_HOME=<scratch>/saint-home \
+SAINT_PORT=3899 SAINT_MODE=web SAINT_NO_BROWSER=1 \
 VITE_DEV_SERVER_URL=http://localhost:5899 \
 bun <repo>/apps/server/src/index.ts &
 
@@ -25,10 +25,10 @@ Then open http://localhost:5899/.
 ## Gotchas
 
 - Preflight the ports before launching: run `lsof -nP -iTCP:<port> -sTCP:LISTEN` on both the server and web ports (check IPv4 and IPv6 listeners — a `:::port` entry collides even when `127.0.0.1` looks free). If you use `scripts/dev-runner.ts dev`, read its dry-run output for the real port map first.
-- `SYNARA_AUTH_TOKEN` is inherited from the launching shell: a server started with it set requires auth the web client does not have, which produces a healthy-but-disconnected UI. Unset it in the isolated test process only — never strip it from production policy.
+- `SAINT_AUTH_TOKEN` is inherited from the launching shell: a server started with it set requires auth the web client does not have, which produces a healthy-but-disconnected UI. Unset it in the isolated test process only — never strip it from production policy.
 - `VITE_DEV_SERVER_URL` on the **server** is required — without it the WS handshake from the vite origin is rejected with 403 (see `apps/server/src/trustedOrigins.ts`).
 - `VITE_WS_URL` on the **web** side tells the app where the WS server lives (`apps/web/src/wsTransport.ts`).
-- Default ports are 3773 (server) / 5733 (web), with no automatic per-checkout offset. The dev runner uses an explicit `SYNARA_PORT_OFFSET` or derives an offset from `SYNARA_DEV_INSTANCE` when supplied — pick explicit distinct ports and confirm the dry-run output to avoid colliding with a running dev instance.
+- Default ports are 3773 (server) / 5733 (web), with no automatic per-checkout offset. The dev runner uses an explicit `SAINT_PORT_OFFSET` or derives an offset from `SAINT_DEV_INSTANCE` when supplied — pick explicit distinct ports and confirm the dry-run output to avoid colliding with a running dev instance.
 - Add a disposable git workspace through the sidebar's **Projects → Add project**
   button and enter its absolute folder path. If New project in the composer
   picker does not open the dialog, use this sidebar entry point instead.
@@ -95,9 +95,9 @@ createdAt:new Date().toISOString(), envMode:'local'})`.
   sidebarThreadSummaryById, threadsHydrated); `/src/workspacePathsStore.ts`
   (groupsWorkspaceRoot); `/src/lib/groupProjects.ts` (isGroupContainerProject);
   `/src/storeSelectors.ts` (createProjectSelector). Settings live in
-  `localStorage['synara:app-settings:v1']` (e.g. showGroupsSection).
+  `localStorage['saint:app-settings:v1']` (e.g. showGroupsSection).
 - Library panel refresh: the library root is
-  `<SYNARA_HOME>/dev/project-context/<projectId>/library`; `library.list` uses
+  `<SAINT_HOME>/dev/project-context/<projectId>/library`; `library.list` uses
   fs.readdir, so files/dirs created on disk appear without UI actions. Refresh
   is triggered by the window `focus` event — do a real OS-level blur/focus
   (`open -a TextEdit`, then re-activate the specific Chrome window via the

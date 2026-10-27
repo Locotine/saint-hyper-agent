@@ -1,22 +1,22 @@
 // Perf probe: per-stage cost of delivering one thread-detail snapshot (SQL read + decode,
 // RPC stream-item encode, JSON serialization, client parse + decode) against a copy of a
-// real Synara database. Run with:
-//   SYNARA_PERF_DB=/path/to/state.copy.sqlite SYNARA_PERF_THREADS=id1,id2 \
+// real Saint database. Run with:
+//   SAINT_PERF_DB=/path/to/state.copy.sqlite SAINT_PERF_THREADS=id1,id2 \
 //     bunx vitest run perf/threadDetailStages.perf.test.ts
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it } from "@effect/vitest";
 import { Effect, Layer, Option, Schema } from "effect";
 import { describe } from "vitest";
-import { OrchestrationThreadStreamItem, ThreadId } from "@synara/contracts";
+import { OrchestrationThreadStreamItem, ThreadId } from "@saint/contracts";
 
 import { makeSqlitePersistenceLive } from "../src/persistence/Layers/Sqlite.ts";
 import { OrchestrationProjectionSnapshotQueryLive as OrchestrationProjectionSnapshotQueryBase } from "../src/orchestration/Layers/ProjectionSnapshotQuery.ts";
 import { ProjectionSnapshotQuery } from "../src/orchestration/Services/ProjectionSnapshotQuery.ts";
 import { ServerSettingsService } from "../src/serverSettings.ts";
 
-const DB = process.env.SYNARA_PERF_DB;
-const THREADS = (process.env.SYNARA_PERF_THREADS ?? "").split(",").filter(Boolean);
-const SAMPLES = Number(process.env.SYNARA_PERF_SAMPLES ?? 7);
+const DB = process.env.SAINT_PERF_DB;
+const THREADS = (process.env.SAINT_PERF_THREADS ?? "").split(",").filter(Boolean);
+const SAMPLES = Number(process.env.SAINT_PERF_SAMPLES ?? 7);
 
 const median = (values: number[]) => values.toSorted((a, b) => a - b)[values.length >> 1]!;
 

@@ -1,7 +1,7 @@
 import "../../index.css";
 
 import type { LegendListRef } from "@legendapp/list/react";
-import { MessageId, type NativeApi, ThreadId, TurnId } from "@synara/contracts";
+import { MessageId, type NativeApi, ThreadId, TurnId } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useRef } from "react";
 import { userEvent } from "vitest/browser";
@@ -279,7 +279,7 @@ function turnEntries(settled: boolean, placed = true): TimelineEntry[] {
         id: MessageId.makeUnsafe("answer"),
         role: "assistant",
         text: placed
-          ? `${ANSWER_LEAD}\n\n\`\`\`synara-visual\n${TURN_VISUAL.visualId}\n\`\`\`\n\n${ANSWER_TAIL}`
+          ? `${ANSWER_LEAD}\n\n\`\`\`saint-visual\n${TURN_VISUAL.visualId}\n\`\`\`\n\n${ANSWER_TAIL}`
           : ANSWER_LEAD,
         createdAt: at(3),
         streaming: !settled,

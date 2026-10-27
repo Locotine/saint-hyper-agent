@@ -5,13 +5,13 @@ not a release certification. Results belong to the exact application, driver
 revision, platform and provider named in each report; an older passing fixture
 does not qualify the current branch.
 
-The current driver is Cua 0.28.2 with Synara native revision 40. The
+The current driver is Cua 0.28.2 with Saint native revision 40. The
 [release manifest](../../packages/shared/src/cuaDriverRelease.json) is the source
 of truth for source, patch checksum and Rust version. Packaging must verify the
 staged artifact against that manifest. The checked-in
-[patch](../../apps/desktop/patches/cua-driver/0001-synara-native.patch) and
+[patch](../../apps/desktop/patches/cua-driver/0001-saint-native.patch) and
 [upstream license](CUA-LICENSE.txt) preserve provenance. The separate
-[Linux browser patch](../../apps/desktop/patches/cua-driver/0002-synara-linux-browser.patch)
+[Linux browser patch](../../apps/desktop/patches/cua-driver/0002-saint-linux-browser.patch)
 adds a narrow headless-browser runtime; it does not inherit macOS desktop-input
 guarantees. Its runtime admission requirements are listed below.
 
@@ -23,7 +23,7 @@ and application/runtime limits.
 
 ## Release support
 
-Synara 0.9.0 introduces Computer Use in beta on macOS only. Linux is coming soon.
+Saint 0.9.0 introduces Computer Use in beta on macOS only. Linux is coming soon.
 The Linux implementation and qualification material below describe development
 work, not released Linux Computer support.
 
@@ -36,10 +36,10 @@ production bundle after packaging:
 bun run dist:desktop:artifact --platform mac --target zip --arch arm64 --flavor cua --keep-stage
 ```
 
-This produces `Synara Cua.app`, bundle ID `com.emanueledipietro.synara.cua`,
-origin `synara-cua://app`, default home `~/.synara-cua`, and Electron profile
-`synara-cua`. Artifacts go to `release-cua/`. The flavor is embedded in the
-staged package before signing and cannot be changed by `SYNARA_DESKTOP_FLAVOR`
+This produces `Saint Cua.app`, bundle ID `com.locotine.saint.cua`,
+origin `saint-cua://app`, default home `~/.saint-cua`, and Electron profile
+`saint-cua`. Artifacts go to `release-cua/`. The flavor is embedded in the
+staged package before signing and cannot be changed by `SAINT_DESKTOP_FLAVOR`
 at launch. The production updater is disabled for Cua and Canary packages.
 Local macOS Cua and Canary packages use electron-builder's ad-hoc signing pass
 to seal the flavor's bundle identity, Info.plist, resources and nested code with
@@ -53,14 +53,14 @@ production, including when the invoking shell has a source flavor set. Isolated
 flavors support macOS and Linux; Windows continues to use its existing production
 installer registration. Source development launchers keep their existing
 environment-based flavor selection. For a new packaged Cua smoke run, set both
-`SYNARA_HOME` and `SYNARA_DESKTOP_SMOKE_USER_DATA` to separate empty test
+`SAINT_HOME` and `SAINT_DESKTOP_SMOKE_USER_DATA` to separate empty test
 directories; no source launcher marker is needed.
 
 ## Using Computer
 
 Type `/computer-use` followed by a task, for example `/computer-use open
 Calculator and calculate 123 × 45`. The shared slash menu offers this command
-for every provider. It enables native Synara Computer for that request only;
+for every provider. It enables native Saint Computer for that request only;
 the next ordinary turn has no new Computer tools or guidance. The command is
 stored with your message but removed before provider delivery. An empty command
 stays in the composer so you can add the task.
@@ -100,7 +100,7 @@ the chat ends the task.
 
 ## Tools and context cost
 
-- Synara owns provider capability, task consent, targeting and cancellation.
+- Saint owns provider capability, task consent, targeting and cancellation.
   The authenticated desktop host owns the native child process. A socket path
   or a claimed bundle identifier alone does not grant access.
 - All nine provider adapters have Computer integration. Live task completion
@@ -196,7 +196,7 @@ calls. A generic shortcut can still be refused when its actual destination is
 ambiguous. `focused` denotes the agent's selected target; optional
 `keyboardFocused` reports the app's actual keyboard window when proven.
 
-Pi requires the Computer catalog during enabled startup, and Synara-managed
+Pi requires the Computer catalog during enabled startup, and Saint-managed
 OpenCode requires its thread-scoped MCP connection to be ready. An external
 OpenCode server cannot currently receive that isolated Computer connection.
 Antigravity retains undelivered Computer guidance when process startup fails.
@@ -246,7 +246,7 @@ If Settings shows a switch on but the fresh check reports denied, verify the
 exact running app and signing identity. Local ad-hoc rebuilds can leave a stale
 grant. Remove and re-add that exact updated copy, then complete macOS
 authentication or Quit & Reopen when requested. Restarting alone does not
-repair a stale signing requirement. Synara cannot diagnose that mismatch from
+repair a stale signing requirement. Saint cannot diagnose that mismatch from
 the granted/denied result; it does not reset grants automatically or treat a
 rebuild as permission. Signed-build grant
 persistence still needs real validation.
@@ -288,7 +288,7 @@ are historical.
 
 Linux packaging stages the driver outside ASAR and starts an authenticated
 host. Browser mutations open only when that host validates revision 32 and the
-`synara_browser_input_control: 1` capability from its own driver generation,
+`saint_browser_input_control: 1` capability from its own driver generation,
 and a task-scoped Escape shortcut is available. The qualified code path owns
 isolated headless browser profiles and pairs browser cancellation with release
 cleanup. Visible browser launch, personal-profile setup and native desktop
@@ -314,7 +314,7 @@ consent. Clipboard, process-control and the agent overlay retain their existing
 approval rules. Native accessibility reads can be available even when integrated desktop
 observation cannot start. On pure Weston and Sway, the upstream screen-geometry query
 requires unavailable X11 support and exact-window capture can refuse
-`surface_identity_unproven`; Synara reports backend unavailability rather than
+`surface_identity_unproven`; Saint reports backend unavailability rather than
 inventing geometry. The still-image transport previews a selected target only
 where capture works. Settings details distinguish observation capabilities
 from native input availability. Build and protocol tests do not establish packaged
@@ -325,7 +325,7 @@ the final browser port with Electron 43, including injected Escape, cancellation
 release cleanup and fresh-state recovery. Native-Wayland browser mutation was
 refused before shortcut registration. These are component-level runtime results;
 the injected event does not qualify physical-human Escape, and no full Linux
-Synara package/provider flow is certified by them.
+Saint package/provider flow is certified by them.
 
 On macOS, the native managed-Space inventory can include empty Spaces, with
 session-local IDs, identity and current-Space information for each display.
@@ -349,7 +349,7 @@ returned by `computer_help({tool: "computer_spaces"})`. It adds no idle schema.
 Designation uses an explicit current user instruction such as **Use Space ID
 42 for this task.** Replace 42 with the actual ID from the inventory, not a
 Mission Control position. Tool arguments, quoted content and full access do
-not designate a Space. A reservation coordinates Synara tasks for one turn;
+not designate a Space. A reservation coordinates Saint tasks for one turn;
 it provides neither OS ownership nor continuous desktop isolation. It does
 not add input or capture support to an off-Space window.
 

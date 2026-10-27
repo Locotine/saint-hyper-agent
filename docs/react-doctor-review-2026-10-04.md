@@ -18,7 +18,7 @@ as agreed with the code owner.
   baseline had 1,095 findings versus 1,094 in the supplied report: it additionally
   detected the desktop Maximize handler. None of the selected findings had a
   `fixGroupId`; occurrences carrying that field in other categories were not touched.
-- Used `npx react-doctor@latest --verbose --project @synara/marketing,@synara/web
+- Used `npx react-doctor@latest --verbose --project @saint/marketing,@saint/web
 --no-cache --output-dir <directory>`. Explicit project selection was necessary
   because the initial workspace prompt did not complete in noninteractive mode.
 - Repeated real scans after the fixes, including an unfiltered scan of both apps.

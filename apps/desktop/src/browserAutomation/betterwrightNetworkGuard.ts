@@ -135,7 +135,7 @@ export class BetterwrightNetworkGuard {
     if (this.owner !== owner) return Promise.resolve();
     owner.restoring ??= (async () => {
       try {
-        // Synara's dedicated browser session otherwise uses the system proxy;
+        // Saint's dedicated browser session otherwise uses the system proxy;
         // all temporary proxy configuration is owned by this guard.
         await this.browserSession.setProxy({ mode: "system" });
         await this.browserSession.closeAllConnections();

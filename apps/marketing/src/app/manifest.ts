@@ -1,5 +1,5 @@
 // FILE: manifest.ts
-// Purpose: Generates the web app manifest with Synara identity, icons, and screenshots.
+// Purpose: Generates the web app manifest with Saint identity, icons, and screenshots.
 // Layer: Next.js metadata route.
 
 import type { MetadataRoute } from "next";
@@ -46,14 +46,14 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "3216x2090",
         type: "image/png",
         form_factor: "wide",
-        label: "Synara desktop workspace in light mode",
+        label: "Saint desktop workspace in light mode",
       },
       {
         src: SITE_IMAGES.darkScreenshot,
         sizes: "3228x2102",
         type: "image/png",
         form_factor: "wide",
-        label: "Synara desktop workspace in dark mode",
+        label: "Saint desktop workspace in dark mode",
       },
     ],
   };

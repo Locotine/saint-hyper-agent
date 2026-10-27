@@ -1,4 +1,4 @@
-import type { ExternalMcpClientKind } from "@synara/contracts";
+import type { ExternalMcpClientKind } from "@saint/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -20,7 +20,7 @@ const createIntegration = (
     integrationId: `integration-${suffix}`,
     name: `Integration ${suffix}`,
     clientKind,
-    audience: "synara.external-mcp",
+    audience: "saint.external-mcp",
     capabilities: ["projects:read", "tasks:create", "tasks:read", "tasks:wait"],
     projectScope: "selected",
     projectIds: [`project-${suffix}`],
@@ -836,7 +836,7 @@ layer("ExternalMcpRepository", (it) => {
         repository.beginAudit({
           auditId,
           integrationId: "integration-rate",
-          tool: "synara_list_allowed_projects",
+          tool: "saint_list_allowed_projects",
           requestId: null,
           projectId: null,
           runtimeMode: null,
@@ -871,7 +871,7 @@ layer("ExternalMcpRepository", (it) => {
         yield* repository.beginAudit({
           auditId: `bounded-audit-${index}`,
           integrationId: "integration-bounded-rate",
-          tool: "synara_list_allowed_projects",
+          tool: "saint_list_allowed_projects",
           requestId: null,
           projectId: null,
           runtimeMode: null,

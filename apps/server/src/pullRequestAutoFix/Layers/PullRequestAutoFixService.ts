@@ -15,9 +15,9 @@ import {
   type PullRequestAutoFixPauseReason,
   type PullRequestAutoFixState,
   type ThreadId,
-} from "@synara/contracts";
-import { PULL_REQUEST_AUTO_FIX_BETA_FEATURE } from "@synara/shared/betaFeatures";
-import { normalizeGitHubPullRequestUrl } from "@synara/shared/githubRepository";
+} from "@saint/contracts";
+import { PULL_REQUEST_AUTO_FIX_BETA_FEATURE } from "@saint/shared/betaFeatures";
+import { normalizeGitHubPullRequestUrl } from "@saint/shared/githubRepository";
 import { Cause, Clock, Duration, Effect, Layer, Option, Schedule } from "effect";
 import * as Semaphore from "effect/Semaphore";
 import { OrchestrationCommandReceiptRepository } from "../../persistence/Services/OrchestrationCommandReceipts";

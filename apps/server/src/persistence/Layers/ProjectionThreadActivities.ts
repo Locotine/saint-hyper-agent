@@ -1,6 +1,6 @@
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
-import { EventId, ThreadId, NonNegativeInt } from "@synara/contracts";
+import { EventId, ThreadId, NonNegativeInt } from "@saint/contracts";
 import { Effect, Layer, Option, Schema, Struct } from "effect";
 
 import { toPersistenceSqlError, toPersistenceSqlOrDecodeError } from "../Errors.ts";

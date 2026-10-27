@@ -8,7 +8,7 @@ import type {
   ProviderKind,
   ServerCodexResetCredits,
   ServerGetProviderUsageSnapshotResult,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 
 import {

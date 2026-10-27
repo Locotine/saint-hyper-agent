@@ -3,7 +3,7 @@
 //          per-directory entry listing the `projectAgent.library.*` RPCs return.
 // Layer: Chat UI logic (framework-free)
 
-import type { LibraryEntry } from "@synara/contracts";
+import type { LibraryEntry } from "@saint/contracts";
 
 import { getFileIconName } from "~/file-icons";
 

@@ -5,7 +5,7 @@
 // Layer: Inbox UI
 // Exports: InboxTasks
 
-import type { TodoDueDate } from "@synara/contracts";
+import type { TodoDueDate } from "@saint/contracts";
 import { useRef } from "react";
 
 import { TaskListItem } from "../tasks/TaskListItem";

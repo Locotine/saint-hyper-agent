@@ -15,7 +15,7 @@ import {
   type GitStatusResult,
   type NativeApi,
   type PullRequestAutoFixState,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
@@ -68,7 +68,7 @@ const queryClients = new Set<QueryClient>();
 const pullRequest = {
   number: 321,
   title: "Keep PR context visible",
-  url: "https://github.com/example/synara/pull/321",
+  url: "https://github.com/example/saint/pull/321",
   baseBranch: "main",
   headBranch: "fix/pr-panel",
   state: "open",
@@ -146,7 +146,7 @@ function section(
         activeThreadId={threadId}
         // Link-only tests omit a project; status tests exercise the real mutation.
         projectId={options.projectId ?? null}
-        configuredRepositories={[{ nameWithOwner: "example/synara" }]}
+        configuredRepositories={[{ nameWithOwner: "example/saint" }]}
         onOpenUrl={vi.fn()}
         onClose={onClose}
       />
@@ -246,7 +246,7 @@ describe("EnvironmentPullRequestSection", () => {
       await expect.poll(() => runPullRequestAction.mock.calls.length).toBe(1);
       expect(runPullRequestAction).toHaveBeenCalledWith({
         projectId,
-        repository: "example/synara",
+        repository: "example/saint",
         number: 321,
         action,
       });
@@ -277,7 +277,7 @@ describe("EnvironmentPullRequestSection", () => {
     await expect.poll(() => runPullRequestAction.mock.calls.length).toBe(1);
     expect(runPullRequestAction).toHaveBeenCalledWith({
       projectId,
-      repository: "example/synara",
+      repository: "example/saint",
       number: 321,
       action: "close",
     });
@@ -300,7 +300,7 @@ describe("EnvironmentPullRequestSection", () => {
     await expect.poll(() => runPullRequestAction.mock.calls.length).toBe(1);
     expect(runPullRequestAction).toHaveBeenCalledWith({
       projectId,
-      repository: "example/synara",
+      repository: "example/saint",
       number: 321,
       action: "reopen",
     });

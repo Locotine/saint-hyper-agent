@@ -13,7 +13,7 @@ import {
 const cleanConfig: ReleaseUpdatePolicyConfig = {
   lane: "clean",
   bridgeVersion: "0.4.2",
-  channel: "synara",
+  channel: "saint",
 };
 const defaultManifestNames = ["latest-mac.yml", "latest.yml", "latest-linux.yml"] as const;
 
@@ -31,7 +31,7 @@ describe("release update policy", () => {
       makeLatest: true,
       mirrorToStableChannel: false,
       bridgeTag: "v0.4.2",
-      channel: "synara",
+      channel: "saint",
     });
     expect(resolveReleaseUpdatePolicy("0.6.0-beta.1", cleanConfig)).toMatchObject({
       isPrerelease: true,
@@ -44,7 +44,7 @@ describe("release update policy", () => {
 
   it("routes only the beta prerelease identifier onto the beta channel and flavor", () => {
     expect(resolveReleaseUpdatePolicy("0.6.0", cleanConfig)).toMatchObject({
-      channel: "synara",
+      channel: "saint",
       desktopFlavor: "production",
     });
     expect(resolveReleaseUpdatePolicy("0.6.0-beta.4", cleanConfig)).toMatchObject({
@@ -53,19 +53,19 @@ describe("release update policy", () => {
       isPrerelease: true,
     });
     expect(resolveReleaseUpdatePolicy("0.6.0-alpha.1", cleanConfig)).toMatchObject({
-      channel: "synara",
+      channel: "saint",
       desktopFlavor: "production",
       isPrerelease: true,
     });
     expect(resolveReleaseUpdatePolicy("0.6.0-rc.2", cleanConfig)).toMatchObject({
-      channel: "synara",
+      channel: "saint",
       desktopFlavor: "production",
       isPrerelease: true,
     });
   });
 
   it("copies manifests under the resolved beta channel name", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-release-policy-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-release-policy-"));
     try {
       for (const name of defaultManifestNames) {
         writeFileSync(resolve(root, name), name);
@@ -75,7 +75,7 @@ describe("release update policy", () => {
         ...defaultManifestNames,
         ...channelManifestNames("beta"),
       ]);
-      for (const channelName of channelManifestNames("synara")) {
+      for (const channelName of channelManifestNames("saint")) {
         expect(existsSync(resolve(root, channelName))).toBe(false);
       }
       for (const [index, channelName] of channelManifestNames("beta").entries()) {
@@ -103,7 +103,7 @@ describe("release update policy", () => {
   });
 
   it("keeps clean release metadata on Latest and dedicated channel filenames", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-release-policy-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-release-policy-"));
     try {
       mkdirSync(root, { recursive: true });
       for (const name of defaultManifestNames) {
@@ -112,12 +112,12 @@ describe("release update policy", () => {
 
       expect(prepareReleaseUpdateManifests(root, cleanConfig)).toEqual([
         ...defaultManifestNames,
-        ...channelManifestNames("synara"),
+        ...channelManifestNames("saint"),
       ]);
       for (const name of defaultManifestNames) {
         expect(readFileSync(resolve(root, name), "utf8")).toBe(name);
       }
-      for (const [index, channelName] of channelManifestNames("synara").entries()) {
+      for (const [index, channelName] of channelManifestNames("saint").entries()) {
         const defaultName = defaultManifestNames[index];
         if (!defaultName) throw new Error(`Missing default manifest mapping for ${channelName}`);
         expect(readFileSync(resolve(root, channelName), "utf8")).toBe(
@@ -130,16 +130,16 @@ describe("release update policy", () => {
   });
 
   it("keeps default metadata and copies same-version channel placeholders on the compatibility release", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-release-policy-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-release-policy-"));
     try {
       for (const name of defaultManifestNames) {
         writeFileSync(resolve(root, name), `bridge:${name}`);
       }
       expect(prepareReleaseUpdateManifests(root, { ...cleanConfig, lane: "bridge" })).toEqual([
         ...defaultManifestNames,
-        ...channelManifestNames("synara"),
+        ...channelManifestNames("saint"),
       ]);
-      for (const [index, channelName] of channelManifestNames("synara").entries()) {
+      for (const [index, channelName] of channelManifestNames("saint").entries()) {
         const defaultName = defaultManifestNames[index];
         if (!defaultName) throw new Error(`Missing default manifest mapping for ${channelName}`);
         expect(readFileSync(resolve(root, channelName), "utf8")).toBe(
@@ -155,25 +155,25 @@ describe("release update policy", () => {
   });
 
   it("refuses to overwrite a compatibility channel placeholder", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-release-policy-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-release-policy-"));
     try {
       for (const name of defaultManifestNames) {
         writeFileSync(resolve(root, name), "bridge");
       }
-      writeFileSync(resolve(root, "synara-mac.yml"), "existing");
+      writeFileSync(resolve(root, "saint-mac.yml"), "existing");
 
       expect(() => prepareReleaseUpdateManifests(root, { ...cleanConfig, lane: "bridge" })).toThrow(
-        "Refusing to overwrite existing update manifest: synara-mac.yml",
+        "Refusing to overwrite existing update manifest: saint-mac.yml",
       );
-      expect(existsSync(resolve(root, "synara.yml"))).toBe(false);
-      expect(existsSync(resolve(root, "synara-linux.yml"))).toBe(false);
+      expect(existsSync(resolve(root, "saint.yml"))).toBe(false);
+      expect(existsSync(resolve(root, "saint-linux.yml"))).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
   it("rejects a clean Latest release with missing default metadata", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-release-policy-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-release-policy-"));
     try {
       writeFileSync(resolve(root, "latest-mac.yml"), "bridge");
 

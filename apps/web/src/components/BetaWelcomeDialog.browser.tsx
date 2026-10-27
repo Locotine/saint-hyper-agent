@@ -1,6 +1,6 @@
 import "../index.css";
 
-import type { DesktopBetaChannelState, DesktopBridge } from "@synara/contracts";
+import type { DesktopBetaChannelState, DesktopBridge } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
@@ -15,7 +15,7 @@ vi.mock("../appSettings", () => ({
 }));
 
 const originalBridge = window.desktopBridge;
-const storageKey = "synara:beta-welcome:v1";
+const storageKey = "saint:beta-welcome:v1";
 const state: DesktopBetaChannelState = {
   supported: true,
   flavor: "beta",
@@ -50,9 +50,7 @@ it("shows Beta welcome before the first-run gate and releases it only on acknowl
   window.desktopBridge = { beta: { getState: async () => state } } as unknown as DesktopBridge;
   const screen = await render(<BetaWelcomeDialog />);
   try {
-    await expect
-      .element(page.getByRole("dialog", { name: "Welcome to Synara Beta" }))
-      .toBeVisible();
+    await expect.element(page.getByRole("dialog", { name: "Welcome to Saint Beta" })).toBeVisible();
     expect(useOnboardingDialogStore.getState().betaWelcomePending).toBe(true);
     expect(localStorage.getItem(storageKey)).toBeNull();
     await page.getByRole("button", { name: "Get started" }).click();

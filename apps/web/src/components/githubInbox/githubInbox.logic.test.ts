@@ -5,7 +5,7 @@ import type {
   GitHubInboxRepositoryBatch,
   ProjectId,
   PullRequestActor,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import {
   collectInboxLabelOptions,

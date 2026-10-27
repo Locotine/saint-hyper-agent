@@ -10,7 +10,7 @@ import {
   outboundHttp,
   type OutboundHttpPolicy,
   type OutboundHttpResponse,
-} from "@synara/shared/outboundHttp";
+} from "@saint/shared/outboundHttp";
 
 export const MCP_CONNECTOR_PROXY_TIMEOUT_MS = 5 * 60_000;
 export const MCP_CONNECTOR_PROXY_MAX_REQUEST_BYTES = 1024 * 1024;
@@ -231,8 +231,8 @@ export async function forwardMcpConnectorRequest(
       cause instanceof OutboundHttpError && cause.code === "timeout"
         ? `${displayName} did not answer in time.`
         : cause instanceof OutboundHttpError && cause.code === "response-too-large"
-          ? `${displayName} sent a response larger than Synara accepts.`
-          : `Synara could not reach ${displayName}.`;
+          ? `${displayName} sent a response larger than Saint accepts.`
+          : `Saint could not reach ${displayName}.`;
     return jsonRpcErrorResult(request.body, message);
   }
 
@@ -307,7 +307,7 @@ export async function probeMcpConnector(
     params: {
       protocolVersion: MCP_CONNECTOR_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "Synara", version: clientVersion },
+      clientInfo: { name: "Saint", version: clientVersion },
     },
   };
   let collector: SseJsonRpcCollector | undefined;
@@ -334,7 +334,7 @@ export async function probeMcpConnector(
       },
     });
   } catch {
-    return { kind: "unavailable", message: `Synara could not reach ${displayName}.` };
+    return { kind: "unavailable", message: `Saint could not reach ${displayName}.` };
   }
   if (response.status === 401) {
     const challenge = response.headers.get("www-authenticate") ?? "";

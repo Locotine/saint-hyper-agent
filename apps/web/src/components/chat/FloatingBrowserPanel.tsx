@@ -12,8 +12,8 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ThreadId } from "@synara/contracts";
-import { CHAT_SURFACE_HEADER_HEIGHT_PX } from "@synara/shared/desktopChrome";
+import type { ThreadId } from "@saint/contracts";
+import { CHAT_SURFACE_HEADER_HEIGHT_PX } from "@saint/shared/desktopChrome";
 
 import { EllipsisIcon, PanelRightCloseIcon, XIcon } from "../../lib/icons";
 import { requestBrowserPanelBoundsSync } from "../../lib/browserPanelBoundsSync";

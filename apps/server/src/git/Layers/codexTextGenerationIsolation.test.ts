@@ -169,7 +169,7 @@ it.layer(NodeServices.layer)("Codex text-generation isolation", (it) => {
           systemConfigPaths: ["/etc/codex/config.toml"],
           fileExists: () => true,
         }),
-      ).toThrowError(/outside Synara's isolated home/);
+      ).toThrowError(/outside Saint's isolated home/);
       expect(() =>
         assertNoExternalCodexConfigLayers({
           platform: "darwin",
@@ -305,7 +305,7 @@ it.layer(NodeServices.layer)("Codex text-generation isolation", (it) => {
           AZURE_HEADER_KEY: "header-key",
           SENTINEL_SECRET: "must-not-pass",
           SSH_AUTH_SOCK: "/private/ssh.sock",
-          SYNARA_AUTH_TOKEN: "synara-secret",
+          SAINT_AUTH_TOKEN: "saint-secret",
           BROWSER_WS_ENDPOINT: "ws://browser.test",
           NODE_OPTIONS: "--require=/outside/agent.js",
           AWS_ACCESS_KEY_ID: "ambient-aws-id",
@@ -336,7 +336,7 @@ it.layer(NodeServices.layer)("Codex text-generation isolation", (it) => {
       for (const forbidden of [
         "SENTINEL_SECRET",
         "SSH_AUTH_SOCK",
-        "SYNARA_AUTH_TOKEN",
+        "SAINT_AUTH_TOKEN",
         "BROWSER_WS_ENDPOINT",
         "NODE_OPTIONS",
         "AWS_ACCESS_KEY_ID",

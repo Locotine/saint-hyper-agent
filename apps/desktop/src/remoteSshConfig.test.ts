@@ -44,9 +44,9 @@ describe("isValidSshTarget", () => {
 
 describe("normalizeRemoteRoot", () => {
   it.each([
-    [".synara-remote", ".synara-remote"],
-    ["~/team/synara-remote/", "team/synara-remote"],
-    ["  squad/synara  ", "squad/synara"],
+    [".saint-remote", ".saint-remote"],
+    ["~/team/saint-remote/", "team/saint-remote"],
+    ["  squad/saint  ", "squad/saint"],
   ])("normalizes %j", (input, expected) => {
     expect(normalizeRemoteRoot(input)).toBe(expected);
   });
@@ -61,8 +61,8 @@ describe("normalizeRemoteRoot", () => {
 
 describe("defaultRemoteRoot", () => {
   it("derives a per-flavor folder from the local home folder name", () => {
-    expect(defaultRemoteRoot(".synara")).toBe(".synara-remote");
-    expect(defaultRemoteRoot(".synara-beta")).toBe(".synara-beta-remote");
+    expect(defaultRemoteRoot(".saint")).toBe(".saint-remote");
+    expect(defaultRemoteRoot(".saint-beta")).toBe(".saint-beta-remote");
   });
 });
 
@@ -74,7 +74,7 @@ describe("saved remote hosts", () => {
         hosts: [
           { host: "devbox", remoteRoot: null },
           { host: "-bad" },
-          { host: "k6", remoteRoot: "squad/synara" },
+          { host: "k6", remoteRoot: "squad/saint" },
           { host: "devbox", remoteRoot: "dupe" },
           { host: "web", remoteRoot: "/abs" },
         ],
@@ -82,7 +82,7 @@ describe("saved remote hosts", () => {
     );
     expect(saved).toEqual([
       { host: "devbox", remoteRoot: null },
-      { host: "k6", remoteRoot: "squad/synara" },
+      { host: "k6", remoteRoot: "squad/saint" },
       { host: "web", remoteRoot: null },
     ]);
     const updated = rememberRemoteSshHost(saved, { host: "k6", remoteRoot: null });

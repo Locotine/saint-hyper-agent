@@ -5,7 +5,7 @@ import {
   JsonRpcStdioTransportError,
   JsonRpcStdioWriter,
   type JsonRpcStdioTransportErrorReason,
-} from "@synara/shared/jsonrpc-stdio";
+} from "@saint/shared/jsonrpc-stdio";
 
 export const CODEX_APP_SERVER_MAX_FRAME_BYTES = JSONRPC_STDIO_MAX_FRAME_BYTES;
 // Plugin catalogs have no pagination in the app-server protocol and can exceed

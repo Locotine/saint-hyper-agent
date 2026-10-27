@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { DEFAULT_SERVER_SETTINGS } from "@synara/contracts";
+import { DEFAULT_SERVER_SETTINGS } from "@saint/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { resolveProjectImportSources } from "./projectImportSources";
@@ -16,7 +16,7 @@ afterEach(async () => {
 
 describe("resolveProjectImportSources", () => {
   it("reads a non-default Claude account from its own config dir in a child environment", async () => {
-    const stateDir = await mkdtemp(path.join(tmpdir(), "synara-import-sources-"));
+    const stateDir = await mkdtemp(path.join(tmpdir(), "saint-import-sources-"));
     directories.push(stateDir);
     const settings = {
       ...DEFAULT_SERVER_SETTINGS,

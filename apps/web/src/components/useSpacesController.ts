@@ -6,7 +6,7 @@
 //      (inputs in, handlers out) keeps it reviewable instead of interleaved through an
 //      8k-line component.
 
-import type { ProjectId, SpaceId, ThreadId } from "@synara/contracts";
+import type { ProjectId, SpaceId, ThreadId } from "@saint/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 

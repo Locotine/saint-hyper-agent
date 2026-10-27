@@ -1,5 +1,5 @@
 // FILE: changelog/page.tsx
-// Purpose: Public changelog — every Synara release, newest first. Editorial,
+// Purpose: Public changelog — every Saint release, newest first. Editorial,
 //          single-column layout inspired by the OpenAI Codex changelog, in our
 //          palette: muted date, large headline with a light-gray version, airy
 //          bullet lists, and inline `code` chips.
@@ -12,9 +12,9 @@ import { breadcrumbJsonLd, changelogCollectionJsonLd, jsonLdScript, pageMetadata
 import { getSortedReleases } from "@/lib/changelog";
 
 export const metadata = pageMetadata({
-  title: "Changelog — Synara",
+  title: "Changelog — Saint",
   description:
-    "Every Synara release: new providers, performance work, and the steady polish that makes the app faster and sturdier. Updated with each version.",
+    "Every Saint release: new providers, performance work, and the steady polish that makes the app faster and sturdier. Updated with each version.",
   path: "/changelog",
 });
 
@@ -23,7 +23,7 @@ export default function ChangelogPage() {
   const jsonLd = [
     changelogCollectionJsonLd(releases),
     breadcrumbJsonLd([
-      { name: "Synara", path: "/" },
+      { name: "Saint", path: "/" },
       { name: "Changelog", path: "/changelog" },
     ]),
   ];

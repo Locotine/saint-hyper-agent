@@ -27,7 +27,7 @@ import { GitCore, type GitCoreShape } from "../../git/Services/GitCore.ts";
 import { GitCoreLive } from "../../git/Layers/GitCore.ts";
 import { GitCommandError } from "../../git/Errors.ts";
 import { ServerConfig } from "../../config.ts";
-import { CheckpointRef, ThreadId, TurnId } from "@synara/contracts";
+import { CheckpointRef, ThreadId, TurnId } from "@saint/contracts";
 import { checkpointRefForThreadTurn, checkpointRefForThreadTurnLive } from "../Utils.ts";
 
 async function waitFor(predicate: () => boolean, timeoutMs = 1_000): Promise<void> {
@@ -87,7 +87,7 @@ describe("CheckpointStoreLive", () => {
         const store = yield* CheckpointStore;
         const input = {
           cwd: "/repo",
-          checkpointRef: CheckpointRef.makeUnsafe("refs/synara-checkpoints/thread/message"),
+          checkpointRef: CheckpointRef.makeUnsafe("refs/saint-checkpoints/thread/message"),
         };
 
         const first = yield* store.captureCheckpoint(input).pipe(Effect.forkChild);
@@ -109,7 +109,7 @@ describe("CheckpointStoreLive", () => {
   });
 
   it("seeds a capture from the working index so Git can reuse its stat cache", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "synara-checkpoint-index-test-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "saint-checkpoint-index-test-"));
     const workingIndexPath = join(tempDir, "index");
     writeFileSync(workingIndexPath, "working-index-stat-cache");
     const workingIndexTime = new Date("2020-01-02T03:04:05.000Z");
@@ -157,7 +157,7 @@ describe("CheckpointStoreLive", () => {
           const store = yield* CheckpointStore;
           yield* store.captureCheckpoint({
             cwd: tempDir,
-            checkpointRef: CheckpointRef.makeUnsafe("refs/synara-checkpoints/thread/stat-cache"),
+            checkpointRef: CheckpointRef.makeUnsafe("refs/saint-checkpoints/thread/stat-cache"),
           });
         }),
       );
@@ -216,7 +216,7 @@ describe("CheckpointStoreLive", () => {
         const store = yield* CheckpointStore;
         const input = {
           cwd: "/repo",
-          checkpointRef: CheckpointRef.makeUnsafe("refs/synara-checkpoints/thread/message"),
+          checkpointRef: CheckpointRef.makeUnsafe("refs/saint-checkpoints/thread/message"),
         };
 
         const first = yield* store.captureCheckpoint(input).pipe(Effect.forkChild);
@@ -244,8 +244,8 @@ describe("CheckpointStoreLive", () => {
   });
 
   it("skips the capture when skipIfExists is set and the ref already exists", async () => {
-    const existingRef = "refs/synara-checkpoints/thread/existing";
-    const missingRef = "refs/synara-checkpoints/thread/missing";
+    const existingRef = "refs/saint-checkpoints/thread/existing";
+    const missingRef = "refs/saint-checkpoints/thread/missing";
     const execute = vi.fn<GitCoreShape["execute"]>((input) => {
       const args = input.args.join(" ");
       if (args === `rev-parse --verify --quiet ${existingRef}^{commit}`) {
@@ -305,7 +305,7 @@ describe("CheckpointStoreLive", () => {
   });
 
   it("keeps a/ and b/ prefixes on turn diffs and file undo under diff.noprefix", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "synara-checkpoint-prefix-test-"));
+    const cwd = mkdtempSync(join(tmpdir(), "saint-checkpoint-prefix-test-"));
     const git = (args: string[]) => execFileSync("git", args, { cwd, stdio: "ignore" });
     try {
       git(["init", "--initial-branch=main"]);
@@ -321,14 +321,14 @@ describe("CheckpointStoreLive", () => {
         CheckpointStoreLive.pipe(
           Layer.provide(
             GitCoreLive.pipe(
-              Layer.provide(ServerConfig.layerTest(cwd, { prefix: "synara-checkpoint-prefix-" })),
+              Layer.provide(ServerConfig.layerTest(cwd, { prefix: "saint-checkpoint-prefix-" })),
             ),
           ),
           Layer.provide(NodeServices.layer),
         ),
       );
-      const fromRef = CheckpointRef.makeUnsafe("refs/synara-checkpoints/thread/turn/start");
-      const toRef = CheckpointRef.makeUnsafe("refs/synara-checkpoints/thread/turn/end");
+      const fromRef = CheckpointRef.makeUnsafe("refs/saint-checkpoints/thread/turn/start");
+      const toRef = CheckpointRef.makeUnsafe("refs/saint-checkpoints/thread/turn/end");
 
       const diff = await runtime.runPromise(
         Effect.gen(function* () {
@@ -351,8 +351,8 @@ describe("CheckpointStoreLive", () => {
   });
 
   it("restores the worktree patch when resetting the index fails during file undo", async () => {
-    const fromRef = CheckpointRef.makeUnsafe("refs/synara-checkpoints/thread/turn/start");
-    const toRef = CheckpointRef.makeUnsafe("refs/synara-checkpoints/thread/turn/end");
+    const fromRef = CheckpointRef.makeUnsafe("refs/saint-checkpoints/thread/turn/start");
+    const toRef = CheckpointRef.makeUnsafe("refs/saint-checkpoints/thread/turn/end");
     const commands: string[] = [];
     const execute = vi.fn<GitCoreShape["execute"]>((input) => {
       const args = input.args.join(" ");
@@ -415,7 +415,7 @@ describe("CheckpointStoreLive", () => {
   });
 
   it("reconstructs provider patches from the captured baseline in a private index", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "synara-raw-patch-"));
+    const cwd = mkdtempSync(join(tmpdir(), "saint-raw-patch-"));
     const git = (args: string[]) =>
       execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     try {
@@ -432,7 +432,7 @@ describe("CheckpointStoreLive", () => {
       writeFileSync(join(cwd, "binary.dat"), Buffer.from([0, 1, 2]));
       git(["add", "."]);
       git(["commit", "-m", "Captured baseline"]);
-      const baseline = CheckpointRef.makeUnsafe("refs/synara/checkpoints/raw/turn-start/exact");
+      const baseline = CheckpointRef.makeUnsafe("refs/saint/checkpoints/raw/turn-start/exact");
       git(["update-ref", baseline, "HEAD"]);
       writeFileSync(join(cwd, "internal.txt"), "hello  world\n");
       writeFileSync(join(cwd, "edges.txt"), " leading trailing\t \n");
@@ -456,7 +456,7 @@ describe("CheckpointStoreLive", () => {
         CheckpointStoreLive.pipe(
           Layer.provide(
             GitCoreLive.pipe(
-              Layer.provide(ServerConfig.layerTest(cwd, { prefix: "synara-raw-store-" })),
+              Layer.provide(ServerConfig.layerTest(cwd, { prefix: "saint-raw-store-" })),
             ),
           ),
           Layer.provide(NodeServices.layer),
@@ -516,7 +516,7 @@ describe("CheckpointStoreLive", () => {
   });
 
   it("purges published and crash-orphaned live refs without touching another thread or final checkpoints", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "synara-live-ref-cleanup-"));
+    const cwd = mkdtempSync(join(tmpdir(), "saint-live-ref-cleanup-"));
     const git = (args: string[]) =>
       execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
     try {
@@ -558,7 +558,7 @@ describe("CheckpointStoreLive", () => {
       ).pipe(
         Layer.provide(
           GitCoreLive.pipe(
-            Layer.provide(ServerConfig.layerTest(cwd, { prefix: "synara-live-cleanup-" })),
+            Layer.provide(ServerConfig.layerTest(cwd, { prefix: "saint-live-cleanup-" })),
           ),
         ),
       );
@@ -582,8 +582,8 @@ describe("CheckpointStoreLive", () => {
   });
 
   it("fails when a checkpoint ref cannot be deleted", async () => {
-    const lockedRef = CheckpointRef.makeUnsafe("refs/synara/checkpoints/thread/turn/locked");
-    const deletableRef = CheckpointRef.makeUnsafe("refs/synara/checkpoints/thread/turn/ok");
+    const lockedRef = CheckpointRef.makeUnsafe("refs/saint/checkpoints/thread/turn/locked");
+    const deletableRef = CheckpointRef.makeUnsafe("refs/saint/checkpoints/thread/turn/ok");
     const execute = vi.fn<GitCoreShape["execute"]>((input) => {
       const args = input.args.join(" ");
       if (args === `update-ref -d ${lockedRef}`) {
@@ -623,7 +623,7 @@ describe("CheckpointStoreLive", () => {
   it("tolerates deleting checkpoint refs that are already absent", async () => {
     // `git update-ref -d` exits 0 for a ref that does not exist, so the
     // exit-code check must not turn best-effort cleanup into a hard failure.
-    const missingRef = CheckpointRef.makeUnsafe("refs/synara/checkpoints/thread/turn/gone");
+    const missingRef = CheckpointRef.makeUnsafe("refs/saint/checkpoints/thread/turn/gone");
     const execute = vi.fn<GitCoreShape["execute"]>(() =>
       Effect.succeed({ code: 0, stdout: "", stderr: "" }),
     );

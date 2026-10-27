@@ -11,8 +11,8 @@ import { closeSync, constants, fchmodSync, fstatSync, lstatSync, openSync } from
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
-import type { ThreadId } from "@synara/contracts";
-import { SCRATCH_WORKSPACES_DIRNAME } from "@synara/shared/threadWorkspace";
+import type { ThreadId } from "@saint/contracts";
+import { SCRATCH_WORKSPACES_DIRNAME } from "@saint/shared/threadWorkspace";
 import { ensurePrivateDirectorySync } from "./privatePathPermissions";
 
 function scratchOwnerSegment(homeDirectory = homedir()): string {
@@ -22,11 +22,11 @@ function scratchOwnerSegment(homeDirectory = homedir()): string {
 }
 
 function scratchCacheRoot(homeDirectory: string, platform: NodeJS.Platform): string {
-  if (platform === "darwin") return path.join(homeDirectory, "Library", "Caches", "synara");
+  if (platform === "darwin") return path.join(homeDirectory, "Library", "Caches", "saint");
   if (platform === "win32") {
-    return path.join(homeDirectory, "AppData", "Local", "Synara", "Cache");
+    return path.join(homeDirectory, "AppData", "Local", "Saint", "Cache");
   }
-  return path.join(homeDirectory, ".cache", "synara");
+  return path.join(homeDirectory, ".cache", "saint");
 }
 
 export function resolveScratchWorkspacesRoot(
@@ -38,7 +38,7 @@ export function resolveScratchWorkspacesRoot(
   const homeDirectory = options.homeDirectory ?? homedir();
   const ownerContainer = path.join(
     scratchCacheRoot(homeDirectory, options.platform ?? process.platform),
-    `.synara-${scratchOwnerSegment(homeDirectory)}`,
+    `.saint-${scratchOwnerSegment(homeDirectory)}`,
   );
   return path.join(ownerContainer, SCRATCH_WORKSPACES_DIRNAME);
 }

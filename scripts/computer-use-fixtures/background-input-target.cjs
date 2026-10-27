@@ -2,17 +2,17 @@
 const { app, BrowserWindow } = require("electron");
 const readline = require("node:readline");
 const path = require("node:path");
-const fixtureDirectory = process.env.SYNARA_BACKGROUND_FIXTURE_DIRECTORY;
+const fixtureDirectory = process.env.SAINT_BACKGROUND_FIXTURE_DIRECTORY;
 if (!fixtureDirectory || !path.isAbsolute(fixtureDirectory))
   throw new Error("An explicit fixture directory is required.");
 app.setPath("userData", path.join(fixtureDirectory, "target-profile"));
-app.setName("Synara Background Regression Fixture");
+app.setName("Saint Background Regression Fixture");
 app.commandLine.appendSwitch("force-renderer-accessibility");
 const windows = new Map();
 const keyboardEvents = new Map();
 const emit = (value) => process.stdout.write(JSON.stringify(value) + "\n");
 function markup(label) {
-  return `<!doctype html><title>Synara Background Fixture ${process.pid} ${label}</title>
+  return `<!doctype html><title>Saint Background Fixture ${process.pid} ${label}</title>
 <style>body{font:18px system-ui;margin:24px;height:1600px}input{font:20px system-ui;width:380px;padding:8px}#nested{height:150px;width:380px;overflow:auto;border:2px solid #888;margin-top:24px}#inside{height:1500px;background:linear-gradient(#ddeeff,#334477)}h1{font-size:22px}</style>
 <h1>Owned test target ${label}</h1><form id="form"><input id="query" aria-label="Fixture query ${label}" value="initial-${label}"></form>
 <div id="nested" role="region" aria-label="Nested scroll ${label}"><div id="inside">Nested scroll content ${label}</div></div>
@@ -25,7 +25,7 @@ app
   .then(async () => {
     for (const [i, label] of ["A", "B"].entries()) {
       const window = new BrowserWindow({
-        title: `Synara Background Fixture ${process.pid} ${label}`,
+        title: `Saint Background Fixture ${process.pid} ${label}`,
         width: 500,
         height: 460,
         x: 30 + i * 520,

@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { Effect } from "effect";
 
 import { writeFileStringAtomically } from "../atomicWrite.ts";
-import { normalizeProjectDocumentPath } from "@synara/shared/projectAgent";
+import { normalizeProjectDocumentPath } from "@saint/shared/projectAgent";
 
 export function projectContextRoot(stateDir: string, projectId: string): string {
   return path.join(stateDir, "project-context", projectId);

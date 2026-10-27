@@ -1,6 +1,6 @@
 // Usage: node perf/chat-open-runner.mjs <origin> <neutral-thread-id> <thread-id>... [--rounds=3] [--out=file]
 //
-// Drives a running, isolated Synara server (production web build, copied database) and
+// Drives a running, isolated Saint server (production web build, copied database) and
 // measures, per thread:
 //   - cold open: in-app navigation to a thread whose detail is not loaded yet
 //     (snapshot arrival, first transcript row, settled at the bottom, long tasks);

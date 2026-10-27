@@ -1,5 +1,5 @@
 import "../../index.css";
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { page, userEvent } from "vitest/browser";
 import { beforeEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

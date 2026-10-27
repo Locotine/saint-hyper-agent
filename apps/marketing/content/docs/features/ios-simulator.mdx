@@ -1,28 +1,28 @@
 ---
 title: iOS Simulator
-description: Run, watch, and control an iOS Simulator beside a Synara task on macOS.
+description: Run, watch, and control an iOS Simulator beside a Saint task on macOS.
 ---
 
 The iOS Simulator pane gives the user and supported agents one shared, live device surface beside the conversation. You can watch an app, interact with it directly, capture evidence, and let the agent use device tools without switching to a separate simulator window.
 
 ## Requirements
 
-The Synara server must run on macOS with:
+The Saint server must run on macOS with:
 
 - Xcode installed and selected
 - The Xcode license accepted
 - At least one iOS Simulator runtime and device available
 - Enough local disk space for Xcode, runtimes, build products, screenshots, and recordings
 
-The pane is hidden when Synara is connected to a non-macOS server. Building the app remains the responsibility of the task and its terminal; the device integration installs and launches build products but does not replace `xcodebuild`, Tuist, or the project's build system.
+The pane is hidden when Saint is connected to a non-macOS server. Building the app remains the responsibility of the task and its terminal; the device integration installs and launches build products but does not replace `xcodebuild`, Tuist, or the project's build system.
 
 ## Open and attach the pane
 
-Open the right-dock add menu and choose **iOS Simulator**, then select a device. Synara boots the selected simulator when needed and attaches its live stream to the current task.
+Open the right-dock add menu and choose **iOS Simulator**, then select a device. Saint boots the selected simulator when needed and attaches its live stream to the current task.
 
-The first attachment compiles Synara's source-shipped device helper with the selected Xcode toolchain. The compiled helper is cached by source and toolchain identity, so later attachments normally reuse it. If setup is incomplete, the pane shows a checklist and updates it as Xcode, its license, and a simulator runtime become available.
+The first attachment compiles Saint's source-shipped device helper with the selected Xcode toolchain. The compiled helper is cached by source and toolchain identity, so later attachments normally reuse it. If setup is incomplete, the pane shows a checklist and updates it as Xcode, its license, and a simulator runtime become available.
 
-An agent launch through Synara's device tools can request that the pane open automatically for the owning task.
+An agent launch through Saint's device tools can request that the pane open automatically for the owning task.
 
 ## Automatic opening and focus
 
@@ -48,7 +48,7 @@ The action rail can also:
 - Shut down the simulator
 - Detach it from the task without shutting it down
 
-**Rotate view** changes how Synara presents the captured screen; it does not force the guest app to change its simulator orientation.
+**Rotate view** changes how Saint presents the captured screen; it does not force the guest app to change its simulator orientation.
 
 ## Agent device tools
 
@@ -69,7 +69,7 @@ Every input action waits for the screen to stop changing and returns it, along w
 
 On Xcode 27 and later, input is delivered through the simulator's `dtuhidd` service, which those Xcode versions require. Those versions also replace Simulator.app with DeviceHub, so commands that launch Simulator.app (`open -a Simulator`, and older `expo run:ios`, `react-native run-ios`, or `flutter run`) fail. Agents are told to boot with the device tools, build with `xcodebuild` for the booted simulator, and then install and launch the app, which needs neither app.
 
-Input, launches, and device configuration require approval through Synara until allowed for the task, and opening a URL remains approval-gated because it can send information to another origin. Reading the screen, waiting, screenshots, and logs do not. Device access does not increase the task's runtime permissions.
+Input, launches, and device configuration require approval through Saint until allowed for the task, and opening a URL remains approval-gated because it can send information to another origin. Reading the screen, waiting, screenshots, and logs do not. Device access does not increase the task's runtime permissions.
 
 <Callout type="warn" title="The pane is evidence, not a build system">
   Ask the task to build the correct scheme and configuration first. A successful install or launch
@@ -82,9 +82,9 @@ Simulator screenshot results render as image previews in the chat, with expand a
 
 ## Ownership and cleanup
 
-Synara distinguishes simulators it booted from devices that were already running. It can reclaim Synara-owned devices after task cleanup or a crash; it does not automatically shut down a user-owned simulator simply because the pane detaches.
+Saint distinguishes simulators it booted from devices that were already running. It can reclaim Saint-owned devices after task cleanup or a crash; it does not automatically shut down a user-owned simulator simply because the pane detaches.
 
-An agent-made attachment starts the ten-minute idle countdown when the last turn using that device ends. A running device tool, a live pane viewer, a recording, or an explicit user attachment keeps it alive. A new tool or viewer cancels the countdown; its next release starts a fresh grace period. Devices booted outside Synara remain outside this automatic cleanup.
+An agent-made attachment starts the ten-minute idle countdown when the last turn using that device ends. A running device tool, a live pane viewer, a recording, or an explicit user attachment keeps it alive. A new tool or viewer cancels the countdown; its next release starts a fresh grace period. Devices booted outside Saint remain outside this automatic cleanup.
 
 Shutting down ends the simulator session. Detaching only removes the task's live attachment. Choose detach when another tool or task should keep using the booted device.
 
@@ -125,4 +125,4 @@ wait with `settled: false` is not evidence that the resulting screen is ready.
 
 ## Idle simulator ownership in 1.0.8
 
-Synara releases agent-booted simulators after their owned work settles. Overlapping turns and renewed use retain their leases, so another active turn is not shut down by delayed cleanup. This does not authorize stopping a simulator started outside Synara's ownership.
+Saint releases agent-booted simulators after their owned work settles. Overlapping turns and renewed use retain their leases, so another active turn is not shut down by delayed cleanup. This does not authorize stopping a simulator started outside Saint's ownership.

@@ -3,8 +3,8 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const CURRENT_STORAGE_KEY = "synara:workspace-paths:v1";
-const LEGACY_STORAGE_KEY = "synara:workspace-pages:v2";
+const CURRENT_STORAGE_KEY = "saint:workspace-paths:v1";
+const LEGACY_STORAGE_KEY = "saint:workspace-pages:v2";
 
 function installMemoryLocalStorage() {
   const entries = new Map<string, string>();
@@ -40,7 +40,7 @@ describe("workspace path storage clearing", () => {
       JSON.stringify({
         state: {
           homeDir: "/Users/legacy",
-          chatWorkspaceRoot: "/Users/legacy/Documents/Synara",
+          chatWorkspaceRoot: "/Users/legacy/Documents/Saint",
         },
         version: 2,
       }),

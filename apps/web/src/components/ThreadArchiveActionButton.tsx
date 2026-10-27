@@ -6,7 +6,7 @@
 
 import { HiOutlineArchiveBox } from "react-icons/hi2";
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 import { cn } from "~/lib/utils";
 import { SIDEBAR_TRAILING_ICON_CLASS } from "./sidebarGlyphs";

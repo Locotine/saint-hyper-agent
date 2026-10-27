@@ -1,10 +1,10 @@
-/** Bounded, read-only measurement through Synara's existing diagnostic tools.
+/** Bounded, read-only measurement through Saint's existing diagnostic tools.
  * No live SQLite access and no transcript or tool-argument payloads in reports.
  */
-import { isToolLifecycleItemType } from "@synara/contracts";
+import { isToolLifecycleItemType } from "@saint/contracts";
 
 export type DiagnosticToolCaller = (
-  name: "synara_read_thread_events" | "synara_read_thread_runtime_events",
+  name: "saint_read_thread_events" | "saint_read_thread_runtime_events",
   args: Record<string, unknown>,
 ) => Promise<unknown>;
 
@@ -82,7 +82,7 @@ async function collectPages(
   const seenCursors = new Set<string>();
   const seenRows = new Map<number, Row>();
   const seenEventIds = new Map<string, number>();
-  const runtime = name === "synara_read_thread_runtime_events";
+  const runtime = name === "saint_read_thread_runtime_events";
   let cursor: string | undefined;
   let firstCoverage: Row | undefined;
   for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
@@ -325,7 +325,7 @@ export async function prepareComputerRunDiagnostics(
     throw new Error("Invalid diagnostic preparation scope");
   const journal = await collectPages(
     call,
-    "synara_read_thread_events",
+    "saint_read_thread_events",
     {
       threadId: scope.threadId,
       eventTypes: ["thread.created", "thread.turn-start-requested"],
@@ -343,7 +343,7 @@ export async function prepareComputerRunDiagnostics(
     throw new Error("Diagnostic preparation requires an observed fresh, undispatched thread");
   const runtime = await collectPages(
     call,
-    "synara_read_thread_runtime_events",
+    "saint_read_thread_runtime_events",
     { threadId: scope.threadId, includeDetails: true },
     2,
   );
@@ -377,7 +377,7 @@ export async function collectComputerRun(call: DiagnosticToolCaller, scope: Comp
     throw new Error("Invalid measurement scope");
   const journal = await collectPages(
     call,
-    "synara_read_thread_events",
+    "saint_read_thread_events",
     {
       threadId: scope.threadId,
       eventTypes: [
@@ -393,7 +393,7 @@ export async function collectComputerRun(call: DiagnosticToolCaller, scope: Comp
   // usage events may legitimately omit turnId; never drop their baseline.
   const runtime = await collectPages(
     call,
-    "synara_read_thread_runtime_events",
+    "saint_read_thread_runtime_events",
     {
       threadId: scope.threadId,
       eventTypes: [

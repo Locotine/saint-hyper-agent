@@ -35,8 +35,8 @@ import type {
   BrowserThreadInput,
   ThreadBrowserState,
   ThreadId,
-} from "@synara/contracts";
-import { isBrowserCopyLinkChord } from "@synara/shared/browserShortcuts";
+} from "@saint/contracts";
+import { isBrowserCopyLinkChord } from "@saint/shared/browserShortcuts";
 import {
   BROWSER_BLANK_URL as ABOUT_BLANK_URL,
   BROWSER_AUTOMATION_VIEWPORT_HEIGHT,
@@ -46,7 +46,7 @@ import {
   normalizeBrowserPageZoomFactor,
   normalizeBrowserUrlInput as normalizeUrlInput,
   resolveCopyableBrowserTabUrl,
-} from "@synara/shared/browserSession";
+} from "@saint/shared/browserSession";
 import {
   BROWSER_SESSION_PARTITION,
   BrowserSessionPolicy,
@@ -919,7 +919,7 @@ export class DesktopBrowserManager {
     if (this.disposed) return;
     const key = buildRuntimeKey(input.threadId, input.sourceTabId);
     // One native activation can surface duplicate callbacks in embedded guest
-    // runtimes. Only the first decision may create a canonical Synara tab.
+    // runtimes. Only the first decision may create a canonical Saint tab.
     if (
       this.pendingWindowOpenTasksByRuntimeKey.has(key) ||
       this.pendingAutomationWindowOpenCommitsByRuntimeKey.has(key)
@@ -1876,7 +1876,7 @@ export class DesktopBrowserManager {
       (this.window !== null && hostWebContentsId !== this.window.webContents.id) ||
       webContents.session !== electronSession.fromPartition(BROWSER_SESSION_PARTITION)
     ) {
-      throw new Error("The browser webview does not belong to this Synara window and partition.");
+      throw new Error("The browser webview does not belong to this Saint window and partition.");
     }
 
     // A pane can mount from stale renderer state while an agent opens a native

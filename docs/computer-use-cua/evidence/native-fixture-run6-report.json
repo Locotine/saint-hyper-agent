@@ -1,6 +1,6 @@
 {
   "fixtureRevision": 4,
-  "fixture": "Synara Cua Fixture 88244",
+  "fixture": "Saint Cua Fixture 88244",
   "pid": 88244,
   "runtime": {
     "node": "24.18.1",
@@ -260,8 +260,8 @@
       "direct_runtime": false,
       "disclaim_env": false,
       "embedded": true,
-      "executable": "$HOME/Applications/Synara Cua Fixture.app/Contents/Resources/cua-driver/cua-driver",
-      "host_bundle_id": "com.synara.cua-fixture",
+      "executable": "$HOME/Applications/Saint Cua Fixture.app/Contents/Resources/cua-driver/cua-driver",
+      "host_bundle_id": "com.saint.cua-fixture",
       "note": "Embedded mode: these booleans reflect the HOST app's TCC grant (the driver is a child in the host's responsibility chain). No separate driver grant exists or is needed. If a permission is NOT granted, the host app must request it — the driver never raises its own prompt.",
       "pid": 88249,
       "responsible_ppid": 88244
@@ -269,7 +269,7 @@
   },
   "nativeFixtureWindows": [
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 420,
         "width": 640,
@@ -282,12 +282,12 @@
       "on_current_space": true,
       "pid": 88244,
       "space_ids": [1],
-      "title": "Synara Cua Fixture 88244 A",
+      "title": "Saint Cua Fixture 88244 A",
       "window_id": 3527,
       "z_index": 279
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -305,7 +305,7 @@
       "z_index": 184
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -323,7 +323,7 @@
       "z_index": 182
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -341,7 +341,7 @@
       "z_index": 180
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 220,
         "width": 320,
@@ -354,12 +354,12 @@
       "on_current_space": true,
       "pid": 88244,
       "space_ids": [1],
-      "title": "Synara Cua Fixture 88244 B",
+      "title": "Saint Cua Fixture 88244 B",
       "window_id": 3528,
       "z_index": 99
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -384,14 +384,14 @@
   "target": {
     "id": "cua:88244:3527",
     "pid": 88244,
-    "title": "Synara Cua Fixture 88244 A",
+    "title": "Saint Cua Fixture 88244 A",
     "siblingId": "cua:88244:3528"
   },
   "native": {
     "target": {
       "pid": 88401,
       "windowId": "cua:88401:3534",
-      "title": "Synara Native Fixture 88401 A"
+      "title": "Saint Native Fixture 88401 A"
     },
     "cases": [
       {
@@ -415,7 +415,7 @@
         "actual": {
           "text": "abc",
           "key": false,
-          "title": "Synara Native Fixture 88401 A",
+          "title": "Saint Native Fixture 88401 A",
           "edits": 1,
           "minimized": false,
           "label": "A",
@@ -438,7 +438,7 @@
         "actual": {
           "text": "fixture-value",
           "key": false,
-          "title": "Synara Native Fixture 88401 A",
+          "title": "Saint Native Fixture 88401 A",
           "edits": 2,
           "minimized": false,
           "label": "A",

@@ -1,7 +1,7 @@
 // FILE: chatFirstSend.test.ts
 // Purpose: Verifies first-send project routing for general chats and folder mentions.
 
-import { DEFAULT_MODEL_BY_PROVIDER, type ProjectId } from "@synara/contracts";
+import { DEFAULT_MODEL_BY_PROVIDER, type ProjectId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import type { Project } from "../types";
@@ -28,7 +28,7 @@ describe("resolveFirstSendTarget", () => {
   it("creates a managed date/slug chat project for a plain general chat first send", () => {
     const result = resolveFirstSendTarget({
       activeProject: makeProject(),
-      chatWorkspaceRoot: "/Users/tester/Documents/Synara",
+      chatWorkspaceRoot: "/Users/tester/Documents/Saint",
       createdAt: new Date(2026, 5, 11, 23, 30, 43),
       isFirstMessage: true,
       isHomeChatContainer: true,
@@ -42,7 +42,7 @@ describe("resolveFirstSendTarget", () => {
     expect(result).toMatchObject({
       kind: "create-project",
       creation: {
-        workspaceRoot: "/Users/tester/Documents/Synara/2026-06-11/yes-it-takes-all-the-skills",
+        workspaceRoot: "/Users/tester/Documents/Saint/2026-06-11/yes-it-takes-all-the-skills",
         title: "Yes it takes",
         kind: "chat",
         createWorkspaceRootIfMissing: true,
@@ -53,7 +53,7 @@ describe("resolveFirstSendTarget", () => {
   it("keeps folder mentions as ordinary projects", () => {
     const result = resolveFirstSendTarget({
       activeProject: makeProject(),
-      chatWorkspaceRoot: "/Users/tester/Documents/Synara",
+      chatWorkspaceRoot: "/Users/tester/Documents/Saint",
       createdAt: new Date(2026, 5, 11, 23, 30, 43),
       isFirstMessage: true,
       isHomeChatContainer: true,
@@ -79,7 +79,7 @@ describe("resolveFirstSendTarget", () => {
     const activeProject = makeProject({ id: "project-app" as ProjectId, kind: "project" });
     const result = resolveFirstSendTarget({
       activeProject,
-      chatWorkspaceRoot: "/Users/tester/Documents/Synara",
+      chatWorkspaceRoot: "/Users/tester/Documents/Saint",
       createdAt: new Date(2026, 5, 11, 23, 30, 43),
       isFirstMessage: false,
       isHomeChatContainer: false,
@@ -105,11 +105,11 @@ describe("resolveFirstSendTarget", () => {
       kind: "studio",
       name: "Studio",
       remoteName: "Studio",
-      cwd: "/Users/tester/Documents/Synara/Studio",
+      cwd: "/Users/tester/Documents/Saint/Studio",
     });
     const result = resolveFirstSendTarget({
       activeProject,
-      chatWorkspaceRoot: "/Users/tester/Documents/Synara",
+      chatWorkspaceRoot: "/Users/tester/Documents/Saint",
       createdAt: new Date(2026, 5, 11, 23, 30, 43),
       isFirstMessage: true,
       isHomeChatContainer: false,
@@ -125,7 +125,7 @@ describe("resolveFirstSendTarget", () => {
       target: {
         targetProjectId: "project-studio",
         targetProjectKind: "studio",
-        targetProjectCwd: "/Users/tester/Documents/Synara/Studio",
+        targetProjectCwd: "/Users/tester/Documents/Saint/Studio",
       },
     });
   });
@@ -136,11 +136,11 @@ describe("resolveFirstSendTarget", () => {
       kind: "studio",
       name: "Studio",
       remoteName: "Studio",
-      cwd: "/Users/tester/Documents/Synara/Studio",
+      cwd: "/Users/tester/Documents/Saint/Studio",
     });
     const result = resolveFirstSendTarget({
       activeProject,
-      chatWorkspaceRoot: "/Users/tester/Documents/Synara",
+      chatWorkspaceRoot: "/Users/tester/Documents/Saint",
       createdAt: new Date(2026, 5, 11, 23, 30, 43),
       isFirstMessage: true,
       isHomeChatContainer: false,
@@ -156,7 +156,7 @@ describe("resolveFirstSendTarget", () => {
       target: {
         targetProjectId: "project-studio",
         targetProjectKind: "studio",
-        targetProjectCwd: "/Users/tester/Documents/Synara/Studio",
+        targetProjectCwd: "/Users/tester/Documents/Saint/Studio",
       },
     });
   });
@@ -164,7 +164,7 @@ describe("resolveFirstSendTarget", () => {
   it("falls back to codex when no defaultModelSelection is provided", () => {
     const result = resolveFirstSendTarget({
       activeProject: makeProject(),
-      chatWorkspaceRoot: "/Users/tester/Documents/Synara",
+      chatWorkspaceRoot: "/Users/tester/Documents/Saint",
       createdAt: new Date(2026, 5, 11, 23, 30, 43),
       isFirstMessage: true,
       isHomeChatContainer: true,

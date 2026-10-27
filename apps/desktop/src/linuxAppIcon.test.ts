@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 function temporaryDirectory(): string {
-  const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "synara-linux-icon-"));
+  const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-linux-icon-"));
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -33,7 +33,7 @@ function temporaryDirectory(): string {
 function desktopEntry(iconLine: string): string {
   // Mirrors the installed Beta entry: the icon belongs to the desktop entry group, while the
   // trailing Uninstall action carries the trash icon.
-  return `[Desktop Entry]\nType=Application\nName=Synara Beta\n${iconLine}\n[Desktop Action Uninstall]\nName=Move to Trash\nIcon=user-trash\n`;
+  return `[Desktop Entry]\nType=Application\nName=Saint Beta\n${iconLine}\n[Desktop Action Uninstall]\nName=Move to Trash\nIcon=user-trash\n`;
 }
 
 function writeDesktopEntry(directory: string, fileName: string, contents: string): void {
@@ -44,19 +44,19 @@ function writeDesktopEntry(directory: string, fileName: string, contents: string
 
 describe("desktopEntryIconName", () => {
   it("reads the icon name of the desktop entry group only", () => {
-    expect(desktopEntryIconName(desktopEntry("Icon=synara-beta"))).toBe("synara-beta");
-    expect(desktopEntryIconName(desktopEntry("Icon= synara-beta "))).toBe("synara-beta");
-    expect(desktopEntryIconName(desktopEntry("Icon=synara-beta").replace(/\n/g, "\r\n"))).toBe(
-      "synara-beta",
+    expect(desktopEntryIconName(desktopEntry("Icon=saint-beta"))).toBe("saint-beta");
+    expect(desktopEntryIconName(desktopEntry("Icon= saint-beta "))).toBe("saint-beta");
+    expect(desktopEntryIconName(desktopEntry("Icon=saint-beta").replace(/\n/g, "\r\n"))).toBe(
+      "saint-beta",
     );
   });
 
   it("gives up when the entry has no theme name to cover", () => {
     // An absolute path is a private file, and a relative one is not a theme lookup name.
-    expect(desktopEntryIconName(desktopEntry("Icon=/home/gabriel/.icons/synara.png"))).toBeNull();
-    expect(desktopEntryIconName(desktopEntry("Icon=./synara.png"))).toBeNull();
-    expect(desktopEntryIconName(desktopEntry("Icon=icons/synara"))).toBeNull();
-    expect(desktopEntryIconName(desktopEntry("Name=Synara Beta"))).toBeNull();
+    expect(desktopEntryIconName(desktopEntry("Icon=/home/gabriel/.icons/saint.png"))).toBeNull();
+    expect(desktopEntryIconName(desktopEntry("Icon=./saint.png"))).toBeNull();
+    expect(desktopEntryIconName(desktopEntry("Icon=icons/saint"))).toBeNull();
+    expect(desktopEntryIconName(desktopEntry("Name=Saint Beta"))).toBeNull();
   });
 });
 
@@ -64,8 +64,8 @@ describe("resolveLinuxDesktopIconName", () => {
   it("prefers the data home over the data dirs", () => {
     const dataHome = temporaryDirectory();
     const dataDir = temporaryDirectory();
-    const betaFile = "synara-beta.desktop";
-    writeDesktopEntry(dataDir, betaFile, desktopEntry("Icon=synara-beta"));
+    const betaFile = "saint-beta.desktop";
+    writeDesktopEntry(dataDir, betaFile, desktopEntry("Icon=saint-beta"));
     const env = { XDG_DATA_HOME: dataHome, XDG_DATA_DIRS: `/nonexistent:${dataDir}` };
     const homeDir = temporaryDirectory();
 
@@ -75,9 +75,9 @@ describe("resolveLinuxDesktopIconName", () => {
         homeDir,
         flavor: "beta",
       }),
-    ).toBe("synara-beta");
+    ).toBe("saint-beta");
 
-    writeDesktopEntry(dataHome, betaFile, desktopEntry("Icon=synara-beta-custom"));
+    writeDesktopEntry(dataHome, betaFile, desktopEntry("Icon=saint-beta-custom"));
     expect(
       resolveLinuxDesktopIconName({
         env,
@@ -90,9 +90,9 @@ describe("resolveLinuxDesktopIconName", () => {
   it("keeps the entry it finds first authoritative", () => {
     const dataHome = temporaryDirectory();
     const dataDir = temporaryDirectory();
-    const stableFile = "synara.desktop";
+    const stableFile = "saint.desktop";
     writeDesktopEntry(dataHome, stableFile, desktopEntry("Icon=/tmp/custom.png"));
-    writeDesktopEntry(dataDir, stableFile, desktopEntry("Icon=synara"));
+    writeDesktopEntry(dataDir, stableFile, desktopEntry("Icon=saint"));
 
     expect(
       resolveLinuxDesktopIconName({
@@ -109,10 +109,10 @@ describe("resolveLinuxDesktopIconName", () => {
     const env = { XDG_DATA_HOME: dataHome, XDG_DATA_DIRS: dataDir };
     const homeDir = temporaryDirectory();
     const flavors = [
-      ["production", "synara"],
-      ["beta", "synara-beta"],
-      ["canary", "synara-canary"],
-      ["cua", "synara-cua"],
+      ["production", "saint"],
+      ["beta", "saint-beta"],
+      ["canary", "saint-canary"],
+      ["cua", "saint-cua"],
     ] as const;
     for (const [, iconName] of flavors) {
       writeDesktopEntry(dataHome, `${iconName}.desktop`, desktopEntry(`Icon=${iconName}`));
@@ -136,8 +136,8 @@ describe("resolveLinuxDesktopIconName", () => {
         ),
       ).toBe(flavor);
     }
-    for (const sharedIcon of ["synara", "synara-beta", "firefox"]) {
-      writeDesktopEntry(dataHome, "synara-canary.desktop", desktopEntry(`Icon=${sharedIcon}`));
+    for (const sharedIcon of ["saint", "saint-beta", "firefox"]) {
+      writeDesktopEntry(dataHome, "saint-canary.desktop", desktopEntry(`Icon=${sharedIcon}`));
       expect(resolveLinuxDesktopIconName({ env, homeDir, flavor: "canary" })).toBeNull();
     }
   });
@@ -175,14 +175,14 @@ describe("linuxDataHome", () => {
 });
 
 describe("persistLinuxAppIcon", () => {
-  const iconPathFor = (dataHome: string, size: number, iconName = "synara-beta") =>
+  const iconPathFor = (dataHome: string, size: number, iconName = "saint-beta") =>
     Path.join(dataHome, "icons", "hicolor", `${size}x${size}`, "apps", `${iconName}.png`);
 
   it("writes every declared size under the entry's own icon name", () => {
     const dataHome = temporaryDirectory();
     const changed = persistLinuxAppIcon({
       dataHome,
-      iconName: "synara-beta",
+      iconName: "saint-beta",
       renderPng: (size) => Buffer.from(`png-${size}`),
     });
 
@@ -190,20 +190,20 @@ describe("persistLinuxAppIcon", () => {
     for (const size of LINUX_APP_ICON_SIZES) {
       expect(FS.readFileSync(iconPathFor(dataHome, size), "utf8")).toBe(`png-${size}`);
     }
-    expect(FS.readdirSync(Path.dirname(iconPathFor(dataHome, 256)))).toEqual(["synara-beta.png"]);
+    expect(FS.readdirSync(Path.dirname(iconPathFor(dataHome, 256)))).toEqual(["saint-beta.png"]);
   });
 
   it("leaves unchanged artwork alone so icon caches are not invalidated", () => {
     const dataHome = temporaryDirectory();
     const renderPng = (size: number) => Buffer.from(`png-${size}`);
 
-    expect(persistLinuxAppIcon({ dataHome, iconName: "synara-beta", renderPng })).toBe(true);
-    expect(persistLinuxAppIcon({ dataHome, iconName: "synara-beta", renderPng })).toBe(false);
+    expect(persistLinuxAppIcon({ dataHome, iconName: "saint-beta", renderPng })).toBe(true);
+    expect(persistLinuxAppIcon({ dataHome, iconName: "saint-beta", renderPng })).toBe(false);
 
     expect(
       persistLinuxAppIcon({
         dataHome,
-        iconName: "synara-beta",
+        iconName: "saint-beta",
         renderPng: (size) => Buffer.from(`next-${size}`),
       }),
     ).toBe(true);

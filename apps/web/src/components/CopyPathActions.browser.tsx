@@ -155,7 +155,7 @@ describe("copy-path actions", () => {
   it("keeps the menu available when an outside-workspace path is its only action", async () => {
     setClipboard(undefined);
     const execCommand = installSuccessfulFallbackCopy();
-    const path = "/tmp/synara scratch/example.ts";
+    const path = "/tmp/saint scratch/example.ts";
 
     await render(workspaceFilePreviewHeader(path, "/workspace"));
 

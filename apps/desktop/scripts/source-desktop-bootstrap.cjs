@@ -15,12 +15,12 @@ const { app, dialog } = require("electron");
 try {
   // An explicit source/smoke launch owns its environment. Only an OS reopen
   // needs the saved routing; otherwise it could replace a smoke test's home.
-  if (!process.env.SYNARA_SOURCE_DESKTOP_BUILD_MARKER) {
+  if (!process.env.SAINT_SOURCE_DESKTOP_BUILD_MARKER) {
     const configuration = JSON.parse(fs.readFileSync(configurationPath, "utf8"));
     for (const name of [
-      "SYNARA_HOME",
-      "SYNARA_DESKTOP_FLAVOR",
-      "SYNARA_SOURCE_DESKTOP_BUILD_MARKER",
+      "SAINT_HOME",
+      "SAINT_DESKTOP_FLAVOR",
+      "SAINT_SOURCE_DESKTOP_BUILD_MARKER",
       "VITE_DEV_SERVER_URL",
     ]) {
       const value = configuration[name];
@@ -39,7 +39,7 @@ try {
   require(entry);
 } catch (error) {
   dialog.showErrorBox(
-    "Synara development build could not start",
+    "Saint development build could not start",
     `${error instanceof Error ? error.message : String(error)}\n\nRun bun run electron:dev from ${path.resolve(desktopDirectory, "../..")} and wait for the build to finish.`,
   );
   app.exit(1);

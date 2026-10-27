@@ -71,7 +71,7 @@ async function capture() {
         await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
         await page.evaluate((selectedTheme) => {
           document.documentElement.classList.toggle("dark", selectedTheme === "dark");
-          localStorage.setItem("synara-theme", selectedTheme);
+          localStorage.setItem("saint-theme", selectedTheme);
         }, theme);
         await page.reload({ waitUntil: "domcontentloaded" });
         const imageCount = await waitForImages(page);

@@ -23,9 +23,9 @@
     {
       "start": "2026-09-11T23:10:34.090Z",
       "seconds": 2.09,
-      "tools": ["tools.mcp__synara__computer_launch_app"],
+      "tools": ["tools.mcp__saint__computer_launch_app"],
       "discovery": false,
-      "script": "const r = await tools.mcp__synara__computer_launch_app({app:\"Calculator\", delivery_mode:\"foreground\"});\ntext(r.structuredContent ?? r);\n"
+      "script": "const r = await tools.mcp__saint__computer_launch_app({app:\"Calculator\", delivery_mode:\"foreground\"});\ntext(r.structuredContent ?? r);\n"
     },
     {
       "start": "2026-09-11T23:10:37.767Z",
@@ -37,30 +37,30 @@
     {
       "start": "2026-09-11T23:10:39.082Z",
       "seconds": 0.065,
-      "tools": ["tools.mcp__synara__computer_list_windows"],
+      "tools": ["tools.mcp__saint__computer_list_windows"],
       "discovery": false,
-      "script": "const r = await tools.mcp__synara__computer_list_windows({app:\"Calculator\"});\ntext(r.structuredContent ?? r);\n"
+      "script": "const r = await tools.mcp__saint__computer_list_windows({app:\"Calculator\"});\ntext(r.structuredContent ?? r);\n"
     },
     {
       "start": "2026-09-11T23:10:41.106Z",
       "seconds": 0.22,
-      "tools": ["tools.mcp__synara__computer_get_state"],
+      "tools": ["tools.mcp__saint__computer_get_state"],
       "discovery": false,
-      "script": "const r = await tools.mcp__synara__computer_get_state({window_id:\"cua:59285:16707\"});\nfor (const c of (r.content ?? [])) c.type === \"image\" ? image(c) : c.type === \"text\" ? text(c.text) : null;\n"
+      "script": "const r = await tools.mcp__saint__computer_get_state({window_id:\"cua:59285:16707\"});\nfor (const c of (r.content ?? [])) c.type === \"image\" ? image(c) : c.type === \"text\" ? text(c.text) : null;\n"
     },
     {
       "start": "2026-09-11T23:10:45.101Z",
       "seconds": 5.159,
-      "tools": ["tools.mcp__synara__computer_click"],
+      "tools": ["tools.mcp__saint__computer_click"],
       "discovery": false,
-      "script": "const window_id = \"cua:59285:16707\";\nfor (const label of [\"All Clear\",\"1\",\"2\",\"3\",\"Multiply\",\"4\",\"5\"]) {\n  const r = await tools.mcp__synara__computer_click({window_id,label,role:\"AXButton\",delivery_mode:\"foreground\",include_screenshot:false});\n  if (r.isError) { text(r); exit(); }\n}\nconst r = await tools.mcp__synara__computer_click({window_id,label:\"Equals\",role:\"AXButton\",delivery_mode:\"foreground\",include_screenshot:true});\nfor (const c of (r.content ?? [])) c.type === \"image\" ? image(c) : c.type === \"text\" ? text(c.text) : null;\n"
+      "script": "const window_id = \"cua:59285:16707\";\nfor (const label of [\"All Clear\",\"1\",\"2\",\"3\",\"Multiply\",\"4\",\"5\"]) {\n  const r = await tools.mcp__saint__computer_click({window_id,label,role:\"AXButton\",delivery_mode:\"foreground\",include_screenshot:false});\n  if (r.isError) { text(r); exit(); }\n}\nconst r = await tools.mcp__saint__computer_click({window_id,label:\"Equals\",role:\"AXButton\",delivery_mode:\"foreground\",include_screenshot:true});\nfor (const c of (r.content ?? [])) c.type === \"image\" ? image(c) : c.type === \"text\" ? text(c.text) : null;\n"
     },
     {
       "start": "2026-09-11T23:10:52.628Z",
       "seconds": 0.191,
-      "tools": ["tools.mcp__synara__computer_get_state"],
+      "tools": ["tools.mcp__saint__computer_get_state"],
       "discovery": false,
-      "script": "const r = await tools.mcp__synara__computer_get_state({window_id:\"cua:59285:16707\", include_text:true});\nfor (const c of (r.content ?? [])) if (c.type === \"text\") text(c.text);\n"
+      "script": "const r = await tools.mcp__saint__computer_get_state({window_id:\"cua:59285:16707\", include_text:true});\nfor (const c of (r.content ?? [])) if (c.type === \"text\") text(c.text);\n"
     }
   ],
   "result": "123 \u00d7 45 = **5.535**."

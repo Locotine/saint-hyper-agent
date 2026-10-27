@@ -4,7 +4,7 @@
 // Layer: Chat transcript row content
 // Exports: InlineVisualSurface, SeriesSwatch, seriesColor, toneTextClassName, toneColor
 
-import type { InlineVisualTone } from "@synara/contracts";
+import type { InlineVisualTone } from "@saint/contracts";
 import type { ReactNode } from "react";
 
 import { cn } from "~/lib/utils";

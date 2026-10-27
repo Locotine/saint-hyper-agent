@@ -1,4 +1,4 @@
-import { OrchestrationEvent, ThreadId } from "@synara/contracts";
+import { OrchestrationEvent, ThreadId } from "@saint/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";

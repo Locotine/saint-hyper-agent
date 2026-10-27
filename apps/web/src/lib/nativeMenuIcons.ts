@@ -4,7 +4,7 @@
 // Exports: withNativeMenuIcons, isInlineSvgMenuIcon
 // Depends on: Central icon asset URLs and DOM canvas rasterization.
 
-import type { ContextMenuItem, DesktopContextMenuItem } from "@synara/contracts";
+import type { ContextMenuItem, DesktopContextMenuItem } from "@saint/contracts";
 import { getCentralIconUrl } from "./central-icons";
 
 // macOS menus reserve a 16pt image slot; render at 2x so Retina menus stay crisp.

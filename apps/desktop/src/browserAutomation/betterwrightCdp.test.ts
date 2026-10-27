@@ -206,7 +206,7 @@ describe("Betterwright target boundary", () => {
     },
   );
 
-  // A background agent must not pull keyboard focus (or Synara's window) away
+  // A background agent must not pull keyboard focus (or Saint's window) away
   // from wherever the user is typing.
   it.each([
     ["Input.insertText", { text: "a" }],

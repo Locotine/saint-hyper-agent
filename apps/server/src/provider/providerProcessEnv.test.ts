@@ -155,7 +155,7 @@ describe("buildProviderProcessEnv", () => {
   it.each(["cursor", "gemini", "grok", "kilo", "opencode"] as const)(
     "moves explicit-empty %s instances off ambient HOME and XDG account stores",
     (driver) => {
-      const isolationRootDir = mkdtempSync(join(tmpdir(), "synara-provider-home-"));
+      const isolationRootDir = mkdtempSync(join(tmpdir(), "saint-provider-home-"));
       const instanceId = driver;
       const env = buildProviderProcessEnv({
         driver,
@@ -190,7 +190,7 @@ describe("buildProviderProcessEnv", () => {
     const env = buildProviderProcessEnv({
       driver: "opencode",
       instanceId: "opencode_work",
-      isolationRootDir: "/synara/state",
+      isolationRootDir: "/saint/state",
       env: {
         HOME: "/accounts/ambient-a",
         XDG_DATA_HOME: "/accounts/ambient-a/data",
@@ -205,7 +205,7 @@ describe("buildProviderProcessEnv", () => {
   it.each(["", "   ", "relative/home"])(
     "rejects invalid selected HOME %j and retains absolute synthetic roots",
     (selectedHome) => {
-      const root = mkdtempSync(join(tmpdir(), "synara-invalid-provider-home-"));
+      const root = mkdtempSync(join(tmpdir(), "saint-invalid-provider-home-"));
       const env = buildProviderProcessEnv({
         driver: "cursor",
         instanceId: "cursor_work",
@@ -223,7 +223,7 @@ describe("buildProviderProcessEnv", () => {
   );
 
   it("rejects invalid selected Grok storage roots", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-invalid-grok-home-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-invalid-grok-home-"));
     const env = buildProviderProcessEnv({
       driver: "grok",
       instanceId: "grok_work",
@@ -235,7 +235,7 @@ describe("buildProviderProcessEnv", () => {
   });
 
   it("removes invalid selected Pi agent and session roots", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-invalid-pi-home-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-invalid-pi-home-"));
     const env = buildProviderProcessEnv({
       driver: "pi",
       instanceId: "pi_work",
@@ -254,7 +254,7 @@ describe("buildProviderProcessEnv", () => {
     const env = buildProviderProcessEnv({
       driver: "opencode",
       instanceId: "opencode_work",
-      isolationRootDir: mkdtempSync(join(tmpdir(), "synara-provider-safe-env-")),
+      isolationRootDir: mkdtempSync(join(tmpdir(), "saint-provider-safe-env-")),
       env: { PATH: "/usr/bin", LANG: "en_US.UTF-8", CUSTOM_SECRET: "ambient-secret" },
       environment: {},
     });
@@ -264,7 +264,7 @@ describe("buildProviderProcessEnv", () => {
   });
 
   it("pins provider-owned file credential switches and preserves explicit Grok roots", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-provider-switches-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-provider-switches-"));
     const cursor = buildProviderProcessEnv({
       driver: "cursor",
       instanceId: "cursor_work",
@@ -291,7 +291,7 @@ describe("buildProviderProcessEnv", () => {
   });
 
   it("tightens an existing synthetic credential home to owner-only permissions", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-provider-permissions-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-provider-permissions-"));
     const home = providerIsolatedHomePath({
       driver: "cursor",
       instanceId: "cursor_work",

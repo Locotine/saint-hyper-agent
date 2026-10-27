@@ -7,7 +7,7 @@
     "patchSha256": "a53aca2e440161a2776a255fa8a9c856ddb4dada69927fd5bab08fc6b936623b",
     "binarySha256": "601382877c7af04543a32959ddff31743425a8d4fdfc4d1d5529d5c1f03589c4"
   },
-  "host": "external trusted CuaDriverHost (shell-ancestry TCC), bundle com.synara.cua-canary, endpoint synara-cua-cyREYK/host.sock",
+  "host": "external trusted CuaDriverHost (shell-ancestry TCC), bundle com.saint.cua-canary, endpoint saint-cua-cyREYK/host.sock",
   "target": {
     "app": "Notes",
     "pid": 30289,
@@ -29,7 +29,7 @@
         "accessibility": true,
         "screen_recording": true,
         "attribution": "host",
-        "host_bundle_id": "com.synara.cua-canary"
+        "host_bundle_id": "com.saint.cua-canary"
       },
       "verdict": "pass"
     },

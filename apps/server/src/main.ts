@@ -20,18 +20,18 @@ import {
   Stream,
 } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
-import type { ServerSettings } from "@synara/contracts";
-import { NetService } from "@synara/shared/Net";
+import type { ServerSettings } from "@saint/contracts";
+import { NetService } from "@saint/shared/Net";
 import {
   MIGRATION_DIVERGENCE_CONSENT_ENV,
   MIGRATION_RUNTIME_SOURCE_DIGEST_ENV,
-} from "@synara/shared/migrationRecovery";
+} from "@saint/shared/migrationRecovery";
 import {
   optionalBooleanEnvironmentConfig,
   optionalBooleanFlag,
   resolveBooleanConfig,
   type BooleanFlagInput,
-} from "@synara/shared/cli";
+} from "@saint/shared/cli";
 import {
   DEFAULT_PORT,
   deriveServerPaths,
@@ -44,10 +44,7 @@ import {
   type RuntimeMode,
   type ServerConfigShape,
 } from "./config";
-import {
-  SYNARA_BETA_BUNDLE_ID,
-  SYNARA_DESKTOP_BUNDLE_ID_ENV,
-} from "@synara/shared/desktopIdentity";
+import { SAINT_BETA_BUNDLE_ID, SAINT_DESKTOP_BUNDLE_ID_ENV } from "@saint/shared/desktopIdentity";
 import { runBetaImportIfRequested } from "./betaImport";
 import { startBetaUsageSnapshotJob } from "./betaUsageSnapshot";
 import { LATEST_MIGRATION_ID } from "./persistence/Migrations";
@@ -79,7 +76,7 @@ import {
   verifyServerRuntime,
 } from "./externalMcp/bridge";
 import { externalMcpLauncher, externalMcpShellCommand } from "./externalMcp/launcher";
-import { fetchSynaraServerStatus, formatSynaraServerStatus } from "./serverStatusCli";
+import { fetchSaintServerStatus, formatSaintServerStatus } from "./serverStatusCli";
 import {
   embeddedMigrationRuntimeSourceDigest,
   verifyMigrationRuntimeIdentity,
@@ -90,7 +87,7 @@ export class StartupError extends Data.TaggedError("StartupError")<{
   readonly cause?: unknown;
 }> {}
 
-const DESKTOP_SHUTDOWN_TOKEN_ENV_KEY = "SYNARA_DESKTOP_SHUTDOWN_TOKEN";
+const DESKTOP_SHUTDOWN_TOKEN_ENV_KEY = "SAINT_DESKTOP_SHUTDOWN_TOKEN";
 
 function consumeProcessEnvironmentValue(environmentKey: string): string | undefined {
   const matchingKeys =
@@ -111,7 +108,7 @@ interface CliInput {
   readonly mode: Option.Option<RuntimeMode>;
   readonly port: Option.Option<number>;
   readonly host: Option.Option<string>;
-  readonly synaraHome: Option.Option<string>;
+  readonly saintHome: Option.Option<string>;
   readonly devUrl: Option.Option<URL>;
   readonly publicUrl: Option.Option<URL>;
   readonly allowInsecureRemote: BooleanFlagInput;
@@ -146,7 +143,7 @@ export interface CliConfigShape {
  * CliConfig - Service tag for startup CLI/runtime helpers.
  */
 export class CliConfig extends ServiceMap.Service<CliConfig, CliConfigShape>()(
-  "synara/main/CliConfig",
+  "saint/main/CliConfig",
 ) {
   static readonly layer = Layer.effect(
     CliConfig,
@@ -166,7 +163,7 @@ export class CliConfig extends ServiceMap.Service<CliConfig, CliConfigShape>()(
 }
 
 const CliEnvConfig = Config.all({
-  mode: Config.string("SYNARA_MODE").pipe(
+  mode: Config.string("SAINT_MODE").pipe(
     Config.option,
     Config.map(
       Option.match<RuntimeMode, string>({
@@ -175,18 +172,18 @@ const CliEnvConfig = Config.all({
       }),
     ),
   ),
-  port: Config.port("SYNARA_PORT").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  host: Config.string("SYNARA_HOST").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  synaraHome: Config.string("SYNARA_HOME").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  port: Config.port("SAINT_PORT").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  host: Config.string("SAINT_HOST").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  saintHome: Config.string("SAINT_HOME").pipe(Config.option, Config.map(Option.getOrUndefined)),
   devUrl: Config.url("VITE_DEV_SERVER_URL").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  publicUrl: Config.url("SYNARA_PUBLIC_URL").pipe(Config.option, Config.map(Option.getOrUndefined)),
-  allowInsecureRemote: optionalBooleanEnvironmentConfig("SYNARA_ALLOW_INSECURE_REMOTE"),
-  noBrowser: optionalBooleanEnvironmentConfig("SYNARA_NO_BROWSER"),
-  authToken: Config.string("SYNARA_AUTH_TOKEN").pipe(
+  publicUrl: Config.url("SAINT_PUBLIC_URL").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  allowInsecureRemote: optionalBooleanEnvironmentConfig("SAINT_ALLOW_INSECURE_REMOTE"),
+  noBrowser: optionalBooleanEnvironmentConfig("SAINT_NO_BROWSER"),
+  authToken: Config.string("SAINT_AUTH_TOKEN").pipe(
     Config.option,
     Config.map(Option.getOrUndefined),
   ),
-  desktopShutdownToken: Config.string("SYNARA_DESKTOP_SHUTDOWN_TOKEN").pipe(
+  desktopShutdownToken: Config.string("SAINT_DESKTOP_SHUTDOWN_TOKEN").pipe(
     Config.option,
     Config.map(Option.getOrUndefined),
   ),
@@ -199,14 +196,11 @@ const CliEnvConfig = Config.all({
     Config.map(Option.getOrUndefined),
   ),
   autoBootstrapProjectFromCwd: optionalBooleanEnvironmentConfig(
-    "SYNARA_AUTO_BOOTSTRAP_PROJECT_FROM_CWD",
+    "SAINT_AUTO_BOOTSTRAP_PROJECT_FROM_CWD",
   ),
-  trashDir: Config.string("SYNARA_TRASH_DIR").pipe(
-    Config.option,
-    Config.map(Option.getOrUndefined),
-  ),
-  logProviderEvents: optionalBooleanEnvironmentConfig("SYNARA_LOG_PROVIDER_EVENTS"),
-  logWebSocketEvents: optionalBooleanEnvironmentConfig("SYNARA_LOG_WS_EVENTS"),
+  trashDir: Config.string("SAINT_TRASH_DIR").pipe(Config.option, Config.map(Option.getOrUndefined)),
+  logProviderEvents: optionalBooleanEnvironmentConfig("SAINT_LOG_PROVIDER_EVENTS"),
+  logWebSocketEvents: optionalBooleanEnvironmentConfig("SAINT_LOG_WS_EVENTS"),
 });
 
 const ServerConfigLive = (input: CliInput) =>
@@ -273,7 +267,7 @@ const ServerConfigLive = (input: CliInput) =>
       if (configuredPublicUrl && publicUrl === undefined) {
         return yield* new StartupError({
           message:
-            "SYNARA_PUBLIC_URL/--public-url must be an HTTPS root origin without credentials, path, query, or fragment (for example https://synara.example.com).",
+            "SAINT_PUBLIC_URL/--public-url must be an HTTPS root origin without credentials, path, query, or fragment (for example https://saint.example.com).",
         });
       }
       const allowInsecureRemote = resolveBooleanConfig(
@@ -281,16 +275,16 @@ const ServerConfigLive = (input: CliInput) =>
         env.allowInsecureRemote,
         false,
       );
-      const configuredHome = Option.getOrUndefined(input.synaraHome) ?? env.synaraHome;
+      const configuredHome = Option.getOrUndefined(input.saintHome) ?? env.saintHome;
       const baseDir = yield* resolveBaseDir(configuredHome);
       const userHomeDir = OS.homedir();
       const derivedPaths = yield* deriveServerPaths(baseDir, devUrl);
       // A "Copy my data to Beta" request from a stable install lands as a
       // marker in this home; it must be consumed before the private state
       // directory (and its database) is created or repaired.
-      // Only Synara Beta consumes the marker, so a stray file in any other
+      // Only Saint Beta consumes the marker, so a stray file in any other
       // home can never replace that install's database.
-      if (process.env[SYNARA_DESKTOP_BUNDLE_ID_ENV] === SYNARA_BETA_BUNDLE_ID) {
+      if (process.env[SAINT_DESKTOP_BUNDLE_ID_ENV] === SAINT_BETA_BUNDLE_ID) {
         const importResult = yield* Effect.tryPromise({
           try: () =>
             runBetaImportIfRequested({
@@ -310,7 +304,7 @@ const ServerConfigLive = (input: CliInput) =>
       yield* Effect.try({
         try: () => preparePrivateServerPaths(derivedPaths),
         catch: (cause) =>
-          new StartupError({ message: "Failed to secure Synara's local state directory", cause }),
+          new StartupError({ message: "Failed to secure Saint's local state directory", cause }),
       });
       const noBrowser = resolveBooleanConfig(input.noBrowser, env.noBrowser, mode === "desktop");
       const authToken = Option.getOrUndefined(input.authToken) ?? env.authToken;
@@ -473,12 +467,12 @@ const makeServerProgram = (input: CliInput) =>
     yield* startThreadRetentionJob(orchestrationEngine, projectionSnapshotQuery);
     // Beta only: anonymous 24h usage snapshot for diagnostics. Same gate as the
     // stable→beta import; failures are logged inside and never break startup.
-    if (process.env[SYNARA_DESKTOP_BUNDLE_ID_ENV] === SYNARA_BETA_BUNDLE_ID) {
+    if (process.env[SAINT_DESKTOP_BUNDLE_ID_ENV] === SAINT_BETA_BUNDLE_ID) {
       yield* startBetaUsageSnapshotJob(config.baseDir);
     }
     // Optional Claude OAuth keepalive. Disabled by default because it touches
     // Claude Code auth data in the background; users can opt in with
-    // SYNARA_CLAUDE_KEEPALIVE=1.
+    // SAINT_CLAUDE_KEEPALIVE=1.
     const claudeKeepalive = createClaudeCredentialKeepaliveController({
       homeDir: config.homeDir,
       log: (message) => Effect.runFork(Effect.logInfo(message)),
@@ -505,14 +499,14 @@ const makeServerProgram = (input: CliInput) =>
       Effect.forkChild,
     );
 
-    yield* Effect.logInfo("Synara running", makeServerStartupLogData(config));
+    yield* Effect.logInfo("Saint running", makeServerStartupLogData(config));
     if (startupPairingUrl) {
       if (config.allowInsecureRemote && !config.publicUrl) {
         yield* Effect.logWarning(
           "INSECURE REMOTE ACCESS ENABLED: credentials and session traffic are unencrypted",
           {
             pairingUrl: startupPairingUrl,
-            hint: "Use only on a trusted LAN. Configure SYNARA_PUBLIC_URL behind HTTPS for protected remote access.",
+            hint: "Use only on a trusted LAN. Configure SAINT_PUBLIC_URL behind HTTPS for protected remote access.",
           },
         );
       }
@@ -561,8 +555,8 @@ const hostFlag = Flag.string("host").pipe(
   Flag.withDescription("Host/interface to bind (for example 127.0.0.1, 0.0.0.0, or a Tailnet IP)."),
   Flag.optional,
 );
-const synaraHomeFlag = Flag.string("home-dir").pipe(
-  Flag.withDescription("Base directory for all Synara data (equivalent to SYNARA_HOME)."),
+const saintHomeFlag = Flag.string("home-dir").pipe(
+  Flag.withDescription("Base directory for all Saint data (equivalent to SAINT_HOME)."),
   Flag.optional,
 );
 const devUrlFlag = Flag.string("dev-url").pipe(
@@ -573,13 +567,13 @@ const devUrlFlag = Flag.string("dev-url").pipe(
 const publicUrlFlag = Flag.string("public-url").pipe(
   Flag.withSchema(Schema.URLFromString),
   Flag.withDescription(
-    "HTTPS public root origin provided by a TLS-terminating reverse proxy (equivalent to SYNARA_PUBLIC_URL).",
+    "HTTPS public root origin provided by a TLS-terminating reverse proxy (equivalent to SAINT_PUBLIC_URL).",
   ),
   Flag.optional,
 );
 const allowInsecureRemoteFlag = optionalBooleanFlag("allow-insecure-remote", {
   description:
-    "Explicitly allow unencrypted authenticated remote access on a trusted LAN (equivalent to SYNARA_ALLOW_INSECURE_REMOTE).",
+    "Explicitly allow unencrypted authenticated remote access on a trusted LAN (equivalent to SAINT_ALLOW_INSECURE_REMOTE).",
 });
 const noBrowserFlag = optionalBooleanFlag("no-browser", {
   description: "Disable automatic browser opening.",
@@ -596,11 +590,11 @@ const autoBootstrapProjectFromCwdFlag = optionalBooleanFlag("auto-bootstrap-proj
 });
 const logProviderEventsFlag = optionalBooleanFlag("log-provider-events", {
   description:
-    "Emit native/canonical provider NDJSON logs for debugging (equivalent to SYNARA_LOG_PROVIDER_EVENTS).",
+    "Emit native/canonical provider NDJSON logs for debugging (equivalent to SAINT_LOG_PROVIDER_EVENTS).",
 });
 const logWebSocketEventsFlag = optionalBooleanFlag("log-websocket-events", {
   description:
-    "Emit server-side logs for outbound WebSocket push traffic (equivalent to SYNARA_LOG_WS_EVENTS).",
+    "Emit server-side logs for outbound WebSocket push traffic (equivalent to SAINT_LOG_WS_EVENTS).",
   aliases: ["log-ws-events"],
 });
 
@@ -611,16 +605,16 @@ const mcpIntegrationFlag = Flag.string("integration").pipe(
   Flag.optional,
 );
 
-// Base `synara` command defined before the MCP subcommands so they can yield
-// its parsed input (notably `--home-dir` / `synaraHome`) via Effect's command
+// Base `saint` command defined before the MCP subcommands so they can yield
+// its parsed input (notably `--home-dir` / `saintHome`) via Effect's command
 // context. This avoids a duplicate `--home-dir` flag between the root command
 // and its MCP subcommands, which the Effect CLI assigns to the parent and
 // leaves the subcommand flag unset.
-const baseServerCommand = Command.make("synara", {
+const baseServerCommand = Command.make("saint", {
   mode: modeFlag,
   port: portFlag,
   host: hostFlag,
-  synaraHome: synaraHomeFlag,
+  saintHome: saintHomeFlag,
   devUrl: devUrlFlag,
   publicUrl: publicUrlFlag,
   allowInsecureRemote: allowInsecureRemoteFlag,
@@ -629,7 +623,7 @@ const baseServerCommand = Command.make("synara", {
   autoBootstrapProjectFromCwd: autoBootstrapProjectFromCwdFlag,
   logProviderEvents: logProviderEventsFlag,
   logWebSocketEvents: logWebSocketEventsFlag,
-}).pipe(Command.withDescription("Run the Synara server."));
+}).pipe(Command.withDescription("Run the Saint server."));
 
 const mcpServeCommand = Command.make(
   "serve",
@@ -637,7 +631,7 @@ const mcpServeCommand = Command.make(
   ({ integration }) =>
     Effect.gen(function* () {
       const parent = yield* baseServerCommand;
-      const baseDir = resolveExternalMcpBaseDir(Option.getOrUndefined(parent.synaraHome));
+      const baseDir = resolveExternalMcpBaseDir(Option.getOrUndefined(parent.saintHome));
       yield* Effect.tryPromise({
         try: () =>
           serveExternalMcpStdio({
@@ -650,7 +644,7 @@ const mcpServeCommand = Command.make(
     }),
 ).pipe(
   Command.withDescription(
-    "Serve the paired Synara external MCP integration over stdio for Codex, Claude, and other MCP clients.",
+    "Serve the paired Saint external MCP integration over stdio for Codex, Claude, and other MCP clients.",
   ),
 );
 
@@ -658,13 +652,13 @@ const mcpPairCommand = Command.make(
   "pair",
   {
     code: Flag.string("code").pipe(
-      Flag.withDescription("Short-lived pairing code issued by Synara Settings."),
+      Flag.withDescription("Short-lived pairing code issued by Saint Settings."),
     ),
   },
   ({ code }) =>
     Effect.gen(function* () {
       const parent = yield* baseServerCommand;
-      const baseDir = resolveExternalMcpBaseDir(Option.getOrUndefined(parent.synaraHome));
+      const baseDir = resolveExternalMcpBaseDir(Option.getOrUndefined(parent.saintHome));
       const paired = yield* Effect.tryPromise({
         try: () =>
           pairExternalMcpClient({
@@ -674,21 +668,21 @@ const mcpPairCommand = Command.make(
         catch: (cause) => new StartupError({ message: "External MCP pairing failed.", cause }),
       });
       process.stdout.write(
-        `Paired Synara external MCP integration "${paired.paired.name}".\nCredential stored privately at ${paired.storePath}.\nConfigure the MCP client command as: ${externalMcpShellCommand(externalMcpLauncher(["mcp", "serve", "--integration", paired.paired.integrationId, "--home-dir", baseDir]))}\n`,
+        `Paired Saint external MCP integration "${paired.paired.name}".\nCredential stored privately at ${paired.storePath}.\nConfigure the MCP client command as: ${externalMcpShellCommand(externalMcpLauncher(["mcp", "serve", "--integration", paired.paired.integrationId, "--home-dir", baseDir]))}\n`,
       );
       if (process.platform === "win32") {
         process.stdout.write(
-          "Windows note: Synara stores this credential under your user profile, but Windows does not expose POSIX 0600 permission checks. Protect the profile and its Synara data directory.\n",
+          "Windows note: Saint stores this credential under your user profile, but Windows does not expose POSIX 0600 permission checks. Protect the profile and its Saint data directory.\n",
         );
       }
     }),
-).pipe(Command.withDescription("Pair this CLI with a user-approved Synara MCP integration."));
+).pipe(Command.withDescription("Pair this CLI with a user-approved Saint MCP integration."));
 
 const serverStatusCommand = Command.make(
   "status",
   {
     url: Flag.string("url").pipe(
-      Flag.withDescription("Synara server base URL to probe."),
+      Flag.withDescription("Saint server base URL to probe."),
       Flag.optional,
     ),
     json: Flag.boolean("json").pipe(
@@ -702,7 +696,7 @@ const serverStatusCommand = Command.make(
       const discovered = Option.isSome(url)
         ? { url: url.value }
         : (() => {
-            const baseDir = resolveExternalMcpBaseDir(Option.getOrUndefined(parent.synaraHome));
+            const baseDir = resolveExternalMcpBaseDir(Option.getOrUndefined(parent.saintHome));
             try {
               const runtime = discoverServerRuntime(baseDir);
               return { url: runtime.state.origin, runtime };
@@ -711,7 +705,7 @@ const serverStatusCommand = Command.make(
                 error:
                   cause instanceof Error
                     ? cause.message
-                    : "Failed to discover a running Synara server.",
+                    : "Failed to discover a running Saint server.",
               };
             }
           })();
@@ -728,7 +722,7 @@ const serverStatusCommand = Command.make(
                 if ("runtime" in discovered) {
                   await verifyServerRuntime(discovered.runtime, globalThis.fetch);
                 }
-                return await fetchSynaraServerStatus({ url: discovered.url });
+                return await fetchSaintServerStatus({ url: discovered.url });
               } catch (cause) {
                 return {
                   reachable: false as const,
@@ -737,26 +731,26 @@ const serverStatusCommand = Command.make(
                   error:
                     cause instanceof Error
                       ? cause.message
-                      : "Failed to verify the discovered Synara server.",
+                      : "Failed to verify the discovered Saint server.",
                 };
               }
             });
       process.stdout.write(
-        json ? `${JSON.stringify(result, null, 2)}\n` : `${formatSynaraServerStatus(result)}\n`,
+        json ? `${JSON.stringify(result, null, 2)}\n` : `${formatSaintServerStatus(result)}\n`,
       );
       if (!result.ready) {
         process.exitCode = 1;
       }
     }),
-).pipe(Command.withDescription("Check whether a Synara server is reachable and ready."));
+).pipe(Command.withDescription("Check whether a Saint server is reachable and ready."));
 
 const serverToolsCommand = Command.make("server").pipe(
-  Command.withDescription("Inspect and manage a running Synara server."),
+  Command.withDescription("Inspect and manage a running Saint server."),
   Command.withSubcommands([serverStatusCommand]),
 );
 
 const mcpCommand = Command.make("mcp").pipe(
-  Command.withDescription("Manage Synara's loopback external MCP bridge."),
+  Command.withDescription("Manage Saint's loopback external MCP bridge."),
   Command.withSubcommands([mcpServeCommand, mcpPairCommand]),
 );
 
@@ -765,4 +759,4 @@ const serverCommand = baseServerCommand.pipe(
   Command.withSubcommands([serverToolsCommand, mcpCommand]),
 );
 
-export const synaraCli = serverCommand;
+export const saintCli = serverCommand;

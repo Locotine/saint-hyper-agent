@@ -5,7 +5,7 @@
 // Layer: Pull request presentation
 // Exports: PullRequestStackPopover
 
-import type { PullRequestStack } from "@synara/contracts";
+import type { PullRequestStack } from "@saint/contracts";
 import { useState } from "react";
 
 import { CHAT_HEADER_CONTROL_CLASS_NAME } from "~/components/chat/chatHeaderControls";

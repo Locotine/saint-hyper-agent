@@ -5,7 +5,7 @@
 //          thread needs the user's attention (drives the header + sidebar dot).
 // Layer: Group overview logic
 
-import type { AutomationDefinition, ProjectId, ProjectTask, ThreadId } from "@synara/contracts";
+import type { AutomationDefinition, ProjectId, ProjectTask, ThreadId } from "@saint/contracts";
 
 import type { AppState } from "../../../storeState";
 import type { ThreadPullRequest } from "../../../hooks/useThreadPullRequests";
@@ -15,7 +15,7 @@ import {
   resolveGroupThreadState,
   type GroupThreadSectionId,
   type GroupThreadStateThread,
-} from "@synara/shared/groupThreadState";
+} from "@saint/shared/groupThreadState";
 
 export type { GroupThreadSectionId };
 
@@ -68,8 +68,8 @@ export const GROUP_THREAD_SECTIONS: readonly GroupThreadSectionSpec[] = [
   },
 ];
 
-// The bucket derivation lives in @synara/shared so the web panel and the
-// server's `synara_project_list_threads` tool report the same state; this
+// The bucket derivation lives in @saint/shared so the web panel and the
+// server's `saint_project_list_threads` tool report the same state; this
 // alias keeps the needs-attention call sites on the group-thread vocabulary.
 export const groupThreadNeedsAttention: (thread: GroupThreadStateThread) => boolean =
   sharedGroupThreadNeedsAttention;

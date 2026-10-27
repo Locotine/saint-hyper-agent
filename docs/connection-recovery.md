@@ -23,7 +23,7 @@ successfully applied `afterSequence`, rather than replaying its original input.
 
 ## Bounded stream overflow
 
-`ORCHESTRATION_STREAM_OVERFLOW_CODE` is exported by `@synara/contracts`. The server
+`ORCHESTRATION_STREAM_OVERFLOW_CODE` is exported by `@saint/contracts`. The server
 stream-budget change emits the existing `WsRpcError` shape with that code and
 `retryable: true`. It does not send a new cursor. Servers without this error continue
 to use the existing recovery behavior.

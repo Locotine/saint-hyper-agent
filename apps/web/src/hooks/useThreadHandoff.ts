@@ -9,13 +9,14 @@ import {
   type ModelSelection,
   type ProviderInstanceId,
   type ProviderKind,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useProviderStatusesForLocalConfig } from "./useProviderStatusesForLocalConfig";
 import { useRefreshProviderStatusesNow } from "./useProviderStatusRefresh";
 import {
   buildThreadHandoffImportedActivities,
   buildThreadHandoffImportedMessages,
+  buildTranscriptHandoffPrompt,
   canContinueThreadHandoff,
   canCreateThreadHandoff,
   ProviderHandoffBackgroundTasksError,
@@ -25,7 +26,7 @@ import {
   resolveThreadHandoffTitle,
 } from "../lib/threadHandoff";
 import { resolveProviderSendAvailabilityWithRefresh } from "../lib/providerAvailability";
-import { newCommandId, newThreadId } from "../lib/utils";
+import { newCommandId, newMessageId, newThreadId } from "../lib/utils";
 import { readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
@@ -77,6 +78,8 @@ export function useThreadHandoff() {
     thread: Thread,
     targetProvider: ProviderKind,
     targetProviderInstanceId?: ProviderInstanceId,
+    // A transcript handoff may restart the same agent with a fresh context.
+    options?: { readonly allowSameTarget?: boolean },
   ) => {
     const api = readNativeApi();
     if (!api) {
@@ -97,6 +100,7 @@ export function useThreadHandoff() {
       thread.modelSelection.provider;
     const targetInstanceId = targetProviderInstanceId ?? targetProvider;
     if (
+      !options?.allowSameTarget &&
       targetProvider === thread.modelSelection.provider &&
       targetInstanceId === sourceProviderInstanceId
     ) {
@@ -124,7 +128,7 @@ export function useThreadHandoff() {
       stickyModelSelectionByProvider:
         useComposerDraftStore.getState().stickyModelSelectionByProvider,
     });
-    return { api, modelSelection };
+    return { api, modelSelection, project };
   };
 
   // Keeps the thread (id, transcript, project, worktree) and switches who runs
@@ -235,8 +239,78 @@ export function useThreadHandoff() {
     return nextThreadId;
   };
 
+  // Orca-style handoff: a new thread whose agent starts fresh from the source
+  // session's native transcript (read-only), the latest prompt and reply, and
+  // the workspace, instead of a copy of the conversation.
+  const createTranscriptHandoff = async (
+    thread: Thread,
+    targetProvider: ProviderKind,
+    targetProviderInstanceId?: ProviderInstanceId,
+  ): Promise<Thread["id"]> => {
+    const { api, modelSelection, project } = await prepareThreadHandoff(
+      thread,
+      targetProvider,
+      targetProviderInstanceId,
+      { allowSameTarget: true },
+    );
+    const transcript = await api.orchestration
+      .getThreadTranscript?.({ threadId: thread.id })
+      .catch(() => null);
+    const sourceProvider = thread.modelSelection.provider;
+    const prompt = buildTranscriptHandoffPrompt({
+      sourceAgent: `${PROVIDER_DISPLAY_NAMES[sourceProvider] ?? sourceProvider} (${thread.modelSelection.model})`,
+      threadTitle: thread.title,
+      workingDirectory: thread.worktreePath ?? thread.workingDirectory ?? project.cwd,
+      branch: thread.branch,
+      transcriptPath: transcript?.transcriptPath ?? null,
+      messages: thread.messages,
+    });
+
+    const nextThreadId = newThreadId();
+    const createdAt = new Date().toISOString();
+    await api.orchestration.dispatchCommand({
+      type: "thread.handoff.create",
+      commandId: newCommandId(),
+      threadId: nextThreadId,
+      sourceThreadId: thread.id,
+      projectId: thread.projectId,
+      title: resolveThreadHandoffTitle(thread),
+      modelSelection,
+      runtimeMode: thread.runtimeMode,
+      interactionMode: thread.interactionMode,
+      envMode: thread.envMode ?? (thread.worktreePath ? "worktree" : "local"),
+      branch: thread.branch,
+      worktreePath: thread.worktreePath,
+      workingDirectory: thread.workingDirectory ?? null,
+      associatedWorktreePath: thread.associatedWorktreePath ?? thread.worktreePath ?? null,
+      associatedWorktreeBranch: thread.associatedWorktreeBranch ?? thread.branch ?? null,
+      associatedWorktreeRef:
+        thread.associatedWorktreeRef ?? thread.associatedWorktreeBranch ?? thread.branch ?? null,
+      createBranchFlowCompleted: thread.createBranchFlowCompleted ?? false,
+      // The transcript replaces the copied conversation.
+      importedMessages: [],
+      createdAt,
+    });
+    await api.orchestration.dispatchCommand({
+      type: "thread.turn.start",
+      commandId: newCommandId(),
+      threadId: nextThreadId,
+      message: { messageId: newMessageId(), role: "user", text: prompt, attachments: [] },
+      modelSelection,
+      runtimeMode: thread.runtimeMode,
+      interactionMode: thread.interactionMode,
+      createdAt: new Date().toISOString(),
+    });
+
+    const snapshot = await api.orchestration.getShellSnapshot();
+    syncServerShellSnapshot(snapshot);
+    await navigate({ to: "/$threadId", params: { threadId: nextThreadId } });
+    return nextThreadId;
+  };
+
   return {
     continueThreadHandoff,
     createThreadHandoff,
+    createTranscriptHandoff,
   };
 }

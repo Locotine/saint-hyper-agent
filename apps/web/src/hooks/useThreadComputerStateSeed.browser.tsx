@@ -1,4 +1,4 @@
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { emitWsTransportState } from "../wsTransportEvents";

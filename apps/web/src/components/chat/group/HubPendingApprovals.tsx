@@ -1,7 +1,7 @@
 // Hub-only UI: reads the worker's existing detail stream and sends human choices
 // through the same command helper as the thread. No agent-facing approval API.
-import type { ProjectId, ThreadId } from "@synara/contracts";
-import { pendingRequestInstanceKey } from "@synara/shared/threadSummary";
+import type { ProjectId, ThreadId } from "@saint/contracts";
+import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useComposerDraftStore } from "../../../composerDraftStore";

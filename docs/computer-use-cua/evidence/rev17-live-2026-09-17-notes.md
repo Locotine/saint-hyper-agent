@@ -13,11 +13,11 @@ plus the fixture's own `rev17-live-2026-09-17-live-report.json` and
   `clipboard`. `nativeSubmissions` stayed 0 for the whole run.
 - The real production server (`apps/server/dist/index.mjs` built from this
   worktree, served with the bundled `dist/client` web UI) booted on an
-  isolated `SYNARA_HOME` + loopback port 53062 under `ELECTRON_RUN_AS_NODE`,
-  reached the `Synara running` readiness marker, and served the real web UI
+  isolated `SAINT_HOME` + loopback port 53062 under `ELECTRON_RUN_AS_NODE`,
+  reached the `Saint running` readiness marker, and served the real web UI
   (verified `GET /` → 200 with the production HTML before teardown).
 - The server's computer backend was wired to the GUI-owned trusted host
-  through `SYNARA_CUA_HOST_SOCKET` → fixture proxy → external
+  through `SAINT_CUA_HOST_SOCKET` → fixture proxy → external
   `CuaDriverHost` (same endpoint/capability as the other tiers).
 - Graceful teardown: operator SIGTERM → fixture finished, server SIGTERM'd
   (no `serverForcedExit`, no SIGKILL), proxy sockets destroyed, port
@@ -48,27 +48,27 @@ was dispatched.
 `live.ts` readiness wait raised 300→1200 attempts (30 s→120 s): a cold
 production boot here exceeds 30 s because `fixPath` probes candidate login
 shells with a 5 s `execFileSync` timeout each (the user's `/bin/zsh -ilc`
-times out per candidate) before the HTTP listener and `Synara running`
+times out per candidate) before the HTTP listener and `Saint running`
 marker land. Run 1 (`fixture-run-live1`) hit the 30 s cap mid-boot with the
 server healthy at "orchestration engine started"; the fix let run 2 reach
 ready at ~40 s. Verified against a direct `node dist/index.mjs` boot under
-the same env: `Synara running` at ~40 s.
+the same env: `Saint running` at ~40 s.
 
 ## Provenance / launch path
 
-- Worktree `/Users/devin/repos/synara-wt-certification` @98b86be0c +
+- Worktree `/Users/devin/repos/saint-wt-certification` @98b86be0c +
   the `live.ts` window fix; fixture bundle rebuilt and re-installed to
-  `~/Applications/Synara Cua Fixture.app` between runs.
-- Server build: `bun run build --filter=@synara/cli` (turbo; also built
-  `@synara/web` → `dist/client`).
+  `~/Applications/Saint Cua Fixture.app` between runs.
+- Server build: `bun run build --filter=@saint/cli` (turbo; also built
+  `@saint/web` → `dist/client`).
 - Same external trusted host as the other tiers
-  (`com.synara.cua-fixture-external`, accessibility+screen_recording true
+  (`com.saint.cua-fixture-external`, accessibility+screen_recording true
   through the host, pid chain responsible_ppid 56403).
-- Launch: `open -g -n -W` with `SYNARA_CUA_FIXTURE_LIVE=1`,
-  `SYNARA_CUA_FIXTURE_SERVER=…/apps/server/dist/index.mjs`, endpoint +
+- Launch: `open -g -n -W` with `SAINT_CUA_FIXTURE_LIVE=1`,
+  `SAINT_CUA_FIXTURE_SERVER=…/apps/server/dist/index.mjs`, endpoint +
   capability env, foreground flags empty.
 - Fixture pid 35036, owned target `cua:35036:516`
-  (`Synara Cua Live Fixture 35036`), clicks 0, nativeSubmissions 0.
+  (`Saint Cua Live Fixture 35036`), clicks 0, nativeSubmissions 0.
 
 ## Focus invariant
 

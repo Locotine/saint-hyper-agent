@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { assert, it as effectIt } from "@effect/vitest";
 import { Deferred, Duration, Effect, Fiber, Option, Ref } from "effect";
 

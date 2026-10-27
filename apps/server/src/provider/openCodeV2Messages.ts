@@ -12,7 +12,7 @@ import { openCodeV2Permission, openCodeV2Question } from "./openCodeV2Mapping.ts
 
 export interface OpenCodeExecutionEvent {
   readonly id: string;
-  readonly type: "synara.opencode.execution";
+  readonly type: "saint.opencode.execution";
   readonly properties: {
     readonly sessionID: string;
     readonly outcome: "succeeded" | "failed" | "interrupted";
@@ -21,7 +21,7 @@ export interface OpenCodeExecutionEvent {
 }
 export interface OpenCodeExecutionStartedEvent {
   readonly id: string;
-  readonly type: "synara.opencode.execution.started";
+  readonly type: "saint.opencode.execution.started";
   readonly properties: { readonly sessionID: string };
 }
 export type NormalizedOpenCodeEvent =
@@ -317,7 +317,7 @@ export function createOpenCodeV2EventMapper(
         return [
           {
             id: event.id,
-            type: "synara.opencode.execution.started",
+            type: "saint.opencode.execution.started",
             properties: { sessionID: event.data.sessionID },
           },
         ];
@@ -327,7 +327,7 @@ export function createOpenCodeV2EventMapper(
         return [
           rememberOutcome({
             id: event.id,
-            type: "synara.opencode.execution",
+            type: "saint.opencode.execution",
             properties: {
               sessionID: event.data.sessionID,
               outcome:
@@ -360,7 +360,7 @@ export function createOpenCodeV2EventMapper(
         return [
           rememberOutcome({
             id: event.id,
-            type: "synara.opencode.execution",
+            type: "saint.opencode.execution",
             properties: { sessionID: metadata.childID, outcome },
           }),
         ];

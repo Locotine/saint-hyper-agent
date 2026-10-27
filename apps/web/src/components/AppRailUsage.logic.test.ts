@@ -1,5 +1,5 @@
-import { DEFAULT_SERVER_SETTINGS_VIEW } from "@synara/contracts";
-import { deriveProviderInstances } from "@synara/shared/providerInstances";
+import { DEFAULT_SERVER_SETTINGS_VIEW } from "@saint/contracts";
+import { deriveProviderInstances } from "@saint/shared/providerInstances";
 import { describe, expect, it } from "vitest";
 
 import { deriveProviderUsageDisplayRows } from "~/lib/providerUsageDisplay";

@@ -10,7 +10,7 @@ import type {
   DesktopAppSnapWindowEntry,
   ProviderInteractionMode,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 
 import {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WebContents } from "electron";
-import { BrowserAutomationErrorMessages } from "@synara/contracts";
+import { BrowserAutomationErrorMessages } from "@saint/contracts";
 import { runBetterwright } from "./betterwrightRuntime";
 
 const mocks = vi.hoisted(() => ({

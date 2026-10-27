@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as FS from "node:fs";
 import * as OS from "node:os";
 import * as Path from "node:path";
@@ -14,14 +14,18 @@ import {
   buildRemoteStopScript,
   buildRemoteUploadCommand,
   hasRemoteReport,
-  nodeMajorVersion,
+  isRemoteNodeVersionSupported,
   parseRemoteProbeReport,
   parseRemoteStartReport,
   quoteShell,
   remoteTmuxSessionName,
 } from "./remoteSshScripts";
 
-const target = { remoteRoot: "squad/synara-remote", version: "1.2.3" };
+const target = {
+  remoteRoot: "squad/saint-remote",
+  storeRoot: ".saint-remote",
+  version: "1.2.3",
+};
 
 describe("remote script builders", () => {
   it("quotes shell values", () => {
@@ -29,12 +33,12 @@ describe("remote script builders", () => {
   });
 
   it("derives a tmux session per install folder", () => {
-    expect(remoteTmuxSessionName(".synara-remote")).toBe("synara-remote");
-    expect(remoteTmuxSessionName("squad/synara")).toBe("squad-synara");
+    expect(remoteTmuxSessionName(".saint-remote")).toBe("saint-remote");
+    expect(remoteTmuxSessionName("squad/saint")).toBe("squad-saint");
   });
 
   it("refuses versions and tokens that are unsafe to embed", () => {
-    expect(() => buildRemoteProbeScript({ remoteRoot: "x", version: "1.0; rm -rf ~" })).toThrow();
+    expect(() => buildRemoteProbeScript({ ...target, version: "1.0; rm -rf ~" })).toThrow();
     expect(() => buildRemoteStartScript(target, { token: "a'b" })).toThrow();
     expect(() =>
       buildRemoteStartScript(target, { token: "abc", devUrl: "http://x/$(id)" }),
@@ -59,7 +63,7 @@ describe("report parsers", () => {
   it("reads the probe report past login banners", () => {
     const stdout = [
       "Welcome to devbox",
-      'SYNARA_REMOTE {"kind":"probe","node":"v24.17.0","npm":true,"installed":false,"server":{"info":{"port":4100,"version":"1.2.3"},"token":"abc"}}',
+      'SAINT_REMOTE {"kind":"probe","node":"v24.17.0","npm":true,"installed":false,"server":{"info":{"port":4100,"version":"1.2.3"},"token":"abc"}}',
     ].join("\n");
     expect(parseRemoteProbeReport(stdout)).toEqual({
       nodeVersion: "v24.17.0",
@@ -72,25 +76,34 @@ describe("report parsers", () => {
   it("treats a missing node and a malformed server as absent", () => {
     expect(
       parseRemoteProbeReport(
-        'SYNARA_REMOTE {"kind":"probe","node":"","npm":false,"installed":true,"server":{"info":{"port":"x"}}}',
+        'SAINT_REMOTE {"kind":"probe","node":"","npm":false,"installed":true,"server":{"info":{"port":"x"}}}',
       ),
     ).toEqual({ nodeVersion: null, npm: false, installed: true, server: null });
     expect(parseRemoteProbeReport("no report")).toBeNull();
   });
 
   it("reads start and completion reports", () => {
-    expect(parseRemoteStartReport('SYNARA_REMOTE {"kind":"started","port":4100}')).toEqual({
+    expect(parseRemoteStartReport('SAINT_REMOTE {"kind":"started","port":4100}')).toEqual({
       port: 4100,
     });
-    expect(parseRemoteStartReport('SYNARA_REMOTE {"kind":"started","port":0}')).toBeNull();
-    expect(hasRemoteReport('SYNARA_REMOTE {"kind":"installed"}', "installed")).toBe(true);
-    expect(hasRemoteReport('SYNARA_REMOTE {"kind":"installed"}', "stopped")).toBe(false);
+    expect(parseRemoteStartReport('SAINT_REMOTE {"kind":"started","port":0}')).toBeNull();
+    expect(hasRemoteReport('SAINT_REMOTE {"kind":"installed"}', "installed")).toBe(true);
+    expect(hasRemoteReport('SAINT_REMOTE {"kind":"installed"}', "stopped")).toBe(false);
   });
 
-  it("parses node major versions", () => {
-    expect(nodeMajorVersion("v24.13.1")).toBe(24);
-    expect(nodeMajorVersion("v18.0.0")).toBe(18);
-    expect(nodeMajorVersion(null)).toBeNull();
+  it.each([
+    ["v22.16.0", true],
+    ["v22.23.2", true],
+    ["v23.11.0", true],
+    ["v24.13.1", true],
+    ["v26.0.0", true],
+    ["v22.15.1", false],
+    ["v23.10.0", false],
+    ["v20.19.0", false],
+    ["", false],
+    [null, false],
+  ])("Node %s supported: %s", (version, expected) => {
+    expect(isRemoteNodeVersionSupported(version)).toBe(expected);
   });
 });
 
@@ -109,13 +122,19 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     });
 
   beforeEach(() => {
-    home = FS.mkdtempSync(Path.join(OS.tmpdir(), "synara-remote-ssh-"));
+    home = FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-remote-ssh-"));
     bin = Path.join(home, "stub-bin");
     FS.mkdirSync(bin);
     FS.symlinkSync(process.execPath, Path.join(bin, "node"));
     FS.writeFileSync(
       Path.join(bin, "npm"),
-      '#!/bin/sh\nmkdir -p node_modules/@pierre/diffs\nprintf "old\\n" >node_modules/@pierre/diffs/index.js\n',
+      [
+        "#!/bin/sh",
+        "mkdir -p node_modules/@pierre/diffs node_modules/@anthropic-ai/claude-agent-sdk-linux-x64",
+        'printf "old\\n" >node_modules/@pierre/diffs/index.js',
+        ": >node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude",
+        "",
+      ].join("\n"),
       { mode: 0o755 },
     );
     FS.writeFileSync(
@@ -137,12 +156,12 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
   it("uploads, installs with patches, starts, reuses, and stops a server", async () => {
     const probe = parseRemoteProbeReport(run(buildRemoteProbeScript(target)).stdout);
     expect(probe).toMatchObject({ npm: true, installed: false, server: null });
-    expect(nodeMajorVersion(probe?.nodeVersion ?? null)).toBeGreaterThan(0);
+    expect(probe?.nodeVersion).toMatch(/^v\d+\./);
 
     const server = [
       'import { createServer } from "node:http";',
       'const port = Number(process.argv[process.argv.indexOf("--port") + 1]);',
-      "const token = process.env.SYNARA_AUTH_TOKEN;",
+      "const token = process.env.SAINT_AUTH_TOKEN;",
       'createServer((req, res) => { res.end(req.url === "/health" ? token : "x"); }).listen(port, "127.0.0.1");',
     ].join("\n");
     const patch = ["--- a/index.js", "+++ b/index.js", "@@ -1 +1 @@", "-old", "+patched", ""].join(
@@ -164,10 +183,16 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     const install = run(buildRemoteInstallScript(target));
     expect(install.stderr).toBe("");
     expect(hasRemoteReport(install.stdout, "installed")).toBe(true);
-    const installDir = Path.join(home, target.remoteRoot, "versions", target.version);
+    const installDir = Path.join(home, target.storeRoot, "versions", target.version);
     expect(
       FS.readFileSync(Path.join(installDir, "node_modules/@pierre/diffs/index.js"), "utf8"),
     ).toBe("patched\n");
+    // The host's `claude` runs agents, so the SDK's bundled binary is dropped.
+    expect(FS.existsSync(Path.join(installDir, "node_modules/@anthropic-ai"))).toBe(true);
+    expect(
+      FS.existsSync(Path.join(installDir, "node_modules/@anthropic-ai/claude-agent-sdk-linux-x64")),
+    ).toBe(false);
+    expect(FS.existsSync(Path.join(home, target.remoteRoot, "staging"))).toBe(false);
 
     const start = run(buildRemoteStartScript(target, { token: "tok123" }));
     expect(start.stderr).toBe("");
@@ -177,7 +202,9 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     expect(await health.text()).toBe("tok123");
     const runDir = Path.join(home, target.remoteRoot, "run");
     expect(FS.statSync(Path.join(runDir, "token")).mode & 0o077).toBe(0);
-    expect(FS.readFileSync(Path.join(runDir, "server.sh"), "utf8")).not.toContain("tok123");
+    const serverScript = FS.readFileSync(Path.join(runDir, "server.sh"), "utf8");
+    expect(serverScript).not.toContain("tok123");
+    expect(serverScript).toContain("export SAINT_PROVIDERS=codex,claudeAgent");
 
     const reprobe = parseRemoteProbeReport(run(buildRemoteProbeScript(target)).stdout);
     expect(reprobe).toMatchObject({
@@ -206,9 +233,54 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     expect(install.status).not.toBe(0);
     expect(install.stderr).toContain("Could not apply diffs.patch");
     expect(
-      FS.existsSync(Path.join(home, target.remoteRoot, "versions", target.version, ".installed")),
+      FS.existsSync(Path.join(home, target.storeRoot, "versions", target.version, ".installed")),
     ).toBe(false);
   });
+
+  it("shares one install across folders and keeps only versions a server runs", async () => {
+    const server = [
+      'import { createServer } from "node:http";',
+      'const port = Number(process.argv[process.argv.indexOf("--port") + 1]);',
+      'createServer((req, res) => res.end("ok")).listen(port, "127.0.0.1");',
+    ].join("\n");
+    const chunks: Buffer[] = [];
+    for await (const chunk of createTarGzStream([
+      { path: "dist/index.mjs", contents: Buffer.from(server) },
+      { path: "package.json", contents: Buffer.from("{}") },
+    ])) {
+      chunks.push(chunk as Buffer);
+    }
+    expect(run(buildRemoteUploadCommand(target), Buffer.concat(chunks)).status).toBe(0);
+    expect(hasRemoteReport(run(buildRemoteInstallScript(target)).stdout, "installed")).toBe(true);
+
+    // A second folder finds the version already installed in the shared store.
+    const other = { ...target, remoteRoot: "other/saint-remote" };
+    const otherProbe = parseRemoteProbeReport(run(buildRemoteProbeScript(other)).stdout);
+    expect(otherProbe).toMatchObject({ installed: true, server: null });
+
+    // A stale store version and a pre-store per-folder install both go on start.
+    const store = Path.join(home, target.storeRoot, "versions");
+    FS.mkdirSync(Path.join(store, "1.0.0", "dist"), { recursive: true });
+    FS.mkdirSync(Path.join(home, other.remoteRoot, "versions", "1.0.0"), { recursive: true });
+    const start = run(buildRemoteStartScript(other, { token: "tok456" }));
+    expect(start.stderr).toBe("");
+    expect(parseRemoteStartReport(start.stdout)).not.toBeNull();
+    expect(FS.readdirSync(store)).toEqual([target.version]);
+    expect(FS.existsSync(Path.join(home, other.remoteRoot, "versions"))).toBe(false);
+
+    // A version another folder's server still runs survives a start.
+    const busyEntry = Path.join(store, "1.1.0", "dist", "index.mjs");
+    FS.mkdirSync(Path.dirname(busyEntry), { recursive: true });
+    FS.writeFileSync(busyEntry, "setInterval(() => {}, 1000);");
+    const busy = spawn(process.execPath, [busyEntry, "--mode", "web"], { stdio: "ignore" });
+    try {
+      expect(run(buildRemoteStartScript(other, { token: "tok789" })).status).toBe(0);
+      expect(FS.readdirSync(store).toSorted()).toEqual(["1.1.0", target.version]);
+    } finally {
+      busy.kill();
+    }
+    run(buildRemoteStopScript(other));
+  }, 90_000);
 });
 
 describe("createTarGzStream", () => {

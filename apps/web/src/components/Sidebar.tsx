@@ -103,12 +103,12 @@ import {
   ThreadId,
   type ResolvedKeybindingsConfig,
   WS_GITHUB_PROJECT_PROVISIONING_CAPABILITY,
-} from "@synara/contracts";
-import { isGenericChatThreadTitle } from "@synara/shared/chatThreads";
-import { parseGitHubRepositoryNameWithOwnerFromPullRequestUrl } from "@synara/shared/githubRepository";
-import { getDefaultModel } from "@synara/shared/model";
-import { pluralize } from "@synara/shared/text";
-import { resolveThreadWorkspaceCwd } from "@synara/shared/threadEnvironment";
+} from "@saint/contracts";
+import { isGenericChatThreadTitle } from "@saint/shared/chatThreads";
+import { parseGitHubRepositoryNameWithOwnerFromPullRequestUrl } from "@saint/shared/githubRepository";
+import { getDefaultModel } from "@saint/shared/model";
+import { pluralize } from "@saint/shared/text";
+import { resolveThreadWorkspaceCwd } from "@saint/shared/threadEnvironment";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import {
@@ -136,7 +136,7 @@ import {
   toggleRailShortcutKey,
 } from "../appRail.logic";
 import { useRailShellStore } from "../railShellStore";
-import { isElectron } from "../env";
+import { isElectron, remoteWindowHost } from "../env";
 import { formatRelativeTime } from "../lib/relativeTime";
 import {
   isMacNavigatorPlatform,
@@ -541,7 +541,7 @@ import {
   spaceKey,
   resolveActiveSpaceId,
 } from "../lib/spaceGrouping";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 // Central glyphs for the sidebar section-header buttons (expand/collapse, sort, add).
 const ExpandAllIcon = createCentralIconComponent("expand-45");
@@ -626,8 +626,8 @@ function ProjectContextMenuIcon({ icon }: { icon: LucideIcon }) {
 }
 
 type DebugFeatureFlagsWindow = Window & {
-  synaraShowFeatureFlags?: () => void;
-  synaraHideFeatureFlags?: () => void;
+  saintShowFeatureFlags?: () => void;
+  saintHideFeatureFlags?: () => void;
 };
 
 function readDebugFeatureFlagsMenuVisibility(): boolean {
@@ -738,7 +738,7 @@ function resolveWorktreeBadgeLabel(
 
 /** User message the coordinator receives when a thread is handed to a group. */
 function groupPickupMessageText(sourceThread: Pick<Thread, "id" | "title">): string {
-  return `A thread was handed to this hub for you to pick up: "${sourceThread.title ?? "Untitled thread"}" (thread id ${sourceThread.id}). Use synara_read_thread to read it and continue the work it was doing.`;
+  return `A thread was handed to this hub for you to pick up: "${sourceThread.title ?? "Untitled thread"}" (thread id ${sourceThread.id}). Use saint_read_thread to read it and continue the work it was doing.`;
 }
 
 type ThreadMetaChip = {
@@ -926,7 +926,7 @@ function ProjectSortMenu({
   );
 }
 
-const SYNARA_DOCS_URL = "https://trysynara.com/docs";
+const SAINT_DOCS_URL = "https://trysynara.com/docs";
 
 // Latest curated releases surfaced directly in the help menu. Static data, so
 // computed once at module scope rather than per render.
@@ -1029,7 +1029,7 @@ function SidebarHelpMenu({
             </MenuItem>
             <MenuItem
               className={SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME}
-              onClick={() => openExternalLink(SYNARA_DOCS_URL)}
+              onClick={() => openExternalLink(SAINT_DOCS_URL)}
             >
               <SidebarContextMenuIcon icon={BookIcon} />
               <span>Docs</span>
@@ -1185,7 +1185,7 @@ export function SidebarActivityBellButton({
 }) {
   return (
     <OneTimeCoachmark
-      storageKey="synara:activity-onboarding:v1"
+      storageKey="saint:activity-onboarding:v1"
       title="Activity"
       description="See running tasks, completed work, and anything that needs your attention."
       tooltip={`Activity view${shortcutLabel ? ` (${shortcutLabel})` : ""}`}
@@ -1218,7 +1218,7 @@ export function SidebarActivityBellButton({
 }
 
 const SIDEBAR_SURFACE_PICKER_COPY: Record<SidebarView, { title: string; description: string }> = {
-  threads: { title: "Synara", description: "Build, debug, and ship" },
+  threads: { title: "Saint", description: "Build, debug, and ship" },
   groups: { title: "Hubs", description: "Coordinated work across repos" },
 };
 
@@ -1448,7 +1448,8 @@ export default function Sidebar() {
   const { handleNewThread } = useHandleNewThread();
   const { handleNewChat } = useHandleNewChat();
   const { handleNewGroupChat } = useHandleNewGroupChat();
-  const { continueThreadHandoff, createThreadHandoff } = useThreadHandoff();
+  const { continueThreadHandoff, createThreadHandoff, createTranscriptHandoff } =
+    useThreadHandoff();
   const routeThreadId = useParams({
     strict: false,
     select: (params) => (params.threadId ? ThreadId.makeUnsafe(params.threadId) : null),
@@ -1544,18 +1545,18 @@ export default function Sidebar() {
       updateVisibility();
     };
 
-    debugWindow.synaraShowFeatureFlags = showFeatureFlags;
-    debugWindow.synaraHideFeatureFlags = hideFeatureFlags;
+    debugWindow.saintShowFeatureFlags = showFeatureFlags;
+    debugWindow.saintHideFeatureFlags = hideFeatureFlags;
     window.addEventListener("storage", updateVisibility);
     updateVisibility();
 
     return () => {
       window.removeEventListener("storage", updateVisibility);
-      if (debugWindow.synaraShowFeatureFlags === showFeatureFlags) {
-        delete debugWindow.synaraShowFeatureFlags;
+      if (debugWindow.saintShowFeatureFlags === showFeatureFlags) {
+        delete debugWindow.saintShowFeatureFlags;
       }
-      if (debugWindow.synaraHideFeatureFlags === hideFeatureFlags) {
-        delete debugWindow.synaraHideFeatureFlags;
+      if (debugWindow.saintHideFeatureFlags === hideFeatureFlags) {
+        delete debugWindow.saintHideFeatureFlags;
       }
     };
   }, []);
@@ -3177,6 +3178,23 @@ export default function Sidebar() {
     },
     [createThreadHandoff],
   );
+  const transcriptHandoffThread = useCallback(
+    async (thread: Thread, target: ThreadHandoffTarget) => {
+      try {
+        await createTranscriptHandoff(thread, target.provider, target.instanceId);
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: "Could not start the transcript handoff",
+          description:
+            error instanceof Error
+              ? error.message
+              : "An error occurred while starting the transcript handoff.",
+        });
+      }
+    },
+    [createTranscriptHandoff],
+  );
 
   const continueHandoffInThread = useCallback(
     async (thread: Thread, target: ThreadHandoffTarget) => {
@@ -3414,6 +3432,22 @@ export default function Sidebar() {
       const handoffTargetById = new Map(
         handoffTargets.map((target) => [`handoff:${target.instanceId}`, target]),
       );
+      const transcriptHandoffTargets = canHandoff
+        ? resolveAvailableHandoffTargets({
+            sourceProvider: thread.modelSelection.provider,
+            sourceProviderInstanceId:
+              thread.session?.providerInstanceId ?? thread.modelSelection.instanceId,
+            providerInstances: getProviderInstanceOptions(appSettings),
+            providerStatuses,
+            includeSource: true,
+          })
+        : [];
+      const transcriptHandoffTargetById = new Map(
+        transcriptHandoffTargets.map((target) => [
+          `handoff-transcript:${target.instanceId}`,
+          target,
+        ]),
+      );
       const continueHandoffTargetById = new Map(
         continueHandoffTargets.map((target) => [`handoff-here:${target.instanceId}`, target]),
       );
@@ -3433,6 +3467,16 @@ export default function Sidebar() {
             standaloneLabel: `Handoff to ${target.label}`,
             icon: THREAD_CONTEXT_MENU_ICONS.handoff,
             ...(index === 0 && continueHandoffTargets.length > 0 ? { separatorBefore: true } : {}),
+          })),
+          // Orca-style: a fresh session that reads the source transcript.
+          ...transcriptHandoffTargets.map((target, index) => ({
+            id: `handoff-transcript:${target.instanceId}`,
+            label: `${target.label}, fresh from transcript`,
+            standaloneLabel: `Handoff to ${target.label}, fresh from transcript`,
+            icon: THREAD_CONTEXT_MENU_ICONS.handoff,
+            ...(index === 0 && handoffTargets.length + continueHandoffTargets.length > 0
+              ? { separatorBefore: true }
+              : {}),
           })),
         ],
       );
@@ -3666,6 +3710,13 @@ export default function Sidebar() {
         }
         return;
       }
+      if (typeof clicked === "string" && clicked.startsWith("handoff-transcript:")) {
+        const target = transcriptHandoffTargetById.get(clicked);
+        if (target) {
+          await transcriptHandoffThread(thread, target);
+        }
+        return;
+      }
       if (typeof clicked === "string" && clicked.startsWith("handoff:")) {
         const target = handoffTargetById.get(clicked);
         if (target) {
@@ -3800,6 +3851,7 @@ export default function Sidebar() {
       forkThread,
       groupProjectIdSet,
       handoffThread,
+      transcriptHandoffThread,
       membersLoaded,
       moveThreadToGroup,
       handleMarkThreadUnread,
@@ -5146,7 +5198,7 @@ export default function Sidebar() {
   }, [activeSidebarThreadId, visibleSidebarThreadIds]);
 
   // Pinned rows share the thread-container label rule (project name, or
-  // "Synara" for project-less chats) with the hover cards and Activity rows.
+  // "Saint" for project-less chats) with the hover cards and Activity rows.
   function resolvePinnedThreadProjectLabel(projectId: ProjectId): string {
     return resolveThreadProjectLabel(projectById.get(projectId));
   }
@@ -5803,8 +5855,8 @@ export default function Sidebar() {
     );
   }
 
-  // A project reads as "running" when Synara tracks a run for it or when a local server
-  // (possibly started outside Synara) is attributed by cwd. Shared by the tree's project
+  // A project reads as "running" when Saint tracks a run for it or when a local server
+  // (possibly started outside Saint) is attributed by cwd. Shared by the tree's project
   // header and the rail layout's Spaces rows.
   function isSidebarProjectRunning(projectId: ProjectId): boolean {
     return (
@@ -6557,7 +6609,7 @@ export default function Sidebar() {
       {
         id: "import-projects",
         label: "Import projects from…",
-        description: "Bring Codex and Claude Code projects and conversations into Synara.",
+        description: "Bring Codex and Claude Code projects and conversations into Saint.",
         keywords: ["import", "projects", "codex", "claude", "conversations", "folders"],
       },
       {
@@ -6578,9 +6630,9 @@ export default function Sidebar() {
       },
       {
         id: "feedback",
-        label: "Feedback Synara",
-        description: "Send feedback or report an issue to the Synara team.",
-        keywords: ["feedback", "bug", "issue", "problem", "report", "support", "synara"],
+        label: "Feedback Saint",
+        description: "Send feedback or report an issue to the Saint team.",
+        keywords: ["feedback", "bug", "issue", "problem", "report", "support", "saint"],
       },
       {
         id: "settings",
@@ -6667,7 +6719,7 @@ export default function Sidebar() {
             toastManager.add({
               type: "info",
               title: "Preparing update",
-              description: `Synara is preparing version ${nextState.availableVersion ?? "available"} in the background.`,
+              description: `Saint is preparing version ${nextState.availableVersion ?? "available"} in the background.`,
             });
             return;
           }
@@ -6676,7 +6728,7 @@ export default function Sidebar() {
             toastManager.add({
               type: "info",
               title: "Preparing update",
-              description: "Synara is downloading the update in the background.",
+              description: "Saint is downloading the update in the background.",
             });
             return;
           }
@@ -6694,7 +6746,7 @@ export default function Sidebar() {
             toastManager.add({
               type: "info",
               title: "You're up to date",
-              description: `Synara ${nextState.currentVersion} is already the newest version.`,
+              description: `Saint ${nextState.currentVersion} is already the newest version.`,
             });
             return;
           }
@@ -6847,7 +6899,7 @@ export default function Sidebar() {
 
   const betaBadge = isBetaDesktopFlavor ? (
     <span
-      aria-label="Synara Beta"
+      aria-label="Saint Beta"
       className="inline-flex shrink-0 items-center rounded-full bg-[var(--beta-pill)] px-1.5 py-0.5 text-ui-xs font-semibold leading-none text-[var(--beta-pill-ink)]"
     >
       Beta
@@ -7741,18 +7793,21 @@ export default function Sidebar() {
             className={PROJECT_CONTEXT_MENU_PANEL_CLASS_NAME}
           >
             <MenuGroup>
-              <MenuItem
-                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                onClick={() =>
-                  void handleProjectContextMenuAction(
-                    projectContextMenuState.projectId,
-                    "open-in-finder",
-                  )
-                }
-              >
-                <ProjectContextMenuIcon icon={FolderOpenIcon} />
-                <span>Open in Finder</span>
-              </MenuItem>
+              {/* A remote host's folders are not on this computer. */}
+              {remoteWindowHost ? null : (
+                <MenuItem
+                  className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
+                  onClick={() =>
+                    void handleProjectContextMenuAction(
+                      projectContextMenuState.projectId,
+                      "open-in-finder",
+                    )
+                  }
+                >
+                  <ProjectContextMenuIcon icon={FolderOpenIcon} />
+                  <span>Open in Finder</span>
+                </MenuItem>
+              )}
               <MenuItem
                 className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
                 onClick={() =>

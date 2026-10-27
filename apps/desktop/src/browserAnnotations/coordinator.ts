@@ -12,11 +12,11 @@ import type {
   BrowserAnnotationSource,
   BrowserAnnotationTheme,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   browserAnnotationDocumentIdentityUrl,
   sanitizeBrowserAnnotationUrl,
-} from "@synara/shared/browserAnnotations";
+} from "@saint/shared/browserAnnotations";
 
 import { BROWSER_ANNOTATION_GUEST_COMMAND_CHANNEL } from "../ipcChannels";
 import {

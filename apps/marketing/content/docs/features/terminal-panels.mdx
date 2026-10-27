@@ -3,7 +3,7 @@ title: Terminal panels
 description: Use the main terminal and independent right-dock tabs, run project actions, and recover sessions.
 ---
 
-Synara 1.0.1-beta.2 keeps one main-view terminal per chat and supports multiple independent right-dock terminal tabs. Every **+ → Terminal** creates its own shell. Switching tabs preserves sessions; closing or exiting one leaves the others running. Dock tabs and session identities survive reload. Use `mod+j` to toggle the panel, or `mod+shift+j` for the full-width workspace. In that workspace, `ctrl+1` and `ctrl+2` switch between terminal and chat. Opening the terminal again focuses the existing session.
+Saint 1.0.1-beta.2 keeps one main-view terminal per chat and supports multiple independent right-dock terminal tabs. Every **+ → Terminal** creates its own shell. Switching tabs preserves sessions; closing or exiting one leaves the others running. Dock tabs and session identities survive reload. Use `mod+j` to toggle the panel, or `mod+shift+j` for the full-width workspace. In that workspace, `ctrl+1` and `ctrl+2` switch between terminal and chat. Opening the terminal again focuses the existing session.
 
 ## Run a project action
 
@@ -15,11 +15,11 @@ An explicit close ends the terminal session. If closing fails, the pane stays vi
 
 ## Upgrade an older terminal layout
 
-Nested terminal tabs, groups, splits, and the bottom drawer are removed. Synara retains the last active terminal. Retired nested sessions close only after the server verifies they are idle; their saved history is preserved. Busy sessions or sessions whose activity cannot be checked remain pending for the next mount. Old terminal-split keybindings no longer intercept shell shortcuts.
+Nested terminal tabs, groups, splits, and the bottom drawer are removed. Saint retains the last active terminal. Retired nested sessions close only after the server verifies they are idle; their saved history is preserved. Busy sessions or sessions whose activity cannot be checked remain pending for the next mount. Old terminal-split keybindings no longer intercept shell shortcuts.
 
 See [Keyboard shortcuts](/docs/reference/keyboard-shortcuts) for the current keymap and [provider accounts](/docs/features/provider-accounts) for account-specific terminal commands.
 
-Source evidence: Synara `48603e869`, `docs/core-concepts.md`, `apps/web/src/terminalStateStore.ts`, `apps/web/src/components/ThreadTerminalDrawer.tsx`, `apps/web/src/components/chat/DockTerminalPane.tsx`, `apps/server/src/terminal/Layers/Manager.ts`, and `apps/server/src/keybindings.ts`.
+Source evidence: Saint `48603e869`, `docs/core-concepts.md`, `apps/web/src/terminalStateStore.ts`, `apps/web/src/components/ThreadTerminalDrawer.tsx`, `apps/web/src/components/chat/DockTerminalPane.tsx`, `apps/server/src/terminal/Layers/Manager.ts`, and `apps/server/src/keybindings.ts`.
 
 ## Terminal reuse in 1.0.8
 

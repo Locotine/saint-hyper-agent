@@ -1,7 +1,7 @@
 import { Effect, Fiber, Option } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { ExecutableNotFoundError } from "@synara/shared/platformProcess";
+import { ExecutableNotFoundError } from "@saint/shared/platformProcess";
 import {
   classifyProviderStartupFailure,
   observeProviderStartup,

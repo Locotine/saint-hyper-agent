@@ -1,11 +1,11 @@
 // FILE: theme.seed.generated.ts
-// Purpose: Stores normalized theme seeds with Synara's zero-contrast default.
+// Purpose: Stores normalized theme seeds with Saint's zero-contrast default.
 // Layer: Web appearance generated catalog
 // Exports: THEME_SEED_CATALOG for code-theme seed lookup.
 
 import type { ChromeTheme, ThemeVariant } from "./theme.logic";
 
-// Synara uses Codex's complete palette and material, changing only the accent.
+// Saint uses Codex's complete palette and material, changing only the accent.
 const CODEX_THEME_SEEDS: Record<ThemeVariant, ChromeTheme> = {
   dark: {
     accent: "#0169cc",
@@ -129,7 +129,7 @@ export const THEME_SEED_CATALOG: Record<string, Partial<Record<ThemeVariant, Chr
     },
   },
   codex: CODEX_THEME_SEEDS,
-  synara: {
+  saint: {
     dark: { ...CODEX_THEME_SEEDS.dark, accent: "#f2612d" },
     light: { ...CODEX_THEME_SEEDS.light, accent: "#c74614" },
   },

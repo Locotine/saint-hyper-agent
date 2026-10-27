@@ -3,7 +3,7 @@ import {
   type FocusProbeExpect,
   type FocusProbeRunResult,
 } from "../../apps/desktop/src/cuaFixtures/focusProbe.ts";
-import type { ComputerStatusResult, ComputerWindow } from "@synara/contracts";
+import type { ComputerStatusResult, ComputerWindow } from "@saint/contracts";
 
 /** A fresh host deliberately leaves its physical-input listener idle. The
  * passive probe must be available; real task/oracle checks prove execution. */
@@ -76,7 +76,7 @@ export function parseFixtureState(value: unknown): FixtureState | null {
     ) ||
     typeof row.text !== "string" ||
     typeof row.title !== "string" ||
-    !row.title.startsWith(`Synara Native Fixture ${row.pid} `)
+    !row.title.startsWith(`Saint Native Fixture ${row.pid} `)
   ) {
     return null;
   }

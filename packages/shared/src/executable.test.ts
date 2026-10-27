@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function makeTempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), "synara-executable-"));
+  const dir = mkdtempSync(join(tmpdir(), "saint-executable-"));
   tempDirs.push(dir);
   return dir;
 }

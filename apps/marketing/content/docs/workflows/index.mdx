@@ -1,26 +1,26 @@
 ---
 title: Workflow guides
-description: Run, isolate, coordinate, verify, and deliver agent work safely in Synara.
+description: Run, isolate, coordinate, verify, and deliver agent work safely in Saint.
 ---
 
-Synara workflows are built around one rule: **every body of work needs a clear owner and a verifiable result**. The tools—tasks, worktrees, handoffs, browser automation, scheduled runs, and agent-to-agent coordination—are useful only when they preserve that boundary.
+Saint workflows are built around one rule: **every body of work needs a clear owner and a verifiable result**. The tools—tasks, worktrees, handoffs, browser automation, scheduled runs, and agent-to-agent coordination—are useful only when they preserve that boundary.
 
 ## Start with the smallest workflow
 
-| Need                                                       | Start here                     |
-| ---------------------------------------------------------- | ------------------------------ |
-| One focused change                                         | One task in a known checkout   |
-| Independent work in the same repository                    | Separate worktree-backed tasks |
-| Another path from the same conversation                    | Thread fork                    |
-| A second provider continuing the same objective            | Provider handoff               |
-| A defect whose cause is still unknown                      | Debug mode                     |
-| Visual or web behavior verification                        | Browser verification           |
-| Synara without the desktop shell                           | Headless server                |
-| Review and delivery through GitHub                         | Pull requests                  |
-| Recurring work                                             | Automations                    |
-| Long-running, output-oriented work                         | Studio                         |
-| One Synara agent coordinating other Synara tasks           | Agent Gateway                  |
-| Another local application creating restricted Synara tasks | External MCP                   |
+| Need                                                      | Start here                     |
+| --------------------------------------------------------- | ------------------------------ |
+| One focused change                                        | One task in a known checkout   |
+| Independent work in the same repository                   | Separate worktree-backed tasks |
+| Another path from the same conversation                   | Thread fork                    |
+| A second provider continuing the same objective           | Provider handoff               |
+| A defect whose cause is still unknown                     | Debug mode                     |
+| Visual or web behavior verification                       | Browser verification           |
+| Saint without the desktop shell                           | Headless server                |
+| Review and delivery through GitHub                        | Pull requests                  |
+| Recurring work                                            | Automations                    |
+| Long-running, output-oriented work                        | Studio                         |
+| One Saint agent coordinating other Saint tasks            | Agent Gateway                  |
+| Another local application creating restricted Saint tasks | External MCP                   |
 
 Do not begin with maximum parallelism. First learn the complete loop: objective, execution, supervision, verification, review, and delivery.
 
@@ -104,7 +104,7 @@ Commit only reviewed changes. Push, open a pull request, or archive the work onl
   />
   <Card
     title="Headless server"
-    description="Install the release tarball, run Synara without Electron, and verify readiness from the CLI."
+    description="Install the release tarball, run Saint without Electron, and verify readiness from the CLI."
     href="/docs/workflows/headless-server"
   />
   <Card
@@ -124,12 +124,12 @@ Commit only reviewed changes. Push, open a pull request, or archive the work onl
   />
   <Card
     title="Agent Gateway"
-    description="Let a Synara provider session coordinate ordinary Synara tasks through app-owned MCP tools."
+    description="Let a Saint provider session coordinate ordinary Saint tasks through app-owned MCP tools."
     href="/docs/workflows/agent-gateway"
   />
   <Card
     title="External MCP"
-    description="Pair another local application with a restricted, user-approved Synara task surface."
+    description="Pair another local application with a restricted, user-approved Saint task surface."
     href="/docs/workflows/external-mcp"
   />
 </Cards>

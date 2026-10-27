@@ -51,7 +51,7 @@ export function makeServerProviderLayer(
     const providerSessionDirectoryLayer = ProviderSessionDirectoryLive.pipe(
       Layer.provide(ProviderSessionRuntimeRepositoryLive),
     );
-    // Gives gateway-capable sessions their thread-scoped synara_* credentials.
+    // Gives gateway-capable sessions their thread-scoped saint_* credentials.
     // OpenCode isolates managed servers before installing MCP; Pi projects
     // the same MCP catalog/dispatcher through its native custom-tool API.
     const agentGatewayCredentialsLayer =

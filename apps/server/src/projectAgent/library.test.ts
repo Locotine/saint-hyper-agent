@@ -4,7 +4,7 @@ import * as path from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it } from "@effect/vitest";
-import { ProjectId } from "@synara/contracts";
+import { ProjectId } from "@saint/contracts";
 import { Effect, Exit, FileSystem, Layer } from "effect";
 import { describe, expect } from "vitest";
 
@@ -41,7 +41,7 @@ import {
 const testProjectId = ProjectId.makeUnsafe("group-library-owner");
 
 const ServerConfigLayer = ServerConfig.layerTest(process.cwd(), {
-  prefix: "synara-library-test-",
+  prefix: "saint-library-test-",
 });
 const TestLayer = Layer.mergeAll(
   NodeServices.layer,
@@ -50,7 +50,7 @@ const TestLayer = Layer.mergeAll(
 
 const makeTmpDir = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
-  return yield* fileSystem.makeTempDirectoryScoped({ prefix: "synara-library-" });
+  return yield* fileSystem.makeTempDirectoryScoped({ prefix: "saint-library-" });
 });
 
 const failureOf = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.flip(effect);
@@ -115,7 +115,7 @@ it.layer(TestLayer)("hub library", (it) => {
 
       const history = yield* libraryHistory(git, libraryRoot);
       expect(history.map((commit) => commit.message)).toEqual(["Initialize library"]);
-      expect(history[0]?.author).toBe("Synara Library");
+      expect(history[0]?.author).toBe("Saint Library");
 
       // Second call is a no-op: no extra commits.
       yield* ensureLibraryRepo(git, libraryRoot, testProjectId);
@@ -443,7 +443,7 @@ it.layer(TestLayer)("hub library", (it) => {
       // A well-formed https remote reaches `git remote add`. The earlier
       // rejections put the push into failure backoff — clear the record first.
       yield* Effect.promise(() =>
-        fs.rm(path.join(root, ".git", "synara-push-status.json"), { force: true }),
+        fs.rm(path.join(root, ".git", "saint-push-status.json"), { force: true }),
       );
       yield* pushLibraryIfConfigured({
         git,
@@ -494,27 +494,25 @@ it.layer(TestLayer)("hub library", (it) => {
       const nonEmptyError = yield* failureOf(allowed(nonEmpty));
       expect(nonEmptyError.code).toBe("forbidden");
 
-      // A Synara-seeded library (marker present) is accepted.
+      // A Saint-seeded library (marker present) is accepted.
       const seeded = path.join(base, "seeded");
       yield* Effect.promise(() =>
         fs
           .mkdir(path.join(seeded, ".git"), { recursive: true })
-          .then(() =>
-            fs.writeFile(path.join(seeded, ".synara-library"), "synara-library\n", "utf8"),
-          ),
+          .then(() => fs.writeFile(path.join(seeded, ".saint-library"), "saint-library\n", "utf8")),
       );
       yield* allowed(seeded);
     }),
   );
 
-  it.effect("rejects a git repository that lacks the Synara marker", () =>
+  it.effect("rejects a git repository that lacks the Saint marker", () =>
     Effect.gen(function* () {
       const root = yield* makeTmpDir;
       const git = yield* GitCore;
       yield* ensureLibraryRepo(git, root, testProjectId);
       // A .git without our marker is a foreign repository — never adopted at a
       // caller that did not prove ownership.
-      yield* Effect.promise(() => fs.rm(path.join(root, ".synara-library")));
+      yield* Effect.promise(() => fs.rm(path.join(root, ".saint-library")));
       const error = yield* failureOf(ensureLibraryRepo(git, root, testProjectId));
       expect(error).toBeInstanceOf(LibraryError);
       if (error instanceof LibraryError) {
@@ -537,14 +535,14 @@ it.layer(TestLayer)("hub library", (it) => {
       const git = yield* GitCore;
       yield* ensureLibraryRepo(git, root, testProjectId, { isManaged: true });
       // A library created before the marker existed carries .git but no
-      // .synara-library: at the Synara-owned root it is adopted once, not
+      // .saint-library: at the Saint-owned root it is adopted once, not
       // forbidden on every request.
-      yield* Effect.promise(() => fs.rm(path.join(root, ".synara-library")));
+      yield* Effect.promise(() => fs.rm(path.join(root, ".saint-library")));
       yield* ensureLibraryRepo(git, root, testProjectId, { isManaged: true });
       const marker = yield* Effect.promise(() =>
-        fs.readFile(path.join(root, ".synara-library"), "utf8"),
+        fs.readFile(path.join(root, ".saint-library"), "utf8"),
       );
-      expect(marker).toBe(`synara-library\n${testProjectId}\n`);
+      expect(marker).toBe(`saint-library\n${testProjectId}\n`);
       // The default location stays open for the adoption: .git at the managed
       // root is never foreign; the same state at a custom path is refused.
       // The state dir must be a sibling, not nested: a library root that
@@ -740,7 +738,7 @@ it.layer(TestLayer)("hub library", (it) => {
   it.effect("rejects reserved plumbing names on mutations", () =>
     Effect.gen(function* () {
       const root = yield* makeTmpDir;
-      for (const reserved of [".gitkeep", ".git/config", ".synara-library"]) {
+      for (const reserved of [".gitkeep", ".git/config", ".saint-library"]) {
         const error = yield* failureOf(resolveLibraryWriteTarget(root, reserved));
         expect(error).toBeInstanceOf(LibraryError);
         if (error instanceof LibraryError) {

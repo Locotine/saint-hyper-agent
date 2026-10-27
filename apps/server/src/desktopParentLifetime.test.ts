@@ -18,13 +18,13 @@ describe("desktop parent lifetime", () => {
   it("consumes the marker once and leaves ordinary CLI input untouched", () => {
     const input = new PassThrough();
     const readInput = vi.fn(() => input);
-    const env: NodeJS.ProcessEnv = { SYNARA_DESKTOP_PARENT_STDIN: "1" };
+    const env: NodeJS.ProcessEnv = { SAINT_DESKTOP_PARENT_STDIN: "1" };
     expect(consumeDesktopParentInput(env, readInput)).toBe(input);
-    expect(env.SYNARA_DESKTOP_PARENT_STDIN).toBeUndefined();
+    expect(env.SAINT_DESKTOP_PARENT_STDIN).toBeUndefined();
     expect(consumeDesktopParentInput(env, readInput)).toBeUndefined();
     expect(readInput).toHaveBeenCalledTimes(1);
     expect(
-      consumeDesktopParentInput({ SYNARA_DESKTOP_PARENT_STDIN: "0" }, readInput),
+      consumeDesktopParentInput({ SAINT_DESKTOP_PARENT_STDIN: "0" }, readInput),
     ).toBeUndefined();
     expect(readInput).toHaveBeenCalledTimes(1);
   });

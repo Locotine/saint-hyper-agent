@@ -5,10 +5,10 @@
  * prevent either the WebSocket fallback or the primary HTTP upload path from
  * bypassing provider disablement.
  */
-import { PROVIDER_DISPLAY_NAMES, type ProviderKind } from "@synara/contracts";
+import { PROVIDER_DISPLAY_NAMES, type ProviderKind } from "@saint/contracts";
 import { Effect } from "effect";
 
-import { isServerBetaFeatureEnabled } from "../betaFeatureGate";
+import { isServerBetaFeatureEnabled, isServerProviderAllowed } from "../betaFeatureGate";
 import type { ServerSettingsShape } from "../serverSettings";
 import type { ProviderAdapterRegistryShape } from "./Services/ProviderAdapterRegistry";
 
@@ -19,10 +19,14 @@ export class ProviderDisabledError extends Error {
 export function providerDisabledSettingsMessage(
   provider: ProviderKind,
   isEnabled: (feature: string) => boolean = isServerBetaFeatureEnabled,
+  isAllowed: (provider: string) => boolean = isServerProviderAllowed,
 ): string {
-  return isEnabled(provider)
-    ? `${PROVIDER_DISPLAY_NAMES[provider]} is disabled in Settings > Providers.`
-    : `${PROVIDER_DISPLAY_NAMES[provider]} is available in Synara Beta.`;
+  if (!isEnabled(provider))
+    return `${PROVIDER_DISPLAY_NAMES[provider]} is available in Saint Beta.`;
+  if (!isAllowed(provider)) {
+    return `${PROVIDER_DISPLAY_NAMES[provider]} is not installed on this remote host.`;
+  }
+  return `${PROVIDER_DISPLAY_NAMES[provider]} is disabled in Settings > Providers.`;
 }
 
 export function ensureProviderEnabled(provider: ProviderKind, serverSettings: ServerSettingsShape) {

@@ -3,7 +3,7 @@ import {
   type ModelSlug,
   type ProviderKind,
   type ProviderSkillReference,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback } from "react";
 import { formatComposerMentionToken, skillMentionPrefix } from "~/lib/composerMentions";

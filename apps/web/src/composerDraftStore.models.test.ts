@@ -1,4 +1,4 @@
-import { ProviderInstanceId, ThreadId, type ModelSelection } from "@synara/contracts";
+import { ProviderInstanceId, ThreadId, type ModelSelection } from "@saint/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   deriveEffectiveComposerModelState,

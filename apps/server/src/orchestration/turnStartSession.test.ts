@@ -1,4 +1,4 @@
-import { ThreadId, type OrchestrationSession } from "@synara/contracts";
+import { ThreadId, type OrchestrationSession } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { canAdoptFirstTurnProvider, deriveTurnStartSession } from "./turnStartSession.ts";

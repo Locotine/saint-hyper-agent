@@ -41,7 +41,7 @@ the real front process; probe never frontmost unless stated.
 | Electron probe              | background             | refused `background_unavailable` — upstream gate: `is_electron(pid)` refuses ALL background scroll paths (Chromium has no AX scrollbars; CGEvent dead)           |
 | Electron probe              | foreground             | **LANDS** — real DOM wheel events (`wheel:3, dy:40`), front restored                                                                                             |
 
-Upstream `scroll_wheel_at_xy(pid, screen_x, screen_y, window_local, wid, dy_per_tick, dx_per_tick, ticks)` already carries both axes plus the f51/f91/f92 window-routing stamps — the Electron refusal is policy, not mechanism. Synara-side behaviour: `CuaComputerBackend.scroll` honestly refuses `dx && dy` together (`unsupported_operation`, not-dispatched); diagonal scroll needs two sequential calls or a rev-16 two-axis arg.
+Upstream `scroll_wheel_at_xy(pid, screen_x, screen_y, window_local, wid, dy_per_tick, dx_per_tick, ticks)` already carries both axes plus the f51/f91/f92 window-routing stamps — the Electron refusal is policy, not mechanism. Saint-side behaviour: `CuaComputerBackend.scroll` honestly refuses `dx && dy` together (`unsupported_operation`, not-dispatched); diagonal scroll needs two sequential calls or a rev-16 two-axis arg.
 
 ## Conclusions
 
@@ -73,7 +73,7 @@ foreground` performs a short-lived front-process switch and restores the
 5. **Driver `effect:unverifiable` on landed `set_value`** is a read-back defect:
    the write is real (DOM proves it) but the driver's AX read-back misses it —
    likely stale snapshot/token or wrong attribute. Needs a patch fix so
-   `verified` is reported truthfully; until then Synara must not treat
+   `verified` is reported truthfully; until then Saint must not treat
    `unverifiable` as failure for AXValue writes — it must re-read independently.
 
 6. **Same-day addendum — pid-routed `mouseMoved` is gated on the real cursor on
@@ -118,7 +118,7 @@ Driver staged at rev 16, patch sha
 | Two-axis + modifier gesture           | **Dispatches as one event**                      | `delta_x`/`delta_y` signed ticks (±50 per axis) + `modifiers` → one PIXEL-unit `CGEvent` wheel stream with flags                                                                 |
 | Pid-only scroll                       | **Refused closed**                               | Delta mode requires an element or window-local target; admission requires exact pid + window_id                                                                                  |
 | Horizontal wheel delta (TextEdit)     | **Ignored by the app**                           | NSScrollView wants continuous trackpad deltas for horizontal travel; toolkit limitation, not a refusal                                                                           |
-| Keystroke scroll path                 | **Unreachable under Synara admission**           | The driver's delta/modifier refusal on that path is defense-in-depth, not a live gate                                                                                            |
+| Keystroke scroll path                 | **Unreachable under Saint admission**            | The driver's delta/modifier refusal on that path is defense-in-depth, not a live gate                                                                                            |
 | Electron background scroll/type       | **Dead**                                         | Upstream refuses background scroll for Electron; process-scoped CGEvent never reaches an inactive renderer. The fix path is the `browser_*` CDP surface (in progress separately) |
 
 macOS now joins the before/after measurement loop: a 48 px probe leg plus a
@@ -153,7 +153,7 @@ Neither "solved" nor "impossible" is proven; the ABI work continues.
 
 Ground truth = a dedicated Cocoa `DragTarget` app (`NSTextView` + local
 `NSEvent` monitor + selection-change logging) so no other agent could touch the
-document. Driver = a 0.28.2 build reporting `synara_native_revision: 17`,
+document. Driver = a 0.28.2 build reporting `saint_native_revision: 17`,
 driven through the embedded socket. "Background" = `ghostty` held the real
 front process for the entire run.
 
@@ -162,7 +162,7 @@ rev 17, but the release patch (`388f1693`, commit `77bf7fa1a`) was later
 regenerated from the same working checkout and **does** contain this drag
 change alongside the hidden-workspace lifecycle — verified in the committed
 patch's `drag.rs` hunks and in the staged binary. A driver without the patch
-keeps answering `background_unavailable`, which Synara maps to
+keeps answering `background_unavailable`, which Saint maps to
 `not-dispatched`, so any older build still fails closed.
 
 | Need                            | Driver call                                                         | Landed? | Front preserved                  |
@@ -187,7 +187,7 @@ or semantic read-back. `unverifiable` is not a failure signal here.
 
 Safety envelope, enforced at both layers:
 
-- Synara refuses before dispatch unless the target is an exact live
+- Saint refuses before dispatch unless the target is an exact live
   `cua:<pid>:<window_id>`, observed geometry still matches, and both endpoints
   sit inside the window frame (`local()` rejects an endpoint that leaves the
   bounds).
@@ -195,7 +195,7 @@ Safety envelope, enforced at both layers:
   minimized/hidden, current Space) immediately before posting, checks both
   window-local endpoints against the resolved frame, and takes the per-process
   background mutation lease. A driver that cannot admit the gesture answers a
-  structured refusal (`effect:"refused"`), which Synara maps to
+  structured refusal (`effect:"refused"`), which Saint maps to
   `not-dispatched` — no replay, ever.
 
 ### Hover verdict — do not expose `computer_hover`

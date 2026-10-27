@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { EditorIntelligenceInput } from "@synara/contracts";
+import type { EditorIntelligenceInput } from "@saint/contracts";
 import { createTypeScriptService } from "./typescriptService";
 import { EditorLanguageService } from "./languageService";
 
@@ -30,7 +30,7 @@ function request(
   });
 }
 beforeEach(async () => {
-  temporary = await mkdtemp(path.join(os.tmpdir(), "synara-language-"));
+  temporary = await mkdtemp(path.join(os.tmpdir(), "saint-language-"));
   root = path.join(temporary, "workspace");
   await mkdir(root);
   await writeFile(path.join(root, "math.ts"), math);

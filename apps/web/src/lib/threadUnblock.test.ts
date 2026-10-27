@@ -3,8 +3,8 @@
 // Layer: Web orchestration helper tests
 // Depends on: threadUnblock helpers with a stubbed orchestration API.
 
-import type { OrchestrationListProviderDeliveryBlockersResult } from "@synara/contracts";
-import { ThreadId } from "@synara/contracts";
+import type { OrchestrationListProviderDeliveryBlockersResult } from "@saint/contracts";
+import { ThreadId } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import {

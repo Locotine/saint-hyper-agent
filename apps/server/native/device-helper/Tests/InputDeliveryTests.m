@@ -20,14 +20,14 @@
   return YES;
 }
 - (BOOL)sendKeyUsage:(uint32_t)usage down:(BOOL)down { _sent++; [_keys addObject:@{@"usage": @(usage), @"down": @(down)}]; return YES; }
-- (BOOL)sendTouchAtX:(double)x y:(double)y down:(BOOL)down edge:(SynaraTouchEdge)edge { _sent++; return YES; }
+- (BOOL)sendTouchAtX:(double)x y:(double)y down:(BOOL)down edge:(SaintTouchEdge)edge { _sent++; return YES; }
 - (BOOL)flushWithTimeout:(NSTimeInterval)timeout { return YES; }
 - (void)invalidate {}
 @end
 
 int main(void) {
   @autoreleasepool {
-    SynaraHIDBridge *bridge = [SynaraHIDBridge new];
+    SaintHIDBridge *bridge = [SaintHIDBridge new];
     StubTransport *transport = [StubTransport new];
     [bridge setValue:transport forKey:@"dtuhid"];
     transport.failAfter = 2;

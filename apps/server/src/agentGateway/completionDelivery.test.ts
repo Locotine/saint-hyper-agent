@@ -1,7 +1,7 @@
 import { it } from "@effect/vitest";
 import { Effect, Layer, Option } from "effect";
 import { expect } from "vitest";
-import { ThreadId, type OrchestrationCommand } from "@synara/contracts";
+import { ThreadId, type OrchestrationCommand } from "@saint/contracts";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
 import { AgentGatewayOperationRepositoryLive } from "./Layers/AgentGatewayOperationRepository.ts";

@@ -1,4 +1,4 @@
-import type { ProviderArtifactsState, ProviderKind } from "@synara/contracts";
+import type { ProviderArtifactsState, ProviderKind } from "@saint/contracts";
 
 // Claude commands that publish a claude.ai Artifact. Claude Code keeps the
 // Artifact tool off for embedded (Agent SDK) sessions unless the host opts in.
@@ -25,7 +25,7 @@ export function getClaudeArtifactCommandNotice(input: {
     case "disabled":
       return {
         summary: "Artifacts are off. Turn them on in Settings → Providers → Claude.",
-        detail: `/${input.command} needs Claude Artifacts, which are off in Synara sessions by default. Turn on "Artifacts, /design and /slides" in Settings → Providers → Claude, then start a new session.`,
+        detail: `/${input.command} needs Claude Artifacts, which are off in Saint sessions by default. Turn on "Artifacts, /design and /slides" in Settings → Providers → Claude, then start a new session.`,
       };
     case "unavailable":
       return {

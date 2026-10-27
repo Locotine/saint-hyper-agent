@@ -9,10 +9,10 @@ import { ComputerFrameTap } from "./computerFrameTap";
 import { ComputerShield } from "./computerShield";
 import { createDesktopNotificationRetainer } from "./notificationRetention";
 import { registerComputerDesktopLifecycle } from "./computerDesktopLifecycle";
-import { COMPUTER_PERMISSION_KINDS } from "@synara/shared/computerGrants";
-import { CUA_HOST_SOCKET_ENV } from "@synara/shared/cuaDriverProtocol";
-import { MODEL_SCREEN_IMAGE_MAX_DIMENSION } from "@synara/shared/modelImageBudget";
-import { spawnProcess, spawnProcessSync } from "@synara/shared/processRuntime";
+import { COMPUTER_PERMISSION_KINDS } from "@saint/shared/computerGrants";
+import { CUA_HOST_SOCKET_ENV } from "@saint/shared/cuaDriverProtocol";
+import { MODEL_SCREEN_IMAGE_MAX_DIMENSION } from "@saint/shared/modelImageBudget";
+import { spawnProcess, spawnProcessSync } from "@saint/shared/processRuntime";
 // FILE: main.ts
 // Purpose: Starts the Electron shell, backend process, native menus, IPC bridges, and updater.
 // Layer: Desktop main process
@@ -61,7 +61,7 @@ import type {
   DesktopTheme,
   DesktopUpdateActionResult,
   DesktopUpdateState,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   autoUpdater,
   BaseUpdater,
@@ -70,28 +70,28 @@ import {
 } from "electron-updater";
 
 import { buildContextMenuTemplate } from "./contextMenuTemplate";
-import { isKeyboardShortcutsHelpChord } from "@synara/shared/browserShortcuts";
-import { getMacTrafficLightPosition } from "@synara/shared/desktopChrome";
-import { DEVICE_HELPER_SOURCE_DIR_ENV } from "@synara/shared/deviceHelperCache";
+import { isKeyboardShortcutsHelpChord } from "@saint/shared/browserShortcuts";
+import { getMacTrafficLightPosition } from "@saint/shared/desktopChrome";
+import { DEVICE_HELPER_SOURCE_DIR_ENV } from "@saint/shared/deviceHelperCache";
 import {
   desktopUpdateChannel,
-  SYNARA_DESKTOP_SMOKE_USER_DATA_ENV,
-  SYNARA_DESKTOP_BUNDLE_ID_ENV,
-  SYNARA_SOURCE_DESKTOP_BUILD_MARKER,
+  SAINT_DESKTOP_SMOKE_USER_DATA_ENV,
+  SAINT_DESKTOP_BUNDLE_ID_ENV,
+  SAINT_SOURCE_DESKTOP_BUILD_MARKER,
   canOverrideDesktopSmokeUserData,
-  resolveSynaraDesktopRuntimeFlavor,
-  synaraDesktopIdentity,
-} from "@synara/shared/desktopIdentity";
-import { NetService } from "@synara/shared/Net";
-import { applyShellEnvironmentHydrationMarker } from "@synara/shared/shell";
-import { RotatingFileSink } from "@synara/shared/logging";
+  resolveSaintDesktopRuntimeFlavor,
+  saintDesktopIdentity,
+} from "@saint/shared/desktopIdentity";
+import { NetService } from "@saint/shared/Net";
+import { applyShellEnvironmentHydrationMarker } from "@saint/shared/shell";
+import { RotatingFileSink } from "@saint/shared/logging";
 import {
   MIGRATION_DIVERGENCE_CONSENT_ENV,
   MIGRATION_RUNTIME_SOURCE_DIGEST_ENV,
   type MigrationRuntimeIdentityMismatch,
   type MigrationSchemaTooNewStartupBlock,
-} from "@synara/shared/migrationRecovery";
-import { ensureStaticSnapshot, findAsarArchivePath } from "@synara/shared/staticSnapshot";
+} from "@saint/shared/migrationRecovery";
+import { ensureStaticSnapshot, findAsarArchivePath } from "@saint/shared/staticSnapshot";
 import { isBackendReadinessAborted, waitForHttpReady } from "./backendReadiness";
 import { resolveBackendNodeArgs } from "./backendNodeOptions";
 import {
@@ -291,12 +291,17 @@ import { BrowserVault } from "./browserAutomation/browserVault";
 import { BrowserVaultCapture } from "./browserAutomation/browserVaultCapture";
 import { registerBrowserVaultIpc } from "./browserVaultIpc";
 import { registerSafariAccessIpc } from "./safariAccessIpc";
-import { collectRemoteInstallEntries, createTarGzStream } from "./remoteSshBundle";
+import {
+  collectRemoteInstallEntries,
+  createTarGzStream,
+  remoteInstallVersion,
+} from "./remoteSshBundle";
 import {
   defaultRemoteRoot,
   parseSavedRemoteSshHosts,
   serializeSavedRemoteSshHosts,
 } from "./remoteSshConfig";
+import { buildRemoteSshEditorUrl } from "./remoteSshEditors";
 import { registerRemoteSshIpc } from "./remoteSshIpc";
 import { RemoteSshManager } from "./remoteSshManager";
 import { showInFileManager } from "./showInFileManager";
@@ -310,7 +315,7 @@ import {
 } from "./browserIpc";
 import {
   BrowserHostPipeServer,
-  SYNARA_BROWSER_HOST_PIPE_PATH,
+  SAINT_BROWSER_HOST_PIPE_PATH,
   resolveBrowserHostPipeBackendEnv,
 } from "./browserUsePipeServer";
 import { normalizeDesktopWsUrl, resolveDesktopWsUrlFromEnv } from "./desktopWsBridge";
@@ -338,9 +343,9 @@ import {
   writeDesktopWindowState,
 } from "./windowState";
 import {
-  acknowledgeSynaraStorageSnapshot,
-  readSynaraStorageSnapshot,
-  resolveSynaraStorageSnapshotPath,
+  acknowledgeSaintStorageSnapshot,
+  readSaintStorageSnapshot,
+  resolveSaintStorageSnapshotPath,
 } from "./desktopStorageMigration";
 import { DESKTOP_IPC_CHANNELS } from "./ipcChannels";
 import { DesktopAppSnapManager } from "./appSnapManager";
@@ -355,7 +360,7 @@ import {
   AUDIO_TRAIL_BETA_FEATURE,
   isBetaFeatureEnabled,
   REMOTE_SSH_BETA_FEATURE,
-} from "@synara/shared/betaFeatures";
+} from "@saint/shared/betaFeatures";
 import { hardenBrowserAnnotationWebviewPreferences } from "./browserAnnotations/webviewSecurity";
 import { LOCAL_HTML_PREVIEW_SCHEME } from "./localHtmlPreviewProtocol";
 import {
@@ -367,12 +372,12 @@ import {
   sendAppSnapState,
 } from "./appSnapIpc";
 
-const requestedSourceBuildMarker = process.env.SYNARA_SOURCE_DESKTOP_BUILD_MARKER;
+const requestedSourceBuildMarker = process.env.SAINT_SOURCE_DESKTOP_BUILD_MARKER;
 if (
   requestedSourceBuildMarker !== undefined &&
-  requestedSourceBuildMarker !== SYNARA_SOURCE_DESKTOP_BUILD_MARKER
+  requestedSourceBuildMarker !== SAINT_SOURCE_DESKTOP_BUILD_MARKER
 ) {
-  throw new Error("The source desktop launcher and built main are incompatible. Rebuild Synara.");
+  throw new Error("The source desktop launcher and built main are incompatible. Rebuild Saint.");
 }
 
 // Capture the real archive identity before any explicit app.asar lookup. Static
@@ -386,7 +391,7 @@ const startupBundleIdentity = captureStartupBundleIdentity();
 // The reads a few lines below decide where this install's data lives, and two of them
 // depend on what this probe brings in: `resolveUserDataPath()` takes the Electron profile
 // directory from XDG_CONFIG_HOME on Linux, which the login-shell probe captures, and
-// `BASE_DIR` prefers SYNARA_HOME, which the Windows registry read hydrates whenever the
+// `BASE_DIR` prefers SAINT_HOME, which the Windows registry read hydrates whenever the
 // user set it persistently. Resolving either against an unhydrated environment would
 // silently relocate an existing user's profile and data directory.
 // (The probe also carries PATH, SSH_AUTH_SOCK and HOMEBREW_* for later provider spawns.
@@ -398,29 +403,29 @@ const MAX_CLIPBOARD_IMAGE_DATA_URL_LENGTH = 16 * 1024 * 1024;
 const packagedDesktopFlavor = app.isPackaged
   ? (
       JSON.parse(FS.readFileSync(Path.join(app.getAppPath(), "package.json"), "utf8")) as {
-        synaraDesktopFlavor?: unknown;
+        saintDesktopFlavor?: unknown;
       }
-    ).synaraDesktopFlavor
+    ).saintDesktopFlavor
   : undefined;
 const isSourceDesktopBuild =
-  requestedSourceBuildMarker === SYNARA_SOURCE_DESKTOP_BUILD_MARKER &&
+  requestedSourceBuildMarker === SAINT_SOURCE_DESKTOP_BUILD_MARKER &&
   packagedDesktopFlavor === undefined;
 const isDevelopment =
   (!app.isPackaged || isSourceDesktopBuild) && Boolean(process.env.VITE_DEV_SERVER_URL);
-const desktopFlavor = resolveSynaraDesktopRuntimeFlavor({
+const desktopFlavor = resolveSaintDesktopRuntimeFlavor({
   isPackaged: app.isPackaged,
   isDevelopment,
   packagedFlavor: packagedDesktopFlavor,
-  requestedFlavor: process.env.SYNARA_DESKTOP_FLAVOR,
+  requestedFlavor: process.env.SAINT_DESKTOP_FLAVOR,
   allowDevelopmentOverride: isSourceDesktopBuild,
 });
-const desktopIdentity = synaraDesktopIdentity(desktopFlavor);
-// Beta never honors SYNARA_HOME: a globally exported stable home would make
+const desktopIdentity = saintDesktopIdentity(desktopFlavor);
+// Beta never honors SAINT_HOME: a globally exported stable home would make
 // beta open (and migrate) stable's database.
 const BASE_DIR =
   (desktopFlavor === "beta"
-    ? process.env.SYNARA_BETA_HOME?.trim()
-    : process.env.SYNARA_HOME?.trim()) ||
+    ? process.env.SAINT_BETA_HOME?.trim()
+    : process.env.SAINT_HOME?.trim()) ||
   Path.join(OS.homedir(), desktopIdentity.defaultHomeDirectoryName);
 const STATE_DIR = Path.join(BASE_DIR, "userdata");
 const DESKTOP_WINDOW_STATE_PATH = Path.join(STATE_DIR, "desktop-window-state.json");
@@ -488,7 +493,7 @@ const betaDiagnostics =
 if (betaDiagnostics) {
   crashReporter.start({
     productName: APP_DISPLAY_NAME,
-    companyName: "Synara",
+    companyName: "Saint",
     submitURL: `${resolveBetaDiagnosticsEndpoint(process.env)}/v1/crash`,
     uploadToServer: true,
     compress: true,
@@ -550,7 +555,7 @@ const BACKEND_SHUTDOWN_TIMEOUT_MS = 10_000;
 const POSIX_BACKEND_TERMINATE_DELAY_MS = 15_000;
 const POSIX_BACKEND_FORCE_KILL_DELAY_MS = 18_000;
 const POSIX_BACKEND_SHUTDOWN_TIMEOUT_MS = 20_000;
-const BACKEND_MAX_OLD_SPACE_ENV_KEYS = ["SYNARA_BACKEND_MAX_OLD_SPACE_MB"] as const;
+const BACKEND_MAX_OLD_SPACE_ENV_KEYS = ["SAINT_BACKEND_MAX_OLD_SPACE_MB"] as const;
 const DESKTOP_UPDATE_ALLOW_PRERELEASE = desktopFlavor === "beta";
 const BROWSER_PERF_SAMPLE_INTERVAL_MS = 5_000;
 const DESKTOP_MENU_ZOOM_FACTOR_STEP = 1.1;
@@ -559,8 +564,8 @@ const DESKTOP_MENU_ZOOM_FACTOR_STEP = 1.1;
 let desktopMenuAccelerators: DesktopMenuAccelerators = DEFAULT_DESKTOP_MENU_ACCELERATORS;
 const DESKTOP_MENU_MIN_ZOOM_FACTOR = 0.25;
 const DESKTOP_MENU_MAX_ZOOM_FACTOR = 5;
-const SYNARA_BROWSER_LABEL = "Synara browser";
-const browserPerfLoggingEnabled = process.env.SYNARA_BROWSER_PERF === "1";
+const SAINT_BROWSER_LABEL = "Saint browser";
+const browserPerfLoggingEnabled = process.env.SAINT_BROWSER_PERF === "1";
 
 type DesktopUpdateErrorContext = DesktopUpdateState["errorContext"];
 
@@ -703,7 +708,7 @@ function startBrowserPerformanceLogging(): void {
         name: metric.name,
       }));
 
-    console.info(`[${SYNARA_BROWSER_LABEL} perf]`, {
+    console.info(`[${SAINT_BROWSER_LABEL} perf]`, {
       ...snapshot.counters,
       trackedProcessIds: snapshot.trackedProcessIds,
       processes: processMetrics,
@@ -713,7 +718,7 @@ function startBrowserPerformanceLogging(): void {
 }
 
 async function ensureBrowserHostPipeServer(): Promise<void> {
-  if (browserHostPipeServer || !SYNARA_BROWSER_HOST_PIPE_PATH) {
+  if (browserHostPipeServer || !SAINT_BROWSER_HOST_PIPE_PATH) {
     return;
   }
   const server = new BrowserHostPipeServer(browserManager, {
@@ -891,7 +896,7 @@ async function reserveBackendEndpoint(reason: string): Promise<void> {
   );
   backendHttpUrl = `http://127.0.0.1:${backendPort}`;
   backendWsUrl = `ws://127.0.0.1:${backendPort}/?token=${encodeURIComponent(backendAuthToken)}`;
-  process.env.SYNARA_DESKTOP_WS_URL = backendWsUrl;
+  process.env.SAINT_DESKTOP_WS_URL = backendWsUrl;
   writeDesktopLogHeader(`${reason} resolved backend endpoint port=${backendPort}`);
 }
 
@@ -1332,21 +1337,21 @@ function resolveEmbeddedCommitHash(): string | null {
 
   try {
     const raw = FS.readFileSync(packageJsonPath, "utf8");
-    const parsed = JSON.parse(raw) as { synaraCommitHash?: unknown };
-    return normalizeCommitHash(parsed.synaraCommitHash);
+    const parsed = JSON.parse(raw) as { saintCommitHash?: unknown };
+    return normalizeCommitHash(parsed.saintCommitHash);
   } catch {
     return null;
   }
 }
 
-declare const __SYNARA_WINDOWS_UPDATER_PUBLISHER__: string;
+declare const __SAINT_WINDOWS_UPDATER_PUBLISHER__: string;
 
 function resolveEmbeddedWindowsPublisherSubjects(): string[] {
   if (!app.isPackaged || process.platform !== "win32") {
     return [];
   }
 
-  const subject = __SYNARA_WINDOWS_UPDATER_PUBLISHER__.trim();
+  const subject = __SAINT_WINDOWS_UPDATER_PUBLISHER__.trim();
   return subject ? [subject] : [];
 }
 
@@ -1355,7 +1360,7 @@ function resolveAboutCommitHash(): string | null {
     return aboutCommitHashCache;
   }
 
-  const envCommitHash = normalizeCommitHash(process.env.SYNARA_COMMIT_HASH);
+  const envCommitHash = normalizeCommitHash(process.env.SAINT_COMMIT_HASH);
   if (envCommitHash) {
     aboutCommitHashCache = envCommitHash;
     return aboutCommitHashCache;
@@ -1401,9 +1406,9 @@ async function rejectUnverifiableDesktopMigrationBundle(error: unknown): Promise
   writeDesktopLogHeader(`migration bundle source check failed message=${message}`);
   await dialog.showMessageBox({
     type: "error",
-    title: "Synara could not verify its server build",
+    title: "Saint could not verify its server build",
     message: "The migration source could not be checked safely.",
-    detail: `${message}\n\nRebuild with bun run build:desktop before starting Synara. The database was not opened.`,
+    detail: `${message}\n\nRebuild with bun run build:desktop before starting Saint. The database was not opened.`,
     buttons: ["Quit"],
     defaultId: 0,
     noLink: true,
@@ -1420,11 +1425,11 @@ async function rejectDesktopMigrationBundleMismatch(
   );
   await dialog.showMessageBox({
     type: "error",
-    title: "Synara's server build is stale",
+    title: "Saint's server build is stale",
     message: "The built migration code does not match this checkout.",
     detail:
       `Expected ${mismatch.expectedDigest}, but the desktop bundle contains ` +
-      `${mismatch.actualDigest}.\n\nRebuild with bun run build:desktop before starting Synara. The database was not opened.`,
+      `${mismatch.actualDigest}.\n\nRebuild with bun run build:desktop before starting Saint. The database was not opened.`,
     buttons: ["Quit"],
     defaultId: 0,
     noLink: true,
@@ -1471,7 +1476,7 @@ async function handleDesktopMigrationRecovery(): Promise<DesktopMigrationRecover
     requiresRecovery: () => requiresDesktopMigrationRecovery(paths),
     markerRemains: () => hasPendingDesktopMigrationRecovery(paths),
     choose: async ({ previousFailure }) => {
-      // The user is here because Synara cannot open its database, so the
+      // The user is here because Saint cannot open its database, so the
       // in-app update button is unreachable by definition. A newer build is
       // often the actual fix, and this dialog is the only surface left to
       // offer it from: installing it in place when the updater can reach the
@@ -1498,15 +1503,15 @@ async function handleDesktopMigrationRecovery(): Promise<DesktopMigrationRecover
       ];
       if (canInstallUpdate) {
         choices.push({
-          label: "Update Synara and restart",
-          detail: "install the newest Synara release, which may already contain the fix",
+          label: "Update Saint and restart",
+          detail: "install the newest Saint release, which may already contain the fix",
           decision: "install-update",
         });
       }
       if (releaseUrl !== null) {
         choices.push({
           label: "Download latest release",
-          detail: `${canInstallUpdate ? "download that release" : "download the latest Synara release"} in a browser`,
+          detail: `${canInstallUpdate ? "download that release" : "download the latest Saint release"} in a browser`,
           decision: "open-release-page",
         });
       }
@@ -1521,16 +1526,16 @@ async function handleDesktopMigrationRecovery(): Promise<DesktopMigrationRecover
         type: previousFailure === null ? "warning" : "error",
         title:
           previousFailure === null
-            ? "Synara needs to recover its database"
+            ? "Saint needs to recover its database"
             : restoreFailed
               ? "Migration recovery failed"
-              : "Synara could not update itself",
+              : "Saint could not update itself",
         message:
           previousFailure === null
-            ? "Synara stopped a database migration before it could finish safely."
+            ? "Saint stopped a database migration before it could finish safely."
             : restoreFailed
               ? "The saved database backup could not be restored."
-              : "The newest Synara release could not be installed.",
+              : "The newest Saint release could not be installed.",
         detail: `${previousFailure === null ? "" : `${previousFailure.message}\n\n`}You can ${options}. No provider or chat process will start until recovery succeeds.`,
         buttons: choices.map((choice) => choice.label),
         defaultId: 0,
@@ -1614,7 +1619,7 @@ let servedStaticRootCache: ServedStaticRoot | null | undefined;
 // being replaced beneath the running app (Electron caches the header per process,
 // so every later read returns bytes from the wrong offsets). Extract the client
 // to a per-archive snapshot on real disk and serve that instead — both for the
-// synara:// protocol here and, via SYNARA_STATIC_DIR, for the backend's HTTP static
+// saint:// protocol here and, via SAINT_STATIC_DIR, for the backend's HTTP static
 // route. Memoized so one app run serves one coherent asset generation.
 function resolveServedStaticRoot(): ServedStaticRoot | null {
   if (servedStaticRootCache === undefined) {
@@ -1705,7 +1710,7 @@ function handleFatalStartupError(stage: string, error: unknown): void {
   console.error(`[desktop] fatal startup error (${stage})`, error);
   if (!isQuitting) {
     isQuitting = true;
-    dialog.showErrorBox("Synara failed to start", `Stage: ${stage}\n${message}${detail}`);
+    dialog.showErrorBox("Saint failed to start", `Stage: ${stage}\n${message}${detail}`);
   }
   requestGracefulAppQuit(`fatal startup (${stage})`);
 }
@@ -1846,7 +1851,7 @@ function adjustWindowZoomFromMenu(multiplier: number): void {
 // A configured app-update.yml (or the mock-updates flag) is the prerequisite for any
 // auto-update activity; centralized so the menu and the enable check stay in lockstep.
 function hasConfiguredUpdateFeed(): boolean {
-  return readAppUpdateYml() !== null || Boolean(process.env.SYNARA_DESKTOP_MOCK_UPDATES);
+  return readAppUpdateYml() !== null || Boolean(process.env.SAINT_DESKTOP_MOCK_UPDATES);
 }
 
 function resolveAutoUpdateDisabledReason(): string | null {
@@ -1856,7 +1861,7 @@ function resolveAutoUpdateDisabledReason(): string | null {
     platform: process.platform,
     appImage: process.env.APPIMAGE,
     disabledByEnv:
-      desktopIdentity.usesScriptedUpdates || process.env.SYNARA_DISABLE_AUTO_UPDATE === "1",
+      desktopIdentity.usesScriptedUpdates || process.env.SAINT_DISABLE_AUTO_UPDATE === "1",
     hasUpdateFeedConfig: hasConfiguredUpdateFeed(),
   });
 }
@@ -1888,14 +1893,14 @@ async function checkForUpdatesFromMenu(): Promise<void> {
     void dialog.showMessageBox({
       type: "info",
       title: "You're up to date!",
-      message: `Synara ${updateState.currentVersion} is currently the newest version available.`,
+      message: `Saint ${updateState.currentVersion} is currently the newest version available.`,
       buttons: ["OK"],
     });
   } else if (updateState.status === "downloading" || updateState.status === "available") {
     void dialog.showMessageBox({
       type: "info",
       title: "Update found",
-      message: "Synara is preparing the update in the background.",
+      message: "Saint is preparing the update in the background.",
       buttons: ["OK"],
     });
   } else if (updateState.status === "downloaded") {
@@ -2066,20 +2071,20 @@ function resolveNotificationIconPath(): string | null {
     return null;
   }
   if (process.platform === "win32") {
-    return resolveResourcePath("synara.png") ?? resolveIconPath("ico");
+    return resolveResourcePath("saint.png") ?? resolveIconPath("ico");
   }
-  return resolveResourcePath("synara.png") ?? resolveIconPath("png");
+  return resolveResourcePath("saint.png") ?? resolveIconPath("png");
 }
 
 function loadWindowMaterialAddon(): WindowMaterialAddon | null {
   const addonPath = app.isPackaged
-    ? Path.resolve(process.resourcesPath, "..", "Frameworks", "synara-window-material.node")
+    ? Path.resolve(process.resourcesPath, "..", "Frameworks", "saint-window-material.node")
     : Path.resolve(
         __dirname,
         "..",
         ".electron-runtime",
         "window-material",
-        "synara-window-material.node",
+        "saint-window-material.node",
       );
   try {
     const addonModule: { exports: Partial<WindowMaterialAddon> } = { exports: {} };
@@ -2116,9 +2121,9 @@ const desktopWindowTranslucency = resolveDesktopWindowTranslucency({
 
 function resolveAppSnapHelperPath(): string {
   if (app.isPackaged) {
-    return Path.resolve(process.resourcesPath, "..", "Helpers", "synara-appsnap-helper");
+    return Path.resolve(process.resourcesPath, "..", "Helpers", "saint-appsnap-helper");
   }
-  return Path.resolve(__dirname, "..", ".electron-runtime", "appsnap", "synara-appsnap-helper");
+  return Path.resolve(__dirname, "..", ".electron-runtime", "appsnap", "saint-appsnap-helper");
 }
 
 /// The .app bundle that owns this process; the permission guide drags this
@@ -2323,7 +2328,7 @@ function showDesktopNotification(input: {
  * Resolve the Electron userData directory path.
  *
  * Electron derives the default userData path from `productName` in
- * package.json. We override it to a clean lowercase Synara name.
+ * package.json. We override it to a clean lowercase Saint name.
  */
 function resolveUserDataPath(): string {
   const appDataBase = resolveDesktopAppDataBase();
@@ -2334,7 +2339,7 @@ function resolveUserDataPath(): string {
       packagedFlavor: packagedDesktopFlavor,
       sourceBuildMarker: requestedSourceBuildMarker,
     })
-      ? process.env[SYNARA_DESKTOP_SMOKE_USER_DATA_ENV]
+      ? process.env[SAINT_DESKTOP_SMOKE_USER_DATA_ENV]
       : undefined,
   });
 }
@@ -2342,13 +2347,13 @@ function resolveUserDataPath(): string {
 function repairBrowserProfileBeforeElectronReady(userDataPath: string): void {
   const browserProfileRepair = repairBrowserProfileFromBridgeManifest(userDataPath);
   if (browserProfileRepair.status === "repaired") {
-    console.info("[desktop] Completed Synara browser profile bridge repair", {
+    console.info("[desktop] Completed Saint browser profile bridge repair", {
       sourcePath: browserProfileRepair.sourcePath,
       targetPath: browserProfileRepair.targetPath,
       copiedEntries: browserProfileRepair.copiedEntries,
     });
   } else if (browserProfileRepair.status === "repair-failed") {
-    console.warn("[desktop] Failed to complete Synara browser profile bridge repair", {
+    console.warn("[desktop] Failed to complete Saint browser profile bridge repair", {
       sourcePath: browserProfileRepair.sourcePath,
       targetPath: browserProfileRepair.targetPath,
       error: browserProfileRepair.error,
@@ -2363,7 +2368,7 @@ function configureAppIdentity(): void {
     applicationName: APP_DISPLAY_NAME,
     applicationVersion: app.getVersion(),
     version: commitHash ?? "unknown",
-    copyright: `© ${new Date().getFullYear()} Emanuele Di Pietro`,
+    copyright: `© ${new Date().getFullYear()} Locotine`,
   });
 
   if (process.platform === "win32") {
@@ -2890,11 +2895,11 @@ function restartAfterStartupBundleSwap(error: BundleChangedDuringStartupError): 
   void dialog
     .showMessageBox({
       type: "warning",
-      title: "Synara needs to restart",
-      message: "Synara changed while it was opening.",
+      title: "Saint needs to restart",
+      message: "Saint changed while it was opening.",
       detail:
-        "The current process cannot safely read the replaced application bundle. Restart Synara to finish opening with one consistent version.",
-      buttons: ["Restart Synara"],
+        "The current process cannot safely read the replaced application bundle. Restart Saint to finish opening with one consistent version.",
+      buttons: ["Restart Saint"],
       defaultId: 0,
     })
     .catch(() => undefined)
@@ -2906,7 +2911,7 @@ function restartAfterStartupBundleSwap(error: BundleChangedDuringStartupError): 
 
 // Electron caches the asar header per process, so once app.asar changes on disk
 // (updater retry racing a relaunch, a reinstall, a build copied over the bundle)
-// every archive read in this process — the synara:// protocol, the backend's static
+// every archive read in this process — the saint:// protocol, the backend's static
 // files, lazily-loaded renderer chunks — resolves to stale offsets and silently
 // returns the wrong bytes. Detect the swap and offer a restart; continuing is
 // never safe.
@@ -2946,8 +2951,8 @@ function startBundleSwapWatcher(): void {
     void dialog
       .showMessageBox({
         type: "warning",
-        title: "Synara was replaced on disk",
-        message: "The installed Synara app changed while it was running.",
+        title: "Saint was replaced on disk",
+        message: "The installed Saint app changed while it was running.",
         detail:
           "The interface keeps running from a safeguarded copy, but parts of the app loaded later can still read the replaced file. Restart now to pick up the new version safely.",
         buttons: ["Restart Now", "Later"],
@@ -3129,7 +3134,7 @@ function processInstallMarkerOnStartup(): void {
   }
 
   automaticUpdateActivitySuppressed = true;
-  const message = `Synara restarted, but update ${marker.toVersion} was not installed. Try again.`;
+  const message = `Saint restarted, but update ${marker.toVersion} was not installed. Try again.`;
   setUpdateState(
     reduceDesktopUpdateStateOnInstallRestartFailure(
       updateState,
@@ -3561,7 +3566,7 @@ async function installLatestUpdateForMigrationRecovery(): Promise<string | null>
   }
 
   if (updateState.status === "up-to-date") {
-    return `Synara ${app.getVersion()} is already the newest release, so updating cannot repair this database.`;
+    return `Saint ${app.getVersion()} is already the newest release, so updating cannot repair this database.`;
   }
   if (updateState.status !== "downloaded") {
     return updateState.message ?? "The update could not be downloaded.";
@@ -3788,7 +3793,7 @@ function configureAutoUpdater(): void {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   // The dedicated channel keeps the permanent compatibility release on the
-  // default feed while Synara versions advance independently.
+  // default feed while Saint versions advance independently.
   autoUpdater.channel = desktopUpdateChannel(desktopFlavor);
   autoUpdater.allowPrerelease = DESKTOP_UPDATE_ALLOW_PRERELEASE;
   autoUpdater.allowDowngrade = false;
@@ -3937,7 +3942,7 @@ function configureAutoUpdater(): void {
 
   scheduleUpdatePoll();
 }
-// Builds process-local Node args so provider/tool children do not inherit Synara's heap guard.
+// Builds process-local Node args so provider/tool children do not inherit Saint's heap guard.
 function backendNodeArgs(): string[] {
   const configuredMaxOldSpaceMb =
     BACKEND_MAX_OLD_SPACE_ENV_KEYS.map((key) => process.env[key]).find(
@@ -4137,12 +4142,12 @@ function backendEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...resolveBrowserHostPipeBackendEnv(
       process.env,
-      browserHostPipeServer ? SYNARA_BROWSER_HOST_PIPE_PATH : null,
+      browserHostPipeServer ? SAINT_BROWSER_HOST_PIPE_PATH : null,
       browserHostPipeServer ? DESKTOP_BROWSER_HOST_CAPABILITY_FD : null,
     ),
     // Point the backend's HTTP static route at the same swap-immune snapshot the
-    // synara:// protocol serves, so both surfaces survive app.asar being replaced.
-    ...(servedStaticRoot?.snapshotted ? { SYNARA_STATIC_DIR: servedStaticRoot.dir } : {}),
+    // saint:// protocol serves, so both surfaces survive app.asar being replaced.
+    ...(servedStaticRoot?.snapshotted ? { SAINT_STATIC_DIR: servedStaticRoot.dir } : {}),
     ...(app.isPackaged
       ? { [DEVICE_HELPER_SOURCE_DIR_ENV]: Path.join(process.resourcesPath, "device-helper") }
       : {}),
@@ -4153,13 +4158,13 @@ function backendEnv(): NodeJS.ProcessEnv {
       ? { [MIGRATION_DIVERGENCE_CONSENT_ENV]: migrationDivergenceConsent }
       : {}),
     ...(cuaHostEndpoint ? { [CUA_HOST_SOCKET_ENV]: cuaHostEndpoint } : {}),
-    [SYNARA_DESKTOP_BUNDLE_ID_ENV]: desktopIdentity.bundleId,
-    SYNARA_MODE: "desktop",
-    SYNARA_NO_BROWSER: "1",
-    SYNARA_PORT: String(backendPort),
-    SYNARA_HOME: BASE_DIR,
-    SYNARA_AUTH_TOKEN: backendAuthToken,
-    SYNARA_DESKTOP_SHUTDOWN_TOKEN: DESKTOP_BACKEND_SHUTDOWN_TOKEN,
+    [SAINT_DESKTOP_BUNDLE_ID_ENV]: desktopIdentity.bundleId,
+    SAINT_MODE: "desktop",
+    SAINT_NO_BROWSER: "1",
+    SAINT_PORT: String(backendPort),
+    SAINT_HOME: BASE_DIR,
+    SAINT_AUTH_TOKEN: backendAuthToken,
+    SAINT_DESKTOP_SHUTDOWN_TOKEN: DESKTOP_BACKEND_SHUTDOWN_TOKEN,
   };
   // The backend runs the same login-shell probe at startup and does not begin listening
   // until it returns, so an unmarked child serializes a second ~1s hydration behind ours.
@@ -4227,7 +4232,7 @@ function backendFailureDialogDetail(reason: string): string {
   const cause = summary.length > 0 ? summary : reason;
   return [
     cause,
-    "Synara paused automatic restarts so a failing backend can't keep respawning in the background.",
+    "Saint paused automatic restarts so a failing backend can't keep respawning in the background.",
     `Log file:\n${Path.join(LOG_DIR, BACKEND_LOG_FILE_NAME)}`,
   ].join("\n\n");
 }
@@ -4256,8 +4261,8 @@ function presentBackendStartupGiveUp(reason: string): void {
     for (;;) {
       const result = await dialog.showMessageBox({
         type: "error",
-        title: "Synara's backend didn't start",
-        message: `Synara's backend failed to start ${BACKEND_MAX_CONSECUTIVE_START_FAILURES} times in a row.`,
+        title: "Saint's backend didn't start",
+        message: `Saint's backend failed to start ${BACKEND_MAX_CONSECUTIVE_START_FAILURES} times in a row.`,
         detail,
         buttons: ["Try again", "Open logs", "Quit"],
         defaultId: 0,
@@ -4294,25 +4299,25 @@ function schemaTooNewRestoreDetail(
 ): string {
   if (restoreCandidate) {
     return (
-      `Synara verified the exact pre-migration backup at:\n${restoreCandidate.backupPath}\n\n` +
+      `Saint verified the exact pre-migration backup at:\n${restoreCandidate.backupPath}\n\n` +
       `Its tracker ends at migration ${restoreCandidate.backupMigrationId}; its shared lineage is compatible ` +
       "with this build, and it passed SQLite integrity checking."
     );
   }
 
   if (block.recovery.kind === "restore-available") {
-    return "The recorded backup does not match this desktop database exactly, so Synara will not restore it.";
+    return "The recorded backup does not match this desktop database exactly, so Saint will not restore it.";
   }
 
   switch (block.recovery.reason) {
     case "missing-provenance":
-      return "No completed migration backup record exists for this database, so Synara cannot choose a backup safely.";
+      return "No completed migration backup record exists for this database, so Saint cannot choose a backup safely.";
     case "invalid-provenance":
       return "The completed migration backup record does not describe this exact database state.";
     case "invalid-backup":
       return "The exact recorded backup is missing, unreadable, or failed SQLite integrity checking.";
     case "incompatible-backup":
-      return "The exact recorded backup has a schema or migration lineage this Synara build cannot open safely.";
+      return "The exact recorded backup has a schema or migration lineage this Saint build cannot open safely.";
   }
 }
 
@@ -4345,7 +4350,7 @@ async function handleDesktopSchemaTooNewRecovery(
         });
       }
       if (canInstallUpdate) {
-        choices.push({ label: "Update Synara and restart", decision: "install-update" });
+        choices.push({ label: "Update Saint and restart", decision: "install-update" });
       }
       if (releaseUrl !== null) {
         choices.push({ label: "Download latest release", decision: "open-release-page" });
@@ -4360,16 +4365,16 @@ async function handleDesktopSchemaTooNewRecovery(
           type: previousFailure === null ? "warning" : "error",
           title:
             previousFailure === null
-              ? "This database is newer than Synara"
+              ? "This database is newer than Saint"
               : restoreFailed
                 ? "Database restore failed"
-                : "Synara could not update itself",
+                : "Saint could not update itself",
           message:
             previousFailure === null
               ? `Database migration ${block.databaseMigrationId} is newer than this build supports (${block.latestSupportedMigrationId}).`
               : restoreFailed
                 ? "The verified database backup could not be restored."
-                : "The newest Synara release could not be installed.",
+                : "The newest Saint release could not be installed.",
           detail:
             `${previousFailure === null ? "" : `${previousFailure.message}\n\n`}` +
             `${schemaTooNewRestoreDetail(block, restoreCandidate)}\n\n` +
@@ -4447,15 +4452,15 @@ function handleBackendStartupBlock(block: BackendStartupBlock): void {
             type: "error",
             title:
               previousFailure === null
-                ? "Synara could not verify migration recovery"
-                : "Synara could not update itself",
+                ? "Saint could not verify migration recovery"
+                : "Saint could not update itself",
             message:
               previousFailure === null
                 ? "The backend stopped for database safety, but its recovery details were invalid."
-                : "The newest Synara release could not be installed.",
+                : "The newest Saint release could not be installed.",
             detail:
               `${previousFailure === null ? "" : `${previousFailure.message}\n\n`}` +
-              "Synara will keep the backend and provider processes stopped. The recovery record is not trusted, so restoring from it is disabled; choose one of the safe actions below.",
+              "Saint will keep the backend and provider processes stopped. The recovery record is not trusted, so restoring from it is disabled; choose one of the safe actions below.",
             buttons: choices.map((choice) => choice.label),
             defaultId: 0,
             cancelId: choices.length - 1,
@@ -4484,12 +4489,12 @@ function handleBackendStartupBlock(block: BackendStartupBlock): void {
       const challenge = block.challenge;
       const result = await showBlockDialog({
         type: "warning",
-        title: "Synara found a different database migration history",
+        title: "Saint found a different database migration history",
         message: `Migration ${challenge.firstDivergedId} does not match this build.`,
         detail:
           `The database records "${challenge.recordedName}", while this build expects ` +
           `"${challenge.expectedName}". Continuing will first save an exact backup in:\n` +
-          `${challenge.backupDirectory}\n\nSynara will then rewrite tracker rows from migration ` +
+          `${challenge.backupDirectory}\n\nSaint will then rewrite tracker rows from migration ` +
           `${challenge.firstDivergedId} and replay through ${challenge.targetVersion}. ` +
           "Older builds may no longer be able to open the upgraded database. No provider or chat process will start until you choose.",
         buttons: ["Back up and continue", "Quit"],
@@ -4510,11 +4515,11 @@ function handleBackendStartupBlock(block: BackendStartupBlock): void {
     if (block.kind === "migration-runtime-identity-mismatch") {
       await showBlockDialog({
         type: "error",
-        title: "Synara's server build does not match",
+        title: "Saint's server build does not match",
         message: "The desktop and server migration code came from different builds.",
         detail: app.isPackaged
-          ? "Update or reinstall Synara before starting it again. The database was not opened."
-          : "Rebuild with bun run build:desktop before starting Synara again. The database was not opened.",
+          ? "Update or reinstall Saint before starting it again. The database was not opened."
+          : "Rebuild with bun run build:desktop before starting Saint again. The database was not opened.",
         buttons: ["Quit"],
         defaultId: 0,
         noLink: true,
@@ -4526,10 +4531,10 @@ function handleBackendStartupBlock(block: BackendStartupBlock): void {
     if (block.kind === "migration-recovery-required") {
       const result = await showBlockDialog({
         type: "warning",
-        title: "Synara needs to recover its database",
+        title: "Saint needs to recover its database",
         message: "A database migration did not finish safely.",
         detail:
-          "Restart Synara to open the verified backup recovery flow. Provider and chat processes will remain stopped until recovery completes.",
+          "Restart Saint to open the verified backup recovery flow. Provider and chat processes will remain stopped until recovery completes.",
         buttons: ["Restart and recover", "Quit"],
         defaultId: 0,
         cancelId: 1,
@@ -4546,21 +4551,21 @@ function handleBackendStartupBlock(block: BackendStartupBlock): void {
 
     const processDetail =
       block.ownerPid === null
-        ? "Synara could not verify the database lock. The lock may be left over from an interrupted startup, or another server may still be using it."
-        : `Another Synara server (process ${block.ownerPid}) is already using this database.`;
+        ? "Saint could not verify the database lock. The lock may be left over from an interrupted startup, or another server may still be using it."
+        : `Another Saint server (process ${block.ownerPid}) is already using this database.`;
     for (;;) {
       const result = await showBlockDialog({
         type: "warning",
         title:
           block.ownerPid === null
-            ? "Synara could not verify database ownership"
-            : "Synara is already running elsewhere",
+            ? "Saint could not verify database ownership"
+            : "Saint is already running elsewhere",
         message:
           block.ownerPid === null
-            ? "Synara could not safely open your local data."
-            : "Your local Synara data is in use by another process.",
+            ? "Saint could not safely open your local data."
+            : "Your local Saint data is in use by another process.",
         detail:
-          `${processDetail}\n\nClose any other Synara app or development server using this data, then try again. ` +
+          `${processDetail}\n\nClose any other Saint app or development server using this data, then try again. ` +
           "If this keeps happening, open the logs to see the underlying lock error. Your data has not been changed.\n\n" +
           `Log file:\n${Path.join(LOG_DIR, BACKEND_LOG_FILE_NAME)}`,
         buttons: ["Try again", "Open logs", "Quit"],
@@ -4677,8 +4682,8 @@ function startBackend(trigger: BackendStartTrigger = "lifecycle"): void {
     env: {
       ...backendEnv(),
       ELECTRON_RUN_AS_NODE: "1",
-      SYNARA_SERVER_ENTRY: backendEntry,
-      SYNARA_DESKTOP_PARENT_STDIN: "1",
+      SAINT_SERVER_ENTRY: backendEntry,
+      SAINT_DESKTOP_PARENT_STDIN: "1",
     },
     // Keep output piped in every environment so startup blockers and readiness
     // are observable even when packaged log setup is unavailable. The fourth
@@ -5081,7 +5086,7 @@ function requestGracefulAppQuit(reason: string): void {
 }
 
 function registerIpcHandlers(): void {
-  const storageSnapshotPath = resolveSynaraStorageSnapshotPath(app.getPath("userData"));
+  const storageSnapshotPath = resolveSaintStorageSnapshotPath(app.getPath("userData"));
 
   ipcMain.removeAllListeners(IPC.betaDiagnostics.enabled);
   ipcMain.on(IPC.betaDiagnostics.enabled, (event: IpcMainEvent) => {
@@ -5099,12 +5104,12 @@ function registerIpcHandlers(): void {
 
   ipcMain.removeAllListeners(IPC.storageMigration.read);
   ipcMain.on(IPC.storageMigration.read, (event: IpcMainEvent) => {
-    event.returnValue = readSynaraStorageSnapshot(storageSnapshotPath);
+    event.returnValue = readSaintStorageSnapshot(storageSnapshotPath);
   });
 
   ipcMain.removeHandler(IPC.storageMigration.acknowledge);
   ipcMain.handle(IPC.storageMigration.acknowledge, async () => {
-    await acknowledgeSynaraStorageSnapshot(storageSnapshotPath);
+    await acknowledgeSaintStorageSnapshot(storageSnapshotPath);
   });
 
   ipcMain.removeAllListeners(IPC.wsUrl);
@@ -5130,9 +5135,32 @@ function registerIpcHandlers(): void {
     event.returnValue = desktopWindowTranslucency;
   });
 
+  ipcMain.removeAllListeners(IPC.remoteSsh.windowHost);
+  ipcMain.on(IPC.remoteSsh.windowHost, (event: IpcMainEvent) => {
+    event.returnValue = remoteSshWindows.get(event.sender.id)?.host ?? null;
+  });
+
+  ipcMain.removeHandler(IPC.remoteSsh.openInEditor);
+  ipcMain.handle(IPC.remoteSsh.openInEditor, async (event, rawInput: unknown) => {
+    const remoteWindow = remoteSshWindows.get(event.sender.id);
+    if (!remoteWindow) throw new Error("Only remote host windows open editors over SSH.");
+    const input = rawInput as { target?: unknown; editor?: unknown } | null;
+    const url =
+      typeof input?.target === "string" && typeof input.editor === "string"
+        ? buildRemoteSshEditorUrl({
+            host: remoteWindow.host,
+            editor: input.editor,
+            target: input.target,
+          })
+        : null;
+    if (!url) throw new Error("This editor cannot open folders on a remote host.");
+    await shell.openExternal(url);
+  });
+
   ipcMain.removeHandler(IPC.pickFolder);
   ipcMain.handle(IPC.pickFolder, async (event) => {
-    // A local folder means nothing to a remote host's server; remote windows type the path.
+    // A local folder means nothing to a remote host's server; remote windows
+    // browse the host through the server instead (see `remoteWindow`).
     if (remoteSshWindows.has(event.sender.id)) return null;
     const owner = BrowserWindow.getFocusedWindow() ?? mainWindow;
     const result = owner
@@ -5324,7 +5352,11 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.removeHandler(IPC.showInFolder);
-  ipcMain.handle(IPC.showInFolder, async (_event, rawPath: unknown) => {
+  ipcMain.handle(IPC.showInFolder, async (event, rawPath: unknown) => {
+    // A same-named local path would reveal the wrong folder.
+    if (remoteSshWindows.has(event.sender.id)) {
+      throw new Error("Folders on a remote host cannot be shown in this computer's file manager.");
+    }
     if (typeof rawPath !== "string" || rawPath.trim().length === 0) {
       throw new Error("Missing folder path.");
     }
@@ -5513,10 +5545,10 @@ function registerIpcHandlers(): void {
           : desktopFlavor === "cua"
             ? "cua"
             : "production",
-    feedUrlOverride: process.env.SYNARA_BETA_FEED_URL,
-    installDirOverride: process.env.SYNARA_BETA_INSTALL_DIR,
+    feedUrlOverride: process.env.SAINT_BETA_FEED_URL,
+    installDirOverride: process.env.SAINT_BETA_INSTALL_DIR,
     expectedTeamId: ownAppTeamId(),
-    betaUserDataDir: process.env.SYNARA_BETA_USER_DATA,
+    betaUserDataDir: process.env.SAINT_BETA_USER_DATA,
     stableExecutablePath: desktopFlavor === "production" ? process.execPath : undefined,
     stableHomeDir: desktopFlavor === "production" ? BASE_DIR : undefined,
     canTrashOwnBundle: isTrashableBetaBundle(),
@@ -5549,7 +5581,7 @@ function registerIpcHandlers(): void {
         return {
           ok: false,
           error: "internal" as const,
-          message: `Synara is open, but Synara Beta could not be moved to the Trash: ${formatErrorMessage(error)}`,
+          message: `Saint is open, but Saint Beta could not be moved to the Trash: ${formatErrorMessage(error)}`,
         };
       }
     }
@@ -5670,7 +5702,7 @@ function registerIpcHandlers(): void {
             "Secure browser session persistence failed.",
           ];
           console.warn(
-            "[Synara browser]",
+            "[Saint browser]",
             error instanceof Error && allowed.includes(error.message)
               ? error.message
               : "Browser session checkpoint failed.",
@@ -5738,7 +5770,7 @@ function getTitleBarOptions(): BrowserWindowConstructorOptions {
   if (process.platform === "darwin") {
     return {
       titleBarStyle: "hiddenInset",
-      // Derived from the shared chat-surface header geometry (@synara/shared/desktopChrome)
+      // Derived from the shared chat-surface header geometry (@saint/shared/desktopChrome)
       // so the native lights and the renderer's leading toggle/arrow controls always share
       // the same vertical center. Tune the height/radius there, never the raw px here.
       trafficLightPosition: getMacTrafficLightPosition(),
@@ -5773,7 +5805,8 @@ function registerRemoteSshHandlers(): void {
   remoteSshManager ??= new RemoteSshManager({
     spawn: (command, args, options) =>
       spawnProcess(command, args, { ...options, env: process.env }),
-    appVersion: app.getVersion(),
+    installVersion: () =>
+      remoteInstallVersion(app.getVersion(), collectRemoteInstallEntries(resolveAppRoot())),
     defaultRemoteRoot: REMOTE_SSH_DEFAULT_ROOT,
     createInstallBundle: () => createTarGzStream(collectRemoteInstallEntries(resolveAppRoot())),
     reserveLocalPort: () =>
@@ -5827,8 +5860,8 @@ function registerRemoteSshHandlers(): void {
 /**
  * A desktop window whose backend is a remote host's server, reached through
  * the SSH tunnel (see `IPC.wsUrl`). It loads the same renderer as the main
- * window; local-only surfaces (browser panel, folder picker) stay with the
- * main window.
+ * window; local-only surfaces (browser panel) stay with the main window, and
+ * folders, editors and drops follow the host (see `remoteWindow` in preload).
  */
 function openRemoteSshWindow(host: string): void {
   for (const entry of remoteSshWindows.values()) {
@@ -5860,7 +5893,7 @@ function openRemoteSshWindow(host: string): void {
   const webContentsId = window.webContents.id;
   remoteSshWindows.set(webContentsId, { host, window });
   attachDesktopZoomFactorSync(window);
-  attachAppSubframeNavigationGuard(window.webContents);
+  attachAppSubframeNavigationGuard(window.webContents, () => remoteSshManager?.wsUrl(host) ?? null);
   window.webContents.setWindowOpenHandler(({ url }) => {
     const externalUrl = getSafeExternalUrl(url);
     if (externalUrl) {
@@ -5993,7 +6026,10 @@ function createWindow(): BrowserWindow {
     }
     return { action: "deny" };
   });
-  attachAppSubframeNavigationGuard(window.webContents);
+  attachAppSubframeNavigationGuard(
+    window.webContents,
+    () => normalizeDesktopWsUrl(backendWsUrl) ?? resolveDesktopWsUrlFromEnv(process.env),
+  );
 
   window.on("page-title-updated", (event) => {
     event.preventDefault();
@@ -6189,13 +6225,13 @@ function presentRendererCrashRecovery(
 
   const message =
     response.cause === "reload-budget-exhausted"
-      ? `Synara's window crashed ${response.crashes} times in a row.`
-      : "Synara's window stopped unexpectedly.";
+      ? `Saint's window crashed ${response.crashes} times in a row.`
+      : "Saint's window stopped unexpectedly.";
   const detail = [
     `The window's renderer process exited (${reason}).`,
     response.cause === "reload-budget-exhausted"
-      ? "Synara paused automatic reloads so a repeating crash can't keep reloading in the background."
-      : "This exit reason repeats on reload, so Synara did not retry automatically.",
+      ? "Saint paused automatic reloads so a repeating crash can't keep reloading in the background."
+      : "This exit reason repeats on reload, so Saint did not retry automatically.",
     `Log file:\n${Path.join(LOG_DIR, DESKTOP_LOG_FILE_NAME)}`,
   ].join("\n\n");
 
@@ -6203,7 +6239,7 @@ function presentRendererCrashRecovery(
     for (;;) {
       const result = await dialog.showMessageBox({
         type: "error",
-        title: "Synara's window stopped",
+        title: "Saint's window stopped",
         message,
         detail,
         buttons: ["Reload", "Open logs", "Quit"],
@@ -6249,7 +6285,7 @@ function configureMediaPermissions(): void {
     },
     {
       // Browser pages are untrusted web origins. They must never inherit the
-      // microphone grant used by Synara's own voice-composer renderer.
+      // microphone grant used by Saint's own voice-composer renderer.
       targetSession: session.fromPartition(BROWSER_SESSION_PARTITION),
       trustedRequester: () => null,
     },
@@ -6370,7 +6406,7 @@ async function bootstrap(): Promise<void> {
     }
   } catch {
     console.warn(
-      "[Synara browser] Secure session restoration is unavailable; no saved session cookies were restored.",
+      "[Saint browser] Secure session restoration is unavailable; no saved session cookies were restored.",
     );
   }
 
@@ -6379,7 +6415,7 @@ async function bootstrap(): Promise<void> {
   try {
     await ensureBrowserHostPipeServer();
   } catch (error) {
-    console.warn("[Synara browser] Failed to start browser host pipe", error);
+    console.warn("[Saint browser] Failed to start browser host pipe", error);
   }
   await startCuaHost();
   startBackend();

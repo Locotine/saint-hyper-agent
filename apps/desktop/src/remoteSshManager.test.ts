@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { PassThrough, Readable } from "node:stream";
 import type { ChildProcess } from "node:child_process";
 
-import type { DesktopRemoteSshHostState } from "@synara/contracts";
+import type { DesktopRemoteSshHostState } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import { RemoteSshManager, type RemoteSshManagerDependencies } from "./remoteSshManager";
@@ -65,7 +65,7 @@ function fakeSpawn(
 }
 
 const PROBE_FRESH =
-  'SYNARA_REMOTE {"kind":"probe","node":"v24.13.1","npm":true,"installed":false,"server":null}';
+  'SAINT_REMOTE {"kind":"probe","node":"v24.13.1","npm":true,"installed":false,"server":null}';
 
 function makeManager(
   spawn: RemoteSshManagerDependencies["spawn"],
@@ -74,8 +74,8 @@ function makeManager(
   const states: DesktopRemoteSshHostState[] = [];
   const manager = new RemoteSshManager({
     spawn,
-    appVersion: "1.2.3",
-    defaultRemoteRoot: ".synara-remote",
+    installVersion: () => "1.2.3",
+    defaultRemoteRoot: ".saint-remote",
     createInstallBundle: () => Readable.from([Buffer.from("bundle")]),
     reserveLocalPort: async () => 45_000,
     waitForHttpReady: async () => undefined,
@@ -103,8 +103,8 @@ describe("RemoteSshManager", () => {
       const kind = scriptKind(stdin);
       seen.push(kind);
       if (kind === "probe") return { stdout: PROBE_FRESH };
-      if (kind === "install") return { stdout: 'SYNARA_REMOTE {"kind":"installed"}' };
-      if (kind === "start") return { stdout: 'SYNARA_REMOTE {"kind":"started","port":4100}' };
+      if (kind === "install") return { stdout: 'SAINT_REMOTE {"kind":"installed"}' };
+      if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
       return {};
     });
     const { manager, states } = makeManager(spawn);
@@ -131,6 +131,13 @@ describe("RemoteSshManager", () => {
         "devbox",
       ]),
     );
+    // A forward from the user's ssh config failing must not kill the tunnel, and
+    // script runs set up none of those forwards at all.
+    expect(tunnel?.args).not.toContain("ExitOnForwardFailure=yes");
+    expect(tunnel?.args).not.toContain("ClearAllForwardings=yes");
+    const scripts = calls.filter((call) => !call.args.includes("-N"));
+    expect(scripts.length).toBeGreaterThan(0);
+    expect(scripts.every((call) => call.args.includes("ClearAllForwardings=yes"))).toBe(true);
     // The token goes over stdin, never into an ssh argument.
     expect(calls.every((call) => !call.args.some((arg) => arg.includes("tok")))).toBe(true);
     expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=tok");
@@ -143,23 +150,25 @@ describe("RemoteSshManager", () => {
       seen.push(scriptKind(stdin));
       return {
         stdout:
-          'SYNARA_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+          'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
       };
     });
     const { manager } = makeManager(spawn);
-    await manager.connect({ host: "devbox", remoteRoot: "squad/synara" });
+    await manager.connect({ host: "devbox", remoteRoot: "squad/saint" });
     expect(seen).toEqual(["probe"]);
     expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
-    expect(manager.states()[0]?.remoteRoot).toBe("squad/synara");
+    expect(manager.states()[0]?.remoteRoot).toBe("squad/saint");
   });
 
-  it("refuses hosts without Node.js 24", async () => {
+  it("refuses hosts whose Node.js lacks the node:sqlite APIs", async () => {
     const { spawn } = fakeSpawn(() => ({
       stdout:
-        'SYNARA_REMOTE {"kind":"probe","node":"v20.1.0","npm":true,"installed":false,"server":null}',
+        'SAINT_REMOTE {"kind":"probe","node":"v22.15.0","npm":true,"installed":false,"server":null}',
     }));
     const { manager, states } = makeManager(spawn);
-    await expect(manager.connect({ host: "devbox" })).rejects.toThrow(/Node.js 24 or newer/);
+    await expect(manager.connect({ host: "devbox" })).rejects.toThrow(
+      /Node.js 22.16\+, 23.11\+ or 24\+ is required on devbox \(found v22.15.0\)/,
+    );
     expect(states.at(-1)).toMatchObject({ phase: "error" });
   });
 
@@ -184,13 +193,79 @@ describe("RemoteSshManager", () => {
     expect(spawn).not.toHaveBeenCalled();
   });
 
+  it("moves the tunnel to a fresh local port when its own port is taken", async () => {
+    const { spawn, calls } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      return scriptKind(stdin) === "probe"
+        ? {
+            stdout:
+              'SAINT_REMOTE {"kind":"probe","node":"v22.23.2","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+          }
+        : {};
+    });
+    const ports = [45_000, 45_001];
+    let readyCalls = 0;
+    const { manager } = makeManager(spawn, {
+      reserveLocalPort: async () => ports.shift() ?? 0,
+      waitForHttpReady: (_url, signal) => {
+        readyCalls += 1;
+        if (readyCalls > 1) return Promise.resolve();
+        // ssh reports the bind failure for our port next to a config RemoteForward warning.
+        const tunnel = calls.find((call) => call.args.includes("-N"));
+        setImmediate(() =>
+          (tunnel?.child.stderr as PassThrough | null)?.write(
+            "Warning: remote port forwarding failed for listen port 8931\n" +
+              "bind [127.0.0.1]:45000: Address already in use\n" +
+              "channel_setup_fwd_listener_tcpip: cannot listen to port: 45000\n",
+          ),
+        );
+        return new Promise((_, reject) =>
+          signal.addEventListener("abort", () => reject(new Error("aborted"))),
+        );
+      },
+    });
+    const state = await manager.connect({ host: "devbox" });
+    const tunnels = calls.filter((call) => call.args.includes("-N"));
+    expect(tunnels.map((call) => call.args.find((arg) => arg.includes(":127.0.0.1:4200")))).toEqual(
+      ["127.0.0.1:45000:127.0.0.1:4200", "127.0.0.1:45001:127.0.0.1:4200"],
+    );
+    expect(tunnels[0]?.child.kill).toHaveBeenCalled();
+    expect(state).toMatchObject({ phase: "connected", localPort: 45_001 });
+    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45001/?token=live");
+  });
+
+  it("keeps the tunnel when only a forward from the ssh config fails", async () => {
+    const { spawn, calls } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      return scriptKind(stdin) === "probe"
+        ? {
+            stdout:
+              'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+          }
+        : {};
+    });
+    const { manager } = makeManager(spawn, {
+      waitForHttpReady: async () => {
+        const tunnel = calls.find((call) => call.args.includes("-N"));
+        (tunnel?.child.stderr as PassThrough | null)?.write(
+          "Warning: remote port forwarding failed for listen port 8931\n",
+        );
+        await new Promise((resolve) => setImmediate(resolve));
+      },
+    });
+    await expect(manager.connect({ host: "devbox" })).resolves.toMatchObject({
+      phase: "connected",
+      localPort: 45_000,
+    });
+  });
+
   it("reports a tunnel that drops after connecting and keeps the URL for reconnects", async () => {
     const { spawn, calls } = fakeSpawn((args, stdin) => {
       if (args.includes("-N")) return "tunnel";
       return scriptKind(stdin) === "probe"
         ? {
             stdout:
-              'SYNARA_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+              'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
           }
         : {};
     });
@@ -210,10 +285,10 @@ describe("RemoteSshManager", () => {
       if (args.includes("-N")) return "tunnel";
       const kind = scriptKind(stdin);
       seen.push(kind);
-      if (kind === "stop") return { stdout: 'SYNARA_REMOTE {"kind":"stopped"}' };
+      if (kind === "stop") return { stdout: 'SAINT_REMOTE {"kind":"stopped"}' };
       return {
         stdout:
-          'SYNARA_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+          'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
       };
     });
     const { manager, states } = makeManager(spawn);

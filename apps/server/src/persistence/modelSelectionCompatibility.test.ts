@@ -4,7 +4,7 @@
 // Depends on: modelSelectionCompatibility.
 
 import { assert, it } from "@effect/vitest";
-import { DEFAULT_SERVER_SETTINGS } from "@synara/contracts";
+import { DEFAULT_SERVER_SETTINGS } from "@saint/contracts";
 
 import { normalizePersistedModelSelection } from "./modelSelectionCompatibility.ts";
 

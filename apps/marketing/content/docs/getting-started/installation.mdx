@@ -1,13 +1,13 @@
 ---
 title: Installation
-description: Install Synara on macOS, Windows, or Linux and connect your first coding-agent runtime.
+description: Install Saint on macOS, Windows, or Linux and connect your first coding-agent runtime.
 ---
 
-Synara is a desktop workspace for coding agents. Installing Synara gives you the workspace; provider runtimes and model access still come from the coding-agent tools and accounts you already use.
+Saint is a desktop workspace for coding agents. Installing Saint gives you the workspace; provider runtimes and model access still come from the coding-agent tools and accounts you already use.
 
 ## Choose the right installer
 
-Download the latest stable build from the [Synara download page](/install). If the automatic download is unavailable, open [GitHub Releases](https://github.com/Emanuele-web04/synara/releases) and select the asset for your system.
+Download the latest stable build from the [Saint download page](/install). If the automatic download is unavailable, open [GitHub Releases](https://github.com/Emanuele-web04/synara/releases) and select the asset for your system.
 
 | Platform               | Download             |
 | ---------------------- | -------------------- |
@@ -16,13 +16,13 @@ Download the latest stable build from the [Synara download page](/install). If t
 | Windows                | x64 `.exe` installer |
 | Linux                  | x86_64 `.AppImage`   |
 
-<Callout type="info" title="Synara does not include a model subscription">
-  Synara uses provider runtimes installed on your machine. Install and authenticate at least one
+<Callout type="info" title="Saint does not include a model subscription">
+  Saint uses provider runtimes installed on your machine. Install and authenticate at least one
   provider—such as Claude Code, Codex, OpenCode, Cursor, or another supported runtime—before
   starting your first task.
 </Callout>
 
-## Install Synara
+## Install Saint
 
 <Steps>
 <Step>
@@ -41,7 +41,7 @@ Open the downloaded installer and complete the normal installation flow for your
 On Linux, your desktop environment may require making the AppImage executable before opening it:
 
 ```bash
-chmod +x Synara*.AppImage
+chmod +x Saint*.AppImage
 ```
 
 </Step>
@@ -49,16 +49,16 @@ chmod +x Synara*.AppImage
 
 ### Install and authenticate a provider
 
-Follow the provider's official installation and sign-in process. Synara does not copy an account from another machine or replace the provider's own authentication.
+Follow the provider's official installation and sign-in process. Saint does not copy an account from another machine or replace the provider's own authentication.
 
-Open a fresh terminal and confirm that the provider can start successfully outside Synara. This separates provider installation problems from Synara configuration problems.
+Open a fresh terminal and confirm that the provider can start successfully outside Saint. This separates provider installation problems from Saint configuration problems.
 
 </Step>
 <Step>
 
-### Launch Synara and check the provider
+### Launch Saint and check the provider
 
-Open Synara, go to provider settings, and confirm that the runtime is detected and available. Synara discovers the models and options exposed by the installed runtime, so the choices can vary by provider version, account, and subscription.
+Open Saint, go to provider settings, and confirm that the runtime is detected and available. Saint discovers the models and options exposed by the installed runtime, so the choices can vary by provider version, account, and subscription.
 
 </Step>
 <Step>
@@ -77,26 +77,26 @@ Work through these checks in order:
 1. Open a new terminal window.
 2. Confirm that the provider executable runs there.
 3. Confirm that the provider is authenticated.
-4. Check whether Synara offers a custom binary-path setting for that provider.
-5. Restart Synara after changing your `PATH` or installing a new runtime.
+4. Check whether Saint offers a custom binary-path setting for that provider.
+5. Restart Saint after changing your `PATH` or installing a new runtime.
 6. Continue with [Troubleshooting](/docs/troubleshooting) if it remains unavailable.
 
-Synara normalizes the environment available to the desktop process, but provider installations and shell configurations differ across operating systems.
+Saint normalizes the environment available to the desktop process, but provider installations and shell configurations differ across operating systems.
 
-## Updating Synara
+## Updating Saint
 
-Packaged builds use Synara's desktop updater. When an update cannot be applied automatically, download the newest installer and install it over the existing application.
+Packaged builds use Saint's desktop updater. When an update cannot be applied automatically, download the newest installer and install it over the existing application.
 
 The application bundle and local workspace data are stored separately. Even so, keep important work committed to Git before updating an early release.
 
 ## Run without the desktop shell
 
-Each GitHub release also includes `synara-server-<version>.tar.gz` for a headless web installation. It requires a supported Node.js runtime and a production dependency install; it is not a standalone executable or a replacement for provider authentication.
+Each GitHub release also includes `saint-server-<version>.tar.gz` for a headless web installation. It requires a supported Node.js runtime and a production dependency install; it is not a standalone executable or a replacement for provider authentication.
 
 Follow the [Headless server guide](/docs/workflows/headless-server) for extraction, startup, readiness checks, data-directory ownership, and remote-access policy. Start loopback-only and do not expose the raw server port without deliberate authentication and trusted transport.
 
-<Callout type="warn" title="Synara is under active development">
-  Synara changes quickly. Keep valuable work committed and review release notes before relying on a
+<Callout type="warn" title="Saint is under active development">
+  Saint changes quickly. Keep valuable work committed and review release notes before relying on a
   new workflow for important repositories.
 </Callout>
 
@@ -106,6 +106,6 @@ Continue with the [Quickstart](/docs/getting-started/quickstart), or review the 
 
 ## macOS minimum in 1.0.9
 
-Synara requires **macOS 13 or later** for its bundled native tools. Stable 1.0.9 packages declare that minimum and updater feeds refuse the update on older macOS systems. Choose the installer matching your processor. Packaged startup checks on macOS 15 do not establish runtime behavior on every macOS 13 configuration.
+Saint requires **macOS 13 or later** for its bundled native tools. Stable 1.0.9 packages declare that minimum and updater feeds refuse the update on older macOS systems. Choose the installer matching your processor. Packaged startup checks on macOS 15 do not establish runtime behavior on every macOS 13 configuration.
 
-Source evidence for 1.0.9: Synara release `ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`; `docs/releases/1.0.9-source-audit.md`, `docs/providers.md`, `docs/core-concepts.md`, `docs/editor/intelligence.md`, `docs/mcp-connectors.md`, `apps/server/src/persistence/MigrationBackup.ts` and `docs/release.md`.
+Source evidence for 1.0.9: Saint release `ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`; `docs/releases/1.0.9-source-audit.md`, `docs/providers.md`, `docs/core-concepts.md`, `docs/editor/intelligence.md`, `docs/mcp-connectors.md`, `apps/server/src/persistence/MigrationBackup.ts` and `docs/release.md`.

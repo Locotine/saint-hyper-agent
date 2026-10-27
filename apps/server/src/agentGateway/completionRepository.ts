@@ -83,7 +83,7 @@ export const makeCompletionRepository = Effect.gen(function* () {
           AND (delivery_state = 'delivered' OR (delivery_state = 'pending' AND EXISTS (
             SELECT 1 FROM projection_thread_activities AS activity
             WHERE activity.activity_id = 'gateway-completion:' || child_thread_id
-              AND activity.thread_id = ${creatorThreadId} AND activity.kind = 'synara.task.completed'
+              AND activity.thread_id = ${creatorThreadId} AND activity.kind = 'saint.task.completed'
           )))
           AND context_consumed = 0
           AND (context_event_sequence = ${eventSequence} OR (context_event_sequence IS NULL

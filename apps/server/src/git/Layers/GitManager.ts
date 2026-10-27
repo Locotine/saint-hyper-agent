@@ -8,14 +8,14 @@ import type {
   GitStackedAction,
   ModelSelection,
   ProviderStartOptions,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   resolveAutoFeatureBranchName,
   sanitizeBranchFragment,
   sanitizeFeatureBranchName,
-} from "@synara/shared/git";
-import { parseGitHubRepositoryNameWithOwnerFromRemoteUrl } from "@synara/shared/githubRepository";
-import { resolveWorktreeHandoffIntent } from "@synara/shared/worktreeHandoff";
+} from "@saint/shared/git";
+import { parseGitHubRepositoryNameWithOwnerFromRemoteUrl } from "@saint/shared/githubRepository";
+import { resolveWorktreeHandoffIntent } from "@saint/shared/worktreeHandoff";
 
 import { GitManagerError } from "../Errors.ts";
 import {
@@ -30,7 +30,7 @@ import { TextGeneration } from "../Services/TextGeneration.ts";
 import { detectPrTemplate } from "../PrTemplateDetection.ts";
 import { buildGitTextGenerationCallInput } from "../textGenerationSelection.ts";
 import { reportBetaOperationalIssue } from "../../betaOperationalIssue.ts";
-import { diagnosticIssueReason } from "@synara/shared/diagnosticIssue";
+import { diagnosticIssueReason } from "@saint/shared/diagnosticIssue";
 import { ServerConfig } from "../../config.ts";
 
 const MAX_PROGRESS_TEXT_LENGTH = 500;
@@ -159,7 +159,7 @@ function resolvePullRequestWorktreeLocalBranchName(
 
   const sanitizedHeadBranch = sanitizeBranchFragment(pullRequest.headBranch).trim();
   const suffix = sanitizedHeadBranch.length > 0 ? sanitizedHeadBranch : "head";
-  return `synara/pr-${pullRequest.number}/${suffix}`;
+  return `saint/pr-${pullRequest.number}/${suffix}`;
 }
 
 function parseRepositoryOwnerLogin(nameWithOwner: string | null): string | null {
@@ -1319,7 +1319,7 @@ export const makeGitManager = Effect.gen(function* () {
         prBody ??= generated.body;
       }
 
-      const bodyFile = path.join(tempDir, `synara-pr-body-${process.pid}-${randomUUID()}.md`);
+      const bodyFile = path.join(tempDir, `saint-pr-body-${process.pid}-${randomUUID()}.md`);
       yield* fileSystem
         .writeFileString(bodyFile, prBody)
         .pipe(
@@ -2180,11 +2180,11 @@ The local stash entry was kept for recovery.`,
 
       const preservedLocalStash = yield* stashWorkingTree(
         input.cwd,
-        `synara preserve local handoff ${randomUUID()}`,
+        `saint preserve local handoff ${randomUUID()}`,
       );
       const sourceStash = yield* stashWorkingTree(
         input.worktreePath,
-        `synara handoff to local ${randomUUID()}`,
+        `saint handoff to local ${randomUUID()}`,
       );
 
       yield* gitCore
@@ -2347,7 +2347,7 @@ The local stash entry was kept for recovery.`,
 
     const sourceStash = yield* stashWorkingTree(
       input.cwd,
-      `synara handoff to worktree ${randomUUID()}`,
+      `saint handoff to worktree ${randomUUID()}`,
     );
     const sourceBranch = currentLocalStatus.branch ?? input.currentBranch ?? null;
     const sourceHeadRef = yield* readHeadRef(input.cwd);

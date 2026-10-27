@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { assert, it } from "@effect/vitest";
-import { MessageId, ThreadId, type HubWorkSourceMessage } from "@synara/contracts";
+import { MessageId, ThreadId, type HubWorkSourceMessage } from "@saint/contracts";
 import { Effect, Layer, Option } from "effect";
 
 import { resolveAttachmentRelativePath } from "../attachmentPaths.ts";

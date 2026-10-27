@@ -18,9 +18,9 @@ import {
   type OrchestrationProjectShell,
   type OrchestrationThreadShell,
   type ProviderInstanceId,
-} from "@synara/contracts";
-import { isTemporaryWorktreeBranch } from "@synara/shared/git";
-import { unresolvedAutomationInstanceId } from "@synara/shared/providerInstances";
+} from "@saint/contracts";
+import { isTemporaryWorktreeBranch } from "@saint/shared/git";
+import { unresolvedAutomationInstanceId } from "@saint/shared/providerInstances";
 import { Duration, Effect, Layer, Option, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { afterEach, vi } from "vitest";

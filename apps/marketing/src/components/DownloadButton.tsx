@@ -13,7 +13,7 @@ const LABEL: Record<OS, string> = {
   mac: "Download for macOS",
   windows: "Download for Windows",
   linux: "Download for Linux",
-  unknown: "Download Synara",
+  unknown: "Download Saint",
 };
 
 type NavigatorWithUserAgentData = Navigator & {

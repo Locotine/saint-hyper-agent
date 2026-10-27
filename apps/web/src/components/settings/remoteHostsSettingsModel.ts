@@ -7,7 +7,7 @@ import type {
   DesktopRemoteSshHostState,
   DesktopRemoteSshPhase,
   DesktopRemoteSshState,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 export interface RemoteHostRow {
   readonly host: string;
@@ -22,7 +22,7 @@ export interface RemoteHostRow {
 const PHASE_LABELS: Record<DesktopRemoteSshPhase, string> = {
   idle: "Not connected",
   checking: "Checking the host…",
-  uploading: "Uploading Synara…",
+  uploading: "Uploading Saint…",
   installing: "Installing dependencies…",
   starting: "Starting the server…",
   tunneling: "Opening the SSH tunnel…",

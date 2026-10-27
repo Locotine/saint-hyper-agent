@@ -14,7 +14,7 @@ function cookieIdentity(cookie: unknown): string {
 }
 
 void (async () => {
-  const home = await mkdtemp(join(tmpdir(), "synara-session-native-"));
+  const home = await mkdtemp(join(tmpdir(), "saint-session-native-"));
   app.setPath("userData", home);
   await app.whenReady();
   let stage = "create";

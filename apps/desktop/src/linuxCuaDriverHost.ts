@@ -29,7 +29,7 @@ export function createLinuxCuaDriverHost(options: {
     onInputMonitorArmedChange: (armed) => options.inputMonitor?.setArmed(armed),
     setup: async () => {
       throw new Error(
-        "Start Synara inside your Linux desktop session with its display and accessibility " +
+        "Start Saint inside your Linux desktop session with its display and accessibility " +
           "bus available. Screen capture and input depend on the X11 or Wayland compositor; " +
           "the macOS permission guide does not apply. If the driver is missing, reinstall " +
           "the Linux package or run apps/desktop/scripts/provision-cua-driver.mjs --platform linux.",

@@ -6,7 +6,7 @@ import {
   lowerProcessPriority,
   prepareProcess,
   type ProcessLaunchInput,
-} from "@synara/shared/platformProcess";
+} from "@saint/shared/platformProcess";
 import { Effect, PlatformError } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { providerProcessPriorityEnabled } from "../providerProcessPriority";

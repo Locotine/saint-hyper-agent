@@ -24,7 +24,7 @@ export type ProjectHoverCardContentProps = {
   appearance: ProjectAppearance | null;
   isPinned: boolean;
   chatCount: number;
-  /** Display path (already home-abbreviated, e.g. ~/Developer/synara). */
+  /** Display path (already home-abbreviated, e.g. ~/Developer/saint). */
   path: string;
   onTogglePin: () => void;
   onEditProject: () => void;

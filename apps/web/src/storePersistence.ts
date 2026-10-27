@@ -2,13 +2,13 @@
 // Purpose: Persists project-only renderer preferences without depending on the Zustand facade.
 // Exports: Persistence I/O plus read-only remembered project UI state.
 
-import { normalizeWorkspaceRootForComparison } from "@synara/shared/threadWorkspace";
+import { normalizeWorkspaceRootForComparison } from "@saint/shared/threadWorkspace";
 
 import { parseProjectAppearance, type ProjectAppearance } from "./lib/projectAppearance";
 import type { AppState } from "./storeState";
 import type { Project } from "./types";
 
-export const PERSISTED_STATE_KEY = "synara:renderer-state:v8";
+export const PERSISTED_STATE_KEY = "saint:renderer-state:v8";
 const persistedExpandedProjectCwds = new Set<string>();
 const persistedProjectOrderByCwd = new Map<string, number>();
 const persistedProjectNamesByCwd = new Map<string, string>();

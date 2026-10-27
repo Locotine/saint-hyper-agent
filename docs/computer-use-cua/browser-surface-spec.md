@@ -1,4 +1,4 @@
-# Browser surface — driver `browser_*` family through Synara
+# Browser surface — driver `browser_*` family through Saint
 
 > Historical wiring and runtime record for the revisions named below. Current
 > browser profile, authorization, effect and cancellation boundaries are in the
@@ -53,7 +53,7 @@ tools add a second axis: the **endpoint grant**.
   (`standard` needs an explicit grant or embedding authorization host;
   `bounded` needs a launch-approved manifest; `unrestricted` needs trusted
   startup acceptance). Ordinary MCP/tool approval never proves profile
-  authorization — Synara must NOT auto-grant.
+  authorization — Saint must NOT auto-grant.
 - Bound `target_id`/`tab_id` refs are session-scoped and exact-or-refuse;
   they become the target of record (like `element_token`/`window_id` today).
 - Mutations (`navigate`, `click`, `type`, `pointer`, `dialog` resolve) are
@@ -72,7 +72,7 @@ tools add a second axis: the **endpoint grant**.
   and refusals arrive as `status:"refused"` results rather than errors.
 - `apps/desktop/src/cuaDriverHost.ts`: admits each name; requires task
   attribution; injects a deterministic per-thread lifecycle label
-  (`synara-browser-<threadId>`) as `session` and the persistent control
+  (`saint-browser-<threadId>`) as `session` and the persistent control
   connection's `session_id`; revives ended labels via `start_session`;
   `end_browser_thread` maps to `end_session`; control-socket EOF is the
   driver's own reaper for everything a transport owned.
@@ -90,7 +90,7 @@ tools add a second axis: the **endpoint grant**.
   reads. Upload/download paths are canonicalized and refused outside the
   caller thread's workspace root before dispatch.
 - `packages/contracts/src/computerBrowser.ts`: gateway ↔ driver name map,
-  the closed refusal-code vocabulary, and the state/ref shapes Synara reads.
+  the closed refusal-code vocabulary, and the state/ref shapes Saint reads.
 
 ## Open decisions
 

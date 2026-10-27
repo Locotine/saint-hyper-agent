@@ -166,7 +166,7 @@ export function rebuildUnsignedMacDmg(
     throw new Error(`Could not find packaged .app bundle inside ${options.stageDistDir}.`);
   }
 
-  const imageRoot = mkdtempSync(join(tmpdir(), "synara-mac-dmg-"));
+  const imageRoot = mkdtempSync(join(tmpdir(), "saint-mac-dmg-"));
   try {
     const [copyAppCommand, createDmgCommand] = buildUnsignedMacDmgCommands(
       appBundlePath,

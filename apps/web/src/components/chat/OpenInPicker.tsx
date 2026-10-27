@@ -3,7 +3,7 @@
 // Layer: Chat header action
 // Depends on: shared editor metadata, native shell bridge, and preferred editor state.
 
-import { type EditorId, type ResolvedKeybindingsConfig } from "@synara/contracts";
+import { type EditorId, type ResolvedKeybindingsConfig } from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { useEditorLaunchers, type EditorLaunchers } from "~/hooks/useEditorLaunchers";

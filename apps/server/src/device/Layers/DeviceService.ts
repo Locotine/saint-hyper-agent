@@ -25,14 +25,14 @@ export interface DeviceServiceLiveOptions {
 
 /**
  * Where the boot record lives, derived the way the server derives its state
- * directory so both land in the same place under a custom SYNARA_HOME.
+ * directory so both land in the same place under a custom SAINT_HOME.
  *
  * Resolved here rather than taken from ServerConfig because this layer is built
  * before that config is in scope, and getting the path wrong only costs the
  * crash-recovery, not the feature.
  */
 function defaultBootOwnershipPath(): string {
-  const baseDir = process.env.SYNARA_HOME?.trim() || path.join(homedir(), ".synara");
+  const baseDir = process.env.SAINT_HOME?.trim() || path.join(homedir(), ".saint");
   const stateDir = path.join(baseDir, process.env.VITE_DEV_SERVER_URL ? "dev" : "userdata");
   return path.join(stateDir, "device-boot-ownership.json");
 }
@@ -59,13 +59,13 @@ export function makeDeviceServiceLayer(options: DeviceServiceLiveOptions = {}) {
           if (reclaimed.length > 0) {
             console.info(
               `[device] shut down ${reclaimed.length} simulator(s) left booted by a previous ` +
-                `Synara run: ${reclaimed.join(", ")}`,
+                `Saint run: ${reclaimed.join(", ")}`,
             );
           }
         });
       }
 
-      // App quit shuts down every simulator Synara booted and leaves the
+      // App quit shuts down every simulator Saint booted and leaves the
       // user's own devices running.
       yield* Effect.addFinalizer(() => Effect.promise(() => manager.dispose()));
       return { supported: platform === "darwin", manager } satisfies DeviceServiceShape;

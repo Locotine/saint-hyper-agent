@@ -14,8 +14,8 @@ import {
   WsFeatureRpcGroup,
   type ProviderKind,
   type ServerProviderStatus,
-} from "@synara/contracts";
-import { SYNARA_CUA_DESKTOP_ORIGIN } from "@synara/shared/desktopIdentity";
+} from "@saint/contracts";
+import { SAINT_CUA_DESKTOP_ORIGIN } from "@saint/shared/desktopIdentity";
 import { Effect, Exit, Layer, ManagedRuntime, Schema, Scope } from "effect";
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc";
 import * as Socket from "effect/unstable/socket/Socket";
@@ -67,9 +67,9 @@ async function desktopSocketUrl(cdpPort: number): Promise<string> {
     (target) =>
       target?.type === "page" &&
       typeof target.url === "string" &&
-      target.url.startsWith(`${SYNARA_CUA_DESKTOP_ORIGIN}/`),
+      target.url.startsWith(`${SAINT_CUA_DESKTOP_ORIGIN}/`),
   );
-  if (pages.length !== 1) throw new Error("Expected exactly one isolated Synara Cua renderer.");
+  if (pages.length !== 1) throw new Error("Expected exactly one isolated Saint Cua renderer.");
   const endpoint = assertLoopbackUrl(pages[0].webSocketDebuggerUrl, "ws:");
   if (Number(endpoint.port) !== cdpPort) throw new Error("Unexpected desktop debugging port.");
   // CDP is only used for this preload read. All task operations use the same

@@ -1,4 +1,4 @@
-# Synara PR #357 — Final code-quality, ACP, and provider audit
+# Saint PR #357 — Final code-quality, ACP, and provider audit
 
 **Audit date:** 2026-07-15
 **PR:** [#357 — Audit and harden code quality across desktop and server paths](https://github.com/Emanuele-web04/synara/pull/357)
@@ -25,7 +25,7 @@ Official @agentclientprotocol/sdk
   - NDJSON framing
   - JSON-RPC correlation and dispatch
   - ACP validation and cancellation
-        │ narrow Synara adapter
+        │ narrow Saint adapter
         ▼
 Effect runtime
   - process Scope and teardown proof
@@ -131,7 +131,7 @@ These are diagnostic samples, not production benchmarks:
   1.1 GiB for Vite and already-warm provider discovery processes;
 - selected dev processes were about 6.6% CPU at the baseline sample;
 - Cursor launch briefly showed ACP roots at about 20.5% and 7.2% CPU, with one worker near 59.5%;
-- after all tests, direct children of the Synara server totalled about 1.84 GiB RSS, dominated by
+- after all tests, direct children of the Saint server totalled about 1.84 GiB RSS, dominated by
   OpenCode;
 - a clean OpenCode-only recheck retained one server PID across two page reloads. The process remains
   warm for the configured five-minute TTL, which predates this PR's merge-base, and server shutdown
@@ -152,14 +152,14 @@ removed all sampled provider children and released both isolated ports.
 ### Decision
 
 Use the official [`@agentclientprotocol/sdk`](https://github.com/agentclientprotocol/typescript-sdk)
-as the sole protocol/wire authority and keep Effect above it as Synara's lifecycle and application
+as the sole protocol/wire authority and keep Effect above it as Saint's lifecycle and application
 runtime. Do not restore the deleted `effect-acp` wire/client implementation and do not add a
 provider-selectable fallback.
 
 The current repository already follows this decision:
 
 - `apps/server/package.json` pins `@agentclientprotocol/sdk` at `1.2.1`;
-- `AcpSessionRuntime.ts` constructs `OfficialAcp.client({ name: "synara" })`, registers client
+- `AcpSessionRuntime.ts` constructs `OfficialAcp.client({ name: "saint" })`, registers client
   handlers, and connects through `OfficialAcp.ndJsonStream(...)`;
 - Cursor, Droid, and Grok all build on that shared runtime;
 - production imports from `effect-acp` are limited to `schema` and `errors` compatibility types;
@@ -167,20 +167,20 @@ The current repository already follows this decision:
 
 This matches upstream guidance: ACP wire compatibility is negotiated using `protocolVersion` and
 capabilities, not inferred from a package version. The official TypeScript library exposes the
-client/agent builders, handlers, streams, validation, and connection lifecycle that Synara would
+client/agent builders, handlers, streams, validation, and connection lifecycle that Saint would
 otherwise have to maintain itself.
 
 ### What changes compared with the old Effect ACP implementation?
 
-| Concern                        | Before                                          | Current target                                                      |
-| ------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------- |
-| ACP schemas and method names   | Generated/private `effect-acp` ownership        | Official SDK                                                        |
-| NDJSON and JSON-RPC            | Private framing/correlation/dispatch            | Official SDK                                                        |
-| Protocol upgrades              | Synara had to regenerate and reconcile behavior | Follow the official SDK and negotiate protocol capabilities         |
-| Process lifecycle              | Effect                                          | Effect, unchanged                                                   |
-| Backpressure and queue budgets | Effect/custom transport                         | Synara-owned bounded bridge around the official SDK                 |
-| Canonical provider events      | Synara adapters                                 | Synara adapters, unchanged                                          |
-| Error surface                  | Effect ACP errors                               | One small local Effect error translation around official SDK errors |
+| Concern                        | Before                                         | Current target                                                      |
+| ------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------- |
+| ACP schemas and method names   | Generated/private `effect-acp` ownership       | Official SDK                                                        |
+| NDJSON and JSON-RPC            | Private framing/correlation/dispatch           | Official SDK                                                        |
+| Protocol upgrades              | Saint had to regenerate and reconcile behavior | Follow the official SDK and negotiate protocol capabilities         |
+| Process lifecycle              | Effect                                         | Effect, unchanged                                                   |
+| Backpressure and queue budgets | Effect/custom transport                        | Saint-owned bounded bridge around the official SDK                  |
+| Canonical provider events      | Saint adapters                                 | Saint adapters, unchanged                                           |
+| Error surface                  | Effect ACP errors                              | One small local Effect error translation around official SDK errors |
 
 ### Is it faster, better, and lighter?
 
@@ -209,7 +209,7 @@ otherwise have to maintain itself.
 - `apps/server/src/provider/opencodeRuntime.ts` intentionally retains an idle server for five minutes
   and keys pools by binary/spec/cwd/server options. Both the pool and TTL already exist at PR
   merge-base `511a2eb5feb80ead47152d10797c6052ed036a67`.
-- Closing the browser reduced the retained process from roughly 651 MiB to 135 MiB; stopping Synara
+- Closing the browser reduced the retained process from roughly 651 MiB to 135 MiB; stopping Saint
   removed it and released both isolated ports.
 
 **Risk**
@@ -311,7 +311,7 @@ authorities and a 10k-line generated schema in the repository.
 - [ ] Migrate adapters in this order: shared runtime/model helpers, Grok, Droid, Cursor, tests.
 - [ ] Delete `packages/effect-acp`, its workspace dependency, and generated schema only after zero
       imports and the ACP conformance suite pass.
-- [ ] Do not recreate official SDK types in a new Synara package.
+- [ ] Do not recreate official SDK types in a new Saint package.
 
 ### P2 — Split responsibility hotspots only at stable seams
 

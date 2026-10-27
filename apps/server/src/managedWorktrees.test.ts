@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 
-import type { OrchestrationThread } from "@synara/contracts";
+import type { OrchestrationThread } from "@saint/contracts";
 import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -57,11 +57,11 @@ it("keeps an archived checkout when another task reaches it through a symlink", 
 const temporaryRoots: string[] = [];
 
 async function makeManagedRoot(count: number) {
-  const root = await fs.mkdtemp(path.join(tmpdir(), "synara-managed-worktrees-"));
+  const root = await fs.mkdtemp(path.join(tmpdir(), "saint-managed-worktrees-"));
   temporaryRoots.push(root);
   const paths: string[] = [];
   for (let index = 0; index < count; index += 1) {
-    const worktreePath = path.join(root, `task-${index}`, "synara");
+    const worktreePath = path.join(root, `task-${index}`, "saint");
     await fs.mkdir(worktreePath, { recursive: true });
     await fs.writeFile(path.join(worktreePath, ".git"), "gitdir: /tmp/repo/.git/worktrees/test\n");
     paths.push(await fs.realpath(worktreePath));
@@ -75,7 +75,7 @@ function cleanStatusDetails() {
     hasOriginRemote: false,
     isDefaultBranch: false,
     upstreamRef: null,
-    branch: "synara/test",
+    branch: "saint/test",
     hasWorkingTreeChanges: false,
     stagedCount: 0,
     unstagedCount: 0,
@@ -89,7 +89,7 @@ function dirtyStatusDetails() {
     hasOriginRemote: false,
     isDefaultBranch: false,
     upstreamRef: null,
-    branch: "synara/test",
+    branch: "saint/test",
     hasWorkingTreeChanges: true,
     stagedCount: 0,
     unstagedCount: 1,
@@ -121,7 +121,7 @@ function makeGit(input: {
   } as unknown as GitCoreShape;
 }
 
-async function makeTemporaryRoot(prefix = "synara-managed-worktree-residue-") {
+async function makeTemporaryRoot(prefix = "saint-managed-worktree-residue-") {
   const root = await fs.realpath(await fs.mkdtemp(path.join(tmpdir(), prefix)));
   temporaryRoots.push(root);
   return root;
@@ -212,7 +212,7 @@ describe("managed worktrees", () => {
     const count = MANAGED_WORKTREE_RETENTION_COUNT + 1;
     const { root, paths } = await makeManagedRoot(count);
     const canonicalRoot = await fs.realpath(root);
-    const linkRoot = await fs.mkdtemp(path.join(tmpdir(), "synara-managed-worktrees-link-"));
+    const linkRoot = await fs.mkdtemp(path.join(tmpdir(), "saint-managed-worktrees-link-"));
     temporaryRoots.push(linkRoot);
     const symlinkedRoot = path.join(linkRoot, "worktrees");
     await fs.symlink(canonicalRoot, symlinkedRoot);
@@ -548,7 +548,7 @@ describe("managed worktree residue", () => {
     const snapshotsDir = path.join(root, "snapshots");
     const canonicalWorktreePath = path.join(worktreesDir, "repo", "feature");
     await fs.mkdir(path.join(worktreesDir, "repo"), { recursive: true });
-    const linkRoot = await makeTemporaryRoot("synara-managed-worktree-residue-link-");
+    const linkRoot = await makeTemporaryRoot("saint-managed-worktree-residue-link-");
     const symlinkedWorktreesDir = path.join(linkRoot, "worktrees");
     await fs.symlink(worktreesDir, symlinkedWorktreesDir);
     const snapshot = await writeSnapshot(
@@ -579,7 +579,7 @@ describe("managed worktree residue", () => {
       discardManagedWorktreeResidue({
         worktreesDir,
         snapshotsDir: path.join(root, "snapshots"),
-        worktreePath: path.join(parent, "synara"),
+        worktreePath: path.join(parent, "saint"),
       }),
     );
 

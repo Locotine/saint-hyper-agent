@@ -1,6 +1,6 @@
 import "../index.css";
 
-import type { BrowserTabState } from "@synara/contracts";
+import type { BrowserTabState } from "@saint/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";

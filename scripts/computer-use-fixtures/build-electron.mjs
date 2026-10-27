@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const destination = "/private/tmp/synara-cua-implementation/Synara Cua Fixture.app";
+const destination = "/private/tmp/saint-cua-implementation/Saint Cua Fixture.app";
 const resources = join(destination, "Contents/Resources");
 await rm(destination, { recursive: true, force: true });
 await cp(join(root, "apps/desktop/node_modules/electron/dist/Electron.app"), destination, {
@@ -28,13 +28,13 @@ execFileSync(
 );
 await writeFile(
   join(resources, "app/package.json"),
-  JSON.stringify({ name: "synara-cua-fixture", main: "fixture.cjs" }),
+  JSON.stringify({ name: "saint-cua-fixture", main: "fixture.cjs" }),
 );
 await cp(join(root, "apps/desktop/resources/cua-driver"), join(resources, "cua-driver"), {
   recursive: true,
 });
-if (process.env.SYNARA_CUA_FIXTURE_DRIVER) {
-  await cp(process.env.SYNARA_CUA_FIXTURE_DRIVER, join(resources, "cua-driver/cua-driver"));
+if (process.env.SAINT_CUA_FIXTURE_DRIVER) {
+  await cp(process.env.SAINT_CUA_FIXTURE_DRIVER, join(resources, "cua-driver/cua-driver"));
 }
 await writeFile(
   join(resources, "fixture-native.json"),
@@ -46,7 +46,7 @@ await writeFile(
       preSigningBinarySha256: createHash("sha256")
         .update(await readFile(join(resources, "cua-driver/cua-driver")))
         .digest("hex"),
-      fixtureDriverOverride: !!process.env.SYNARA_CUA_FIXTURE_DRIVER,
+      fixtureDriverOverride: !!process.env.SAINT_CUA_FIXTURE_DRIVER,
     },
     null,
     2,
@@ -65,7 +65,7 @@ execFileSync(
     "-sdk",
     macSdk,
     "-module-cache-path",
-    "/private/tmp/synara-cua-implementation/swift-module-cache",
+    "/private/tmp/saint-cua-implementation/swift-module-cache",
     join(root, "scripts/computer-use-fixtures/NativeFixture.swift"),
     "-o",
     join(resources, "native-fixture"),
@@ -93,9 +93,9 @@ execFileSync(
 );
 const plist = join(destination, "Contents/Info.plist");
 for (const [key, value] of Object.entries({
-  CFBundleIdentifier: "com.synara.cua-fixture",
-  CFBundleName: "Synara Cua Fixture",
-  CFBundleDisplayName: "Synara Cua Fixture",
+  CFBundleIdentifier: "com.saint.cua-fixture",
+  CFBundleName: "Saint Cua Fixture",
+  CFBundleDisplayName: "Saint Cua Fixture",
   NSAccessibilityUsageDescription: "Run input tests against this fixture's own windows.",
   NSScreenCaptureUsageDescription: "Capture this fixture's own windows for input tests.",
 }))

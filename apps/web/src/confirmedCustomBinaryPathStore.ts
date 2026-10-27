@@ -5,11 +5,11 @@
 // Layer: Web UI state utilities
 // Exports: load/save helpers for the confirmed-path record.
 
-import { ProviderInstanceId } from "@synara/contracts";
+import { ProviderInstanceId } from "@saint/contracts";
 import { Schema } from "effect";
 import { isPlainObject } from "./persistedRecord";
 
-const STORAGE_KEY = "synara:confirmed-custom-binary-paths:v1";
+const STORAGE_KEY = "saint:confirmed-custom-binary-paths:v1";
 
 const isProviderInstanceId = Schema.is(ProviderInstanceId);
 

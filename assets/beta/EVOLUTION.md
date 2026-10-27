@@ -1,4 +1,4 @@
-# Synara Beta icon — evolution
+# Saint Beta icon — evolution
 
 The full journey, v8 to v47. One labeled sheet: `icon-evolution.png`
 (all builds under the macOS dock mask, 96px — icons are judged at dock
@@ -30,7 +30,7 @@ ladders, sits well next to the App Store and Xcode tiles.
 
 ## macOS fallback
 
-The macOS 26 app icon remains the layered `Synara.icon` source; its
+The macOS 26 app icon remains the layered `Saint.icon` source; its
 glyph and Icon Composer settings already match the black icon. Its background
 now carries the Beta blueprint grid, circle, and inset guide under the
 system-rendered glass glyph. The PNG and ICNS fallbacks retain those guides,
@@ -38,8 +38,8 @@ match the black fallback's mark size and vertical placement, use its neutral
 white-to-gray mark shading, and add soft reflection and edge depth.
 Windows and Linux keep the v38 artwork unchanged.
 
-The `.icon` folder is named `Synara` because the packaged app sets
-`CFBundleIconName` to `Synara`; Icon Composer keeps the folder name as the
+The `.icon` folder is named `Saint` because the packaged app sets
+`CFBundleIconName` to `Saint`; Icon Composer keeps the folder name as the
 compiled asset name.
 
 ## Regenerate

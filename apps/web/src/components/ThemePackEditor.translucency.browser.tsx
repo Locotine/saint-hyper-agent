@@ -19,7 +19,7 @@ const setWindowMaterial = vi.fn(async () => true);
 let previousTheme: string | null;
 
 beforeEach(() => {
-  previousTheme = localStorage.getItem("synara:theme");
+  previousTheme = localStorage.getItem("saint:theme");
   windowTranslucency.current = "native";
   setWindowMaterial.mockClear();
   window.desktopBridge = {
@@ -30,9 +30,9 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (window as { desktopBridge?: unknown }).desktopBridge;
-  if (previousTheme === null) localStorage.removeItem("synara:theme");
-  else localStorage.setItem("synara:theme", previousTheme);
-  window.dispatchEvent(new StorageEvent("storage", { key: "synara:theme" }));
+  if (previousTheme === null) localStorage.removeItem("saint:theme");
+  else localStorage.setItem("saint:theme", previousTheme);
+  window.dispatchEvent(new StorageEvent("storage", { key: "saint:theme" }));
 });
 
 // Playwright cannot fill range inputs; drive them the way a drag does, through React's
@@ -48,7 +48,7 @@ function setSliderValue(label: string, value: number) {
 }
 
 it("tunes opacity, desktop blur, and scope, then switches to a solid window", async () => {
-  localStorage.setItem("synara:theme", JSON.stringify({ ...DEFAULT_THEME_STATE, mode: "dark" }));
+  localStorage.setItem("saint:theme", JSON.stringify({ ...DEFAULT_THEME_STATE, mode: "dark" }));
   await render(<ThemePackEditor variant="dark" />);
   await expect.poll(() => root.getAttribute("data-window-material")).toBe("translucent");
   await expect.poll(() => root.getAttribute("data-window-translucency")).toBe("window");
@@ -87,7 +87,7 @@ it("tunes opacity, desktop blur, and scope, then switches to a solid window", as
   await expect
     .poll(() => setWindowMaterial.mock.lastCall)
     .toEqual([{ material: "translucent", blurRadius: 1 }]);
-  expect(parseStoredThemeState(localStorage.getItem("synara:theme")).translucency.dark).toEqual({
+  expect(parseStoredThemeState(localStorage.getItem("saint:theme")).translucency.dark).toEqual({
     opacity: 60,
     blur: 1,
     sidebarOnly: false,
@@ -98,7 +98,7 @@ it("tunes opacity, desktop blur, and scope, then switches to a solid window", as
     .poll(() => setWindowMaterial.mock.lastCall)
     .toEqual([{ material: "opaque", blurRadius: 0 }]);
   expect(
-    parseStoredThemeState(localStorage.getItem("synara:theme")).translucency.dark.blur,
+    parseStoredThemeState(localStorage.getItem("saint:theme")).translucency.dark.blur,
   ).toBeNull();
 
   await page.getByRole("radio", { name: "Solid" }).click();
@@ -112,8 +112,8 @@ it("tunes opacity, desktop blur, and scope, then switches to a solid window", as
 
 it("leaves the blur to Hyprland on a compositor-blurred window", async () => {
   windowTranslucency.current = "compositor";
-  localStorage.setItem("synara:theme", JSON.stringify({ ...DEFAULT_THEME_STATE, mode: "dark" }));
-  window.dispatchEvent(new StorageEvent("storage", { key: "synara:theme" }));
+  localStorage.setItem("saint:theme", JSON.stringify({ ...DEFAULT_THEME_STATE, mode: "dark" }));
+  window.dispatchEvent(new StorageEvent("storage", { key: "saint:theme" }));
   await render(<ThemePackEditor variant="dark" />);
   await expect.poll(() => root.getAttribute("data-window-material")).toBe("translucent");
   await expect.poll(() => root.getAttribute("data-window-translucency")).toBe("window");

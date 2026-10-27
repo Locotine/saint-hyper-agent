@@ -1,6 +1,6 @@
 # Provider sign-in evidence
 
-These images show the new flow before and after completing sign-in with a disposable Codex CLI fixture in an isolated local Synara instance. They are authentication-state comparisons, not screenshots of the previous application version.
+These images show the new flow before and after completing sign-in with a disposable Codex CLI fixture in an isolated local Saint instance. They are authentication-state comparisons, not screenshots of the previous application version.
 
 | Before completing sign-in                                                              | After completing fixture sign-in                                                       |
 | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |

@@ -6,8 +6,8 @@ import type {
   ServerCodexResetCreditStatus,
   ServerCodexResetCredits,
   ServerConsumeCodexResetCreditInput,
-} from "@synara/contracts";
-import { spawnProcess } from "@synara/shared/processRuntime";
+} from "@saint/contracts";
+import { spawnProcess } from "@saint/shared/processRuntime";
 
 import { CodexJsonlFramer, CodexJsonlWriter } from "../codexAppServerTransport";
 import { createLogger } from "../logger";
@@ -176,7 +176,7 @@ async function withAppServer<T>(
       failed,
       (async () => {
         await request("initialize", {
-          clientInfo: { name: "synara", title: "Synara", version: "0.1.0" },
+          clientInfo: { name: "saint", title: "Saint", version: "0.1.0" },
           capabilities: { experimentalApi: true },
         });
         await writer.write({ method: "initialized" });

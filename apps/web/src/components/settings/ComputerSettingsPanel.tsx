@@ -13,12 +13,12 @@ import {
   COMPUTER_RELEASE_HOTKEY_BACKENDS,
   type ComputerCapabilities,
   type ComputerPermission,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   COMPUTER_PERMISSION_KINDS,
   computerPermissionSetupMessage,
   missingComputerAppSnapPermissions,
-} from "@synara/shared/computerGrants";
+} from "@saint/shared/computerGrants";
 import {
   computerPermissionSetupSupported,
   readLocalComputerPermissionBridge,
@@ -33,7 +33,7 @@ import {
   type AppSettingsBinding,
   type ComputerPreviewSize,
 } from "~/appSettings";
-import type { DesktopAppSnapSettingsPane, DesktopAppSnapState } from "@synara/contracts";
+import type { DesktopAppSnapSettingsPane, DesktopAppSnapState } from "@saint/contracts";
 import {
   computerReconnectsNote,
   computerStatusNeedsSetup,
@@ -356,7 +356,7 @@ export function ComputerSettingsPanel({
     nativePermissionSetupError ??
     (captureBlocked
       ? backend === COMPUTER_MAC_BACKEND
-        ? "The agent can act on the desktop but cannot see it, so screenshots fail. Turn Synara on in System Settings › Privacy & Security › Screen Recording, then press Set up to reconnect."
+        ? "The agent can act on the desktop but cannot see it, so screenshots fail. Turn Saint on in System Settings › Privacy & Security › Screen Recording, then press Set up to reconnect."
         : "The agent can act on the desktop but cannot see it, so screenshots fail. Press Set up to reconnect."
       : availabilityView.description);
   const attentionTone = cn(

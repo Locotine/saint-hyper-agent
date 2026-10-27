@@ -3,14 +3,14 @@ import {
   ThreadId,
   type OrchestrationEvent,
   type OrchestrationThread,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   SIDECHAT_VISIBLE_ACTIVITY_HEARTBEAT_MS,
   createSidechatExpiryTimer,
   sidechatExpiryMs,
   type SidechatExpiryTimerClock,
-} from "@synara/shared/sidechatExpiry";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+} from "@saint/shared/sidechatExpiry";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 import { Cause, Duration, Effect, Layer, Schedule, Stream } from "effect";
 
 import { ProviderService } from "../../provider/Services/ProviderService.ts";

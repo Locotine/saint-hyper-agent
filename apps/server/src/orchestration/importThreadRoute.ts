@@ -1,5 +1,5 @@
 // FILE: importThreadRoute.ts
-// Purpose: Imports provider-native sessions and binds them to Synara thread projections.
+// Purpose: Imports provider-native sessions and binds them to Saint thread projections.
 // Layer: Orchestration command handler
 // Exports: makeImportThreadHandler.
 
@@ -24,17 +24,17 @@ import {
   type ServerSettings,
   type ThreadHandoffImportedMessage,
   type ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   providerStartOptionsFromInstance,
   resolveModelSelectionInstanceId,
   resolveProviderInstance,
   type ResolvedProviderInstance,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 import {
   deriveAssociatedWorktreeMetadata,
   workspaceRootsEqual,
-} from "@synara/shared/threadWorkspace";
+} from "@saint/shared/threadWorkspace";
 import type { FileSystem, Path } from "effect";
 import { Data, Effect, Option } from "effect";
 
@@ -123,7 +123,7 @@ async function runClaudeSessionQueryInChildProcess<T>(input: {
   const moduleUrl = pathToFileURL(
     createRequire(import.meta.url).resolve("@anthropic-ai/claude-agent-sdk"),
   ).href;
-  const scriptDir = await fsPromises.mkdtemp(nodePath.join(tmpdir(), "synara-claude-import-"));
+  const scriptDir = await fsPromises.mkdtemp(nodePath.join(tmpdir(), "saint-claude-import-"));
   const scriptPath = nodePath.join(scriptDir, "claudeSessionQuery.mjs");
   try {
     await fsPromises.writeFile(scriptPath, CLAUDE_SESSION_QUERY_SCRIPT, "utf8");

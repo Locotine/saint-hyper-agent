@@ -4,7 +4,7 @@
 // Layer: Web component
 // Exports: GroupPausedBanner
 
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import { useState } from "react";
 
 import { cn } from "~/lib/utils";

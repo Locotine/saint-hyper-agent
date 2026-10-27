@@ -7,7 +7,7 @@ import { BROWSER_VAULT_PROMPT_TTL_MS, BrowserVault } from "./browserVault";
 /**
  * Structural stand-ins for the Playwright surface the capture sensor calls:
  * context.pages/on("page")/off("page")/newCDPSession and page.isClosed/once("close").
- * Synara's Electron tabs are not Playwright objects, but the sensor only calls
+ * Saint's Electron tabs are not Playwright objects, but the sensor only calls
  * those members, so the shim satisfies it at runtime.
  */
 export interface CapturePageShim {

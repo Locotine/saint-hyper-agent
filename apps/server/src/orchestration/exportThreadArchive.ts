@@ -1,5 +1,5 @@
 // FILE: exportThreadArchive.ts
-// Purpose: Build a ZIP archive that exports a single Synara thread so a user
+// Purpose: Build a ZIP archive that exports a single Saint thread so a user
 //          can download the conversation as a portable, compressed package —
 //          mirroring the `/export` affordance of agent CLIs.
 // Layer: Orchestration utility (plain async module; HTTP composes it through
@@ -10,12 +10,12 @@
 //          string or uncompressed buffer — peak memory is bounded by the
 //          compressed bytes of one entry.
 // Exports: threadArchiveChunks, threadArchiveFileName.
-// The export-eligibility guard lives in @synara/shared/threadExport so the
+// The export-eligibility guard lives in @saint/shared/threadExport so the
 // web composer and the HTTP route share one predicate.
 
 import zlib from "node:zlib";
 
-import type { OrchestrationMessage, OrchestrationThread } from "@synara/contracts";
+import type { OrchestrationMessage, OrchestrationThread } from "@saint/contracts";
 
 export interface ThreadArchiveEntry {
   readonly name: string;
@@ -133,7 +133,7 @@ const MESSAGE_ROLE_HEADING: Record<string, string> = {
 
 // One chunk for the header, then one chunk per message; nothing accumulates.
 function* transcriptMarkdownChunks(thread: OrchestrationThread): Generator<string> {
-  yield `# ${thread.title}\n\n> Exported from Synara.\n`;
+  yield `# ${thread.title}\n\n> Exported from Saint.\n`;
   for (const message of thread.messages) {
     const heading = MESSAGE_ROLE_HEADING[message.role] ?? "Message";
     yield `\n## ${heading} \`${message.createdAt}\`\n\n${message.text}\n`;
@@ -244,5 +244,5 @@ export function threadArchiveFileName(input: {
   readonly isoTimestamp: string;
 }): string {
   const dateBucket = input.isoTimestamp.slice(0, 10).replaceAll("-", "");
-  return `synara-thread-${slugifyTitle(input.title)}-${dateBucket}.zip`;
+  return `saint-thread-${slugifyTitle(input.title)}-${dateBucket}.zip`;
 }

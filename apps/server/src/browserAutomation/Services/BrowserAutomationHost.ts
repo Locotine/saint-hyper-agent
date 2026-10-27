@@ -1,4 +1,4 @@
-import type { BrowserToolName, ProviderKind, ThreadId } from "@synara/contracts";
+import type { BrowserToolName, ProviderKind, ThreadId } from "@saint/contracts";
 import { ServiceMap, type Effect } from "effect";
 
 import type { BrowserHostRpcError } from "../browserHostRpcClient.ts";
@@ -24,4 +24,4 @@ export interface BrowserAutomationHostShape {
 export class BrowserAutomationHost extends ServiceMap.Service<
   BrowserAutomationHost,
   BrowserAutomationHostShape
->()("synara/browserAutomation/Services/BrowserAutomationHost") {}
+>()("saint/browserAutomation/Services/BrowserAutomationHost") {}

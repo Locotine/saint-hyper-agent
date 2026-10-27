@@ -95,7 +95,7 @@ layer("132_ExternalMcpTurnCapacityRecovery", (it) => {
           integration_id, name, client_kind, audience, capabilities_json,
           created_at, expires_at, rate_limit_per_minute, concurrency_limit
         ) VALUES (
-          'capacity-recovery', 'Capacity recovery', 'other', 'synara.external-mcp',
+          'capacity-recovery', 'Capacity recovery', 'other', 'saint.external-mcp',
           '[]', '2026-10-09T00:00:00.000Z', '2027-10-09T00:00:00.000Z', 60, 2
         )
       `;

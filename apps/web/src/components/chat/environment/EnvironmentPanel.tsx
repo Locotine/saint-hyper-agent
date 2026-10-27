@@ -19,7 +19,7 @@ import type {
   ProviderKind,
   ResolvedKeybindingsConfig,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -32,7 +32,7 @@ import GitActionsControl from "~/components/GitActionsControl";
 import { DiffStat } from "~/components/ui/diff-stat";
 import { IconButton } from "~/components/ui/icon-button";
 import { toastManager } from "~/components/ui/toast";
-import { isElectron } from "~/env";
+import { isElectron, remoteWindowHost } from "~/env";
 import { basenameOfPath } from "~/file-icons";
 import type { RepoDiffTotals } from "~/hooks/useRepoDiffTotals";
 import { ChangesIcon, ExternalLinkIcon, GitHubIcon, SettingsIcon, FolderIcon } from "~/lib/icons";
@@ -299,7 +299,8 @@ export function EnvironmentPanel({
   const showGroupFolderRow = shouldShowGroupFolderRow({
     isGroupChat,
     groupFolderPath,
-    nativeShellAvailable: isElectron,
+    // A remote host's folder cannot be revealed on this computer.
+    nativeShellAvailable: isElectron && !remoteWindowHost,
   });
 
   const content = (

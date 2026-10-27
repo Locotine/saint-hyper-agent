@@ -26,7 +26,7 @@ import {
   type OmpThinkingLevel,
   type ProviderKind,
   type ProviderWithDefaultModel,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 const MODEL_SLUG_SET_BY_PROVIDER: Record<ProviderKind, ReadonlySet<ModelSlug>> = {
   claudeAgent: new Set(MODEL_OPTIONS_BY_PROVIDER.claudeAgent.map((option) => option.slug)),
@@ -174,7 +174,7 @@ export function humanizeModelSlug(slug: string): string {
 }
 
 /**
- * Normalizes a provider-supplied display name to Synara's canonical casing:
+ * Normalizes a provider-supplied display name to Saint's canonical casing:
  * known brand tokens are re-cased ("Swe" → "SWE", "Deepseek" → "DeepSeek"),
  * slug separators become spaces ("GLM-5.3-Flash" → "GLM 5.3 Flash"), digit
  * fragments rejoin as versions, and GPT versions keep their hyphen. Gated on a
@@ -628,7 +628,7 @@ export function getModelCapabilities(
   return EMPTY_MODEL_CAPABILITIES;
 }
 
-// Claude Code ships new models before Synara's catalog lists them. Catalog
+// Claude Code ships new models before Saint's catalog lists them. Catalog
 // entries always win; only an id that is newer than every catalog model of its
 // family borrows that family's newest capabilities. Older or unrecognized ids
 // keep the empty fallback so custom and legacy selections do not gain options.

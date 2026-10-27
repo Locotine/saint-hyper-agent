@@ -1,4 +1,4 @@
-import type { KeepAwakeMode, ServerKeepAwakeState } from "@synara/contracts";
+import type { KeepAwakeMode, ServerKeepAwakeState } from "@saint/contracts";
 import {
   KEEP_AWAKE_MODE_OPTIONS,
   KEEP_AWAKE_ROW_TITLE,

@@ -7,7 +7,7 @@
 // Layer: Pull request presentation
 // Exports: PullRequestSummaryTab, PullRequestPageSummary, GitHubItemPageSummary, GitHubItemComments
 
-import type { PullRequestComment, PullRequestDetail } from "@synara/contracts";
+import type { PullRequestComment, PullRequestDetail } from "@saint/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 

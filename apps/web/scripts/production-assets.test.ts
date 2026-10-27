@@ -11,7 +11,7 @@ afterEach(async () => {
 });
 
 async function fixture() {
-  const root = await fs.mkdtemp(path.join(tmpdir(), "synara-icons-"));
+  const root = await fs.mkdtemp(path.join(tmpdir(), "saint-icons-"));
   roots.push(root);
   const source = path.join(root, "src");
   const contracts = path.join(root, "contracts");

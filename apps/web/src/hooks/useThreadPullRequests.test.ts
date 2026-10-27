@@ -1,5 +1,5 @@
-import type { GitStatusResult, OrchestrationThreadPullRequest } from "@synara/contracts";
-import { ProjectId, ThreadId } from "@synara/contracts";
+import type { GitStatusResult, OrchestrationThreadPullRequest } from "@saint/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -15,7 +15,7 @@ import {
 const staleOpenPullRequest: OrchestrationThreadPullRequest = {
   number: 841,
   title: "Previous branch pull request",
-  url: "https://github.com/acme/synara/pull/841",
+  url: "https://github.com/acme/saint/pull/841",
   baseBranch: "main",
   headBranch: "feat/previous-branch",
   state: "open",

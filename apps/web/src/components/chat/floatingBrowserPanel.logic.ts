@@ -6,7 +6,7 @@ import {
   BROWSER_AUTOMATION_VIEWPORT_HEIGHT,
   BROWSER_AUTOMATION_VIEWPORT_WIDTH,
   BROWSER_FLOATING_PANEL_MARGIN_PX,
-} from "@synara/shared/browserSession";
+} from "@saint/shared/browserSession";
 
 export interface FloatingBrowserPanelRect {
   left: number;

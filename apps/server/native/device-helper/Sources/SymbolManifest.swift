@@ -143,7 +143,7 @@ enum SymbolManifest {
   ]
 
   static func symbols(for capability: HelperCapability) -> [RuntimeSymbol] {
-    let transport: HIDTransportKind = SynaraCoreSimulatorUsesDTUHID() ? .dtuhid : .indigo
+    let transport: HIDTransportKind = SaintCoreSimulatorUsesDTUHID() ? .dtuhid : .indigo
     return all.filter { $0.capability == capability && ($0.transport ?? transport) == transport }
   }
 }

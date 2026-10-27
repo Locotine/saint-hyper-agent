@@ -48,7 +48,7 @@ vi.mock("node:fs", async (importOriginal) => {
 const roots: string[] = [];
 
 function makeRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "synara-beta-installer-test-"));
+  const root = mkdtempSync(join(tmpdir(), "saint-beta-installer-test-"));
   roots.push(root);
   return root;
 }
@@ -63,13 +63,13 @@ afterEach(() => {
 const MANIFEST = `
 version: 0.9.3-beta.1
 files:
-  - url: Synara-Beta-0.9.3-beta.1-arm64-mac.zip
+  - url: Saint-Beta-0.9.3-beta.1-arm64-mac.zip
     sha512: aaa=
     size: 100
-  - url: Synara-Beta-0.9.3-beta.1-arm64.dmg
+  - url: Saint-Beta-0.9.3-beta.1-arm64.dmg
     sha512: bbb=
     size: 200
-path: Synara-Beta-0.9.3-beta.1-arm64-mac.zip
+path: Saint-Beta-0.9.3-beta.1-arm64-mac.zip
 sha512: aaa=
 releaseDate: '2026-09-23T00:00:00.000Z'
 `;
@@ -80,7 +80,7 @@ describe("parseBetaMacManifest", () => {
     expect(manifest.version).toBe("0.9.3-beta.1");
     expect(manifest.files).toHaveLength(2);
     expect(manifest.files[0]).toEqual({
-      url: "Synara-Beta-0.9.3-beta.1-arm64-mac.zip",
+      url: "Saint-Beta-0.9.3-beta.1-arm64-mac.zip",
       sha512: "aaa=",
       size: 100,
     });
@@ -94,9 +94,9 @@ describe("parseBetaMacManifest", () => {
 
 describe("selectBetaDownloadFile", () => {
   const files: BetaFeedFile[] = [
-    { url: "Synara-Beta-1.0.0-beta.1-arm64-mac.zip", sha512: "a" },
-    { url: "Synara-Beta-1.0.0-beta.1-x64-mac.zip", sha512: "b" },
-    { url: "Synara-Beta-1.0.0-beta.1-arm64.dmg", sha512: "c" },
+    { url: "Saint-Beta-1.0.0-beta.1-arm64-mac.zip", sha512: "a" },
+    { url: "Saint-Beta-1.0.0-beta.1-x64-mac.zip", sha512: "b" },
+    { url: "Saint-Beta-1.0.0-beta.1-arm64.dmg", sha512: "c" },
   ];
 
   it("picks the zip matching the build arch", () => {
@@ -105,7 +105,7 @@ describe("selectBetaDownloadFile", () => {
   });
 
   it("accepts a single unmarked zip", () => {
-    const single = [{ url: "Synara-Beta-1.0.0-beta.1-mac.zip", sha512: "s" }];
+    const single = [{ url: "Saint-Beta-1.0.0-beta.1-mac.zip", sha512: "s" }];
     expect(selectBetaDownloadFile(single, "arm64").sha512).toBe("s");
   });
 
@@ -158,14 +158,14 @@ describe("resolveBetaFeedLocation", () => {
   });
 });
 
-function fakeApp(dir: string, bundleId = "com.emanueledipietro.synara.beta"): string {
-  const appPath = join(dir, "Synara Beta.app", "Contents");
+function fakeApp(dir: string, bundleId = "com.locotine.saint.beta"): string {
+  const appPath = join(dir, "Saint Beta.app", "Contents");
   mkdirSync(appPath, { recursive: true });
   writeFileSync(
     join(appPath, "Info.plist"),
     `<?xml version="1.0"?><plist><dict><key>CFBundleIdentifier</key><string>${bundleId}</string></dict></plist>`,
   );
-  return join(dir, "Synara Beta.app");
+  return join(dir, "Saint Beta.app");
 }
 
 const noTeamIdReadCommand = () => ({ status: 0, stdout: "", stderr: "Executable=/tmp/x\n" });
@@ -178,8 +178,8 @@ describe("verifyBetaAppBundle", () => {
 
   it("rejects a non-beta bundle id", () => {
     const root = makeRoot();
-    expect(() => verifyBetaAppBundle(fakeApp(root, "com.emanueledipietro.synara"))).toThrow(
-      /not Synara Beta/,
+    expect(() => verifyBetaAppBundle(fakeApp(root, "com.locotine.saint"))).toThrow(
+      /not Saint Beta/,
     );
   });
 
@@ -229,7 +229,7 @@ describe("installBetaFromFeed", () => {
     const { deps, installDir } = feedDeps(root);
     const phases: string[] = [];
     const target = await installBetaFromFeed(deps, (p) => phases.push(p.phase));
-    expect(target).toBe(join(installDir, "Synara Beta.app"));
+    expect(target).toBe(join(installDir, "Saint Beta.app"));
     expect(existsSync(target)).toBe(true);
     expect(phases).toEqual(["downloading", "verifying", "installing"]);
   });
@@ -243,7 +243,7 @@ describe("installBetaFromFeed", () => {
         `version: 0.9.3-beta.1\nfiles:\n  - url: beta.zip\n    sha512: ${"0".repeat(88)}=\n`,
     };
     await expect(installBetaFromFeed(bad, () => {})).rejects.toThrow(/checksum/);
-    expect(existsSync(join(installDir, "Synara Beta.app"))).toBe(false);
+    expect(existsSync(join(installDir, "Saint Beta.app"))).toBe(false);
   });
 
   it("fails closed when the zip contains a non-beta bundle", async () => {
@@ -253,15 +253,15 @@ describe("installBetaFromFeed", () => {
       ...deps,
       run: (command: string, args: readonly string[]) => {
         if (command === "ditto") {
-          fakeApp(args[args.length - 1]!, "com.emanueledipietro.synara");
+          fakeApp(args[args.length - 1]!, "com.locotine.saint");
           return;
         }
         if (command === "mv") return;
         throw new Error(`unexpected command ${command}`);
       },
     };
-    await expect(installBetaFromFeed(bad, () => {})).rejects.toThrow(/not Synara Beta/);
-    expect(existsSync(join(installDir, "Synara Beta.app"))).toBe(false);
+    await expect(installBetaFromFeed(bad, () => {})).rejects.toThrow(/not Saint Beta/);
+    expect(existsSync(join(installDir, "Saint Beta.app"))).toBe(false);
   });
 
   it("replaces an existing install without leaving the old app behind", async () => {
@@ -269,8 +269,8 @@ describe("installBetaFromFeed", () => {
     const { deps, installDir } = feedDeps(root);
     fakeApp(installDir);
     await installBetaFromFeed(deps, () => {});
-    expect(() => verifyBetaAppBundle(join(installDir, "Synara Beta.app"))).not.toThrow();
-    expect(readdirSync(installDir)).toEqual(["Synara Beta.app"]);
+    expect(() => verifyBetaAppBundle(join(installDir, "Saint Beta.app"))).not.toThrow();
+    expect(readdirSync(installDir)).toEqual(["Saint Beta.app"]);
   });
 
   it("keeps the installed app when moving the new one into place fails", async () => {
@@ -290,7 +290,7 @@ describe("installBetaFromFeed", () => {
     };
     await expect(installBetaFromFeed(failingMove, () => {})).rejects.toThrow(/No space left/);
     expect(() => verifyBetaAppBundle(installed)).not.toThrow();
-    expect(readdirSync(installDir)).toEqual(["Synara Beta.app"]);
+    expect(readdirSync(installDir)).toEqual(["Saint Beta.app"]);
   });
 
   const codesignStub = (teamId: string | null, verifyOk = true) => {
@@ -334,7 +334,7 @@ describe("installBetaFromFeed", () => {
     await expect(installBetaFromFeed(failingCopy, () => {})).rejects.toThrow(/No space left/);
     expect(revisionDuringCopy).toBe("current");
     expect(readFileSync(revisionPath, "utf8")).toBe("current");
-    expect(readdirSync(installDir)).toEqual(["Synara Beta.app"]);
+    expect(readdirSync(installDir)).toEqual(["Saint Beta.app"]);
   });
 
   it.each(["missing", "partial"] as const)(
@@ -342,7 +342,7 @@ describe("installBetaFromFeed", () => {
     async (targetState) => {
       const root = makeRoot();
       const { deps, installDir } = feedDeps(root);
-      const targetPath = join(installDir, "Synara Beta.app");
+      const targetPath = join(installDir, "Saint Beta.app");
       const previousPath = `${targetPath}.previous`;
       const previous = fakeApp(join(root, "previous"));
       writeFileSync(join(previous, "Contents", "revision"), "previous");
@@ -377,7 +377,7 @@ describe("installBetaFromFeed", () => {
       );
       expect(revisionAtFetch).toBe("previous");
       expect(readFileSync(revisionPath, "utf8")).toBe("previous");
-      expect(readdirSync(installDir)).toEqual(["Synara Beta.app"]);
+      expect(readdirSync(installDir)).toEqual(["Saint Beta.app"]);
     },
   );
 
@@ -404,7 +404,7 @@ describe("installBetaFromFeed", () => {
       ),
     ).rejects.toThrow("download interrupted");
     expect(readFileSync(join(installed, "Contents", "revision"), "utf8")).toBe("current");
-    expect(readdirSync(installDir)).toEqual(["Synara Beta.app"]);
+    expect(readdirSync(installDir)).toEqual(["Saint Beta.app"]);
   });
 
   it("restores the current install if committing the staged bundle fails", async () => {
@@ -425,7 +425,7 @@ describe("installBetaFromFeed", () => {
       ),
     ).rejects.toThrow("rename: EACCES");
     expect(readFileSync(join(installed, "Contents", "revision"), "utf8")).toBe("current");
-    expect(readdirSync(installDir)).toEqual(["Synara Beta.app"]);
+    expect(readdirSync(installDir)).toEqual(["Saint Beta.app"]);
   });
 
   it("installs when the download is signed by the expected team", async () => {
@@ -436,7 +436,7 @@ describe("installBetaFromFeed", () => {
       { ...deps, expectedTeamId: "TEAM1234AB", readCommand },
       () => {},
     );
-    expect(target).toBe(join(installDir, "Synara Beta.app"));
+    expect(target).toBe(join(installDir, "Saint Beta.app"));
     expect(calls).toHaveLength(2);
   });
 
@@ -446,8 +446,8 @@ describe("installBetaFromFeed", () => {
     const { readCommand } = codesignStub("OTHER9999");
     await expect(
       installBetaFromFeed({ ...deps, expectedTeamId: "TEAM1234AB", readCommand }, () => {}),
-    ).rejects.toThrow("The beta download isn't signed by Synara. It wasn't installed.");
-    expect(existsSync(join(installDir, "Synara Beta.app"))).toBe(false);
+    ).rejects.toThrow("The beta download isn't signed by Saint. It wasn't installed.");
+    expect(existsSync(join(installDir, "Saint Beta.app"))).toBe(false);
   });
 
   it("rejects a bundle whose signature fails verification", async () => {
@@ -456,8 +456,8 @@ describe("installBetaFromFeed", () => {
     const { readCommand } = codesignStub("TEAM1234AB", false);
     await expect(
       installBetaFromFeed({ ...deps, expectedTeamId: "TEAM1234AB", readCommand }, () => {}),
-    ).rejects.toThrow(/isn't signed by Synara/);
-    expect(existsSync(join(installDir, "Synara Beta.app"))).toBe(false);
+    ).rejects.toThrow(/isn't signed by Saint/);
+    expect(existsSync(join(installDir, "Saint Beta.app"))).toBe(false);
   });
 
   it("rejects a bundle with no TeamIdentifier line", async () => {
@@ -468,8 +468,8 @@ describe("installBetaFromFeed", () => {
         { ...deps, expectedTeamId: "TEAM1234AB", readCommand: noTeamIdReadCommand },
         () => {},
       ),
-    ).rejects.toThrow(/isn't signed by Synara/);
-    expect(existsSync(join(installDir, "Synara Beta.app"))).toBe(false);
+    ).rejects.toThrow(/isn't signed by Saint/);
+    expect(existsSync(join(installDir, "Saint Beta.app"))).toBe(false);
   });
 
   it("skips codesign entirely when the running app is unsigned", async () => {
@@ -480,7 +480,7 @@ describe("installBetaFromFeed", () => {
       { ...deps, expectedTeamId: null, readCommand },
       () => {},
     );
-    expect(target).toBe(join(installDir, "Synara Beta.app"));
+    expect(target).toBe(join(installDir, "Saint Beta.app"));
     expect(calls).toHaveLength(0);
   });
 
@@ -494,7 +494,7 @@ describe("installBetaFromFeed", () => {
       "Couldn't check the beta download's signature. Try the download page instead.",
     );
     expect(calls).toHaveLength(0);
-    expect(existsSync(join(installDir, "Synara Beta.app"))).toBe(false);
+    expect(existsSync(join(installDir, "Saint Beta.app"))).toBe(false);
   });
 
   it("rejects a symlinked bundle", async () => {
@@ -506,15 +506,15 @@ describe("installBetaFromFeed", () => {
         if (command === "ditto") {
           const extractDir = args[args.length - 1]!;
           const real = fakeApp(join(root, "elsewhere"));
-          symlinkSync(real, join(extractDir, "Synara Beta.app"));
+          symlinkSync(real, join(extractDir, "Saint Beta.app"));
           return;
         }
         if (command === "mv") return;
         throw new Error(`unexpected command ${command}`);
       },
     };
-    await expect(installBetaFromFeed(bad, () => {})).rejects.toThrow(/isn't signed by Synara/);
-    expect(existsSync(join(installDir, "Synara Beta.app"))).toBe(false);
+    await expect(installBetaFromFeed(bad, () => {})).rejects.toThrow(/isn't signed by Saint/);
+    expect(existsSync(join(installDir, "Saint Beta.app"))).toBe(false);
   });
 });
 

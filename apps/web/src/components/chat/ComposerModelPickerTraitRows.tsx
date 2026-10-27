@@ -10,7 +10,7 @@ import {
   type ProviderKind,
   type ProviderModelDescriptor,
   type ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useState, type ReactNode } from "react";
 
 import type { FastModeNotice } from "~/lib/fastModeState";

@@ -2,10 +2,10 @@
 // Purpose: Normalizes generic tool-call titles and humanizes command executions for timeline rows.
 // Layer: UI utility
 // Exports: deriveReadableToolTitle, deriveReadableCommandDisplay, deriveFriendlyCommandTarget, command icon classifiers, deriveInlineCommandCall, deriveLiteralCommand, deriveCommandReadTargets, normalizeCompactToolLabel, isGenericToolTitle, extractWebFetchUrl
-// Depends on: @synara/contracts tool lifecycle item types
+// Depends on: @saint/contracts tool lifecycle item types
 
-import type { ToolLifecycleItemType } from "@synara/contracts";
-import { BROWSER_TOOL_TITLES } from "@synara/shared/browserAutomationPresentation";
+import type { ToolLifecycleItemType } from "@saint/contracts";
+import { BROWSER_TOOL_TITLES } from "@saint/shared/browserAutomationPresentation";
 import {
   COMPUTER_TOOL_TITLES,
   computerToolName,
@@ -121,7 +121,7 @@ export interface ReadableToolTitleInput {
   readonly isRunning?: boolean;
 }
 
-interface SynaraMcpToolPresentation {
+interface SaintMcpToolPresentation {
   readonly running: string;
   readonly completed: string;
   readonly failed: string;
@@ -144,409 +144,403 @@ const BROWSER_HISTORY_TITLES = {
   browser_evaluate: "Evaluate browser expression",
 } as const;
 type BrowserHistoryToolName = keyof typeof BROWSER_HISTORY_TITLES;
-type SynaraBrowserToolName = `synara_${BrowserHistoryToolName}`;
+type SaintBrowserToolName = `saint_${BrowserHistoryToolName}`;
 const BROWSER_HISTORY_TOOL_NAMES = Object.keys(BROWSER_HISTORY_TITLES) as BrowserHistoryToolName[];
 const BROWSER_TOOL_NAME_SET = new Set<string>(BROWSER_HISTORY_TOOL_NAMES);
 
-const SYNARA_BROWSER_TOOL_PRESENTATIONS = Object.fromEntries(
+const SAINT_BROWSER_TOOL_PRESENTATIONS = Object.fromEntries(
   BROWSER_HISTORY_TOOL_NAMES.map((toolName) => {
     const title = BROWSER_HISTORY_TITLES[toolName];
-    return [`synara_${toolName}`, { running: title, completed: title, failed: title }];
+    return [`saint_${toolName}`, { running: title, completed: title, failed: title }];
   }),
-) as Record<SynaraBrowserToolName, SynaraMcpToolPresentation>;
+) as Record<SaintBrowserToolName, SaintMcpToolPresentation>;
 
 /**
  * The desktop tools, spoken. Every browser tool had a curated presentation and
  * every computer tool had none, so the most consequential rows in the
  * transcript — an agent moving a pointer on the user's own machine — fell
- * through to the invented "Synara is handling computer click" fallback.
+ * through to the invented "Saint is handling computer click" fallback.
  *
  * The wording deliberately keeps the machine in the sentence ("this computer's
  * desktop") rather than saying "the desktop", because on the backends that
  * matter it is the user's own.
  */
-const SYNARA_COMPUTER_TOOL_PRESENTATIONS = {
-  synara_computer_screenshot: presentComputerTool("taking a screenshot", "took a screenshot"),
-  synara_computer_get_state: presentComputerTool("reading the screen", "read the screen"),
-  synara_computer_get_screen_size: presentComputerTool(
+const SAINT_COMPUTER_TOOL_PRESENTATIONS = {
+  saint_computer_screenshot: presentComputerTool("taking a screenshot", "took a screenshot"),
+  saint_computer_get_state: presentComputerTool("reading the screen", "read the screen"),
+  saint_computer_get_screen_size: presentComputerTool(
     "measuring the screen",
     "measured the screen",
   ),
-  synara_computer_list_windows: presentComputerTool("listing windows", "listed the windows"),
-  synara_computer_list_apps: presentComputerTool("listing apps", "listed the apps"),
-  synara_computer_verify_state: presentComputerTool(
+  saint_computer_list_windows: presentComputerTool("listing windows", "listed the windows"),
+  saint_computer_list_apps: presentComputerTool("listing apps", "listed the apps"),
+  saint_computer_verify_state: presentComputerTool(
     "checking desktop state",
     "checked desktop state",
   ),
-  synara_computer_zoom: presentComputerTool("zooming into a window", "zoomed into a window"),
-  synara_computer_get_accessibility_tree: presentComputerTool(
+  saint_computer_zoom: presentComputerTool("zooming into a window", "zoomed into a window"),
+  saint_computer_get_accessibility_tree: presentComputerTool(
     "listing apps and windows",
     "listed apps and windows",
   ),
-  synara_computer_get_cursor_position: presentComputerTool(
+  saint_computer_get_cursor_position: presentComputerTool(
     "reading the cursor position",
     "read the cursor position",
   ),
-  synara_computer_help: presentComputerTool(
+  saint_computer_help: presentComputerTool(
     "reading the Computer playbook",
     "read the Computer playbook",
   ),
-  synara_computer_click: presentComputerTool("clicking the desktop", "clicked the desktop"),
-  synara_computer_move_cursor: presentComputerTool("moving the cursor", "moved the cursor"),
-  synara_computer_drag: presentComputerTool("dragging on the desktop", "dragged on the desktop"),
-  synara_computer_scroll: presentComputerTool("scrolling the desktop", "scrolled the desktop"),
-  synara_computer_type_text: presentComputerTool("typing on the desktop", "typed on the desktop"),
-  synara_computer_press_key: presentComputerTool("pressing a key", "pressed a key"),
-  synara_computer_set_value: presentComputerTool("setting a field", "set a field"),
-  synara_computer_select_text: presentComputerTool("selecting text", "selected text"),
-  synara_computer_perform_action: presentComputerTool(
-    "activating a control",
-    "activated a control",
-  ),
-  synara_computer_launch_app: presentComputerTool("opening an app", "opened an app"),
-  synara_computer_activate_window: presentComputerTool("activating a window", "activated a window"),
-  synara_computer_set_window_frame: presentComputerTool(
+  saint_computer_click: presentComputerTool("clicking the desktop", "clicked the desktop"),
+  saint_computer_move_cursor: presentComputerTool("moving the cursor", "moved the cursor"),
+  saint_computer_drag: presentComputerTool("dragging on the desktop", "dragged on the desktop"),
+  saint_computer_scroll: presentComputerTool("scrolling the desktop", "scrolled the desktop"),
+  saint_computer_type_text: presentComputerTool("typing on the desktop", "typed on the desktop"),
+  saint_computer_press_key: presentComputerTool("pressing a key", "pressed a key"),
+  saint_computer_set_value: presentComputerTool("setting a field", "set a field"),
+  saint_computer_select_text: presentComputerTool("selecting text", "selected text"),
+  saint_computer_perform_action: presentComputerTool("activating a control", "activated a control"),
+  saint_computer_launch_app: presentComputerTool("opening an app", "opened an app"),
+  saint_computer_activate_window: presentComputerTool("activating a window", "activated a window"),
+  saint_computer_set_window_frame: presentComputerTool(
     "moving or resizing a window",
     "moved or resized a window",
   ),
-  synara_computer_invoke_menu: presentComputerTool("invoking a menu item", "invoked a menu item"),
-  synara_computer_kill_app: presentComputerTool("force-quitting an app", "force-quit an app"),
-  synara_computer_set_window_minimized: presentComputerTool(
+  saint_computer_invoke_menu: presentComputerTool("invoking a menu item", "invoked a menu item"),
+  saint_computer_kill_app: presentComputerTool("force-quitting an app", "force-quit an app"),
+  saint_computer_set_window_minimized: presentComputerTool(
     "changing a window's visibility",
     "changed a window's visibility",
   ),
-  synara_computer_set_app_visibility: presentComputerTool(
+  saint_computer_set_app_visibility: presentComputerTool(
     "changing an app's visibility",
     "changed an app's visibility",
   ),
-  synara_computer_wait: presentComputerTool("waiting for the desktop", "waited for the desktop"),
-  synara_computer_read_clipboard: presentComputerTool(
-    "reading the clipboard",
-    "read the clipboard",
-  ),
-  synara_computer_write_clipboard: presentComputerTool(
+  saint_computer_wait: presentComputerTool("waiting for the desktop", "waited for the desktop"),
+  saint_computer_read_clipboard: presentComputerTool("reading the clipboard", "read the clipboard"),
+  saint_computer_write_clipboard: presentComputerTool(
     "writing to the clipboard",
     "wrote to the clipboard",
   ),
-  synara_computer_paste: presentComputerTool("pasting text", "pasted text"),
-  synara_computer_run: presentComputerTool("running a desktop sequence", "ran a desktop sequence"),
-  synara_computer_inspect: presentComputerTool("inspecting the computer", "inspected the computer"),
-  synara_computer_spaces: presentComputerTool(
+  saint_computer_paste: presentComputerTool("pasting text", "pasted text"),
+  saint_computer_run: presentComputerTool("running a desktop sequence", "ran a desktop sequence"),
+  saint_computer_inspect: presentComputerTool("inspecting the computer", "inspected the computer"),
+  saint_computer_spaces: presentComputerTool(
     "inspecting desktop Spaces",
     "inspected desktop Spaces",
   ),
-  synara_computer_browser_state: presentComputerTool(
+  saint_computer_browser_state: presentComputerTool(
     "reading the browser page",
     "read the browser page",
   ),
-  synara_computer_browser_prepare: presentComputerTool("preparing a browser", "prepared a browser"),
-  synara_computer_browser_navigate: presentComputerTool(
+  saint_computer_browser_prepare: presentComputerTool("preparing a browser", "prepared a browser"),
+  saint_computer_browser_navigate: presentComputerTool(
     "opening a browser page",
     "opened a browser page",
   ),
-  synara_computer_browser_click: presentComputerTool(
+  saint_computer_browser_click: presentComputerTool(
     "clicking in the browser",
     "clicked in the browser",
   ),
-  synara_computer_browser_type: presentComputerTool(
+  saint_computer_browser_type: presentComputerTool(
     "typing in a browser field",
     "typed in a browser field",
   ),
-  synara_computer_browser_dialog: presentComputerTool(
+  saint_computer_browser_dialog: presentComputerTool(
     "handling a browser dialog",
     "handled a browser dialog",
   ),
-  synara_computer_browser_upload: presentComputerTool(
+  saint_computer_browser_upload: presentComputerTool(
     "attaching files in the browser",
     "attached files in the browser",
   ),
-  synara_computer_browser_download: presentComputerTool("downloading a file", "downloaded a file"),
-  synara_computer_browser_pointer: presentComputerTool(
+  saint_computer_browser_download: presentComputerTool("downloading a file", "downloaded a file"),
+  saint_computer_browser_pointer: presentComputerTool(
     "using the pointer in the browser",
     "used the pointer in the browser",
   ),
-  synara_computer_browser_press: presentComputerTool(
+  saint_computer_browser_press: presentComputerTool(
     "pressing Enter in the browser",
     "pressed Enter in the browser",
   ),
-} as const satisfies Record<`synara_${ComputerToolName}`, SynaraMcpToolPresentation>;
+} as const satisfies Record<`saint_${ComputerToolName}`, SaintMcpToolPresentation>;
 
-function presentComputerTool(present: string, past: string): SynaraMcpToolPresentation {
+function presentComputerTool(present: string, past: string): SaintMcpToolPresentation {
   return {
-    running: `Synara is ${present}`,
-    completed: `Synara ${past}`,
-    failed: `Synara couldn't finish ${present}`,
+    running: `Saint is ${present}`,
+    completed: `Saint ${past}`,
+    failed: `Saint couldn't finish ${present}`,
   };
 }
 
-const SYNARA_MCP_TOOL_PRESENTATIONS = {
-  synara_context: {
-    running: "Synara is checking its context",
-    completed: "Synara checked its context",
-    failed: "Synara couldn't check its context",
+const SAINT_MCP_TOOL_PRESENTATIONS = {
+  saint_context: {
+    running: "Saint is checking its context",
+    completed: "Saint checked its context",
+    failed: "Saint couldn't check its context",
   },
-  synara_capabilities: {
-    running: "Synara is checking available agents",
-    completed: "Synara checked available agents",
-    failed: "Synara couldn't check available agents",
+  saint_capabilities: {
+    running: "Saint is checking available agents",
+    completed: "Saint checked available agents",
+    failed: "Saint couldn't check available agents",
   },
-  synara_overview: {
-    running: "Synara is gathering an overview",
-    completed: "Synara gathered an overview",
-    failed: "Synara couldn't gather an overview",
+  saint_overview: {
+    running: "Saint is gathering an overview",
+    completed: "Saint gathered an overview",
+    failed: "Saint couldn't gather an overview",
   },
-  synara_list_allowed_projects: {
-    running: "Synara is listing allowed projects",
-    completed: "Synara listed allowed projects",
-    failed: "Synara couldn't list allowed projects",
+  saint_list_allowed_projects: {
+    running: "Saint is listing allowed projects",
+    completed: "Saint listed allowed projects",
+    failed: "Saint couldn't list allowed projects",
   },
-  synara_create_task: {
-    running: "Synara is creating a task",
-    completed: "Synara created a task",
-    failed: "Synara couldn't create a task",
+  saint_create_task: {
+    running: "Saint is creating a task",
+    completed: "Saint created a task",
+    failed: "Saint couldn't create a task",
   },
-  synara_wait_for_task: {
-    running: "Synara is waiting for a task",
-    completed: "Synara finished waiting for a task",
-    failed: "Synara couldn't wait for a task",
+  saint_wait_for_task: {
+    running: "Saint is waiting for a task",
+    completed: "Saint finished waiting for a task",
+    failed: "Saint couldn't wait for a task",
   },
-  synara_read_task: {
-    running: "Synara is reading a task",
-    completed: "Synara read a task",
-    failed: "Synara couldn't read a task",
+  saint_read_task: {
+    running: "Saint is reading a task",
+    completed: "Saint read a task",
+    failed: "Saint couldn't read a task",
   },
-  synara_list_projects: {
-    running: "Synara is listing projects",
-    completed: "Synara listed projects",
-    failed: "Synara couldn't list projects",
+  saint_list_projects: {
+    running: "Saint is listing projects",
+    completed: "Saint listed projects",
+    failed: "Saint couldn't list projects",
   },
-  synara_list_threads: {
-    running: "Synara is listing threads",
-    completed: "Synara listed threads",
-    failed: "Synara couldn't list threads",
+  saint_list_threads: {
+    running: "Saint is listing threads",
+    completed: "Saint listed threads",
+    failed: "Saint couldn't list threads",
   },
-  synara_read_thread: {
-    running: "Synara is reading a thread",
-    completed: "Synara read a thread",
-    failed: "Synara couldn't read a thread",
+  saint_read_thread: {
+    running: "Saint is reading a thread",
+    completed: "Saint read a thread",
+    failed: "Saint couldn't read a thread",
   },
-  synara_read_thread_activity: {
-    running: "Synara is reading thread activity",
-    completed: "Synara read thread activity",
-    failed: "Synara couldn't read thread activity",
+  saint_read_thread_activity: {
+    running: "Saint is reading thread activity",
+    completed: "Saint read thread activity",
+    failed: "Saint couldn't read thread activity",
   },
-  synara_read_thread_events: {
-    running: "Synara is reading thread events",
-    completed: "Synara read thread events",
-    failed: "Synara couldn't read thread events",
+  saint_read_thread_events: {
+    running: "Saint is reading thread events",
+    completed: "Saint read thread events",
+    failed: "Saint couldn't read thread events",
   },
-  synara_read_thread_runtime_events: {
-    running: "Synara is reading thread runtime events",
-    completed: "Synara read thread runtime events",
-    failed: "Synara couldn't read thread runtime events",
+  saint_read_thread_runtime_events: {
+    running: "Saint is reading thread runtime events",
+    completed: "Saint read thread runtime events",
+    failed: "Saint couldn't read thread runtime events",
   },
-  synara_diagnose_thread: {
-    running: "Synara is diagnosing a thread",
-    completed: "Synara diagnosed a thread",
-    failed: "Synara couldn't diagnose a thread",
+  saint_diagnose_thread: {
+    running: "Saint is diagnosing a thread",
+    completed: "Saint diagnosed a thread",
+    failed: "Saint couldn't diagnose a thread",
   },
-  synara_create_thread: {
-    running: "Synara is creating a thread",
-    completed: "Synara created a thread",
-    failed: "Synara couldn't create a thread",
+  saint_create_thread: {
+    running: "Saint is creating a thread",
+    completed: "Saint created a thread",
+    failed: "Saint couldn't create a thread",
   },
-  synara_create_threads: {
-    running: "Synara is creating threads",
-    completed: "Synara created threads",
-    failed: "Synara couldn't create threads",
+  saint_create_threads: {
+    running: "Saint is creating threads",
+    completed: "Saint created threads",
+    failed: "Saint couldn't create threads",
   },
-  synara_wait_for_threads: {
-    running: "Synara is waiting for threads",
-    completed: "Synara finished waiting for threads",
-    failed: "Synara couldn't wait for threads",
+  saint_wait_for_threads: {
+    running: "Saint is waiting for threads",
+    completed: "Saint finished waiting for threads",
+    failed: "Saint couldn't wait for threads",
   },
-  synara_send_message: {
-    running: "Synara is sending a message",
-    completed: "Synara sent a message",
-    failed: "Synara couldn't send a message",
+  saint_send_message: {
+    running: "Saint is sending a message",
+    completed: "Saint sent a message",
+    failed: "Saint couldn't send a message",
   },
-  synara_read_kanban_board: {
-    running: "Synara is reading the board",
-    completed: "Synara read the board",
-    failed: "Synara couldn't read the board",
+  saint_read_kanban_board: {
+    running: "Saint is reading the board",
+    completed: "Saint read the board",
+    failed: "Saint couldn't read the board",
   },
-  synara_read_kanban_card: {
-    running: "Synara is reading a board card",
-    completed: "Synara read a board card",
-    failed: "Synara couldn't read a board card",
+  saint_read_kanban_card: {
+    running: "Saint is reading a board card",
+    completed: "Saint read a board card",
+    failed: "Saint couldn't read a board card",
   },
-  synara_create_kanban_task: {
-    running: "Synara is creating a board task",
-    completed: "Synara created a board task",
-    failed: "Synara couldn't create a board task",
+  saint_create_kanban_task: {
+    running: "Saint is creating a board task",
+    completed: "Saint created a board task",
+    failed: "Saint couldn't create a board task",
   },
-  synara_move_kanban_card: {
-    running: "Synara is moving a board card",
-    completed: "Synara moved a board card",
-    failed: "Synara couldn't move a board card",
+  saint_move_kanban_card: {
+    running: "Saint is moving a board card",
+    completed: "Saint moved a board card",
+    failed: "Saint couldn't move a board card",
   },
-  synara_show_visual: {
-    running: "Synara is showing a visual",
-    completed: "Synara showed a visual",
-    failed: "Synara couldn't show a visual",
+  saint_show_visual: {
+    running: "Saint is showing a visual",
+    completed: "Saint showed a visual",
+    failed: "Saint couldn't show a visual",
   },
-  synara_create_todo: {
-    running: "Synara is adding a to-do",
-    completed: "Synara added a to-do",
-    failed: "Synara couldn't add a to-do",
+  saint_create_todo: {
+    running: "Saint is adding a to-do",
+    completed: "Saint added a to-do",
+    failed: "Saint couldn't add a to-do",
   },
-  synara_list_todos: {
-    running: "Synara is reading your to-dos",
-    completed: "Synara read your to-dos",
-    failed: "Synara couldn't read your to-dos",
+  saint_list_todos: {
+    running: "Saint is reading your to-dos",
+    completed: "Saint read your to-dos",
+    failed: "Saint couldn't read your to-dos",
   },
-  synara_update_todo: {
-    running: "Synara is updating a to-do",
-    completed: "Synara updated a to-do",
-    failed: "Synara couldn't update a to-do",
+  saint_update_todo: {
+    running: "Saint is updating a to-do",
+    completed: "Saint updated a to-do",
+    failed: "Saint couldn't update a to-do",
   },
-  synara_interrupt_thread: {
-    running: "Synara is interrupting a thread",
-    completed: "Synara interrupted a thread",
-    failed: "Synara couldn't interrupt a thread",
+  saint_interrupt_thread: {
+    running: "Saint is interrupting a thread",
+    completed: "Saint interrupted a thread",
+    failed: "Saint couldn't interrupt a thread",
   },
-  synara_set_thread_title: {
-    running: "Synara is renaming a thread",
-    completed: "Synara renamed a thread",
-    failed: "Synara couldn't rename a thread",
+  saint_set_thread_title: {
+    running: "Saint is renaming a thread",
+    completed: "Saint renamed a thread",
+    failed: "Saint couldn't rename a thread",
   },
-  synara_set_thread_archived: {
-    running: "Synara is updating a thread",
-    completed: "Synara updated a thread",
-    failed: "Synara couldn't update a thread",
+  saint_set_thread_archived: {
+    running: "Saint is updating a thread",
+    completed: "Saint updated a thread",
+    failed: "Saint couldn't update a thread",
   },
-  synara_create_automation: {
-    running: "Synara is creating an automation",
-    completed: "Synara created an automation",
-    failed: "Synara couldn't create an automation",
+  saint_create_automation: {
+    running: "Saint is creating an automation",
+    completed: "Saint created an automation",
+    failed: "Saint couldn't create an automation",
   },
-  synara_list_automations: {
-    running: "Synara is listing automations",
-    completed: "Synara listed automations",
-    failed: "Synara couldn't list automations",
+  saint_list_automations: {
+    running: "Saint is listing automations",
+    completed: "Saint listed automations",
+    failed: "Saint couldn't list automations",
   },
-  synara_view_automation: {
-    running: "Synara is viewing an automation",
-    completed: "Synara viewed an automation",
-    failed: "Synara couldn't view an automation",
+  saint_view_automation: {
+    running: "Saint is viewing an automation",
+    completed: "Saint viewed an automation",
+    failed: "Saint couldn't view an automation",
   },
-  synara_update_automation: {
-    running: "Synara is updating an automation",
-    completed: "Synara updated an automation",
-    failed: "Synara couldn't update an automation",
+  saint_update_automation: {
+    running: "Saint is updating an automation",
+    completed: "Saint updated an automation",
+    failed: "Saint couldn't update an automation",
   },
-  synara_update_automation_memory: {
-    running: "Synara is updating automation memory",
-    completed: "Synara updated automation memory",
-    failed: "Synara couldn't update automation memory",
+  saint_update_automation_memory: {
+    running: "Saint is updating automation memory",
+    completed: "Saint updated automation memory",
+    failed: "Saint couldn't update automation memory",
   },
-  synara_report_automation_result: {
-    running: "Synara is reporting an automation result",
-    completed: "Synara reported an automation result",
-    failed: "Synara couldn't report an automation result",
+  saint_report_automation_result: {
+    running: "Saint is reporting an automation result",
+    completed: "Saint reported an automation result",
+    failed: "Saint couldn't report an automation result",
   },
-  synara_cancel_automation: {
-    running: "Synara is stopping an automation",
-    completed: "Synara stopped an automation",
-    failed: "Synara couldn't stop an automation",
+  saint_cancel_automation: {
+    running: "Saint is stopping an automation",
+    completed: "Saint stopped an automation",
+    failed: "Saint couldn't stop an automation",
   },
-  ...SYNARA_BROWSER_TOOL_PRESENTATIONS,
-  ...SYNARA_COMPUTER_TOOL_PRESENTATIONS,
-} as const satisfies Record<string, SynaraMcpToolPresentation>;
+  ...SAINT_BROWSER_TOOL_PRESENTATIONS,
+  ...SAINT_COMPUTER_TOOL_PRESENTATIONS,
+} as const satisfies Record<string, SaintMcpToolPresentation>;
 
-function normalizeSynaraMcpIdentifier(value: string): string {
+function normalizeSaintMcpIdentifier(value: string): string {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
 }
 
-const SYNARA_BROWSER_TOOL_NAME_BY_PRESENTATION = new Map<string, SynaraBrowserToolName>(
+const SAINT_BROWSER_TOOL_NAME_BY_PRESENTATION = new Map<string, SaintBrowserToolName>(
   BROWSER_HISTORY_TOOL_NAMES.map((toolName) => [
-    normalizeSynaraMcpIdentifier(BROWSER_HISTORY_TITLES[toolName]),
-    `synara_${toolName}`,
+    normalizeSaintMcpIdentifier(BROWSER_HISTORY_TITLES[toolName]),
+    `saint_${toolName}`,
   ]),
 );
 
-const SYNARA_MCP_TOOL_PRESENTATION_ENTRIES = Object.entries(SYNARA_MCP_TOOL_PRESENTATIONS).map(
+const SAINT_MCP_TOOL_PRESENTATION_ENTRIES = Object.entries(SAINT_MCP_TOOL_PRESENTATIONS).map(
   ([toolName, presentation]) => ({
     toolName,
     presentation,
-    normalizedRunning: normalizeSynaraMcpIdentifier(presentation.running),
-    normalizedCompleted: normalizeSynaraMcpIdentifier(presentation.completed),
-    normalizedFailed: normalizeSynaraMcpIdentifier(presentation.failed),
+    normalizedRunning: normalizeSaintMcpIdentifier(presentation.running),
+    normalizedCompleted: normalizeSaintMcpIdentifier(presentation.completed),
+    normalizedFailed: normalizeSaintMcpIdentifier(presentation.failed),
   }),
 );
 
-function extractSynaraMcpToolName(normalizedCandidate: string): string | null {
+function extractSaintMcpToolName(normalizedCandidate: string): string | null {
   if (BROWSER_TOOL_NAME_SET.has(normalizedCandidate)) {
-    return `synara_${normalizedCandidate}`;
+    return `saint_${normalizedCandidate}`;
   }
-  if (normalizedCandidate.startsWith("mcp_synara_synara_")) {
-    return normalizedCandidate.slice("mcp_synara_".length);
+  if (normalizedCandidate.startsWith("mcp_saint_saint_")) {
+    return normalizedCandidate.slice("mcp_saint_".length);
   }
-  if (normalizedCandidate.startsWith("mcp_synara_")) {
-    return `synara_${normalizedCandidate.slice("mcp_synara_".length)}`;
+  if (normalizedCandidate.startsWith("mcp_saint_")) {
+    return `saint_${normalizedCandidate.slice("mcp_saint_".length)}`;
   }
-  if (normalizedCandidate.startsWith("synara_synara_")) {
-    return normalizedCandidate.slice("synara_".length);
+  if (normalizedCandidate.startsWith("saint_saint_")) {
+    return normalizedCandidate.slice("saint_".length);
   }
-  if (normalizedCandidate.startsWith("synara_")) {
+  if (normalizedCandidate.startsWith("saint_")) {
     return normalizedCandidate;
   }
   return null;
 }
 
-function resolveSynaraBrowserToolName(
+function resolveSaintBrowserToolName(
   candidates: ReadonlyArray<string | null | undefined>,
-): SynaraBrowserToolName | null {
+): SaintBrowserToolName | null {
   for (const candidate of candidates) {
     if (!candidate) continue;
-    const normalizedCandidate = normalizeSynaraMcpIdentifier(candidate);
-    const extractedToolName = extractSynaraMcpToolName(normalizedCandidate);
+    const normalizedCandidate = normalizeSaintMcpIdentifier(candidate);
+    const extractedToolName = extractSaintMcpToolName(normalizedCandidate);
     const candidateToolName =
       extractedToolName ??
-      SYNARA_BROWSER_TOOL_NAME_BY_PRESENTATION.get(normalizedCandidate) ??
+      SAINT_BROWSER_TOOL_NAME_BY_PRESENTATION.get(normalizedCandidate) ??
       normalizedCandidate;
-    if (candidateToolName in SYNARA_BROWSER_TOOL_PRESENTATIONS) {
-      return candidateToolName as SynaraBrowserToolName;
+    if (candidateToolName in SAINT_BROWSER_TOOL_PRESENTATIONS) {
+      return candidateToolName as SaintBrowserToolName;
     }
   }
   return null;
 }
 
-function fallbackSynaraMcpToolPresentation(toolName: string): SynaraMcpToolPresentation {
+function fallbackSaintMcpToolPresentation(toolName: string): SaintMcpToolPresentation {
   const action =
     toolName
-      .replace(/^synara_/, "")
+      .replace(/^saint_/, "")
       .replace(/_+/g, " ")
       .trim() || "an action";
   return {
-    running: `Synara is handling ${action}`,
-    completed: `Synara handled ${action}`,
-    failed: `Synara couldn't handle ${action}`,
+    running: `Saint is handling ${action}`,
+    completed: `Saint handled ${action}`,
+    failed: `Saint couldn't handle ${action}`,
   };
 }
 
-function resolveSynaraMcpToolPresentation(
+function resolveSaintMcpToolPresentation(
   candidates: ReadonlyArray<string | null | undefined>,
-): SynaraMcpToolPresentation | null {
+): SaintMcpToolPresentation | null {
   for (const candidate of candidates) {
     if (!candidate) {
       continue;
     }
-    const normalizedCandidate = normalizeSynaraMcpIdentifier(candidate);
-    for (const entry of SYNARA_MCP_TOOL_PRESENTATION_ENTRIES) {
+    const normalizedCandidate = normalizeSaintMcpIdentifier(candidate);
+    for (const entry of SAINT_MCP_TOOL_PRESENTATION_ENTRIES) {
       if (
         normalizedCandidate === entry.normalizedRunning ||
         normalizedCandidate === entry.normalizedCompleted ||
@@ -555,62 +549,62 @@ function resolveSynaraMcpToolPresentation(
         return entry.presentation;
       }
     }
-    const toolName = extractSynaraMcpToolName(normalizedCandidate);
+    const toolName = extractSaintMcpToolName(normalizedCandidate);
     const knownPresentation = toolName
-      ? (SYNARA_MCP_TOOL_PRESENTATIONS[toolName as keyof typeof SYNARA_MCP_TOOL_PRESENTATIONS] as
-          | SynaraMcpToolPresentation
+      ? (SAINT_MCP_TOOL_PRESENTATIONS[toolName as keyof typeof SAINT_MCP_TOOL_PRESENTATIONS] as
+          | SaintMcpToolPresentation
           | undefined)
       : undefined;
     if (knownPresentation) {
       return knownPresentation;
     }
     // Free-text summaries (e.g. reconciler activity lines) can begin with the
-    // word "Synara" and normalize into a fake tool identifier; only
+    // word "Saint" and normalize into a fake tool identifier; only
     // identifier-shaped candidates may take an invented fallback presentation.
     if (/\s/.test(candidate.trim())) {
       continue;
     }
-    if (normalizedCandidate.startsWith("synara_is_handling_")) {
-      return fallbackSynaraMcpToolPresentation(
-        `synara_${normalizedCandidate.slice("synara_is_handling_".length)}`,
+    if (normalizedCandidate.startsWith("saint_is_handling_")) {
+      return fallbackSaintMcpToolPresentation(
+        `saint_${normalizedCandidate.slice("saint_is_handling_".length)}`,
       );
     }
-    if (normalizedCandidate.startsWith("synara_handled_")) {
-      return fallbackSynaraMcpToolPresentation(
-        `synara_${normalizedCandidate.slice("synara_handled_".length)}`,
+    if (normalizedCandidate.startsWith("saint_handled_")) {
+      return fallbackSaintMcpToolPresentation(
+        `saint_${normalizedCandidate.slice("saint_handled_".length)}`,
       );
     }
-    if (normalizedCandidate.startsWith("synara_couldn_t_handle_")) {
-      return fallbackSynaraMcpToolPresentation(
-        `synara_${normalizedCandidate.slice("synara_couldn_t_handle_".length)}`,
+    if (normalizedCandidate.startsWith("saint_couldn_t_handle_")) {
+      return fallbackSaintMcpToolPresentation(
+        `saint_${normalizedCandidate.slice("saint_couldn_t_handle_".length)}`,
       );
     }
     if (!toolName) {
       continue;
     }
-    return fallbackSynaraMcpToolPresentation(toolName);
+    return fallbackSaintMcpToolPresentation(toolName);
   }
   return null;
 }
 
-export type SynaraMcpToolStatus = "running" | "completed" | "failed" | "cancelled";
+export type SaintMcpToolStatus = "running" | "completed" | "failed" | "cancelled";
 
-export interface SynaraMcpToolTitleInput {
+export interface SaintMcpToolTitleInput {
   readonly toolName?: string | null | undefined;
   readonly title?: string | null | undefined;
   readonly fallbackLabel?: string | null | undefined;
-  readonly status?: SynaraMcpToolStatus | undefined;
+  readonly status?: SaintMcpToolStatus | undefined;
 }
 
-export function isSynaraBrowserToolCall(input: SynaraMcpToolTitleInput): boolean {
-  return resolveSynaraBrowserToolName([input.toolName, input.title, input.fallbackLabel]) !== null;
+export function isSaintBrowserToolCall(input: SaintMcpToolTitleInput): boolean {
+  return resolveSaintBrowserToolName([input.toolName, input.title, input.fallbackLabel]) !== null;
 }
 
-// Every provider exposes Synara's MCP tools differently: MCP, dynamic, and even
+// Every provider exposes Saint's MCP tools differently: MCP, dynamic, and even
 // file-change rows can all represent the same gateway action. Normalize by tool
 // identity instead of provider item type so transport details never reach the UI.
-export function deriveSynaraMcpToolTitle(input: SynaraMcpToolTitleInput): string | null {
-  const presentation = resolveSynaraMcpToolPresentation([
+export function deriveSaintMcpToolTitle(input: SaintMcpToolTitleInput): string | null {
+  const presentation = resolveSaintMcpToolPresentation([
     input.toolName,
     input.title,
     input.fallbackLabel,
@@ -626,23 +620,23 @@ export function deriveSynaraMcpToolTitle(input: SynaraMcpToolTitleInput): string
     case "failed":
       return presentation.failed;
     case "cancelled":
-      return presentation.running.startsWith("Synara is ")
-        ? `Synara stopped ${presentation.running.slice("Synara is ".length)}`
+      return presentation.running.startsWith("Saint is ")
+        ? `Saint stopped ${presentation.running.slice("Saint is ".length)}`
         : `Cancelled ${presentation.running}`;
   }
 }
 
-export function sanitizeSynaraMcpToolPreview(input: {
+export function sanitizeSaintMcpToolPreview(input: {
   readonly preview?: string | null | undefined;
   readonly heading: string;
-  readonly status?: SynaraMcpToolStatus | undefined;
+  readonly status?: SaintMcpToolStatus | undefined;
 }): string | null {
   const preview = input.preview?.trim();
   if (!preview) return null;
-  const previewTitle = deriveSynaraMcpToolTitle({ title: preview, status: input.status });
+  const previewTitle = deriveSaintMcpToolTitle({ title: preview, status: input.status });
   if (
     previewTitle &&
-    normalizeSynaraMcpIdentifier(previewTitle) === normalizeSynaraMcpIdentifier(input.heading)
+    normalizeSaintMcpIdentifier(previewTitle) === normalizeSaintMcpIdentifier(input.heading)
   ) {
     return null;
   }

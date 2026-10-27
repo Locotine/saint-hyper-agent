@@ -5,7 +5,7 @@
 Compared identities:
 
 - Cua 0.24.0, upstream `4b3396d9fe4bd3cf723b0eb8db83c18a8764b520`, native revision 2; checked-in patch SHA-256 `58b1953265bbcd892af607ece87b6f9bf484d3c4b7dde0a5a4545f5c9c3516fd`.
-- Swift PR 1010 at `32d62c28c39229a42f8d9f31b160bf61996e494a`, the unchanged refreshed head supplied by the parent review. Its snapshot is `/private/tmp/synara-pr-refresh-review/pr1010`.
+- Swift PR 1010 at `32d62c28c39229a42f8d9f31b160bf61996e494a`, the unchanged refreshed head supplied by the parent review. Its snapshot is `/private/tmp/saint-pr-refresh-review/pr1010`.
 
 ## What revision 2 changes in the verdict
 
@@ -13,7 +13,7 @@ The earlier local shortcomings in Space cancellation and exposed semantic no-rep
 
 This incorporates useful Swift ideas while preserving Cua's stronger shutdown design: native held-input and whole-action ownership, authenticated exact-PID cleanup acknowledgement, and replacement only after cleanup plus old-process exit. Independent review found and corrected missing readiness authorization and unguarded foreground activation boundaries before the final native build. Final gate closures and cleanup paths were re-reviewed with no outstanding finding.
 
-Evidence: [final native review](/Users/emanueledipietro/.codex/worktrees/702b/synara/docs/computer-use-cua/evidence/refresh-2026-09-08/native-revision2-independent-review.md), [native patch summary](/Users/emanueledipietro/.codex/worktrees/702b/synara/docs/computer-use-cua/evidence/refresh-2026-09-08/native-patch-summary.json), and the original [Swift comparison](/private/tmp/synara-pr-refresh-review/native-swift-vs-cua-review.md).
+Evidence: [final native review](/Users/emanueledipietro/.codex/worktrees/702b/saint/docs/computer-use-cua/evidence/refresh-2026-09-08/native-revision2-independent-review.md), [native patch summary](/Users/emanueledipietro/.codex/worktrees/702b/saint/docs/computer-use-cua/evidence/refresh-2026-09-08/native-patch-summary.json), and the original [Swift comparison](/private/tmp/saint-pr-refresh-review/native-swift-vs-cua-review.md).
 
 ## Feature and correctness comparison
 
@@ -27,13 +27,13 @@ Evidence: [final native review](/Users/emanueledipietro/.codex/worktrees/702b/sy
 | Foreground behavior             | Can perform explicitly approved real target activation, now guarded at actual native boundaries.                                           | Deliberately avoids activating a different app; the human must already foreground the target. Different policy, not a functional superset.                                                                                                                                    |
 | Capture and cursor architecture | Preserves bounded bitmap mailbox and transferred pixel ownership; integrates shared retention/UI optimizations.                            | Small vector cursor plus native capture dedupe/concurrency are promising structural advantages. Invalid cached metadata after refresh failure remains a source-level concern.                                                                                                 |
 
-Feature anchors: local [CuaComputerBackend.ts](/Users/emanueledipietro/.codex/worktrees/702b/synara/apps/server/src/computer/CuaComputerBackend.ts), methods `moveCursor`, `drag`, `scroll`, `performAction`; candidate `apps/server/native/computer-use-macos/Sources/Input.swift:182–191,279–396,810–844` and `Accessibility.swift:619–647,735–768`. Candidate teardown/effect/target/capture findings and exact line traces are retained in the original Swift comparison above. They were not newly reproduced by this final check.
+Feature anchors: local [CuaComputerBackend.ts](/Users/emanueledipietro/.codex/worktrees/702b/saint/apps/server/src/computer/CuaComputerBackend.ts), methods `moveCursor`, `drag`, `scroll`, `performAction`; candidate `apps/server/native/computer-use-macos/Sources/Input.swift:182–191,279–396,810–844` and `Accessibility.swift:619–647,735–768`. Candidate teardown/effect/target/capture findings and exact line traces are retained in the original Swift comparison above. They were not newly reproduced by this final check.
 
 ## Performance and qualification
 
 - **No defensible overall RAM or speed winner.** The measured 307.84 MiB peak belongs to the earlier Cua revision 1 short fixture. It neither qualifies revision 2 nor compares like-for-like with Swift. Swift's vector cursor and capture changes are credible optimization opportunities, not measured whole-app superiority.
-- The refresh's `699,469 → 475` byte result measures one retained diagnostic event containing a 512 KiB sample image; the model image remains intact. It is not process RSS. [Measurement](/Users/emanueledipietro/.codex/worktrees/702b/synara/docs/computer-use-cua/evidence/refresh-2026-09-08/diagnostic-image-before-after.json).
-- Cua revision 2 has **60 selected pure tests passed**, **6 real no-input control-plane cases passed**, successful arm64/x64 release builds, a verified universal artifact, and exact reconstruction of 817 compiled source files. Independent evidence inspection confirmed the group totals, successful build exits, artifact architectures and matching hashes. [Native evidence](/Users/emanueledipietro/.codex/worktrees/702b/synara/docs/computer-use-cua/evidence/refresh-2026-09-08/native-integration-evidence.json).
+- The refresh's `699,469 → 475` byte result measures one retained diagnostic event containing a 512 KiB sample image; the model image remains intact. It is not process RSS. [Measurement](/Users/emanueledipietro/.codex/worktrees/702b/saint/docs/computer-use-cua/evidence/refresh-2026-09-08/diagnostic-image-before-after.json).
+- Cua revision 2 has **60 selected pure tests passed**, **6 real no-input control-plane cases passed**, successful arm64/x64 release builds, a verified universal artifact, and exact reconstruction of 817 compiled source files. Independent evidence inspection confirmed the group totals, successful build exits, artifact architectures and matching hashes. [Native evidence](/Users/emanueledipietro/.codex/worktrees/702b/saint/docs/computer-use-cua/evidence/refresh-2026-09-08/native-integration-evidence.json).
 - The control-plane probe used no overlay/input/capture and a deliberately nonexistent target for readiness. It establishes protocol identity, refusal/authentication/cleanup behavior; it does not establish real-window readiness, held-input cancellation, or delivery. Intel was compiled, not executed.
 - The candidate's `Tests/README.md:64` explicitly says the performance refresh was developed without macOS native compilation/timing evidence. The prior review found no current-head native verification establishing an equivalent comparison. This is missing evidence, not proof Swift fails to build.
 

@@ -6,7 +6,7 @@ import {
   type HubWorkSourceMessage,
   type OrchestrationMessage,
   type OrchestrationThread,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, Option } from "effect";
 
 import type { ProjectionSnapshotQueryShape } from "../orchestration/Services/ProjectionSnapshotQuery.ts";

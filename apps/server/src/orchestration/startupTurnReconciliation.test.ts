@@ -3,7 +3,7 @@ import { OrchestrationEngineService } from "./Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "./Services/ProjectionSnapshotQuery.ts";
 import { ProjectionPendingInteractionRepository } from "../persistence/Services/ProjectionPendingInteractions.ts";
 import { ProviderSessionRuntimeRepository } from "../persistence/Services/ProviderSessionRuntime.ts";
-import { ApprovalRequestId, EventId, MessageId, ThreadId, TurnId } from "@synara/contracts";
+import { ApprovalRequestId, EventId, MessageId, ThreadId, TurnId } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import {

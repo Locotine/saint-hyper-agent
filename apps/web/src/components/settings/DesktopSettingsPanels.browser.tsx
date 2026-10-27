@@ -4,7 +4,7 @@
 
 import "../../index.css";
 
-import type { DesktopAppSnapPermissionGuideState, DesktopAppSnapState } from "@synara/contracts";
+import type { DesktopAppSnapPermissionGuideState, DesktopAppSnapState } from "@saint/contracts";
 import type { AppSettingsBinding } from "~/appSettings";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
@@ -80,7 +80,7 @@ const READY_STATE: DesktopAppSnapState = {
   inputMonitoringPermission: "granted",
   screenRecordingPermission: "granted",
   message: null,
-  appDisplayName: "Synara (Dev)",
+  appDisplayName: "Saint (Dev)",
 };
 
 const DENIED_STATE: DesktopAppSnapState = {
@@ -304,14 +304,14 @@ describe("AppSnapSettingsPanel", () => {
     await expect
       .element(mounted.getByRole("button", { name: "Open Input Monitoring settings" }))
       .toBeVisible();
-    expect(mounted.getByText("Find Synara (Dev) in the list and turn on its toggle.")).toBeTruthy();
+    expect(mounted.getByText("Find Saint (Dev) in the list and turn on its toggle.")).toBeTruthy();
 
     await vi.waitFor(() => {
       expect(openPermissionSettings).toHaveBeenCalledWith("input-monitoring");
       expect(showPermissionGuide).toHaveBeenCalledWith("input-monitoring");
     });
 
-    await mounted.getByRole("button", { name: "Restart Synara (Dev)" }).click();
+    await mounted.getByRole("button", { name: "Restart Saint (Dev)" }).click();
     await vi.waitFor(() => {
       expect(restartApp).toHaveBeenCalledOnce();
     });

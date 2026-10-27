@@ -2,7 +2,7 @@
 
 The running `Codex Computer Use.app` bundle was inspected read-only at version `26.902.1000968` (build `1000968`). Its `Package_ComputerUse.bundle/Contents/Resources/Assets.car` contains `SoftwareCursor`, a 200 × 230 black arrow with a white outline and a floppy-disk badge. The executable also contains `FogCursorStyle` backed by `NSHostingView<ComputerUse.CursorView>`, with spring/stretch/rotation state. That SwiftUI view is compiled code, not an exportable cursor image.
 
-Synara now uses a small vector adaptation of the reference arrow, without the disk badge. It is not a pixel-identical port of the compiled Fog cursor. The new path is cached once and drawn at Retina scale, at the exact input hotspot. The session label remains available as static feedback. There is no per-action shape change, rotation, bounce or focus-box flash.
+Saint now uses a small vector adaptation of the reference arrow, without the disk badge. It is not a pixel-identical port of the compiled Fog cursor. The new path is cached once and drawn at Retina scale, at the exact input hotspot. The session label remains available as static feedback. There is no per-action shape change, rotation, bounce or focus-box flash.
 
 ## Input and rendering
 
@@ -23,7 +23,7 @@ The profile is native host configuration and adds no provider tools, prompt inst
 
 ## Calculator smoke test
 
-Same prompt, fresh Synara Dev chat, GPT-5.6 Sol / Medium / Fast, Calculator already running. The result `5.535` was verified in the returned window image.
+Same prompt, fresh Saint Dev chat, GPT-5.6 Sol / Medium / Fast, Calculator already running. The result `5.535` was verified in the returned window image.
 
 | Metric                      | Prior revision 4 sample | Compact revision 5 sample |
 | --------------------------- | ----------------------: | ------------------------: |

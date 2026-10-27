@@ -15,7 +15,7 @@ import type {
   ProviderStartOptions,
   ServerGenerateAutomationIntentResult,
   SourceControlWritingStyle,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import type { TextGenerationError } from "../Errors.ts";
 
@@ -284,7 +284,7 @@ export interface TextGenerationShape {
 export class CodexTextGeneration extends ServiceMap.Service<
   CodexTextGeneration,
   TextGenerationShape
->()("synara/git/Services/TextGeneration/CodexTextGeneration") {}
+>()("saint/git/Services/TextGeneration/CodexTextGeneration") {}
 
 /**
  * ClaudeTextGeneration - Provider-specific Claude implementation for git text generation.
@@ -292,7 +292,7 @@ export class CodexTextGeneration extends ServiceMap.Service<
 export class ClaudeTextGeneration extends ServiceMap.Service<
   ClaudeTextGeneration,
   TextGenerationShape
->()("synara/git/Services/TextGeneration/ClaudeTextGeneration") {}
+>()("saint/git/Services/TextGeneration/ClaudeTextGeneration") {}
 
 /**
  * OpenCodeTextGeneration - Provider-specific OpenCode implementation for git text generation.
@@ -300,7 +300,7 @@ export class ClaudeTextGeneration extends ServiceMap.Service<
 export class OpenCodeTextGeneration extends ServiceMap.Service<
   OpenCodeTextGeneration,
   TextGenerationShape
->()("synara/git/Services/TextGeneration/OpenCodeTextGeneration") {}
+>()("saint/git/Services/TextGeneration/OpenCodeTextGeneration") {}
 
 /**
  * CursorTextGeneration - Provider-specific Cursor implementation for git text generation.
@@ -308,7 +308,7 @@ export class OpenCodeTextGeneration extends ServiceMap.Service<
 export class CursorTextGeneration extends ServiceMap.Service<
   CursorTextGeneration,
   TextGenerationShape
->()("synara/git/Services/TextGeneration/CursorTextGeneration") {}
+>()("saint/git/Services/TextGeneration/CursorTextGeneration") {}
 
 /**
  * DroidTextGeneration - Provider-specific Droid implementation for git text generation.
@@ -316,11 +316,11 @@ export class CursorTextGeneration extends ServiceMap.Service<
 export class DroidTextGeneration extends ServiceMap.Service<
   DroidTextGeneration,
   TextGenerationShape
->()("synara/git/Services/TextGeneration/DroidTextGeneration") {}
+>()("saint/git/Services/TextGeneration/DroidTextGeneration") {}
 
 /**
  * TextGeneration - Service tag for commit and PR text generation.
  */
 export class TextGeneration extends ServiceMap.Service<TextGeneration, TextGenerationShape>()(
-  "synara/git/Services/TextGeneration",
+  "saint/git/Services/TextGeneration",
 ) {}

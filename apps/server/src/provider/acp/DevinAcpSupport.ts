@@ -10,7 +10,7 @@
 import { readFile } from "node:fs/promises";
 import nodePath from "node:path";
 
-import { type ProviderListCommandsResult, type RuntimeMode } from "@synara/contracts";
+import { type ProviderListCommandsResult, type RuntimeMode } from "@saint/contracts";
 import { Effect, Layer, Scope, ServiceMap } from "effect";
 import * as AcpErrors from "./AcpErrors.ts";
 import type * as Acp from "@agentclientprotocol/sdk";
@@ -407,13 +407,13 @@ export const resolveDevinAcpAuthMethodId = (
     if (!hasApiKey && authMethodIds.size > 0) {
       return yield* new AcpErrors.AcpRequestError({
         code: -32602,
-        errorMessage: `Devin ACP advertised only interactive auth (${advertised}). Synara will not open a browser during a message send. Set WINDSURF_API_KEY or log in with Devin CLI so its saved API key is available, then retry.`,
+        errorMessage: `Devin ACP advertised only interactive auth (${advertised}). Saint will not open a browser during a message send. Set WINDSURF_API_KEY or log in with Devin CLI so its saved API key is available, then retry.`,
         data: { authMethods: [...authMethodIds], reason: "credentials_missing" },
       });
     }
     return yield* new AcpErrors.AcpRequestError({
       code: -32602,
-      errorMessage: `Devin ACP advertised no supported headless authentication method (advertised: ${advertised}). Synara supports API-key and cached-token auth; update Devin and retry.`,
+      errorMessage: `Devin ACP advertised no supported headless authentication method (advertised: ${advertised}). Saint supports API-key and cached-token auth; update Devin and retry.`,
       data: { authMethods: [...authMethodIds], reason: "compatibility_mismatch" },
     });
   });

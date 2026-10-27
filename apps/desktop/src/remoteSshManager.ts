@@ -1,5 +1,5 @@
 // FILE: remoteSshManager.ts
-// Purpose: Connects the desktop to a Synara server on a remote host over SSH: installs the
+// Purpose: Connects the desktop to a Saint server on a remote host over SSH: installs the
 //          matching server version there, starts it in tmux, and forwards a local loopback
 //          port to it so a desktop window can use it as its backend.
 // Layer: Desktop remote SSH orchestration (Electron main)
@@ -12,8 +12,8 @@ import type {
   DesktopRemoteSshHostState,
   DesktopRemoteSshPhase,
   DesktopRemoteSshSavedHost,
-} from "@synara/contracts";
-import type { RuntimeSpawnOptions } from "@synara/shared/processRuntime";
+} from "@saint/contracts";
+import type { RuntimeSpawnOptions } from "@saint/shared/processRuntime";
 
 import { isValidSshTarget, normalizeRemoteRoot } from "./remoteSshConfig";
 import {
@@ -23,11 +23,11 @@ import {
   buildRemoteStopScript,
   buildRemoteUploadCommand,
   hasRemoteReport,
-  nodeMajorVersion,
+  isRemoteNodeVersionSupported,
   parseRemoteProbeReport,
   parseRemoteStartReport,
   REMOTE_SSH_LOGIN_SHELL_COMMAND,
-  REMOTE_SSH_MIN_NODE_MAJOR,
+  REMOTE_SSH_NODE_REQUIREMENT,
   type RemoteSshScriptTarget,
 } from "./remoteSshScripts";
 
@@ -38,7 +38,8 @@ export interface RemoteSshManagerDependencies {
     args: readonly string[],
     options: RuntimeSpawnOptions,
   ) => ChildProcess;
-  readonly appVersion: string;
+  /** Install folder name of this build's server (see `remoteInstallVersion`); called once. */
+  readonly installVersion: () => string;
   readonly defaultRemoteRoot: string;
   /** Gzipped tar of the install bundle; called only when the remote lacks this version. */
   readonly createInstallBundle: () => Readable;
@@ -61,6 +62,12 @@ const SSH_BASE_OPTIONS = [
   "-o",
   "ServerAliveCountMax=3",
 ];
+
+/**
+ * Script runs need no port forwards, so forwards from the user's ssh config
+ * (`LocalForward`, `RemoteForward`, `DynamicForward`) are not set up for them.
+ */
+const SSH_SCRIPT_OPTIONS = [...SSH_BASE_OPTIONS, "-o", "ClearAllForwardings=yes"];
 
 const PROBE_TIMEOUT_MS = 60_000;
 const UPLOAD_TIMEOUT_MS = 10 * 60_000;
@@ -94,6 +101,9 @@ export class RemoteSshError extends Error {
   }
 }
 
+/** The tunnel's own local port was taken between reserving and binding it. */
+class LocalPortInUseError extends RemoteSshError {}
+
 function tail(text: string): string {
   const trimmed = text.trim();
   return trimmed.length > STDERR_TAIL_CHARS ? `…${trimmed.slice(-STDERR_TAIL_CHARS)}` : trimmed;
@@ -101,8 +111,14 @@ function tail(text: string): string {
 
 export class RemoteSshManager {
   private readonly hosts = new Map<string, HostRecord>();
+  private cachedInstallVersion: string | null = null;
 
   constructor(private readonly deps: RemoteSshManagerDependencies) {}
+
+  private installVersion(): string {
+    this.cachedInstallVersion ??= this.deps.installVersion();
+    return this.cachedInstallVersion;
+  }
 
   states(): DesktopRemoteSshHostState[] {
     return [...this.hosts.values()].map((record) => record.state);
@@ -213,7 +229,11 @@ export class RemoteSshManager {
   }
 
   private target(record: HostRecord): RemoteSshScriptTarget {
-    return { remoteRoot: record.remoteRoot, version: this.deps.appVersion };
+    return {
+      remoteRoot: record.remoteRoot,
+      storeRoot: this.deps.defaultRemoteRoot,
+      version: this.installVersion(),
+    };
   }
 
   private update(record: HostRecord, phase: DesktopRemoteSshPhase, message: string | null): void {
@@ -247,23 +267,22 @@ export class RemoteSshManager {
       );
       const probe = parseRemoteProbeReport(probeResult.stdout);
       if (!probe) throw new RemoteSshError(this.failureMessage("reach the host", probeResult));
-      const nodeMajor = nodeMajorVersion(probe.nodeVersion);
-      if (nodeMajor === null || nodeMajor < REMOTE_SSH_MIN_NODE_MAJOR) {
+      if (!isRemoteNodeVersionSupported(probe.nodeVersion)) {
         throw new RemoteSshError(
-          `Node.js ${REMOTE_SSH_MIN_NODE_MAJOR} or newer is required on ${host}` +
+          `${REMOTE_SSH_NODE_REQUIREMENT} is required on ${host}` +
             (probe.nodeVersion ? ` (found ${probe.nodeVersion}).` : " (node was not found)."),
         );
       }
 
       let port: number;
       let token: string;
-      if (probe.server && probe.server.version === this.deps.appVersion) {
+      if (probe.server && probe.server.version === this.installVersion()) {
         this.deps.log(`[remote-ssh] reusing server on ${host} port=${probe.server.port}`);
         port = probe.server.port;
         token = probe.server.token;
       } else {
         if (!probe.installed) {
-          if (!probe.npm) throw new RemoteSshError(`npm is required on ${host} to install Synara.`);
+          if (!probe.npm) throw new RemoteSshError(`npm is required on ${host} to install Saint.`);
           step("uploading");
           const upload = await this.runSsh(
             host,
@@ -299,7 +318,15 @@ export class RemoteSshManager {
       step("tunneling");
       record.localPort ??= await this.deps.reserveLocalPort();
       record.token = token;
-      await this.openTunnel(record, port, signal);
+      try {
+        await this.openTunnel(record, port, signal);
+      } catch (error) {
+        if (!(error instanceof LocalPortInUseError)) throw error;
+        // Open windows re-read the URL on reconnect, so moving to a new port is safe.
+        this.closeTunnel(record);
+        record.localPort = await this.deps.reserveLocalPort();
+        await this.openTunnel(record, port, signal);
+      }
       step("connected");
       return record.state;
     } catch (error) {
@@ -317,9 +344,11 @@ export class RemoteSshManager {
     const tunnel = this.deps.spawn(
       "ssh",
       [
+        // No ExitOnForwardFailure: a forward from the user's ssh config whose port
+        // is taken (a RemoteForward held by another session) would kill the tunnel.
+        // ClearAllForwardings cannot help, since it also drops this `-L`. Our own
+        // forward is checked from stderr below and by the /health wait.
         ...SSH_BASE_OPTIONS,
-        "-o",
-        "ExitOnForwardFailure=yes",
         "-N",
         "-L",
         `127.0.0.1:${localPort}:127.0.0.1:${remotePort}`,
@@ -330,9 +359,22 @@ export class RemoteSshManager {
     );
     record.tunnel = tunnel;
     let stderr = "";
+    let rejectLocalForward: (error: RemoteSshError) => void = () => undefined;
+    const localForwardFailed = new Promise<never>((_, reject) => {
+      rejectLocalForward = reject;
+    });
+    localForwardFailed.catch(() => undefined);
+    const ownForwardFailure = new RegExp(`cannot listen to port: ${localPort}\\b`, "u");
     tunnel.stderr?.setEncoding("utf8");
     tunnel.stderr?.on("data", (chunk: string) => {
       stderr = (stderr + chunk).slice(-STDERR_TAIL_CHARS);
+      if (ownForwardFailure.test(stderr)) {
+        rejectLocalForward(
+          new LocalPortInUseError(
+            `Local port ${localPort} for the SSH tunnel to ${host} is in use.`,
+          ),
+        );
+      }
     });
     const ready = new AbortController();
     const onAbort = () => ready.abort();
@@ -371,6 +413,7 @@ export class RemoteSshManager {
           );
         }),
         exited,
+        localForwardFailed,
       ]);
     } finally {
       clearTimeout(timeout);
@@ -400,7 +443,7 @@ export class RemoteSshManager {
     timeoutMs: number,
   ): Promise<SshRunResult> {
     return new Promise((resolve, reject) => {
-      const child = this.deps.spawn("ssh", [...SSH_BASE_OPTIONS, "--", host, remoteCommand], {
+      const child = this.deps.spawn("ssh", [...SSH_SCRIPT_OPTIONS, "--", host, remoteCommand], {
         stdio: ["pipe", "pipe", "pipe"],
       });
       let stdout = "";

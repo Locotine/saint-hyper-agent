@@ -11,7 +11,7 @@ Open a file from the Explorer, a workspace search result, or a file link. The in
 
 Changes autosave after a 400 ms pause. **Saving...**, **Unsaved changes**, and **Saved** reflect the current buffer and write state. **Save** or `mod+s` saves immediately; the shortcut can be remapped in keybindings. Undo, redo, and reload controls remain available.
 
-Switching files, closing an editor, or navigating to another task first attempts to save pending edits. If a save fails, Synara keeps the draft and blocks navigation that would leave it behind. A browser reload or close can show an unsaved-changes warning while a dirty buffer remains. A retained draft is not a guarantee of recovery after a process crash, so resolve visible errors before quitting.
+Switching files, closing an editor, or navigating to another task first attempts to save pending edits. If a save fails, Saint keeps the draft and blocks navigation that would leave it behind. A browser reload or close can show an unsaved-changes warning while a dirty buffer remains. A retained draft is not a guarantee of recovery after a process crash, so resolve visible errors before quitting.
 
 ## Resolve a save conflict
 
@@ -59,4 +59,4 @@ Debugging launches trusted workspace JavaScript or a TypeScript entry point supp
 
 In Stable 1.0.8 and Beta, **Turn** diffs can show the last published file-tool snapshot or a complete Codex cumulative patch while work runs. They preserve Ignore whitespace and reconnect state, then switch to the final checkpoint when capture succeeds. They do not read uncaptured edits on demand. Missing baselines, incomplete patches and failed capture can leave a preview unavailable or retain the last valid snapshot. **All turns** still uses completed checkpoints; a live preview is not proof of completion.
 
-Source evidence for 1.0.9: Synara release `ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`; `docs/releases/1.0.9-source-audit.md`, `docs/providers.md`, `docs/core-concepts.md`, `docs/editor/intelligence.md`, `docs/mcp-connectors.md`, `apps/server/src/persistence/MigrationBackup.ts` and `docs/release.md`.
+Source evidence for 1.0.9: Saint release `ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`; `docs/releases/1.0.9-source-audit.md`, `docs/providers.md`, `docs/core-concepts.md`, `docs/editor/intelligence.md`, `docs/mcp-connectors.md`, `apps/server/src/persistence/MigrationBackup.ts` and `docs/release.md`.

@@ -1,5 +1,5 @@
-import type { ComputerControlMode } from "@synara/contracts";
-import { resolveComputerInvocationMode } from "@synara/shared/computerInvocation";
+import type { ComputerControlMode } from "@saint/contracts";
+import { resolveComputerInvocationMode } from "@saint/shared/computerInvocation";
 
 /** Freeze explicit turn intent without promoting a slash invocation to chat access. */
 export function computerActivationMetadata(input: {

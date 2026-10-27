@@ -2,29 +2,29 @@
 
 ## Problem
 
-Kartik wants the computer use system to be open source. The line for what ships open is still undecided. Without a clear line, extraction work cannot start. A wrong line either leaks Synara product code or ships a package nobody can reuse. This spec sets the recommended line, the guardrails that must ship with the code, and the decisions Kartik still owns. Per handoff section 5.7 and item 2 of the decision shortlist in 11.3, the working recommendation is that the driver patch, host protocol, tool layer, and docs ship open under a permissive license while Synara product code stays as is.
+Kartik wants the computer use system to be open source. The line for what ships open is still undecided. Without a clear line, extraction work cannot start. A wrong line either leaks Saint product code or ships a package nobody can reuse. This spec sets the recommended line, the guardrails that must ship with the code, and the decisions Kartik still owns. Per handoff section 5.7 and item 2 of the decision shortlist in 11.3, the working recommendation is that the driver patch, host protocol, tool layer, and docs ship open under a permissive license while Saint product code stays as is.
 
 ## Current state
 
-The tree already carries two licenses. The Synara repo is MIT, held by T3 Tools Inc and Emanuele Di Pietro (`LICENSE:1`, `LICENSE:3`). The Cua driver redistribution license is MIT, held by Cua AI Inc (`docs/computer-use-cua/CUA-LICENSE.txt:1`, `docs/computer-use-cua/CUA-LICENSE.txt:3`). The redistribution license is referenced from the computer use README (`docs/computer-use-cua/README.md:15`). A full read of `package.json:1` through the end of the file shows no license field, so the root manifest states no license of its own. This is unverified as a problem, but an auditor will flag it.
+The tree already carries two licenses. The Saint repo is MIT, held by T3 Tools Inc and Emanuele Di Pietro (`LICENSE:1`, `LICENSE:3`). The Cua driver redistribution license is MIT, held by Cua AI Inc (`docs/computer-use-cua/CUA-LICENSE.txt:1`, `docs/computer-use-cua/CUA-LICENSE.txt:3`). The redistribution license is referenced from the computer use README (`docs/computer-use-cua/README.md:15`). A full read of `package.json:1` through the end of the file shows no license field, so the root manifest states no license of its own. This is unverified as a problem, but an auditor will flag it.
 
-The shippable open core already exists as files. The native patch is checked in (`apps/desktop/patches/cua-driver/0001-synara-native.patch`, existence verified by glob). The pin manifest records driver 0.28.2, source commit, archive checksum, patch checksum, native revision 15, and Rust 1.97.1 (`packages/shared/src/cuaDriverRelease.json:2`, `packages/shared/src/cuaDriverRelease.json:5`). The host protocol contract lives beside it (`packages/shared/src/cuaDriverProtocol.ts`, existence verified by glob). The tool layer is the provider gateway plus the server computer stack. The docs corpus is `docs/computer-use-cua/` with provenance records (`docs/computer-use-cua/import-provenance.json:9`).
+The shippable open core already exists as files. The native patch is checked in (`apps/desktop/patches/cua-driver/0001-saint-native.patch`, existence verified by glob). The pin manifest records driver 0.28.2, source commit, archive checksum, patch checksum, native revision 15, and Rust 1.97.1 (`packages/shared/src/cuaDriverRelease.json:2`, `packages/shared/src/cuaDriverRelease.json:5`). The host protocol contract lives beside it (`packages/shared/src/cuaDriverProtocol.ts`, existence verified by glob). The tool layer is the provider gateway plus the server computer stack. The docs corpus is `docs/computer-use-cua/` with provenance records (`docs/computer-use-cua/import-provenance.json:9`).
 
-Synara product code is the rest. That means the provider gateway wiring, account and billing paths, the Synara chat UI and stores, updater and release machinery, and anything outside the computer use seam. None of that is proposed for the open package.
+Saint product code is the rest. That means the provider gateway wiring, account and billing paths, the Saint chat UI and stores, updater and release machinery, and anything outside the computer use seam. None of that is proposed for the open package.
 
 The release path today publishes signed first party artifacts. Tag pushes matching `v*.*.*` trigger the release workflow (`.github/workflows/release.yml:4`). Manual dispatch defaults to build only with no publication (`.github/workflows/release.yml:13`, `docs/release.md:7`). Published macOS artifacts must be signed (`docs/release.md:24`). Windows publication uses an explicit version scoped unsigned exception, else Azure signing is required (`docs/release.md:24`). The workflow builds macOS DMGs, a Linux AppImage, and a Windows installer (`.github/workflows/release.yml:170`, `.github/workflows/release.yml:180`, `.github/workflows/release.yml:185`). CLI publication is optional and off unless enabled (`docs/release.md:89`). Whether the open package would reuse this workflow or get its own is unverified and left as an open decision.
 
-Guardrails exist in part. Control is disabled by default for new conversations (`docs/computer-use-cua/README.md:46`). Foreground operations always need explicit per action approval (`docs/computer-use-cua/README.md:52`). The approval gate caps pending consent at 128 global and 8 per thread (`apps/server/src/computer/ComputerApprovalGate.ts:18`). The desktop pauses input on screen lock, sleep, and session resign (`apps/desktop/src/computerDesktopLifecycle.ts:27`). Raw session tools, raw recording tools, driver configuration, cursor ownership, and the browser family are deliberately not agent facing; `invoke_menu`, `set_window_frame`, `verify_state`, `list_apps`, `zoom`, and `kill_app` became agent-facing on 2026-09-17 under per-action approval and Synara-side read-back (`docs/computer-use-cua/capability-audit-2026-09-16.md` "2026-09-17 update"). The README states the local capability is a boundary against accidental authority inheritance, not a sandbox against same user malware (`docs/computer-use-cua/README.md:54`). A regulator style audit log, a user visible kill switch, a password manager denylist, and per app always allow rules are unverified in the tree. This spec treats them as build items, not as present facts.
+Guardrails exist in part. Control is disabled by default for new conversations (`docs/computer-use-cua/README.md:46`). Foreground operations always need explicit per action approval (`docs/computer-use-cua/README.md:52`). The approval gate caps pending consent at 128 global and 8 per thread (`apps/server/src/computer/ComputerApprovalGate.ts:18`). The desktop pauses input on screen lock, sleep, and session resign (`apps/desktop/src/computerDesktopLifecycle.ts:27`). Raw session tools, raw recording tools, driver configuration, cursor ownership, and the browser family are deliberately not agent facing; `invoke_menu`, `set_window_frame`, `verify_state`, `list_apps`, `zoom`, and `kill_app` became agent-facing on 2026-09-17 under per-action approval and Saint-side read-back (`docs/computer-use-cua/capability-audit-2026-09-16.md` "2026-09-17 update"). The README states the local capability is a boundary against accidental authority inheritance, not a sandbox against same user malware (`docs/computer-use-cua/README.md:54`). A regulator style audit log, a user visible kill switch, a password manager denylist, and per app always allow rules are unverified in the tree. This spec treats them as build items, not as present facts.
 
 ## Approach
 
-Ship one open package under a permissive license. Keep Synara product code out of it.
+Ship one open package under a permissive license. Keep Saint product code out of it.
 
 The open package contains four parts. First, the driver patch plus its pin manifest and patch notes. Second, the host protocol: socket framing, capability check, handshake, methods, cancellation protocol, and cleanup acknowledgement semantics. Third, the tool layer contract: the agent facing tool list, targeting and approval semantics, effect taxonomy (`not-dispatched`, `dispatched-unknown`, `verified`), and the Space and freshness refusal rules. Fourth, the docs: README, permission guide, capability audit, qualification records, and evidence ledgers.
 
-License the package MIT or Apache 2.0. MIT matches both parent licenses already in the tree. Keep `CUA-LICENSE.txt` attribution in every copy. Record the Synara side as MIT too, with its current holders. The exact pick is an open decision below.
+License the package MIT or Apache 2.0. MIT matches both parent licenses already in the tree. Keep `CUA-LICENSE.txt` attribution in every copy. Record the Saint side as MIT too, with its current holders. The exact pick is an open decision below.
 
-For trycua/cua fixes, use two paths. Small general fixes go upstream as contributions to trycua/cua where they stand alone. The Synara native patch stays a checked in patch file with a pin manifest, as today. Never fork silently. When a fix lands upstream, rebase the patch and record it the way revision 15 is recorded. Which fixes go upstream first is per case and needs maintainer review on the Synara side before sending.
+For trycua/cua fixes, use two paths. Small general fixes go upstream as contributions to trycua/cua where they stand alone. The Saint native patch stays a checked in patch file with a pin manifest, as today. Never fork silently. When a fix lands upstream, rebase the patch and record it the way revision 15 is recorded. Which fixes go upstream first is per case and needs maintainer review on the Saint side before sending.
 
 These guardrails ship WITH the code, not after it. Visible session state: the user always sees when an agent session is active and which app it targets. Per app approvals: allow, always allow, and deny, with launch approvals. Denylist: password managers and similar sensitive surfaces are refused or need explicit per step consent. Audit log: every mutating action is recorded with target, time, and effect. Kill switch: one action stops all agent input immediately, including physical Escape where the platform allows it. No evasion: no anti detection tricks, no hidden operation, no masking that hides activity from the user. No TCC bypass: the package never routes around Accessibility or Screen Recording consent, and protected prompts stay synthetic input free. Disclosure process: if a consent bypass class bug is ever found, it is reported through a documented channel, fixed first, and disclosed after the fix ships.
 
@@ -38,23 +38,23 @@ The malware risk conclusion is carried per handoff section 5.7 and is unverified
 
 The open package is defined by files, not by prose. An auditor checks each row.
 
-| Interface        | File                                                       | Role                                                   |
-| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
-| Native patch     | `apps/desktop/patches/cua-driver/0001-synara-native.patch` | All Synara native changes on the pinned driver         |
-| Pin manifest     | `packages/shared/src/cuaDriverRelease.json`                | Version, source, checksums, native revision, toolchain |
-| Host protocol    | `packages/shared/src/cuaDriverProtocol.ts`                 | Socket, handshake, methods, cancellation, cleanup ack  |
-| Desktop host     | `apps/desktop/src/cuaDriverHost.ts`                        | Child lifetime, generation retirement, allowlist       |
-| Lifecycle gates  | `apps/desktop/src/computerDesktopLifecycle.ts`             | Pause on lock, sleep, session resign                   |
-| Approval gate    | `apps/server/src/computer/ComputerApprovalGate.ts`         | Consent rendezvous, queue caps                         |
-| Tool surface     | `apps/server/src/agentGateway/computerTools.ts`            | Agent facing tools and approval routing                |
-| Backend          | `apps/server/src/computer/CuaComputerBackend.ts`           | Targeting, geometry, effect semantics                  |
-| Orchestration    | `apps/server/src/computer/ComputerManager.ts`              | Leases, scheduling, Space policy                       |
-| Upstream license | `docs/computer-use-cua/CUA-LICENSE.txt`                    | Cua attribution, MIT text                              |
-| Repo license     | `LICENSE`                                                  | Synara MIT text and holders                            |
-| Capability audit | `docs/computer-use-cua/capability-audit-2026-09-16.md`     | What is exposed and what is deliberately withheld      |
-| Overview         | `docs/computer-use-cua/README.md`                          | Contracts, limits, setup, provenance                   |
-| Provenance       | `docs/computer-use-cua/import-provenance.json`             | Imported heads and paths                               |
-| Parity matrix    | `docs/computer-use-cua/v2-parity-matrix.md`                | Parity claims, gaps, targets, evidence                 |
+| Interface        | File                                                      | Role                                                   |
+| ---------------- | --------------------------------------------------------- | ------------------------------------------------------ |
+| Native patch     | `apps/desktop/patches/cua-driver/0001-saint-native.patch` | All Saint native changes on the pinned driver          |
+| Pin manifest     | `packages/shared/src/cuaDriverRelease.json`               | Version, source, checksums, native revision, toolchain |
+| Host protocol    | `packages/shared/src/cuaDriverProtocol.ts`                | Socket, handshake, methods, cancellation, cleanup ack  |
+| Desktop host     | `apps/desktop/src/cuaDriverHost.ts`                       | Child lifetime, generation retirement, allowlist       |
+| Lifecycle gates  | `apps/desktop/src/computerDesktopLifecycle.ts`            | Pause on lock, sleep, session resign                   |
+| Approval gate    | `apps/server/src/computer/ComputerApprovalGate.ts`        | Consent rendezvous, queue caps                         |
+| Tool surface     | `apps/server/src/agentGateway/computerTools.ts`           | Agent facing tools and approval routing                |
+| Backend          | `apps/server/src/computer/CuaComputerBackend.ts`          | Targeting, geometry, effect semantics                  |
+| Orchestration    | `apps/server/src/computer/ComputerManager.ts`             | Leases, scheduling, Space policy                       |
+| Upstream license | `docs/computer-use-cua/CUA-LICENSE.txt`                   | Cua attribution, MIT text                              |
+| Repo license     | `LICENSE`                                                 | Saint MIT text and holders                             |
+| Capability audit | `docs/computer-use-cua/capability-audit-2026-09-16.md`    | What is exposed and what is deliberately withheld      |
+| Overview         | `docs/computer-use-cua/README.md`                         | Contracts, limits, setup, provenance                   |
+| Provenance       | `docs/computer-use-cua/import-provenance.json`            | Imported heads and paths                               |
+| Parity matrix    | `docs/computer-use-cua/v2-parity-matrix.md`               | Parity claims, gaps, targets, evidence                 |
 
 Anything not in this table and not listed in the Approach section stays product code. If a new file is needed for the open package, add it to this table first.
 
@@ -117,7 +117,7 @@ Kartik decides the boundary. Each item has a recommendation and a safe default. 
 7. Audit log retention. Recommendation: local only, bounded size, documented in the privacy note. Safe default: shortest retention that still supports abuse review, documented the same way.
 8. Kill switch form. Recommendation: visible stop control plus physical Escape handling. Safe default: visible stop control only, Escape as a fast follow.
 9. Locked use and history. Recommendation: out of v1, per gap item 14, until safety and privacy decisions land. Safe default: out, with raw tools staying internal.
-10. Release reuse. Recommendation: decide whether the open package reuses the Synara release workflow or gets its own signed pipeline. Safe default: no open binaries until signing and provenance for the new repo are proven. Docs and source only.
+10. Release reuse. Recommendation: decide whether the open package reuses the Saint release workflow or gets its own signed pipeline. Safe default: no open binaries until signing and provenance for the new repo are proven. Docs and source only.
 
 ## Implementer brief
 

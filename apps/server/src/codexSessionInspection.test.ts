@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { EventId, ThreadId } from "@synara/contracts";
+import { EventId, ThreadId } from "@saint/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Effect, Fiber, type Semaphore, Stream } from "effect";
 import { afterEach, expect, it, vi } from "vitest";

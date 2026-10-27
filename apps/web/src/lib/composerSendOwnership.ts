@@ -1,6 +1,6 @@
 // Composer sends outlive route changes, including worktree preparation. Keep
 // ownership by thread until the whole attempt settles, with no time-based expiry.
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 const sendsByThreadId = new Map<ThreadId, Promise<boolean>>();
 const listeners = new Set<() => void>();

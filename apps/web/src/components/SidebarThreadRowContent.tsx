@@ -4,8 +4,8 @@
 
 import type { ReactNode } from "react";
 
-import { isGenericChatThreadTitle } from "@synara/shared/chatThreads";
-import { pluralize } from "@synara/shared/text";
+import { isGenericChatThreadTitle } from "@saint/shared/chatThreads";
+import { pluralize } from "@saint/shared/text";
 
 import { useThreadHasPendingDraft } from "../composerDraftStore";
 import { resolveThreadHandoffBadgeLabel } from "../lib/threadHandoff";

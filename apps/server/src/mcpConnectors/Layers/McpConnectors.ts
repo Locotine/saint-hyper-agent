@@ -7,7 +7,7 @@
  *
  * @module mcpConnectors/Layers/McpConnectors
  */
-import { MCP_CONNECTORS_BETA_FEATURE } from "@synara/shared/betaFeatures";
+import { MCP_CONNECTORS_BETA_FEATURE } from "@saint/shared/betaFeatures";
 import { Effect, Layer } from "effect";
 
 import { version } from "../../../package.json" with { type: "json" };
@@ -75,7 +75,7 @@ export const makeMcpConnectors = (options: { readonly enabled?: boolean } = {}) 
         enabled
           ? Effect.tryPromise({
               try: () => runtime.connect(input),
-              catch: toConnectorError("Synara could not connect this server."),
+              catch: toConnectorError("Saint could not connect this server."),
             })
           : unavailable,
       setup: () =>
@@ -88,7 +88,7 @@ export const makeMcpConnectors = (options: { readonly enabled?: boolean } = {}) 
         enabled
           ? Effect.tryPromise({
               try: () => runtime.disconnect(connectorId),
-              catch: toConnectorError("Synara could not disconnect this server."),
+              catch: toConnectorError("Saint could not disconnect this server."),
             })
           : unavailable,
       completeAuthorization: (query) =>
@@ -98,20 +98,20 @@ export const makeMcpConnectors = (options: { readonly enabled?: boolean } = {}) 
                 Effect.succeed({
                   ok: false as const,
                   title: "Connection failed",
-                  message: "Synara could not finish the sign-in. Try connecting again.",
+                  message: "Saint could not finish the sign-in. Try connecting again.",
                 }),
               ),
             )
           : Effect.succeed({
               ok: false as const,
               title: "Connectors are unavailable",
-              message: "This version of Synara does not support connectors.",
+              message: "This version of Saint does not support connectors.",
             }),
       forward: (connectorId, request) =>
         Effect.tryPromise((signal) => runtime.forward(connectorId, { ...request, signal })).pipe(
           Effect.catch(() =>
             Effect.succeed(
-              jsonRpcErrorResult(request.body, "Synara could not forward this request."),
+              jsonRpcErrorResult(request.body, "Saint could not forward this request."),
             ),
           ),
         ),

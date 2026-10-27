@@ -1,11 +1,11 @@
 ---
 title: Thread goals
-description: Give a task a durable objective, control autonomous continuation, and understand when Synara pauses or completes the goal.
+description: Give a task a durable objective, control autonomous continuation, and understand when Saint pauses or completes the goal.
 ---
 
 A thread goal is an explicit, persistent objective attached to one task. It stays visible above the composer, carries across turns and restarts, and gives supported agents a durable definition of what they are trying to finish.
 
-Use a goal when the work genuinely spans several turns and you want Synara to keep pursuing the same outcome. Do not use one for every ordinary prompt: a goal can start follow-up turns automatically, so it should reflect deliberate user intent.
+Use a goal when the work genuinely spans several turns and you want Saint to keep pursuing the same outcome. Do not use one for every ordinary prompt: a goal can start follow-up turns automatically, so it should reflect deliberate user intent.
 
 ## Set a goal
 
@@ -40,7 +40,7 @@ The same actions are available from the composer:
 
 ## How continuation works
 
-After a clean turn completes, Synara can start another turn to continue an eligible active goal. The continuation uses the same provider-independent orchestration path rather than provider-specific hidden prompts.
+After a clean turn completes, Saint can start another turn to continue an eligible active goal. The continuation uses the same provider-independent orchestration path rather than provider-specific hidden prompts.
 
 Automatic continuation yields to higher-priority work and gates. It does not start while the task has queued user work, a pending approval or question, an incompatible Plan-mode decision, or another active turn. Interruptions, provider failures, timeouts, and explicit pauses stop continuation instead of immediately resurrecting the task.
 
@@ -51,9 +51,9 @@ Automatic continuation yields to higher-priority work and gates. It does not sta
 
 ## Achievement and blocked goals
 
-When the agent completes the objective through Synara's goal-aware tool path, the active goal is cleared and an achievement badge is attached to the completing turn with the recorded elapsed time.
+When the agent completes the objective through Saint's goal-aware tool path, the active goal is cleared and an achievement badge is attached to the completing turn with the recorded elapsed time.
 
-If the same external blocker prevents meaningful progress for three consecutive goal turns, a goal-aware agent can mark the goal blocked. Synara pauses it rather than generating an endless retry loop. Difficulty, incomplete work, or a useful clarifying question are not enough on their own to classify a goal as blocked.
+If the same external blocker prevents meaningful progress for three consecutive goal turns, a goal-aware agent can mark the goal blocked. Saint pauses it rather than generating an endless retry loop. Difficulty, incomplete work, or a useful clarifying question are not enough on their own to classify a goal as blocked.
 
 You can resume a blocked or manually paused goal after the external condition changes.
 
@@ -74,4 +74,4 @@ A goal belongs to its task. A [provider handoff](/docs/workflows/handoffs) conti
 
 Native clients discover visible-start support from the host; older hosts retain their existing goal path without re-pairing.
 
-Source evidence for 1.0.9: Synara release `ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`; `docs/releases/1.0.9-source-audit.md`, `docs/providers.md`, `docs/core-concepts.md`, `docs/editor/intelligence.md`, `docs/mcp-connectors.md`, `apps/server/src/persistence/MigrationBackup.ts` and `docs/release.md`.
+Source evidence for 1.0.9: Saint release `ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3`; `docs/releases/1.0.9-source-audit.md`, `docs/providers.md`, `docs/core-concepts.md`, `docs/editor/intelligence.md`, `docs/mcp-connectors.md`, `apps/server/src/persistence/MigrationBackup.ts` and `docs/release.md`.

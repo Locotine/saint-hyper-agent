@@ -98,7 +98,7 @@ function launchFixture(input: {
 
 describePosix("POSIX desktop backend shutdown integration", () => {
   it("reaps an owned provider descendant through the authenticated graceful path", async () => {
-    const directory = await FsPromises.mkdtemp(Path.join(OS.tmpdir(), "synara-posix-shutdown-"));
+    const directory = await FsPromises.mkdtemp(Path.join(OS.tmpdir(), "saint-posix-shutdown-"));
     const readyPath = Path.join(directory, "ready.json");
     const signalPath = Path.join(directory, "signals.log");
     const shutdownToken = Crypto.randomBytes(32).toString("hex");
@@ -136,7 +136,7 @@ describePosix("POSIX desktop backend shutdown integration", () => {
   }, 15_000);
 
   it("bounds a stubborn backend with TERM followed by KILL", async () => {
-    const directory = await FsPromises.mkdtemp(Path.join(OS.tmpdir(), "synara-posix-stubborn-"));
+    const directory = await FsPromises.mkdtemp(Path.join(OS.tmpdir(), "saint-posix-stubborn-"));
     const readyPath = Path.join(directory, "ready.json");
     const signalPath = Path.join(directory, "signals.log");
     const shutdownToken = Crypto.randomBytes(32).toString("hex");

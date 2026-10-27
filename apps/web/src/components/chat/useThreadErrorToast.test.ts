@@ -3,8 +3,8 @@
 // Layer: Chat status presentation tests
 // Depends on: the toast option builder and the provider-delivery block format.
 
-import { ThreadId } from "@synara/contracts";
-import { formatProviderDeliveryBlockDetail } from "@synara/shared/providerDeliveryBlock";
+import { ThreadId } from "@saint/contracts";
+import { formatProviderDeliveryBlockDetail } from "@saint/shared/providerDeliveryBlock";
 import { describe, expect, it } from "vitest";
 
 import {

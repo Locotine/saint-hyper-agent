@@ -3,7 +3,7 @@
 Provenance: driver 0.28.2 / native rev 20 (packaged binary
 `apps/desktop/resources/cua-driver/cua-driver`), external trusted
 `CuaDriverHost` (shell-ancestry TCC). Host socket
-`/tmp/.../synara-cua-mWE552/host.sock`.
+`/tmp/.../saint-cua-mWE552/host.sock`.
 
 ## Setup
 
@@ -28,7 +28,7 @@ confirmed`, `route: accessibility`, wall 2539 ms — inside the 6 s human
 ## Independent verification (System Events reads)
 
 - Background doc (pid 39784 wid 815):
-  `AGENT-BG-TYPES-WHILE-HUMAN-TYPES-FRONT||CONCURRENT-AGENT-STREAM||synara-live-e2e`
+  `AGENT-BG-TYPES-WHILE-HUMAN-TYPES-FRONT||CONCURRENT-AGENT-STREAM||saint-live-e2e`
   — only agent text appended to prior residue; **zero human keystroke
   leakage**.
 - Front doc (pid 39737 wid 801):
@@ -52,6 +52,6 @@ background targets; this run covers the operator+agent interleave.
   Keystroke-level background typing (`pid_keyboard`) is refused by policy
   when the target pid has multiple windows (`same_pid_keyboard_ambiguity`)
   and was not the route exercised here.
-- The stray `synara-live-e2e` / `OFF-SPACE-92227` residue in the documents
+- The stray `saint-live-e2e` / `OFF-SPACE-92227` residue in the documents
   is TextEdit unsaved-document restoration from the earlier live sessions —
   not contamination; the newly appended segments are exactly disjoint.

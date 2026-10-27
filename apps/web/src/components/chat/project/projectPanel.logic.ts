@@ -1,8 +1,8 @@
-import type { ProjectDigestFocusItem, ThreadId } from "@synara/contracts";
+import type { ProjectDigestFocusItem, ThreadId } from "@saint/contracts";
 import {
   sanitizeProjectDigestFocusTitle,
   sanitizeProjectDigestSummary,
-} from "@synara/shared/projectAgent";
+} from "@saint/shared/projectAgent";
 
 export { sanitizeProjectDigestFocusTitle, sanitizeProjectDigestSummary };
 
@@ -34,7 +34,7 @@ export function rewriteThreadIdsAsMarkdownLinks(
 ): string {
   if (text.length === 0) return text;
   let next = text;
-  // Coordinator messages sometimes cite threads as `[label](synara://thread/<title>)`
+  // Coordinator messages sometimes cite threads as `[label](saint://thread/<title>)`
   // — with raw spaces in the target — which markdown cannot parse at all.
   // Resolve the target (id or title, raw or %-encoded) into a `thread://` link
   // when it names a known thread; otherwise %-encode it so it still renders.
@@ -45,7 +45,7 @@ export function rewriteThreadIdsAsMarkdownLinks(
     if (title.length > 0) threadByKey.set(title.toLowerCase(), thread);
   }
   next = next.replace(
-    /\[([^\]]+)\]\(synara:\/\/thread\/([^)\s]+(?:\s[^)\s]+)*)\)/g,
+    /\[([^\]]+)\]\(saint:\/\/thread\/([^)\s]+(?:\s[^)\s]+)*)\)/g,
     (match, label: string, target: string) => {
       let decoded = target;
       try {
@@ -56,7 +56,7 @@ export function rewriteThreadIdsAsMarkdownLinks(
       const thread = threadByKey.get(decoded.toLowerCase());
       return thread
         ? `[${label}](thread://${thread.id})`
-        : `[${label}](synara://thread/${encodeURIComponent(decoded)})`;
+        : `[${label}](saint://thread/${encodeURIComponent(decoded)})`;
     },
   );
   for (const thread of threads) {

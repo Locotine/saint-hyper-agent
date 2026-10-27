@@ -1,5 +1,5 @@
 import { runInNewContext } from "node:vm";
-import { BrowserUploadTarget } from "@synara/contracts";
+import { BrowserUploadTarget } from "@saint/contracts";
 import { Schema } from "effect";
 import { describe, expect, it, vi } from "vitest";
 import { betterwrightLocator } from "./betterwrightLocator";

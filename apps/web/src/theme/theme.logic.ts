@@ -7,7 +7,7 @@ import {
   DESKTOP_WINDOW_BLUR_RADIUS_MAX,
   DESKTOP_WINDOW_BLUR_RADIUS_MIN,
   type DesktopWindowTranslucency,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { THEME_SEED_CATALOG } from "./theme.seed.generated";
 import {
   normalizeFontFamilyCssValue,
@@ -169,7 +169,7 @@ const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const THEME_SHARE_PREFIX = "codex-theme-v1:";
 const CONTRAST_CURVE_BELOW_BASELINE = 0.7;
 const CONTRAST_CURVE_ABOVE_BASELINE = 2;
-// Keep Codex's original curve anchors even though Synara presets start at zero.
+// Keep Codex's original curve anchors even though Saint presets start at zero.
 // This makes the new default render exactly like manually moving the old slider to zero.
 const CONTRAST_CURVE_BASELINE: Record<ThemeVariant, number> = {
   dark: 60,
@@ -226,8 +226,8 @@ const CODE_THEME_SEED_PATCH_METADATA: Partial<
     dark: { contrast: true, fonts: { code: true, ui: true }, opaqueWindows: true },
     light: { contrast: true, fonts: { code: true, ui: true }, opaqueWindows: true },
   },
-  synara: {
-    // Selecting Synara explicitly applies the complete Codex-based preset, including
+  saint: {
+    // Selecting Saint explicitly applies the complete Codex-based preset, including
     // its native fonts and translucent material, rather than retaining Linear's style.
     dark: { contrast: true, fonts: { code: true, ui: true }, opaqueWindows: true },
     light: { contrast: true, fonts: { code: true, ui: true }, opaqueWindows: true },
@@ -241,7 +241,7 @@ export const CODE_THEME_OPTIONS: readonly CodeThemeOption[] = [
   { id: "ayu", label: "Ayu", variants: ["dark"] },
   { id: "catppuccin", label: "Catppuccin", variants: ["light", "dark"] },
   { id: "codex", label: "Codex", variants: ["light", "dark"] },
-  { id: "synara", label: "Synara", variants: ["light", "dark"] },
+  { id: "saint", label: "Saint", variants: ["light", "dark"] },
   { id: "dracula", label: "Dracula", variants: ["dark"] },
   { id: "everforest", label: "Everforest", variants: ["light", "dark"] },
   { id: "github", label: "GitHub", variants: ["light", "dark"] },
@@ -333,12 +333,12 @@ const OVERLAY_OPACITY = 55;
 
 export const DEFAULT_THEME_STATE: ThemeState = {
   chromeThemes: {
-    dark: getCodeThemeSeed("synara", "dark"),
-    light: getCodeThemeSeed("synara", "light"),
+    dark: getCodeThemeSeed("saint", "dark"),
+    light: getCodeThemeSeed("saint", "light"),
   },
   codeThemeIds: {
-    dark: "synara",
-    light: "synara",
+    dark: "saint",
+    light: "saint",
   },
   systemUiFont: true,
   mode: "system",
@@ -473,7 +473,7 @@ function hasStoredCustomUiFont(state: Record<string, unknown>): boolean {
 
 export function normalizeThemeState(value: unknown): ThemeState {
   // Missing fields in an existing store keep the old Codex defaults. Only a missing
-  // store or an explicit reset opts into the new Synara defaults.
+  // store or an explicit reset opts into the new Saint defaults.
   const state = isRecord(value) ? value : {};
   const codeThemeIds = isRecord(state.codeThemeIds) ? state.codeThemeIds : {};
   const chromeThemes = isRecord(state.chromeThemes) ? state.chromeThemes : {};

@@ -11,7 +11,7 @@
 // same query the Computer settings panel owns and returns whatever it has
 // fetched, or undefined.
 
-import type { ComputerStatusResult } from "@synara/contracts";
+import type { ComputerStatusResult } from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 
 import { computerStatusQueryOptions } from "~/lib/serverReactQuery";

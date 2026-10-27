@@ -9,7 +9,7 @@
 // through GitCore; on settle we invalidate the per-cwd git caches so both lists stay in sync.
 
 import { type FileDiffMetadata } from "@pierre/diffs/react";
-import { type ProjectId, type ThreadId } from "@synara/contracts";
+import { type ProjectId, type ThreadId } from "@saint/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
@@ -314,7 +314,7 @@ export function GitPanel(props: {
       <div className="flex max-h-[48%] min-h-0 shrink-0 flex-col gap-2 overflow-auto px-1.5 py-2">
         {truncated ? (
           <DiffTruncationWarning>
-            Synara stopped reading source-control changes at the diff size limit. Some files or
+            Saint stopped reading source-control changes at the diff size limit. Some files or
             changes may be missing; bulk actions only affect the files shown.
           </DiffTruncationWarning>
         ) : null}

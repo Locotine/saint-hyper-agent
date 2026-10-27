@@ -4,15 +4,15 @@
 
 import path from "node:path";
 
-import type { ProviderKind, ServerSettings } from "@synara/contracts";
+import type { ProviderKind, ServerSettings } from "@saint/contracts";
 import {
   PROVIDER_CLI_COMMAND_BY_KIND,
   providerCliCommandName,
-} from "@synara/shared/providerCliProfiles";
+} from "@saint/shared/providerCliProfiles";
 import {
   deriveProviderInstances,
   providerProfileDirectoryEnvironment,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 
 import { buildCodexProcessEnv } from "../codexProcessEnv.ts";
 import { resolveExecutable } from "../executableLookup.ts";

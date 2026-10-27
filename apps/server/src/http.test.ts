@@ -1,5 +1,5 @@
 import { ServerEventLoopMonitor, unavailableEventLoopStatus } from "./eventLoopMonitor";
-import type { ServerRuntimeStatus } from "@synara/contracts";
+import type { ServerRuntimeStatus } from "@saint/contracts";
 import http from "node:http";
 import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -63,7 +63,7 @@ function makeTempDir(prefix: string): string {
 }
 
 function makeConfig(overrides: Partial<ServerConfigShape> = {}): ServerConfigShape {
-  const baseDir = makeTempDir("synara-effect-http-");
+  const baseDir = makeTempDir("saint-effect-http-");
   return {
     mode: "web",
     port: 0,
@@ -254,7 +254,7 @@ describe("production Effect HTTP routes", () => {
     ).toBe(false);
     expect(
       isLegacyTokenAuthorized({
-        config: { ...loopback, publicUrl: new URL("https://synara.example.test/") },
+        config: { ...loopback, publicUrl: new URL("https://saint.example.test/") },
         url: new URL("http://127.0.0.1/attachments/id?token=desktop-secret"),
       }),
     ).toBe(false);
@@ -322,7 +322,7 @@ describe("production Effect HTTP routes", () => {
           { method: "POST", headers: { Authorization: `Bearer ${"b".repeat(64)}` } },
           { method: "POST", headers: { Authorization: "Basic browser-token" } },
           { method: "POST", headers: { Authorization: "Bearer browser-token" } },
-          { method: "POST", headers: { Cookie: "synara_session=browser-session" } },
+          { method: "POST", headers: { Cookie: "saint_session=browser-session" } },
         ];
 
         for (const request of requests) {
@@ -346,7 +346,7 @@ describe("production Effect HTTP routes", () => {
       { mode: "web" },
       { mode: "desktop", host: "0.0.0.0", allowInsecureRemote: true },
       { mode: "desktop", host: "192.168.1.50", allowInsecureRemote: true },
-      { mode: "desktop", publicUrl: new URL("https://synara.example.test/") },
+      { mode: "desktop", publicUrl: new URL("https://saint.example.test/") },
       { mode: "desktop", desktopShutdownToken: undefined },
     ];
 
@@ -462,7 +462,7 @@ describe("production Effect HTTP routes", () => {
     for (const overrides of [
       { mode: "web" as const },
       { mode: "desktop" as const, host: "0.0.0.0", allowInsecureRemote: true },
-      { mode: "desktop" as const, publicUrl: new URL("https://synara.example.test/") },
+      { mode: "desktop" as const, publicUrl: new URL("https://saint.example.test/") },
       { mode: "desktop" as const, desktopShutdownToken: undefined },
     ]) {
       await withEffectServer(
@@ -506,26 +506,26 @@ describe("production Effect HTTP routes", () => {
       },
     );
 
-    const staticDir = makeTempDir("synara-effect-static-");
+    const staticDir = makeTempDir("saint-effect-static-");
     mkdirSync(path.join(staticDir, "assets"), { recursive: true });
-    writeFileSync(path.join(staticDir, "index.html"), "<main>Synara shell</main>");
-    writeFileSync(path.join(staticDir, "assets", "app.js"), "globalThis.synara = true;");
+    writeFileSync(path.join(staticDir, "index.html"), "<main>Saint shell</main>");
+    writeFileSync(path.join(staticDir, "assets", "app.js"), "globalThis.saint = true;");
     await withEffectServer(makeConfig({ staticDir }), { kind: "static" }, async (origin) => {
       const asset = await fetch(`${origin}/assets/app.js`);
       expect(asset.status).toBe(200);
-      await expect(asset.text()).resolves.toContain("globalThis.synara");
+      await expect(asset.text()).resolves.toContain("globalThis.saint");
 
       const fallback = await fetch(`${origin}/chat/thread-id`);
       expect(fallback.status).toBe(200);
       expect(fallback.headers.get("content-type")).toContain("text/html");
-      await expect(fallback.text()).resolves.toContain("Synara shell");
+      await expect(fallback.text()).resolves.toContain("Saint shell");
     });
   });
 
   it("serves precompressed sidecars by Accept-Encoding with identity fallback", async () => {
-    const staticDir = makeTempDir("synara-effect-static-");
+    const staticDir = makeTempDir("saint-effect-static-");
     mkdirSync(path.join(staticDir, "assets"), { recursive: true });
-    const source = "globalThis.synara = true;".repeat(64);
+    const source = "globalThis.saint = true;".repeat(64);
     writeFileSync(path.join(staticDir, "assets", "app-abc123.js"), source);
     writeFileSync(path.join(staticDir, "assets", "app-abc123.js.gz"), zlib.gzipSync(source));
     writeFileSync(
@@ -581,10 +581,10 @@ describe("production Effect HTTP routes", () => {
   });
 
   it("refuses symlinks that escape the static root", async () => {
-    const parentDir = makeTempDir("synara-effect-static-");
+    const parentDir = makeTempDir("saint-effect-static-");
     const staticDir = path.join(parentDir, "static");
     mkdirSync(path.join(staticDir, "assets"), { recursive: true });
-    writeFileSync(path.join(staticDir, "index.html"), "<main>Synara shell</main>");
+    writeFileSync(path.join(staticDir, "index.html"), "<main>Saint shell</main>");
     const secretPath = path.join(parentDir, "secret.js");
     writeFileSync(secretPath, "outside root");
     writeFileSync(`${secretPath}.gz`, zlib.gzipSync("outside root"));
@@ -612,10 +612,10 @@ describe("production Effect HTTP routes", () => {
   });
 
   it("returns 406 when no acceptable encoding exists and identity is excluded", async () => {
-    const staticDir = makeTempDir("synara-effect-static-");
+    const staticDir = makeTempDir("saint-effect-static-");
     mkdirSync(path.join(staticDir, "assets"), { recursive: true });
-    const source = "globalThis.synara = true;".repeat(64);
-    writeFileSync(path.join(staticDir, "index.html"), "<main>Synara shell</main>");
+    const source = "globalThis.saint = true;".repeat(64);
+    writeFileSync(path.join(staticDir, "index.html"), "<main>Saint shell</main>");
     writeFileSync(path.join(staticDir, "assets", "plain-def456.js"), source);
 
     await withEffectServer(makeConfig({ staticDir }), { kind: "static" }, async (origin) => {
@@ -637,10 +637,10 @@ describe("production Effect HTTP routes", () => {
   });
 
   it("revalidates with ETags and answers matching conditionals with 304", async () => {
-    const staticDir = makeTempDir("synara-effect-static-");
+    const staticDir = makeTempDir("saint-effect-static-");
     mkdirSync(path.join(staticDir, "assets"), { recursive: true });
-    const source = "globalThis.synara = true;".repeat(64);
-    writeFileSync(path.join(staticDir, "index.html"), "<main>Synara shell</main>");
+    const source = "globalThis.saint = true;".repeat(64);
+    writeFileSync(path.join(staticDir, "index.html"), "<main>Saint shell</main>");
     writeFileSync(path.join(staticDir, "assets", "app-abc123.js"), source);
     writeFileSync(path.join(staticDir, "assets", "app-abc123.js.gz"), zlib.gzipSync(source));
 
@@ -675,10 +675,10 @@ describe("production Effect HTTP routes", () => {
   });
 
   it("marks hashed assets immutable and keeps index.html revalidating", async () => {
-    const staticDir = makeTempDir("synara-effect-static-");
+    const staticDir = makeTempDir("saint-effect-static-");
     mkdirSync(path.join(staticDir, "assets"), { recursive: true });
-    writeFileSync(path.join(staticDir, "index.html"), "<main>Synara shell</main>");
-    writeFileSync(path.join(staticDir, "assets", "app-abc123.js"), "globalThis.synara = true;");
+    writeFileSync(path.join(staticDir, "index.html"), "<main>Saint shell</main>");
+    writeFileSync(path.join(staticDir, "assets", "app-abc123.js"), "globalThis.saint = true;");
 
     await withEffectServer(makeConfig({ staticDir }), { kind: "static" }, async (origin) => {
       const asset = await fetch(`${origin}/assets/app-abc123.js`);
@@ -694,10 +694,10 @@ describe("production Effect HTTP routes", () => {
   });
 
   it("rejects traversal attempts including sidecar-shaped paths", async () => {
-    const parentDir = makeTempDir("synara-effect-static-");
+    const parentDir = makeTempDir("saint-effect-static-");
     const staticDir = path.join(parentDir, "static");
     mkdirSync(staticDir, { recursive: true });
-    writeFileSync(path.join(staticDir, "index.html"), "<main>Synara shell</main>");
+    writeFileSync(path.join(staticDir, "index.html"), "<main>Saint shell</main>");
     writeFileSync(path.join(parentDir, "secret.js"), "outside root");
     writeFileSync(path.join(parentDir, "secret.js.gz"), zlib.gzipSync("outside root"));
     writeFileSync(path.join(parentDir, "secret.js.br"), zlib.brotliCompressSync("outside root"));
@@ -744,7 +744,7 @@ describe("production Effect HTTP routes", () => {
         expect([200, 400, 404], traversal).toContain(response.status);
         expect(response.body, traversal).not.toContain("outside root");
         if (response.status === 200) {
-          expect(response.body, traversal).toContain("Synara shell");
+          expect(response.body, traversal).toContain("Saint shell");
         }
       }
     });
@@ -768,7 +768,7 @@ describe("production Effect HTTP routes", () => {
   });
 
   it("serves a project logo with the desktop startup token without a browser session", async () => {
-    const projectCwd = makeTempDir("synara-effect-favicon-");
+    const projectCwd = makeTempDir("saint-effect-favicon-");
     const faviconPath = path.join(projectCwd, "apps", "web", "public", "favicon.svg");
     mkdirSync(path.dirname(faviconPath), { recursive: true });
     const logo =
@@ -802,8 +802,8 @@ describe("production Effect HTTP routes", () => {
   it.each(["html declaration", "icon symlink", "declaration symlink", "app symlink"])(
     "does not serve unsafe project logo content: %s",
     async (scenario) => {
-      const projectCwd = makeTempDir("synara-effect-favicon-boundary-");
-      const outsideCwd = makeTempDir("synara-effect-favicon-outside-");
+      const projectCwd = makeTempDir("saint-effect-favicon-boundary-");
+      const outsideCwd = makeTempDir("saint-effect-favicon-outside-");
       const marker = "outside project marker";
       if (scenario === "html declaration") {
         writeFileSync(
@@ -841,8 +841,8 @@ describe("production Effect HTTP routes", () => {
   it.each(["svg", "png", "ico"])(
     "serves only sandboxed image responses through an in-project link: %s",
     async (extension) => {
-      const projectCwd = makeTempDir("synara-effect-favicon-image-");
-      const projectLink = path.join(makeTempDir("synara-effect-favicon-alias-"), "project");
+      const projectCwd = makeTempDir("saint-effect-favicon-image-");
+      const projectLink = path.join(makeTempDir("saint-effect-favicon-alias-"), "project");
       symlinkSync(projectCwd, projectLink, "dir");
       const iconPath = path.join(projectCwd, `brand.${extension}`);
       const logo =
@@ -871,7 +871,7 @@ describe("production Effect HTTP routes", () => {
 
   it.each([
     { host: "0.0.0.0", allowInsecureRemote: true },
-    { publicUrl: new URL("https://synara.example.test/") },
+    { publicUrl: new URL("https://saint.example.test/") },
   ])("requires a browser session for project logos on an exposed server: %j", async (overrides) => {
     await withEffectServer(
       makeConfig({ authToken: "desktop-secret", ...overrides }),

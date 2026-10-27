@@ -1,4 +1,4 @@
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { useEffect } from "react";
 import {
   type ComposerImageAttachment,

@@ -1,4 +1,4 @@
-// Purpose: Dismissible empty-landing promotion that opens Synara's sponsorship page.
+// Purpose: Dismissible empty-landing promotion that opens Saint's sponsorship page.
 
 import { Schema } from "effect";
 
@@ -7,7 +7,7 @@ import { StarIcon, XIcon } from "~/lib/icons";
 import { openExternalLink } from "~/lib/linkChips";
 import { cn } from "~/lib/utils";
 
-const DISMISSED_STORAGE_KEY = "synara:sponsor-landing-banner:dismissed:v1";
+const DISMISSED_STORAGE_KEY = "saint:sponsor-landing-banner:dismissed:v1";
 
 export function SponsorLandingBanner(props: { className?: string }) {
   const [dismissed, setDismissed] = useLocalStorage(DISMISSED_STORAGE_KEY, false, Schema.Boolean);
@@ -27,7 +27,7 @@ export function SponsorLandingBanner(props: { className?: string }) {
           <StarIcon className="size-5" />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-ui font-medium text-foreground">Support Synara</span>
+          <span className="truncate text-ui font-medium text-foreground">Support Saint</span>
           <span className="truncate text-ui text-muted-foreground">
             Explore sponsorships and help fund development
           </span>

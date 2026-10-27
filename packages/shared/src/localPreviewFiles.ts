@@ -65,3 +65,15 @@ export const SUPPORTED_LOCAL_IMAGE_EXTENSION_REGEX: RegExp = (() => {
   );
   return new RegExp(`\\.(?:${escaped.join("|")})$`, "i");
 })();
+
+/**
+ * Rendered HTML previews: `${HTML_PREVIEW_ROUTE_PATH}/<grant>/<path in the file's
+ * folder>`. The grant in the path scopes every request to one folder, so the
+ * page's relative assets (CSS, scripts, images) load without other credentials.
+ */
+export const HTML_PREVIEW_ROUTE_PATH = "/api/html-preview" as const;
+
+export function isHtmlPreviewablePath(filePath: string): boolean {
+  const extension = lowerCaseExtensionOf(filePath);
+  return extension === ".html" || extension === ".htm";
+}

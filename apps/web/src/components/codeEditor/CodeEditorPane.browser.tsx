@@ -1,4 +1,4 @@
-// The editable surface inside Synara: shared buffers, history, layout changes, and the native pickers.
+// The editable surface inside Saint: shared buffers, history, layout changes, and the native pickers.
 import "../../index.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRef, useState } from "react";
@@ -6,8 +6,8 @@ import { page, userEvent } from "vitest/browser";
 import { afterEach, expect, it, vi } from "vitest";
 
 // Resolve the real feature policy as a packaged Stable host, independent of HTTP test hosting.
-vi.mock("@synara/shared/betaFeatures", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@synara/shared/betaFeatures")>()),
+vi.mock("@saint/shared/betaFeatures", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@saint/shared/betaFeatures")>()),
   desktopFlavorFromProtocol: () => "production",
 }));
 import { render } from "vitest-browser-react";
@@ -97,7 +97,7 @@ function mount(
 function activeEditor() {
   const editor = monaco.editor
     .getEditors()
-    .find((item) => item.getModel()?.uri.scheme === "synara-standalone");
+    .find((item) => item.getModel()?.uri.scheme === "saint-standalone");
   if (!editor) throw new Error("The real editable surface has not mounted.");
   return editor;
 }
@@ -107,7 +107,7 @@ async function ready() {
       () =>
         monaco.editor
           .getEditors()
-          .some((item) => item.getModel()?.uri.scheme === "synara-standalone"),
+          .some((item) => item.getModel()?.uri.scheme === "saint-standalone"),
       { timeout: 10_000 },
     )
     .toBe(true);
@@ -193,7 +193,7 @@ it.each([false, true].flatMap((replace) => [13, 18].map((fontSize) => ({ replace
     const editor = await ready();
     editor
       .getDomNode()
-      ?.closest<HTMLElement>(".synara-code-editor")
+      ?.closest<HTMLElement>(".saint-code-editor")
       ?.style.setProperty("--app-font-size-ui", `${fontSize}px`);
     try {
       await editor
@@ -466,7 +466,7 @@ it("retains the same diff model, buffer and undo stack when switching split/unif
   await view.unmount();
 });
 
-it("opens Synara's native command picker without a workbench or second navigation", async () => {
+it("opens Saint's native command picker without a workbench or second navigation", async () => {
   const view = await mount();
   await ready();
   await userEvent.keyboard("{F1}");
@@ -585,7 +585,7 @@ it("collapses a long unchanged diff region behind a bar", async () => {
   client.clear();
 });
 
-it("goes to a typed line from Synara's picker and restores the viewport on cancel", async () => {
+it("goes to a typed line from Saint's picker and restores the viewport on cancel", async () => {
   const view = await mount(false, "const first = 1;\nconst second = 2;\nconst third = 3;\n");
   const editor = await ready();
   editor.setPosition({ lineNumber: 1, column: 1 });

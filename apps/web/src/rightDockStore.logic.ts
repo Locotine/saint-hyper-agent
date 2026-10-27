@@ -4,7 +4,7 @@
 // Exports: dock pane types, default-state factory, and immutable open/close/activate helpers.
 
 import { arrayMove } from "@dnd-kit/sortable";
-import type { ProjectId, ThreadId, TurnId } from "@synara/contracts";
+import type { ProjectId, ThreadId, TurnId } from "@saint/contracts";
 import { resolveTabAfterClose } from "./lib/tabStrip";
 import { isPlainObject, sanitizeStringKeyedRecord } from "./persistedRecord";
 

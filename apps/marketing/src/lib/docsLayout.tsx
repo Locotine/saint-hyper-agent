@@ -14,13 +14,13 @@ export function docsLayoutOptions(): BaseLayoutProps {
       title: (
         <span className="flex items-center gap-2 text-[14px] font-medium tracking-[-0.02em] text-[var(--text-primary)]">
           <Image
-            src="/synara-icon.png"
+            src="/saint-icon.png"
             alt=""
             width={22}
             height={22}
             className="rounded-[5px] border border-[var(--divide)]"
           />
-          Synara
+          Saint
           <span className="rounded-full border border-[var(--divide)] px-2 py-px text-[11px] font-medium tracking-normal text-[var(--text-tertiary)]">
             Docs
           </span>

@@ -1,7 +1,7 @@
 import { ServiceMap } from "effect";
 import type { Effect, Scope } from "effect";
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 export interface SidechatExpiryReactorShape {
   readonly start: Effect.Effect<void, never, Scope.Scope>;
@@ -12,4 +12,4 @@ export interface SidechatExpiryReactorShape {
 export class SidechatExpiryReactor extends ServiceMap.Service<
   SidechatExpiryReactor,
   SidechatExpiryReactorShape
->()("synara/orchestration/Services/SidechatExpiryReactor") {}
+>()("saint/orchestration/Services/SidechatExpiryReactor") {}

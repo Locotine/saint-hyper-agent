@@ -1,5 +1,5 @@
-import { ThreadId, type DesktopAppSnapState } from "@synara/contracts";
-import { COMPUTER_PERMISSION_KINDS } from "@synara/shared/computerGrants";
+import { ThreadId, type DesktopAppSnapState } from "@saint/contracts";
+import { COMPUTER_PERMISSION_KINDS } from "@saint/shared/computerGrants";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useComputerControlModeChange } from "./useComputerControlModeChange";
@@ -24,7 +24,7 @@ function grantState(overrides: Partial<DesktopAppSnapState> = {}): DesktopAppSna
     inputMonitoringPermission: "granted",
     screenRecordingPermission: "granted",
     message: null,
-    appDisplayName: "Synara",
+    appDisplayName: "Saint",
     ...overrides,
   };
 }

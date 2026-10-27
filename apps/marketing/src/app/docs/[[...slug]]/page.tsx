@@ -18,10 +18,10 @@ type DocumentationPageProps = {
   params: Promise<{ slug?: string[] }>;
 };
 
-const FALLBACK_DOCUMENTATION_DESCRIPTION = "Synara product documentation.";
+const FALLBACK_DOCUMENTATION_DESCRIPTION = "Saint product documentation.";
 
 function documentationTitle(pageTitle: string, pageUrl: string) {
-  return pageUrl === "/docs" ? "Synara Documentation" : `${pageTitle} — Synara Docs`;
+  return pageUrl === "/docs" ? "Saint Documentation" : `${pageTitle} — Saint Docs`;
 }
 
 function documentationBreadcrumbs(slug: string[] | undefined, title: string, url: string) {

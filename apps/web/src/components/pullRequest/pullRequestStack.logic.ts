@@ -1,4 +1,4 @@
-import type { PullRequestDetail, PullRequestStack, PullRequestStackEntry } from "@synara/contracts";
+import type { PullRequestDetail, PullRequestStack, PullRequestStackEntry } from "@saint/contracts";
 
 export type PullRequestStackAssessment = {
   readonly label:

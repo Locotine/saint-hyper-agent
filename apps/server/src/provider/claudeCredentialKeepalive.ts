@@ -22,18 +22,18 @@
 // its own Keychain item, so each account runs `claude auth status` in its own
 // launch environment.
 //
-// Opt in:   SYNARA_CLAUDE_KEEPALIVE=1
-// Tune:     SYNARA_CLAUDE_KEEPALIVE_MINUTES=<n>   (default 30)
+// Opt in:   SAINT_CLAUDE_KEEPALIVE=1
+// Tune:     SAINT_CLAUDE_KEEPALIVE_MINUTES=<n>   (default 30)
 
-import { execProcessFile } from "@synara/shared/processRuntime";
+import { execProcessFile } from "@saint/shared/processRuntime";
 import { createHash } from "node:crypto";
 import { promisify } from "node:util";
 
-import type { ServerSettings } from "@synara/contracts";
+import type { ServerSettings } from "@saint/contracts";
 import {
   deriveProviderInstances,
   providerStartOptionsFromInstance,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 
 import { acquireClaudeAuthStatusLock } from "./claudeAuthStatusLock";
 import { buildClaudeInstanceProcessEnv } from "./claudeEnvironment";
@@ -59,7 +59,7 @@ export function isClaudeCredentialKeepaliveEnabled(
 ): boolean {
   const platform = input.platform ?? process.platform;
   const env = input.env ?? process.env;
-  return platform === "darwin" && envFlagEnabled(env.SYNARA_CLAUDE_KEEPALIVE);
+  return platform === "darwin" && envFlagEnabled(env.SAINT_CLAUDE_KEEPALIVE);
 }
 
 // Mirrors the Claude Agent adapter default while honoring persisted custom CLI paths.
@@ -69,7 +69,7 @@ export function resolveClaudeCredentialKeepaliveBinaryPath(binaryPath: string | 
 
 // Caps the tuning knob before setInterval can overflow into Node's 1ms clamp behavior.
 export function resolveClaudeCredentialKeepaliveIntervalMs(env: NodeJS.ProcessEnv): number {
-  const raw = env.SYNARA_CLAUDE_KEEPALIVE_MINUTES?.trim();
+  const raw = env.SAINT_CLAUDE_KEEPALIVE_MINUTES?.trim();
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
   const minutes = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_INTERVAL_MINUTES;
   return Math.min(minutes * 60 * 1000, CLAUDE_CREDENTIAL_KEEPALIVE_MAX_INTERVAL_MS);
@@ -192,7 +192,7 @@ export function startClaudeCredentialKeepalive(input?: {
       nudgeClaudeTokenRefresh(input.binaryPath, input.homeDir, input.signal, input.processEnv));
 
   // Only run when explicitly enabled. The check touches Claude Code auth data, so
-  // Synara should not do it as background work merely because the app opened.
+  // Saint should not do it as background work merely because the app opened.
   if (!isClaudeCredentialKeepaliveEnabled({ platform, env })) {
     return { stop: async () => {} };
   }

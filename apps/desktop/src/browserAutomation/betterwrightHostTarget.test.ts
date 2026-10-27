@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WebContents } from "electron";
-import { synaraHostTarget } from "./betterwrightHostTarget";
+import { saintHostTarget } from "./betterwrightHostTarget";
 
 const mocks = vi.hoisted(() => ({
   openConnection: vi.fn(),
@@ -48,12 +48,12 @@ beforeEach(() => {
   vi.mocked(contents.isDestroyed).mockReturnValue(false);
 });
 
-describe("synaraHostTarget", () => {
+describe("saintHostTarget", () => {
   it("vends an independent capability transport per connect", async () => {
     mocks.openConnection
       .mockResolvedValueOnce(fakeConnection({ cdpUrl: "ws://127.0.0.1:1/browser" }))
       .mockResolvedValueOnce(fakeConnection({ cdpUrl: "ws://127.0.0.1:2/browser" }));
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     const first = await target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     const second = await target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     expect(first.provider).toEqual({ cdpUrl: "ws://127.0.0.1:1/browser" });
@@ -64,7 +64,7 @@ describe("synaraHostTarget", () => {
   it("passes the cookie-import capability and approved uploads through to the transport", async () => {
     const expectAgentInput = vi.fn();
     mocks.openConnection.mockResolvedValue(fakeConnection({}));
-    const target = synaraHostTarget(contents, {
+    const target = saintHostTarget(contents, {
       cookieImport: true,
       uploadFiles: ["/abs/upload.bin"],
       expectAgentInput: expectAgentInput as never,
@@ -81,7 +81,7 @@ describe("synaraHostTarget", () => {
 
   it("refuses to vend a transport after interruption", async () => {
     const controller = new AbortController();
-    const target = synaraHostTarget(contents, { signal: controller.signal });
+    const target = saintHostTarget(contents, { signal: controller.signal });
     controller.abort();
     await expect(target.connect({ proxyUrl: "socks5://127.0.0.1:9" })).rejects.toThrow(
       "interrupted",
@@ -92,7 +92,7 @@ describe("synaraHostTarget", () => {
   it("reports transport closure through the leased connection", async () => {
     const conn = fakeConnection({});
     mocks.openConnection.mockResolvedValue(conn);
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     const leased = await target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     expect(leased.closed).toBe(false);
     await leased.close();
@@ -107,7 +107,7 @@ describe("synaraHostTarget", () => {
       closeAllConnections: ReturnType<typeof vi.fn>;
     };
     mocks.openConnection.mockResolvedValue(fakeConnection({}));
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     await target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     expect(session.setProxy).toHaveBeenCalledWith({
       mode: "fixed_servers",
@@ -122,7 +122,7 @@ describe("synaraHostTarget", () => {
     const gate = deferred<void>();
     first.recordedClose.mockReturnValueOnce(gate.promise);
     mocks.openConnection.mockResolvedValueOnce(first).mockResolvedValueOnce(fakeConnection({}));
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     await target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     const rotating = target.connect({ proxyUrl: "socks5://127.0.0.1:10" });
     await vi.waitFor(() => expect(first.recordedClose).toHaveBeenCalledWith(false));
@@ -141,22 +141,22 @@ describe("synaraHostTarget", () => {
 
   it("serializes concurrent connects without losing the session lease", async () => {
     mocks.openConnection.mockImplementation(async () => fakeConnection({}));
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     await Promise.all([
       target.connect({ proxyUrl: "socks5://127.0.0.1:9" }),
       target.connect({ proxyUrl: "socks5://127.0.0.1:10" }),
     ]);
     await target.revokeAll();
-    const next = synaraHostTarget(contents);
+    const next = saintHostTarget(contents);
     await next.connect({ proxyUrl: "socks5://127.0.0.1:11" });
     await next.revokeAll();
   });
 
   it("retains its session turn through rotation while another tab is queued", async () => {
     mocks.openConnection.mockImplementation(async () => fakeConnection({}));
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     await target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
-    const sibling = synaraHostTarget(contents);
+    const sibling = saintHostTarget(contents);
     let siblingConnected = false;
     const queued = sibling.connect({ proxyUrl: "socks5://127.0.0.1:11" }).then(() => {
       siblingConnected = true;
@@ -179,9 +179,9 @@ describe("synaraHostTarget", () => {
 
   it.each(["failure", "abort"])("releases a queued sibling after rotation %s", async (failure) => {
     mocks.openConnection.mockImplementation(async () => fakeConnection({}));
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     await target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
-    const sibling = synaraHostTarget(contents);
+    const sibling = saintHostTarget(contents);
     const queued = sibling.connect({ proxyUrl: "socks5://127.0.0.1:11" });
     const gate = deferred<void>();
     vi.mocked(contents.session.setProxy).mockImplementationOnce(async () => {
@@ -212,7 +212,7 @@ describe("synaraHostTarget", () => {
   it("revokes during proxy setup before opening a transport", async () => {
     const gate = deferred<void>();
     vi.mocked(contents.session.setProxy).mockReturnValueOnce(gate.promise);
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     const connecting = target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     const interrupted = expect(connecting).rejects.toThrow("interrupted");
     await vi.waitFor(() => expect(contents.session.setProxy).toHaveBeenCalledOnce());
@@ -230,7 +230,7 @@ describe("synaraHostTarget", () => {
   it("does not wait for a stalled open during revocation or vend its late result", async () => {
     const gate = deferred<ReturnType<typeof fakeConnection>>();
     mocks.openConnection.mockReturnValueOnce(gate.promise);
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     const connecting = target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     const interrupted = expect(connecting).rejects.toThrow("interrupted");
     await vi.waitFor(() => expect(mocks.openConnection).toHaveBeenCalledOnce());
@@ -244,13 +244,13 @@ describe("synaraHostTarget", () => {
 
   it("releases the proxy when opening the transport fails", async () => {
     mocks.openConnection.mockRejectedValueOnce(new Error("open failed"));
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     await expect(target.connect({ proxyUrl: "socks5://127.0.0.1:9" })).rejects.toThrow(
       "open failed",
     );
     expect(contents.session.setProxy).toHaveBeenLastCalledWith({ mode: "system" });
     mocks.openConnection.mockResolvedValueOnce(fakeConnection({}));
-    const next = synaraHostTarget(contents);
+    const next = saintHostTarget(contents);
     await next.connect({ proxyUrl: "socks5://127.0.0.1:10" });
     await next.revokeAll();
   });
@@ -260,12 +260,12 @@ describe("synaraHostTarget", () => {
     vi.mocked(contents.session.closeAllConnections)
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error("restore failed"));
-    const original = synaraHostTarget(contents);
+    const original = saintHostTarget(contents);
     await expect(original.connect({ proxyUrl: "socks5://127.0.0.1:9" })).rejects.toThrow(
       "restore failed",
     );
     mocks.openConnection.mockImplementation(async () => fakeConnection({}));
-    const next = synaraHostTarget(contents);
+    const next = saintHostTarget(contents);
     await next.connect({ proxyUrl: "socks5://127.0.0.1:10" });
     const waiting = original.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -278,9 +278,9 @@ describe("synaraHostTarget", () => {
 
   it("revokes a target waiting for another tab without waiting for that tab to finish", async () => {
     mocks.openConnection.mockImplementation(async () => fakeConnection({}));
-    const first = synaraHostTarget(contents);
+    const first = saintHostTarget(contents);
     await first.connect({ proxyUrl: "socks5://127.0.0.1:9" });
-    const waiting = synaraHostTarget(contents);
+    const waiting = saintHostTarget(contents);
     const connecting = waiting.connect({ proxyUrl: "socks5://127.0.0.1:10" });
     const rejected = expect(connecting).rejects.toThrow("interrupted");
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -289,7 +289,7 @@ describe("synaraHostTarget", () => {
     expect(mocks.openConnection).toHaveBeenCalledOnce();
     expect(contents.session.setProxy).toHaveBeenCalledOnce();
     await first.revokeAll();
-    const last = synaraHostTarget(contents);
+    const last = saintHostTarget(contents);
     await last.connect({ proxyUrl: "socks5://127.0.0.1:11" });
     await last.revokeAll();
   });
@@ -298,7 +298,7 @@ describe("synaraHostTarget", () => {
     const controller = new AbortController();
     const gate = deferred<void>();
     vi.mocked(contents.session.setProxy).mockReturnValueOnce(gate.promise);
-    const target = synaraHostTarget(contents, { signal: controller.signal });
+    const target = saintHostTarget(contents, { signal: controller.signal });
     const connecting = target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     const interrupted = expect(connecting).rejects.toThrow("interrupted");
     await vi.waitFor(() => expect(contents.session.setProxy).toHaveBeenCalledOnce());
@@ -311,7 +311,7 @@ describe("synaraHostTarget", () => {
 
   it("refuses to vend a transport for a destroyed tab", async () => {
     vi.mocked(contents.isDestroyed).mockReturnValue(true);
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     await expect(target.connect({ proxyUrl: "socks5://127.0.0.1:9" })).rejects.toThrow(
       "unavailable",
     );
@@ -324,7 +324,7 @@ describe("synaraHostTarget", () => {
       resolveOpening = resolve;
     });
     mocks.openConnection.mockReturnValue(opening);
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     const connectPromise = target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     await vi.waitFor(() => expect(mocks.openConnection).toHaveBeenCalledOnce());
     const revoked = target.revokeAll(true);
@@ -339,7 +339,7 @@ describe("synaraHostTarget", () => {
     const first = fakeConnection({});
     const second = fakeConnection({});
     mocks.openConnection.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     await target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     await target.connect({ proxyUrl: "socks5://127.0.0.1:9" });
     await target.revokeAll(true);
@@ -353,7 +353,7 @@ describe("synaraHostTarget", () => {
   it("run() holds background throttling off for the operation and restores it", async () => {
     vi.mocked(contents.getBackgroundThrottling).mockReturnValue(true);
     const signal = new AbortController().signal;
-    const target = synaraHostTarget(contents, { signal });
+    const target = saintHostTarget(contents, { signal });
     const result = await target.run(async (received) => {
       expect(received).toBe(signal);
       expect(contents.setBackgroundThrottling).toHaveBeenLastCalledWith(false);
@@ -365,7 +365,7 @@ describe("synaraHostTarget", () => {
 
   it("run() rejects when the tab is gone and skips the throttle restore", async () => {
     vi.mocked(contents.isDestroyed).mockReturnValue(true);
-    const target = synaraHostTarget(contents);
+    const target = saintHostTarget(contents);
     await expect(target.run(async () => ({ ok: true, result: null }))).rejects.toThrow(
       "unavailable",
     );

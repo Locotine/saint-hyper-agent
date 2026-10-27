@@ -62,7 +62,7 @@ async function viewerParts() {
       .getEditors()
       .find(
         (editor) =>
-          editor.getModel()?.uri.scheme === "synara-standalone" && editor.getDomNode()?.isConnected,
+          editor.getModel()?.uri.scheme === "saint-standalone" && editor.getDomNode()?.isConnected,
       );
   // The first test must include cold loading of the lazy editor, unlike the
   // later parameterized cases. Bound the wait without relaxing any CSS check.
@@ -162,7 +162,7 @@ it.each([
       </QueryClientProvider>,
     );
     const find = () =>
-      document.querySelector<HTMLElement>(".synara-code-editor .monaco-diff-editor");
+      document.querySelector<HTMLElement>(".saint-code-editor .monaco-diff-editor");
     await expect.poll(find).not.toBeNull();
     const diff = find()!;
     const changedRows = () => [...diff.querySelectorAll<HTMLElement>(".line-insert, .line-delete")];

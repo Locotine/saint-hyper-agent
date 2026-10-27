@@ -5,7 +5,7 @@
 // Electron WebContentsViews render above the DOM regardless of CSS z-index. DOM overlays
 // broadcast this event so BrowserPanel can hide or restore its native surface after the
 // overlay has been committed.
-export const NATIVE_SURFACE_OCCLUSION_SYNC_EVENT = "synara:native-surface-occlusion-sync";
+export const NATIVE_SURFACE_OCCLUSION_SYNC_EVENT = "saint:native-surface-occlusion-sync";
 export const NATIVE_SURFACE_MENU_OVERLAY_SELECTOR = "[data-slot='menu-positioner']";
 
 export function notifyNativeSurfaceOcclusionChange(): void {

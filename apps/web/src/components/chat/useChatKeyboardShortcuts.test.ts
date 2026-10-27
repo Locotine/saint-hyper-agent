@@ -4,7 +4,7 @@
 // switching the full-width workspace between Terminal and Chat.
 
 import { describe, expect, it, vi } from "vitest";
-import type { ResolvedKeybindingsConfig } from "@synara/contracts";
+import type { ResolvedKeybindingsConfig } from "@saint/contracts";
 
 // --- Minimal React hook harness (mirrors useChatTerminalController.test.ts) ---
 function depsEqual(left: readonly unknown[] | undefined, right: readonly unknown[]) {

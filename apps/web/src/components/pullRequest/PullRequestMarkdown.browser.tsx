@@ -12,7 +12,7 @@ import { render } from "vitest-browser-react";
 import { PullRequestMarkdown } from "./PullRequestMarkdown";
 
 // Absolute http(s) URL, like GitHub's user-attachment links.
-const IMAGE = `${window.location.origin}/synara.png`;
+const IMAGE = `${window.location.origin}/saint.png`;
 const BODY = [
   `![Before](${IMAGE}#before)`,
   "",

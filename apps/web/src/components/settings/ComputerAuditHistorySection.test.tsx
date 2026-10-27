@@ -1,4 +1,4 @@
-import type { ComputerAuditHistoryEntry, ComputerGetAuditHistoryResult } from "@synara/contracts";
+import type { ComputerAuditHistoryEntry, ComputerGetAuditHistoryResult } from "@saint/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 

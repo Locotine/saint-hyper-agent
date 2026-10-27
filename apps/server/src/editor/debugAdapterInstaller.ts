@@ -87,7 +87,7 @@ export function ensureDebugAdapter(stateDir: string, signal?: AbortSignal): Prom
     const destination = path.join(parent, `js-debug-${JS_DEBUG_VERSION}`);
     const entry = path.join(destination, "js-debug", "src", "dapDebugServer.js");
     if (await isInstalled(destination, entry)) return entry;
-    // Only this pinned version's directory under Synara's private state, never user files.
+    // Only this pinned version's directory under Saint's private state, never user files.
     await rm(destination, { recursive: true, force: true });
     await mkdir(parent, { recursive: true, mode: 0o700 });
     const staging = await mkdtemp(path.join(parent, ".js-debug-"));

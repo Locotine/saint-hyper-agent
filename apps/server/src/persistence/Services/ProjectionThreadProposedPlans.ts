@@ -4,7 +4,7 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -68,5 +68,5 @@ export class ProjectionThreadProposedPlanRepository extends ServiceMap.Service<
   ProjectionThreadProposedPlanRepository,
   ProjectionThreadProposedPlanRepositoryShape
 >()(
-  "synara/persistence/Services/ProjectionThreadProposedPlans/ProjectionThreadProposedPlanRepository",
+  "saint/persistence/Services/ProjectionThreadProposedPlans/ProjectionThreadProposedPlanRepository",
 ) {}

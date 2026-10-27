@@ -1,6 +1,6 @@
 import "../index.css";
 
-import { ProjectId, ThreadId, type ListProjectImportsResult } from "@synara/contracts";
+import { ProjectId, ThreadId, type ListProjectImportsResult } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
@@ -27,17 +27,17 @@ const catalog: ListProjectImportsResult = {
   projects: [
     {
       key: "project",
-      title: "Synara",
-      workspaceRoot: "/code/synara",
+      title: "Saint",
+      workspaceRoot: "/code/saint",
       directoryExists: true,
-      existingProjectId: ProjectId.makeUnsafe("synara"),
+      existingProjectId: ProjectId.makeUnsafe("saint"),
       providers: ["codex", "claudeAgent"],
       threads: [
         {
           key: "first",
           title: "First conversation",
           provider: "codex",
-          cwd: "/code/synara",
+          cwd: "/code/saint",
           archived: false,
           alreadyImported: false,
           createdAt: "2026-09-01T00:00:00.000Z",
@@ -47,7 +47,7 @@ const catalog: ListProjectImportsResult = {
           key: "second",
           title: "Second conversation",
           provider: "claudeAgent",
-          cwd: "/code/synara",
+          cwd: "/code/saint",
           archived: false,
           alreadyImported: false,
           createdAt: "2026-09-01T00:00:00.000Z",
@@ -57,7 +57,7 @@ const catalog: ListProjectImportsResult = {
           key: "existing",
           title: "Existing conversation",
           provider: "codex",
-          cwd: "/code/synara",
+          cwd: "/code/saint",
           archived: false,
           alreadyImported: true,
           createdAt: "2026-09-01T00:00:00.000Z",
@@ -68,7 +68,7 @@ const catalog: ListProjectImportsResult = {
   ],
 };
 const imported = {
-  projectId: ProjectId.makeUnsafe("synara"),
+  projectId: ProjectId.makeUnsafe("saint"),
   threadId: ThreadId.makeUnsafe("copy"),
   status: "imported",
 };
@@ -87,7 +87,7 @@ describe("project import panel", () => {
     expect(api.listProjectImports).not.toHaveBeenCalled();
     await page.getByRole("button", { name: "Find projects" }).click();
     expect(api.listProjectImports).toHaveBeenCalledWith({ providers: ["codex", "claudeAgent"] });
-    await expect.element(page.getByRole("checkbox", { name: "Select Synara" })).toBeChecked();
+    await expect.element(page.getByRole("checkbox", { name: "Select Saint" })).toBeChecked();
     await page.getByRole("button", { name: "Remove all" }).click();
     await expect.element(page.getByRole("button", { name: "Import selected" })).toBeDisabled();
     await page.getByRole("button", { name: "Select all" }).click();
@@ -147,7 +147,7 @@ describe("project import panel", () => {
     });
     await render(<ProjectImportPanel onBusyChange={vi.fn()} />);
     await page.getByRole("button", { name: "Find projects" }).click();
-    await page.getByLabelText("New folder for Synara").fill("/code/moved");
+    await page.getByLabelText("New folder for Saint").fill("/code/moved");
     await page.getByRole("button", { name: "Import selected" }).click();
     await expect
       .element(page.getByRole("status"))
@@ -175,7 +175,7 @@ describe("project import dialog dismissal", () => {
     await page.viewport(1100, 850);
     await render(<ProjectImportDialog />);
     await page.getByRole("button", { name: "Find projects" }).click();
-    await page.getByRole("button", { name: "Conversations in Synara" }).click();
+    await page.getByRole("button", { name: "Conversations in Saint" }).click();
     await page.getByRole("button", { name: "Import selected" }).click();
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await expect.element(page.getByRole("dialog")).toBeVisible();

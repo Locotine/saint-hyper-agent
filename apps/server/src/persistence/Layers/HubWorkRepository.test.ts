@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId, type HubWorkRecord } from "@synara/contracts";
+import { ProjectId, ThreadId, type HubWorkRecord } from "@saint/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 

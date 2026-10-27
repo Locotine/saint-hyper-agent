@@ -2,8 +2,8 @@
 import path from "node:path";
 import { setImmediate } from "node:timers/promises";
 
-import type { ProjectId, ProjectImportProvider, ProviderInstanceId } from "@synara/contracts";
-import { isWorkspaceRootWithin } from "@synara/shared/threadWorkspace";
+import type { ProjectId, ProjectImportProvider, ProviderInstanceId } from "@saint/contracts";
+import { isWorkspaceRootWithin } from "@saint/shared/threadWorkspace";
 
 import type {
   NativeImportSession,
@@ -135,7 +135,7 @@ export async function buildProjectImportCatalog(
     const git = await gitWorkspace(cwd);
     const existing = mostSpecificRoot(inferenceRoots, cwd);
     if (!git) return existing ?? cwd;
-    // Saved Synara and explicitly declared Codex subprojects both outrank Git's root.
+    // Saved Saint and explicitly declared Codex subprojects both outrank Git's root.
     if (existing && contains(git.worktree ?? git.root, existing)) return existing;
     if (git.worktree) {
       const originalCwd = path.join(git.root, path.relative(git.worktree, cwd));

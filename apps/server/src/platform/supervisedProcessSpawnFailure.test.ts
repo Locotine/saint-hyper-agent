@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { spawnProcess } from "@synara/shared/processRuntime";
+import { spawnProcess } from "@saint/shared/processRuntime";
 import { describe, expect, it, vi } from "vitest";
 
 import { teardownChildProcessTree } from "./supervisedProcessTeardown";
@@ -8,7 +8,7 @@ import { teardownChildProcessTree } from "./supervisedProcessTeardown";
 describe("failed-spawn teardown", () => {
   it("settles a proven missing-cwd spawn failure without killing any PID", async () => {
     const child = spawnProcess(process.execPath, ["-e", ""], {
-      cwd: join(tmpdir(), `synara-missing-cwd-${crypto.randomUUID()}`),
+      cwd: join(tmpdir(), `saint-missing-cwd-${crypto.randomUUID()}`),
     });
     const teardown = vi.fn(async () => ({ escalated: false, signalErrors: [] }));
     // Teardown is deliberately requested from the first ordinary error handler,

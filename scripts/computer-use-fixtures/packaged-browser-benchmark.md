@@ -1,8 +1,8 @@
 # Packaged browser benchmark
 
-This runner attaches to one explicitly selected isolated **Synara Cua** package. It does not launch the application, install Chrome, change permissions, borrow account cookies, or select a provider/model for the operator. Run the existing [packaged fixture](packaged-e2e.md) first to establish its isolated instance marker, configured provider, pinned native artifact and focus-observation permissions.
+This runner attaches to one explicitly selected isolated **Saint Cua** package. It does not launch the application, install Chrome, change permissions, borrow account cookies, or select a provider/model for the operator. Run the existing [packaged fixture](packaged-e2e.md) first to establish its isolated instance marker, configured provider, pinned native artifact and focus-observation permissions.
 
-Use the installed `~/Applications/Synara Cua.app` copy prepared by that recipe.
+Use the installed `~/Applications/Saint Cua.app` copy prepared by that recipe.
 Before attaching or starting a provider turn, the runner refuses temporary app
 paths and requires LaunchServices to resolve the bundle ID to the exact selected
 copy. Registration is a setup requirement, not proof of native permission grants.
@@ -12,8 +12,8 @@ The existing-user-profile task is unsupported. `--task github-running` reports t
 ```sh
 bun scripts/computer-use-fixtures/packaged-browser-benchmark.ts \
   --task github-isolated --repo OWNER/REPO \
-  --bundle "$HOME/Applications/Synara Cua.app" \
-  --home /explicit/isolated/synara-home --cdp-port 9332 \
+  --bundle "$HOME/Applications/Saint Cua.app" \
+  --home /explicit/isolated/saint-home --cdp-port 9332 \
   --focus-probe /explicit/path/focus-probe \
   --provider PROVIDER --model MODEL \
   --observer-dir /explicit/isolated/observer-descriptors \
@@ -26,12 +26,12 @@ Before spending provider tokens, setup checks passive Computer availability and 
 
 Before control enable or dispatch, every fresh thread must expose its durable creation event and explicit empty runtime coverage through the authenticated diagnostic route. Null/malformed responses, a prior dispatch or existing provider runtime state fail setup before a paid turn. Runtime retention is already enabled; no extra NDJSON logging or direct database access is needed. Early failures collect terminal evidence after bounded cancellation so available call/usage diagnostics are retained without qualifying an interrupted run.
 
-The observer directory receives `request-synara-bench-UUID.json` immediately before each task. A trusted local operator must supply the exact matching descriptor at the `descriptorPath` in that request after the driver launches its browser:
+The observer directory receives `request-saint-bench-UUID.json` immediately before each task. A trusted local operator must supply the exact matching descriptor at the `descriptorPath` in that request after the driver launches its browser:
 
 ```json
 {
-  "profileName": "synara-bench-UUID",
-  "profileDirectory": "/explicit/CuaDriver/BrowserProfiles/synara-bench-UUID",
+  "profileName": "saint-bench-UUID",
+  "profileDirectory": "/explicit/CuaDriver/BrowserProfiles/saint-bench-UUID",
   "browserPid": 12345,
   "endpoint": "http://127.0.0.1:9333"
 }

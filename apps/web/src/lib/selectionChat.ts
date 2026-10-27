@@ -1,6 +1,6 @@
 // Purpose: Route selected transcript text through the normal Side and new-chat flows.
 
-import type { ProjectId, ThreadEnvironmentMode, ThreadId } from "@synara/contracts";
+import type { ProjectId, ThreadEnvironmentMode, ThreadId } from "@saint/contracts";
 
 import { useComposerDraftStore, type QueuedComposerChatTurn } from "../composerDraftStore";
 import { requestComposerFocus } from "../composerFocusRequestStore";
@@ -13,7 +13,7 @@ import { createSidechatThread } from "./sidechatCreation";
 import type { NewThreadOptions } from "./threadBootstrap";
 import { randomUUID } from "./utils";
 import type { TranscriptAssistantSelection } from "../components/chat/chatSelectionActions";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 function requireSelection(selection: TranscriptAssistantSelection) {
   const attachment = createAssistantSelectionAttachment(selection);

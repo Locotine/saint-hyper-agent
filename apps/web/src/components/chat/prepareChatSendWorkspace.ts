@@ -3,12 +3,12 @@ import {
   RuntimeMode,
   ThreadId,
   type ModelSelection,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   GENERIC_CHAT_THREAD_TITLE,
   buildPromptThreadTitleFallback,
-} from "@synara/shared/chatThreads";
-import { getDefaultModel } from "@synara/shared/model";
+} from "@saint/shared/chatThreads";
+import { getDefaultModel } from "@saint/shared/model";
 import type { QueryClient } from "@tanstack/react-query";
 import { gitStatusQueryOptions } from "~/lib/gitReactQuery";
 import { newCommandId, newProjectId } from "~/lib/utils";

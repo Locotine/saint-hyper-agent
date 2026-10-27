@@ -1,6 +1,6 @@
 [
   {
-    "file": "apps/desktop/patches/cua-driver/0001-synara-native.patch",
+    "file": "apps/desktop/patches/cua-driver/0001-saint-native.patch",
     "beforeSha256": "1a3368bfa5f2d3915a8812b099c995eff62b9fb6a6ca5da4f5256501d7f9293b",
     "afterSha256": "58b1953265bbcd892af607ece87b6f9bf484d3c4b7dde0a5a4545f5c9c3516fd"
   },

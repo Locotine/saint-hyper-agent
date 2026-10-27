@@ -4,7 +4,7 @@
 // Exports: composer automation resolver plus draft builder for ChatView.
 // Depends on: automationIntent parsing and automation form helpers.
 
-import { DEFAULT_AUTOMATION_FAST_INTERVAL_MAX_ITERATIONS } from "@synara/contracts";
+import { DEFAULT_AUTOMATION_FAST_INTERVAL_MAX_ITERATIONS } from "@saint/contracts";
 import type {
   AutomationMode,
   ModelSelection,
@@ -14,7 +14,7 @@ import type {
   ServerGenerateAutomationIntentInput,
   ServerGenerateAutomationIntentResult,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import {
   applyScheduleToForm,
@@ -22,8 +22,8 @@ import {
   isFormSubmittable,
   type AutomationFormState,
 } from "./automationForm";
-import { stopWhenFromCompletionPolicy } from "@synara/shared/automationCompletionPolicy";
-import { automationRequiresTargetThread } from "@synara/shared/automationMode";
+import { stopWhenFromCompletionPolicy } from "@saint/shared/automationCompletionPolicy";
+import { automationRequiresTargetThread } from "@saint/shared/automationMode";
 import {
   acknowledgedWarningIdsForAutomaticChatAutomation,
   buildAutomationDraftWarnings,

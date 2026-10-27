@@ -2,7 +2,7 @@ import type {
   ImportProjectResult,
   ListProjectImportsResult,
   ProjectImportProvider,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useEffect, useRef, useState } from "react";
 
 import { ProviderIcon } from "~/components/ProviderIcon";
@@ -220,7 +220,7 @@ export function ProjectImportPanel(props: {
         </Button>
       </div>
       <p className={cn("leading-relaxed text-muted-foreground", "text-ui-sm")}>
-        Projects keep their existing folders, and conversations are copied into Synara. Nothing in
+        Projects keep their existing folders, and conversations are copied into Saint. Nothing in
         your current projects changes.
       </p>
       {error ? (

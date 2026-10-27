@@ -1,4 +1,4 @@
-# Synara Focused Codebase Roadmap
+# Saint Focused Codebase Roadmap
 
 > **Superseded:** this is the historical implementation roadmap. The current, evidence-backed audit
 > and integrated TODO list live in [`PR357_MERGE_READINESS_AUDIT.md`](./PR357_MERGE_READINESS_AUDIT.md).
@@ -6,7 +6,7 @@
 
 ## Audit scope and constraints
 
-This roadmap replaces the previous broad audit with the smallest evidence-backed set of work that materially improves Synara's correctness, security, reliability, performance, maintainability, and provider/ACP foundation.
+This roadmap replaces the previous broad audit with the smallest evidence-backed set of work that materially improves Saint's correctness, security, reliability, performance, maintainability, and provider/ACP foundation.
 
 - Scope reviewed: all 206 finding sections in the previous audit (204 unique identifiers; two identifiers appeared twice), current source, and the dirty worktree.
 - Actionable cap: 17 workstreams across P0-P2. P3 is intentionally empty; P4/P5 items are not tracked individually.
@@ -70,7 +70,7 @@ Service`, surfaced to clients as an interrupted RPC. All three paths now acquire
   chunks despite the Web Stream high-water mark. The official SDK's `LineBuffer` also retains an
   unterminated line without a byte ceiling. The current 512-message conformance test uses a separate
   pull-driven stream under 64 KiB, so it does not prove the production bridge is bounded. Official SDK
-  wire ownership remains correct; only the already-required Synara admission layer is incomplete.
+  wire ownership remains correct; only the already-required Saint admission layer is incomplete.
 
 Short remaining TODO:
 
@@ -880,20 +880,20 @@ The worktree is intentionally dirty and is the authority for this roadmap. Do no
 
 ## ACP foundation decision
 
-**Decision:** the official [`@agentclientprotocol/sdk`](https://github.com/agentclientprotocol/typescript-sdk) is the production validation, JSON-RPC, and wire authority. Synara keeps Effect-based supervision, bounded admission, lifecycle generations, provider policy, persistence, and canonical runtime events above one narrow connection boundary.
+**Decision:** the official [`@agentclientprotocol/sdk`](https://github.com/agentclientprotocol/typescript-sdk) is the production validation, JSON-RPC, and wire authority. Saint keeps Effect-based supervision, bounded admission, lifecycle generations, provider policy, persistence, and canonical runtime events above one narrow connection boundary.
 
 This is not a choice between “official ACP” and “Effect.” They solve different layers. The dirty design would keep `effect-acp` and the official SDK as permanent competing wire implementations. The clean design replaces the lower wire layer in stages and then deletes the superseded custom protocol ownership.
 
-| Question                             | Current reality                                                                                                                                                 | Target result                                                                                                                                   |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Do we already have the official SDK? | Yes. Version 1.2.1 is an exact build dependency, is bundled into server output, and is exercised by `AcpSdkConformance.test.ts`.                                | Keep it exact; do not add another ACP wire package.                                                                                             |
-| What owns production ACP today?      | The official SDK owns validation, JSON-RPC correlation/dispatch, cancellation, and NDJSON for Grok, Droid, and Cursor.                                          | Keep one SDK-backed boundary; do not restore provider-selectable wire implementations.                                                          |
-| What remains Synara-owned?           | Effect scopes/fibers, byte and queue budgets, process teardown, lifecycle-generation fences, persistence, recovery, provider extensions, and normalized events. | Preserve these product/runtime policies above the SDK.                                                                                          |
-| Will it be faster?                   | There is no evidence of a material latency or throughput win from swapping JSON-RPC implementations alone; provider/model latency dominates.                    | Treat performance as neutral until the same corpus measures it. Any concrete win must come from removing duplicate queues/copies.               |
-| Will it be better?                   | The private wire layer can drift from the standard and duplicates schema/protocol work.                                                                         | Better compatibility, less protocol maintenance, and a stronger provider foundation, while retaining stricter Synara resource/lifecycle policy. |
-| Will it be lighter?                  | The competing wire implementation and the residual 10k-line generated compatibility schema are deleted; only two narrow local runtime-policy modules remain.    | Synara owns less protocol code. Do not claim a smaller shipped bundle until measured.                                                           |
+| Question                             | Current reality                                                                                                                                                 | Target result                                                                                                                                  |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Do we already have the official SDK? | Yes. Version 1.2.1 is an exact build dependency, is bundled into server output, and is exercised by `AcpSdkConformance.test.ts`.                                | Keep it exact; do not add another ACP wire package.                                                                                            |
+| What owns production ACP today?      | The official SDK owns validation, JSON-RPC correlation/dispatch, cancellation, and NDJSON for Grok, Droid, and Cursor.                                          | Keep one SDK-backed boundary; do not restore provider-selectable wire implementations.                                                         |
+| What remains Saint-owned?            | Effect scopes/fibers, byte and queue budgets, process teardown, lifecycle-generation fences, persistence, recovery, provider extensions, and normalized events. | Preserve these product/runtime policies above the SDK.                                                                                         |
+| Will it be faster?                   | There is no evidence of a material latency or throughput win from swapping JSON-RPC implementations alone; provider/model latency dominates.                    | Treat performance as neutral until the same corpus measures it. Any concrete win must come from removing duplicate queues/copies.              |
+| Will it be better?                   | The private wire layer can drift from the standard and duplicates schema/protocol work.                                                                         | Better compatibility, less protocol maintenance, and a stronger provider foundation, while retaining stricter Saint resource/lifecycle policy. |
+| Will it be lighter?                  | The competing wire implementation and the residual 10k-line generated compatibility schema are deleted; only two narrow local runtime-policy modules remain.    | Saint owns less protocol code. Do not claim a smaller shipped bundle until measured.                                                           |
 
-The official SDK exposes high-level session/update queues, so its adoption does not remove Synara's obligation to enforce byte bounds, slow-consumer admission, deterministic close, and handler concurrency. Those policies remain above the SDK boundary; permanent dual wire ownership remains forbidden.
+The official SDK exposes high-level session/update queues, so its adoption does not remove Saint's obligation to enforce byte bounds, slow-consumer admission, deterministic close, and handler concurrency. Those policies remain above the SDK boundary; permanent dual wire ownership remains forbidden.
 
 ### Official SDK production boundary
 
@@ -904,17 +904,17 @@ every ACP provider.
 
 | Concern                                                                                                             | Owner after cutover                                               | Existing custom ownership to retire                                                                |
 | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Child spawn, reduced environment, lifecycle scope, process-tree exit proof                                          | Synara `AcpSessionRuntime`                                        | None; retain `prepareWindowsSafeProcess`, child environment policy, and `teardownAcpChildProcess`. |
+| Child spawn, reduced environment, lifecycle scope, process-tree exit proof                                          | Saint `AcpSessionRuntime`                                         | None; retain `prepareWindowsSafeProcess`, child environment policy, and `teardownAcpChildProcess`. |
 | ACP types, validation, method names, JSON-RPC IDs/correlation, cancellation, handler dispatch, NDJSON encode/decode | Official `@agentclientprotocol/sdk`                               | None; the generated schema and private protocol package are deleted.                               |
-| Effect cancellation/error bridge, request audit log, bounded byte/mailbox admission, deterministic close            | Thin Synara boundary inside `AcpSessionRuntime`                   | None; SDK errors are translated once into the local Effect-native error module.                    |
-| Session start/resume/new policy, config-option semantics, event normalization, assistant/tool segmentation          | Synara `AcpSessionRuntime` and `AcpRuntimeModel`                  | None; these are product/runtime policy, not wire protocol.                                         |
+| Effect cancellation/error bridge, request audit log, bounded byte/mailbox admission, deterministic close            | Thin Saint boundary inside `AcpSessionRuntime`                    | None; SDK errors are translated once into the local Effect-native error module.                    |
+| Session start/resume/new policy, config-option semantics, event normalization, assistant/tool segmentation          | Saint `AcpSessionRuntime` and `AcpRuntimeModel`                   | None; these are product/runtime policy, not wire protocol.                                         |
 | Provider extensions and elicitation behavior                                                                        | Existing adapter/support handlers registered through the boundary | None; non-standard extension codecs are isolated in `AcpExtensions.ts`.                            |
 
 Boundary rules:
 
 - An SDK failure fails the session; an operation is never retried through a legacy wire.
 - Grok, Droid, and Cursor share the same runtime boundary; provider-specific SDK facades are forbidden.
-- The official-SDK conformance corpus remains the baseline for Synara policy and integration.
+- The official-SDK conformance corpus remains the baseline for Saint policy and integration.
 - Raw diagnostics wrap byte streams and decoded SDK callbacks; they do not create a second parser.
 
 Completed deletion ledger:
@@ -926,7 +926,7 @@ Completed deletion ledger:
 3. The server declares `@agentclientprotocol/sdk` as a runtime dependency. Residual searches find no
    imports from any deleted `effect-acp` subpath.
 4. Standard schema consumers use official SDK types directly. `AcpErrors.ts` contains only the
-   Effect-native errors Synara consumes, while `AcpExtensions.ts` contains only the non-standard
+   Effect-native errors Saint consumes, while `AcpExtensions.ts` contains only the non-standard
    model request and minimal config-option codecs. The generated schema, workspace package, release
    manifest entry, benchmark engine, dependency, and lockfile entries are deleted.
 
@@ -954,7 +954,7 @@ not create a compatibility wire.
 - Bound orchestration/provider/Codex pipelines and implement staged quiesce/drain before increasing concurrency.
 - Close the existing managed-attachment implementation before adding a separate exact-owner scratch ledger.
 - Consolidate settings, automation, Git/worktree mutation, and live WebSocket recovery around one authoritative state machine each.
-- Treat ACP as one canary migration: harden framing/backpressure/parity, put the official SDK under a narrow Synara boundary, migrate one provider, then delete duplicate protocol ownership.
+- Treat ACP as one canary migration: harden framing/backpressure/parity, put the official SDK under a narrow Saint boundary, migrate one provider, then delete duplicate protocol ownership.
 - Frontend cleanup is limited to normalized transcript state and safe persistence; search redesign, blanket virtualization, and large-file rewrites without measured evidence are rejected.
 
 ## Completed foundation
@@ -983,23 +983,23 @@ Keep these as regression baselines, not open work: `SEC-01`, `SEC-AUTH-01`, `SEC
   - **STOP/rollback:** stop if any platform cannot prove its artifact identity and signature after packaging; keep the prior release channel rather than weakening the gate.
 
 - [x] **P0-SEC-01 — Server-only provider credential and child-capability authority**
-  - **Implementation status:** CODE COMPLETE for the current credential/process boundary. Phase 1 moved Kilo/OpenCode server passwords behind the existing server secret store and migrated legacy plaintext settings. Phase 2 removed passwords from provider start/discovery/orchestration/automation/Git/persisted payload contracts. Phases 3-4 established one table-driven child-environment authority across sessions, ACP, model discovery, health probes, managed servers, and maintenance commands. It strips Synara and Node/Bun/Electron control authority, admits provider-specific known credentials for single-provider CLIs, and makes broad credential discovery explicit for Codex/OpenCode/Kilo/Pi multi-provider runtimes. Focused verification passes: server settings 4/4, web app settings 52/52, orchestration contracts 36/36, and child/descendant environment policy 13/13; module-import and scoped diff checks pass. Full provider integration and heavyweight checks remain deferred; generation-scoped temporary lease revocation belongs to dependent `P1-PROVIDER-01`.
+  - **Implementation status:** CODE COMPLETE for the current credential/process boundary. Phase 1 moved Kilo/OpenCode server passwords behind the existing server secret store and migrated legacy plaintext settings. Phase 2 removed passwords from provider start/discovery/orchestration/automation/Git/persisted payload contracts. Phases 3-4 established one table-driven child-environment authority across sessions, ACP, model discovery, health probes, managed servers, and maintenance commands. It strips Saint and Node/Bun/Electron control authority, admits provider-specific known credentials for single-provider CLIs, and makes broad credential discovery explicit for Codex/OpenCode/Kilo/Pi multi-provider runtimes. Focused verification passes: server settings 4/4, web app settings 52/52, orchestration contracts 36/36, and child/descendant environment policy 13/13; module-import and scoped diff checks pass. Full provider integration and heavyweight checks remain deferred; generation-scoped temporary lease revocation belongs to dependent `P1-PROVIDER-01`.
   - **Absorbs:** `SEC-PROVIDER-SECRET-01`, `SEC-ENV-01`, `SEC-PROC-01`, `SEC-PROC-TREE-01`.
   - **Evidence:** settings contracts expose only `serverPasswordConfigured` on reads while retaining a write-only password patch; provider start/discovery contracts contain no password. `providerChildEnvironment.ts` now owns credential profiles and capability stripping, and every process-owning provider path supplies its reduced environment. The ACP runtime treats a supplied environment as an exact capability set and independently strips universal control-plane capabilities at its fallback boundary.
-  - **Why/current behavior:** the original implementation let reusable provider passwords cross browser/durable-command boundaries and let provider children inherit Synara control-plane credentials, unrelated known provider credentials, and launcher capabilities. The implemented boundary removes those paths without replacing provider-native credential stores.
+  - **Why/current behavior:** the original implementation let reusable provider passwords cross browser/durable-command boundaries and let provider children inherit Saint control-plane credentials, unrelated known provider credentials, and launcher capabilities. The implemented boundary removes those paths without replacing provider-native credential stores.
   - **Target/consolidation:** a server secret store exposes write-only replace/clear plus redacted configured state. A single child-environment/capability builder grants only the provider's declared credentials, paths, and optional native leases.
-  - **Implementation scope:** migrate stored passwords to opaque secret references; redact settings/RPC/projections; resolve secrets only at the adapter boundary; centralize environment construction; explicitly strip Synara auth, browser-pipe, launcher, and unrelated provider credentials; make descendants inherit the reduced environment.
+  - **Implementation scope:** migrate stored passwords to opaque secret references; redact settings/RPC/projections; resolve secrets only at the adapter boundary; centralize environment construction; explicitly strip Saint auth, browser-pipe, launcher, and unrelated provider credentials; make descendants inherit the reduced environment.
   - **Out of scope:** replacing provider-native credential stores, hiding non-secret model preferences, or sandboxing third-party CLIs at the OS level.
   - **Dependencies:** secret migration must precede `P1-SETTINGS-01`; lifecycle generations from `P1-PROVIDER-01` bind temporary capabilities.
   - **Effort / risk / confidence:** L / High / High.
-  - **Acceptance:** no client contract, browser store, automation row, Git request, log, or projection contains a reusable provider password; each adapter passes a table-driven minimal environment; unrelated Synara/provider secrets and revoked leases are absent in child and descendant fixtures.
+  - **Acceptance:** no client contract, browser store, automation row, Git request, log, or projection contains a reusable provider password; each adapter passes a table-driven minimal environment; unrelated Saint/provider secrets and revoked leases are absent in child and descendant fixtures.
   - **Future verification:** `bun run --cwd apps/server test -- src/providerChildEnvironment.test.ts src/provider/claudeProcessEnv.test.ts src/provider/opencodeRuntime.test.ts`; `bun run --cwd apps/web test -- src/appSettings.test.ts`.
   - **STOP/rollback:** stop a provider migration if its normal credential discovery breaks; add an explicit provider grant, never restore wholesale `process.env` or client-visible secrets.
 
 - [x] **P0-SEC-02 — Pinned authority for credential-bearing outbound HTTP**
   - **Implementation status:** CODE COMPLETE for the current outbound trust boundary. Phase 1 introduced one shared Node/Electron HTTPS client and migrated Grok discovery as the canary. Phase 2 moved Codex/Claude/Gemini/Cursor usage JSON and Claude OAuth refresh. Phase 3 added a pre-allocation byte-bounded multipart encoder and one shared ChatGPT voice request authority used by both server and desktop; provider-returned endpoints must match the pinned ChatGPT origin before the bearer is attached. Phase 4 moved fixed-source and direct favicon retrieval through the same DNS/redirect/byte/admission policy. The client rejects private/reserved, mapped, NAT64, or mixed DNS answers, pins each connection to the validated answer, revalidates redirect origins and DNS, rejects compressed bodies so byte budgets are exact, bounds JSON/request/response/deadline/global/service admission, and destroys requests on cancellation. Focused verification passes: outbound plus server voice 19/19, Claude usage 6/6, desktop voice 2/2, and favicon 10/10; module-import and scoped diff checks pass. Full external-provider integration and heavyweight checks remain deferred; process-wide shutdown cancellation is owned by dependent `P1-RUNTIME-01`.
   - **Absorbs:** `SEC-DESKTOP-VOICE-01`, `SEC-GROK-01`, `SEC-FAV-01`, `REL-HTTP-OUT-01`, `REL-VOICE-01`.
-  - **Evidence:** production credential-bearing Grok, provider-usage, and OAuth-refresh calls now import `@synara/shared/outboundHttp`; both voice runtimes use `@synara/shared/chatGptVoiceTranscription`, and favicon retrieval uses the shared transport. Remaining production `fetch` calls are uncredentialed provider-maintenance metadata and loopback page-title probes. The prior Electron `net.request`, voice/global fetch, usage/global fetch, Grok/global fetch, and favicon/global fetch authorities are gone.
+  - **Evidence:** production credential-bearing Grok, provider-usage, and OAuth-refresh calls now import `@saint/shared/outboundHttp`; both voice runtimes use `@saint/shared/chatGptVoiceTranscription`, and favicon retrieval uses the shared transport. Remaining production `fetch` calls are uncredentialed provider-maintenance metadata and loopback page-title probes. The prior Electron `net.request`, voice/global fetch, usage/global fetch, Grok/global fetch, and favicon/global fetch authorities are gone.
   - **Why/current behavior:** the original independent paths could follow a bearer-bearing redirect, trust a provider-returned origin, connect after an unpinned DNS check, buffer an unbounded body, or consume uncoordinated concurrency. The shared client now makes these trust and budget decisions once.
   - **Target/consolidation:** one cancellation-aware outbound client accepts a service policy: exact origins, DNS/IP class, redirect policy, credential-forwarding rule, request/response/decompressed byte limits, schema depth, deadline, and global/per-service admission.
   - **Implementation scope:** migrate ChatGPT transcription, Grok discovery, favicon retrieval, and other credentialed JSON calls; pin credentials to the approved origin; re-resolve and validate every redirect hop; stream under byte budgets; abort the underlying transport on deadline/shutdown.
@@ -1180,14 +1180,14 @@ Keep these as regression baselines, not open work: `SEC-01`, `SEC-AUTH-01`, `SEC
     unreachable Windows socket branches were deleted. Final phase runtime change: **-3 LOC**;
     focused evidence: 20/20 tests (5/5 rerun for the changed pipe helper).
   - **Absorbs:** `SEC-DESKTOP-01`, `SEC-DESKTOP-PIPE-01`, `COR-DESKTOP-TAB-01`, `COR-DESKTOP-BROWSER-GEN-01`, `REL-DESKTOP-PIPE-01`, `SEC-IMG-01`.
-  - **Evidence:** permission handlers cover `defaultSession`, not the exact `persist:synara-browser` partition; browser window-open handlers forward non-HTTP(S) schemes to `shell.openExternal`; `browserUsePipeServer.ts` lacks owner-private/symlink-safe creation and client capability admission; caller-selected session IDs and broadcast notifications are not thread/generation scoped; same-origin SVG can remain active in repository/upstream image routes.
-  - **Why/current behavior:** untrusted embedded content or another local process can request native permissions/protocol handlers, connect to CDP control, retarget tabs, observe events, or execute active image content with Synara origin privileges.
+  - **Evidence:** permission handlers cover `defaultSession`, not the exact `persist:saint-browser` partition; browser window-open handlers forward non-HTTP(S) schemes to `shell.openExternal`; `browserUsePipeServer.ts` lacks owner-private/symlink-safe creation and client capability admission; caller-selected session IDs and broadcast notifications are not thread/generation scoped; same-origin SVG can remain active in repository/upstream image routes.
+  - **Why/current behavior:** untrusted embedded content or another local process can request native permissions/protocol handlers, connect to CDP control, retarget tabs, observe events, or execute active image content with Saint origin privileges.
   - **Target/consolidation:** one desktop capability broker owns the exact session partition, external navigation policy, random revocable thread/provider-generation lease, tab generation, CDP routing, queue budgets, and safe image delivery.
   - **Implementation scope:** deny-by-default permission policy on the correct partition; explicit OS-scheme allowlist/confirmation; owner-private and symlink-safe Unix socket plus Windows ACL; random lease handshake; scoped tabs/events; bounded requests/listeners; sanitized/rasterized or isolated SVG delivery.
   - **Out of scope:** web browsing product redesign, remote CDP exposure, or globally disabling normal HTTP(S) navigation.
   - **Dependencies:** lifecycle generation/lease owner from `P1-PROVIDER-01` and capability stripping from `P0-SEC-01`.
   - **Effort / risk / confidence:** L / High / High.
-  - **Acceptance:** unauthorized local clients and stale generations fail; permissions are denied unless explicitly allowed; stale tab handles cannot retarget; events stay within one lease; slow clients remain bounded; denied schemes never launch; active SVG cannot execute at an authenticated Synara origin.
+  - **Acceptance:** unauthorized local clients and stale generations fail; permissions are denied unless explicitly allowed; stale tab handles cannot retarget; events stay within one lease; slow clients remain bounded; denied schemes never launch; active SVG cannot execute at an authenticated Saint origin.
   - **Future verification:** add `apps/desktop/src/browserManager.test.ts`, then run `bun run --cwd apps/desktop test -- src/browserUsePipeServer.test.ts src/mediaPermissions.test.ts src/browserManager.test.ts`; `bun run --cwd apps/server test -- src/localImageRoute.test.ts`.
   - **STOP/rollback:** keep browser-use disabled for a platform if private socket/ACL and generation-scoped routing cannot be proved.
 
@@ -1275,9 +1275,9 @@ Keep these as regression baselines, not open work: `SEC-01`, `SEC-AUTH-01`, `SEC
     separate closeout remains listed in the full-scan checkpoint.
   - **Absorbs:** `TEST-ACP-01`, `ACP-BOUNDARY-01`, `DEP-ACP-01`, `ARCH-ACP-01`, `COMPAT-ACP-01`, `ARCH-ACP-02`, `REL-ACP-01`, `CLEAN-ACP-01`, `COR-ACP-RESUME-01`, `COR-ACP-ELICITATION-01`.
   - **Evidence:** `AcpSessionRuntime.ts` now constructs the official SDK client builder only; the `effect-acp` child layer, duplicate raw notification drain, deprecated SDK constructor, and resume-to-new fallback are deleted.
-  - **Why/current behavior:** The duplicate JSON-RPC/schema/wire authority has been deleted. Synara
+  - **Why/current behavior:** The duplicate JSON-RPC/schema/wire authority has been deleted. Saint
     retains only buffering, lifecycle, recovery, and extension policy above the official boundary.
-  - **Target/consolidation:** preserve `AcpSessionRuntimeShape` above one SDK-backed connection seam. The official SDK solely owns ACP schema/validation, JSON-RPC correlation/cancellation/dispatch, and NDJSON encoding; Synara owns process supervision, bounded admission, Effect cancellation/error translation, session policy, and normalized events.
+  - **Target/consolidation:** preserve `AcpSessionRuntimeShape` above one SDK-backed connection seam. The official SDK solely owns ACP schema/validation, JSON-RPC correlation/cancellation/dispatch, and NDJSON encoding; Saint owns process supervision, bounded admission, Effect cancellation/error translation, session policy, and normalized events.
   - **Implementation scope:** adapt child stdio to the official SDK under explicit byte/mailbox limits; register existing client handlers once; map SDK close/errors into the existing runtime error channel; run the parity corpus; statically cut over Grok without fallback, then Droid and Cursor; execute the deletion ledger immediately after the last production import is gone.
   - **Out of scope:** restoring `effect-acp`, runtime fallback to the legacy wire, provider-level SDK
     facades or wire selection, replacing Effect, or recreating SDK schemas in wrappers. Type-only

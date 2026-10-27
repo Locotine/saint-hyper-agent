@@ -6,7 +6,7 @@ import {
   type ProviderKind,
   type ThreadId,
   type TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { VISIBLE_PROVIDER_DESCRIPTORS } from "./betaFeatures";
 
 import { orderedActivities, parseTaskListTasks } from "./workLog";
@@ -46,8 +46,8 @@ export {
   type WorkLogSubagentAction,
   type WorkLogSubagentRun,
   type WorkLogSubagentRunMember,
-  type WorkLogSynaraCreatedThread,
-  type WorkLogSynaraThreadCreation,
+  type WorkLogSaintCreatedThread,
+  type WorkLogSaintThreadCreation,
 } from "./workLog";
 
 export type ProviderPickerKind = ProviderKind;

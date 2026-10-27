@@ -2,8 +2,8 @@
 // Purpose: Human-in-the-loop provider authentication in the shared isolated terminal.
 // Layer: Settings UI
 
-import { ThreadId, type ProviderKind } from "@synara/contracts";
-import { PROVIDER_AUTHENTICATION } from "@synara/shared/providerCliProfiles";
+import { ThreadId, type ProviderKind } from "@saint/contracts";
+import { PROVIDER_AUTHENTICATION } from "@saint/shared/providerCliProfiles";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRefreshProviderStatusesNow } from "~/hooks/useProviderStatusRefresh";
@@ -146,7 +146,7 @@ export default function ProviderSignInDialog(props: {
         <DialogHeader>
           <DialogTitle>Sign in to {props.accountLabel}</DialogTitle>
           <DialogDescription>
-            {method.instructions} This runs on the Synara server machine for the selected account.
+            {method.instructions} This runs on the Saint server machine for the selected account.
           </DialogDescription>
         </DialogHeader>
         <div className="h-[min(55vh,28rem)] min-h-48 overflow-hidden rounded-xl border border-border mx-5">
@@ -166,7 +166,7 @@ export default function ProviderSignInDialog(props: {
             />
           ) : (
             <p className="p-3 text-ui-sm">
-              {config.isError ? "Unable to connect to the Synara server." : "Connecting…"}
+              {config.isError ? "Unable to connect to the Saint server." : "Connecting…"}
             </p>
           )}
         </div>

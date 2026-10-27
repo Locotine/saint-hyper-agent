@@ -23,20 +23,20 @@ const projectionProjectsColumnNames = (sql: SqlClient.SqlClient) =>
   `.pipe(Effect.map((rows) => rows.map((row) => row.name)));
 
 layer("032_ReconcileImportedSchemaLineage", (it) => {
-  // Simulates a legacy ~/.synara import where the imported `effect_sql_migrations`
-  // tracker has IDs 17-31 recorded under unrelated Synara names. The 17-31
+  // Simulates a legacy ~/.saint import where the imported `effect_sql_migrations`
+  // tracker has IDs 17-31 recorded under unrelated Saint names. The 17-31
   // body never ran, so the columns those migrations would have added are
   // missing. Without #032, the server crashes on the first SELECT that
   // references env_mode.
-  it.effect("heals an imported Synara DB whose tracker skipped 17-31", () =>
+  it.effect("heals an imported Saint DB whose tracker skipped 17-31", () =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
 
-      // Bring the schema to where Synara and Synara last agreed.
+      // Bring the schema to where Saint and Saint last agreed.
       yield* runMigrations({ toMigrationInclusive: 16 });
 
-      // Mark IDs 17-31 applied under Synara's old names so the migrator
-      // skips Synara's renumbered 17-23. Names are illustrative; only the
+      // Mark IDs 17-31 applied under Saint's old names so the migrator
+      // skips Saint's renumbered 17-23. Names are illustrative; only the
       // IDs matter to the migrator's "run anything past max(id)" gate.
       const importedMigrationNames: ReadonlyArray<readonly [number, string]> = [
         [17, "ProjectionThreadsArchivedAt"],
@@ -62,7 +62,7 @@ layer("032_ReconcileImportedSchemaLineage", (it) => {
         `;
       }
 
-      // Seed a thread row with the Synara-era column set so the data-rewrite
+      // Seed a thread row with the Saint-era column set so the data-rewrite
       // branches in #032 have something to operate on.
       yield* sql`
         INSERT INTO projection_threads (

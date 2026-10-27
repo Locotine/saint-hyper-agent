@@ -1,9 +1,9 @@
 // FILE: betaInstaller.ts
-// Purpose: Download, verify, and install Synara Beta on macOS from a
+// Purpose: Download, verify, and install Saint Beta on macOS from a
 //          generic update feed (beta-mac.yml + the zip it lists).
 // Layer: Desktop platform adapter (no Electron imports; I/O is injectable for tests).
 //
-// Feed resolution: `SYNARA_BETA_FEED_URL` points at a base URL that serves
+// Feed resolution: `SAINT_BETA_FEED_URL` points at a base URL that serves
 // `beta-mac.yml` plus the files it lists. Without it, the newest GitHub
 // `v*-beta.N` release on Emanuele-web04/synara provides the manifest.
 
@@ -23,11 +23,11 @@ import { get as httpsGet, type RequestOptions } from "node:https";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { BETA_RELEASE_TAG_PATTERN, SYNARA_BETA_RELEASES_API_URL } from "@synara/shared/betaChannel";
-import { SYNARA_BETA_BUNDLE_ID } from "@synara/shared/desktopIdentity";
+import { BETA_RELEASE_TAG_PATTERN, SAINT_BETA_RELEASES_API_URL } from "@saint/shared/betaChannel";
+import { SAINT_BETA_BUNDLE_ID } from "@saint/shared/desktopIdentity";
 
 export const BETA_MAC_MANIFEST_NAME = "beta-mac.yml";
-export const BETA_MAC_APP_NAME = "Synara Beta.app";
+export const BETA_MAC_APP_NAME = "Saint Beta.app";
 
 export interface BetaFeedFile {
   readonly url: string;
@@ -184,7 +184,7 @@ const fetchTextWithRedirects = (url: string, redirects: number): Promise<string>
   new Promise((resolvePromise, rejectPromise) => {
     let request;
     try {
-      request = feedGet(url, { headers: { "user-agent": "synara-desktop" } }, (response) => {
+      request = feedGet(url, { headers: { "user-agent": "saint-desktop" } }, (response) => {
         const status = response.statusCode ?? 0;
         const location = response.headers.location;
         if (status >= 300 && status < 400 && typeof location === "string") {
@@ -228,7 +228,7 @@ export async function resolveBetaFeedLocation(input: {
     return { manifestUrl: `${base}${BETA_MAC_MANIFEST_NAME}`, baseUrl: base };
   }
   const fetchText = input.fetchText ?? httpsFetchText;
-  const releases = JSON.parse(await fetchText(SYNARA_BETA_RELEASES_API_URL)) as unknown;
+  const releases = JSON.parse(await fetchText(SAINT_BETA_RELEASES_API_URL)) as unknown;
   if (!Array.isArray(releases)) {
     throw new Error("Unexpected GitHub releases response.");
   }
@@ -275,7 +275,7 @@ const downloadFileWithRedirects = (
   new Promise((resolvePromise, rejectPromise) => {
     let request;
     try {
-      request = feedGet(url, { headers: { "user-agent": "synara-desktop" } }, (response) => {
+      request = feedGet(url, { headers: { "user-agent": "saint-desktop" } }, (response) => {
         const status = response.statusCode ?? 0;
         const location = response.headers.location;
         if (status >= 300 && status < 400 && typeof location === "string") {
@@ -339,7 +339,7 @@ const readCommandDefault: ReadCommand = (command, args) => {
 };
 
 const TEAM_ID_LINE_PATTERN = /^TeamIdentifier=(\S+)$/m;
-const UNSIGNED_BETA_MESSAGE = "The beta download isn't signed by Synara. It wasn't installed.";
+const UNSIGNED_BETA_MESSAGE = "The beta download isn't signed by Saint. It wasn't installed.";
 const TEAM_ID_LOOKUP_FAILED_MESSAGE =
   "Couldn't check the beta download's signature. Try the download page instead.";
 
@@ -385,8 +385,8 @@ export function verifyBetaAppBundle(appPath: string): void {
     throw new Error(`The download did not contain ${BETA_MAC_APP_NAME}.`);
   }
   const bundleId = plist.match(/<key>CFBundleIdentifier<\/key>\s*<string>([^<]+)<\/string>/)?.[1];
-  if (bundleId !== SYNARA_BETA_BUNDLE_ID) {
-    throw new Error(`Downloaded app is not Synara Beta (bundle id ${bundleId ?? "missing"}).`);
+  if (bundleId !== SAINT_BETA_BUNDLE_ID) {
+    throw new Error(`Downloaded app is not Saint Beta (bundle id ${bundleId ?? "missing"}).`);
   }
 }
 
@@ -452,7 +452,7 @@ export async function installBetaFromFeed(
     }
     rmSync(previousPath, { recursive: true, force: true });
   }
-  const workDir = mkdtempSync(join(deps.tempBaseDir ?? tmpdir(), "synara-beta-install-"));
+  const workDir = mkdtempSync(join(deps.tempBaseDir ?? tmpdir(), "saint-beta-install-"));
   try {
     const location = await resolveBetaFeedLocation({
       feedUrlOverride: deps.feedUrlOverride,
@@ -478,7 +478,7 @@ export async function installBetaFromFeed(
     const appPath = join(extractDir, BETA_MAC_APP_NAME);
     verifyBetaInstallBundle(appPath, expectedTeamId, readCommand);
     mkdirSync(deps.installDir, { recursive: true });
-    const stagingDir = mkdtempSync(join(deps.installDir, ".synara-beta-install-"));
+    const stagingDir = mkdtempSync(join(deps.installDir, ".saint-beta-install-"));
     const stagedAppPath = join(stagingDir, BETA_MAC_APP_NAME);
     try {
       // Cross-volume mv can copy only part of the bundle before failing. Keep

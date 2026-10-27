@@ -6,13 +6,13 @@ import {
   DEFAULT_MODEL_BY_PROVIDER,
   DEFAULT_SERVER_SETTINGS,
   type ServerSettings,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   deriveProviderInstances,
   providerStartOptionsFromInstance,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 import { Effect, FileSystem, Layer, Schema } from "effect";
-import { isBetaFeatureEnabled } from "@synara/shared/betaFeatures";
+import { isBetaFeatureEnabled } from "@saint/shared/betaFeatures";
 import { describe, expect, it } from "vitest";
 import { providerDisabledSettingsMessage } from "./provider/enabledProviderAdapter";
 import { ServerConfig } from "./config";
@@ -27,10 +27,10 @@ import {
   ServerSettings as ServerSettingsSchema,
   ServerSettingsPatch as ServerSettingsPatchSchema,
   MAX_SOURCE_CONTROL_CUSTOM_INSTRUCTIONS_LENGTH,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 const serverConfigLayer = ServerConfig.layerTest(process.cwd(), {
-  prefix: "synara-settings-test-",
+  prefix: "saint-settings-test-",
 }).pipe(Layer.provide(NodeServices.layer));
 const makeTestLayer = Layer.merge(NodeServices.layer, serverConfigLayer);
 const testLayer = Layer.merge(makeTestLayer, ServerSettingsLive.pipe(Layer.provide(makeTestLayer)));
@@ -904,12 +904,23 @@ describe("gateBetaOnlyProviders", () => {
   });
 });
 
+const remoteAllowed = (provider: string) => provider === "codex" || provider === "claudeAgent";
+
 describe("providerDisabledSettingsMessage", () => {
-  it("points Beta-only providers at Synara Beta instead of Settings", () => {
+  it("points Beta-only providers at Saint Beta instead of Settings", () => {
     expect(providerDisabledSettingsMessage("omp", () => false)).toBe(
-      "Oh My Pi is available in Synara Beta.",
+      "Oh My Pi is available in Saint Beta.",
     );
     expect(providerDisabledSettingsMessage("codex", (f) => f !== "omp")).toBe(
+      "Codex is disabled in Settings > Providers.",
+    );
+  });
+
+  it("explains providers a remote host leaves out", () => {
+    expect(providerDisabledSettingsMessage("cursor", () => true, remoteAllowed)).toBe(
+      "Cursor is not installed on this remote host.",
+    );
+    expect(providerDisabledSettingsMessage("codex", () => true, remoteAllowed)).toBe(
       "Codex is disabled in Settings > Providers.",
     );
   });

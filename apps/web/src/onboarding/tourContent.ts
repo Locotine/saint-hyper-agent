@@ -1,5 +1,5 @@
 // FILE: tourContent.ts
-// Purpose: Copy and links for the "what Synara can do" tour. Wording mirrors the public
+// Purpose: Copy and links for the "what Saint can do" tour. Wording mirrors the public
 //          docs (trysynara.com/docs) and changelog so onboarding and docs stay consistent.
 // Layer: Web content (no React)
 
@@ -14,7 +14,7 @@ import {
   TerminalIcon,
 } from "~/lib/icons";
 
-export const SYNARA_DOCS_URL = "https://trysynara.com/docs";
+export const SAINT_DOCS_URL = "https://trysynara.com/docs";
 
 export interface TourCard {
   readonly id: string;
@@ -33,13 +33,13 @@ export const TOUR_CARDS: ReadonlyArray<TourCard> = [
     label: "Any agent",
     title: "Run every coding agent in one workspace",
     description:
-      "Synara sits around the agent runtimes you already trust: Claude Code, Codex, Cursor, Devin, Antigravity, Grok, Factory Droid, OpenCode, and Pi. The provider keeps its account, models, and limits. Synara owns the durable task, environment, transcript, and delivery workflow around it.",
+      "Saint sits around the agent runtimes you already trust: Claude Code, Codex, Cursor, Devin, Antigravity, Grok, Factory Droid, OpenCode, and Pi. The provider keeps its account, models, and limits. Saint owns the durable task, environment, transcript, and delivery workflow around it.",
     highlights: [
       "Switch models mid-thread",
       "Hand a thread to another provider",
       "Usage for every provider",
     ],
-    docsHref: `${SYNARA_DOCS_URL}/getting-started/providers`,
+    docsHref: `${SAINT_DOCS_URL}/getting-started/providers`,
     icon: BotIcon,
   },
   {
@@ -49,7 +49,7 @@ export const TOUR_CARDS: ReadonlyArray<TourCard> = [
     description:
       "Each task owns one body of work: its conversation, provider session, working environment, tool activity, and Git changes. Run tasks in parallel on managed Git worktrees so two agents never edit the same checkout.",
     highlights: ["Managed worktrees", "Forks from any message", "Subagents and side chats"],
-    docsHref: `${SYNARA_DOCS_URL}/workflows/worktrees`,
+    docsHref: `${SAINT_DOCS_URL}/workflows/worktrees`,
     icon: GitForkIcon,
   },
   {
@@ -63,7 +63,7 @@ export const TOUR_CARDS: ReadonlyArray<TourCard> = [
       "Commit → push → PR",
       "Native pull-request workspace",
     ],
-    docsHref: `${SYNARA_DOCS_URL}/workflows/pull-requests`,
+    docsHref: `${SAINT_DOCS_URL}/workflows/pull-requests`,
     icon: GitPullRequestIcon,
   },
   {
@@ -73,7 +73,7 @@ export const TOUR_CARDS: ReadonlyArray<TourCard> = [
     description:
       "Agents drive a visible, task-owned browser you can watch and annotate. On macOS, an iOS Simulator pane streams the device so agents can build, launch, and tap through an app while you follow along.",
     highlights: ["Shared Chromium surface", "Element annotations", "iOS Simulator pane"],
-    docsHref: `${SYNARA_DOCS_URL}/workflows/browser-verification`,
+    docsHref: `${SAINT_DOCS_URL}/workflows/browser-verification`,
     icon: GlobeIcon,
   },
   {
@@ -81,23 +81,23 @@ export const TOUR_CARDS: ReadonlyArray<TourCard> = [
     label: "Automations & goals",
     title: "Hand off work that should keep moving",
     description:
-      "Schedule recurring runs, attach a persistent goal to a thread so it keeps going after each clean turn, and let Synara bring you back when something needs attention. Scheduled does not mean autonomous approval.",
+      "Schedule recurring runs, attach a persistent goal to a thread so it keeps going after each clean turn, and let Saint bring you back when something needs attention. Scheduled does not mean autonomous approval.",
     highlights: [
       "Interval, daily, cron schedules",
       "Natural-language stop conditions",
       "Thread goals",
     ],
-    docsHref: `${SYNARA_DOCS_URL}/workflows/automations`,
+    docsHref: `${SAINT_DOCS_URL}/workflows/automations`,
     icon: ClockIcon,
   },
   {
     id: "gateway",
     label: "Agent Gateway",
-    title: "Let agents operate Synara itself",
+    title: "Let agents operate Saint itself",
     description:
       "A built-in MCP surface lets a supported provider session create tasks, wait on them, read transcripts, and steer other threads. Pair Codex, Claude Code, or Claude Desktop from outside with scoped, revocable credentials.",
     highlights: ["Parallel task batches", "External MCP pairing", "Approval boundaries"],
-    docsHref: `${SYNARA_DOCS_URL}/workflows/agent-gateway`,
+    docsHref: `${SAINT_DOCS_URL}/workflows/agent-gateway`,
     icon: TerminalIcon,
   },
   {
@@ -107,7 +107,7 @@ export const TOUR_CARDS: ReadonlyArray<TourCard> = [
     description:
       "Everything in the workspace has a shortcut, and the keymap is editable from Settings. A few worth learning on day one:",
     highlights: [],
-    docsHref: `${SYNARA_DOCS_URL}/reference/keyboard-shortcuts`,
+    docsHref: `${SAINT_DOCS_URL}/reference/keyboard-shortcuts`,
     icon: KeyboardIcon,
   },
 ];

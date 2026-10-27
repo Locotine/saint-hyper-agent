@@ -4,7 +4,7 @@
 // Exports: useComposerThreadMentionDrop, canDropThreadMention
 
 import { useEffect, useState, type DragEvent } from "react";
-import { type ThreadId } from "@synara/contracts";
+import { type ThreadId } from "@saint/contracts";
 
 import { isComposerDropzoneInternalDragTransition } from "./useComposerDropzone";
 import {

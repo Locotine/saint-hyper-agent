@@ -280,6 +280,19 @@ export const ProjectCreateLocalFilePreviewGrantResult = Schema.Struct({
 });
 export type ProjectCreateLocalFilePreviewGrantResult =
   typeof ProjectCreateLocalFilePreviewGrantResult.Type;
+
+/** An absolute HTML file to render; its folder becomes the preview's scope. */
+export const ProjectCreateHtmlPreviewGrantInput = Schema.Struct({
+  path: TrimmedNonEmptyString.check(Schema.isMaxLength(PROJECT_READ_FILE_PATH_MAX_LENGTH)),
+});
+export type ProjectCreateHtmlPreviewGrantInput = typeof ProjectCreateHtmlPreviewGrantInput.Type;
+
+export const ProjectCreateHtmlPreviewGrantResult = Schema.Struct({
+  grant: TrimmedNonEmptyString,
+  /** The HTML file's name inside the granted folder, unencoded. */
+  entryName: TrimmedNonEmptyString,
+});
+export type ProjectCreateHtmlPreviewGrantResult = typeof ProjectCreateHtmlPreviewGrantResult.Type;
 // ── Dev Server Process Manager ───────────────────────────────────────
 //
 // Dev servers are first-class background processes owned by the server and

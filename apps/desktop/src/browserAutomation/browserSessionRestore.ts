@@ -37,7 +37,7 @@ const Snapshot = Schema.Struct({
   domains: Schema.Array(Text).check(Schema.isMaxLength(20_000)),
   cookies: Schema.Array(Cookie).check(Schema.isMaxLength(20_000)),
 });
-const AAD = Buffer.from("synara-imported-session-restore-v1");
+const AAD = Buffer.from("saint-imported-session-restore-v1");
 const MAX_BYTES = 16 * 1024 * 1024;
 
 export interface CookieSessionBackend {

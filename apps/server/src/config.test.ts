@@ -20,9 +20,9 @@ import {
 } from "./config";
 
 const tempDirs = new Set<string>();
-const originalSynaraStaticDir = process.env.SYNARA_STATIC_DIR;
+const originalSaintStaticDir = process.env.SAINT_STATIC_DIR;
 
-function makeTempDir(prefix = "synara-config-test-"): string {
+function makeTempDir(prefix = "saint-config-test-"): string {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   tempDirs.add(directory);
   return directory;
@@ -33,18 +33,18 @@ afterEach(() => {
     fs.rmSync(directory, { recursive: true, force: true });
   }
   tempDirs.clear();
-  if (originalSynaraStaticDir === undefined) {
-    delete process.env.SYNARA_STATIC_DIR;
+  if (originalSaintStaticDir === undefined) {
+    delete process.env.SAINT_STATIC_DIR;
   } else {
-    process.env.SYNARA_STATIC_DIR = originalSynaraStaticDir;
+    process.env.SAINT_STATIC_DIR = originalSaintStaticDir;
   }
 });
 
 describe("resolveStaticDir", () => {
-  it("uses the desktop static snapshot exposed through the Synara environment", async () => {
-    const snapshotDir = makeTempDir("synara-static-snapshot-test-");
-    fs.writeFileSync(path.join(snapshotDir, "index.html"), "<main>Synara</main>");
-    process.env.SYNARA_STATIC_DIR = snapshotDir;
+  it("uses the desktop static snapshot exposed through the Saint environment", async () => {
+    const snapshotDir = makeTempDir("saint-static-snapshot-test-");
+    fs.writeFileSync(path.join(snapshotDir, "index.html"), "<main>Saint</main>");
+    process.env.SAINT_STATIC_DIR = snapshotDir;
 
     const resolved = await Effect.runPromise(
       resolveStaticDir().pipe(Effect.provide(NodeServices.layer)),
@@ -67,7 +67,7 @@ describe("resolveDefaultChatWorkspaceRoot", () => {
         homeDir: "C:\\Users\\tester",
         platform: "win32",
       }),
-    ).toBe("C:\\Users\\tester\\Documents\\Synara");
+    ).toBe("C:\\Users\\tester\\Documents\\Saint");
   });
 
   it("defaults to the current process platform when no platform is supplied", () => {
@@ -79,7 +79,7 @@ describe("resolveDefaultChatWorkspaceRoot", () => {
 
     try {
       expect(resolveDefaultChatWorkspaceRoot({ homeDir: "C:\\Users\\tester" })).toBe(
-        "C:\\Users\\tester\\Documents\\Synara",
+        "C:\\Users\\tester\\Documents\\Saint",
       );
     } finally {
       Object.defineProperty(process, "platform", originalPlatformDescriptor!);
@@ -94,7 +94,7 @@ describe("resolveDefaultStudioWorkspaceRoot", () => {
         homeDir: "C:\\Users\\tester",
         platform: "win32",
       }),
-    ).toBe("C:\\Users\\tester\\Documents\\Synara\\Studio");
+    ).toBe("C:\\Users\\tester\\Documents\\Saint\\Studio");
   });
 });
 
@@ -116,12 +116,12 @@ describe("resolveCanonicalWorkspaceRoots", () => {
     // chatWorkspaceRoot/studioWorkspaceRoot don't exist yet under the resolved
     // home, so they must be re-derived from the canonicalized (symlink-free)
     // home rather than the raw, symlinked input.
-    expect(result.chatWorkspaceRoot).toBe(path.join(expectedHomeDir, "Documents", "Synara"));
+    expect(result.chatWorkspaceRoot).toBe(path.join(expectedHomeDir, "Documents", "Saint"));
     expect(result.studioWorkspaceRoot).toBe(
-      path.join(expectedHomeDir, "Documents", "Synara", "Studio"),
+      path.join(expectedHomeDir, "Documents", "Saint", "Studio"),
     );
     expect(result.groupsWorkspaceRoot).toBe(
-      path.join(expectedHomeDir, "Documents", "Synara", "Groups"),
+      path.join(expectedHomeDir, "Documents", "Saint", "Groups"),
     );
   });
 
@@ -133,7 +133,7 @@ describe("resolveCanonicalWorkspaceRoots", () => {
     fs.mkdirSync(homeDir, { recursive: true });
     // Symlink ~/Documents to a real directory elsewhere, matching the bug
     // report scenario (e.g. iCloud-managed Documents on macOS). Neither
-    // Synara/ nor Synara/Studio exist yet underneath it.
+    // Saint/ nor Saint/Studio exist yet underneath it.
     const symlinkedDocuments = path.join(homeDir, "Documents");
     fs.symlinkSync(realDocuments, symlinkedDocuments, "dir");
 
@@ -144,9 +144,9 @@ describe("resolveCanonicalWorkspaceRoots", () => {
 
     const expectedDocuments = fs.realpathSync(realDocuments);
     expect(result.homeDir).toBe(fs.realpathSync(homeDir));
-    expect(result.chatWorkspaceRoot).toBe(path.join(expectedDocuments, "Synara"));
-    expect(result.studioWorkspaceRoot).toBe(path.join(expectedDocuments, "Synara", "Studio"));
-    expect(result.groupsWorkspaceRoot).toBe(path.join(expectedDocuments, "Synara", "Groups"));
+    expect(result.chatWorkspaceRoot).toBe(path.join(expectedDocuments, "Saint"));
+    expect(result.studioWorkspaceRoot).toBe(path.join(expectedDocuments, "Saint", "Studio"));
+    expect(result.groupsWorkspaceRoot).toBe(path.join(expectedDocuments, "Saint", "Groups"));
     expect(fs.existsSync(result.chatWorkspaceRoot)).toBe(false);
     expect(fs.existsSync(result.studioWorkspaceRoot)).toBe(false);
     expect(fs.existsSync(result.groupsWorkspaceRoot)).toBe(false);

@@ -22,7 +22,7 @@ const SENSITIVE_KEY =
 
 /** URL schemes that address this machine or the app bundle, never a remote org. */
 const LOCAL_URL_SCHEME =
-  /^(?:file|synara(?:-[a-z]+)?|node|electron|devtools|chrome|chrome-extension)$/i;
+  /^(?:file|saint(?:-[a-z]+)?|node|electron|devtools|chrome|chrome-extension)$/i;
 
 interface Replacement {
   readonly pattern: RegExp;
@@ -54,7 +54,7 @@ const RULES: ReadonlyArray<Replacement> = [
   // URLs of any scheme: credentials in userinfo become <redacted>@ and the
   // query string and fragment are dropped. Network URLs keep only scheme +
   // host, since their paths carry org, repo, and ticket names; local schemes
-  // (file://, synara://, ...) keep the path so stack frames stay readable.
+  // (file://, saint://, ...) keep the path so stack frames stay readable.
   // Runs before the email rule so userinfo is not mistaken for an address.
   {
     pattern:

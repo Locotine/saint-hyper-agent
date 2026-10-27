@@ -1,4 +1,4 @@
-import type { ExternalMcpCapability } from "@synara/contracts";
+import type { ExternalMcpCapability } from "@saint/contracts";
 
 interface OverviewProjectInput {
   readonly id: string;
@@ -73,11 +73,11 @@ export function buildExternalMcpOverviewNextSteps(
   capabilities: ReadonlySet<ExternalMcpCapability>,
 ): ReadonlyArray<string> {
   return [
-    "Call synara_capabilities with a projectId to list the exact provider/model targets available to this integration.",
-    ...(capabilities.has("tasks:create") ? ["Create work with synara_create_task."] : []),
-    ...(capabilities.has("tasks:wait") ? ["Follow permitted work with synara_wait_for_task."] : []),
+    "Call saint_capabilities with a projectId to list the exact provider/model targets available to this integration.",
+    ...(capabilities.has("tasks:create") ? ["Create work with saint_create_task."] : []),
+    ...(capabilities.has("tasks:wait") ? ["Follow permitted work with saint_wait_for_task."] : []),
     ...(capabilities.has("tasks:read")
-      ? ["Read permitted task results with synara_read_task."]
+      ? ["Read permitted task results with saint_read_task."]
       : []),
   ];
 }

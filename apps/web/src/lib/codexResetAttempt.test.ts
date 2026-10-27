@@ -44,7 +44,7 @@ describe("Codex reset attempts", () => {
   });
   it("does not silently replace a malformed persisted attempt", () => {
     localStorage.setItem(
-      "synara:codex-reset-attempt:account-a",
+      "saint:codex-reset-attempt:account-a",
       JSON.stringify({ accountId: "account-b", idempotencyKey: "old" }),
     );
     expect(() => prepareCodexResetAttempt("account-a")).toThrow("could not be read");

@@ -1,10 +1,10 @@
 // FILE: privacy/page.tsx
-// Purpose: Full privacy page — the detailed, honest account of what Synara does
+// Purpose: Full privacy page — the detailed, honest account of what Saint does
 //          (and doesn't do) with your data. Linked from the homepage + footer.
 // Layer: App Router page (static)
 // Depends on: Navbar, SiteFooter, react-icons/lu
-// Note: Claims verified against the synara codebase. Keep them in sync with the
-//       app: local SQLite, direct-to-provider, no Synara account, explicit
+// Note: Claims verified against the saint codebase. Keep them in sync with the
+//       app: local SQLite, direct-to-provider, no Saint account, explicit
 //       feedback delivery, and anonymous analytics that are OFF by default.
 
 import type { ReactNode } from "react";
@@ -15,9 +15,9 @@ import SiteFooter from "@/components/SiteFooter";
 import { SITE_URL, breadcrumbJsonLd, jsonLdScript, pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata({
-  title: "Privacy — Synara",
+  title: "Privacy — Saint",
   description:
-    "Synara's security and privacy boundary: local-first storage, direct-to-provider connections, no account, and anonymous analytics that are off by default.",
+    "Saint's security and privacy boundary: local-first storage, direct-to-provider connections, no account, and anonymous analytics that are off by default.",
   path: "/privacy",
 });
 
@@ -26,7 +26,7 @@ const LAST_UPDATED = "July 15, 2026";
 const RECEIVED_IF_OPTED_IN = [
   "An event name (e.g. “app launched”, “provider connected”)",
   "An anonymous id (a random per-install id, or a one-way hash of your provider account id)",
-  "Your OS, CPU architecture, and Synara version",
+  "Your OS, CPU architecture, and Saint version",
   "Whether you're on the desktop app or the web/CLI client",
 ];
 
@@ -42,14 +42,14 @@ const PRIVACY_JSONLD = [
     "@context": "https://schema.org",
     "@type": "WebPage",
     "@id": `${SITE_URL}/privacy#webpage`,
-    name: "Synara privacy",
+    name: "Saint privacy",
     url: `${SITE_URL}/privacy`,
     dateModified: "2026-07-15",
     description:
-      "Synara security and privacy details covering local-first storage, direct-to-provider connections, no Synara account, and opt-in anonymous analytics.",
+      "Saint security and privacy details covering local-first storage, direct-to-provider connections, no Saint account, and opt-in anonymous analytics.",
   },
   breadcrumbJsonLd([
-    { name: "Synara", path: "/" },
+    { name: "Saint", path: "/" },
     { name: "Privacy", path: "/privacy" },
   ]),
 ];
@@ -71,10 +71,10 @@ export default function PrivacyPage() {
           Private by default. Clear by design.
         </h1>
         <p className="mt-5 text-[14px] leading-[1.7] text-[var(--text-secondary)] sm:text-[15px]">
-          Synara is a desktop app that runs on your machine and connects straight to the providers
-          you already use. There&apos;s no Synara account, no Synara server holding your work, and
+          Saint is a desktop app that runs on your machine and connects straight to the providers
+          you already use. There&apos;s no Saint account, no Saint server holding your work, and
           your code or prompts are not sent to us during normal use. The only exception is feedback
-          you explicitly write and submit through the Feedback Synara dialog, together with the
+          you explicitly write and submit through the Feedback Saint dialog, together with the
           limited diagnostics described below. This page spells out exactly what that means — in
           plain language, no &quot;just read the source&quot; required (though you can, it&apos;s
           open source).
@@ -83,25 +83,25 @@ export default function PrivacyPage() {
         <Section title="Where your data lives">
           <p>
             Your chats, projects, settings, and history are stored in a local database (SQLite) on
-            your own device. Synara runs a small server process <em>locally</em> on your machine to
+            your own device. Saint runs a small server process <em>locally</em> on your machine to
             power the app — it is not a hosted cloud service, and your data never leaves your
-            computer just by using Synara.
+            computer just by using Saint.
           </p>
         </Section>
 
         <Section title="Where your prompts and code go">
           <p>
-            When you chat with a model, Synara connects <strong>directly</strong> to the provider
-            you chose — Claude, Codex, OpenCode, Cursor, Antigravity, Grok, Droid, and so on — using
+            When you chat with a model, Saint connects <strong>directly</strong> to the provider you
+            chose — Claude, Codex, OpenCode, Cursor, Antigravity, Grok, Droid, and so on — using
             your own existing logins. Your prompts and code go only to that provider, governed by{" "}
-            <em>their</em> privacy terms. Synara does not proxy, copy, or store that traffic on any
+            <em>their</em> privacy terms. Saint does not proxy, copy, or store that traffic on any
             server of ours.
           </p>
         </Section>
 
         <Section title="No account, no lock-in">
           <p>
-            There&apos;s nothing to sign up for and no Synara login. Want to open Synara from your
+            There&apos;s nothing to sign up for and no Saint login. Want to open Saint from your
             phone or another laptop? That&apos;s self-hosted: you expose <em>your</em> machine over
             your own network (LAN or Tailscale), protected by an auth token you generate and
             control. Nothing routes through us.
@@ -110,7 +110,7 @@ export default function PrivacyPage() {
 
         <Section title="Anonymous analytics — off by default">
           <p>
-            Synara can send <strong>anonymous, aggregate usage analytics</strong> (via PostHog) to
+            Saint can send <strong>anonymous, aggregate usage analytics</strong> (via PostHog) to
             help us understand which features matter and where things break. This is{" "}
             <strong>off by default</strong> — it never runs unless you explicitly opt in.
           </p>
@@ -129,7 +129,7 @@ export default function PrivacyPage() {
             identity. You can keep them disabled (the default) or, if you&apos;d like to help, turn
             them on by setting{" "}
             <code className="rounded bg-[var(--block-elevated)] px-1.5 py-0.5 font-mono text-[12px]">
-              SYNARA_TELEMETRY_ENABLED=true
+              SAINT_TELEMETRY_ENABLED=true
             </code>
             . An in-app <span className="text-[var(--text-primary)]">Settings → Privacy</span>{" "}
             toggle is on the way.
@@ -138,21 +138,21 @@ export default function PrivacyPage() {
 
         <Section title="Feedback you choose to send">
           <p>
-            The in-app <strong>Feedback Synara</strong> dialog sends only when you press Submit. It
+            The in-app <strong>Feedback Saint</strong> dialog sends only when you press Submit. It
             includes the text you wrote, app version, operating system, provider and model, runtime
             modes, and session/turn status so we can understand the conditions around a problem.
           </p>
           <p>
             Automated diagnostics do not include chat messages, prompts, project paths, repository
             contents, session logs, or screenshots. Reports are delivered through our website and
-            email provider to the Synara maintainer for support and product improvement, rather than
+            email provider to the Saint maintainer for support and product improvement, rather than
             being added to an analytics profile.
           </p>
         </Section>
 
         <Section title="Open source">
           <p>
-            Synara is open source under the MIT license. If a sentence on this page isn&apos;t
+            Saint is open source under the MIT license. If a sentence on this page isn&apos;t
             enough, you can verify every claim yourself —{" "}
             <a
               href="https://github.com/Emanuele-web04/synara"
@@ -199,7 +199,7 @@ export default function PrivacyPage() {
             href="/install"
             className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--btn-primary-bg)] px-5 py-2.5 text-[13px] font-medium text-[var(--btn-primary-fg)] transition-opacity hover:opacity-90"
           >
-            Download Synara
+            Download Saint
             <LuArrowDownToLine className="size-4" aria-hidden="true" />
           </Link>
         </div>

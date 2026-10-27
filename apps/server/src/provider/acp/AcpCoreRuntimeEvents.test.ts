@@ -1,4 +1,4 @@
-import { RuntimeRequestId, TurnId } from "@synara/contracts";
+import { RuntimeRequestId, TurnId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -17,7 +17,7 @@ describe("AcpCoreRuntimeEvents", () => {
     "preserves Computer identity through %s start, update and sparse completion events",
     (provider) => {
       const rawInput = {
-        _toolName: "mcp__synara__computer_inspect",
+        _toolName: "mcp__saint__computer_inspect",
         tool: "computer_read_clipboard",
         arguments: {},
       };

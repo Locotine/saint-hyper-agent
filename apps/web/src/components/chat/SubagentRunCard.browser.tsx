@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import { MessageId, ThreadId, TurnId } from "@synara/contracts";
+import { MessageId, ThreadId, TurnId } from "@saint/contracts";
 import { useRef, useSyncExternalStore, type ComponentProps } from "react";
 import { page, userEvent } from "vitest/browser";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";

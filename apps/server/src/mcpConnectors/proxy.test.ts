@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { OutboundHttpError, outboundHttp } from "@synara/shared/outboundHttp";
+import { OutboundHttpError, outboundHttp } from "@saint/shared/outboundHttp";
 
 import {
   forwardMcpConnectorRequest,

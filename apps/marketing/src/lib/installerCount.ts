@@ -93,7 +93,7 @@ async function fetchLiveInstallerCount(): Promise<number> {
 // an outage retries on the next request instead of pinning the fallback.
 const fetchCachedInstallerCount = unstable_cache(
   fetchLiveInstallerCount,
-  ["synara-installer-count"],
+  ["saint-installer-count"],
   {
     revalidate: INSTALLER_COUNT_CACHE_TTL_SECONDS,
   },

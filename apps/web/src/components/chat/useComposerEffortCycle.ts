@@ -3,7 +3,7 @@ import type {
   ProviderKind,
   ProviderModelDescriptor,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ProviderOptions } from "../../providerModelOptions";

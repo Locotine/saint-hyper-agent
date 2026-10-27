@@ -3,7 +3,7 @@
 // Layer: Web settings UI
 // Exports: ThemePackEditor
 
-import { DESKTOP_WINDOW_BLUR_RADIUS_MAX, DESKTOP_WINDOW_BLUR_RADIUS_MIN } from "@synara/contracts";
+import { DESKTOP_WINDOW_BLUR_RADIUS_MAX, DESKTOP_WINDOW_BLUR_RADIUS_MIN } from "@saint/contracts";
 import { type CSSProperties, useEffect, useId, useMemo, useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { Button } from "./ui/button";

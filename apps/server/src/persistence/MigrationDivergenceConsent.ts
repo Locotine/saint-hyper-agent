@@ -6,7 +6,7 @@ import {
   migrationBackupDirectory,
   serializeMigrationDivergenceConsentChallenge,
   type MigrationDivergenceConsentChallenge,
-} from "@synara/shared/migrationRecovery";
+} from "@saint/shared/migrationRecovery";
 
 export interface MigrationLineageDivergence {
   readonly firstDivergedId: number;
@@ -60,7 +60,7 @@ function formatConsentRequiredMessage(challenge: MigrationDivergenceConsentChall
     `Repair would rewrite migration tracker rows from ${challenge.firstDivergedId} and replay ` +
     `through ${challenge.targetVersion}. To approve only this inspected database and lineage, ` +
     `restart once with ${MIGRATION_DIVERGENCE_CONSENT_ENV}=${challenge.consentToken}. ` +
-    `Synara will first create a recovery backup in ${challenge.backupDirectory}.\n` +
+    `Saint will first create a recovery backup in ${challenge.backupDirectory}.\n` +
     serializeMigrationDivergenceConsentChallenge(challenge)
   );
 }

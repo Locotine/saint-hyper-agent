@@ -1,4 +1,4 @@
-import type { ProviderInstanceId, ProviderKind } from "@synara/contracts";
+import type { ProviderInstanceId, ProviderKind } from "@saint/contracts";
 
 /** Provider-wide external-server credentials belong only to the canonical default instance. */
 export function canUseDefaultOpenCodeServerPassword(

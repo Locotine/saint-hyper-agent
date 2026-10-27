@@ -2,11 +2,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { assert, describe, it } from "@effect/vitest";
 import { Cause, Effect } from "effect";
 
-import { SYNARA_AGENT_GATEWAY_TOKEN_ENV } from "../../agentGateway/mcpInjection.ts";
+import { SAINT_AGENT_GATEWAY_TOKEN_ENV } from "../../agentGateway/mcpInjection.ts";
 import { makeEventNdjsonLogger } from "../Layers/EventNdjsonLogger.ts";
 import {
   ACP_LOG_REDACTED_VALUE,
@@ -17,7 +17,7 @@ import {
 describe("AcpNativeLogging", () => {
   it.effect("redacts gateway credentials from request and protocol NDJSON logs", () =>
     Effect.gen(function* () {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-acp-secret-log-"));
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-acp-secret-log-"));
       const basePath = path.join(tempDir, "provider-native.ndjson");
       const threadId = ThreadId.makeUnsafe("thread-secret-redaction");
       const sentinelToken = "sagw_session_SENTINEL_MUST_NEVER_REACH_NDJSON";
@@ -58,7 +58,7 @@ describe("AcpNativeLogging", () => {
               },
               {
                 env: [
-                  { name: SYNARA_AGENT_GATEWAY_TOKEN_ENV, value: sentinelToken },
+                  { name: SAINT_AGENT_GATEWAY_TOKEN_ENV, value: sentinelToken },
                   { name: "SAFE_ENV", value: "kept" },
                 ],
               },
@@ -71,7 +71,7 @@ describe("AcpNativeLogging", () => {
           stage: "raw",
           payload: JSON.stringify({
             headers: [{ name: "Authorization", value: `Bearer ${sentinelToken}` }],
-            env: [{ name: SYNARA_AGENT_GATEWAY_TOKEN_ENV, value: sentinelToken }],
+            env: [{ name: SAINT_AGENT_GATEWAY_TOKEN_ENV, value: sentinelToken }],
           }),
         });
         yield* protocolLogger({
@@ -219,7 +219,7 @@ describe("redactAcpLogSecrets", () => {
   it("redacts raw JSON protocol frames as string and bytes", () => {
     const frame = JSON.stringify({
       headers: [{ name: "Authorization", value: "Bearer raw-frame-token-SENTINEL" }],
-      env: [{ name: SYNARA_AGENT_GATEWAY_TOKEN_ENV, value: "raw-frame-gateway-SENTINEL" }],
+      env: [{ name: SAINT_AGENT_GATEWAY_TOKEN_ENV, value: "raw-frame-gateway-SENTINEL" }],
       requestId: "req-frame-1",
     });
     const asString = String(redactAcpLogSecrets(frame));

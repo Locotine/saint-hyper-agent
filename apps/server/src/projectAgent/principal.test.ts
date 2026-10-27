@@ -1,4 +1,4 @@
-import { ProjectId, ProjectTaskId, ThreadId } from "@synara/contracts";
+import { ProjectId, ProjectTaskId, ThreadId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {

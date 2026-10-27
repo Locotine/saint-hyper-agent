@@ -13,10 +13,10 @@ import type {
   OAuthClientMetadata,
   OAuthTokens,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { outboundHttp } from "@synara/shared/outboundHttp";
+import { outboundHttp } from "@saint/shared/outboundHttp";
 
-export const SYNARA_OAUTH_CLIENT_NAME = "Synara";
-export const SYNARA_OAUTH_CLIENT_URI = "https://www.trysynara.com";
+export const SAINT_OAUTH_CLIENT_NAME = "Saint";
+export const SAINT_OAUTH_CLIENT_URI = "https://www.trysynara.com";
 const OAUTH_TIMEOUT_MS = 20_000;
 const OAUTH_MAX_RESPONSE_BYTES = 1024 * 1024;
 
@@ -76,8 +76,8 @@ export async function connectorOAuthFetch(
 
 export function connectorClientMetadata(redirectUrl: string): OAuthClientMetadata {
   return {
-    client_name: SYNARA_OAUTH_CLIENT_NAME,
-    client_uri: SYNARA_OAUTH_CLIENT_URI,
+    client_name: SAINT_OAUTH_CLIENT_NAME,
+    client_uri: SAINT_OAUTH_CLIENT_URI,
     redirect_uris: [redirectUrl],
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
@@ -100,7 +100,7 @@ export interface ConnectorAuthorizationState {
  * The SDK's provider interface over one sign-in. Each sign-in registers a
  * fresh client: the desktop picks a new port per launch (so the redirect URL
  * changes), and a stale cached registration would strand the user on the
- * vendor's error page with no way to recover from Synara.
+ * vendor's error page with no way to recover from Saint.
  */
 export function makeConnectorOAuthProvider(
   authorization: ConnectorAuthorizationState,

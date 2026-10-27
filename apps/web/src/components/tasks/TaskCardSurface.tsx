@@ -5,7 +5,7 @@
 // Layer: Tasks UI component
 // Exports: useTaskSelection, TaskCardSurface, TaskSelection
 
-import type { TodoDueDate, TodoId } from "@synara/contracts";
+import type { TodoDueDate, TodoId } from "@saint/contracts";
 import { useState, type ReactNode } from "react";
 
 import { cn } from "~/lib/utils";

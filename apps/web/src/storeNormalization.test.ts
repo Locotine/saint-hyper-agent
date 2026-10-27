@@ -2,10 +2,10 @@
 // Purpose: pins the incremental activity accumulator to the `normalizeActivities` fold it
 // replaces, and locks the legacy session provider-name → ProviderKind mapping.
 
-import { EventId, MessageId, TurnId, type PendingClaudeCacheReview } from "@synara/contracts";
+import { EventId, MessageId, TurnId, type PendingClaudeCacheReview } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderKind } from "@saint/contracts";
 
 import {
   capThreadActivities,

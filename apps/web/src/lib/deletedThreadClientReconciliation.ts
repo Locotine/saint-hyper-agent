@@ -3,7 +3,7 @@
 // Layer: Web orchestration helper
 // Exports: reconcileDeletedThreadFromClient, reconcileDeletedThreadsFromClient
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { useDiffRenderModeStore } from "../diffRenderModeStore";
 
 interface DeletedThreadClientReconciliationInput {

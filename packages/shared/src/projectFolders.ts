@@ -4,7 +4,7 @@
 // Exports: findProjectFolderProblem, deriveProjectFolderLabels, buildProjectFoldersPreamble,
 //          projectFoldersSessionIssue, PROJECT_FOLDERS_WORKTREE_ISSUE
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderKind } from "@saint/contracts";
 
 import { PROVIDER_DESCRIPTOR_BY_KIND } from "./providerMetadata";
 import { isWorkspaceRootWithin, normalizeWorkspaceRootForComparison } from "./threadWorkspace";

@@ -9,7 +9,7 @@
  * - Boot source. The backend cannot tell who booted a device, so the manager
  *   records the devices it booted itself. Only those are ever auto-shut-down;
  *   anything the user started (pane picker, Simulator.app) outlives us.
- * - The Synara boot cap (`DEVICE_SYNARA_BOOT_LIMIT`). Boot past the cap is
+ * - The Saint boot cap (`DEVICE_SAINT_BOOT_LIMIT`). Boot past the cap is
  *   refusable rather than fatal: the caller is handed the shutdown candidates
  *   so the pane can prompt.
  * - Shutdown triggers: app quit (`dispose`), thread removal
@@ -27,7 +27,7 @@ import {
   type BootOwnershipStore,
 } from "./bootOwnership.ts";
 import {
-  DEVICE_SYNARA_BOOT_LIMIT,
+  DEVICE_SAINT_BOOT_LIMIT,
   DEVICE_THREAD_STATE_MAX_DEVICES,
   ThreadId,
   type DeviceAttachPhase,
@@ -45,7 +45,7 @@ import {
   type DeviceStopRecordingResult,
   type DeviceUiNode,
   type ThreadDeviceState,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import {
   DeviceBackendError,
@@ -80,7 +80,7 @@ import {
   type DeviceUiTargetMatch,
 } from "./uiTreeTargeting.ts";
 
-/** How long an unused Synara-booted device stays up after work or viewing ends. */
+/** How long an unused Saint-booted device stays up after work or viewing ends. */
 export const DEVICE_IDLE_SHUTDOWN_MS = 10 * 60 * 1000;
 
 /**
@@ -198,7 +198,7 @@ export interface DeviceManagerOptions {
   readonly transport?: DeviceFrameTransport;
   readonly idleShutdownMs?: number;
   readonly bootLimit?: number;
-  /** Remembers Synara's boots across a crash; defaults to remembering nothing. */
+  /** Remembers Saint's boots across a crash; defaults to remembering nothing. */
   readonly bootOwnership?: BootOwnershipStore;
   readonly attachDeadlineMs?: number;
   readonly attachRetryMs?: number;
@@ -251,11 +251,11 @@ export class DeviceManager {
     readonly devices: readonly DeviceDescriptor[];
   } | null = null;
   /** Devices this manager booted, and therefore may shut down again. */
-  private readonly synaraBooted = new Set<string>();
+  private readonly saintBooted = new Set<string>();
   /**
    * Boots still running. A device being booted can still read as shut down in
    * a listing taken meanwhile, and reconciling against that listing released
-   * its slot and forgot that Synara owns it.
+   * its slot and forgot that Saint owns it.
    */
   private readonly bootsInFlight = new Set<string>();
   private readonly idleTimers = new Map<string, NodeJS.Timeout>();
@@ -274,7 +274,7 @@ export class DeviceManager {
     this.backend = options.backend;
     this.transport = options.transport ?? new DeviceFrameTransport();
     this.idleShutdownMs = options.idleShutdownMs ?? DEVICE_IDLE_SHUTDOWN_MS;
-    this.bootLimit = options.bootLimit ?? DEVICE_SYNARA_BOOT_LIMIT;
+    this.bootLimit = options.bootLimit ?? DEVICE_SAINT_BOOT_LIMIT;
     this.bootOwnership = options.bootOwnership ?? NULL_BOOT_OWNERSHIP;
     this.attachDeadlineMs = options.attachDeadlineMs ?? DEVICE_ATTACH_DEADLINE_MS;
     this.attachRetryMs = options.attachRetryMs ?? DEVICE_ATTACH_RETRY_MS;
@@ -287,7 +287,7 @@ export class DeviceManager {
   }
 
   private async recordBootOwnership(): Promise<void> {
-    await this.bootOwnership.write([...this.synaraBooted]).catch(() => undefined);
+    await this.bootOwnership.write([...this.saintBooted]).catch(() => undefined);
   }
 
   /**
@@ -387,21 +387,21 @@ export class DeviceManager {
   }
 
   /** Devices the pane may offer as shutdown candidates when the cap is hit. */
-  async synaraBootedDevices(): Promise<readonly DeviceDescriptor[]> {
+  async saintBootedDevices(): Promise<readonly DeviceDescriptor[]> {
     const listed = await this.backend.listDevices({ includeShutdown: true }).catch(() => null);
     // A failed listing says nothing about what is running; reconciling against
-    // it would drop every device Synara booted.
-    if (listed !== null) this.reconcileSynaraBooted(listed);
+    // it would drop every device Saint booted.
+    if (listed !== null) this.reconcileSaintBooted(listed);
     const devices = listed ?? [];
     return devices
-      .filter((device) => this.synaraBooted.has(device.udid))
+      .filter((device) => this.saintBooted.has(device.udid))
       .map((device) => this.describe(device));
   }
 
   /**
    * Forget devices that are no longer running.
    *
-   * The set is Synara's own bookkeeping, but the simulators are not Synara's to
+   * The set is Saint's own bookkeeping, but the simulators are not Saint's to
    * keep: `simctl shutdown all` from a shell, Simulator.app quitting, a crashed
    * runtime, or the agent tidying up all shut a device down without telling us.
    * Every one of those left a phantom holding a slot, and three phantoms made
@@ -411,15 +411,15 @@ export class DeviceManager {
    * Reconciled from the listing every caller already has rather than by polling:
    * the cap is only consulted on boot, and that path lists devices anyway.
    */
-  private reconcileSynaraBooted(devices: readonly DeviceDescriptor[]): void {
+  private reconcileSaintBooted(devices: readonly DeviceDescriptor[]): void {
     const running = new Set(
       devices
         .filter((device) => device.state === "booted" || device.state === "booting")
         .map((device) => device.udid),
     );
-    for (const udid of this.synaraBooted) {
+    for (const udid of this.saintBooted) {
       if (running.has(udid) || this.bootsInFlight.has(udid)) continue;
-      this.synaraBooted.delete(udid);
+      this.saintBooted.delete(udid);
       this.clearIdleTimer(udid);
     }
   }
@@ -432,30 +432,30 @@ export class DeviceManager {
     this.assertNotDisposed();
     const listed = await this.backend.listDevices({ includeShutdown: true }).catch(() => null);
     this.assertNotDisposed();
-    // Devices that stopped without Synara doing it still held their slots, so
+    // Devices that stopped without Saint doing it still held their slots, so
     // three shutdowns from a shell were enough to make every later boot refuse.
-    if (listed !== null) this.reconcileSynaraBooted(listed);
+    if (listed !== null) this.reconcileSaintBooted(listed);
     const devices = listed ?? [];
     const known = devices.find((device) => device.udid === udid) ?? null;
     // Viewing an already-booted device is uncapped: the cap exists to stop
-    // Synara from accumulating simulators, not to limit what the user watches.
+    // Saint from accumulating simulators, not to limit what the user watches.
     if (known?.state === "booted") {
       return { kind: "booted", device: this.describe(known) };
     }
-    if (this.synaraBooted.size >= this.bootLimit) {
+    if (this.saintBooted.size >= this.bootLimit) {
       return {
         kind: "boot-limit-reached",
         limit: this.bootLimit,
-        synaraBooted: await this.synaraBootedDevices(),
+        saintBooted: await this.saintBootedDevices(),
       };
     }
 
     // The slot is taken before the await, not after it. A boot runs for the
     // better part of a minute, so two threads asking for different simulators
     // would both read a size under the limit and both proceed, and the cap that
-    // exists to stop Synara accumulating multi-gigabyte simulators would be
+    // exists to stop Saint accumulating multi-gigabyte simulators would be
     // exceeded by however many requests arrived inside that window.
-    this.synaraBooted.add(udid);
+    this.saintBooted.add(udid);
     this.bootsInFlight.add(udid);
     let device: DeviceDescriptor;
     try {
@@ -463,7 +463,7 @@ export class DeviceManager {
     } catch (cause) {
       // A reservation only stands for a boot that actually happened; holding it
       // after a failure would leak the slot for the process lifetime.
-      this.synaraBooted.delete(udid);
+      this.saintBooted.delete(udid);
       throw cause;
     } finally {
       this.bootsInFlight.delete(udid);
@@ -474,7 +474,7 @@ export class DeviceManager {
     // A device booted for a new purpose is no longer idle-condemned.
     this.clearIdleTimer(udid);
     await this.publishAllThreads();
-    return { kind: "booted", device: { ...device, bootSource: "synara" } };
+    return { kind: "booted", device: { ...device, bootSource: "saint" } };
   }
 
   async shutdown(udid: string, onlyIfIdle = false): Promise<void> {
@@ -488,7 +488,7 @@ export class DeviceManager {
         )
       : null;
     await this.backend.shutdown(udid);
-    this.synaraBooted.delete(udid);
+    this.saintBooted.delete(udid);
     await this.recordBootOwnership();
     this.clearIdleTimer(udid);
     // Any thread watching this device loses its attachment rather than pointing
@@ -1379,7 +1379,7 @@ export class DeviceManager {
   // ── Lifecycle ──────────────────────────────────────────────────────
 
   /**
-   * App quit: shut down everything Synara booted, leave the user's devices
+   * App quit: shut down everything Saint booted, leave the user's devices
    * alone, and release the backend.
    */
   async dispose(): Promise<void> {
@@ -1390,13 +1390,13 @@ export class DeviceManager {
     await Promise.allSettled(this.idleShutdowns.values());
     // Snapshotted: both loops mutate the set they are walking.
     const recording = Array.from(this.recording);
-    const booted = Array.from(this.synaraBooted);
+    const booted = Array.from(this.saintBooted);
     this.desiredStreamUdid = null;
     await this.queueStreamReconciliation().catch(() => undefined);
     for (const udid of recording) await this.stopRecordingIfActive(udid).catch(() => undefined);
     for (const udid of booted) {
       await this.backend.shutdown(udid).catch(() => undefined);
-      this.synaraBooted.delete(udid);
+      this.saintBooted.delete(udid);
     }
     // Nothing is ours any more, so a later start must not adopt these.
     await this.bootOwnership.clear().catch(() => undefined);
@@ -1432,7 +1432,7 @@ export class DeviceManager {
    * here, so the pane always sees geometry once the device has been attached.
    */
   private describe(device: DeviceDescriptor): DeviceDescriptor {
-    const bootSource = this.synaraBooted.has(device.udid) ? "synara" : device.bootSource;
+    const bootSource = this.saintBooted.has(device.udid) ? "saint" : device.bootSource;
     const geometry = this.backend.geometry(device.udid) ?? device.geometry;
     if (bootSource === device.bootSource && geometry === device.geometry) return device;
     return { ...device, bootSource, ...(geometry ? { geometry } : {}) };
@@ -1465,7 +1465,7 @@ export class DeviceManager {
 
   /** Reuse the existing grace period whenever the last real consumer goes away. */
   private updateIdleTimer(udid: string): void {
-    if (this.disposed || !this.synaraBooted.has(udid)) return;
+    if (this.disposed || !this.saintBooted.has(udid)) return;
     if (this.isDeviceBusy(udid)) {
       this.clearIdleTimer(udid);
       return;
@@ -1630,10 +1630,10 @@ export class DeviceManager {
 
   /**
    * Nobody is watching this device any more. Stop the stream, and either shut
-   * the device down or start the idle countdown if Synara booted it.
+   * the device down or start the idle countdown if Saint booted it.
    *
    * A switch shuts down immediately rather than waiting out the idle window.
-   * The cap is three Synara-booted devices, and each one costs a couple of GB
+   * The cap is three Saint-booted devices, and each one costs a couple of GB
    * of RAM, so trying three simulators in a row filled every slot with devices
    * nobody was looking at and made the fourth pick prompt for a shutdown the
    * user had effectively already asked for. A plain detach still uses the idle
@@ -1651,7 +1651,7 @@ export class DeviceManager {
     if (this.transport.deviceSubscriberCount(udid) === 0) {
       await this.stopStream(udid).catch(() => undefined);
     }
-    if (!this.synaraBooted.has(udid)) return;
+    if (!this.saintBooted.has(udid)) return;
     if (reason === "switched") {
       this.clearIdleTimer(udid);
       // Failure here is not the switch's problem: the new device is already
@@ -1670,7 +1670,7 @@ export class DeviceManager {
   private async shutdownIfStillIdle(udid: string): Promise<void> {
     if (this.disposed) return;
     // Re-checked at fire time: a thread may have re-attached during the wait.
-    if (this.isDeviceBusy(udid) || !this.synaraBooted.has(udid)) return;
+    if (this.isDeviceBusy(udid) || !this.saintBooted.has(udid)) return;
     await this.shutdown(udid, true).catch(() => undefined);
   }
 
@@ -1707,7 +1707,7 @@ export class DeviceManager {
       this.assertNotDisposed();
       return;
     }
-    if (!this.synaraBooted.has(udid) && this.isDeviceBusy(udid)) {
+    if (!this.saintBooted.has(udid) && this.isDeviceBusy(udid)) {
       // Concurrent viewers/tools share the one restoration, including its boot-cap check.
       const restoration = this.boot(udid)
         .then((result) => {

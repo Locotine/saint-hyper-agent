@@ -1,4 +1,4 @@
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import type { WebContents } from "electron";
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
@@ -11,7 +11,7 @@ import { runBetterwright } from "./betterwrightRuntime";
 vi.mock("./betterwrightRuntime", () => ({ runBetterwright: vi.fn() }));
 
 vi.mock("electron", () => ({
-  app: { getPath: () => "/isolated/synara/userdata" },
+  app: { getPath: () => "/isolated/saint/userdata" },
   webContents: { getFocusedWebContents: () => null },
 }));
 
@@ -253,7 +253,7 @@ describe("DesktopBrowserAutomationHost", () => {
     expect(runBetterwright).toHaveBeenCalledWith(
       expect.objectContaining({
         contents: webContents,
-        home: "/isolated/synara/userdata/browser-engine",
+        home: "/isolated/saint/userdata/browser-engine",
         code: "return {answer: 42}",
       }),
     );

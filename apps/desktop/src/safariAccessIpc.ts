@@ -1,6 +1,6 @@
 import { open, readdir } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import type { DesktopSafariAccessInfo, DesktopSafariFullDiskAccess } from "@synara/contracts";
+import type { DesktopSafariAccessInfo, DesktopSafariFullDiskAccess } from "@saint/contracts";
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { DESKTOP_IPC_CHANNELS } from "./ipcChannels";
 

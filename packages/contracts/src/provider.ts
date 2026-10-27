@@ -73,7 +73,7 @@ export const ProviderSessionStartInput = Schema.Struct({
   additionalDirectories: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
   modelSelection: Schema.optional(ModelSelection),
   resumeCursor: Schema.optional(Schema.Unknown),
-  /** Devin tasks Synara previously stopped and must reconcile against resume replay. */
+  /** Devin tasks Saint previously stopped and must reconcile against resume replay. */
   pendingTaskReconciliations: Schema.optional(Schema.Array(ProviderTaskReconciliation)),
   forkSourceResumeCursor: Schema.optional(Schema.Unknown),
   approvalPolicy: Schema.optional(ProviderApprovalPolicy),
@@ -82,13 +82,13 @@ export const ProviderSessionStartInput = Schema.Struct({
   /** Explicit per-thread provisioning for the Linux computer MCP tools. */
   enableComputerControl: Schema.optional(Schema.Boolean),
   /**
-   * Pre-approve the Synara group/gateway MCP tools (`mcp__synara__*`,
-   * `synara_*`) for this session even when the runtime mode would normally ask
+   * Pre-approve the Saint group/gateway MCP tools (`mcp__saint__*`,
+   * `saint_*`) for this session even when the runtime mode would normally ask
    * for approval. The gateway already authorizes them server-side; the
    * interactive prompt only adds friction for trusted principals such as a
    * group coordinator. File edits and shell commands still ask.
    */
-  autoApproveSynaraTools: Schema.optional(Schema.Boolean),
+  autoApproveSaintTools: Schema.optional(Schema.Boolean),
   runtimeMode: RuntimeMode,
 });
 export type ProviderSessionStartInput = typeof ProviderSessionStartInput.Type;
@@ -139,10 +139,10 @@ export const ProviderForkThreadInput = Schema.Struct({
   enableComputerControl: Schema.optional(Schema.Boolean),
   /**
    * Same hand-off as `enableComputerControl`: the gateway-approval fact a
-   * start would carry, so a fork leases the same pre-approved Synara tools as
+   * start would carry, so a fork leases the same pre-approved Saint tools as
    * its source session.
    */
-  autoApproveSynaraTools: Schema.optional(Schema.Boolean),
+  autoApproveSaintTools: Schema.optional(Schema.Boolean),
   runtimeMode: RuntimeMode,
 });
 export type ProviderForkThreadInput = typeof ProviderForkThreadInput.Type;

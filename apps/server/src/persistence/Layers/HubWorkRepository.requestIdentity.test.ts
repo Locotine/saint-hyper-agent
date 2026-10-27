@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { MessageId, ProjectId, ThreadId, type HubWorkSourceMessage } from "@synara/contracts";
+import { MessageId, ProjectId, ThreadId, type HubWorkSourceMessage } from "@saint/contracts";
 import { Effect, Layer } from "effect";
 
 import { makeHubWorkService } from "../../projectAgent/hubWorkService";

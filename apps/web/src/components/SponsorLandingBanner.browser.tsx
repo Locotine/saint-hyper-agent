@@ -11,7 +11,7 @@ vi.mock("../nativeApi", () => ({
   readNativeApi: () => ({ shell: { openExternal } }),
 }));
 
-const storageKey = "synara:sponsor-landing-banner:dismissed:v1";
+const storageKey = "saint:sponsor-landing-banner:dismissed:v1";
 
 beforeEach(() => {
   localStorage.removeItem(storageKey);
@@ -23,7 +23,7 @@ afterEach(() => {
 
 it("opens the sponsor page externally without dismissing the banner", async () => {
   await render(<SponsorLandingBanner />);
-  await page.getByRole("button", { name: /Support Synara/ }).click();
+  await page.getByRole("button", { name: /Support Saint/ }).click();
   expect(openExternal).toHaveBeenCalledExactlyOnceWith("https://www.trysynara.com/sponsor");
   await expect.element(page.getByTestId("sponsor-landing-banner")).toBeVisible();
 });

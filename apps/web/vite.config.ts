@@ -1,5 +1,5 @@
 // FILE: vite.config.ts
-// Purpose: Builds the Synara web client and controls diagnostic source maps.
+// Purpose: Builds the Saint web client and controls diagnostic source maps.
 // Layer: Web build config
 // Depends on: Vite, Tailwind, React compiler, TanStack Router.
 
@@ -16,7 +16,7 @@ import pkg from "./package.json" with { type: "json" };
 import { listFiles, pruneProductionIcons } from "./scripts/production-assets";
 
 const port = Number(process.env.PORT ?? 5733);
-const sourcemapEnv = process.env.SYNARA_WEB_SOURCEMAP?.trim().toLowerCase();
+const sourcemapEnv = process.env.SAINT_WEB_SOURCEMAP?.trim().toLowerCase();
 
 const buildSourcemap =
   sourcemapEnv === "1" || sourcemapEnv === "true"
@@ -31,7 +31,7 @@ function centralIconPrunePlugin(): Plugin {
   let resolvedRoot = process.cwd();
   let resolvedOutDir = "dist";
   return {
-    name: "synara-central-icon-prune",
+    name: "saint-central-icon-prune",
     apply: "build",
     configResolved(config) {
       resolvedRoot = config.root;
@@ -71,7 +71,7 @@ const PRECOMPRESS_MIN_BYTES = 1024;
 function precompressPlugin(): Plugin {
   let resolvedOutDir = "dist";
   return {
-    name: "synara-precompress",
+    name: "saint-precompress",
     apply: "build",
     // Run after central-icon pruning so removed files don't get sidecars.
     enforce: "post",
@@ -161,7 +161,7 @@ export default defineConfig({
         command === "build" ||
         mode === "test" ||
         /^(1|true)$/i.test(
-          process.env.SYNARA_DEV_REACT_COMPILER?.trim() ?? "",
+          process.env.SAINT_DEV_REACT_COMPILER?.trim() ?? "",
         )) satisfies Plugin["apply"],
     })),
     tailwindcss(),

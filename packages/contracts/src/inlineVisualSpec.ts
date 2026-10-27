@@ -1,5 +1,5 @@
 // FILE: inlineVisualSpec.ts
-// Purpose: The component spec an agent sends to `synara_show_visual` instead of raw HTML:
+// Purpose: The component spec an agent sends to `saint_show_visual` instead of raw HTML:
 //          a list of typed blocks (stats, charts, tables, lists, calculators, choices, tabs)
 //          that clients draw with their own components.
 // Layer: Cross-process contract (validated by the gateway tool, decoded by the web renderer)

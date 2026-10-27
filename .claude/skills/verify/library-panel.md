@@ -1,6 +1,6 @@
 ---
 name: verify-library-panel
-description: How to reach and exercise the per-hub git-versioned Library panel in an isolated Synara web instance.
+description: How to reach and exercise the per-hub git-versioned Library panel in an isolated Saint web instance.
 ---
 
 # Verifying the hub Library panel
@@ -41,9 +41,9 @@ await a.orchestration.dispatchCommand({
   then any mutation pushes; the pill shows "Pushed"/"Push failed". Verify with
   `git -C <remote repo> log --oneline main`.
 - The list shows "size · relative date" per row (e.g. "75 B · 4m").
-- `.synara-library` is an ownership marker: `ensureLibraryRepo` refuses existing git
+- `.saint-library` is an ownership marker: `ensureLibraryRepo` refuses existing git
   dirs lacking it. Libraries seeded before commit 922c20c9 have no marker — to keep
-  testing an old library, write it manually: `printf 'synara-library\n' > <lib>/.synara-library`.
+  testing an old library, write it manually: `printf 'saint-library\n' > <lib>/.saint-library`.
 - `libraryRemoteUrl` accepts only https://, ssh://, git@host:path; file:// fails the
   schema and push-time re-check, so a persisted file:// remote yields the "Push failed"
   pill. A reachable https/ssh remote is needed for a positive push test.

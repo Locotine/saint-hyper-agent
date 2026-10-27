@@ -53,7 +53,7 @@ def main():
 
     def create_window(index):
         label = chr(ord("A") + index)
-        window = Gtk.Window(title=f"Synara Linux Fixture {args.role} {label} {os.getpid()}")
+        window = Gtk.Window(title=f"Saint Linux Fixture {args.role} {label} {os.getpid()}")
         window.set_default_size(480, 300)
         window.move(30 + index * 540, 30 if args.role == "target" else 400)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)

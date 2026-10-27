@@ -1,8 +1,8 @@
 {
   "run": "livecert-mu6ly68l",
   "date": "2026-09-18T06:59:15.209Z",
-  "driver": "/Users/devin/repos/synara/apps/desktop/resources/cua-driver/cua-driver",
-  "endpoint": "/var/folders/2j/fwfzfr5x639f8rbmqc9t9ym40000gn/T/synara-cua-uBTyX9/host.sock",
+  "driver": "/Users/devin/repos/saint/apps/desktop/resources/cua-driver/cua-driver",
+  "endpoint": "/var/folders/2j/fwfzfr5x639f8rbmqc9t9ym40000gn/T/saint-cua-uBTyX9/host.sock",
   "elapsedMs": 11634,
   "rows": [
     {

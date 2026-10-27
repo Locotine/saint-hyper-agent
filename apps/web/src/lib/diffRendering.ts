@@ -43,17 +43,17 @@ export function buildDiffPanelUnsafeCSS(theme: "light" | "dark"): string {
   /* Match the app chrome — set on :host so hunk rows/gutters/separators inherit. The fill
      is the theme background unless the host surface clears it (--app-code-viewer-surface,
      whole-window glass in the right dock; see index.css). */
-  --synara-code-surface: var(--app-code-viewer-surface, var(--background));
+  --saint-code-surface: var(--app-code-viewer-surface, var(--background));
   /* Sticky chrome that content scrolls under stays dense even on a clear viewer. */
-  --synara-code-sticky-surface: var(--app-code-viewer-sticky-surface, var(--synara-code-surface));
-  --diffs-bg: var(--synara-code-surface) !important;
-  --diffs-light-bg: var(--synara-code-surface) !important;
-  --diffs-dark-bg: var(--synara-code-surface) !important;
+  --saint-code-sticky-surface: var(--app-code-viewer-sticky-surface, var(--saint-code-surface));
+  --diffs-bg: var(--saint-code-surface) !important;
+  --diffs-light-bg: var(--saint-code-surface) !important;
+  --diffs-dark-bg: var(--saint-code-surface) !important;
   --diffs-token-light-bg: transparent;
   --diffs-token-dark-bg: transparent;
 
-  --diffs-bg-context-override: var(--synara-code-surface) !important;
-  --diffs-bg-context-number-override: var(--synara-code-surface) !important;
+  --diffs-bg-context-override: var(--saint-code-surface) !important;
+  --diffs-bg-context-number-override: var(--saint-code-surface) !important;
   /* Change/hover tints keep their theme backing: mixing a clear context surface would
      reduce the accent to a nearly invisible alpha over arbitrary window backdrops. */
   --diffs-bg-hover-override: color-mix(in srgb, var(--background) 96%, var(--foreground)) !important;
@@ -76,8 +76,8 @@ export function buildDiffPanelUnsafeCSS(theme: "light" | "dark"): string {
 
   /* Force the derived tokens Pierre reads for hunk rows (not only the *-override knobs).
      Do not pin --diffs-line-bg on :host — addition/deletion rows set that per line-type. */
-  --diffs-bg-context: var(--synara-code-surface) !important;
-  --diffs-bg-context-number: var(--synara-code-surface) !important;
+  --diffs-bg-context: var(--saint-code-surface) !important;
+  --diffs-bg-context-number: var(--saint-code-surface) !important;
   --diffs-bg-buffer: color-mix(in srgb, var(--background) 92%, var(--foreground)) !important;
   --diffs-bg-separator: color-mix(in srgb, var(--background) 95%, var(--foreground)) !important;
   --diffs-bg-addition: color-mix(in srgb, var(--background) 92%, var(--success)) !important;
@@ -91,7 +91,7 @@ export function buildDiffPanelUnsafeCSS(theme: "light" | "dark"): string {
 
   font-family: var(--font-chat-code-family) !important;
   font-size: var(--app-font-size-chat-code, 11px) !important;
-  background-color: var(--synara-code-surface) !important;
+  background-color: var(--saint-code-surface) !important;
 }
 
 /* Pierre blends each changed row against --diffs-bg again, so a clear context surface would
@@ -111,12 +111,12 @@ export function buildDiffPanelUnsafeCSS(theme: "light" | "dark"): string {
 [data-error-wrapper],
 [data-virtualizer-buffer] {
   --diffs-font-size: var(--app-font-size-chat-code, 11px) !important;
-  --diffs-bg: var(--synara-code-surface) !important;
-  --diffs-light-bg: var(--synara-code-surface) !important;
-  --diffs-dark-bg: var(--synara-code-surface) !important;
-  --diffs-bg-context: var(--synara-code-surface) !important;
-  --diffs-bg-context-number: var(--synara-code-surface) !important;
-  background-color: var(--synara-code-surface) !important;
+  --diffs-bg: var(--saint-code-surface) !important;
+  --diffs-light-bg: var(--saint-code-surface) !important;
+  --diffs-dark-bg: var(--saint-code-surface) !important;
+  --diffs-bg-context: var(--saint-code-surface) !important;
+  --diffs-bg-context-number: var(--saint-code-surface) !important;
+  background-color: var(--saint-code-surface) !important;
 }
 
 /* Unmodified hunk chrome — pin to theme background without wiping +/- tints. */
@@ -127,8 +127,8 @@ export function buildDiffPanelUnsafeCSS(theme: "light" | "dark"): string {
 [data-separator],
 [data-separator-wrapper],
 [data-separator-content] {
-  --diffs-line-bg: var(--synara-code-surface) !important;
-  background-color: var(--synara-code-surface) !important;
+  --diffs-line-bg: var(--saint-code-surface) !important;
+  background-color: var(--saint-code-surface) !important;
 }
 
 [data-diff],
@@ -144,7 +144,7 @@ export function buildDiffPanelUnsafeCSS(theme: "light" | "dark"): string {
 [data-file-info] {
   font-family: var(--font-ui-family) !important;
   font-size: var(--app-font-size-ui, 12px) !important;
-  background-color: var(--synara-code-surface) !important;
+  background-color: var(--saint-code-surface) !important;
   border-block-color: var(--border) !important;
   color: var(--foreground) !important;
 }
@@ -158,7 +158,7 @@ export function buildDiffPanelUnsafeCSS(theme: "light" | "dark"): string {
   position: sticky !important;
   top: 0;
   z-index: 4;
-  background-color: var(--synara-code-sticky-surface) !important;
+  background-color: var(--saint-code-sticky-surface) !important;
   border-bottom: 1px solid var(--border) !important;
   cursor: pointer;
 }
@@ -180,12 +180,12 @@ export function buildDiffPanelUnsafeCSS(theme: "light" | "dark"): string {
 /* On a clear viewer the sticky gutter has no fill to hide the code that scrolls under it,
    so it takes the dense one as soon as the row scrolls sideways. Inert on an opaque viewer:
    the host leaves the animation name unset. */
-@keyframes synara-code-gutter-backing {
+@keyframes saint-code-gutter-backing {
   from {
     background-color: transparent;
   }
   to {
-    background-color: var(--synara-code-sticky-surface);
+    background-color: var(--saint-code-sticky-surface);
   }
 }
 
@@ -248,11 +248,11 @@ export function buildPatchCacheKey(patch: string, scope = "diff-panel"): string 
 }
 
 export const PARTIAL_DIFF_COPY_NOTICE =
-  "[Synara: partial diff. Output was truncated at the size limit; some files or changes may be missing.]";
+  "[Saint: partial diff. Output was truncated at the size limit; some files or changes may be missing.]";
 
 // Returns copyable source text for diff surfaces without depending on virtualized DOM rows.
 // A truncation notice travels with partial clipboard content so it cannot be mistaken for a
-// complete patch after it leaves Synara.
+// complete patch after it leaves Saint.
 export function resolveDiffCopyText(patch: string | undefined, truncated = false): string | null {
   if (typeof patch !== "string") {
     return null;

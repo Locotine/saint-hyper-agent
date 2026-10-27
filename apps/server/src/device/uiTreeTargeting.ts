@@ -17,20 +17,20 @@
  *   would hit whatever happens to be at that position instead.
  *
  * The matching itself — exact label before substring, ambiguity refused rather
- * than guessed — is `@synara/shared/uiTreeTargeting`, shared with the desktop
+ * than guessed — is `@saint/shared/uiTreeTargeting`, shared with the desktop
  * family. What stays here is what UIKit specifically needs: labels compared
  * with case and surrounding space ignored, a subrole that counts as a role, and
  * "on screen" meaning the tap point falls inside the display's own frame.
  *
  * @module device/uiTreeTargeting
  */
-import type { DeviceUiNode, DeviceUiPoint } from "@synara/contracts";
+import type { DeviceUiNode, DeviceUiPoint } from "@saint/contracts";
 import {
   flattenUiTree,
   resolveUiTreeTarget,
   uiTreeActivationPoint,
   type UiTreeTargetSpec,
-} from "@synara/shared/uiTreeTargeting";
+} from "@saint/shared/uiTreeTargeting";
 
 /**
  * What the caller asked for: a label, an accessibility identifier, or both.
@@ -363,7 +363,7 @@ export function readTapRequest(input: {
     if (hasPoint) {
       throw new DeviceUiTargetError(
         "A tap takes either an element (identifier or label, with optional role) or x and y, not both. " +
-          "Pass the element alone to let Synara resolve its own tap point.",
+          "Pass the element alone to let Saint resolve its own tap point.",
       );
     }
     return {
@@ -374,7 +374,7 @@ export function readTapRequest(input: {
   if (!hasPoint) {
     throw new DeviceUiTargetError(
       "A tap needs an element (identifier or label, with optional role) or both x and y. " +
-        "Prefer the element: Synara then resolves its own tap point from the accessibility tree.",
+        "Prefer the element: Saint then resolves its own tap point from the accessibility tree.",
     );
   }
   return { kind: "point", x: input.x as number, y: input.y as number };

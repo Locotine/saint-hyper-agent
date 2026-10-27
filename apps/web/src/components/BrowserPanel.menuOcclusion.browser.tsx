@@ -4,7 +4,7 @@ import {
   ThreadId,
   type BrowserSetPanelBoundsInput,
   type ThreadBrowserState,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

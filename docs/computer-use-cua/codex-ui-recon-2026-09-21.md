@@ -5,8 +5,8 @@ Read-only inspection of the installed stack: `/Applications/ChatGPT.app`
 `~/.codex/computer-use/Codex Computer Use.app` (`SkyComputerUseService`,
 23 MB arm64, full ObjC/Swift symbol table preserved). Nothing was modified or
 executed beyond `nm`, `strings`, `otool`, `sips`, and private `CUICatalog`
-reads. This document records the architecture Codex ships so Synara parity
-work is designed from evidence, not guesses. Every Synara-side implementation
+reads. This document records the architecture Codex ships so Saint parity
+work is designed from evidence, not guesses. Every Saint-side implementation
 referenced here is independently written; no Codex source, assets, artwork, or
 prompt text is copied into this repository.
 
@@ -110,7 +110,7 @@ User-interrupt detection: `userInteractionMonitor`,
 `stoppedByUser`, `interventionReasonByTargetIdentifier`,
 `userInterruptionDebounceTaskByTargetIdentifier` → `requiresRequery` (the
 agent must refresh state via `get_app_state` before sending more actions).
-Synara's input-stop path covers the same contract.
+Saint's input-stop path covers the same contract.
 
 ## Working indicator
 
@@ -182,7 +182,7 @@ content minimized, authority-boundary claims reduced to generic wording.
 `computer_help`'s situational chapters; a per-app variant is a reasonable
 follow-up (fetch by frontmost bundle id).
 
-## Delta vs Synara (as of `agent/computer-use-preview`)
+## Delta vs Saint (as of `agent/computer-use-preview`)
 
 Already ahead of Codex: stable identity-keyed refs (vs per-observation
 indices), `computer_run` v2 (conditionals, observation steps, absent waits),

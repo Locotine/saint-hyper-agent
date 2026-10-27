@@ -3,7 +3,7 @@
 // Layer: Server checkpointing helper
 // Exports: checkpoint file parser used by capture and provider live-diff ingestion
 
-import type { OrchestrationCheckpointFile } from "@synara/contracts";
+import type { OrchestrationCheckpointFile } from "@saint/contracts";
 import { Effect } from "effect";
 
 import { lazyModule } from "../lazyModule.ts";

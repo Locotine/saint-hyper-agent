@@ -12,6 +12,8 @@ export type FilesystemBrowseInput = typeof FilesystemBrowseInput.Type;
 export const FilesystemBrowseEntry = Schema.Struct({
   name: TrimmedNonEmptyString,
   fullPath: TrimmedNonEmptyString,
+  /** The folder directly contains a `.git` entry. Absent on older servers. */
+  isGitRepository: Schema.optional(Schema.Boolean),
 });
 export type FilesystemBrowseEntry = typeof FilesystemBrowseEntry.Type;
 

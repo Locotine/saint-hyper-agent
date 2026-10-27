@@ -2,7 +2,7 @@
 
 Result: no outstanding must-fix in the reviewed source at the final checkpoint. Two concrete integration defects found during review were corrected before this verdict: missing readiness authorization classification, and foreground activation boundaries that initially bypassed the new target guard.
 
-This was a read-only review. I did not execute native input, capture, builds, or tests. Full crate paths below are relative to `/private/tmp/synara-best-integration/native/patched/libs/cua-driver/rust/`. Short `input/`, `tools/`, and `windows.rs` references are under `crates/platform-macos/src/`; SDK `runtime.rs` is under `crates/cua-driver-sdk/src/`. Synara paths are explicitly identified. The review does not replace the native owner's compilation/package checks or live qualification.
+This was a read-only review. I did not execute native input, capture, builds, or tests. Full crate paths below are relative to `/private/tmp/saint-best-integration/native/patched/libs/cua-driver/rust/`. Short `input/`, `tools/`, and `windows.rs` references are under `crates/platform-macos/src/`; SDK `runtime.rs` is under `crates/cua-driver-sdk/src/`. Saint paths are explicitly identified. The review does not replace the native owner's compilation/package checks or live qualification.
 
 ## Corrected findings
 
@@ -30,13 +30,13 @@ This was a read-only review. I did not execute native input, capture, builds, or
 - `tools/click.rs:1242–1380` uses a coordinate fallback only when prior capability checks caused no semantic mutation. A submitted `AXPress` is terminal. `1193–1201` conservatively upgrades an error after foreground preparation to uncertainty.
 - `tools/set_value.rs:311–388` chooses exactly one string/numeric/stepping route from read-only facts. A failed value write does not switch routes. The stepping path at `527–584` admits another step only after successful dispatch and finite observed progress in the correct direction; cancellation after an earlier step is uncertain. The popup path at `588–634` requires an exact AX child and does not use an unrelated browser document.
 - `set_value.rs:203–207,231–248` exposes confirmed `value_readback` evidence only when the value is actually verified and the target is not a web AX echo surface.
-- Scope matters: Synara still forces synthetic typing. The unused upstream default `type_text` AXSelectedText-to-CGEvent ladder remains in native source; revision 2 should not be described as removing every fallback from all raw upstream APIs.
+- Scope matters: Saint still forces synthetic typing. The unused upstream default `type_text` AXSelectedText-to-CGEvent ladder remains in native source; revision 2 should not be described as removing every fallback from all raw upstream APIs.
 
-## Synara adapter and verification evidence
+## Saint adapter and verification evidence
 
-The separate `adapter-readiness-independent-review.md` covers initial adapter review. Final sources additionally include both requested tests: native readiness off-Space refusal mapping and successful foreground drag forwarding the exact expected bounds. The observed `/private/tmp/synara-best-integration/cua-adapter-tests.log` now records 26 passing tests; I inspected test bodies and read the log without rerunning them.
+The separate `adapter-readiness-independent-review.md` covers initial adapter review. Final sources additionally include both requested tests: native readiness off-Space refusal mapping and successful foreground drag forwarding the exact expected bounds. The observed `/private/tmp/saint-best-integration/cua-adapter-tests.log` now records 26 passing tests; I inspected test bodies and read the log without rerunning them.
 
-Synara `apps/server/src/computer/CuaComputerBackend.ts:98–107` maps only proven native refusal to not-dispatched, and attaches recoverable Space pause only to that class. Unknown mutation failures remain dispatched-unknown and never replay. Readiness checks exact returned identity at `177–183`. Pointer/drag paths forward observed expected bounds at `284,313–328`; stale observations and uncertain results invalidate caches. Host capability authentication, read/action allowlists, queue generation checks, owned-session override, retirement acknowledgement, and cleanup barriers remain intact.
+Saint `apps/server/src/computer/CuaComputerBackend.ts:98–107` maps only proven native refusal to not-dispatched, and attaches recoverable Space pause only to that class. Unknown mutation failures remain dispatched-unknown and never replay. Readiness checks exact returned identity at `177–183`. Pointer/drag paths forward observed expected bounds at `284,313–328`; stale observations and uncertain results invalidate caches. Host capability authentication, read/action allowlists, queue generation checks, owned-session override, retirement acknowledgement, and cleanup barriers remain intact.
 
 ## Limits of this verdict
 

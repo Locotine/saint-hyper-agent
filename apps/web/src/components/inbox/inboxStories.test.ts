@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { StatsGetRecapResult } from "@synara/contracts";
+import type { StatsGetRecapResult } from "@saint/contracts";
 
 import type { InboxSlotSummary } from "./inbox.logic";
 import { buildInboxDigest, buildInboxTiles, type DigestSentence } from "./inboxStories";
@@ -58,7 +58,7 @@ const busyDay = recap({
     { provider: "cursor", model: "claude-sonnet-4-5", turns: 20, tokens: 1_596_000 },
   ],
   projects: [
-    { projectId: "p1", title: "synara", prompts: 24, chats: 5, tokens: 2_400_000 },
+    { projectId: "p1", title: "saint", prompts: 24, chats: 5, tokens: 2_400_000 },
     { projectId: "p2", title: "remodex", prompts: 11, chats: 3, tokens: 900_000 },
   ],
 });
@@ -120,7 +120,7 @@ describe("buildInboxDigest", () => {
     expect(digest.map(plain)).toEqual([
       "You sent 41 prompts across 9 chats, 17% more than this time yesterday.",
       expect.stringMatching(
-        /^Most of it went into synara, with .+ carrying 58% of the tokens and .+ the rest\.$/,
+        /^Most of it went into saint, with .+ carrying 58% of the tokens and .+ the rest\.$/,
       ),
       "Your agents ran for 4h 12m, mostly in the afternoon, and 2 turns failed.",
     ]);

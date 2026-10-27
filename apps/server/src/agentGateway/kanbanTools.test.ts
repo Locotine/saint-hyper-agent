@@ -5,7 +5,7 @@ import {
   ThreadId,
   TurnId,
   type OrchestrationThreadShell,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect } from "effect";
 
 import type { ProjectionSnapshotQueryShape } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
@@ -279,7 +279,7 @@ type BoardPayload = {
 /** Run the board read and index every project's cards by column key. */
 async function boardByColumn(tools: ReadonlyArray<ToolEntry>, args: Record<string, unknown> = {}) {
   const payload = jsonText(
-    await runHandler(toolById(tools, "synara_read_kanban_board"), args),
+    await runHandler(toolById(tools, "saint_read_kanban_board"), args),
   ) as BoardPayload & {
     projects: Array<{
       columns: Array<{ key: string; cards: Array<{ threadId: string }> }>;
@@ -294,7 +294,7 @@ async function boardByColumn(tools: ReadonlyArray<ToolEntry>, args: Record<strin
   };
 }
 
-describe("synara_read_kanban_board", () => {
+describe("saint_read_kanban_board", () => {
   it("derives v2 columns + attention flags and skips non-project containers", async () => {
     const { tools } = makeTools({
       threads: [
@@ -330,7 +330,7 @@ describe("synara_read_kanban_board", () => {
   });
 });
 
-describe("synara_read_kanban_card", () => {
+describe("saint_read_kanban_card", () => {
   it("returns the single card with column and attention flags", async () => {
     const { tools } = makeTools({
       threads: [
@@ -341,7 +341,7 @@ describe("synara_read_kanban_card", () => {
     });
 
     const result = jsonText(
-      await runHandler(toolById(tools, "synara_read_kanban_card"), {
+      await runHandler(toolById(tools, "saint_read_kanban_card"), {
         threadId: "thread-waiting",
       }),
     ) as {
@@ -363,8 +363,8 @@ describe("synara_read_kanban_card", () => {
   });
 });
 
-describe("synara_create_kanban_task", () => {
-  /** A creation-saga payload that satisfies the SynaraCreateThreadsResult contract. */
+describe("saint_create_kanban_task", () => {
+  /** A creation-saga payload that satisfies the SaintCreateThreadsResult contract. */
   const createOk = (threadIds: string[]) =>
     Effect.succeed(
       mcpOk({
@@ -407,7 +407,7 @@ describe("synara_create_kanban_task", () => {
     });
 
     const result = jsonText(
-      await runHandler(toolById(tools, "synara_create_kanban_task"), {
+      await runHandler(toolById(tools, "saint_create_kanban_task"), {
         title: "Fix bug",
         requestId: "req-1",
       }),
@@ -441,7 +441,7 @@ describe("synara_create_kanban_task", () => {
     });
 
     const longTitle = jsonText(
-      await runHandler(toolById(tools, "synara_create_kanban_task"), {
+      await runHandler(toolById(tools, "saint_create_kanban_task"), {
         title: "x".repeat(257),
         requestId: "req-long-1",
       }),
@@ -452,7 +452,7 @@ describe("synara_create_kanban_task", () => {
   });
 });
 
-describe("synara_move_kanban_card", () => {
+describe("saint_move_kanban_card", () => {
   const move = async (
     tools: ReadonlyArray<ToolEntry>,
     threadId: string,
@@ -462,7 +462,7 @@ describe("synara_move_kanban_card", () => {
   ) =>
     jsonText(
       await runHandler(
-        toolById(tools, "synara_move_kanban_card"),
+        toolById(tools, "saint_move_kanban_card"),
         { threadId, target, ...extra },
         ctx,
       ),
@@ -642,7 +642,7 @@ describe("kanban write concurrency per card", () => {
       threads: [makeThreadShell("thread-a")],
       startTurn: () => Effect.promise(() => held.then(() => ({ sequence: 1 }))),
     });
-    const tool = toolById(tools, "synara_move_kanban_card");
+    const tool = toolById(tools, "saint_move_kanban_card");
     const first = runHandler(tool, {
       threadId: "thread-a",
       target: "inProgress",
@@ -676,7 +676,7 @@ describe("kanban write concurrency per card", () => {
       threads: [makeThreadShell("thread-a")],
       startTurn: () => Effect.promise(() => held.then(() => ({ sequence: 1 }))),
     });
-    const tool = toolById(tools, "synara_move_kanban_card");
+    const tool = toolById(tools, "saint_move_kanban_card");
     const otherSession: ToolContext = {
       ...context,
       callerSessionKey: "gateway-session:other",
@@ -715,7 +715,7 @@ describe("kanban write concurrency per card", () => {
       threads: [makeThreadShell("thread-a"), makeThreadShell("thread-b")],
       startTurn: () => Effect.promise(() => held.then(() => ({ sequence: 1 }))),
     });
-    const tool = toolById(tools, "synara_move_kanban_card");
+    const tool = toolById(tools, "saint_move_kanban_card");
     const first = runHandler(tool, {
       threadId: "thread-a",
       target: "inProgress",
@@ -739,19 +739,19 @@ describe("kanban write concurrency per card", () => {
 describe("kanban write tool surface", () => {
   it.each([
     {
-      name: "synara_create_kanban_draft",
+      name: "saint_create_kanban_draft",
       args: { title: "Draft", requestId: "req-x" },
     },
     {
-      name: "synara_delete_kanban_card",
+      name: "saint_delete_kanban_card",
       args: { threadId: "thread-a" },
     },
     {
-      name: "synara_update_kanban_card",
+      name: "saint_update_kanban_card",
       args: { threadId: "thread-a", title: "New" },
     },
     {
-      name: "synara_set_kanban_goal",
+      name: "saint_set_kanban_goal",
       args: { threadId: "thread-a", goal: "goal" },
     },
   ])("rejects $name without write scope or an active turn", async ({ name, args }) => {
@@ -774,7 +774,7 @@ describe("kanban write tool surface", () => {
   });
 });
 
-describe("synara_create_kanban_draft", () => {
+describe("saint_create_kanban_draft", () => {
   it("creates a thread without dispatching and returns a draft card", async () => {
     const { tools, drafted, metaUpdated, started } = makeTools({
       threads: [makeThreadShell("thread-draft-created")],
@@ -782,7 +782,7 @@ describe("synara_create_kanban_draft", () => {
     });
 
     const result = jsonText(
-      await runHandler(toolById(tools, "synara_create_kanban_draft"), {
+      await runHandler(toolById(tools, "saint_create_kanban_draft"), {
         title: "Draft it",
         description: "Do it well",
         requestId: "req-draft-1",
@@ -806,14 +806,14 @@ describe("synara_create_kanban_draft", () => {
   });
 });
 
-describe("synara_delete_kanban_card", () => {
+describe("saint_delete_kanban_card", () => {
   it("deletes an own-project card with no live turn", async () => {
     const { tools, deleted } = makeTools({
       threads: [makeThreadShell("thread-quiet")],
     });
 
     const result = jsonText(
-      await runHandler(toolById(tools, "synara_delete_kanban_card"), {
+      await runHandler(toolById(tools, "saint_delete_kanban_card"), {
         threadId: "thread-quiet",
       }),
     ) as { threadId: string; deleted: boolean };
@@ -828,7 +828,7 @@ describe("synara_delete_kanban_card", () => {
     });
 
     const result = jsonText(
-      await runHandler(toolById(tools, "synara_delete_kanban_card"), {
+      await runHandler(toolById(tools, "saint_delete_kanban_card"), {
         threadId: "thread-live",
       }),
     );
@@ -838,14 +838,14 @@ describe("synara_delete_kanban_card", () => {
   });
 });
 
-describe("synara_update_kanban_card", () => {
+describe("saint_update_kanban_card", () => {
   it("edits title and description", async () => {
     const { tools, metaUpdated } = makeTools({
       threads: [makeThreadShell("thread-draft", "project-a", { title: "Old" })],
     });
 
     const result = jsonText(
-      await runHandler(toolById(tools, "synara_update_kanban_card"), {
+      await runHandler(toolById(tools, "saint_update_kanban_card"), {
         threadId: "thread-draft",
         title: "New",
         description: "Better",
@@ -866,14 +866,14 @@ describe("synara_update_kanban_card", () => {
   });
 });
 
-describe("synara_set_kanban_goal", () => {
+describe("saint_set_kanban_goal", () => {
   it("sets the goal on a live card", async () => {
     const { tools, metaUpdated } = makeTools({
       threads: [makeRunningShell("thread-live")],
     });
 
     const result = jsonText(
-      await runHandler(toolById(tools, "synara_set_kanban_goal"), {
+      await runHandler(toolById(tools, "saint_set_kanban_goal"), {
         threadId: "thread-live",
         goal: "  Ship it  ",
       }),
@@ -889,7 +889,7 @@ describe("synara_set_kanban_goal", () => {
     });
 
     const result = jsonText(
-      await runHandler(toolById(tools, "synara_set_kanban_goal"), {
+      await runHandler(toolById(tools, "saint_set_kanban_goal"), {
         threadId: "thread-done",
         goal: null,
       }),
@@ -904,7 +904,7 @@ describe("synara_set_kanban_goal", () => {
     });
 
     const result = jsonText(
-      await runHandler(toolById(tools, "synara_set_kanban_goal"), {
+      await runHandler(toolById(tools, "saint_set_kanban_goal"), {
         threadId: "thread-draft",
         goal: "x".repeat(THREAD_GOAL_MAX_CHARS + 1),
       }),

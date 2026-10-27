@@ -1,5 +1,5 @@
 /**
- * Stdio-to-HTTP proxy script for the Synara agent gateway.
+ * Stdio-to-HTTP proxy script for the Saint agent gateway.
  *
  * Some MCP clients (ACP agents without `mcpCapabilities.http`) can only spawn
  * stdio MCP servers. This module materializes a small self-contained script
@@ -17,10 +17,10 @@ export const AGENT_GATEWAY_STDIO_PROXY_FILE_NAME = "agent-gateway-mcp-proxy.mjs"
 
 // Kept dependency-free and ES2022-compatible: it must run on whichever
 // node/bun binary happens to back `process.execPath`.
-const STDIO_PROXY_SCRIPT = `// Synara agent gateway stdio<->HTTP MCP proxy (generated file, do not edit).
-const url = process.env.SYNARA_AGENT_GATEWAY_URL;
-let token = process.env.SYNARA_AGENT_GATEWAY_TOKEN;
-let bootstrapToken = process.env.SYNARA_AGENT_GATEWAY_BOOTSTRAP_TOKEN;
+const STDIO_PROXY_SCRIPT = `// Saint agent gateway stdio<->HTTP MCP proxy (generated file, do not edit).
+const url = process.env.SAINT_AGENT_GATEWAY_URL;
+let token = process.env.SAINT_AGENT_GATEWAY_TOKEN;
+let bootstrapToken = process.env.SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN;
 const active = Boolean(url && (token || bootstrapToken));
 const BOOTSTRAP_TIMEOUT_MS = 5000;
 let tokenResolution;
@@ -71,8 +71,8 @@ function localInactiveResponse(message) {
   const id = isRecord(message) && "id" in message ? message.id : undefined;
   if (id === undefined) return [];
   // Antigravity installs this proxy through a global, secret-free plugin. A
-  // CLI launched outside Synara therefore sees a valid empty MCP server
-  // instead of a noisy failed integration. Synara-managed processes receive
+  // CLI launched outside Saint therefore sees a valid empty MCP server
+  // instead of a noisy failed integration. Saint-managed processes receive
   // credentials in their own environment and use the forwarding path below.
   if (message.method === "initialize") {
     return [
@@ -82,7 +82,7 @@ function localInactiveResponse(message) {
         result: {
           protocolVersion: message.params?.protocolVersion || "2025-06-18",
           capabilities: { tools: {} },
-          serverInfo: { name: "synara", version: "1.0.0" },
+          serverInfo: { name: "saint", version: "1.0.0" },
         },
       },
     ];
@@ -97,7 +97,7 @@ function localInactiveResponse(message) {
     {
       jsonrpc: "2.0",
       id,
-      error: { code: -32601, message: "Synara is not active for this Antigravity session." },
+      error: { code: -32601, message: "Saint is not active for this Antigravity session." },
     },
   ];
 }
@@ -121,15 +121,15 @@ async function resolveToken() {
         signal: controller.signal,
       });
       if (!response.ok) {
-        throw new Error("Synara gateway bootstrap failed with HTTP " + response.status);
+        throw new Error("Saint gateway bootstrap failed with HTTP " + response.status);
       }
       const payload = await response.json();
       if (!isRecord(payload) || typeof payload.bearerToken !== "string") {
-        throw new Error("Synara gateway bootstrap returned an invalid response");
+        throw new Error("Saint gateway bootstrap returned an invalid response");
       }
       token = payload.bearerToken;
       bootstrapToken = undefined;
-      delete process.env.SYNARA_AGENT_GATEWAY_BOOTSTRAP_TOKEN;
+      delete process.env.SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN;
       return token;
     })().finally(() => {
       if (bootstrapController === controller) bootstrapController = undefined;
@@ -179,7 +179,7 @@ async function forwardMessage(message, controller) {
       {
         jsonrpc: "2.0",
         id,
-        error: { code: -32603, message: "Synara gateway request failed: " + String(error) },
+        error: { code: -32603, message: "Saint gateway request failed: " + String(error) },
       },
     ];
   }

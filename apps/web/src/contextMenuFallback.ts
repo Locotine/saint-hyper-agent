@@ -1,5 +1,5 @@
 import { FLOATING_OVERLAY_SURFACE_CLASS_NAME } from "~/surfaceStyles";
-import type { ContextMenuItem } from "@synara/contracts";
+import type { ContextMenuItem } from "@saint/contracts";
 import { createCentralIconElement } from "./lib/central-icons";
 import { isInlineSvgMenuIcon } from "./lib/nativeMenuIcons";
 

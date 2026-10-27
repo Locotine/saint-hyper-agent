@@ -29,12 +29,12 @@ export const BROWSER_FIELD_INSTRUCTION_COPY = {
   timeoutMs:
     "Optional end-to-end action deadline: integer from 100 to 30000 milliseconds. Never pass 45000 or 60000; split longer workflows into smaller calls.",
   idempotencyKey:
-    "Optional advanced retry key. Synara derives a stable key from the authenticated tool request when omitted; provide one only to deliberately deduplicate a byte-identical retry.",
+    "Optional advanced retry key. Saint derives a stable key from the authenticated tool request when omitted; provide one only to deliberately deduplicate a byte-identical retry.",
   target:
     "Exactly one target; prefer a current snapshot {ref,snapshotId}, then a literal semantic locator, strict CSS, or an allowed point.",
   show: "Whether to request the shared browser surface when its owning thread is already active; defaults true and never changes the user's active chat. False reuses an existing scoped tab without requesting UI visibility.",
   waitUntil:
-    "Navigation milestone; domcontentloaded is the default, while networkidle uses Synara's bounded tracker.",
+    "Navigation milestone; domcontentloaded is the default, while networkidle uses Saint's bounded tracker.",
   annotationId:
     "Optional opaque annotation id from a browser annotation attachment. Pass exactly one of annotationId or url; annotationId resolves the exact captured live page locally without embedding its private live URL in the prompt.",
   conditions:

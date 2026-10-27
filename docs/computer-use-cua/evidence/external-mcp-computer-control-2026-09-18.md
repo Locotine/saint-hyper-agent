@@ -4,22 +4,22 @@ Date: 2026-09-18 · Feature commit `e45515583` · Driver: packaged rev-20 (`0.28
 
 ## What was proven
 
-The complete external-agent computer-control chain, live, on a real Synara
-server (isolated `SYNARA_HOME=/tmp/synara-live/home`, port 4099):
+The complete external-agent computer-control chain, live, on a real Saint
+server (isolated `SAINT_HOME=/tmp/saint-live/home`, port 4099):
 
 1. External MCP integration `mcp_int_521a1735` ("CC live") created with the
    `computer:control` capability alongside `projects:read`, `tasks:create`,
    `tasks:wait`, `tasks:read`, `runtime:local`.
 2. External stdio MCP bridge paired via credential store
-   (`/tmp/synara-live/home/mcp/credentials/`). `tools/list` exposed the six
-   orchestration tools; `synara_capabilities` disclosed `computer:control`.
-3. `synara_create_task` invoked with `enableComputerControl: true` and
+   (`/tmp/saint-live/home/mcp/credentials/`). `tools/list` exposed the six
+   orchestration tools; `saint_capabilities` disclosed `computer:control`.
+3. `saint_create_task` invoked with `enableComputerControl: true` and
    `computerControlMode: "request"` → thread
    `agent-805744b999c73bc1694c55082dde5103`, provider `devin`, model `swe-2`,
    `creationSource: external_mcp`.
-4. The spawned agent's session carried `mcp__synara__computer_*` tools. Agent
+4. The spawned agent's session carried `mcp__saint__computer_*` tools. Agent
    transcript: _"let me check the overflow file for the `computer_list_windows`
-   tool schema"_ → _"Calling `computer_list_windows` on the synara MCP server
+   tool schema"_ → _"Calling `computer_list_windows` on the saint MCP server
    now."_
 5. The tool call surfaced a real pending interaction
    (`interactionKind: "approval"`, `lifecycleGeneration` present). Answered via
@@ -35,7 +35,7 @@ server (isolated `SYNARA_HOME=/tmp/synara-live/home`, port 4099):
 ## Gate verification
 
 - An earlier external task created **without** `computer:control` produced an
-  agent whose toolset had zero `mcp__synara__computer_*` tools — capability
+  agent whose toolset had zero `mcp__saint__computer_*` tools — capability
   filtering confirmed live, not just by test.
 - Each individual computer action still requires per-action approval; the
   integration scope only makes the tools _visible_ to the task's agent.

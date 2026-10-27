@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import type { NativeApi } from "@synara/contracts";
+import type { NativeApi } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HttpResponse, http } from "msw";
 import { setupWorker } from "msw/browser";

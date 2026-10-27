@@ -41,7 +41,7 @@ main run plus the warm host's own startup (54 ms) = 24 fresh-host samples.
 - **Transport is free.** Host-only `probe` p50 0.40 ms; `get_screen_size`
   (host → driver → back, trivial work) p50 0.69 ms. Everything above ~1 ms is
   inside the driver: AX walk, capture, input dispatch, the 350 ms background
-  observation window (`SYNARA_CUA_BACKGROUND_OBSERVATION_MS`), LaunchServices.
+  observation window (`SAINT_CUA_BACKGROUND_OBSERVATION_MS`), LaunchServices.
 - **click ≈ 660 ms** = dispatch + 350 ms background observation + verdict
   (`route: synthetic_events`, `delivery: background`, `effect: unverifiable`
   — honest, confirms via screenshot as designed).
@@ -82,7 +82,7 @@ the attachment. Consequences:
 
 - An "AX-only" read still ships the ~150–190 KB payload including the PNG
   whenever a valid frame exists — which on a warm loop is nearly always.
-  `SYNARA_CUA_AX_ONLY_GET_STATE` changing the request shape alone will not cut
+  `SAINT_CUA_AX_ONLY_GET_STATE` changing the request shape alone will not cut
   driver cost or bytes at rev 17; the saving needs a driver-side knob.
 - Interleaved medians: AX-only 219 ms vs +screenshot 349 ms — the ~130 ms
   delta is the capture/refresh leg the flag-bearing request pays.

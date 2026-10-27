@@ -1,5 +1,5 @@
 // A disabled Hubs feature leaves saved folders readable as ordinary projects.
-import { type ProjectId } from "@synara/contracts";
+import { type ProjectId } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock(import("../betaFeatures"), async (importOriginal) => ({
@@ -15,12 +15,12 @@ describe("isGroupContainerProject when Hubs is disabled", () => {
     const project = {
       id: "project-group" as ProjectId,
       kind: "group",
-      cwd: "/Users/tester/Documents/Synara/Groups/release",
+      cwd: "/Users/tester/Documents/Saint/Groups/release",
     } as unknown as Project;
     expect(
       isGroupContainerProject(project, {
         homeDir: "/Users/tester",
-        groupsWorkspaceRoot: "/Users/tester/Documents/Synara/Groups",
+        groupsWorkspaceRoot: "/Users/tester/Documents/Saint/Groups",
       }),
     ).toBe(false);
   });

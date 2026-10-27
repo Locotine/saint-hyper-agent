@@ -14,8 +14,8 @@ import type {
   ComputerBuildSignature,
   ComputerPermission,
   ComputerStatusResult,
-} from "@synara/contracts";
-import { computerStaleGrantAdvice, listComputerPermissions } from "@synara/shared/computerGrants";
+} from "@saint/contracts";
+import { computerStaleGrantAdvice, listComputerPermissions } from "@saint/shared/computerGrants";
 
 import { ComputerActionCard } from "./ComputerActionCard";
 
@@ -34,23 +34,23 @@ export function ComputerSetupRequiredCard({
 }: {
   /**
    * The grants the OS is withholding. Naming them is most of this card's value:
-   * "a permission Synara needs" sends the user hunting through Privacy &
+   * "a permission Saint needs" sends the user hunting through Privacy &
    * Security, while "Accessibility" tells them exactly which switch to find.
    * Empty when the backend refused without naming one.
    */
   readonly missing?: readonly ComputerPermission[];
   /**
-   * How this Synara is signed. On a locally built copy the missing grant may be
+   * How this Saint is signed. On a locally built copy the missing grant may be
    * one macOS still lists as given — pinned to a binary a rebuild replaced —
    * which is the difference between "grant it" and "the switch lies to you".
    */
   readonly buildSignature?: ComputerBuildSignature;
   /**
-   * The app macOS files this Synara's grants against, as the server reported it.
+   * The app macOS files this Saint's grants against, as the server reported it.
    * The stale-grant advice names it in a `tccutil reset`, and there is no safe
    * default: the `.dev` and `.canary` flavors are separate bundle identifiers,
    * so guessing the released one hands the user a command that revokes a
-   * different Synara's working permissions. Absent means the advice omits the
+   * different Saint's working permissions. Absent means the advice omits the
    * command entirely.
    */
   readonly bundleId?: string;
@@ -99,7 +99,7 @@ export function ComputerSetupRequiredCard({
     : ready
       ? "Send a message and the agent will pick up where it left off."
       : missingLabels
-        ? "Choose Set up to request missing permissions or open System Settings. Allow access for this Synara app, then return here to recheck."
+        ? "Choose Set up to request missing permissions or open System Settings. Allow access for this Saint app, then return here to recheck."
         : (availabilityView?.description ??
           "Choose Set up to check permissions and prepare computer control.");
   const canSetUp =

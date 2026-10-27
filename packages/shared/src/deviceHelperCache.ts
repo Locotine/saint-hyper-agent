@@ -5,7 +5,7 @@
  * move between Xcode releases, so a compiled binary is only valid for the
  * toolchain that produced it and the cache is keyed on that toolchain.
  *
- * This lives in `@synara/shared` because two independent callers derive the
+ * This lives in `@saint/shared` because two independent callers derive the
  * same path: `IosSimulatorBackend` (which builds the helper on first attach)
  * and `scripts/device-helper-smoke.ts` (which builds it to verify a release).
  * They previously derived it separately and disagreed, so a passing smoke test
@@ -15,18 +15,18 @@
  * @module deviceHelperCache
  */
 
-/** `~/Library/Caches/synara/device-helper` — callers pass their own home dir. */
+/** `~/Library/Caches/saint/device-helper` — callers pass their own home dir. */
 export const DEVICE_HELPER_CACHE_SEGMENTS = [
   "Library",
   "Caches",
-  "synara",
+  "saint",
   "device-helper",
 ] as const;
 
-export const DEVICE_HELPER_BINARY_NAME = "synara-device-helper";
+export const DEVICE_HELPER_BINARY_NAME = "saint-device-helper";
 
 /** Physical helper source directory passed from packaged desktop to its backend child. */
-export const DEVICE_HELPER_SOURCE_DIR_ENV = "SYNARA_DEVICE_HELPER_SOURCE_DIR";
+export const DEVICE_HELPER_SOURCE_DIR_ENV = "SAINT_DEVICE_HELPER_SOURCE_DIR";
 
 /**
  * Derive the cache key from `xcodebuild -version` output, which looks like:

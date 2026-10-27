@@ -21,7 +21,7 @@ describe("windowsProcess", () => {
   let root: string;
 
   beforeEach(() => {
-    root = mkdtempSync(Path.join(tmpdir(), "synara-windows-resolution-"));
+    root = mkdtempSync(Path.join(tmpdir(), "saint-windows-resolution-"));
   });
 
   afterEach(() => {
@@ -118,14 +118,14 @@ describe("windowsProcess", () => {
     expect(
       resolveWindowsCommandPath("C:\\Users\\test\\AppData\\Roaming\\npm\\codex.cmd", {
         platform: "win32",
-        cwd: "C:\\projects\\synara",
+        cwd: "C:\\projects\\saint",
         env: { SystemRoot: "C:\\Windows" },
       }),
     ).toBe("C:\\Users\\test\\AppData\\Roaming\\npm\\codex.cmd");
     expect(
       resolveWindowsCommandPath("C:\\Program Files\\Codex\\codex.exe", {
         platform: "win32",
-        cwd: "C:\\projects\\synara",
+        cwd: "C:\\projects\\saint",
         env: { SystemRoot: "C:\\Windows" },
       }),
     ).toBe("C:\\Program Files\\Codex\\codex.exe");
@@ -156,7 +156,7 @@ describe("windowsProcess", () => {
     expect(
       prepareWindowsSafeProcess(customPath, ["app-server"], {
         platform: "win32",
-        cwd: "C:\\projects\\synara",
+        cwd: "C:\\projects\\saint",
         env: { ComSpec: "C:\\Windows\\System32\\cmd.exe", SystemRoot: "C:\\Windows" },
       }),
     ).toEqual({
@@ -241,7 +241,7 @@ describe("windowsProcess", () => {
   it.runIf(process.platform === "win32")(
     "preserves quoted Codex arguments through a real cmd.exe batch launch",
     () => {
-      const root = mkdtempSync(Path.join(tmpdir(), "synara-windows-process-"));
+      const root = mkdtempSync(Path.join(tmpdir(), "saint-windows-process-"));
       const commandDir = Path.join(root, "tools(x86)");
       const scriptPath = Path.join(commandDir, "capture.mjs");
       const commandPath = Path.join(commandDir, "codex.cmd");
@@ -291,7 +291,7 @@ describe("windowsProcess", () => {
     expect(
       prepareWindowsSafeProcess("codex", ["--version"], {
         platform: "win32",
-        cwd: "C:\\projects\\synara",
+        cwd: "C:\\projects\\saint",
         env: { PATH: root, PATHEXT: ".EXE", SystemRoot: "C:\\Windows" },
       }),
     ).toEqual({
@@ -309,7 +309,7 @@ describe("windowsProcess", () => {
         ["app-server"],
         {
           platform: "win32",
-          cwd: "C:\\projects\\synara",
+          cwd: "C:\\projects\\saint",
           env: { SystemRoot: "C:\\Windows" },
         },
       ),

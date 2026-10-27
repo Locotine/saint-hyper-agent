@@ -8,7 +8,7 @@ import {
   type AutomationCreateInput,
   type AutomationDefinition,
   type AutomationRun,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { getProviderStartOptions, useAppSettings } from "~/appSettings";

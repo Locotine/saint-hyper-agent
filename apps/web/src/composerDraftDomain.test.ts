@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 
 import {
   COMPOSER_DRAFT_PREVIEW_MAX_CHARS,

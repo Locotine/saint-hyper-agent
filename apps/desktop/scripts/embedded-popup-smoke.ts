@@ -4,14 +4,14 @@ import { mkdtempSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { DesktopBrowserManager } from "../src/browserManager";
 
 // Run the bundled script with Electron. Everything is synthetic and the only
-// native window stays hidden; no existing Synara profile or login is touched.
+// native window stays hidden; no existing Saint profile or login is touched.
 void (async () => {
-  const home = mkdtempSync(join(tmpdir(), "synara-hidden-popup-test-"));
-  process.env.SYNARA_HOME = home;
+  const home = mkdtempSync(join(tmpdir(), "saint-hidden-popup-test-"));
+  process.env.SAINT_HOME = home;
   app.setPath("userData", home);
   const watchdog = setTimeout(() => {
     console.error("Embedded popup smoke timed out");

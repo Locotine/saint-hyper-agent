@@ -18,4 +18,4 @@ export interface ExternalMcpGatewayShape {
 export class ExternalMcpGateway extends ServiceMap.Service<
   ExternalMcpGateway,
   ExternalMcpGatewayShape
->()("synara/externalMcp/Services/ExternalMcpGateway") {}
+>()("saint/externalMcp/Services/ExternalMcpGateway") {}

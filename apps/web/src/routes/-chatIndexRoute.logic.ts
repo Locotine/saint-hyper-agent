@@ -10,14 +10,14 @@ import type {
   SpaceId,
   ThreadId,
   ThreadSidechatContext,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { isGroupThreadRoute } from "../components/SidebarGroupsSurface.logic";
 import { resolveRestorableThreadRoute, type LastThreadRoute } from "../chatRouteRestore";
 import type { ServerWorkspacePaths } from "../lib/serverWorkspacePaths";
 import { isThreadReachableFromSpace } from "../lib/spaceNavigation";
 import type { Project } from "../types";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 /**
  * Set only when "/" was reached by *selecting* a Space. The landing then restores threads that

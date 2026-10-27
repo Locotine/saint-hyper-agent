@@ -3,7 +3,7 @@ import {
   type BrowserToolName,
   type OrchestrationThreadShell,
   type ProviderKind,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Option } from "effect";
 
 import { makeAgentGatewayBrowserTools } from "../../../server/src/agentGateway/browserTools";
@@ -26,7 +26,7 @@ export interface BrowserMcpHarness {
   readonly initialize: () => Promise<Record<string, unknown>>;
   readonly listTools: () => Promise<ReadonlyArray<Record<string, unknown>>>;
   readonly call: (
-    name: BrowserToolName | "synara_e2e_review",
+    name: BrowserToolName | "saint_e2e_review",
     args?: Record<string, unknown>,
   ) => Promise<McpCallResult>;
   readonly cancelCall: (name: BrowserToolName, args?: Record<string, unknown>) => Promise<void>;
@@ -88,8 +88,8 @@ export function createBrowserMcpHarness(input: {
   } as never;
   const tools = makeAgentGatewayBrowserTools(
     makeBrowserAutomationHost({
-      SYNARA_BROWSER_HOST_PIPE_PATH: input.pipePath,
-      SYNARA_BROWSER_HOST_CAPABILITY: input.capability,
+      SAINT_BROWSER_HOST_PIPE_PATH: input.pipePath,
+      SAINT_BROWSER_HOST_CAPABILITY: input.capability,
     }),
     {
       resolveWorkspaceRoot: () => Effect.succeed(input.workspaceRoot),

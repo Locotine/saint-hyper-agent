@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { Effect } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as NodeSqliteClient from "../NodeSqliteClient";

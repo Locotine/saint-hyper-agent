@@ -7,4 +7,4 @@ export interface ProjectAgentReactorShape {
 export class ProjectAgentReactor extends ServiceMap.Service<
   ProjectAgentReactor,
   ProjectAgentReactorShape
->()("synara/projectAgent/Services/ProjectAgentReactor") {}
+>()("saint/projectAgent/Services/ProjectAgentReactor") {}

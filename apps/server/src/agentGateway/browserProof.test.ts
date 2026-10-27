@@ -10,7 +10,7 @@ const PNG =
 
 describe("browser proof artifacts", () => {
   it("stores unique private PNGs, does not trust a thread id as a path, and serves them to chat", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "synara-proof-test-"));
+    const root = await mkdtemp(path.join(tmpdir(), "saint-proof-test-"));
     try {
       const first = await saveBrowserProof("../../outside", PNG, root);
       const second = await saveBrowserProof("../../outside", PNG, root);

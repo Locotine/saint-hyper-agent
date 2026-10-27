@@ -8,7 +8,7 @@ import nodePath from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { outboundHttp, type OutboundHttpPolicy } from "@synara/shared/outboundHttp";
+import { outboundHttp, type OutboundHttpPolicy } from "@saint/shared/outboundHttp";
 import { devinUsageFetcher, parseDevinUsage } from "./devin";
 
 const NOW_MS = 1_780_000_000_000;
@@ -49,7 +49,7 @@ function stubOutboundFetch(
 }
 
 function makeDevinHome(credentials: string) {
-  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "synara-devin-usage-"));
+  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-devin-usage-"));
   tempDirs.push(homeDir);
   const credentialsDir = nodePath.join(homeDir, ".local", "share", "devin");
   mkdirSync(credentialsDir, { recursive: true });

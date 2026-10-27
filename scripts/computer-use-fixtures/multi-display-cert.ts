@@ -20,8 +20,8 @@
  * machine does not have the displays this certification measures.
  *
  * Driver host: either attach to an already-trusted external host
- * (--endpoint/--capability, or SYNARA_CUA_CERT_ENDPOINT /
- * SYNARA_CUA_CERT_CAPABILITY — the same pattern the canary uses), or pass
+ * (--endpoint/--capability, or SAINT_CUA_CERT_ENDPOINT /
+ * SAINT_CUA_CERT_CAPABILITY — the same pattern the canary uses), or pass
  * --driver and this script spawns CuaDriverHost itself. Run it from a terminal
  * whose process ancestry already holds the TCC grants (the external trusted
  * host pattern in belief-canary-runbook.md); the spawned driver inherits that
@@ -47,8 +47,8 @@ import { createInterface, type Interface } from "node:readline";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as pause } from "node:timers/promises";
-import type { ComputerRect, ComputerUiNode } from "@synara/contracts";
-import { cuaRequest, type CuaReply, type CuaToolResult } from "@synara/shared/cuaDriverProtocol";
+import type { ComputerRect, ComputerUiNode } from "@saint/contracts";
+import { cuaRequest, type CuaReply, type CuaToolResult } from "@saint/shared/cuaDriverProtocol";
 import release from "../../packages/shared/src/cuaDriverRelease.json" with { type: "json" };
 import { CuaDriverHost } from "../../apps/desktop/src/cuaDriverHost";
 import {
@@ -59,7 +59,7 @@ import type { ComputerBackendActionResult } from "../../apps/server/src/computer
 import { startFocusProbe } from "../../apps/desktop/src/cuaFixtures/focusProbe";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const implementationDir = "/private/tmp/synara-cua-implementation";
+const implementationDir = "/private/tmp/saint-cua-implementation";
 const defaultDisplayCtl = join(implementationDir, "display-ctl");
 const defaultFocusProbe = join(implementationDir, "focus-probe");
 const defaultFixture = join(implementationDir, "native-fixture");
@@ -84,16 +84,16 @@ interface Options {
 const usage = `multi-display-cert — second-display certification harness
   --driver <path>            cua-driver binary to host in-process (default
                              apps/desktop/resources/cua-driver/cua-driver,
-                             or SYNARA_CUA_DRIVER)
+                             or SAINT_CUA_DRIVER)
   --endpoint <sock>          attach to an external trusted host instead
-                             (or SYNARA_CUA_CERT_ENDPOINT)
+                             (or SAINT_CUA_CERT_ENDPOINT)
   --capability <token>       capability for --endpoint (or
-                             SYNARA_CUA_CERT_CAPABILITY)
+                             SAINT_CUA_CERT_CAPABILITY)
   --targets fixture|textedit target apps (default fixture)
   --interactive              enable manual phases: display disconnect/
                              reconnect, per-display Space switch
   --report <path>            evidence JSON path (default
-                             /private/tmp/synara-cua-implementation/
+                             /private/tmp/saint-cua-implementation/
                              multi-display-cert-<timestamp>.json)
   --keep-targets             leave target windows/apps running afterwards
   --display-ctl <path>       display helper binary (built with clang if absent)
@@ -103,16 +103,16 @@ const usage = `multi-display-cert — second-display certification harness
 
 function parseArgs(argv: string[]): Options {
   const options: Options = {
-    driver: process.env.SYNARA_CUA_DRIVER ?? null,
-    endpoint: process.env.SYNARA_CUA_CERT_ENDPOINT ?? null,
-    capability: process.env.SYNARA_CUA_CERT_CAPABILITY ?? null,
+    driver: process.env.SAINT_CUA_DRIVER ?? null,
+    endpoint: process.env.SAINT_CUA_CERT_ENDPOINT ?? null,
+    capability: process.env.SAINT_CUA_CERT_CAPABILITY ?? null,
     targets: "fixture",
     interactive: false,
     report: null,
     keepTargets: false,
-    displayCtl: process.env.SYNARA_CUA_DISPLAY_CTL ?? defaultDisplayCtl,
+    displayCtl: process.env.SAINT_CUA_DISPLAY_CTL ?? defaultDisplayCtl,
     focusProbe: defaultFocusProbe,
-    fixture: process.env.SYNARA_CUA_NATIVE_FIXTURE ?? defaultFixture,
+    fixture: process.env.SAINT_CUA_NATIVE_FIXTURE ?? defaultFixture,
     maxDisplays: 4,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -174,7 +174,7 @@ function parseArgs(argv: string[]): Options {
     }
   }
   if (options.endpoint && !options.capability)
-    throw new Error("--endpoint requires --capability (or SYNARA_CUA_CERT_CAPABILITY).");
+    throw new Error("--endpoint requires --capability (or SAINT_CUA_CERT_CAPABILITY).");
   if (!options.endpoint && !options.driver) options.driver = defaultDriver;
   if (options.endpoint && options.driver)
     // Endpoint wins: an external host was explicitly supplied.
@@ -580,7 +580,7 @@ async function main(): Promise<number> {
       // Describes the responsible process for permission reporting only; it
       // cannot impersonate a bundle. The real TCC attribution is the spawning
       // terminal's ancestry.
-      bundleId: "com.synara.cua-display-cert",
+      bundleId: "com.saint.cua-display-cert",
       setup: async () => {
         throw new Error("the cert harness never requests permissions");
       },

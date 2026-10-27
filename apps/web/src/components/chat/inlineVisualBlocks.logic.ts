@@ -5,7 +5,7 @@
 // Exports: decodeInlineVisualSpec, formatVisualNumber, niceAxisTicks, sortTableRows,
 //          useInlineVisualState
 
-import { InlineVisualSpec } from "@synara/contracts";
+import { InlineVisualSpec } from "@saint/contracts";
 import { Schema } from "effect";
 import { useCallback, useState } from "react";
 

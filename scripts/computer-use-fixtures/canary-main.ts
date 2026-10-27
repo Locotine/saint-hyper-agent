@@ -6,29 +6,29 @@
  * background target window of this same process. Each phase records an
  * Electron readback and an AX readback; the first phase whose exact text lands
  * ends the ladder. The only artifact is report.json under
- * SYNARA_CUA_CANARY_DIR; the app prints nothing user-facing.
+ * SAINT_CUA_CANARY_DIR; the app prints nothing user-facing.
  */
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { app, BrowserWindow } from "electron";
-import type { ComputerUiNode, ComputerUiPoint } from "@synara/contracts";
-import { cuaRequest, type CuaReply } from "@synara/shared/cuaDriverProtocol";
+import type { ComputerUiNode, ComputerUiPoint } from "@saint/contracts";
+import { cuaRequest, type CuaReply } from "@saint/shared/cuaDriverProtocol";
 import { CuaDriverHost } from "../../apps/desktop/src/cuaDriverHost";
 import { CuaComputerBackend } from "../../apps/server/src/computer/CuaComputerBackend";
 
 // Electron adds resourcesPath to the main process; the Node type does not.
 const resourcesPath = (process as unknown as { resourcesPath: string }).resourcesPath;
-const directory = process.env.SYNARA_CUA_CANARY_DIR ?? "";
-const directoryValid = directory.startsWith("/private/tmp/synara-cua-implementation/");
+const directory = process.env.SAINT_CUA_CANARY_DIR ?? "";
+const directoryValid = directory.startsWith("/private/tmp/saint-cua-implementation/");
 if (directoryValid) app.setPath("userData", join(directory, "electron-profile"));
-app.setName("Synara Cua Canary");
+app.setName("Saint Cua Canary");
 // Closing the last window is never the end of a canary run; keep the app alive
 // until the report has been written.
 app.on("window-all-closed", () => undefined);
 
-const nonce = `Synara Cua Canary ${process.pid}`;
+const nonce = `Saint Cua Canary ${process.pid}`;
 const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const findNode = (root: ComputerUiNode | undefined, label: string): ComputerUiNode | undefined => {
   if (root?.role === "AXTextField" && root.label === label) return root;
@@ -131,7 +131,7 @@ const runHelper = (stage: number, nativeWindowId: number): Promise<HelperRecord>
 async function main(): Promise<void> {
   if (!directoryValid)
     throw new Error(
-      "SYNARA_CUA_CANARY_DIR must be set to a directory under /private/tmp/synara-cua-implementation/.",
+      "SAINT_CUA_CANARY_DIR must be set to a directory under /private/tmp/saint-cua-implementation/.",
     );
   await mkdir(directory, { recursive: true });
   await app.whenReady();
@@ -174,20 +174,20 @@ async function main(): Promise<void> {
     )}`,
   );
 
-  // SYNARA_CUA_CANARY_ENDPOINT/CAPABILITY: connect to an externally hosted
+  // SAINT_CUA_CANARY_ENDPOINT/CAPABILITY: connect to an externally hosted
   // driver instead of embedding one. The adhoc canary bundle holds no TCC
   // grants of its own, so an embedded driver is attributed to it and every AX
   // surface comes back empty. An external host spawned under a trusted
   // ancestry (the operator terminal) serves the same protocol with grants —
   // the semantic path being certified is identical; only the TCC provisioning
   // differs, and the report records which mode ran.
-  const externalEndpoint = process.env.SYNARA_CUA_CANARY_ENDPOINT ?? "";
+  const externalEndpoint = process.env.SAINT_CUA_CANARY_ENDPOINT ?? "";
   const capability =
     externalEndpoint.length > 0
-      ? (process.env.SYNARA_CUA_CANARY_CAPABILITY ?? "")
+      ? (process.env.SAINT_CUA_CANARY_CAPABILITY ?? "")
       : randomBytes(32).toString("base64url");
   if (externalEndpoint.length > 0 && capability.length === 0)
-    throw new Error("SYNARA_CUA_CANARY_ENDPOINT requires SYNARA_CUA_CANARY_CAPABILITY.");
+    throw new Error("SAINT_CUA_CANARY_ENDPOINT requires SAINT_CUA_CANARY_CAPABILITY.");
   report.driverMode = externalEndpoint.length > 0 ? "external" : "embedded";
   let endpoint: string;
   if (externalEndpoint.length > 0) {
@@ -196,7 +196,7 @@ async function main(): Promise<void> {
     host = new CuaDriverHost({
       binaryPath: join(resourcesPath, "cua-driver", "cua-driver"),
       capability,
-      bundleId: "com.synara.cua-canary",
+      bundleId: "com.saint.cua-canary",
       setup: async () => {
         throw new Error("The canary probe never requests permissions.");
       },

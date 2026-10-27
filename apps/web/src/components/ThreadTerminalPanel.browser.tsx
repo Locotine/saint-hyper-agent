@@ -7,7 +7,7 @@ import {
   type TerminalOpenInput,
   type TerminalWriteInput,
   type TerminalEvent,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RightDock } from "./chat/RightDock";
 import { DockTerminalPane } from "./chat/DockTerminalPane";

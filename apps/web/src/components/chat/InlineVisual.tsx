@@ -4,7 +4,7 @@
 // Layer: Chat transcript row content
 // Exports: InlineVisual
 
-import type { InlineVisualActivityPayload, ThreadId } from "@synara/contracts";
+import type { InlineVisualActivityPayload, ThreadId } from "@saint/contracts";
 
 import { InlineVisualBlocks, type InlineVisualBlocksActions } from "./InlineVisualBlocks";
 import { InlineVisualFrame } from "./InlineVisualFrame";

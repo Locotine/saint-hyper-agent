@@ -15,7 +15,7 @@ const DIAGNOSTIC_FILES = [
 ] as const;
 
 export function preserveDependencyDiagnostics(env: NodeJS.ProcessEnv): boolean {
-  return [env.SYNARA_WEB_SOURCEMAP, env.SYNARA_SERVER_SOURCEMAP, env.SYNARA_DESKTOP_SOURCEMAP].some(
+  return [env.SAINT_WEB_SOURCEMAP, env.SAINT_SERVER_SOURCEMAP, env.SAINT_DESKTOP_SOURCEMAP].some(
     (value) => ["1", "true", "hidden"].includes(value?.trim().toLowerCase() ?? ""),
   );
 }

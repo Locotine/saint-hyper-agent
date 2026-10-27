@@ -6,9 +6,9 @@
 // Layer: web profile feature.
 
 import { forwardRef, type ReactNode } from "react";
-import type { ProfileStats, ProfileTokenStats } from "@synara/contracts";
+import type { ProfileStats, ProfileTokenStats } from "@saint/contracts";
 import { ProviderIcon } from "~/components/ProviderIcon";
-import { SynaraLogo } from "~/components/SynaraLogo";
+import { SaintLogo } from "~/components/SaintLogo";
 import { ActivityHeatmap, CARD_HEATMAP_INTENSITY_CLASSES } from "./ActivityHeatmap";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { ProfileUsageCoverage } from "./ProfileUsageCoverage";
@@ -122,8 +122,8 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2 text-slate-600">
-          <SynaraLogo className="size-6 text-slate-700" />
-          <span className="text-xl font-normal tracking-tight">Synara</span>
+          <SaintLogo className="size-6 text-slate-700" />
+          <span className="text-xl font-normal tracking-tight">Saint</span>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { ProjectId } from "@synara/contracts";
+import { ProjectId } from "@saint/contracts";
 
 import {
   hubWorkLogicalTaskKey,

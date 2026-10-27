@@ -7,7 +7,7 @@ import {
   ProviderSkillReference,
   TurnDispatchMode,
   type OrchestrationMessage,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema, Struct } from "effect";
 import { joinMessageTextChunks } from "./messageTextChunks.ts";
 

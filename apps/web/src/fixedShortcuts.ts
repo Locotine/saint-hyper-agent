@@ -1,11 +1,11 @@
 // FILE: fixedShortcuts.ts
 // Purpose: The chords no keybinding can take: text editing in every field, the system's
-//   own, and the few Synara handles itself before any binding is looked up. The handlers
-//   for Synara's chords match through this table, and the shortcut editor refuses every
+//   own, and the few Saint handles itself before any binding is looked up. The handlers
+//   for Saint's chords match through this table, and the shortcut editor refuses every
 //   entry, so what the editor allows and what actually fires cannot drift apart.
 // Layer: Keyboard shortcuts
 
-import type { KeybindingShortcut, KeybindingWhenNode } from "@synara/contracts";
+import type { KeybindingShortcut, KeybindingWhenNode } from "@saint/contracts";
 
 import {
   evaluateWhenNode,
@@ -65,7 +65,7 @@ export const FIXED_SHORTCUTS: readonly FixedShortcut[] = [
   { shortcut: chord("q"), reason: "is reserved by macOS for Quit", platform: "mac" },
   { shortcut: chord("h"), reason: "is reserved by macOS for Hide", platform: "mac" },
   { shortcut: chord("m"), reason: "is reserved by macOS for Minimize", platform: "mac" },
-  // Synara's own, handled before any binding.
+  // Saint's own, handled before any binding.
   { shortcut: chord(","), reason: "always opens Settings" },
   { shortcut: chord("/"), reason: "always opens the keybindings sheet" },
   {

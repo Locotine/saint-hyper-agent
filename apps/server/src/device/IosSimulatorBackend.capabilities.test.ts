@@ -17,7 +17,7 @@ import {
   DEVICE_HELPER_BINARY_NAME,
   deviceHelperCacheKey,
   deviceHelperSourceRevision,
-} from "@synara/shared/deviceHelperCache";
+} from "@saint/shared/deviceHelperCache";
 import { IosSimulatorBackend } from "./IosSimulatorBackend.ts";
 import type { HelperClient } from "./helperClient.ts";
 
@@ -128,7 +128,7 @@ async function makeBackend(
     readonly xcodeVersion?: (call: number) => ProcessRunResult | undefined;
   } = {},
 ) {
-  const cacheRoot = await mkdtemp(path.join(tmpdir(), "synara-capability-"));
+  const cacheRoot = await mkdtemp(path.join(tmpdir(), "saint-capability-"));
   // The directory name must match the key the backend derives, or the cache
   // lookup misses and no probe runs. That key is the stubbed `xcodebuild
   // -version` output plus a digest of the helper sources, so it is derived here

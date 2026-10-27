@@ -4,7 +4,7 @@
 
 import "../../../index.css";
 
-import { AutomationId, ProjectId, ThreadId, type AutomationDefinition } from "@synara/contracts";
+import { AutomationId, ProjectId, ThreadId, type AutomationDefinition } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
@@ -13,7 +13,7 @@ import { EnvironmentAutomationsSection } from "./EnvironmentAutomationsSection";
 
 const baseAutomation = (overrides: Partial<AutomationDefinition> = {}): AutomationDefinition => ({
   id: AutomationId.makeUnsafe("automation-monitor-pr-220"),
-  projectId: ProjectId.makeUnsafe("project-synara"),
+  projectId: ProjectId.makeUnsafe("project-saint"),
   sourceThreadId: null,
   name: "Monitor PR #220 Codex review",
   prompt: "Monitor the pull request review status.",

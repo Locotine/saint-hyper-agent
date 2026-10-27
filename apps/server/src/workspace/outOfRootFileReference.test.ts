@@ -11,7 +11,7 @@ describe("resolveOutOfRootFileReference", () => {
   let workspaceRoot: string;
 
   beforeEach(() => {
-    homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-out-of-root-"));
+    homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-out-of-root-"));
     workspaceRoot = path.join(homeDir, "Documents", "Claude", "Skills");
     fs.mkdirSync(workspaceRoot, { recursive: true });
   });
@@ -141,7 +141,7 @@ describe("resolveOutOfRootFileReference", () => {
     // A root directly under home has only home itself as an in-home ancestor.
     const shallowRoot = path.join(homeDir, "workspace");
     fs.mkdirSync(shallowRoot, { recursive: true });
-    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-outside-home-"));
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-outside-home-"));
     try {
       writeFile(path.join(outsideDir, "escape.md"));
 
@@ -158,7 +158,7 @@ describe("resolveOutOfRootFileReference", () => {
   });
 
   it("returns null when the workspace root lives outside the home directory", async () => {
-    const foreignRoot = fs.mkdtempSync(path.join(os.tmpdir(), "synara-foreign-root-"));
+    const foreignRoot = fs.mkdtempSync(path.join(os.tmpdir(), "saint-foreign-root-"));
     try {
       const resolved = await resolveOutOfRootFileReference({
         workspaceRoot: foreignRoot,
@@ -175,7 +175,7 @@ describe("resolveOutOfRootFileReference", () => {
   it.skipIf(process.platform === "win32")(
     "rejects symlinked candidates that escape the home directory",
     async () => {
-      const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-symlink-escape-"));
+      const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-symlink-escape-"));
       try {
         writeFile(path.join(outsideDir, "escape.md"));
         fs.mkdirSync(path.join(homeDir, "Documents", "Claude", "shared"), { recursive: true });

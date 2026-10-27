@@ -8,7 +8,7 @@ import {
   type ProviderKind,
   type ProviderModelDescriptor,
   type NativeApi,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useState } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";

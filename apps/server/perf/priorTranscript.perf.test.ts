@@ -1,11 +1,11 @@
-// SYNARA_PERF=1 SYNARA_PERF_OUT=/tmp/prior-transcript.json bun run --cwd apps/server test perf/priorTranscript.perf.test.ts
+// SAINT_PERF=1 SAINT_PERF_OUT=/tmp/prior-transcript.json bun run --cwd apps/server test perf/priorTranscript.perf.test.ts
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { MessageId, type OrchestrationMessage } from "@synara/contracts";
+import { MessageId, type OrchestrationMessage } from "@saint/contracts";
 import { expect, it } from "vitest";
 import { listPriorTranscriptMessages } from "../src/orchestration/handoff";
 
-it.skipIf(process.env.SYNARA_PERF !== "1")(
+it.skipIf(process.env.SAINT_PERF !== "1")(
   "measures prior-transcript selection at turn start",
   () => {
     const body =
@@ -48,7 +48,7 @@ it.skipIf(process.env.SYNARA_PERF !== "1")(
       });
     }
     writeFileSync(
-      process.env.SYNARA_PERF_OUT ?? "/tmp/synara-prior-transcript.json",
+      process.env.SAINT_PERF_OUT ?? "/tmp/saint-prior-transcript.json",
       JSON.stringify({ node: process.version, warmups: 3, samples: 11, report }, null, 2),
     );
   },

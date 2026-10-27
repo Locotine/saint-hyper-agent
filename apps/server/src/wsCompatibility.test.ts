@@ -6,7 +6,7 @@ import {
   WS_PROJECT_FILE_WATCH_CAPABILITY,
   WS_SERVER_CAPABILITIES,
   WS_THREAD_GOAL_VISIBLE_START_CAPABILITY,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 

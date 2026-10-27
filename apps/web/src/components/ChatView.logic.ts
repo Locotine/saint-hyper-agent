@@ -21,12 +21,12 @@ import {
   type RuntimeMode,
   type ServerProviderAuthStatus,
   type ThreadId as ThreadIdType,
-} from "@synara/contracts";
-import { getDefaultModel, normalizeModelSlug } from "@synara/shared/model";
-import { approvalSessionGrantWidensSessionPolicy } from "@synara/shared/approvalSessionGrant";
-import { buildSynaraBranchName } from "@synara/shared/git";
-import { isGenericChatThreadTitle } from "@synara/shared/chatThreads";
-import { isGenericTerminalThreadTitle } from "@synara/shared/terminalThreads";
+} from "@saint/contracts";
+import { getDefaultModel, normalizeModelSlug } from "@saint/shared/model";
+import { approvalSessionGrantWidensSessionPolicy } from "@saint/shared/approvalSessionGrant";
+import { buildSaintBranchName } from "@saint/shared/git";
+import { isGenericChatThreadTitle } from "@saint/shared/chatThreads";
+import { isGenericTerminalThreadTitle } from "@saint/shared/terminalThreads";
 import {
   type ChatMessage,
   type SessionPhase,
@@ -69,10 +69,10 @@ import {
 import { localSubagentThreadId } from "./ChatView.selectors";
 import { buildModelSelection, type ProviderModelOption } from "../providerModelOptions";
 import { resolvePromptEffortFromModelSelection } from "../lib/composerSend";
-import { autoRuntimeModeSelectionIssue } from "@synara/shared/runtimeMode";
+import { autoRuntimeModeSelectionIssue } from "@saint/shared/runtimeMode";
 
-export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "synara:last-invoked-script-by-project";
-export const DISMISSED_PROVIDER_HEALTH_BANNERS_KEY = "synara:dismissed-provider-health-banners";
+export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "saint:last-invoked-script-by-project";
+export const DISMISSED_PROVIDER_HEALTH_BANNERS_KEY = "saint:dismissed-provider-health-banners";
 export const PROMPT_HISTORY_MAX_ENTRIES = 100;
 
 export const LastInvokedScriptByProjectSchema = Schema.Record(ProjectId, Schema.String);
@@ -1092,7 +1092,7 @@ export function describeVoiceRecordingStartError(error: unknown): string {
   const errorName = typeof error.name === "string" ? error.name : "";
 
   if (errorName === "NotAllowedError" || errorName === "PermissionDeniedError") {
-    return "Microphone access was denied. Enable it in macOS Privacy & Security > Microphone for Synara, then try again.";
+    return "Microphone access was denied. Enable it in macOS Privacy & Security > Microphone for Saint, then try again.";
   }
   if (errorName === "NotFoundError" || errorName === "DevicesNotFoundError") {
     return "No microphone was found. Connect one and try again.";
@@ -1791,7 +1791,7 @@ export function buildSuggestedWorktreeName(input: {
   associatedWorktreeBranch?: string | null;
   title?: string | null;
 }): string {
-  return buildSynaraBranchName(input.associatedWorktreeBranch ?? input.title);
+  return buildSaintBranchName(input.associatedWorktreeBranch ?? input.title);
 }
 
 export function deriveComposerSendState(options: {

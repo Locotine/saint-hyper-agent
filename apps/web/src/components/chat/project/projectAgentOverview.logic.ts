@@ -9,7 +9,7 @@
 // that patches an overview from a stream event must re-derive the flag from the same
 // source instead of carrying a stale boolean.
 
-import type { ProjectAgentConfig, ProjectAgentOverview } from "@synara/contracts";
+import type { ProjectAgentConfig, ProjectAgentOverview } from "@saint/contracts";
 
 export function projectAgentOverviewConfigured(
   overview: Pick<ProjectAgentOverview, "config"> | null | undefined,

@@ -4,7 +4,7 @@
 
 import "../../index.css";
 
-import { MessageId, TurnId } from "@synara/contracts";
+import { MessageId, TurnId } from "@saint/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 

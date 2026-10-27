@@ -7,10 +7,10 @@ import {
   type DesktopDiagnosticIssue,
   ORCHESTRATION_WS_METHODS,
   WS_METHODS,
-} from "@synara/contracts";
-import { redactDiagnosticText } from "@synara/shared/diagnosticsRedaction";
+} from "@saint/contracts";
+import { redactDiagnosticText } from "@saint/shared/diagnosticsRedaction";
 
-export { diagnosticIssueReason } from "@synara/shared/diagnosticIssue";
+export { diagnosticIssueReason } from "@saint/shared/diagnosticIssue";
 
 export async function reportHandledIssue(issue: DesktopDiagnosticIssue): Promise<string | null> {
   try {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
-import { normalizeWorkspaceRootForComparison } from "@synara/shared/threadWorkspace";
+import { normalizeWorkspaceRootForComparison } from "@saint/shared/threadWorkspace";
 import { parseManagedWorktreeWorkspaceRoot } from "../workspace/managedWorktree";
 
 export function projectImportKey(...parts: ReadonlyArray<string>): string {

@@ -2,7 +2,7 @@
 
 ## Decision and implementation plan
 
-Keep Cua as the native actuator and retain Synara's task consent, exact-target,
+Keep Cua as the native actuator and retain Saint's task consent, exact-target,
 ownership, interruption and cancellation boundaries. The app already executes
 Cua's Rust driver; it is not an instructions-only implementation. Replacing the
 integration with upstream defaults would discard these boundaries without a
@@ -28,7 +28,7 @@ pass:
 | Escape/human-input listener does not start                              | Native tap errors already retry. A helper that never emits readiness/error could leave the host waiting indefinitely.                                                                                                           | Add a bounded readiness watchdog using the existing restart backoff; ignore late events from retired helpers. Input remains paused until readiness and required observation are established.                                                                                  |
 | Notion comments ignore `set_value`; Mac keys and automatic lists differ | Semantic AX writes do not necessarily trigger a web editor's keyboard/input handlers. Home/End and editor autoformat are application behavior.                                                                                  | Keep exact app-effect verification and explicit keyboard/paste routes. Never silently replay through another route after uncertain input. Re-observe after image/layout changes before coordinate actions.                                                                    |
 | Scroll is slow and AX elements are incomplete                           | Scroll already supports image-based measurement. The displacement bound is half the current frame, not a constant 480 px. A partial AX tree cannot safely be treated as complete.                                               | Preserve overlap for correlation and coordinate accuracy; consume actual measured travel in the gateway. Reuse returned observations, short batches and semantic refs where present. Do not synthesize missing refs or claim an unmeasured speedup.                           |
-| Images require AppleScript and destroy the clipboard                    | Upstream `clipboard_write` already accepts `image_path` and `file_path`; Synara exposed text only, and text paste could overwrite unsaved non-text clipboard contents.                                                          | Add image/file inputs to `computer_paste` and batch paste. Validate every batch file before any input. Preserve native clipboard formats without returning them to the model; restore only if the clipboard still belongs to that paste. No AppleScript workaround is needed. |
+| Images require AppleScript and destroy the clipboard                    | Upstream `clipboard_write` already accepts `image_path` and `file_path`; Saint exposed text only, and text paste could overwrite unsaved non-text clipboard contents.                                                           | Add image/file inputs to `computer_paste` and batch paste. Validate every batch file before any input. Preserve native clipboard formats without returning them to the model; restore only if the clipboard still belongs to that paste. No AppleScript workaround is needed. |
 
 ## Cua coverage and alternatives
 
@@ -39,7 +39,7 @@ upstream text correction is visible in
 The existing file and image inputs are documented in
 [Cua's MCP tools reference](https://github.com/trycua/cua/blob/main/docs/content/docs/reference/cua-driver/mcp-tools.mdx).
 
-Synara already uses native semantic input, exact element tokens, state/settle
+Saint already uses native semantic input, exact element tokens, state/settle
 observations, screenshots, menus, selection, window management, scrolling and
 the driver's CDP browser tools. Conditional settle and identical-image payload
 reuse are enabled by default. The gateway exposes short batches and on-demand
@@ -152,17 +152,17 @@ provide clipboard evidence without replacing the user's clipboard.
 
 ## Local Notion qualification
 
-A separate source-built **Synara Cua** instance uses a fresh home and Electron
-profile under `/private/tmp/synara-notion-e2e-20261013`. Web, server, desktop and
+A separate source-built **Saint Cua** instance uses a fresh home and Electron
+profile under `/private/tmp/saint-notion-e2e-20261013`. Web, server, desktop and
 native builds completed. The native artifact follows the pinned-source
 provisioning path with validated provenance. Existing application grants,
 databases and running production instances were not reset.
 
-All writes are confined to the new private page **Synara Computer Use — E2E
+All writes are confined to the new private page **Saint Computer Use — E2E
 test — 2026-10-13**. Existing pages, databases and tabs remain intact. The page
 and initial synthetic paragraph were created through the operator's Computer
-Use connection; setup alone is not Synara runtime qualification. Subsequent
-editing tests use a real Codex / `gpt-6-astra` turn through Synara's normal
+Use connection; setup alone is not Saint runtime qualification. Subsequent
+editing tests use a real Codex / `gpt-6-astra` turn through Saint's normal
 owner RPC, authenticated gateway, desktop bridge and native Cua driver. The
 provider is the isolated UI's observed default, not a test-time substitution.
 
@@ -208,7 +208,7 @@ At 17:37 UTC a real `computer_type_text` call targeted the freshly observed
 synthetic paragraph in `cua:720:71`, with `delivery_mode: background`. The
 native accessibility lane completed in 1,082 ms without activating Notion.
 A separate screenshot and accessibility read verified the complete 379-character
-sample, including `SYNARA-E2E-379` and its final `END`; the title was unchanged.
+sample, including `SAINT-E2E-379` and its final `END`; the title was unchanged.
 There was one mutation and no retry. This proves background editing for that
 paragraph, not every Notion control or persistence after application restart.
 

@@ -5,14 +5,14 @@
 //          before continuing.
 // Layer: Web UI component
 
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { ProjectImportPanel } from "~/projectImport/ProjectImportPanel";
 import { useAppSettings } from "~/appSettings";
 import { Button } from "~/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "~/components/ui/input-group";
-import { isElectron } from "~/env";
+import { isElectron, remoteWindowHost } from "~/env";
 import { useWindowFolderDrop } from "~/hooks/useWindowFolderDrop";
 import { CheckIcon, FolderAddIcon, FolderIcon } from "~/lib/icons";
 import { createOrRecoverProjectFromPath } from "~/lib/projectCreation";
@@ -101,7 +101,8 @@ export function ProjectStep(props: {
   };
 
   const isDropTarget = useWindowFolderDrop({
-    enabled: isElectron && !busy && !showImport,
+    // A dropped folder is on this computer, not on a remote window's host.
+    enabled: isElectron && !remoteWindowHost && !busy && !showImport,
     onFolder: (dropped) => void addProject(dropped),
     onError: setError,
   });
@@ -154,6 +155,13 @@ export function ProjectStep(props: {
               <FolderAddIcon className="size-[22px] text-foreground/70" aria-hidden="true" />
               {picking ? (
                 <span>Opening the folder picker…</span>
+              ) : remoteWindowHost ? (
+                <span>
+                  <span className="underline decoration-dotted decoration-[1.5px] underline-offset-[5px]">
+                    Browse
+                  </span>{" "}
+                  folders on {remoteWindowHost}
+                </span>
               ) : (
                 <span>
                   Drop a folder here, or{" "}

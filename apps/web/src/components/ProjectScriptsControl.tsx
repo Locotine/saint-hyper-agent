@@ -4,7 +4,7 @@
 //          shares with the Environment panel's Actions section.
 // Layer: Chat shell header control
 
-import type { ProjectScript, ResolvedKeybindingsConfig } from "@synara/contracts";
+import type { ProjectScript, ResolvedKeybindingsConfig } from "@saint/contracts";
 import { ChevronDownIcon, PlusIcon, SettingsIcon } from "~/lib/icons";
 import React, { useCallback, useMemo, useState } from "react";
 

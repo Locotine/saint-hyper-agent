@@ -9,7 +9,7 @@ Since **1.0.3 Stable and the following Beta**, native chats restore their full p
 
 Recovery snapshots include the last projected rollback or revert. Messages removed while a client was disconnected do not reappear when it reconnects. Ordinary refreshes still preserve newer streamed text. A displayed transcript alone is not proof that a provider turn is live; inspect its current state before retrying a send.
 
-Stable and Beta retain separate identities, browser profiles and data homes. See [Synara Beta](/docs/features/synara-beta) for their channel boundaries.
+Stable and Beta retain separate identities, browser profiles and data homes. See [Saint Beta](/docs/features/saint-beta) for their channel boundaries.
 
 ## Imported provider history
 
@@ -21,7 +21,7 @@ Active turns show **Working for** with a live duration. Finished work folds into
 
 See [organize and navigate](/docs/features/organize), [queue pause controls](/docs/features/composer#pause-and-resume-queued-messages), and [task recovery](/docs/troubleshooting/tasks-and-runtime).
 
-Source evidence: Synara v1.0.3 `apps/server/src/orchestration/Layers/ProjectionSnapshotQuery.ts`, `apps/web/src/storeNormalization.ts`, `apps/web/src/projectImport/ImportedHistoryButton.tsx` and `apps/web/src/components/chat/TurnHeaderLine.tsx`.
+Source evidence: Saint v1.0.3 `apps/server/src/orchestration/Layers/ProjectionSnapshotQuery.ts`, `apps/web/src/storeNormalization.ts`, `apps/web/src/projectImport/ImportedHistoryButton.tsx` and `apps/web/src/components/chat/TurnHeaderLine.tsx`.
 
 ## Long conversations in 1.0.4
 
@@ -31,7 +31,7 @@ The transcript follows growing content while you remain at the bottom. Scrolling
 
 For work interrupted by an unexpected app/server shutdown, see [automatic chat recovery](/docs/troubleshooting/tasks-and-runtime#unexpected-shutdown-recovery).
 
-Source evidence: Synara v1.0.4 (`a62d7c733d19f5538ffc0d126d57437b3b578ff1`) `apps/web/src/components/chat/timelineRowHeight.logic.ts`, `useTimelineRowHeightHints.ts`, `MessagesTimeline.tsx`, `apps/web/src/workLog.ts` and `apps/web/src/routes/__root.tsx`.
+Source evidence: Saint v1.0.4 (`a62d7c733d19f5538ffc0d126d57437b3b578ff1`) `apps/web/src/components/chat/timelineRowHeight.logic.ts`, `useTimelineRowHeightHints.ts`, `MessagesTimeline.tsx`, `apps/web/src/workLog.ts` and `apps/web/src/routes/__root.tsx`.
 
 ## Task-heavy conversations in 1.0.5
 

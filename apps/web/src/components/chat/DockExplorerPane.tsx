@@ -7,8 +7,8 @@
 
 import { useEffect, useRef } from "react";
 
-import type { ThreadId } from "@synara/contracts";
-import { isNormalizedWindowsAbsolutePath } from "@synara/shared/path";
+import type { ThreadId } from "@saint/contracts";
+import { isNormalizedWindowsAbsolutePath } from "@saint/shared/path";
 import { useQueryClient } from "@tanstack/react-query";
 
 import {

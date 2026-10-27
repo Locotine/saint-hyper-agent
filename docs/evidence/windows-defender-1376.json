@@ -13,11 +13,11 @@
         "lockfileSha256": "692e33ccbe949cf5f48abea77d33858907638dc746e3e05ed14e66564c658e63"
       },
       "file": {
-        "fileName": "Synara-0.9.1-x64.exe",
+        "fileName": "Saint-0.9.1-x64.exe",
         "size": 225595797,
         "sha256": "893438647667a4f6aeb2929897a0131dd95e5c0686ec2958e5968cdb75f3496b"
       },
-      "url": "https://github.com/Emanuele-web04/synara/releases/download/v0.9.1/Synara-0.9.1-x64.exe",
+      "url": "https://github.com/Emanuele-web04/synara/releases/download/v0.9.1/Saint-0.9.1-x64.exe",
       "installerCertificateTableBytes": 0,
       "provenanceSigningStatus": "unsigned-explicit-release"
     },
@@ -29,11 +29,11 @@
         "lockfileSha256": "f19a4bbdd2db57dbb2f3998fe8737d619656d9b5fb95832c5273096670bb2ab7"
       },
       "file": {
-        "fileName": "Synara-0.9.2-x64.exe",
+        "fileName": "Saint-0.9.2-x64.exe",
         "size": 225688617,
         "sha256": "fee21f614136df8ff0a1e97649886060625c843d34e724b62410164634928dcb"
       },
-      "url": "https://github.com/Emanuele-web04/synara/releases/download/v0.9.2/Synara-0.9.2-x64.exe",
+      "url": "https://github.com/Emanuele-web04/synara/releases/download/v0.9.2/Saint-0.9.2-x64.exe",
       "installerCertificateTableBytes": 0,
       "provenanceSigningStatus": "unsigned-explicit-release"
     }
@@ -45,7 +45,7 @@
     },
     "unchanged": 37,
     "changed": {
-      "nsis/$R0/Uninstall Synara.exe": {
+      "nsis/$R0/Uninstall Saint.exe": {
         "before": {
           "size": 133261,
           "sha256": "42902272c2316fce4b16a03b8cbf62198e587018a469c301c12d134e823578ae",
@@ -57,7 +57,7 @@
           "certificateTableBytes": 0
         }
       },
-      "payload/Synara.exe": {
+      "payload/Saint.exe": {
         "before": {
           "size": 235533824,
           "sha256": "76b9dfc25b76b790aeab22a9622fd452b264a93946c7371d8b37b9a5e1e54710",

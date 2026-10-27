@@ -130,7 +130,7 @@ describe("ComputerServiceLive", () => {
    * refusal. The probe — not the platform — reports whether it answers.
    */
   it("routes a real backend on Windows when a host endpoint is configured", async () => {
-    vi.stubEnv("SYNARA_CUA_HOST_SOCKET", "\\\\.\\pipe\\synara-cua-test");
+    vi.stubEnv("SAINT_CUA_HOST_SOCKET", "\\\\.\\pipe\\saint-cua-test");
     try {
       await Effect.runPromise(
         Effect.scoped(
@@ -151,7 +151,7 @@ describe("ComputerServiceLive", () => {
   });
 
   it("selects the fake backend only when explicitly requested", async () => {
-    vi.stubEnv("SYNARA_COMPUTER_BACKEND", "fake");
+    vi.stubEnv("SAINT_COMPUTER_BACKEND", "fake");
     try {
       await Effect.runPromise(
         Effect.scoped(

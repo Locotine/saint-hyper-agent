@@ -1,4 +1,4 @@
-import { type ProviderModelDescriptor, ThreadId } from "@synara/contracts";
+import { type ProviderModelDescriptor, ThreadId } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { getComposerProviderState } from "./composerProviderRegistry";

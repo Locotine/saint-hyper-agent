@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { page } from "vitest/browser";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import type { ServerCodexResetCredits } from "@synara/contracts";
+import type { ServerCodexResetCredits } from "@saint/contracts";
 
 const harness = vi.hoisted(() => ({ confirm: vi.fn(), consume: vi.fn(), toast: vi.fn() }));
 vi.mock("~/nativeApi", () => ({
@@ -31,7 +31,7 @@ const mount = (value = credits) =>
     </QueryClientProvider>,
   );
 beforeEach(() => {
-  localStorage.removeItem("synara:codex-reset-attempt:browser-account");
+  localStorage.removeItem("saint:codex-reset-attempt:browser-account");
   harness.confirm.mockReset().mockResolvedValue(true);
   harness.consume.mockReset().mockResolvedValue({ outcome: "reset" });
   harness.toast.mockReset();
@@ -45,7 +45,7 @@ describe("Codex banked reset confirmation", () => {
     await expect.element(page.getByRole("button", { name: "Use reset" })).toBeEnabled();
     expect(harness.confirm).toHaveBeenCalledTimes(1);
     expect(harness.consume).not.toHaveBeenCalled();
-    expect(localStorage.getItem("synara:codex-reset-attempt:browser-account")).toBeNull();
+    expect(localStorage.getItem("saint:codex-reset-attempt:browser-account")).toBeNull();
   });
   it("confirms, consumes once and refreshes the successful state", async () => {
     await mount();
@@ -57,7 +57,7 @@ describe("Codex banked reset confirmation", () => {
       idempotencyKey: expect.any(String),
     });
     await expect
-      .poll(() => localStorage.getItem("synara:codex-reset-attempt:browser-account"))
+      .poll(() => localStorage.getItem("saint:codex-reset-attempt:browser-account"))
       .toBeNull();
     expect(harness.toast).toHaveBeenCalledWith(expect.objectContaining({ type: "success" }));
   });

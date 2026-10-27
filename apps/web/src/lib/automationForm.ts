@@ -8,7 +8,7 @@ import {
   AUTOMATION_PROMPT_MAX_LENGTH,
   DEFAULT_AUTOMATION_FAST_INTERVAL_MAX_ITERATIONS,
   DEFAULT_AUTOMATION_MINIMUM_INTERVAL_SECONDS,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import type {
   AutomationCreateInput,
   AutomationDefinition,
@@ -21,16 +21,16 @@ import type {
   ProviderStartOptions,
   RuntimeMode,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import {
   completionPolicyFromStopWhen,
   stopWhenFromCompletionPolicy,
-} from "@synara/shared/automationCompletionPolicy";
+} from "@saint/shared/automationCompletionPolicy";
 import {
   automationContinuationThreadId,
   automationRequiresTargetThread,
-} from "@synara/shared/automationMode";
+} from "@saint/shared/automationMode";
 import {
   acknowledgedRiskIdsForDraft,
   buildAutomationDraftWarnings,

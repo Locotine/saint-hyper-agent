@@ -8,7 +8,7 @@ import type {
   ProviderKind,
   ProviderRuntimeEvent,
   ProviderSession,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   CheckpointRef,
   CommandId,
@@ -18,7 +18,7 @@ import {
   ProjectId,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   Deferred,
@@ -129,7 +129,7 @@ import { makeHubWorkService } from "../../projectAgent/hubWorkService.ts";
 import { HubWorkRepository } from "../../persistence/Services/HubWorkRepository.ts";
 import { ProjectionThreadRepositoryLive } from "../../persistence/Layers/ProjectionThreads.ts";
 import { ProjectionThreadSessionRepositoryLive } from "../../persistence/Layers/ProjectionThreadSessions.ts";
-import { AutomationId, ProjectInboxEventId } from "@synara/contracts";
+import { AutomationId, ProjectInboxEventId } from "@saint/contracts";
 import { QueuedTurnPromotionRepository } from "../../persistence/Services/QueuedTurnPromotions.ts";
 import { QueuedTurnPromotionRepositoryLive } from "../../persistence/Layers/QueuedTurnPromotions.ts";
 
@@ -450,7 +450,7 @@ function listRevertRescueRefs(cwd: string): ReadonlyArray<string> {
 }
 
 function createGitRepository(hasInitialCommit = true) {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "synara-checkpoint-handler-"));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "saint-checkpoint-handler-"));
   runGit(cwd, ["init", "--initial-branch=main"]);
   runGit(cwd, ["config", "user.email", "test@example.com"]);
   runGit(cwd, ["config", "user.name", "Test User"]);
@@ -614,7 +614,7 @@ describe("CheckpointReactor", () => {
     const ServerConfigLayer = ServerConfig.layerTest(
       process.cwd(),
       {
-        prefix: "synara-checkpoint-reactor-test-",
+        prefix: "saint-checkpoint-reactor-test-",
       },
       options?.hubWakes
         ? { groupsWorkspaceRoot: path.dirname(options.projectWorkspaceRoot!) }
@@ -1339,7 +1339,7 @@ describe("CheckpointReactor", () => {
   );
 
   it("caches non-Git workspace identity across native rows and lane scans", async () => {
-    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "synara-negative-checkpoint-"));
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "saint-negative-checkpoint-"));
     tempDirs.push(cwd);
     const harness = await createHarness({
       seedFilesystemCheckpoints: false,
@@ -1816,7 +1816,7 @@ describe("CheckpointReactor", () => {
   it("settles unadmitted journal rows through the recovery cut before allowing future alias work", async () => {
     const harness = await createHarness({ hasSession: false, seedFilesystemCheckpoints: false });
     const threadId = ThreadId.makeUnsafe("thread-1");
-    const aliasDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-recovery-cut-alias-"));
+    const aliasDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-recovery-cut-alias-"));
     tempDirs.push(aliasDir);
     const alias = path.join(aliasDir, "workspace");
     fs.symlinkSync(harness.cwd, alias, "dir");
@@ -2437,7 +2437,7 @@ describe("CheckpointReactor", () => {
     "peer-delivery-error",
   ] as const)("settles only the completed non-Git Hub attempt, once (%s)", async (mode) => {
     const recovery = mode !== "live";
-    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "synara-non-git-worker-"));
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "saint-non-git-worker-"));
     tempDirs.push(cwd);
     const wakes: string[] = [];
     const projectedCwd =
@@ -2799,7 +2799,7 @@ describe("CheckpointReactor", () => {
             createdAt: new Date(Date.now() - 60_000).toISOString(),
           }),
         );
-      const peerCwd = fs.mkdtempSync(path.join(os.tmpdir(), "synara-delivery-peer-"));
+      const peerCwd = fs.mkdtempSync(path.join(os.tmpdir(), "saint-delivery-peer-"));
       tempDirs.push(peerCwd);
       const peer = await addCheckpointThread(h, "zz-ready-delivery-peer", peerCwd);
       await runtime!.runPromise(
@@ -2921,12 +2921,12 @@ describe("CheckpointReactor", () => {
         await runtime!.runPromise(query.getThreadDetailById(coordinatorId)),
       );
       expect(
-        coordinator.activities.filter((row) => row.kind === "synara.worker.settled"),
+        coordinator.activities.filter((row) => row.kind === "saint.worker.settled"),
       ).toHaveLength(2);
       return;
     }
     if (mode === "lookup-error" || mode === "claim-error") {
-      const peerCwd = fs.mkdtempSync(path.join(os.tmpdir(), "synara-healthy-non-git-"));
+      const peerCwd = fs.mkdtempSync(path.join(os.tmpdir(), "saint-healthy-non-git-"));
       tempDirs.push(peerCwd);
       const peer = await addCheckpointThread(h, "zz-healthy-worker", peerCwd);
       await runtime!.runPromise(
@@ -3048,7 +3048,7 @@ describe("CheckpointReactor", () => {
       ].includes(mode)
     ) {
       // An already-finished batch peer makes the real rollup owner executable.
-      const peerCwd = fs.mkdtempSync(path.join(os.tmpdir(), "synara-finished-peer-"));
+      const peerCwd = fs.mkdtempSync(path.join(os.tmpdir(), "saint-finished-peer-"));
       tempDirs.push(peerCwd);
       const peer = await addCheckpointThread(h, "finished-batch-peer", peerCwd);
       const originalWorker = Option.getOrThrow(
@@ -3073,7 +3073,7 @@ describe("CheckpointReactor", () => {
           settleOutcome: "completed",
         }),
       );
-      const { ProjectGoalId, ProjectTaskId } = await import("@synara/contracts");
+      const { ProjectGoalId, ProjectTaskId } = await import("@saint/contracts");
       const goalId = ProjectGoalId.makeUnsafe("delivery-goal");
       const taskId = ProjectTaskId.makeUnsafe("delivery-task");
       const config = Option.getOrThrow(await runtime!.runPromise(repository.getConfig(projectId)));
@@ -3164,7 +3164,7 @@ describe("CheckpointReactor", () => {
       const monitor = vi.spyOn(h.sourceEngine, "dispatch").mockImplementation((command) =>
         mode === "rollup-error" &&
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.workers.settled"
+        command.activity.kind === "saint.workers.settled"
           ? Effect.fail(
               new OrchestrationCommandInternalError({
                 commandId: command.commandId,
@@ -3228,7 +3228,7 @@ describe("CheckpointReactor", () => {
             createdAt: nextAt,
           }),
         );
-        const { ProjectDocumentRevisionId } = await import("@synara/contracts");
+        const { ProjectDocumentRevisionId } = await import("@saint/contracts");
         const { hashDocumentContent } = await import("../../projectAgent/materializer.ts");
         if (mode === "newer-report")
           await runtime!.runPromise(
@@ -3262,10 +3262,10 @@ describe("CheckpointReactor", () => {
         await runtime!.runPromise(query.getThreadDetailById(coordinatorId)),
       );
       expect(
-        coordinator.activities.filter((row) => row.kind === "synara.worker.settled"),
+        coordinator.activities.filter((row) => row.kind === "saint.worker.settled"),
       ).toHaveLength(mode === "paused-delivery" ? 0 : 1);
       expect(
-        coordinator.activities.filter((row) => row.kind === "synara.workers.settled"),
+        coordinator.activities.filter((row) => row.kind === "saint.workers.settled"),
       ).toHaveLength(
         mode === "newer-report" || mode === "newer-mirror" || mode === "paused-delivery" ? 0 : 1,
       );
@@ -3490,7 +3490,7 @@ describe("CheckpointReactor", () => {
         await runtime!.runPromise(query.getThreadDetailById(coordinatorId)),
       );
       expect(
-        coordinator.activities.filter((row) => row.kind === "synara.worker.settled"),
+        coordinator.activities.filter((row) => row.kind === "saint.worker.settled"),
       ).toHaveLength(1);
       const reportHead = Option.getOrThrow(
         await runtime!.runPromise(
@@ -3607,7 +3607,7 @@ describe("CheckpointReactor", () => {
     "serializes different thread checkpoints sharing a physical workspace %s",
     async (kind) => {
       const harness = await createHarness();
-      const aliasDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-checkpoint-alias-"));
+      const aliasDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-checkpoint-alias-"));
       tempDirs.push(aliasDir);
       const alias =
         kind === "alias" ? path.join(aliasDir, "workspace") : path.join(harness.cwd, "nested");
@@ -5347,7 +5347,7 @@ describe("CheckpointReactor", () => {
 
   it("does not report a missing baseline when the turn itself initializes the git repository", async () => {
     // A scaffolding turn starts in a plain folder and runs `git init` mid-turn.
-    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "synara-checkpoint-plain-"));
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "saint-checkpoint-plain-"));
     tempDirs.push(workspace);
     const harness = await createHarness({
       seedFilesystemCheckpoints: false,
@@ -5423,7 +5423,7 @@ describe("CheckpointReactor", () => {
   });
 
   it("uses the durable workspace marker when completion follows a reactor restart", async () => {
-    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "synara-checkpoint-restart-plain-"));
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "saint-checkpoint-restart-plain-"));
     tempDirs.push(workspace);
     const harness = await createHarness({
       seedFilesystemCheckpoints: false,
@@ -5641,7 +5641,7 @@ describe("CheckpointReactor", () => {
         {
           source: "codex.app-server.notification",
           method: "turn/diff/updated",
-          payload: { synaraTruncated: true },
+          payload: { saintTruncated: true },
         },
       ],
       ["codex-raw-legacy", firstPatch, null],
@@ -6428,7 +6428,7 @@ describe("CheckpointReactor", () => {
       thread.activities.find((activity) => activity.kind === "checkpoint.baseline.skipped")
         ?.payload,
     ).toMatchObject({
-      detail: expect.not.stringMatching(/Native provider|Synara send|pre-dispatch/),
+      detail: expect.not.stringMatching(/Native provider|Saint send|pre-dispatch/),
     });
   });
 
@@ -7670,7 +7670,7 @@ describe("CheckpointReactor", () => {
     async ({ location, state: peerState, scope: revertScope, allowed }) => {
       const harness = await createHarness();
       await seedRevertableThread(harness, "shared-workspace-revert");
-      const peerContainer = fs.mkdtempSync(path.join(os.tmpdir(), "synara-undo-peer-"));
+      const peerContainer = fs.mkdtempSync(path.join(os.tmpdir(), "saint-undo-peer-"));
       tempDirs.push(peerContainer);
       let peerCwd = harness.cwd;
       if (location === "alias") {
@@ -8202,11 +8202,11 @@ describe("CheckpointReactor", () => {
     const createdAt = new Date().toISOString();
     const threadId = ThreadId.makeUnsafe("thread-1");
     const historicalTurnZeroRef = checkpointRefForThreadTurn(threadId, 0).replace(
-      "refs/synara/",
+      "refs/saint/",
       "refs/historical/",
     );
     const historicalTurnOneRef = CheckpointRef.makeUnsafe(
-      checkpointRefForThreadTurn(threadId, 1).replace("refs/synara/", "refs/historical/"),
+      checkpointRefForThreadTurn(threadId, 1).replace("refs/saint/", "refs/historical/"),
     );
 
     runGit(harness.cwd, ["update-ref", historicalTurnZeroRef, "HEAD"]);

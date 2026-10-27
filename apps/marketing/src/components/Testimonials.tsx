@@ -1,5 +1,5 @@
 // FILE: Testimonials.tsx
-// Purpose: Curated public posts from people using Synara.
+// Purpose: Curated public posts from people using Saint.
 // Layer: Marketing UI section (server component)
 
 import { SiX } from "react-icons/si";
@@ -152,7 +152,7 @@ export default async function Testimonials() {
             From developers
           </p>
           <h2 className="mt-3 text-[1.65rem] font-medium leading-[1.12] tracking-[-0.035em] text-[var(--text-primary)] sm:text-[2rem]">
-            What people notice when they use Synara.
+            What people notice when they use Saint.
           </h2>
           <p className="mt-5 text-[15px] leading-[1.7] text-[var(--text-secondary)] sm:text-[16px]">
             Public posts about the workspace, provider choice, local server, design, and day-to-day

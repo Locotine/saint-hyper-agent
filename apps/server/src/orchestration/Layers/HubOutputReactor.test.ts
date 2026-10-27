@@ -12,7 +12,7 @@ import {
   TurnId,
   type OrchestrationCommand,
   type ProviderRuntimeEvent,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Exit, Layer, ManagedRuntime, Option, PubSub, Scope, Stream } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -73,7 +73,7 @@ describe("HubOutputReactor", () => {
   ] as const)(
     "uses only a pre-dispatch Hub baseline when preparation is %s",
     async (preparation) => {
-      const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "synara-studio-reactor-"));
+      const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "saint-studio-reactor-"));
       temporaryRoots.push(workspaceRoot);
       const threadId = ThreadId.makeUnsafe("studio-thread");
       const projectId = ProjectId.makeUnsafe("studio-project");

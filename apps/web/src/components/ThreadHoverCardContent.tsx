@@ -8,7 +8,7 @@
 // Why: Shared by both the pinned and the nested thread-row tooltips so the two
 //      surfaces cannot drift apart.
 
-import type { ModelSelection, OrchestrationThreadPullRequest, ThreadId } from "@synara/contracts";
+import type { ModelSelection, OrchestrationThreadPullRequest, ThreadId } from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 import type { MouseEvent, ReactNode } from "react";
 

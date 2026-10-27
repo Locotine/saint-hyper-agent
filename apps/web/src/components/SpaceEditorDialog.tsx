@@ -1,7 +1,7 @@
 // FILE: SpaceEditorDialog.tsx
 // Purpose: Shared create/edit dialog for a Space name and curated Central icon.
 
-import { SPACE_NAME_MAX_LENGTH } from "@synara/contracts";
+import { SPACE_NAME_MAX_LENGTH } from "@saint/contracts";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { handleRadioGridKeyDown } from "~/lib/radioGridKeyboard";

@@ -1,4 +1,4 @@
-import type { GitBlameLineResult } from "@synara/contracts";
+import type { GitBlameLineResult } from "@saint/contracts";
 
 // Object IDs are 40 hex characters for SHA-1 repositories and 64 for SHA-256.
 const BLAME_HEADER_PATTERN = /^([0-9a-f]{40,64}) \d+ \d+(?: \d+)?$/;

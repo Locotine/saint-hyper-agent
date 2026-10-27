@@ -10,8 +10,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const implementationDir = "/private/tmp/synara-cua-implementation";
-const appPath = join(implementationDir, "Synara Cua Canary.app");
+const implementationDir = "/private/tmp/saint-cua-implementation";
+const appPath = join(implementationDir, "Saint Cua Canary.app");
 const resourcesPath = join(appPath, "Contents/Resources");
 const helperPath = join(resourcesPath, "belief-probe");
 const driverPath = join(resourcesPath, "cua-driver/cua-driver");
@@ -124,7 +124,7 @@ export function canaryOpenArgs(app, envAssignment) {
 
 function printLaunchCommand() {
   console.log(
-    `open ${canaryOpenArgs('"$HOME/Applications/Synara Cua Canary.app"', `SYNARA_CUA_CANARY_DIR=${runDir}`).join(" ")}`,
+    `open ${canaryOpenArgs('"$HOME/Applications/Saint Cua Canary.app"', `SAINT_CUA_CANARY_DIR=${runDir}`).join(" ")}`,
   );
 }
 
@@ -134,7 +134,7 @@ function launch() {
   mkdirSync(runDir, { recursive: true });
   const launched = spawnSync(
     "/usr/bin/open",
-    canaryOpenArgs(appPath, `SYNARA_CUA_CANARY_DIR=${runDir}`),
+    canaryOpenArgs(appPath, `SAINT_CUA_CANARY_DIR=${runDir}`),
     { stdio: "inherit" },
   );
   if (launched.error) {

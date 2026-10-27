@@ -100,7 +100,7 @@ describe("AcpSessionRuntime session epoch transition", () => {
     const runtimeLayer = AcpSessionRuntime.layer({
       spawn: { command: "in-memory-acp-agent", args: [] },
       cwd: process.cwd(),
-      clientInfo: { name: "synara-test", version: "0.0.0" },
+      clientInfo: { name: "saint-test", version: "0.0.0" },
       authPolicy: "on-demand",
       teardownProcessTree: async () => ({ escalated: false, signalErrors: [] }),
       __testTransitionReached: Deferred.succeed(transitionReached, undefined).pipe(Effect.asVoid),
@@ -162,7 +162,7 @@ describe("AcpSessionRuntime session epoch transition", () => {
     const runtimeLayer = AcpSessionRuntime.layer({
       spawn: { command: "in-memory-acp-agent", args: [] },
       cwd: process.cwd(),
-      clientInfo: { name: "synara-test", version: "0.0.0" },
+      clientInfo: { name: "saint-test", version: "0.0.0" },
       authPolicy: "on-demand",
       teardownProcessTree: async () => ({ escalated: false, signalErrors: [] }),
     }).pipe(Layer.provide(spawnerLayer));

@@ -2,7 +2,7 @@
 // Purpose: Checks terminal focus and final-session close behavior.
 // Layer: Chat terminal controller tests
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const reactHarness = vi.hoisted(() => {

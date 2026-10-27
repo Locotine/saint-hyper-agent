@@ -1,14 +1,14 @@
 import path from "node:path";
 import { createRequire } from "node:module";
 import ts from "typescript";
-import { isPathInside } from "@synara/shared/pathContainment";
+import { isPathInside } from "@saint/shared/pathContainment";
 import type {
   EditorIntelligenceInput,
   EditorIntelligenceResult,
   EditorDiagnostic,
   EditorFileEdits,
   EditorLocation,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 const MAX_PROJECT_FILES = 10_000;
 const MAX_RESULT_ITEMS = 2_000;

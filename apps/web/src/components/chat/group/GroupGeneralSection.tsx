@@ -1,4 +1,4 @@
-import { DEFAULT_PROJECT_AGENT_LIMITS, type ModelSelection } from "@synara/contracts";
+import { DEFAULT_PROJECT_AGENT_LIMITS, type ModelSelection } from "@saint/contracts";
 
 import { Input } from "~/components/ui/input";
 import {

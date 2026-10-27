@@ -1,4 +1,4 @@
-import type { KeybindingShortcut } from "@synara/contracts";
+import type { KeybindingShortcut } from "@saint/contracts";
 
 import { shortcutKeyFromEventCode } from "~/keybindings";
 import { getNavigatorPlatform, isMacPlatform } from "~/lib/utils";

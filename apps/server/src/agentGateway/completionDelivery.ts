@@ -1,4 +1,4 @@
-import { CommandId, EventId, ThreadId } from "@synara/contracts";
+import { CommandId, EventId, ThreadId } from "@saint/contracts";
 import { Effect, Option } from "effect";
 import type { OrchestrationEngineShape } from "../orchestration/Services/OrchestrationEngine.ts";
 import type { ProjectionSnapshotQueryShape } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
@@ -90,7 +90,7 @@ export const deliverGatewayCompletions = (dependencies: CompletionDeliveryDepend
             summaryTruncated: summary.truncated,
             error: error?.slice(0, 2000) ?? null,
             errorTruncated: (error?.length ?? 0) > 2000,
-            readThread: { tool: "synara_read_thread", arguments: { threadId: row.childThreadId } },
+            readThread: { tool: "saint_read_thread", arguments: { threadId: row.childThreadId } },
           });
           yield* repository.saveResult(row.childThreadId, resultJson);
         }
@@ -102,7 +102,7 @@ export const deliverGatewayCompletions = (dependencies: CompletionDeliveryDepend
         };
         const payload = {
           ...JSON.parse(resultJson),
-          detail: `Child: ${row.childThreadId}\n${result.error ?? result.summary ?? "No final response."}\nFull result: synara_read_thread(${row.childThreadId})`,
+          detail: `Child: ${row.childThreadId}\n${result.error ?? result.summary ?? "No final response."}\nFull result: saint_read_thread(${row.childThreadId})`,
         };
         const parentId = ThreadId.makeUnsafe(row.creatorThreadId);
         const parent = Option.getOrUndefined(yield* snapshotQuery.getThreadShellById(parentId));
@@ -119,7 +119,7 @@ export const deliverGatewayCompletions = (dependencies: CompletionDeliveryDepend
             requireUnarchived: true,
             activity: {
               id: EventId.makeUnsafe(`gateway-completion:${row.childThreadId}`),
-              kind: "synara.task.completed",
+              kind: "saint.task.completed",
               tone: result.status === "error" ? "error" : "info",
               summary: `Delegated task ${result.status}`,
               payload,
@@ -136,7 +136,7 @@ export const deliverGatewayCompletions = (dependencies: CompletionDeliveryDepend
             threadId: childThreadId,
             activity: {
               id: EventId.makeUnsafe(`gateway-completion-unavailable:${row.childThreadId}`),
-              kind: "synara.task.delivery-unavailable",
+              kind: "saint.task.delivery-unavailable",
               tone: "info",
               summary: "Completion delivery unavailable: creator was archived or deleted",
               payload,

@@ -9,8 +9,8 @@ import {
   ThreadId,
   TurnId,
   type PendingClaudeCacheReview,
-} from "@synara/contracts";
-import { derivePendingThreadRequestIds } from "@synara/shared/threadSummary";
+} from "@saint/contracts";
+import { derivePendingThreadRequestIds } from "@saint/shared/threadSummary";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer, Option } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -1817,10 +1817,10 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
         ) VALUES
           ('thread-turn-links', 'turn-1', 'request-1', 'answer-1', 'completed',
             '2026-10-09T19:49:02.121Z', '2026-10-09T19:49:03.048Z', '2026-10-09T19:49:16.559Z',
-            1, 'refs/synara/checkpoints/turn-links/turn/1', 'ready', '[]'),
+            1, 'refs/saint/checkpoints/turn-links/turn/1', 'ready', '[]'),
           ('thread-turn-links', 'turn-2', 'request-2', NULL, 'interrupted',
             '2026-10-09T19:49:11.783Z', '2026-10-09T19:49:16.839Z', '2026-10-09T19:49:26.006Z',
-            2, 'refs/synara/checkpoints/turn-links/turn/2', 'missing', '[]')
+            2, 'refs/saint/checkpoints/turn-links/turn/2', 'missing', '[]')
       `;
       yield* sql`
         INSERT INTO projection_thread_activities (
@@ -1966,7 +1966,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
     }),
   );
 
-  it.effect("normalizes imported Synara model-selection shapes from projection reads", () =>
+  it.effect("normalizes imported Saint model-selection shapes from projection reads", () =>
     Effect.gen(function* () {
       const snapshotQuery = yield* ProjectionSnapshotQuery;
       const sql = yield* SqlClient.SqlClient;
@@ -2235,7 +2235,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
           'project-pr',
           'Thread with PR',
           '{"provider":"codex","model":"gpt-5-codex"}',
-          '{"number":1,"title":"Add placeholder temp files","url":"https://github.com/Emanuele-web04/openclap/pull/1","baseBranch":"main","headBranch":"synara/greeting-1","state":"open"}',
+          '{"number":1,"title":"Add placeholder temp files","url":"https://github.com/Emanuele-web04/openclap/pull/1","baseBranch":"main","headBranch":"saint/greeting-1","state":"open"}',
           '2026-02-25T00:00:02.000Z',
           '2026-02-25T00:00:03.000Z',
           NULL
@@ -2248,7 +2248,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
 
       const shellSnapshot = yield* snapshotQuery.getShellSnapshot();
       assert.equal(shellSnapshot.threads[0]?.lastKnownPr?.number, 1);
-      assert.equal(shellSnapshot.threads[0]?.lastKnownPr?.headBranch, "synara/greeting-1");
+      assert.equal(shellSnapshot.threads[0]?.lastKnownPr?.headBranch, "saint/greeting-1");
     }),
   );
 

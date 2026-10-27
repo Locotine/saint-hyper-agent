@@ -12,10 +12,10 @@ import type {
   OpenCodeModelSelection,
   OpenCodeModelOptions,
   ProviderStartOptions,
-} from "@synara/contracts";
-import { sanitizeGeneratedThreadTitle } from "@synara/shared/chatThreads";
-import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@synara/shared/git";
-import { getModelSelectionStringOptionValue } from "@synara/shared/model";
+} from "@saint/contracts";
+import { sanitizeGeneratedThreadTitle } from "@saint/shared/chatThreads";
+import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@saint/shared/git";
+import { getModelSelectionStringOptionValue } from "@saint/shared/model";
 
 import { resolveProviderAttachmentPath } from "../../provider/providerAttachmentPaths.ts";
 import { ServerConfig } from "../../config.ts";
@@ -448,7 +448,7 @@ const makeOpenCodeCompatibleTextGeneration = (config: OpenCodeCompatibleTextGene
               cliSpec: config.cliSpec,
             });
             const sessionCreateInput = {
-              title: `Synara ${input.operation}`,
+              title: `Saint ${input.operation}`,
               model: {
                 providerID: providerId,
                 id: modelId,

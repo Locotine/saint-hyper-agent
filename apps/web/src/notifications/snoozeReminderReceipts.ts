@@ -1,4 +1,4 @@
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 type ReminderStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -10,7 +10,7 @@ export function claimSnoozeReminder(
   storage: ReminderStorage | undefined,
 ): boolean {
   if (!storage) return true;
-  const key = `synara:snooze-reminder:v1:${threadId}`;
+  const key = `saint:snooze-reminder:v1:${threadId}`;
   try {
     const deliveredAt = storage.getItem(key);
     if (

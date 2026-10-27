@@ -4,7 +4,7 @@
 // Layer: Tasks UI component
 // Exports: TaskRowTitle, useTaskRename
 
-import type { Todo, TodoUpdateInput } from "@synara/contracts";
+import type { Todo, TodoUpdateInput } from "@saint/contracts";
 import { type KeyboardEvent, useState } from "react";
 
 import { cn } from "~/lib/utils";

@@ -13,17 +13,17 @@ import type {
   SpaceId,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   APPROVAL_ALREADY_ANSWERED_INVARIANT_MARKER,
   THREAD_NOT_ARCHIVED_INVARIANT_MARKER,
-} from "@synara/shared/errorMessages";
+} from "@saint/shared/errorMessages";
 import {
   isGroupContainerKind,
   isLegacyHomeChatContainerRow as isSharedLegacyHomeChatContainerRow,
   isOrdinaryProjectRow as isSharedOrdinaryProjectRow,
-} from "@synara/shared/projectContainers";
-import { normalizeWorkspaceRootForComparison } from "@synara/shared/threadWorkspace";
+} from "@saint/shared/projectContainers";
+import { normalizeWorkspaceRootForComparison } from "@saint/shared/threadWorkspace";
 import { Effect } from "effect";
 
 import { OrchestrationCommandInvariantError } from "./Errors.ts";

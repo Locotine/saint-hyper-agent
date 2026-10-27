@@ -8,7 +8,7 @@ const MAX_OBJECT_KEYS = 50;
  * Tool payloads nest deeper than ordinary diagnostics: a projected activity
  * carries `data.rawOutput.details.structuredContent` before the driver's own
  * result begins (browser bind results put the `tabs` inventory one level
- * below that). At the former 5 the packaged E2E's own `synara_read_thread_*`
+ * below that). At the former 5 the packaged E2E's own `saint_read_thread_*`
  * reads returned `"[depth limit]"` for exactly the tab list the model needed
  * to recover its target/tab ids. 12 clears every projected tool envelope with
  * room to spare; the item/key/string caps still bound the output, and secret

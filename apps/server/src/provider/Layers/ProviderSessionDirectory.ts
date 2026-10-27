@@ -3,7 +3,7 @@ import {
   ProviderInstanceId,
   defaultInstanceIdForDriver,
   type ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, Option, Schema } from "effect";
 
 import { ProviderSessionRuntimeRepository } from "../../persistence/Services/ProviderSessionRuntime.ts";

@@ -3,7 +3,7 @@ import { page } from "vitest/browser";
 import { cleanup, render } from "vitest-browser-react";
 import "../index.css";
 import { useState } from "react";
-import { ProviderInstanceId, type RuntimeMode } from "@synara/contracts";
+import { ProviderInstanceId, type RuntimeMode } from "@saint/contracts";
 import { RuntimeUsageControls } from "./BranchToolbar";
 
 afterEach(() => cleanup());

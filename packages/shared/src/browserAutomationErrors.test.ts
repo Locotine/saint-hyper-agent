@@ -6,7 +6,7 @@ import {
   utf8ByteLength,
   type BrowserAutomationErrorInput,
   type BrowserErrorCode,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -78,7 +78,7 @@ describe("browser automation error factories", () => {
         utf8ByteLength(candidate.message) > utf8ByteLength(largest.message) ? candidate : largest,
       );
     const envelope = Schema.decodeUnknownSync(BrowserMcpToolErrorEnvelope)({
-      type: "synara_browser_error",
+      type: "saint_browser_error",
       version: 1,
       error: {
         ...largestError,
@@ -180,7 +180,7 @@ describe("browser automation error factories", () => {
     const envelope = makeBrowserMcpToolErrorEnvelope(unsafeInput);
 
     expect(envelope).toEqual({
-      type: "synara_browser_error",
+      type: "saint_browser_error",
       version: 1,
       error: {
         code: "BrowserInputUnsupported",

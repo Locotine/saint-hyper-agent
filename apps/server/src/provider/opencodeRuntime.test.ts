@@ -13,8 +13,8 @@ import { systemError } from "effect/PlatformError";
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
 import { type ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { TestClock } from "effect/testing";
-import type { ChatAttachment } from "@synara/contracts";
-import { resolveWindowsComSpec } from "@synara/shared/windowsProcess";
+import type { ChatAttachment } from "@saint/contracts";
+import { resolveWindowsComSpec } from "@saint/shared/windowsProcess";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -41,7 +41,7 @@ import type { TeardownProcessChildrenSnapshotObserver } from "../platform/window
 const encoder = new TextEncoder();
 let testHome: string;
 beforeEach(() => {
-  testHome = mkdtempSync(join(tmpdir(), "synara-opencode-runtime-"));
+  testHome = mkdtempSync(join(tmpdir(), "saint-opencode-runtime-"));
   vi.stubEnv("HOME", testHome);
 });
 afterEach(() => {
@@ -236,14 +236,14 @@ describe("toOpenCodeFileParts", () => {
     expect(
       toOpenCodeFileParts({
         attachments: [attachment],
-        resolveAttachmentPath: () => "/tmp/synara-attachments/screenshot.png",
+        resolveAttachmentPath: () => "/tmp/saint-attachments/screenshot.png",
       }),
     ).toEqual([
       {
         type: "file",
         mime: "image/png",
         filename: "screenshot.png",
-        url: pathToFileURL("/tmp/synara-attachments/screenshot.png").href,
+        url: pathToFileURL("/tmp/saint-attachments/screenshot.png").href,
       },
     ]);
   });
@@ -260,7 +260,7 @@ describe("toOpenCodeFileParts", () => {
     expect(
       toOpenCodeFileParts({
         attachments: [attachment],
-        resolveAttachmentPath: () => "/tmp/synara-attachments/notes.docx",
+        resolveAttachmentPath: () => "/tmp/saint-attachments/notes.docx",
       }),
     ).toEqual([]);
   });
@@ -288,18 +288,18 @@ describe("buildOpenCodeServerProcessEnv", () => {
     expect(env.OPENCODE_CONFIG_CONTENT).toBe('{"provider":{"openai":{}}}');
   });
 
-  it("strips inherited Synara authority from managed server processes", () => {
+  it("strips inherited Saint authority from managed server processes", () => {
     const env = buildOpenCodeServerProcessEnv({
       baseEnv: {
         OPENAI_API_KEY: "provider-key",
-        SYNARA_AUTH_TOKEN: "server-secret",
-        SYNARA_BROWSER_USE_PIPE_PATH: "/tmp/browser.sock",
+        SAINT_AUTH_TOKEN: "server-secret",
+        SAINT_BROWSER_USE_PIPE_PATH: "/tmp/browser.sock",
       },
     });
 
     expect(env.OPENAI_API_KEY).toBe("provider-key");
-    expect(env.SYNARA_AUTH_TOKEN).toBeUndefined();
-    expect(env.SYNARA_BROWSER_USE_PIPE_PATH).toBeUndefined();
+    expect(env.SAINT_AUTH_TOKEN).toBeUndefined();
+    expect(env.SAINT_BROWSER_USE_PIPE_PATH).toBeUndefined();
   });
 
   it("scrubs ambient account config before applying a selected instance environment", () => {
@@ -324,7 +324,7 @@ describe("buildOpenCodeServerProcessEnv", () => {
   });
 
   it("appends install directories containing the CLI to PATH", () => {
-    const home = mkdtempSync(join(tmpdir(), "synara-opencode-env-"));
+    const home = mkdtempSync(join(tmpdir(), "saint-opencode-env-"));
     try {
       mkdirSync(join(home, ".opencode", "bin"), { recursive: true });
       const binary = join(home, ".opencode", "bin", "opencode");
@@ -1524,14 +1524,14 @@ describe("OpenCodeRuntime local server pool", () => {
             .connectToOpenCodeServer({
               binaryPath: "opencode",
               cwd: "/repo",
-              poolIsolationKey: "synara-thread-a",
+              poolIsolationKey: "saint-thread-a",
             })
             .pipe(Effect.provideService(Scope.Scope, firstScope));
           const second = yield* runtime
             .connectToOpenCodeServer({
               binaryPath: "opencode",
               cwd: "/repo",
-              poolIsolationKey: "synara-thread-b",
+              poolIsolationKey: "saint-thread-b",
             })
             .pipe(Effect.provideService(Scope.Scope, secondScope));
 
@@ -1633,7 +1633,7 @@ describe("OpenCodeRuntime local server pool", () => {
     );
   });
 
-  it("keeps custom Synara account roots separate in the managed pool", async () => {
+  it("keeps custom Saint account roots separate in the managed pool", async () => {
     const state = { spawnUrls: [] as string[], killUrls: [] as string[] };
     await Effect.runPromise(
       Effect.scoped(
@@ -1646,7 +1646,7 @@ describe("OpenCodeRuntime local server pool", () => {
               binaryPath: "opencode",
               instanceId: "opencode_work",
               homeDir: "/home/user",
-              isolationRootDir: "/tmp/synara-state-a",
+              isolationRootDir: "/tmp/saint-state-a",
             })
             .pipe(Effect.provideService(Scope.Scope, firstScope));
           const second = yield* runtime
@@ -1654,7 +1654,7 @@ describe("OpenCodeRuntime local server pool", () => {
               binaryPath: "opencode",
               instanceId: "opencode_work",
               homeDir: "/home/user",
-              isolationRootDir: "/tmp/synara-state-b",
+              isolationRootDir: "/tmp/saint-state-b",
             })
             .pipe(Effect.provideService(Scope.Scope, secondScope));
           expect(first.url).not.toBe(second.url);

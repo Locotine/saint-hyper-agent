@@ -13,7 +13,7 @@ import path from "node:path";
 import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
-import { SYNARA_COMPUTER_TOOL_NAMES } from "../../agentGateway/computerToolPermission.ts";
+import { SAINT_COMPUTER_TOOL_NAMES } from "../../agentGateway/computerToolPermission.ts";
 import {
   applyPiRuntimeApiKeysFromEnvironment,
   createPiModelRuntime,
@@ -236,7 +236,7 @@ describe("Pi extension mode in-flight reservations", () => {
   });
 });
 
-describe("Pi native Synara gateway tools", () => {
+describe("Pi native Saint gateway tools", () => {
   it("uses canonical MCP schemas and keeps same-cwd thread tokens distinct", async () => {
     const requests: Array<{ readonly token: string | null; readonly body: any }> = [];
     const fetch = async (_input: string | URL | Request, init?: RequestInit) => {
@@ -253,8 +253,8 @@ describe("Pi native Synara gateway tools", () => {
             ? {
                 tools: [
                   {
-                    name: "synara_list_threads",
-                    description: "List Synara threads.",
+                    name: "saint_list_threads",
+                    description: "List Saint threads.",
                     inputSchema: {
                       type: "object",
                       properties: { limit: { type: "number" } },
@@ -317,8 +317,8 @@ describe("Pi native Synara gateway tools", () => {
           result: {
             tools: [
               {
-                name: "synara_create_threads",
-                description: "Create Synara threads.",
+                name: "saint_create_threads",
+                description: "Create Saint threads.",
                 inputSchema: { type: "object", properties: {} },
               },
             ],
@@ -355,14 +355,14 @@ describe("Pi native Synara gateway tools", () => {
   });
 
   it("only adds specialist routes when the catalog advertises a canonical Computer tool", () => {
-    expect(piInstalledGatewayToolNames(["synara_list_threads"])).toEqual(
-      new Set(["synara_list_threads"]),
+    expect(piInstalledGatewayToolNames(["saint_list_threads"])).toEqual(
+      new Set(["saint_list_threads"]),
     );
     for (const unrelated of ["computer_future_tool", "mcp__other__computer_click"]) {
       expect(piInstalledGatewayToolNames([unrelated])).toEqual(new Set([unrelated]));
     }
-    expect(piInstalledGatewayToolNames(["synara_list_threads", "computer_run"])).toEqual(
-      new Set(["synara_list_threads", ...SYNARA_COMPUTER_TOOL_NAMES]),
+    expect(piInstalledGatewayToolNames(["saint_list_threads", "computer_run"])).toEqual(
+      new Set(["saint_list_threads", ...SAINT_COMPUTER_TOOL_NAMES]),
     );
   });
 
@@ -408,8 +408,8 @@ describe("Pi native Synara gateway tools", () => {
       inputSchema: { type: "object", properties: { x: { type: "number" } } },
     };
     const ordinaryTool = {
-      name: "synara_list_threads",
-      description: "List Synara threads.",
+      name: "saint_list_threads",
+      description: "List Saint threads.",
       inputSchema: { type: "object", properties: {} },
     };
     let enabled = true;
@@ -444,7 +444,7 @@ describe("Pi native Synara gateway tools", () => {
       });
     const on = await projection();
     expect(new Set(on.map((tool) => tool.name))).toEqual(
-      new Set([ordinaryTool.name, ...SYNARA_COMPUTER_TOOL_NAMES]),
+      new Set([ordinaryTool.name, ...SAINT_COMPUTER_TOOL_NAMES]),
     );
     expect(on[1]?.parameters).toEqual(computerTool.inputSchema);
     const controller = new AbortController();
@@ -598,7 +598,7 @@ describe("getPiDiscoverableModels", () => {
   });
 
   it("isolates extension providers between sessions that share an agent directory", async () => {
-    const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-runtime-isolation-"));
+    const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-runtime-isolation-"));
 
     try {
       const firstRuntime = await createPiModelRuntime(
@@ -643,7 +643,7 @@ describe("getPiDiscoverableModels", () => {
   });
 
   it("blocks ambient API-key fallback for an isolated Pi instance", async () => {
-    const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-account-isolation-"));
+    const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-account-isolation-"));
     const previousOpenAiKey = process.env.OPENAI_API_KEY;
     process.env.OPENAI_API_KEY = "ambient-account-key";
 
@@ -671,7 +671,7 @@ describe("getPiDiscoverableModels", () => {
   });
 
   it("resolves custom provider config only from the selected Pi environment", async () => {
-    const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-custom-config-isolation-"));
+    const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-custom-config-isolation-"));
     const previousCustomKey = process.env.CUSTOM_KEY;
     const previousCustomHeader = process.env.CUSTOM_HEADER;
     process.env.CUSTOM_KEY = "ambient-account-key";
@@ -739,7 +739,7 @@ describe("getPiDiscoverableModels", () => {
   });
 
   it("keeps identical config commands scoped to each immutable Pi environment", async () => {
-    const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-command-isolation-"));
+    const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-command-isolation-"));
     const commandConfig = `!${JSON.stringify(process.execPath)} -p ${JSON.stringify(
       "process.env.CUSTOM_KEY",
     )}`;
@@ -791,7 +791,7 @@ describe("getPiDiscoverableModels", () => {
     ["azure-openai-responses", "stored-azure", "Azure OpenAI"],
     ["google-vertex", "gcp-vertex-credentials", "Vertex ADC"],
   ])("fails closed for isolated %s ambient-chain auth", async (provider, key, message) => {
-    const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-routing-isolation-"));
+    const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-routing-isolation-"));
     try {
       writeFileSync(
         path.join(agentDir, "auth.json"),
@@ -812,7 +812,7 @@ describe("getPiDiscoverableModels", () => {
   });
 
   it("resolves Cloudflare routing only from the selected instance", async () => {
-    const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-cloudflare-isolation-"));
+    const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-cloudflare-isolation-"));
     try {
       const runtime = await createPiModelRuntime(
         agentDir,
@@ -838,7 +838,7 @@ describe("getPiDiscoverableModels", () => {
   });
 
   it("suppresses ambient OpenAI and Anthropic routing credentials", async () => {
-    const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-header-isolation-"));
+    const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-header-isolation-"));
     const previousOpenAiOrg = process.env.OPENAI_ORG_ID;
     const previousAnthropicToken = process.env.ANTHROPIC_AUTH_TOKEN;
     process.env.OPENAI_ORG_ID = "ambient-org";
@@ -877,7 +877,7 @@ describe("getPiDiscoverableModels", () => {
   ])(
     "discovers bundled $provider/$id with configured credentials",
     async ({ provider, id, auth }) => {
-      const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-bundled-models-"));
+      const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-bundled-models-"));
       try {
         const authPath = path.join(agentDir, "auth.json");
         writeFileSync(authPath, JSON.stringify({ [provider]: auth }));
@@ -912,7 +912,7 @@ describe("getPiDiscoverableModels", () => {
   );
 
   it("includes custom-provider models authenticated through auth.json semantics", async () => {
-    const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-models-"));
+    const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-models-"));
     const modelsPath = path.join(agentDir, "models.json");
     const authPath = path.join(agentDir, "auth.json");
 
@@ -954,7 +954,7 @@ describe("getPiDiscoverableModels", () => {
   });
 
   it("restores Fable 5 and Opus 4.8 after an extension replaces the Anthropic catalog", async () => {
-    const agentDir = mkdtempSync(path.join(tmpdir(), "synara-pi-anthropic-"));
+    const agentDir = mkdtempSync(path.join(tmpdir(), "saint-pi-anthropic-"));
     const modelsPath = path.join(agentDir, "models.json");
     const authPath = path.join(agentDir, "auth.json");
 

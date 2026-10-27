@@ -20,7 +20,7 @@ import {
   WS_METHODS,
   type WsPush,
   type ServerProviderStatus,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let reportShellFailure: ((failure: { code: string | null; error: Error }) => void) | undefined;
@@ -203,7 +203,7 @@ describe("wsNativeApi", () => {
     const listener = vi.fn();
     onServerWelcome(listener);
 
-    const payload = { cwd: "/tmp/workspace", homeDir: "/Users/tester", projectName: "synara-code" };
+    const payload = { cwd: "/tmp/workspace", homeDir: "/Users/tester", projectName: "saint-code" };
     emitPush(WS_CHANNELS.serverWelcome, payload);
 
     expect(listener).toHaveBeenCalledTimes(1);
@@ -231,7 +231,7 @@ describe("wsNativeApi", () => {
     emitPush(WS_CHANNELS.serverWelcome, {
       cwd: "/tmp/workspace",
       homeDir: "/Users/tester",
-      projectName: "synara-code",
+      projectName: "saint-code",
     });
 
     expect(listener).toHaveBeenCalledTimes(2);
@@ -239,7 +239,7 @@ describe("wsNativeApi", () => {
       expect.objectContaining({
         cwd: "/tmp/workspace",
         homeDir: "/Users/tester",
-        projectName: "synara-code",
+        projectName: "saint-code",
       }),
     );
   });
@@ -653,7 +653,7 @@ describe("wsNativeApi", () => {
             policy: "loopback-browser",
             bootstrapMethods: ["one-time-token"],
             sessionMethods: ["browser-session-cookie", "bearer-session-token"],
-            sessionCookieName: "synara_session",
+            sessionCookieName: "saint_session",
           },
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -819,6 +819,37 @@ describe("wsNativeApi", () => {
     expect(nextState.tabs).toHaveLength(1);
     expect(nextState.activeTabId).toBe(nextState.tabs[0]?.id);
     expect(nextState.tabs[0]?.url).toBe("about:blank");
+  });
+
+  it("keeps folders, editors and editor lists on the host in a remote SSH window", async () => {
+    const pickFolder = vi.fn().mockResolvedValue("/Users/local/project");
+    const openInEditor = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(getWindowForTest(), "desktopBridge", {
+      configurable: true,
+      writable: true,
+      value: {
+        pickFolder,
+        remoteWindow: { host: "devbox", editors: ["vscode", "cursor"], openInEditor },
+      },
+    });
+    requestMock.mockResolvedValue({ availableEditors: ["zed"], keybindings: [] });
+    const { createWsNativeApi } = await import("./wsNativeApi");
+    const { useRemoteFolderPickerStore } = await import("./remoteFolderPickerStore");
+    const api = createWsNativeApi();
+
+    const picked = api.dialogs.pickFolder();
+    expect(useRemoteFolderPickerStore.getState().resolve).not.toBeNull();
+    useRemoteFolderPickerStore.getState().settle("/home/pt/app");
+    await expect(picked).resolves.toBe("/home/pt/app");
+    expect(pickFolder).not.toHaveBeenCalled();
+
+    await api.shell.openInEditor("/home/pt/app", "cursor");
+    expect(openInEditor).toHaveBeenCalledWith("/home/pt/app", "cursor");
+    expect(requestMock).not.toHaveBeenCalledWith(WS_METHODS.shellOpenInEditor, expect.anything());
+
+    await expect(api.server.getConfig()).resolves.toMatchObject({
+      availableEditors: ["vscode", "cursor"],
+    });
   });
 
   it("forwards context menu metadata to desktop bridge", async () => {

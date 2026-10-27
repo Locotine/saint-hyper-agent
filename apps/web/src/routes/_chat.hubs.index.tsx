@@ -9,7 +9,7 @@
 // Depends on: hub project lookup, the shared restore/create route surface, and the hub
 //             new-chat hook.
 
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 

@@ -5,48 +5,48 @@ import * as Path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  acknowledgeSynaraStorageSnapshot,
-  readSynaraStorageSnapshot,
-  SYNARA_STORAGE_SNAPSHOT_MAX_BYTES,
-  validateSynaraStorageSnapshot,
+  acknowledgeSaintStorageSnapshot,
+  readSaintStorageSnapshot,
+  SAINT_STORAGE_SNAPSHOT_MAX_BYTES,
+  validateSaintStorageSnapshot,
 } from "./desktopStorageMigration";
 
 const snapshot = () => ({
   version: 1 as const,
   exportedAt: "2026-07-09T00:00:00.000Z",
   entries: {
-    "synara:theme": "dark",
-    "synara.openUsage.enabled": "true",
+    "saint:theme": "dark",
+    "saint.openUsage.enabled": "true",
   },
 });
 
 describe("desktopStorageMigration", () => {
   it("reads a legacy snapshot and removes it after acknowledgement", async () => {
-    const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "synara-storage-migration-"));
+    const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-storage-migration-"));
     const target = Path.join(directory, "snapshot.json");
     try {
       FS.writeFileSync(target, `${JSON.stringify(snapshot())}\n`);
-      expect(readSynaraStorageSnapshot(target)).toEqual(snapshot());
+      expect(readSaintStorageSnapshot(target)).toEqual(snapshot());
 
-      await acknowledgeSynaraStorageSnapshot(target);
-      expect(readSynaraStorageSnapshot(target)).toBeNull();
+      await acknowledgeSaintStorageSnapshot(target);
+      expect(readSaintStorageSnapshot(target)).toBeNull();
     } finally {
       FS.rmSync(directory, { recursive: true, force: true });
     }
   });
 
   it("rejects malformed, disallowed, and oversized snapshots", () => {
-    expect(validateSynaraStorageSnapshot({ version: 1 })).toBeNull();
+    expect(validateSaintStorageSnapshot({ version: 1 })).toBeNull();
     expect(
-      validateSynaraStorageSnapshot({
+      validateSaintStorageSnapshot({
         ...snapshot(),
         entries: { "foreign:theme": "dark" },
       }),
     ).toBeNull();
     expect(
-      validateSynaraStorageSnapshot({
+      validateSaintStorageSnapshot({
         ...snapshot(),
-        entries: { "synara:large": "x".repeat(SYNARA_STORAGE_SNAPSHOT_MAX_BYTES) },
+        entries: { "saint:large": "x".repeat(SAINT_STORAGE_SNAPSHOT_MAX_BYTES) },
       }),
     ).toBeNull();
   });
@@ -55,20 +55,20 @@ describe("desktopStorageMigration", () => {
     const largeDraft = "x".repeat(2 * 1024 * 1024);
 
     expect(
-      validateSynaraStorageSnapshot({
+      validateSaintStorageSnapshot({
         ...snapshot(),
-        entries: { "synara:composer-drafts:v1": largeDraft },
-      })?.entries["synara:composer-drafts:v1"],
+        entries: { "saint:composer-drafts:v1": largeDraft },
+      })?.entries["saint:composer-drafts:v1"],
     ).toBe(largeDraft);
   });
 
   it("treats missing and malformed files as absent", () => {
-    const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "synara-storage-migration-"));
+    const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-storage-migration-"));
     const target = Path.join(directory, "snapshot.json");
     try {
-      expect(readSynaraStorageSnapshot(target)).toBeNull();
+      expect(readSaintStorageSnapshot(target)).toBeNull();
       FS.writeFileSync(target, "not json");
-      expect(readSynaraStorageSnapshot(target)).toBeNull();
+      expect(readSaintStorageSnapshot(target)).toBeNull();
     } finally {
       FS.rmSync(directory, { recursive: true, force: true });
     }

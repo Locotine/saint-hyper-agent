@@ -2,7 +2,7 @@ import type {
   ImportProjectInput,
   ProjectImportProject,
   ProjectImportProvider,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 export const IMPORT_PROVIDERS: readonly ProjectImportProvider[] = ["codex", "claudeAgent"];
 export const IMPORT_PROVIDER_LABELS: Record<ProjectImportProvider, string> = {

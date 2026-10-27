@@ -2,52 +2,52 @@ import { assert, describe, it } from "@effect/vitest";
 import { AUTOMATION_AUTHORING_GUIDANCE } from "./automationAuthoringGuidance.ts";
 
 import {
-  renderSynaraHarnessPolicy,
-  SYNARA_HARNESS_POLICY_MARKER,
-  takeSynaraHarnessPolicyForProviderSession,
-  takeSynaraHarnessPolicyTextPartForProviderSession,
-  takeSynaraHarnessPolicyForSession,
+  renderSaintHarnessPolicy,
+  SAINT_HARNESS_POLICY_MARKER,
+  takeSaintHarnessPolicyForProviderSession,
+  takeSaintHarnessPolicyTextPartForProviderSession,
+  takeSaintHarnessPolicyForSession,
 } from "./harnessPolicy.ts";
 
-describe("Synara harness policy", () => {
+describe("Saint harness policy", () => {
   it("defers duplicate automation authoring text while preserving tool routing and run rules", () => {
-    const inline = renderSynaraHarnessPolicy({ gatewayControlAvailable: true });
-    const deferred = renderSynaraHarnessPolicy({
+    const inline = renderSaintHarnessPolicy({ gatewayControlAvailable: true });
+    const deferred = renderSaintHarnessPolicy({
       gatewayControlAvailable: true,
       automationAuthoring: "tool-descriptions",
     });
     assert.equal(deferred, inline.replace(`${AUTOMATION_AUTHORING_GUIDANCE}\n`, ""));
-    assert.include(deferred, "synara_create_automation");
-    assert.include(deferred, "synara_view_automation");
-    assert.include(deferred, "synara_report_automation_result");
+    assert.include(deferred, "saint_create_automation");
+    assert.include(deferred, "saint_view_automation");
+    assert.include(deferred, "saint_report_automation_result");
   });
 
   it("includes honest completion evidence and opt-in delegated E2E testing", () => {
-    const policy = renderSynaraHarnessPolicy({ gatewayControlAvailable: true });
+    const policy = renderSaintHarnessPolicy({ gatewayControlAvailable: true });
     for (const text of [
       "completion report",
       "artifactPath",
       "![Result description]",
       "explicitly asked",
-      "synara_e2e_review",
+      "saint_e2e_review",
       "Do not load it for unrelated work",
     ]) {
       assert.include(policy, text);
     }
     assert.notInclude(
-      renderSynaraHarnessPolicy({ gatewayControlAvailable: false }),
+      renderSaintHarnessPolicy({ gatewayControlAvailable: false }),
       "browser_screenshot({kind:'proof'})",
     );
   });
 
-  it("identifies Synara and explains exact batch coordination when MCP is available", () => {
-    const policy = renderSynaraHarnessPolicy({ gatewayControlAvailable: true });
-    assert.include(policy, SYNARA_HARNESS_POLICY_MARKER);
-    assert.include(policy, "Synara is the host and harness");
-    assert.include(policy, "one exact synara_create_threads plan");
+  it("identifies Saint and explains exact batch coordination when MCP is available", () => {
+    const policy = renderSaintHarnessPolicy({ gatewayControlAvailable: true });
+    assert.include(policy, SAINT_HARNESS_POLICY_MARKER);
+    assert.include(policy, "Saint is the host and harness");
+    assert.include(policy, "one exact saint_create_threads plan");
     assert.include(policy, "before returning an operationId");
-    assert.include(policy, "synara_wait_for_threads");
-    assert.include(policy, "synara_set_thread_pull_request");
+    assert.include(policy, "saint_wait_for_threads");
+    assert.include(policy, "saint_set_thread_pull_request");
     assert.include(policy, "current thread's own deliverable");
     assert.include(policy, "only reviews, references, or discusses");
     assert.include(policy, "use browser_* autonomously");
@@ -57,7 +57,7 @@ describe("Synara harness policy", () => {
     assert.include(policy, "Detailed rules live in each tool description");
     assert.notInclude(policy, "BrowserInterruptedByHuman");
     assert.notInclude(policy, "start with browser_open");
-    assert.include(policy, "do not create Synara threads");
+    assert.include(policy, "do not create Saint threads");
     assert.include(policy, "specific 3–8 word outcome label");
     assert.include(policy, "Assume no chat context");
     assert.include(policy, "notify-versus-silent criteria");
@@ -66,8 +66,8 @@ describe("Synara harness policy", () => {
   });
 
   it("asks agents to emit known absolute file URLs instead of invented relative links", () => {
-    const gateway = renderSynaraHarnessPolicy({ gatewayControlAvailable: true });
-    const identityOnly = renderSynaraHarnessPolicy({ gatewayControlAvailable: false });
+    const gateway = renderSaintHarnessPolicy({ gatewayControlAvailable: true });
+    const identityOnly = renderSaintHarnessPolicy({ gatewayControlAvailable: false });
 
     for (const policy of [gateway, identityOnly]) {
       assert.include(policy, "[config.ts](file:///absolute/path/config.ts)");
@@ -77,8 +77,8 @@ describe("Synara harness policy", () => {
   });
 
   it("keeps final answers self-contained when intermediate progress is collapsed", () => {
-    const gateway = renderSynaraHarnessPolicy({ gatewayControlAvailable: true });
-    const identityOnly = renderSynaraHarnessPolicy({ gatewayControlAvailable: false });
+    const gateway = renderSaintHarnessPolicy({ gatewayControlAvailable: true });
+    const identityOnly = renderSaintHarnessPolicy({ gatewayControlAvailable: false });
 
     for (const policy of [gateway, identityOnly]) {
       assert.include(policy, 'under "Worked for..."');
@@ -90,44 +90,44 @@ describe("Synara harness policy", () => {
   });
 
   it("never advertises gateway mutation to providers without scoped MCP", () => {
-    const policy = renderSynaraHarnessPolicy({ gatewayControlAvailable: false });
-    assert.include(policy, "Synara MCP control is unavailable");
-    assert.notInclude(policy, "one exact synara_create_threads plan");
+    const policy = renderSaintHarnessPolicy({ gatewayControlAvailable: false });
+    assert.include(policy, "Saint MCP control is unavailable");
+    assert.notInclude(policy, "one exact saint_create_threads plan");
   });
 
   it("delivers a private host-context block once per provider session", () => {
     const state: { harnessPolicyDelivered?: boolean } = {};
     assert.include(
-      takeSynaraHarnessPolicyForSession(state, { gatewayControlAvailable: true }) ?? "",
-      "<synara_host_context>",
+      takeSaintHarnessPolicyForSession(state, { gatewayControlAvailable: true }) ?? "",
+      "<saint_host_context>",
     );
-    assert.isNull(takeSynaraHarnessPolicyForSession(state, { gatewayControlAvailable: true }));
+    assert.isNull(takeSaintHarnessPolicyForSession(state, { gatewayControlAvailable: true }));
 
     // The text-part form ACP adapters inject obeys the same once-per-session latch.
     const partState: { harnessPolicyDelivered?: boolean } = {};
     const input = { provider: "cursor", scopedGatewayConnectionAvailable: true } as const;
     assert.include(
-      takeSynaraHarnessPolicyTextPartForProviderSession(partState, input)?.text ?? "",
-      SYNARA_HARNESS_POLICY_MARKER,
+      takeSaintHarnessPolicyTextPartForProviderSession(partState, input)?.text ?? "",
+      SAINT_HARNESS_POLICY_MARKER,
     );
-    assert.isNull(takeSynaraHarnessPolicyTextPartForProviderSession(partState, input));
+    assert.isNull(takeSaintHarnessPolicyTextPartForProviderSession(partState, input));
   });
 
   it("keeps OpenCode and Pi identity-only until scoped setup succeeds", () => {
     for (const provider of ["opencode", "pi"] as const) {
       const text =
-        takeSynaraHarnessPolicyForProviderSession(
+        takeSaintHarnessPolicyForProviderSession(
           {},
           { provider, scopedGatewayConnectionAvailable: false },
         ) ?? "";
-      assert.include(text, SYNARA_HARNESS_POLICY_MARKER, provider);
-      assert.include(text, "Synara MCP control is unavailable", provider);
-      assert.notInclude(text, "one exact synara_create_threads plan", provider);
+      assert.include(text, SAINT_HARNESS_POLICY_MARKER, provider);
+      assert.include(text, "Saint MCP control is unavailable", provider);
+      assert.notInclude(text, "one exact saint_create_threads plan", provider);
     }
   });
 
   it("routes iOS work to device tools without embedding per-tool instructions", () => {
-    const policy = renderSynaraHarnessPolicy({ gatewayControlAvailable: true });
+    const policy = renderSaintHarnessPolicy({ gatewayControlAvailable: true });
     assert.include(policy, "any-language iOS app or simulator request");
     assert.include(policy, "call device_* directly and autonomously");
     assert.include(policy, "never use xcrun simctl");
@@ -140,7 +140,7 @@ describe("Synara harness policy", () => {
   it("keeps hub roles out of reach of a worker without loosening normal conversations", () => {
     // Sessions with gateway control get the hub role line; sessions without it
     // are told nothing about hub routing they cannot perform anyway.
-    const policy = renderSynaraHarnessPolicy({ gatewayControlAvailable: true });
+    const policy = renderSaintHarnessPolicy({ gatewayControlAvailable: true });
     assert.include(policy, "Hub roles come from the server");
     assert.include(policy, "the coordinator routes assigned hub work and owns hub automations");
     assert.include(
@@ -149,35 +149,35 @@ describe("Synara harness policy", () => {
     );
     assert.include(policy, "Other conversations retain ordinary thread tools.");
     assert.notInclude(
-      renderSynaraHarnessPolicy({ gatewayControlAvailable: false }),
+      renderSaintHarnessPolicy({ gatewayControlAvailable: false }),
       "Hub roles come from the server",
     );
   });
 
   it("keeps the gateway policy below its prompt budget", () => {
     // Role guidance adds one line; keep the optional visual guidance in its own budget.
-    assert.isAtMost(renderSynaraHarnessPolicy({ gatewayControlAvailable: true }).length, 6_250);
+    assert.isAtMost(renderSaintHarnessPolicy({ gatewayControlAvailable: true }).length, 6_250);
     assert.isAtMost(
-      renderSynaraHarnessPolicy({ gatewayControlAvailable: true, inlineVisuals: true }).length,
+      renderSaintHarnessPolicy({ gatewayControlAvailable: true, inlineVisuals: true }).length,
       6_380,
     );
   });
 
-  it("points to synara_show_visual only when the session can call it", () => {
-    const visualLine = "call synara_show_visual and place its block in your reply";
+  it("points to saint_show_visual only when the session can call it", () => {
+    const visualLine = "call saint_show_visual and place its block in your reply";
     assert.include(
-      renderSynaraHarnessPolicy({ gatewayControlAvailable: true, inlineVisuals: true }),
+      renderSaintHarnessPolicy({ gatewayControlAvailable: true, inlineVisuals: true }),
       visualLine,
     );
-    assert.notInclude(renderSynaraHarnessPolicy({ gatewayControlAvailable: true }), visualLine);
+    assert.notInclude(renderSaintHarnessPolicy({ gatewayControlAvailable: true }), visualLine);
     assert.notInclude(
-      renderSynaraHarnessPolicy({ gatewayControlAvailable: false, inlineVisuals: true }),
+      renderSaintHarnessPolicy({ gatewayControlAvailable: false, inlineVisuals: true }),
       visualLine,
     );
   });
 
   it("withholds device guidance from sessions with no gateway control", () => {
-    const policy = renderSynaraHarnessPolicy({ gatewayControlAvailable: false });
+    const policy = renderSaintHarnessPolicy({ gatewayControlAvailable: false });
 
     // Promising tools this session cannot reach would be a lie.
     assert.notInclude(policy, "device_list");
@@ -187,16 +187,16 @@ describe("Synara harness policy", () => {
   it("includes Computer tool guidance only when the session can use Computer", () => {
     for (const gatewayControlAvailable of [true, false] as const) {
       for (const enableComputerControl of [true, false, undefined] as const) {
-        const policy = renderSynaraHarnessPolicy({
+        const policy = renderSaintHarnessPolicy({
           gatewayControlAvailable,
           ...(enableComputerControl === undefined ? {} : { enableComputerControl }),
         });
         const scope = `${gatewayControlAvailable}/${enableComputerControl}`;
         if (gatewayControlAvailable && enableComputerControl === true) {
-          assert.include(policy, "## Synara computer use", scope);
+          assert.include(policy, "## Saint computer use", scope);
           assert.include(policy, "The computer_* tools are live on this session", scope);
         } else {
-          assert.notInclude(policy, "## Synara computer use", scope);
+          assert.notInclude(policy, "## Saint computer use", scope);
           assert.notInclude(policy, "computer_", scope);
           assert.notInclude(policy, "turn Computer control on in Settings", scope);
         }
@@ -218,37 +218,37 @@ it("adds Computer guidance only for an explicitly enabled scoped session across 
     "antigravity",
   ] as const;
   for (const provider of providers) {
-    const off = takeSynaraHarnessPolicyForProviderSession(
+    const off = takeSaintHarnessPolicyForProviderSession(
       {},
       { provider, scopedGatewayConnectionAvailable: true },
     );
-    const explicitOff = takeSynaraHarnessPolicyForProviderSession(
+    const explicitOff = takeSaintHarnessPolicyForProviderSession(
       { enableComputerControl: false },
       { provider, scopedGatewayConnectionAvailable: true },
     );
     assert.strictEqual(off, explicitOff);
-    assert.notInclude(off ?? "", "## Synara computer use");
+    assert.notInclude(off ?? "", "## Saint computer use");
     assert.notInclude(off ?? "", "computer_", provider);
     const state = { enableComputerControl: true };
     const on =
-      takeSynaraHarnessPolicyForProviderSession(state, {
+      takeSaintHarnessPolicyForProviderSession(state, {
         provider,
         scopedGatewayConnectionAvailable: true,
       }) ?? "";
-    assert.equal(on.split("## Synara computer use").length - 1, 1, provider);
+    assert.equal(on.split("## Saint computer use").length - 1, 1, provider);
     assert.include(on, "never replay it");
     assert.isNull(
-      takeSynaraHarnessPolicyForProviderSession(state, {
+      takeSaintHarnessPolicyForProviderSession(state, {
         provider,
         scopedGatewayConnectionAvailable: true,
       }),
     );
     assert.notInclude(
-      takeSynaraHarnessPolicyForProviderSession(
+      takeSaintHarnessPolicyForProviderSession(
         { enableComputerControl: true },
         { provider, scopedGatewayConnectionAvailable: false },
       ) ?? "",
-      "## Synara computer use",
+      "## Saint computer use",
     );
   }
 });

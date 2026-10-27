@@ -8,10 +8,10 @@ import {
   PROVIDER_DISPLAY_NAMES,
   type ProviderKind,
   type SidechatExpiry,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { GROUPS_ON, VISIBLE_PROVIDER_DESCRIPTORS } from "../betaFeatures";
-import { sameAppSnapShortcut } from "@synara/shared/appSnapShortcut";
-import { desktopFlavorFromProtocol } from "@synara/shared/betaFeatures";
+import { sameAppSnapShortcut } from "@saint/shared/appSnapShortcut";
+import { desktopFlavorFromProtocol } from "@saint/shared/betaFeatures";
 import { SafariAccessSetupButton } from "../components/SafariAccessOnboarding";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -215,7 +215,7 @@ const SIDECHAT_EXPIRY_OPTIONS = [
 ] as const satisfies ReadonlyArray<{ value: SidechatExpiry; label: string }>;
 
 const GITHUB_LINK_OPEN_TARGET_LABELS = {
-  app: "In Synara",
+  app: "In Saint",
   browser: "In-app browser",
   external: "External browser",
 } as const satisfies Record<GitHubLinkOpenTarget, string>;
@@ -392,9 +392,9 @@ function SettingsRouteView() {
     toastManager.add({
       type: "warning",
       title: "Restart to apply title bar",
-      description: "The window frame updates the next time Synara launches.",
+      description: "The window frame updates the next time Saint launches.",
       actionProps: {
-        "aria-label": "Restart Synara",
+        "aria-label": "Restart Saint",
         children: "Restart",
         onClick: () => {
           void window.desktopBridge?.customTitleBar?.relaunch();
@@ -557,7 +557,7 @@ function SettingsRouteView() {
       ? ["Provider update checks"]
       : []),
     ...(settings.lowerProviderProcessPriority !== defaults.lowerProviderProcessPriority
-      ? ["Keep Synara responsive"]
+      ? ["Keep Saint responsive"]
       : []),
     ...(defaultDiffRenderMode !== DEFAULT_DIFF_RENDER_MODE ? ["Diff layout"] : []),
     ...(settings.diffWordWrap !== defaults.diffWordWrap ? ["Diff line wrapping"] : []),
@@ -1074,7 +1074,7 @@ function SettingsRouteView() {
         <SettingsSection title="App">
           <SettingsRow
             title="App icon"
-            description="Choose the icon Synara uses in the dock or taskbar."
+            description="Choose the icon Saint uses in the dock or taskbar."
             resetAction={
               settings.desktopAppIcon !== defaultDesktopAppIcon ? (
                 <SettingResetButton
@@ -1101,8 +1101,8 @@ function SettingsRouteView() {
               title="Use custom title bar"
               description={
                 customTitleBarRestartRequired
-                  ? "Restart Synara to apply. Some Linux window managers work better with the system title bar."
-                  : "Replace the system title bar with Synara's frameless chrome and window controls. Restart required to apply."
+                  ? "Restart Saint to apply. Some Linux window managers work better with the system title bar."
+                  : "Replace the system title bar with Saint's frameless chrome and window controls. Restart required to apply."
               }
               status={customTitleBarRestartRequired ? "Restart required" : undefined}
               resetAction={
@@ -1543,7 +1543,7 @@ function SettingsRouteView() {
         {isAudioLevelAvailable() ? (
           <SettingsRow
             title="Message trail sound"
-            description="Make the message marks on the left of long chats move with sound: what your Mac plays (a video, a meeting), your microphone, or whichever is louder. macOS asks for access the first time. Synara only reads how loud the sound is and never records it."
+            description="Make the message marks on the left of long chats move with sound: what your Mac plays (a video, a meeting), your microphone, or whichever is louder. macOS asks for access the first time. Saint only reads how loud the sound is and never records it."
             resetAction={
               settings.messageTrailAudioSource !== defaults.messageTrailAudioSource ? (
                 <SettingResetButton

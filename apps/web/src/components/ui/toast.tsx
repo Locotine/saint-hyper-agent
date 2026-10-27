@@ -3,7 +3,7 @@
 import { Toast, type ToastObject } from "@base-ui/react/toast";
 import { useMemo, useEffect, useState, type CSSProperties } from "react";
 import { useParams } from "@tanstack/react-router";
-import { ThreadId, type DesktopDiagnosticIssue } from "@synara/contracts";
+import { ThreadId, type DesktopDiagnosticIssue } from "@saint/contracts";
 import { reportHandledIssue } from "~/lib/rendererErrorDiagnostics";
 import { DiagnosticReportAction } from "../DiagnosticReportAction";
 import { CopyTextButton } from "./copyTextButton";

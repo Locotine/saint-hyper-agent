@@ -1,6 +1,6 @@
 # Claude provider accounts
 
-Synara can run multiple Claude accounts side by side. Each account has its own
+Saint can run multiple Claude accounts side by side. Each account has its own
 sign-in, so you log in to each one **once** and never need to log out to switch.
 Sessions, health probes, and git text generation all run with the selected
 account's environment.
@@ -29,14 +29,14 @@ started with; start a new thread to use another account.
 ## How isolation works
 
 The Claude CLI stores credentials under `~/.claude/.credentials.json` (or
-`$CLAUDE_CONFIG_DIR`). Synara launches every Claude process for an account
+`$CLAUDE_CONFIG_DIR`). Saint launches every Claude process for an account
 with the account's configured home as `HOME`, so each account keeps its own
 credentials, settings, and session state. On Windows the profile variables
 (`USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `HOMEDRIVE`, `HOMEPATH`) are
 mirrored to the same directory so Claude never falls back to the default
 profile.
 
-When a usable CLI login exists for the selected home, Synara also strips stale
+When a usable CLI login exists for the selected home, Saint also strips stale
 inherited request credentials (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
 `CLAUDE_CODE_OAUTH_TOKEN`) from the child environment so the account's OAuth
 login wins. Direct credentials remain available for API-key-only accounts
@@ -48,7 +48,7 @@ without a usable local login and for explicitly configured external auth modes.
 2. Give it a label (e.g. "Work"). The account ID is filled in from the label
    (`claude_work`); it is the key threads use to find the account, so it cannot
    be changed later. Optionally pick an accent color.
-3. Leave **Claude config directory** blank to let Synara keep the account's
+3. Leave **Claude config directory** blank to let Saint keep the account's
    sign-in in its own folder, or point it at a Claude config folder you already
    signed in to. Then choose **Add account**.
 4. Select the new row. While it is not signed in, the editor shows the command
@@ -59,14 +59,14 @@ without a usable local login and for explicitly configured external auth modes.
    claude-work auth login
    ```
 
-   Run it in a Synara terminal, then choose **Refresh status** at the top of
+   Run it in a Saint terminal, then choose **Refresh status** at the top of
    the Providers settings. The row turns to `Authenticated`.
 
 5. Open the model picker in a new thread and pick a model from the account's
    tab.
 
 To reuse a Claude directory you already signed in to, choose **Import
-directory** instead of **Add account**; Synara references the directory without
+directory** instead of **Add account**; Saint references the directory without
 moving it. An account that needs a whole separate home sets **Claude HOME
 path** under **Advanced**.
 

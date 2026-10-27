@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import { type InlineVisualSpec, type NativeApi, ThreadId } from "@synara/contracts";
+import { type InlineVisualSpec, type NativeApi, ThreadId } from "@saint/contracts";
 import { act } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { userEvent } from "vitest/browser";
@@ -176,7 +176,7 @@ it("switches tabs and sorts a table by a numeric column", async () => {
 
 it("says so when the stored spec is not one this client can draw", async () => {
   const { screen } = await mountBlocks(JSON.stringify({ blocks: [{ type: "hologram" }] }));
-  await expect.element(screen.getByText("This visual needs a newer Synara.")).toBeVisible();
+  await expect.element(screen.getByText("This visual needs a newer Saint.")).toBeVisible();
 });
 
 it("consumes a choice synchronously even if two clicks arrive before React renders", async () => {

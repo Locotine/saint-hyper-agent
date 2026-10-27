@@ -5,18 +5,18 @@ import {
   ThreadId,
   type BrowserAutomationError,
   type BrowserToolName,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   BROWSER_TOOL_CATALOGUE,
   BROWSER_TOOL_DEFINITIONS_BY_NAME,
   stableJsonStringify,
   type BrowserToolDefinition,
-} from "@synara/shared/browserAutomationCatalogue";
+} from "@saint/shared/browserAutomationCatalogue";
 import {
   browserInputErrorCode,
   makeBrowserAutomationError,
-} from "@synara/shared/browserAutomationErrors";
-import { encodeBrowserMcpToolError } from "@synara/shared/browserAutomationMcpError";
+} from "@saint/shared/browserAutomationErrors";
+import { encodeBrowserMcpToolError } from "@saint/shared/browserAutomationMcpError";
 import { Effect, Schema } from "effect";
 
 import type { BrowserAutomationHostShape } from "../browserAutomation/Services/BrowserAutomationHost.ts";
@@ -24,11 +24,11 @@ import { BrowserHostRpcError } from "../browserAutomation/browserHostRpcClient.t
 import type { McpToolCallResult } from "./protocol.ts";
 import type { ToolContext, ToolEntry } from "./toolRuntime.ts";
 import { saveBrowserProof } from "./browserProof.ts";
-import { SYNARA_E2E_REVIEW_GUIDANCE } from "./e2eReviewGuidance.ts";
+import { SAINT_E2E_REVIEW_GUIDANCE } from "./e2eReviewGuidance.ts";
 import { ToolGuidanceCadence } from "./toolGuidanceCadence.ts";
 
 const BROWSER_TOOL_REFRESH_GUIDANCE =
-  "Browser routing reminder: use browser_* for Synara's integrated browser and Computer Use for native apps or OS surfaces. Prefer WebMCP, WebAgents, site requests, and structured DOM reads before screenshots. For long or virtualized histories, scan in bounded batches, deduplicate stable item identities, preserve text/link/media order, return progress and a resumable checkpoint, and state when the true boundary cannot be proven.";
+  "Browser routing reminder: use browser_* for Saint's integrated browser and Computer Use for native apps or OS surfaces. Prefer WebMCP, WebAgents, site requests, and structured DOM reads before screenshots. For long or virtualized histories, scan in bounded batches, deduplicate stable item identities, preserve text/link/media order, return progress and a resumable checkpoint, and state when the true boundary cannot be proven.";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -157,7 +157,7 @@ function withGatewayIdempotencyKey(
   const digest = createHash("sha256").update(requestFingerprint).digest("hex");
   return {
     ...argumentsValue,
-    idempotencyKey: `synara-mcp-${digest.slice(0, 40)}`,
+    idempotencyKey: `saint-mcp-${digest.slice(0, 40)}`,
   };
 }
 
@@ -365,9 +365,9 @@ export function makeAgentGatewayBrowserTools(
       requiredCapability: "browser:control",
       requiresActiveTurn: true,
       definition: {
-        name: "synara_e2e_review",
+        name: "saint_e2e_review",
         description:
-          "Load Synara's E2E testing workflow for web apps and iOS simulator apps: delegate a test subagent, verify real journeys, and report screenshot proof. Call only for an explicit E2E request.",
+          "Load Saint's E2E testing workflow for web apps and iOS simulator apps: delegate a test subagent, verify real journeys, and report screenshot proof. Call only for an explicit E2E request.",
         inputSchema: { type: "object", properties: {}, additionalProperties: false },
         annotations: {
           title: "E2E test workflow",
@@ -378,7 +378,7 @@ export function makeAgentGatewayBrowserTools(
         },
       },
       handler: () =>
-        Effect.succeed({ content: [{ type: "text", text: SYNARA_E2E_REVIEW_GUIDANCE }] }),
+        Effect.succeed({ content: [{ type: "text", text: SAINT_E2E_REVIEW_GUIDANCE }] }),
     },
   ];
 }

@@ -1,4 +1,4 @@
-import type { ProviderMentionReference } from "@synara/contracts";
+import type { ProviderMentionReference } from "@saint/contracts";
 import { Effect, Option } from "effect";
 import { describe, expect, it, vi } from "vitest";
 

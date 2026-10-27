@@ -48,7 +48,7 @@ function tagText(body: string, tag: string): string | undefined {
 }
 
 // Only Monitor notifications carry `<event>` lines. Other task notifications
-// (finished background commands and agents) already reach Synara as SDK
+// (finished background commands and agents) already reach Saint as SDK
 // task_notification messages.
 export function parseClaudeMonitorEventNotification(
   text: string,

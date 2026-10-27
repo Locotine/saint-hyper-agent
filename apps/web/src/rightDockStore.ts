@@ -4,7 +4,7 @@
 // Layer: UI state store
 // Exports: dock store hook, per-thread selector, and stable default snapshot.
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -26,7 +26,7 @@ import {
   updatePaneInState,
 } from "./rightDockStore.logic";
 
-const RIGHT_DOCK_STORAGE_KEY = "synara:right-dock-state:v1";
+const RIGHT_DOCK_STORAGE_KEY = "saint:right-dock-state:v1";
 
 interface RightDockStore {
   dockStateByThreadId: Record<string, RightDockThreadState | undefined>;

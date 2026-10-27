@@ -93,13 +93,13 @@ Broad rewrites, blanket memoization/virtualization, animation reductions, pollin
 Run from the repository root with installed locked dependencies. The four new opt-in probes use the existing Vitest runner; the theme probe uses existing Playwright. Copy the unchanged probe files into a separate checkout of the baseline revision to compare production implementations. Run each version three times in alternating order on the same otherwise-idle machine, choosing a distinct output path each time.
 
 ```sh
-SYNARA_PERF=1 SYNARA_PERF_OUT=/tmp/tool-output.json bun run --cwd apps/web test perf/toolOutput.perf.test.ts
-SYNARA_PERF=1 SYNARA_PERF_OUT=/tmp/file-diff.json bun run --cwd apps/web test perf/fileDiff.perf.test.ts
-SYNARA_PERF=1 SYNARA_PERF_OUT=/tmp/diagnostics.json bun run --cwd apps/desktop test perf/browserDiagnostics.perf.test.ts
-SYNARA_PERF=1 SYNARA_PERF_OUT=/tmp/prior-transcript.json bun run --cwd apps/server test perf/priorTranscript.perf.test.ts
+SAINT_PERF=1 SAINT_PERF_OUT=/tmp/tool-output.json bun run --cwd apps/web test perf/toolOutput.perf.test.ts
+SAINT_PERF=1 SAINT_PERF_OUT=/tmp/file-diff.json bun run --cwd apps/web test perf/fileDiff.perf.test.ts
+SAINT_PERF=1 SAINT_PERF_OUT=/tmp/diagnostics.json bun run --cwd apps/desktop test perf/browserDiagnostics.perf.test.ts
+SAINT_PERF=1 SAINT_PERF_OUT=/tmp/prior-transcript.json bun run --cwd apps/server test perf/priorTranscript.perf.test.ts
 node apps/marketing/scripts/theme-smoke.mjs apps/marketing/src/components/ThemeScript.tsx /tmp/theme.json
 ```
 
-For a baseline theme run, set `SYNARA_PERF=1` so the probe records the pre-fix idle callbacks while still checking behavior. Normal invocation asserts that the feedback loop is absent. Chromium must be installed for the existing Playwright dependency.
+For a baseline theme run, set `SAINT_PERF=1` so the probe records the pre-fix idle callbacks while still checking behavior. Normal invocation asserts that the feedback loop is absent. Chromium must be installed for the existing Playwright dependency.
 
 Raw output, hashes, environment, controls and server baseline: `measurements.json`. CPU sampling attribution: `profile-summary.json`. Measurements and local verification were completed before PR publication.

@@ -3,7 +3,7 @@
 // Layer: Orchestration mapping tests
 // Depends on: handoff.
 
-import { MessageId, type OrchestrationMessage, ThreadId } from "@synara/contracts";
+import { MessageId, type OrchestrationMessage, ThreadId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {

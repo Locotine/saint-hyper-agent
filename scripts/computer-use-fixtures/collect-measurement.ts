@@ -18,8 +18,8 @@ const { values } = parseArgs({
 });
 
 async function main(): Promise<void> {
-  const url = new URL(process.env.SYNARA_AGENT_GATEWAY_URL ?? "http://127.0.0.1:3773/mcp");
-  const token = process.env.SYNARA_AGENT_GATEWAY_TOKEN;
+  const url = new URL(process.env.SAINT_AGENT_GATEWAY_URL ?? "http://127.0.0.1:3773/mcp");
+  const token = process.env.SAINT_AGENT_GATEWAY_TOKEN;
   if (
     url.protocol !== "http:" ||
     !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
@@ -29,10 +29,10 @@ async function main(): Promise<void> {
     url.hash ||
     url.pathname !== "/mcp"
   ) {
-    throw new Error("Use the isolated Synara loopback /mcp endpoint");
+    throw new Error("Use the isolated Saint loopback /mcp endpoint");
   }
   if (!token)
-    throw new Error("An existing SYNARA_AGENT_GATEWAY_TOKEN with diagnostics:read is required");
+    throw new Error("An existing SAINT_AGENT_GATEWAY_TOKEN with diagnostics:read is required");
   if (!values["thread-id"] || !values["turn-id"] || !values["started-at"] || !values.out) {
     throw new Error(
       "Required: --thread-id, --turn-id, --started-at (before thread creation), --out",

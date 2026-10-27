@@ -9,12 +9,12 @@
 import "~/index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ProjectAgentConfig, ProjectId, ThreadId, TurnId } from "@synara/contracts";
+import { ProjectAgentConfig, ProjectId, ThreadId, TurnId } from "@saint/contracts";
 import type {
   ProjectAgentOverview,
   ProjectAgentStreamEvent,
   ProjectAgentSummary,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { page } from "vitest/browser";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

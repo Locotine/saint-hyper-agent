@@ -1,6 +1,6 @@
 // Isolated macOS status-animation probe: node apps/web/perf/status-animation-runner.mjs <artifacts>.
 // Expects baseline-dist and status-dist production perf builds inside <artifacts>.
-// Uses synthetic content and its own Electron profile; never connects to Synara or a provider.
+// Uses synthetic content and its own Electron profile; never connects to Saint or a provider.
 import { createRequire } from "node:module";
 import { writeFileSync, readdirSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -27,7 +27,7 @@ main{position:absolute;inset:0 0 0 270px;background:#1b1b1d;padding:55px 40px}
 .composer{position:absolute;bottom:20px;left:36px;right:36px;height:130px;border-radius:24px;background:rgba(35,35,38,.55);backdrop-filter:var(--composer-glass-filter)}
 .work{position:absolute;bottom:75px;left:45px;right:45px;font-size:15px}
 .history{max-width:650px;line-height:2.2;color:#999}
-</style><aside><strong>Synara</strong><div style="margin-top:30px;display:flex;gap:10px;align-items:center">
+</style><aside><strong>Saint</strong><div style="margin-top:30px;display:flex;gap:10px;align-items:center">
 <svg class="animate-spin-stepped motion-reduce:animate-none" viewBox="0 0 15 15" fill="none" style="width:12px;height:12px;color:#999">
 <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" stroke-opacity=".22" stroke-width="1.4"/>
 <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="22.870794518133697 40.840704496667314" stroke-dashoffset="-6.53451271946677"/>
@@ -41,7 +41,7 @@ writeFileSync(
   `const { app, BrowserWindow } = require("electron");
 app.setPath("userData", ${JSON.stringify(join(artifacts, "electron-profile"))});
 app.whenReady().then(() => {
- const win = new BrowserWindow({width:1200,height:850,title:"Synara performance fixture",show:true,
+ const win = new BrowserWindow({width:1200,height:850,title:"Saint performance fixture",show:true,
  vibrancy:"under-window",visualEffectState:"followWindow",backgroundColor:"#00000000",
  webPreferences:{sandbox:true,backgroundThrottling:true}});
  win.loadFile(${JSON.stringify(fixture)});

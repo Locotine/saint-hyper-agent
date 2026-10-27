@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 function fixture(): string {
-  const root = mkdtempSync(join(tmpdir(), "synara-typescript-prepare-"));
+  const root = mkdtempSync(join(tmpdir(), "saint-typescript-prepare-"));
   temporaryRoots.push(root);
   for (const workspace of LEGACY_TYPESCRIPT_WORKSPACES) {
     mkdirSync(join(root, workspace), { recursive: true });

@@ -3,7 +3,7 @@ import {
   type ProviderInstanceId,
   type ProviderKind,
   type ServerProviderStatus,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";

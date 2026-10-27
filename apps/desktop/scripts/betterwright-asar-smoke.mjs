@@ -9,10 +9,10 @@ import { promisify } from "node:util";
 const require = createRequire(import.meta.url);
 const execFileAsync = promisify(execFile);
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const asarPath = process.env.SYNARA_ASAR_MODULE;
-if (!asarPath) throw new Error("Set SYNARA_ASAR_MODULE to the installed @electron/asar module.");
+const asarPath = process.env.SAINT_ASAR_MODULE;
+if (!asarPath) throw new Error("Set SAINT_ASAR_MODULE to the installed @electron/asar module.");
 const asar = await import(pathToFileURL(asarPath).href);
-const home = await mkdtemp(path.join(tmpdir(), "synara-betterwright-asar-"));
+const home = await mkdtemp(path.join(tmpdir(), "saint-betterwright-asar-"));
 const stage = path.join(home, "stage");
 await mkdir(stage);
 // The CJS fixture is generated from the TypeScript smoke: bundling keeps the
@@ -33,7 +33,7 @@ await execFileAsync("bun", [
 await cp(path.join(desktop, ".smoke/betterwright-smoke.cjs"), path.join(stage, "main.cjs"));
 await writeFile(
   path.join(stage, "package.json"),
-  JSON.stringify({ name: "synara-browser-smoke", version: "1.0.0", main: "main.cjs" }),
+  JSON.stringify({ name: "saint-browser-smoke", version: "1.0.0", main: "main.cjs" }),
 );
 const staged = new Map();
 
@@ -93,7 +93,7 @@ const archive = path.join(home, "app.asar");
 await asar.createPackageWithOptions(stage, archive, { unpack: "**/*.node" });
 const child = spawn(require("electron"), [archive], {
   stdio: "inherit",
-  env: { ...process.env, SYNARA_SMOKE_HOME: path.join(home, "runtime") },
+  env: { ...process.env, SAINT_SMOKE_HOME: path.join(home, "runtime") },
 });
 child.on("error", (error) => {
   console.error(error.message);

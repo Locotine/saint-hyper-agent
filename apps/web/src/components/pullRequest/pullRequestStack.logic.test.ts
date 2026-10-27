@@ -1,4 +1,4 @@
-import type { PullRequestStack, PullRequestStackEntry } from "@synara/contracts";
+import type { PullRequestStack, PullRequestStackEntry } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {

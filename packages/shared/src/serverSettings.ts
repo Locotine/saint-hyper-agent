@@ -6,7 +6,7 @@ import {
   type ProviderKind,
   type ServerSettings,
   type ServerSettingsPatch,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { deepMerge, type DeepPartial } from "./Struct";
 import { defaultInstanceIdForProvider, deriveProviderInstances } from "./providerInstances";
 

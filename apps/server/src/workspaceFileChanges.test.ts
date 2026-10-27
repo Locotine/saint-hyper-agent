@@ -16,7 +16,7 @@ const temporaryRoots: string[] = [];
 
 async function makeWorkspace(): Promise<string> {
   const workspaceRoot = await NodeFileSystem.mkdtemp(
-    NodePath.join(NodeOs.tmpdir(), "synara-file-watch-"),
+    NodePath.join(NodeOs.tmpdir(), "saint-file-watch-"),
   );
   temporaryRoots.push(workspaceRoot);
   return workspaceRoot;

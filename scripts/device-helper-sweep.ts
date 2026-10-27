@@ -16,7 +16,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { deviceHelperCacheKey } from "@synara/shared/deviceHelperCache";
+import { deviceHelperCacheKey } from "@saint/shared/deviceHelperCache";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const smokeScript = join(repoRoot, "scripts/device-helper-smoke.ts");

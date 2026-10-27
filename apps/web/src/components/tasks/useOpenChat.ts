@@ -4,7 +4,7 @@
 // Layer: Tasks UI hook
 // Exports: useOpenChat
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { useNavigate } from "@tanstack/react-router";
 
 /** A handler that opens `threadId`'s chat; it does nothing while the to-do has no chat. */

@@ -39,7 +39,10 @@ export async function showFileReferenceContextMenu(input: {
     return;
   }
   const revealPath =
-    input.revealPath && typeof window !== "undefined" && window.desktopBridge
+    input.revealPath &&
+    typeof window !== "undefined" &&
+    window.desktopBridge &&
+    !window.desktopBridge.remoteWindow
       ? input.revealPath
       : undefined;
   const reference: ChatFileReference = {

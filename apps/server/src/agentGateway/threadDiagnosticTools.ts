@@ -1,8 +1,4 @@
-import {
-  ThreadId,
-  type OrchestrationEvent,
-  type OrchestrationThreadShell,
-} from "@synara/contracts";
+import { ThreadId, type OrchestrationEvent, type OrchestrationThreadShell } from "@saint/contracts";
 import { Effect, Option } from "effect";
 
 import type { ProjectionSnapshotQueryShape } from "../orchestration/Services/ProjectionSnapshotQuery.ts";
@@ -67,7 +63,7 @@ export function makeThreadDiagnosticTools(input: {
   const readActivity: ToolEntry = {
     requiredCapability: "diagnostics:read",
     definition: {
-      name: "synara_read_thread_activity",
+      name: "saint_read_thread_activity",
       description:
         "Read a stable, paginated page of projected thread activity. Returns newest-last rows and an opaque cursor for older evidence.",
       inputSchema: {
@@ -158,7 +154,7 @@ export function makeThreadDiagnosticTools(input: {
   const diagnoseThread: ToolEntry = {
     requiredCapability: "diagnostics:read",
     definition: {
-      name: "synara_diagnose_thread",
+      name: "saint_diagnose_thread",
       description:
         "Build one bounded forensic snapshot from projected status/messages/activity, durable events, provider delivery blockers, and operational stream incidents.",
       inputSchema: {
@@ -167,7 +163,7 @@ export function makeThreadDiagnosticTools(input: {
         required: ["threadId"],
         additionalProperties: false,
       },
-      annotations: { title: "Diagnose a Synara thread", ...READ_ONLY_TOOL_ANNOTATIONS },
+      annotations: { title: "Diagnose a Saint thread", ...READ_ONLY_TOOL_ANNOTATIONS },
     },
     handler: (args, context) =>
       Effect.gen(function* () {
@@ -353,7 +349,7 @@ export function makeThreadDiagnosticPageReaders(input: ThreadDiagnosticPageDepen
   const readEvents = {
     requiredCapability: "diagnostics:read",
     definition: {
-      name: "synara_read_thread_events",
+      name: "saint_read_thread_events",
       description:
         "Read a stable, paginated page from the durable orchestration event journal. Consecutive updates for the same message are coalesced without crossing intervening events.",
       inputSchema: {
@@ -458,7 +454,7 @@ export function makeThreadDiagnosticPageReaders(input: ThreadDiagnosticPageDepen
   const readRuntimeEvents = {
     requiredCapability: "diagnostics:read",
     definition: {
-      name: "synara_read_thread_runtime_events",
+      name: "saint_read_thread_runtime_events",
       description:
         "Read retained provider-runtime events for one thread. This source has a global accepted-event retention cap; inspect coverage before treating absence as evidence.",
       inputSchema: {

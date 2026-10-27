@@ -19,7 +19,7 @@ import {
   AutomationUpdateInput,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { ServiceMap } from "effect";
 import type { Effect, Option, Stream } from "effect";
 
@@ -106,4 +106,4 @@ export interface AutomationServiceShape {
 export class AutomationService extends ServiceMap.Service<
   AutomationService,
   AutomationServiceShape
->()("synara/automation/Services/AutomationService") {}
+>()("saint/automation/Services/AutomationService") {}

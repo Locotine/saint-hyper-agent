@@ -6,7 +6,7 @@
 
 import nodePath from "node:path";
 
-import type { ServerProviderUsageLimit, ServerProviderUsageLine } from "@synara/contracts";
+import type { ServerProviderUsageLimit, ServerProviderUsageLine } from "@saint/contracts";
 
 import { credentialFingerprint, decodeJwtExpMs, readKeychainPassword } from "../credentials";
 import { fetchJson, isAuthFailureStatus } from "../http";

@@ -6,7 +6,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import { memo, useMemo, useState } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -14,7 +14,7 @@ import { PlusIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
 import { KanbanCardView, type KanbanCardPrLookup } from "./KanbanCardView";
 import { KanbanStatusIcon } from "./KanbanStatusIcon";
-import { KANBAN_COLUMN_V2_LABELS } from "@synara/shared/kanban";
+import { KANBAN_COLUMN_V2_LABELS } from "@saint/shared/kanban";
 import { resolveDraftDropAction, type KanbanCard, type KanbanColumnKey } from "./kanban.logic";
 
 const COLUMN_DROP_ID_PREFIX = "kanban-column";

@@ -11,7 +11,7 @@ import {
   type KeybindingShortcut,
   type KeybindingWhenNode,
   type ResolvedKeybindingRule,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 type WhenToken =
   | { type: "identifier"; value: string }

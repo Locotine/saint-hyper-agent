@@ -6,7 +6,7 @@
 import * as NodePath from "node:path";
 import { homedir } from "node:os";
 
-import { defaultInstanceIdForDriver } from "@synara/contracts";
+import { defaultInstanceIdForDriver } from "@saint/contracts";
 
 import { expandProviderAccountHomePath } from "../providerAccountHomePath.ts";
 import { buildClaudeProcessEnv, isClaudeAccountIsolationEnvKey } from "./claudeProcessEnv.ts";
@@ -49,7 +49,7 @@ export function claudeIsolatedHomePath(input: {
 }): string {
   const isolationRoot =
     input.isolationRootDir?.trim() ||
-    NodePath.join(input.homeDir?.trim() || homedir(), ".synara", "userdata");
+    NodePath.join(input.homeDir?.trim() || homedir(), ".saint", "userdata");
   return NodePath.resolve(
     isolationRoot,
     "provider-homes",

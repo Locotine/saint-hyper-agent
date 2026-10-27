@@ -1,7 +1,7 @@
 import http from "node:http";
 import type { ListenOptions, Socket } from "node:net";
 
-import { WS_FEATURE_PATH } from "@synara/contracts";
+import { WS_FEATURE_PATH } from "@saint/contracts";
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import { Effect, Scope } from "effect";
 import * as HttpServer from "effect/unstable/http/HttpServer";
@@ -116,7 +116,7 @@ export function upgradePathAllowsCompression(requestUrl: string | undefined): bo
 }
 
 /**
- * Owns the Node HTTP/WebSocket transport so Synara, rather than the platform
+ * Owns the Node HTTP/WebSocket transport so Saint, rather than the platform
  * adapter's 100 MiB default, controls admission before a message is decoded.
  */
 export const makeBoundedNodeHttpServer = Effect.fnUntraced(function* (

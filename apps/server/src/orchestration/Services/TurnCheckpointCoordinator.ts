@@ -6,7 +6,7 @@
  * side-effect reactors therefore hold this shared lease while crossing their
  * respective mutation boundaries.
  */
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { ServiceMap, type Effect } from "effect";
 
 export interface TurnCheckpointCoordinatorShape {
@@ -36,4 +36,4 @@ export interface TurnCheckpointCoordinatorShape {
 export class TurnCheckpointCoordinator extends ServiceMap.Service<
   TurnCheckpointCoordinator,
   TurnCheckpointCoordinatorShape
->()("synara/orchestration/Services/TurnCheckpointCoordinator") {}
+>()("saint/orchestration/Services/TurnCheckpointCoordinator") {}

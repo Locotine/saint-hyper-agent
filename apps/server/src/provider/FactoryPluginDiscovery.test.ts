@@ -14,7 +14,7 @@ import { listFactoryPlugins, readFactoryPlugin } from "./FactoryPluginDiscovery.
 const tempDirs: string[] = [];
 
 async function makeFactoryFixture() {
-  const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "synara-factory-plugins-"));
+  const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "saint-factory-plugins-"));
   tempDirs.push(homeDir);
   const factoryDir = path.join(homeDir, ".factory");
   const marketplacePath = path.join(factoryDir, "plugins", "marketplaces", "official");
@@ -134,7 +134,7 @@ describe("Factory plugin discovery", () => {
   });
 
   it("accepts dot-prefixed children without allowing parent traversal", async () => {
-    const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "synara-factory-dot-plugin-"));
+    const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "saint-factory-dot-plugin-"));
     tempDirs.push(homeDir);
     const factoryDir = path.join(homeDir, ".factory");
     const marketplacePath = path.join(factoryDir, "plugins", "marketplaces", "official");

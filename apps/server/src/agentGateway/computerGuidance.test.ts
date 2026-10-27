@@ -6,12 +6,12 @@ import {
   COMPUTER_HELP_TOPICS,
   computerToolInstructions,
 } from "./computerGuidance.ts";
-import { renderSynaraHarnessPolicy } from "./harnessPolicy.ts";
+import { renderSaintHarnessPolicy } from "./harnessPolicy.ts";
 
 describe("computer guidance", () => {
   it("keeps core guidance concise and explains the callable batch route", () => {
     const notes = computerToolInstructions();
-    expect(notes.startsWith("## Synara computer use\n")).toBe(true);
+    expect(notes.startsWith("## Saint computer use\n")).toBe(true);
     for (const heading of [
       "### Working loop",
       "### Background first",
@@ -112,7 +112,7 @@ describe("computer guidance", () => {
       expect(guidance).not.toContain("native input and headless launch are unavailable");
       expect(guidance).not.toContain("explicitly requested visible launch");
     }
-    const disabled = renderSynaraHarnessPolicy({
+    const disabled = renderSaintHarnessPolicy({
       gatewayControlAvailable: true,
       enableComputerControl: false,
     });

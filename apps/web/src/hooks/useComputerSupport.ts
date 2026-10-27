@@ -15,7 +15,7 @@
 // thing that does that. So the free signals are used: the server's platform,
 // which rules out the impossible cases outright, and the status only if some
 // other surface has already fetched it — which is what narrows "Linux" down to
-// "Linux with a Wayland compositor Synara can reach".
+// "Linux with a Wayland compositor Saint can reach".
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -33,7 +33,7 @@ export function useComputerSupport(): boolean {
   // flickering in on a cold start the way an optimistic default would.
   if (platform === undefined || !COMPUTER_CAPABLE_PLATFORMS.has(platform)) return false;
   // A backend that has already reported it can never run here — a Linux server
-  // with no Wayland session Synara can reach — is a definite no, and the one the
+  // with no Wayland session Saint can reach — is a definite no, and the one the
   // platform check cannot make on its own.
   return status?.availability.kind !== "unsupported-platform";
 }

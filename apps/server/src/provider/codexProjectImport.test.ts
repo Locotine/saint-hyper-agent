@@ -10,7 +10,7 @@ import { discoverCodexProjects, resolveCodexProjectImportHome } from "./codexPro
 const homes: string[] = [];
 
 async function temporaryHome(): Promise<string> {
-  const home = await fs.mkdtemp(path.join(os.tmpdir(), "synara-codex-project-import-"));
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), "saint-codex-project-import-"));
   homes.push(home);
   return home;
 }

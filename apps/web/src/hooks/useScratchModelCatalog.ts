@@ -12,7 +12,7 @@ import type {
   ProviderKind,
   RuntimeMode,
   ServerProviderStatus,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { resolveRuntimeModelDescriptor } from "~/components/chat/runtimeModelCapabilities";

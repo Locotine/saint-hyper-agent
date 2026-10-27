@@ -7,7 +7,7 @@ import type {
   ServerProviderUsageLimit,
   ServerProviderUsageLine,
   ServerProviderUsageSnapshot,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { getDroidApiKeyEnv } from "../../provider/acp/DroidAcpSupport";
 import { credentialFingerprint } from "../credentials";
@@ -305,7 +305,7 @@ export const droidUsageFetcher: ProviderUsageFetcher = {
             "droid",
             ctx.nowMs,
             SOURCE,
-            "Factory CLI is signed in, but Synara could not read its local credential.",
+            "Factory CLI is signed in, but Saint could not read its local credential.",
           )
         : needsAuthSnapshot("droid", ctx.nowMs, SOURCE);
     }

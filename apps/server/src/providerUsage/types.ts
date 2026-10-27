@@ -10,7 +10,7 @@ import type {
   ProviderInstanceId,
   ProviderKind,
   ServerProviderUsageSnapshot,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 export interface ProviderUsageContext {
   /** Resolved user home directory (ServerConfig.homeDir). */

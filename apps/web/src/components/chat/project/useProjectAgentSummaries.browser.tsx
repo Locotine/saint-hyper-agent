@@ -4,7 +4,7 @@ import {
   type HubWorkItem,
   type ProjectAgentStreamEvent,
   type ProjectAgentSummary,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 

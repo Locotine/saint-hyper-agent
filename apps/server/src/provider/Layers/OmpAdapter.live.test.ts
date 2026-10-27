@@ -1,9 +1,9 @@
 // Live end-to-end verification for the OMP adapter against a real `omp` binary.
-// Skipped unless SYNARA_LIVE_OMP=1 is set; CI never runs it. Run locally:
-//   SYNARA_LIVE_OMP=1 bunx vitest run src/provider/Layers/OmpAdapter.live.test.ts
+// Skipped unless SAINT_LIVE_OMP=1 is set; CI never runs it. Run locally:
+//   SAINT_LIVE_OMP=1 bunx vitest run src/provider/Layers/OmpAdapter.live.test.ts
 // Requires `omp` on PATH (or OMP_LIVE_BINARY) with working provider credentials.
 
-import { ThreadId, type ProviderRuntimeEvent } from "@synara/contracts";
+import { ThreadId, type ProviderRuntimeEvent } from "@saint/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as OfficialAcp from "@agentclientprotocol/sdk";
 import { Effect, Layer, Queue, Sink, Stream } from "effect";
@@ -20,7 +20,7 @@ import { ProviderAdapterValidationError } from "../Errors.ts";
 import type { OmpAcpRuntimeSettings } from "../acp/OmpAcpSupport.ts";
 import { makeOmpAdapterLive } from "./OmpAdapter.ts";
 
-const LIVE = process.env.SYNARA_LIVE_OMP === "1";
+const LIVE = process.env.SAINT_LIVE_OMP === "1";
 const BINARY = process.env.OMP_LIVE_BINARY ?? "omp";
 const FAST_MODEL = process.env.OMP_LIVE_MODEL ?? "deepseek/deepseek-v4-flash";
 
@@ -35,7 +35,7 @@ const adapterLayer = (
   extraDeps?: Layer.Layer<ChildProcessSpawner.ChildProcessSpawner>,
 ) => {
   const configLayer = ServerConfig.layerTest(process.cwd(), {
-    prefix: "synara-omp-live-",
+    prefix: "saint-omp-live-",
   }).pipe(Layer.provide(NodeServices.layer));
   return makeOmpAdapterLive(settings).pipe(
     Layer.provide(
@@ -266,7 +266,7 @@ describe.skipIf(!LIVE)("OmpAdapter live E2E against real `omp acp`", () => {
 // session/update that lands after the prompt response settles must be
 // attributed to the just-settled turn instead of dropped as an orphan. Runs an
 // in-memory ACP agent through a fake ChildProcessSpawner, so it needs no real
-// `omp` binary and is not gated on SYNARA_LIVE_OMP.
+// `omp` binary and is not gated on SAINT_LIVE_OMP.
 const encode = (value: unknown) => new TextEncoder().encode(JSON.stringify(value) + "\n");
 
 describe("OmpAdapter model selection and late updates (in-memory ACP)", () => {

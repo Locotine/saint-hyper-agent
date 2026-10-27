@@ -13,7 +13,7 @@ import type {
   EditorIntelligenceInput,
   EditorIntelligenceResult,
   EditorLocation,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import type { QueryClient } from "@tanstack/react-query";
 import { ensureNativeApi } from "~/nativeApi";
 import {
@@ -77,7 +77,7 @@ function registry(client: QueryClient) {
 }
 export function editorUri(client: QueryClient, cwd: string | null, relativePath: string) {
   return monaco.Uri.from({
-    scheme: "synara-workspace",
+    scheme: "saint-workspace",
     authority: String(registry(client).id),
     path: `/${relativePath.replaceAll("\\", "/")}`,
     query: cwd ?? "",
@@ -122,7 +122,7 @@ export function acquireEditorModel(
       snapshot?.key ? snapshot.value : value,
       editorLanguageForPath(relativePath),
       cwd === null
-        ? monaco.Uri.from({ scheme: "synara-standalone", path: `/${key}/${relativePath}` })
+        ? monaco.Uri.from({ scheme: "saint-standalone", path: `/${key}/${relativePath}` })
         : editorUri(client, cwd, relativePath),
     );
     model.updateOptions({ tabSize: 2, insertSpaces: true, trimAutoWhitespace: false });
@@ -218,9 +218,9 @@ function releaseDependencies(entry: EditorModelEntry) {
 /**
  * Loads the models of other workspace files so the engine's peek views and
  * reference trees can show them from this document. Unsaved buffers are shown
- * as they are; clean files are re-read through Synara's file API so the peek
+ * as they are; clean files are re-read through Saint's file API so the peek
  * matches the disk state the language service located. The models stay held
- * until this document's last surface closes. Files Synara treats as read-only
+ * until this document's last surface closes. Files Saint treats as read-only
  * (truncated, symlinks, mixed line endings) are skipped.
  */
 export async function ensureEditorModels(

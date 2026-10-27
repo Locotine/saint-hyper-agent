@@ -540,14 +540,14 @@ export function browserBenchmarkPrompt(
   profileName: string,
   repo?: string,
 ) {
-  if (!/^synara-bench-[a-z0-9-]{1,45}$/.test(profileName))
+  if (!/^saint-bench-[a-z0-9-]{1,45}$/.test(profileName))
     throw new Error("Invalid benchmark profile name");
   if (task === "github-running")
     throw new Error(
       "The existing-user-profile benchmark is unsupported; it must not be substituted.",
     );
   const boundary =
-    `Use Synara Computer browser tools in a separate driver-owned headless Chrome with isolated_named profile ${profileName}. ` +
+    `Use Saint Computer browser tools in a separate driver-owned headless Chrome with isolated_named profile ${profileName}. ` +
     "This explicitly tests a separate isolated Chrome profile, without the user's cookies; do not attach or substitute the user's running browser. " +
     "Keep the user's foreground app, key window and Space unchanged. Use the browser for the task, not shell, HTTP, external search or the in-app browser. ";
   if (task === "github-isolated") {

@@ -5,7 +5,7 @@
 // Layer: Shared presentation
 // Depends on: account presentation helpers, provider icons.
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderKind } from "@saint/contracts";
 import type { CSSProperties } from "react";
 
 import { normalizeProviderAccentColor } from "~/lib/providerInstancePresentation";

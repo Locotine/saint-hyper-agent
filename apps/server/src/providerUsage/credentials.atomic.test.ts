@@ -22,7 +22,7 @@ afterEach(async () => {
 
 describe("writeJsonFileAtomic", () => {
   it("keeps same-millisecond concurrent writes independent", async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "synara-credential-write-"));
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "saint-credential-write-"));
     tempDirectories.push(directory);
     const credentialPath = path.join(directory, "auth.json");
 

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { FAVORITE_MODEL_STORAGE_KEYS, migrateLegacyKiloFavoriteModelSlugs } from "./modelFavorites";
 
-const LEGACY_KILO_KEY = "synara:kilo-favourite-models:v1";
+const LEGACY_KILO_KEY = "saint:kilo-favourite-models:v1";
 
 function makeMemoryStorage(initial: Record<string, string>): Storage {
   const values = new Map(Object.entries(initial));

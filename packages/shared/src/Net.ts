@@ -96,7 +96,7 @@ export interface NetServiceShape {
  * NetService - Service tag for startup networking helpers.
  */
 export class NetService extends ServiceMap.Service<NetService, NetServiceShape>()(
-  "@synara/shared/Net/NetService",
+  "@saint/shared/Net/NetService",
 ) {
   static readonly layer = Layer.sync(NetService, () => {
     /**

@@ -47,7 +47,7 @@ export function normalizeRemoteRoot(value: string): string | null {
   return trimmed;
 }
 
-/** `~/.synara` -> `.synara-remote`, `~/.synara-beta` -> `.synara-beta-remote`. */
+/** `~/.saint` -> `.saint-remote`, `~/.saint-beta` -> `.saint-beta-remote`. */
 export function defaultRemoteRoot(homeDirectoryName: string): string {
   return `${homeDirectoryName.replace(/^\.?/u, ".")}-remote`;
 }

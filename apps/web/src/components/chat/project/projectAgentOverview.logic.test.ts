@@ -3,7 +3,7 @@
 // Layer: Client logic unit tests
 // Depends on: projectAgentOverview.logic plus contracts fixtures.
 
-import { ProjectAgentConfig, ProjectAgentOverview, ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectAgentConfig, ProjectAgentOverview, ProjectId, ThreadId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {

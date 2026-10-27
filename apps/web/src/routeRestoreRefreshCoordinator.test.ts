@@ -1,4 +1,4 @@
-import type { OrchestrationReadModel, OrchestrationShellSnapshot } from "@synara/contracts";
+import type { OrchestrationReadModel, OrchestrationShellSnapshot } from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {

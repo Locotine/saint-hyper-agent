@@ -10,7 +10,7 @@ import {
   TodoUpdateInput,
   type OrchestrationThreadShell,
   type Todo,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -37,7 +37,7 @@ export interface TodoToolsInput {
 }
 
 /**
- * Hard cap on the to-dos one `synara_list_todos` response carries. Past it the
+ * Hard cap on the to-dos one `saint_list_todos` response carries. Past it the
  * read reports `truncated: true` so the caller narrows by project instead.
  */
 const MAX_LISTED_TODOS = 200;
@@ -148,7 +148,7 @@ export function makeAgentGatewayTodoTools(input: TodoToolsInput): ReadonlyArray<
       if (projectId === null) {
         return yield* Effect.fail(
           new ToolInputError(
-            `Project "${rawProjectId.trim()}" was not found. Use synara_list_projects, or pass null for a to-do with no project.`,
+            `Project "${rawProjectId.trim()}" was not found. Use saint_list_projects, or pass null for a to-do with no project.`,
           ),
         );
       }
@@ -173,9 +173,9 @@ export function makeAgentGatewayTodoTools(input: TodoToolsInput): ReadonlyArray<
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_create_todo",
+      name: "saint_create_todo",
       description:
-        "Add a to-do to the user's Tasks list, also shown in Inbox when due. Use it when the user asks to note, remember, or add a task or to-do for later. It records the to-do only: no thread is created and no agent starts working. To start work now use synara_create_thread; for scheduled or recurring work use synara_create_automation. requestId is required and a retry with the same requestId returns the same to-do.",
+        "Add a to-do to the user's Tasks list, also shown in Inbox when due. Use it when the user asks to note, remember, or add a task or to-do for later. It records the to-do only: no thread is created and no agent starts working. To start work now use saint_create_thread; for scheduled or recurring work use saint_create_automation. requestId is required and a retry with the same requestId returns the same to-do.",
       inputSchema: {
         type: "object",
         properties: {
@@ -233,7 +233,7 @@ export function makeAgentGatewayTodoTools(input: TodoToolsInput): ReadonlyArray<
   const listTodos: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_list_todos",
+      name: "saint_list_todos",
       description: `List the user's to-dos from the Tasks list. Completed ones are hidden unless includeCompleted is true. Returns at most ${MAX_LISTED_TODOS} and reports truncated when there are more; notes are cut to ${LISTED_NOTES_PREVIEW_CHARS} characters unless todoId selects one to-do.`,
       inputSchema: {
         type: "object",
@@ -287,9 +287,9 @@ export function makeAgentGatewayTodoTools(input: TodoToolsInput): ReadonlyArray<
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_update_todo",
+      name: "saint_update_todo",
       description:
-        "Edit a to-do in the user's Tasks list, or mark it done or not done. Only the fields you send change. Get todoId from synara_list_todos. Handing a to-do to a chat and deleting it stay with the user in the Tasks view.",
+        "Edit a to-do in the user's Tasks list, or mark it done or not done. Only the fields you send change. Get todoId from saint_list_todos. Handing a to-do to a chat and deleting it stay with the user in the Tasks view.",
       inputSchema: {
         type: "object",
         properties: {

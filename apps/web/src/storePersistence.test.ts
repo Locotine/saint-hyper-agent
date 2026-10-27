@@ -1,7 +1,7 @@
 // FILE: storePersistence.test.ts
 // Purpose: Unit-test the renderer-state persistence layer for project UI.
 
-import { ProjectId } from "@synara/contracts";
+import { ProjectId } from "@saint/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { makeFakeWindow, makeProject } from "./storeTestFixtures";

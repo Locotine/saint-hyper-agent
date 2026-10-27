@@ -6,41 +6,41 @@
 
 ## Summary
 
-The goal was to strengthen Synara's technical SEO, Search Console readiness, and AI-search discoverability. The site now has richer metadata, safer JSON-LD, a sitemap index, split sitemaps, explicit crawler guidance, dynamic LLM text files, a web manifest, stable sitemap dates, canonical repository links, and per-release changelog pages with unique visible content. Build, lint, endpoint smoke tests, and an in-app browser check passed.
+The goal was to strengthen Saint's technical SEO, Search Console readiness, and AI-search discoverability. The site now has richer metadata, safer JSON-LD, a sitemap index, split sitemaps, explicit crawler guidance, dynamic LLM text files, a web manifest, stable sitemap dates, canonical repository links, and per-release changelog pages with unique visible content. Build, lint, endpoint smoke tests, and an in-app browser check passed.
 
 ---
 
 ## Files Affected
 
-| File                                   | Status   | Role                                                                               |
-| -------------------------------------- | -------- | ---------------------------------------------------------------------------------- |
-| `src/lib/seo.ts`                       | Modified | Central SEO constants, crawler list, JSON-LD builders, canonical URLs              |
-| `src/lib/siteRoutes.ts`                | Created  | Shared canonical route list for sitemap generation                                 |
-| `src/lib/releaseDates.ts`              | Created  | Stable release and privacy dates for sitemap `lastmod` and JSON-LD                 |
-| `src/lib/llmText.ts`                   | Created  | Builds `/llms.txt`, `/llms-full.txt`, and `/ai.txt` content                        |
-| `src/data/faqs.ts`                     | Created  | Shared FAQ data for visible UI and FAQPage JSON-LD                                 |
-| `src/app/sitemap.ts`                   | Modified | Main sitemap for static pages and AI text routes                                   |
-| `src/app/changelog/sitemap.ts`         | Created  | Changelog release sitemap                                                          |
-| `src/app/sitemap-index.xml/route.ts`   | Created  | Sitemap index for Search Console submission                                        |
-| `src/app/robots.ts`                    | Modified | Allows search and AI user agents, disallows `/api/`, lists all sitemap URLs        |
-| `src/app/llms.txt/route.ts`            | Created  | Dynamic concise LLM discovery document                                             |
-| `src/app/llms-full.txt/route.ts`       | Created  | Dynamic expanded LLM context document                                              |
-| `src/app/ai.txt/route.ts`              | Created  | AI crawler summary and product facts                                               |
-| `src/app/manifest.ts`                  | Created  | Web app manifest with icons, categories, screenshots                               |
-| `public/llms.txt`                      | Deleted  | Replaced by dynamic App Router route                                               |
-| `src/app/layout.tsx`                   | Modified | Root Metadata API fields and safe global JSON-LD serialization                     |
-| `src/app/page.tsx`                     | Modified | Homepage FAQ and breadcrumb JSON-LD, canonical GitHub URL                          |
-| `src/app/install/page.tsx`             | Modified | Download page JSON-LD and breadcrumb                                               |
-| `src/app/changelog/page.tsx`           | Modified | CollectionPage and breadcrumb JSON-LD                                              |
-| `src/app/changelog/[version]/page.tsx` | Modified | Per-release TechArticle and breadcrumb JSON-LD                                     |
-| `src/app/privacy/page.tsx`             | Modified | Privacy WebPage and breadcrumb JSON-LD                                             |
-| `src/components/FAQ.tsx`               | Modified | Uses shared FAQ data                                                               |
-| `src/components/Navbar.tsx`            | Modified | Uses canonical Synara GitHub repository URL                                        |
-| `src/components/ChangelogContent.tsx`  | Modified | Renders either the full archive or one release; uses canonical Synara releases URL |
-| `src/components/ScrollToRelease.tsx`   | Deleted  | Removed because per-release pages no longer render the full archive                |
-| `src/components/AskAISection.tsx`      | Modified | Uses canonical non-www domain in AI prompt                                         |
-| `src/lib/githubStars.ts`               | Modified | Fetches stars from canonical Synara repository                                     |
-| `src/lib/installerCount.ts`            | Modified | Fetches installer counts from canonical Synara repository                          |
+| File                                   | Status   | Role                                                                              |
+| -------------------------------------- | -------- | --------------------------------------------------------------------------------- |
+| `src/lib/seo.ts`                       | Modified | Central SEO constants, crawler list, JSON-LD builders, canonical URLs             |
+| `src/lib/siteRoutes.ts`                | Created  | Shared canonical route list for sitemap generation                                |
+| `src/lib/releaseDates.ts`              | Created  | Stable release and privacy dates for sitemap `lastmod` and JSON-LD                |
+| `src/lib/llmText.ts`                   | Created  | Builds `/llms.txt`, `/llms-full.txt`, and `/ai.txt` content                       |
+| `src/data/faqs.ts`                     | Created  | Shared FAQ data for visible UI and FAQPage JSON-LD                                |
+| `src/app/sitemap.ts`                   | Modified | Main sitemap for static pages and AI text routes                                  |
+| `src/app/changelog/sitemap.ts`         | Created  | Changelog release sitemap                                                         |
+| `src/app/sitemap-index.xml/route.ts`   | Created  | Sitemap index for Search Console submission                                       |
+| `src/app/robots.ts`                    | Modified | Allows search and AI user agents, disallows `/api/`, lists all sitemap URLs       |
+| `src/app/llms.txt/route.ts`            | Created  | Dynamic concise LLM discovery document                                            |
+| `src/app/llms-full.txt/route.ts`       | Created  | Dynamic expanded LLM context document                                             |
+| `src/app/ai.txt/route.ts`              | Created  | AI crawler summary and product facts                                              |
+| `src/app/manifest.ts`                  | Created  | Web app manifest with icons, categories, screenshots                              |
+| `public/llms.txt`                      | Deleted  | Replaced by dynamic App Router route                                              |
+| `src/app/layout.tsx`                   | Modified | Root Metadata API fields and safe global JSON-LD serialization                    |
+| `src/app/page.tsx`                     | Modified | Homepage FAQ and breadcrumb JSON-LD, canonical GitHub URL                         |
+| `src/app/install/page.tsx`             | Modified | Download page JSON-LD and breadcrumb                                              |
+| `src/app/changelog/page.tsx`           | Modified | CollectionPage and breadcrumb JSON-LD                                             |
+| `src/app/changelog/[version]/page.tsx` | Modified | Per-release TechArticle and breadcrumb JSON-LD                                    |
+| `src/app/privacy/page.tsx`             | Modified | Privacy WebPage and breadcrumb JSON-LD                                            |
+| `src/components/FAQ.tsx`               | Modified | Uses shared FAQ data                                                              |
+| `src/components/Navbar.tsx`            | Modified | Uses canonical Saint GitHub repository URL                                        |
+| `src/components/ChangelogContent.tsx`  | Modified | Renders either the full archive or one release; uses canonical Saint releases URL |
+| `src/components/ScrollToRelease.tsx`   | Deleted  | Removed because per-release pages no longer render the full archive               |
+| `src/components/AskAISection.tsx`      | Modified | Uses canonical non-www domain in AI prompt                                        |
+| `src/lib/githubStars.ts`               | Modified | Fetches stars from canonical Saint repository                                     |
+| `src/lib/installerCount.ts`            | Modified | Fetches installer counts from canonical Saint repository                          |
 
 ---
 
@@ -48,7 +48,7 @@ The goal was to strengthen Synara's technical SEO, Search Console readiness, and
 
 ### Problem
 
-The site already had basic metadata, a single sitemap, robots.txt, and a static `llms.txt`, but several signals were shallow or inconsistent. Release pages all used build-time `new Date()` in the sitemap, AI/search crawlers were not called out explicitly, and repository links were split between the older project identity and the current `synara` identity.
+The site already had basic metadata, a single sitemap, robots.txt, and a static `llms.txt`, but several signals were shallow or inconsistent. Release pages all used build-time `new Date()` in the sitemap, AI/search crawlers were not called out explicitly, and repository links were split between the older project identity and the current `saint` identity.
 
 ### Approach
 
@@ -107,7 +107,7 @@ flowchart TD
 
 ## High School Explanation
 
-Imagine Synara's website is a school project you want everyone to find.
+Imagine Saint's website is a school project you want everyone to find.
 
 The sitemap is the table of contents. Google can now see the main pages and every release note page, with real dates instead of "today" stamped everywhere.
 
@@ -115,4 +115,4 @@ The robots file is the front desk sign. It says, "You can visit the public pages
 
 The JSON-LD is like labeled sticky notes on the project board. It tells search engines, "This is the app, this is the download page, these are FAQs, these are release notes."
 
-The LLM files are a cheat sheet for AI tools. If an AI assistant wants a quick, clean summary of Synara, it gets one without digging through the whole page.
+The LLM files are a cheat sheet for AI tools. If an AI assistant wants a quick, clean summary of Saint, it gets one without digging through the whole page.

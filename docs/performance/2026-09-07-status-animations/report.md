@@ -13,15 +13,15 @@ length. Custom shimmer durations/timings can opt out of the shared cadence.
 
 ## Evidence
 
-During the original installed-app investigation, Synara's renderer briefly used
+During the original installed-app investigation, Saint's renderer briefly used
 35.1% CPU, its graphics helper 11.2%, and Claude 1.2%. These were uncontrolled
-snapshots. Later, after the turn finished, Synara was almost idle. That localized
+snapshots. Later, after the turn finished, Saint was almost idle. That localized
 the investigation to active interface work but did not identify a specific CSS
 effect by itself.
 
 The paired experiment isolates two status animations in an Electron window with
 macOS vibrancy, a translucent sidebar and a 40 px composer backdrop blur. It uses
-the real built Synara stylesheet, a copy of the spinner's SVG geometry, static
+the real built Saint stylesheet, a copy of the spinner's SVG geometry, static
 transcript text and a shimmer placed behind the composer blur. It has no React,
 providers, backend, live network traffic or measurement RAF loop. It deliberately
 models the expensive overlap case; it is not a full-app workload.
@@ -63,17 +63,17 @@ directory rather than overwriting another investigation's builds:
 
 ```sh
 cd apps/web
-node node_modules/vite/bin/vite.js build --config perf/vite.config.ts --outDir /private/tmp/synara-energy-20260907/baseline-dist
+node node_modules/vite/bin/vite.js build --config perf/vite.config.ts --outDir /private/tmp/saint-energy-20260907/baseline-dist
 # After applying the status-animation change:
-node node_modules/vite/bin/vite.js build --config perf/vite.config.ts --outDir /private/tmp/synara-energy-20260907/status-dist
+node node_modules/vite/bin/vite.js build --config perf/vite.config.ts --outDir /private/tmp/saint-energy-20260907/status-dist
 cd ../..
 # With web and desktop dependencies installed:
-node apps/web/perf/status-animation-runner.mjs /private/tmp/synara-energy-20260907
+node apps/web/perf/status-animation-runner.mjs /private/tmp/saint-energy-20260907
 ```
 
 The runner creates an isolated Electron profile, writes its synthetic fixture and
 raw samples, and closes the app in `finally`. Existing raw builds, pilot runners
-and discarded-experiment results remain in `/private/tmp/synara-energy-20260907`.
+and discarded-experiment results remain in `/private/tmp/saint-energy-20260907`.
 
 ## Validation and limits
 
@@ -87,7 +87,7 @@ and discarded-experiment results remain in `/private/tmp/synara-energy-20260907`
 - Independent read-only implementation and measurement audits found no blockers.
 - Full `bun fmt`, `bun lint` and `bun typecheck` were not run: repository
   instructions require the user's explicit request. Full workspace verification
-  remains outstanding. No installed Synara app was replaced or restarted.
+  remains outstanding. No installed Saint app was replaced or restarted.
 
 A separate `startTransition` experiment removed redundant streaming commits, but
 did not reliably reduce full-transcript CPU. It was reverted; neither streaming

@@ -7,7 +7,7 @@
 // Layer: Shared domain helper
 // Exports: isSidechatThread, isStandaloneSidechatThread, sidechatContextMatchesGitHubItem
 
-import type { ThreadSidechatContext } from "@synara/contracts";
+import type { ThreadSidechatContext } from "@saint/contracts";
 
 export interface SidechatIdentityFields {
   readonly sidechatSourceThreadId?: string | null | undefined;

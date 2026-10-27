@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { PullRequestComment, PullRequestCommit } from "@synara/contracts";
+import type { PullRequestComment, PullRequestCommit } from "@saint/contracts";
 
 import type { RightDockPane } from "~/rightDockStore.logic";
 

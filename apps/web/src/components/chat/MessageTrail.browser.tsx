@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import { MessageId } from "@synara/contracts";
+import { MessageId } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { Profiler } from "react";
 import { afterEach, beforeEach, expect, it } from "vitest";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { DEFAULT_INTERACTION_MODE } from "../../types";
 import type { SidebarThreadSummary, ThreadSession } from "../../types";
 import {
@@ -81,7 +81,7 @@ function makeSidebarThreadSummary(
 
 function makeBoardInput(overrides: Partial<BuildKanbanBoardInput> = {}): BuildKanbanBoardInput {
   return {
-    projects: [{ id: ProjectId.makeUnsafe("project-1"), kind: "project", name: "Synara" }],
+    projects: [{ id: ProjectId.makeUnsafe("project-1"), kind: "project", name: "Saint" }],
     threads: [],
     draftThreads: [],
     composerDraftByThreadId: {},
@@ -941,7 +941,7 @@ describe("resolveDraftDropAction", () => {
       resolveDraftDropAction({
         ...baseCard,
         envMode: "worktree",
-        worktreePath: "/tmp/synara-worktree",
+        worktreePath: "/tmp/saint-worktree",
       }),
     ).toBe("dispatch");
   });
@@ -977,7 +977,7 @@ describe("overviewVisibleKanbanCards", () => {
     const done = columns.done ?? [];
     return {
       projectId: PROJECT_1,
-      projectName: "Synara",
+      projectName: "Saint",
       projectKind: "project" as const,
       draft,
       inProgress,

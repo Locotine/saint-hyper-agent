@@ -4,7 +4,7 @@
 // Layer: Group settings dialog
 // Exports: GroupSettingsDialog
 
-import type { ModelSelection, ProjectAgentOverview, ProjectId } from "@synara/contracts";
+import type { ModelSelection, ProjectAgentOverview, ProjectId } from "@saint/contracts";
 import { useEffect, useRef, useState, type ComponentType } from "react";
 
 import { createCentralIconComponent } from "~/lib/central-icons";

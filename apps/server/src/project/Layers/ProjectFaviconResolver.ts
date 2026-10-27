@@ -1,6 +1,6 @@
 // Resolves project-owned image files for the favicon route without following
 // repository declarations or symlinks outside the canonical project root.
-import { isSupportedLocalImagePath } from "@synara/shared/localPreviewFiles";
+import { isSupportedLocalImagePath } from "@saint/shared/localPreviewFiles";
 import { Effect, FileSystem, Layer, Path } from "effect";
 
 import { isContainedPath } from "../../workspace/realPathContainment";

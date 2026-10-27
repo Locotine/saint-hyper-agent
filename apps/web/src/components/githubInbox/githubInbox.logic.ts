@@ -15,11 +15,11 @@ import type {
   GitHubInboxSort,
   PullRequestDetailInput,
   ProjectId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   coalescePullRequestListEntries,
   isValidGitHubRepositoryNameWithOwner,
-} from "@synara/shared/githubRepository";
+} from "@saint/shared/githubRepository";
 
 import type {
   AppSettings,

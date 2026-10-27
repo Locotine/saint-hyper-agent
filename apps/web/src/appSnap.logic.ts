@@ -3,7 +3,7 @@
 // Layer: Web UI logic
 // Depends on: Thread identity only; no React or desktop APIs.
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 import { isComposerAppSnapCaptureSource } from "./lib/composerImageSource";
 

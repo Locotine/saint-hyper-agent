@@ -13,7 +13,7 @@
 
 import nodePath from "node:path";
 
-import type { ServerProviderUsageLimit, ServerProviderUsageLine } from "@synara/contracts";
+import type { ServerProviderUsageLimit, ServerProviderUsageLine } from "@saint/contracts";
 
 import { createLogger } from "../../logger";
 import { fetchCodexResetCredits } from "../codexResetCredits";
@@ -62,7 +62,7 @@ const CREDIT_LIST_PRICE_USD = 0.04;
 
 // Refresh-token error codes that mean "this stored credential is dead — re-login required".
 const REFRESH_TOKEN_DEAD_CODES = new Set(["refresh_token_expired", "refresh_token_invalidated"]);
-// The token was already redeemed (by the CLI, or another Synara process): the file likely holds
+// The token was already redeemed (by the CLI, or another Saint process): the file likely holds
 // a newer credential — re-read it instead of declaring the login dead.
 const REFRESH_TOKEN_REUSED_CODE = "refresh_token_reused";
 
@@ -417,7 +417,7 @@ function fetchCodexUsage(state: CodexOAuthState) {
     headers: {
       Authorization: `Bearer ${state.accessToken}`,
       Accept: "application/json",
-      "User-Agent": "Synara",
+      "User-Agent": "Saint",
       ...(state.accountId ? { "ChatGPT-Account-Id": state.accountId } : {}),
     },
   });

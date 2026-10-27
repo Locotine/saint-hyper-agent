@@ -101,8 +101,8 @@ those remain masking's constituency).
 
 Recipe B shipped, canary-gated exactly as the decision above required:
 
-- **Canary gate** — `SYNARA_CUA_MASKED_ACTIVATION` (off by default) plus
-  `SYNARA_CUA_MASKED_APPS`, a per-app opt-in list of bundle identifiers
+- **Canary gate** — `SAINT_CUA_MASKED_ACTIVATION` (off by default) plus
+  `SAINT_CUA_MASKED_APPS`, a per-app opt-in list of bundle identifiers
   (`apps/server/src/computer/computerShield.ts`). All three conditions —
   flag armed, macOS dialect, owning app's bundle id opted in — must hold
   before `foregroundWithRestore` arms a shield; anything less takes the
@@ -112,9 +112,9 @@ Recipe B shipped, canary-gated exactly as the decision above required:
   The manager mints the `shield_id`, so a lost engage reply still leaves a
   releasable handle; release runs inside `withoutDesktopCancellation` and
   the `finally` of the excursion, after the restore has landed.
-- **Visible indication** — the shield is a Synara-owned non-activating
+- **Visible indication** — the shield is a Saint-owned non-activating
   `NSPanel` at `kCGStatusWindowLevel` (25), accent-bordered with a
-  "Synara is activating \<app\>" pill, click-through on purpose: it
+  "Saint is activating \<app\>" pill, click-through on purpose: it
   discloses the excursion, it does not isolate input. `masked: true` rides
   the `computer.action` event as the durable disclosure record.
 - **Self-cleaning** — the panels live in a dedicated `appsnap --shield`

@@ -48,7 +48,7 @@ it.effect("decodes a configured project agent summary", () =>
     const parsed = yield* decode(ProjectAgentSummary, {
       projectId: "project-1",
       configured: true,
-      coordinatorName: "Synara Coordinator",
+      coordinatorName: "Saint Coordinator",
       coordinatorThreadId: "thread-coordinator",
       coordinatorIcon: null,
       coordinatorColor: null,
@@ -56,7 +56,7 @@ it.effect("decodes a configured project agent summary", () =>
       revision: 1,
     });
     assert.strictEqual(parsed.configured, true);
-    assert.strictEqual(parsed.coordinatorName, "Synara Coordinator");
+    assert.strictEqual(parsed.coordinatorName, "Saint Coordinator");
     assert.strictEqual(parsed.revision, 1);
   }),
 );

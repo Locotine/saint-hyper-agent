@@ -8,8 +8,8 @@
 // Layer: Chat UI component
 
 import { SidePanelOverlay } from "~/components/chat/SidePanelOverlay";
-import type { LibraryCommit, LibraryEntry, ProjectId } from "@synara/contracts";
-import { formatBytes } from "@synara/shared/formatBytes";
+import type { LibraryCommit, LibraryEntry, ProjectId } from "@saint/contracts";
+import { formatBytes } from "@saint/shared/formatBytes";
 import {
   type MouseEvent as ReactMouseEvent,
   useCallback,

@@ -1,4 +1,4 @@
-# Hub Synara e Claude Code Projects
+# Hub Saint e Claude Code Projects
 
 Comparazione e piano di evoluzione · 2 ottobre 2026 · Analisi, non implementazione.
 
@@ -8,11 +8,11 @@ La sensazione che Claude lavori meglio è plausibile per la continuità dell’e
 
 ## 1. Perimetro ed evidenza
 
-Snapshot Synara: `09461820111d083c028a843d35face33fd5a52dd`, branch `synara/compare-project-logic`. Working tree inizialmente pulito. Tre verifiche indipendenti con subagent GPT-6.1 Sol: runtime, prodotto/UI e fonti Claude; sintesi e controlli incrociati dell’agente principale.
+Snapshot Saint: `09461820111d083c028a843d35face33fd5a52dd`, branch `saint/compare-project-logic`. Working tree inizialmente pulito. Tre verifiche indipendenti con subagent GPT-6.1 Sol: runtime, prodotto/UI e fonti Claude; sintesi e controlli incrociati dell’agente principale.
 
-- **Synara:** lettura di contratti, servizi, persistenza, gateway, reactor, componenti e documentazione. Non è una prova runtime/provider/browser dell’app.
+- **Saint:** lettura di contratti, servizi, persistenza, gateway, reactor, componenti e documentazione. Non è una prova runtime/provider/browser dell’app.
 - **Claude:** documentazione pubblica ufficiale verificata il 2 ottobre 2026. Nessun accesso al backend o a una sessione autenticata Claude Projects.
-- **Blueprint allegato:** letto integralmente. È una descrizione adattata e una proposta per Synara; i prompt interni, i nomi MCP e il wake XML non sono contratti pubblici verificati.
+- **Blueprint allegato:** letto integralmente. È una descrizione adattata e una proposta per Saint; i prompt interni, i nomi MCP e il wake XML non sono contratti pubblici verificati.
 - **Consegna:** questo piano e una vista HTML. Nessuna modifica applicativa, migrazione, pubblicazione o modifica dei modelli. Nessuna suite applicativa eseguita per questa analisi.
 
 Il prodotto da confrontare è **Claude Code Projects**, con coordinatore e sessioni delegate. I Projects classici di Claude.ai con knowledge base/RAG sono un’altra esperienza: RAG non è un requisito dimostrato del nuovo coordinatore. [Projects classici](https://support.claude.com/en/articles/9517075-what-are-projects), [RAG](https://support.claude.com/en/articles/11473015-retrieval-augmented-generation-rag-for-projects).
@@ -21,11 +21,11 @@ Le descrizioni Claude nella matrice sono intenzionalmente sintetiche. Fonti prim
 
 ## 2. Cosa abbiamo, cosa manca
 
-| Capacità                         | Claude documentato                                                                                                                          | Synara nel checkout                                                                                      | Valutazione / intervento                                                                |
+| Capacità                         | Claude documentato                                                                                                                          | Saint nel checkout                                                                                       | Valutazione / intervento                                                                |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Coordinatore e routing           | Nuovo lavoro, follow-up, risposta diretta. [Guida](https://code.claude.com/docs/en/claude-projects#send-work-and-read-results)              | Già previsti dal playbook. [S1]                                                                          | Presente; manca un contratto verificabile dell’instradamento. W1.                       |
 | Più repository e lavoro non-code | Entrambi. [Annuncio](https://claude.com/blog/projects-redesigned)                                                                           | Hub senza repo, repository collegati, workspace per worker. [S2]                                         | Presente. Conservare questa versatilità; il blueprint mono-repo la ridurrebbe.          |
-| Provider e modelli               | Claude; modelli/effort separati. [Guida](https://code.claude.com/docs/en/claude-projects#choose-models-and-let-claude-manage-context)       | Gateway multi-provider, routing e picker già disponibili. [S3]                                           | Punto di forza Synara; parità delle capacità da verificare per provider.                |
+| Provider e modelli               | Claude; modelli/effort separati. [Guida](https://code.claude.com/docs/en/claude-projects#choose-models-and-let-claude-manage-context)       | Gateway multi-provider, routing e picker già disponibili. [S3]                                           | Punto di forza Saint; parità delle capacità da verificare per provider.                 |
 | Isolamento del codice            | Branch e copia per thread cloud. [Annuncio](https://claude.com/blog/projects-redesigned)                                                    | Worktree disponibili; nuovo Hub usa Local di default. [S4]                                               | Parziale: impostazioni per repo e policy esplicita dei nuovi task. W3.                  |
 | Contesto comune                  | Istruzioni, memoria, file. [Annuncio](https://claude.com/blog/projects-redesigned)                                                          | Packet per turno, indice memoria, revisioni e Library. [S5]                                              | Presente. Correggere ruoli e distinguere istruzioni da dati. W0/W6.                     |
 | Fedeltà del brief                | Dettaglio interno non pubblico.                                                                                                             | Prompt del coordinatore, senza messaggi originali/allegati copiati per ID. [S6]                          | Gap rispetto al blueprint, non inferiorità Claude dimostrata. W1.                       |
@@ -82,14 +82,14 @@ Il filtro confronta il percorso del file; l’albero include soltanto directory 
 | Progress silenzioso, risultato nel thread        | Adottare gradualmente                | Card e report chiari; coordinatore mantiene un riepilogo utile con link e alert azionabili.                 |
 | Ogni frase del brief è un requisito              | Rifiutare                            | Contraddice la stessa distinzione principal/relay del blueprint. Un agente non genera autorizzazione umana. |
 | Nuovo schema project/message/thread e nuovo MCP  | Evitare                              | Duplicherebbe entità, saga, session registry, gateway e migrazioni già disponibili.                         |
-| Nuovi runner CLI generici                        | Evitare                              | Synara ha adapter e lifecycle specifici. Non sostituire SDK/app-server con ricette CLI del documento.       |
+| Nuovi runner CLI generici                        | Evitare                              | Saint ha adapter e lifecycle specifici. Non sostituire SDK/app-server con ricette CLI del documento.        |
 | Worktree = sandbox                               | Correggere                           | Il worktree separa file Git, non processi, rete o credenziali.                                              |
-| Shared file: rileggi e poi scrivi                | Conservare le garanzie Synara        | Rileggere non evita lost update. Mantenere expectedRevision/CAS e Library versionata.                       |
+| Shared file: rileggi e poi scrivi                | Conservare le garanzie Saint         | Rileggere non evita lost update. Mantenere expectedRevision/CAS e Library versionata.                       |
 | Stateless ogni wake = costo piatto, zero perdita | Sperimentare, non promettere         | Snapshot cresce, riciclo può perdere dettagli e cache. Prima misure e memoria sufficiente.                  |
 | Nascondere sempre il testo normale               | Rinviare                             | Un provider può terminare senza i nuovi tool: serve fallback visibile per risultato, errore e domande.      |
 | Continuare sul recommended mentre si aspetta     | Limitare al lavoro indipendente      | Una decisione necessaria o un’approvazione ancora aperta non è consenso.                                    |
 | Ogni evento sveglia il coordinatore              | Sostituire con milestone deduplicate | Evitare loop progress → wake → progress, costi e rumore.                                                    |
-| Ready significa CI green                         | Separare Review da merge-ready       | Le docs Claude indicano PR aperta in attesa di review. CI verde da sola non basta per il merge in Synara.   |
+| Ready significa CI green                         | Separare Review da merge-ready       | Le docs Claude indicano PR aperta in attesa di review. CI verde da sola non basta per il merge in Saint.    |
 
 Altre ambiguità interne dell’allegato da non trasferire: una sola azione visibile contro multi-spawn; `failed` sia stato autonomo sia Waiting; `priority=now` senza contratto di cancellazione; replay con solo `delivered_at`; citazioni dichiarate top-level ma annidate. Sono problemi della proposta, non difetti dimostrati del backend Claude.
 
@@ -219,9 +219,9 @@ Non serve una singola PR enorme. Usare PR indipendenti per i fix; stack soltanto
 
 ## 8. Verifica della versatilità
 
-Questi sono scenari di accettazione proposti, **non test già superati**. Per il confronto prodotto eseguirli anche su Claude con incarichi equivalenti; per le garanzie Synara usare inoltre test deterministici di persistenza e lifecycle. Registrare provider/modello/effort senza cambiarli silenziosamente.
+Questi sono scenari di accettazione proposti, **non test già superati**. Per il confronto prodotto eseguirli anche su Claude con incarichi equivalenti; per le garanzie Saint usare inoltre test deterministici di persistenza e lifecycle. Registrare provider/modello/effort senza cambiarli silenziosamente.
 
-| Scenario                                   | Esito richiesto in Synara                                    | Evidenza da raccogliere                                            |
+| Scenario                                   | Esito richiesto in Saint                                     | Evidenza da raccogliere                                            |
 | ------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------ |
 | Domanda rapida poi grazie                  | Risposta/reazione appropriata senza worker inutile           | Numero worker e messaggi visibili                                  |
 | Tre richieste indipendenti in un messaggio | Tre task collegati allo stesso originale                     | Mapping e input ricevuti dai worker                                |
@@ -255,7 +255,7 @@ Per ogni implementazione: test Vitest mirati tramite `bun run test`, poi `bun ru
 
 Scelte prodotto da valutare sul piano concreto: default tre o altro limite per nuovi Hub; quanto dettaglio lasciare nel coordinatore; opt-in di auto-fix PR; worktree come default per task di codice; eventuale modalità solo strumenti dopo averne dimostrato l’affidabilità. Nessuna scelta richiede fermare i fix W0.
 
-Fuori da questo piano: cloud Synara gestito, sostituzione dei provider runner, nuovo database chat, RAG/vector database preventivo, redesign totale, nuove animazioni/virtualizzazione, cambio automatico di modello, merge/publish. Gli host remoti e i connector richiedono una qualificazione distinta se entrano nell’obiettivo.
+Fuori da questo piano: cloud Saint gestito, sostituzione dei provider runner, nuovo database chat, RAG/vector database preventivo, redesign totale, nuove animazioni/virtualizzazione, cambio automatico di modello, merge/publish. Gli host remoti e i connector richiedono una qualificazione distinta se entrano nell’obiettivo.
 
 ## 10. Riferimenti al codice
 

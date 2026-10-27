@@ -5,7 +5,7 @@
 // Exports: SNOOZE_PRESETS, resolveSnoozeDeadline, formatSnoozeDeadline,
 //          toDateTimeLocalValue, parseFutureDateTimeLocalValue, dispatchThreadSnoozedUntil
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 import { toastManager } from "../components/ui/toast";
 import { readNativeApi } from "../nativeApi";

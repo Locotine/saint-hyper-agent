@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import { MessageId, ThreadId, type HubWorkItem } from "@synara/contracts";
+import { MessageId, ThreadId, type HubWorkItem } from "@saint/contracts";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";

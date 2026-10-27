@@ -1,4 +1,4 @@
-import { DESKTOP_DIAGNOSTIC_ISSUE_PREFIX } from "@synara/contracts";
+import { DESKTOP_DIAGNOSTIC_ISSUE_PREFIX } from "@saint/contracts";
 import type { BackendOutputDetector } from "./backendProcessOutput";
 
 /** Bounded line framing only. The diagnostics collector validates the untrusted payload. */

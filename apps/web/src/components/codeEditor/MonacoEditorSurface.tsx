@@ -1,15 +1,15 @@
 // FILE: MonacoEditorSurface.tsx
 // Purpose: The editable code surface (single file or diff) over the shared
-//          native document model, with Synara's command picker, rename dialog,
+//          native document model, with Saint's command picker, rename dialog,
 //          context menu, problems strip and debug controls around the engine's
 //          own in-editor widgets (peek, lightbulb, hover, suggestions).
 // Layer: Web editor UI
 // Depends on: editorRuntime (engine + appearance), editorModels (shared
-//             models, language service), editorDebugStore, Synara keybindings.
+//             models, language service), editorDebugStore, Saint keybindings.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useRef, useState, type KeyboardEvent } from "react";
-import type { ContextMenuItem, EditorLocation, ResolvedKeybindingsConfig } from "@synara/contracts";
+import type { ContextMenuItem, EditorLocation, ResolvedKeybindingsConfig } from "@saint/contracts";
 
 import { useAppSettings } from "~/appSettings";
 import {
@@ -94,7 +94,7 @@ type EditorCommand =
   | "debugBreakpoint"
   | (string & {});
 
-/** Configured Synara shortcuts → the surface command they run. */
+/** Configured Saint shortcuts → the surface command they run. */
 const SHORTCUT_COMMANDS: Record<EditorShortcutCommand, EditorCommand> = {
   "editor.commands": "commands",
   "editor.rename": "rename",
@@ -217,7 +217,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
     // Peek references is an editor command rather than an action; trigger runs both.
     const action = editor.getAction(id);
     if (action) await action.run();
-    else editor.trigger("synara", id, undefined);
+    else editor.trigger("saint", id, undefined);
   }
   const openFile = useEffectEvent(
     (relativePath: string, beforeOpen: () => void) =>
@@ -618,7 +618,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
         history();
         subscriptions.push(entry.model.onDidChangeContent(() => queueMicrotask(history)));
         // Each diff side clips and scrolls on its own; only a horizontally
-        // scrolled gutter takes the dense Synara glass backing.
+        // scrolled gutter takes the dense Saint glass backing.
         const editors =
           "getOriginalEditor" in active.instance
             ? [active.instance.getOriginalEditor(), editor]
@@ -641,7 +641,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
             showContextMenu({ x: event.event.posx, y: event.event.posy });
           }),
           // Ctrl/Cmd-click definitions: same file reveals in place, other
-          // workspace files open through Synara's file opener. Claim every
+          // workspace files open through Saint's file opener. Claim every
           // workspace URI so the engine never swaps this surface's model.
           monaco.editor.registerEditorOpener({
             openCodeEditor(source, resource, selection) {
@@ -736,7 +736,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
     props.fileName,
   ]);
 
-  // Theme and typography follow Synara's settings, not an engine theme switch.
+  // Theme and typography follow Saint's settings, not an engine theme switch.
   useEffect(() => {
     const container = containerRef.current;
     if (!controller || !container) return;
@@ -772,7 +772,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
           points.map((point) => ({
             range: new monaco.Range(point.line, 1, point.line, 1),
             options: {
-              glyphMarginClassName: "synara-debug-breakpoint",
+              glyphMarginClassName: "saint-debug-breakpoint",
               glyphMarginHoverMessage: { value: "Breakpoint", isTrusted: false },
               stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
             },
@@ -797,8 +797,8 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
                   range: new monaco.Range(frame.line, 1, frame.line, 1),
                   options: {
                     isWholeLine: true,
-                    className: "synara-debug-stopped-line",
-                    glyphMarginClassName: "synara-debug-stopped-arrow",
+                    className: "saint-debug-stopped-line",
+                    glyphMarginClassName: "saint-debug-stopped-arrow",
                   },
                 },
               ]
@@ -862,7 +862,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
             const diagnostics = result.diagnostics ?? [];
             monaco.editor.setModelMarkers(
               entry.model,
-              "synara.typescript",
+              "saint.typescript",
               diagnostics.map((item) => ({
                 ...offsetRange(entry.model, item),
                 message: item.message,
@@ -1037,7 +1037,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
   const problemCount = problems.errors + problems.warnings;
   return (
     <div
-      className="synara-code-editor relative flex min-h-0 min-w-0 flex-1 flex-col"
+      className="saint-code-editor relative flex min-h-0 min-w-0 flex-1 flex-col"
       onKeyDownCapture={handleShortcut}
     >
       {serviceNotice ? (
@@ -1059,7 +1059,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
       <div
         ref={containerRef}
         className="min-h-0 min-w-0 flex-1"
-        data-testid="synara-editor-surface"
+        data-testid="saint-editor-surface"
       />
       {problemCount > 0 ? (
         <div className="flex h-7 shrink-0 items-center gap-3 border-t border-border/65 px-3 text-ui-sm text-muted-foreground">

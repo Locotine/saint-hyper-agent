@@ -15,11 +15,11 @@ import {
   type AutomationWorktreeMode,
   type ModelSelection,
   type OrchestrationThreadShell,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   automationContinuesThread,
   automationRequiresTargetThread,
-} from "@synara/shared/automationMode";
+} from "@saint/shared/automationMode";
 import { Effect, Option, Schema } from "effect";
 
 import type { AutomationServiceShape } from "../automation/Services/AutomationService.ts";
@@ -311,8 +311,8 @@ export function makeAgentGatewayAutomationTools(
     requiredCapability: "automation:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_create_automation",
-      description: `Create a heartbeat, standalone, or dedicated Synara automation. ${AUTOMATION_AUTHORING_GUIDANCE} Existing calls remain compatible: omitting mode/schedule creates a heartbeat on your thread using everyMinutes (default 5). Prefer suggested:true unless the user explicitly requested creation. Standalone and dedicated automations may pass an exact target discovered from synara_capabilities; heartbeat automations continue their target thread's session and reject target.`,
+      name: "saint_create_automation",
+      description: `Create a heartbeat, standalone, or dedicated Saint automation. ${AUTOMATION_AUTHORING_GUIDANCE} Existing calls remain compatible: omitting mode/schedule creates a heartbeat on your thread using everyMinutes (default 5). Prefer suggested:true unless the user explicitly requested creation. Standalone and dedicated automations may pass an exact target discovered from saint_capabilities; heartbeat automations continue their target thread's session and reject target.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -327,7 +327,7 @@ export function makeAgentGatewayAutomationTools(
           target: {
             ...MODEL_SELECTION_INPUT_SCHEMA,
             description:
-              "Exact provider/model target for a standalone or dedicated automation, using the same schema and validation as synara_create_threads. Omitted means the caller's selection; rejected for heartbeat.",
+              "Exact provider/model target for a standalone or dedicated automation, using the same schema and validation as saint_create_threads. Omitted means the caller's selection; rejected for heartbeat.",
           },
           schedule: SCHEDULE_INPUT_SCHEMA,
           everyMinutes: {
@@ -386,7 +386,7 @@ export function makeAgentGatewayAutomationTools(
         required: ["name", "prompt"],
         additionalProperties: false,
       },
-      annotations: { title: "Create a Synara automation", ...WRITE_TOOL_ANNOTATIONS },
+      annotations: { title: "Create a Saint automation", ...WRITE_TOOL_ANNOTATIONS },
     },
     handler: (args, context) =>
       Effect.gen(function* () {
@@ -593,9 +593,9 @@ export function makeAgentGatewayAutomationTools(
   const listAutomations: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_list_automations",
+      name: "saint_list_automations",
       description:
-        "List Synara automations (id, name, mode, schedule, exact model selection, target thread, enabled, next run).",
+        "List Saint automations (id, name, mode, schedule, exact model selection, target thread, enabled, next run).",
       inputSchema: {
         type: "object",
         properties: {
@@ -603,7 +603,7 @@ export function makeAgentGatewayAutomationTools(
         },
         additionalProperties: false,
       },
-      annotations: { title: "List Synara automations", ...READ_ONLY_TOOL_ANNOTATIONS },
+      annotations: { title: "List Saint automations", ...READ_ONLY_TOOL_ANNOTATIONS },
     },
     handler: (args) =>
       Effect.gen(function* () {
@@ -634,9 +634,9 @@ export function makeAgentGatewayAutomationTools(
   const viewAutomation: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_view_automation",
+      name: "saint_view_automation",
       description:
-        "View a complete automation definition, recent runs, next run, and persistent-memory excerpt. Call this immediately before synara_update_automation and resend every unchanged mutable field.",
+        "View a complete automation definition, recent runs, next run, and persistent-memory excerpt. Call this immediately before saint_update_automation and resend every unchanged mutable field.",
       inputSchema: {
         type: "object",
         properties: {
@@ -646,7 +646,7 @@ export function makeAgentGatewayAutomationTools(
         required: ["automationId"],
         additionalProperties: false,
       },
-      annotations: { title: "View a Synara automation", ...READ_ONLY_TOOL_ANNOTATIONS },
+      annotations: { title: "View a Saint automation", ...READ_ONLY_TOOL_ANNOTATIONS },
     },
     handler: (args, context) =>
       Effect.gen(function* () {
@@ -687,8 +687,8 @@ export function makeAgentGatewayAutomationTools(
     requiredCapability: "automation:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_update_automation",
-      description: `Fully replace an automation's mutable configuration. ${AUTOMATION_AUTHORING_GUIDANCE} You MUST call synara_view_automation first, then resend name, prompt, schedule, enabled, maxIterations, stopAfterConsecutiveFailures, notificationPolicy, and completionPolicy, including every unchanged field. Partial updates are rejected. A standalone or dedicated automation may also pass an exact target from synara_capabilities; omitting target preserves the stored selection, and heartbeat targets cannot be switched. A dedicated automation cannot switch away from its established task's provider; create a new automation for another provider.`,
+      name: "saint_update_automation",
+      description: `Fully replace an automation's mutable configuration. ${AUTOMATION_AUTHORING_GUIDANCE} You MUST call saint_view_automation first, then resend name, prompt, schedule, enabled, maxIterations, stopAfterConsecutiveFailures, notificationPolicy, and completionPolicy, including every unchanged field. Partial updates are rejected. A standalone or dedicated automation may also pass an exact target from saint_capabilities; omitting target preserves the stored selection, and heartbeat targets cannot be switched. A dedicated automation cannot switch away from its established task's provider; create a new automation for another provider.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -698,7 +698,7 @@ export function makeAgentGatewayAutomationTools(
           target: {
             ...MODEL_SELECTION_INPUT_SCHEMA,
             description:
-              "Exact replacement provider/model target for a standalone or dedicated automation, validated like synara_create_threads. Omitted preserves the stored model selection; rejected for heartbeat.",
+              "Exact replacement provider/model target for a standalone or dedicated automation, validated like saint_create_threads. Omitted preserves the stored model selection; rejected for heartbeat.",
           },
           schedule: SCHEDULE_INPUT_SCHEMA,
           enabled: { type: "boolean" },
@@ -725,7 +725,7 @@ export function makeAgentGatewayAutomationTools(
         ],
         additionalProperties: false,
       },
-      annotations: { title: "Replace a Synara automation", ...WRITE_TOOL_ANNOTATIONS },
+      annotations: { title: "Replace a Saint automation", ...WRITE_TOOL_ANNOTATIONS },
     },
     handler: (args, context) =>
       Effect.gen(function* () {
@@ -811,9 +811,9 @@ export function makeAgentGatewayAutomationTools(
     requiredCapability: "automation:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_cancel_automation",
+      name: "saint_cancel_automation",
       description:
-        'Stop a Synara automation. mode "disable" (default) pauses it and keeps history; "delete" archives it. An automation-dispatched run may always stop its own automation, whatever its mode. Prefer a completionPolicy stop clause for conditions known when the automation is created.',
+        'Stop a Saint automation. mode "disable" (default) pauses it and keeps history; "delete" archives it. An automation-dispatched run may always stop its own automation, whatever its mode. Prefer a completionPolicy stop clause for conditions known when the automation is created.',
       inputSchema: {
         type: "object",
         properties: {
@@ -823,7 +823,7 @@ export function makeAgentGatewayAutomationTools(
         required: ["automationId"],
         additionalProperties: false,
       },
-      annotations: { title: "Stop a Synara automation", ...WRITE_TOOL_ANNOTATIONS },
+      annotations: { title: "Stop a Saint automation", ...WRITE_TOOL_ANNOTATIONS },
     },
     handler: (args, context) =>
       Effect.gen(function* () {
@@ -853,7 +853,7 @@ export function makeAgentGatewayAutomationTools(
     requiredCapability: "automation:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_update_automation_memory",
+      name: "saint_update_automation_memory",
       description:
         'Fully replace an automation\'s DB-backed persistent memory. Maximum UTF-8 size: 32 KiB. Omit automationId only when the current user message is the automation run envelope. A later manual follow-up such as "continue" is not part of that run and must not call this tool as completion bookkeeping.',
       inputSchema: {
@@ -899,7 +899,7 @@ export function makeAgentGatewayAutomationTools(
     requiredCapability: "automation:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_report_automation_result",
+      name: "saint_report_automation_result",
       description:
         'Report the structured result only when the current user message is the automation run envelope. Automation status never carries into a later manual follow-up such as "continue"; never call this tool for that turn. Use decision "silent" only when a successful run needs no user attention. Failures always remain visible.',
       inputSchema: {

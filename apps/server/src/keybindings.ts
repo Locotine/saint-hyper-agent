@@ -16,7 +16,7 @@ import {
   UNASSIGNED_KEYBINDING_KEY,
   type ServerConfigIssue,
   type ServerKeybindingEdit,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Mutable } from "effect/Types";
 import {
   Array,
@@ -47,7 +47,7 @@ import {
   isUnassignedKeybindingRule,
   keybindingRuleIdentity,
   parseKeybindingShortcut,
-} from "@synara/shared/keybindingRules";
+} from "@saint/shared/keybindingRules";
 import { writeFileStringAtomically } from "./atomicWrite";
 import { ServerConfig } from "./config";
 
@@ -986,7 +986,7 @@ export interface KeybindingsShape {
  * Keybindings - Service tag for keybinding configuration operations.
  */
 export class Keybindings extends ServiceMap.Service<Keybindings, KeybindingsShape>()(
-  "synara/keybindings",
+  "saint/keybindings",
 ) {}
 
 const makeKeybindings = Effect.gen(function* () {

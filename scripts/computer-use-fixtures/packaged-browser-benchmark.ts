@@ -15,7 +15,7 @@ import {
   type ComputerAuditHistoryEntry,
   type OrchestrationLatestTurn,
   type ServerConfig,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema, type Effect } from "effect";
 import {
   startFocusProbe,
@@ -224,7 +224,7 @@ async function main() {
       owner.run(
         owner.api[WS_METHODS.serverReadThreadDiagnostics]({
           ...args,
-          source: name === "synara_read_thread_events" ? "events" : "runtime",
+          source: name === "saint_read_thread_events" ? "events" : "runtime",
           threadId: ThreadId.makeUnsafe(String(args.threadId)),
         }),
       );
@@ -232,7 +232,7 @@ async function main() {
       if (interrupted) break;
       phase = `browser-task-${index}`;
       const threadId = ThreadId.makeUnsafe(randomUUID());
-      const profileName = `synara-bench-${randomUUID()}`;
+      const profileName = `saint-bench-${randomUUID()}`;
       const prompt = browserBenchmarkPrompt(task, profileName, values.repo);
       const referenceBefore =
         task === "github-isolated" ? await readGitHubReference(values.repo!) : null;

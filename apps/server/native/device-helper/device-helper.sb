@@ -1,4 +1,4 @@
-;; Seatbelt profile for synara-device-helper.
+;; Seatbelt profile for saint-device-helper.
 ;;
 ;; The helper dlopens Apple's private CoreSimulator, SimulatorKit and
 ;; AccessibilityPlatformTranslation frameworks, drives a booted simulator over
@@ -58,7 +58,7 @@
 ;;
 ;; A missing rule usually does NOT fail loudly: CoreSimulator turns a denial
 ;; into a hang or an opaque error. `helperSandbox.ts` names this profile in the
-;; timeout message for that reason, and `SYNARA_DEVICE_HELPER_NO_SANDBOX=1`
+;; timeout message for that reason, and `SAINT_DEVICE_HELPER_NO_SANDBOX=1`
 ;; skips the wrapper entirely so a user on an unusual setup still has a working
 ;; pane. Re-validate with `bun run test:device` after any change here, and after
 ;; an Xcode or macOS bump.
@@ -86,7 +86,7 @@
   (subpath (param "XCODE_APP"))
   (subpath "/Library/Developer"))
 
-;; Only itself. A bare `(allow signal)` would let the helper SIGKILL the Synara
+;; Only itself. A bare `(allow signal)` would let the helper SIGKILL the Saint
 ;; server, the user's shell, or anything else they own.
 (allow signal (target self))
 (allow sysctl-read)

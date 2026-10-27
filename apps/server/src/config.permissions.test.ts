@@ -27,7 +27,7 @@ import {
 const tempDirs = new Set<string>();
 
 function makeTempDir(): string {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-private-state-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-private-state-"));
   tempDirs.add(tempDir);
   return tempDir;
 }

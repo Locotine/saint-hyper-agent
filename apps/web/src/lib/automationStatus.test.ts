@@ -1,4 +1,4 @@
-import type { AutomationSchedule } from "@synara/contracts";
+import type { AutomationSchedule } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { automationLifecycleState, canPauseAutomation } from "./automationStatus";

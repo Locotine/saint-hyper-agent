@@ -4,7 +4,7 @@ import {
   type DesktopRendererError,
   type DesktopDiagnosticBreadcrumb,
   ORCHESTRATION_WS_METHODS,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { afterEach, expect, it, vi } from "vitest";
 
 import {

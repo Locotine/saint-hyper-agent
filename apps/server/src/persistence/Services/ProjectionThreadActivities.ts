@@ -13,7 +13,7 @@ import {
   OrchestrationThreadActivityTone,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -86,4 +86,4 @@ export interface ProjectionThreadActivityRepositoryShape {
 export class ProjectionThreadActivityRepository extends ServiceMap.Service<
   ProjectionThreadActivityRepository,
   ProjectionThreadActivityRepositoryShape
->()("synara/persistence/Services/ProjectionThreadActivities/ProjectionThreadActivityRepository") {}
+>()("saint/persistence/Services/ProjectionThreadActivities/ProjectionThreadActivityRepository") {}

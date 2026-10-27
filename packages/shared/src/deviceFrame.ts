@@ -5,7 +5,7 @@ import {
   DEVICE_FRAME_VERSION,
   type DeviceFrameDecodeErrorReason,
   type DeviceFrameHeader,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 /** Encoded device frames use a dedicated, uncompressed WebSocket connection. */
 export const DEVICE_FRAME_WS_PATH = "/ws/device-frames";

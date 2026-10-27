@@ -3,11 +3,11 @@ import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
 import {
-  resolveSynaraDesktopFlavor,
-  SYNARA_SOURCE_DESKTOP_BUILD_MARKER,
-  synaraDesktopIdentity,
-} from "@synara/shared/desktopIdentity";
-import { readWindowsPersistentEnvironment } from "@synara/shared/shell";
+  resolveSaintDesktopFlavor,
+  SAINT_SOURCE_DESKTOP_BUILD_MARKER,
+  saintDesktopIdentity,
+} from "@saint/shared/desktopIdentity";
+import { readWindowsPersistentEnvironment } from "@saint/shared/shell";
 
 function environmentValue(environment, name, caseInsensitive) {
   const exactValue = environment[name];
@@ -21,12 +21,12 @@ function environmentValue(environment, name, caseInsensitive) {
 
 function configuredSourceDesktopHome(environment, platform, readWindowsEnvironment) {
   const isWindows = platform === "win32";
-  const inheritedHome = environmentValue(environment, "SYNARA_HOME", isWindows)?.trim();
+  const inheritedHome = environmentValue(environment, "SAINT_HOME", isWindows)?.trim();
   if (inheritedHome) return inheritedHome;
   if (!isWindows) return undefined;
 
   try {
-    return environmentValue(readWindowsEnvironment(), "SYNARA_HOME", true)?.trim();
+    return environmentValue(readWindowsEnvironment(), "SAINT_HOME", true)?.trim();
   } catch {
     return undefined;
   }
@@ -38,17 +38,17 @@ export function createSourceDesktopEnvironment({
   platform = process.platform,
   readWindowsEnvironment = readWindowsPersistentEnvironment,
 } = {}) {
-  const flavor = resolveSynaraDesktopFlavor({
+  const flavor = resolveSaintDesktopFlavor({
     isDevelopment: true,
-    requestedFlavor: environment.SYNARA_DESKTOP_FLAVOR,
+    requestedFlavor: environment.SAINT_DESKTOP_FLAVOR,
   });
-  const identity = synaraDesktopIdentity(flavor);
+  const identity = saintDesktopIdentity(flavor);
   const configuredHome = configuredSourceDesktopHome(environment, platform, readWindowsEnvironment);
   const childEnvironment = {
     ...environment,
-    SYNARA_DESKTOP_FLAVOR: flavor,
-    SYNARA_HOME: configuredHome || join(homeDirectory, identity.defaultHomeDirectoryName),
-    SYNARA_SOURCE_DESKTOP_BUILD_MARKER,
+    SAINT_DESKTOP_FLAVOR: flavor,
+    SAINT_HOME: configuredHome || join(homeDirectory, identity.defaultHomeDirectoryName),
+    SAINT_SOURCE_DESKTOP_BUILD_MARKER,
   };
   delete childEnvironment.ELECTRON_RUN_AS_NODE;
   return childEnvironment;
@@ -57,7 +57,7 @@ export function createSourceDesktopEnvironment({
 function assertCurrentSourceDesktopBuild(desktopDirectory, readBuiltMain) {
   const builtMainPath = join(desktopDirectory, "dist-electron/main.js");
   const builtMain = readBuiltMain(builtMainPath, "utf8");
-  if (!builtMain.includes(SYNARA_SOURCE_DESKTOP_BUILD_MARKER)) {
+  if (!builtMain.includes(SAINT_SOURCE_DESKTOP_BUILD_MARKER)) {
     throw new Error(
       "Source desktop build is stale. Run `bun run build:desktop`, then launch it again.",
     );

@@ -1,7 +1,7 @@
 import {
   serializeMigrationSchemaTooNewStartupBlock,
   type MigrationSchemaTooNewStartupBlock,
-} from "@synara/shared/migrationRecovery";
+} from "@saint/shared/migrationRecovery";
 
 import { MigrationSchemaTooNewError } from "./Errors.ts";
 import { inspectCompletedMigrationBackupForSchemaTooNew } from "./MigrationBackup.ts";

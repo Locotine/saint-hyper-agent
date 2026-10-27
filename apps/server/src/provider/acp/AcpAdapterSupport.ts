@@ -10,17 +10,17 @@ import {
   type RuntimeMode,
   type ThreadId,
   type ToolLifecycleItemType,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema } from "effect";
 import * as AcpErrors from "./AcpErrors.ts";
 
 import { ProviderAdapterRequestError, type ProviderAdapterError } from "../Errors.ts";
 import {
-  isSynaraGatewayToolCall,
-  shouldAllowSynaraComputerProviderTool,
+  isSaintGatewayToolCall,
+  shouldAllowSaintComputerProviderTool,
 } from "../../agentGateway/computerToolPermission.ts";
 
-// Synara-internal ACP tool kind for provider-native subagent runs. ACP's ToolKind has
+// Saint-internal ACP tool kind for provider-native subagent runs. ACP's ToolKind has
 // no subagent variant (Cursor sends `kind: "other"` + `rawInput._toolName: "task"`), so
 // the runtime model tags detected subagent calls with this kind to reach the shared
 // collab_agent_tool_call presentation (agent icon, prompt preview, subagent live meta).
@@ -146,7 +146,7 @@ export function resolveAcpFullAccessPermissionOutcome(
 }
 
 /**
- * Applies Synara's turn-scoped permission precedence to ACP reverse requests.
+ * Applies Saint's turn-scoped permission precedence to ACP reverse requests.
  *
  * `interactionMode: undefined` means that no turn owns the request. Those
  * requests are cancelled so replay or late provider activity cannot inherit a
@@ -159,7 +159,7 @@ export function resolveAcpPermissionPolicy(input: {
   readonly options: ReadonlyArray<AcpPermissionOptionLike>;
   readonly computerControlEnabled?: boolean;
   readonly activeTurn?: boolean;
-  readonly autoApproveSynaraTools?: boolean;
+  readonly autoApproveSaintTools?: boolean;
   readonly gatewaySessionActive?: boolean;
   readonly toolCall?: {
     readonly kind?: unknown;
@@ -178,7 +178,7 @@ export function resolveAcpPermissionPolicy(input: {
   }
 
   if (
-    shouldAllowSynaraComputerProviderTool({
+    shouldAllowSaintComputerProviderTool({
       computerControlEnabled: input.computerControlEnabled === true,
       activeTurn: input.activeTurn === true,
       interactionMode: input.interactionMode,
@@ -193,17 +193,17 @@ export function resolveAcpPermissionPolicy(input: {
     if (optionId) return { outcome: "selected", optionId };
   }
 
-  // Coordinator threads pre-approve the Synara gateway catalog: a gateway tool
-  // call is Synara's own orchestration surface, so prompting the user for it
+  // Coordinator threads pre-approve the Saint gateway catalog: a gateway tool
+  // call is Saint's own orchestration surface, so prompting the user for it
   // would deadlock the coordinator on its own permission request. The name
   // must match the catalog exactly (never the composed title), and an
   // execute-kind request can never claim a gateway tool — a shell command
   // named like one keeps the normal prompt path.
   if (
-    input.autoApproveSynaraTools === true &&
+    input.autoApproveSaintTools === true &&
     input.gatewaySessionActive === true &&
     input.toolCall?.kind !== "execute" &&
-    isSynaraGatewayToolCall({
+    isSaintGatewayToolCall({
       rawInput: input.toolCall?.rawInput,
       metadata: input.toolCall?.metadata,
     })

@@ -4,7 +4,7 @@ import {
   hubWorkLogicalTaskKey,
   hubWorkPositionalTaskKey,
   type ProjectId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { stableGatewayDigest } from "./creationUtils";
 

@@ -14,7 +14,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import {
   MIGRATION_RECOVERY_MAX_RESUME_ATTEMPTS,
   migrationBackupProvenancePath,
-} from "@synara/shared/migrationRecovery";
+} from "@saint/shared/migrationRecovery";
 
 import {
   FAILED_MIGRATION_BUNDLE_RETENTION,
@@ -56,7 +56,7 @@ afterEach(async () => {
 });
 
 async function makeDbPath(): Promise<string> {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "synara-migration-backup-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "saint-migration-backup-"));
   tempDirectories.push(directory);
   return path.join(directory, "state.sqlite");
 }
@@ -840,7 +840,7 @@ describe("migration backups", () => {
     expect(provenance).toMatchObject({
       backupPath,
       restore: {
-        executable: "synara-restore-migration-backup",
+        executable: "saint-restore-migration-backup",
         arguments: [dbPath],
       },
       sourceVersion: `imported-v${latestId + 2}-from17`,

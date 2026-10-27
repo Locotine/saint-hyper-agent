@@ -14,8 +14,8 @@ import {
   type RuntimeMode,
   type ThreadEnvironmentMode,
   type ThreadId,
-} from "@synara/contracts";
-import { resolveThreadEnvironmentMode } from "@synara/shared/threadEnvironment";
+} from "@saint/contracts";
+import { resolveThreadEnvironmentMode } from "@saint/shared/threadEnvironment";
 import {
   type ComposerThreadDraftState,
   type DraftThreadEnvMode,

@@ -7,7 +7,7 @@
 // Layer: Chat UI component (pickers for composer-less surfaces)
 // Exports: ScratchModelPickers, ScratchRuntimeControls
 
-import type { ServerProviderStatus } from "@synara/contracts";
+import type { ServerProviderStatus } from "@saint/contracts";
 
 import { getProviderInstanceOptions, useAppSettings } from "~/appSettings";
 import { RuntimeUsageControls } from "~/components/BranchToolbar";

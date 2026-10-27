@@ -8,7 +8,7 @@ import {
   type ProjectScript,
   type ProjectScriptIcon,
   type ResolvedKeybindingsConfig,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import React, { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import {

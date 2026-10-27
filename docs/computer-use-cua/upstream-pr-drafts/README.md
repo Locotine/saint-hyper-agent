@@ -1,12 +1,12 @@
 # Upstream PR drafts — trycua/cua
 
-Draft patches carved out of `apps/desktop/patches/cua-driver/0001-synara-native.patch`
+Draft patches carved out of `apps/desktop/patches/cua-driver/0001-saint-native.patch`
 (native revision 20, base `7fe7c33f` / cua-driver 0.28.2) for contribution
 back to `trycua/cua`, per the phase-1 ordering in
 [`../extraction-plan.md`](../extraction-plan.md): smallest standalone diffs
 first.
 
-**Gate:** every upstream send needs Synara-side maintainer review first
+**Gate:** every upstream send needs Saint-side maintainer review first
 (extraction plan, "Policy" section). These files are review artifacts —
 nothing here has been sent. Confirm upstream's CONTRIBUTING/CLA terms before
 opening PRs; the filtered mirror carries neither file.
@@ -26,7 +26,7 @@ burden — E before D because D is the heaviest review; A–C establish the
 relationship on low-risk diffs).
 
 **Not drafted — `select_text` (rev 20).** Unlike `wait_for_settle` it is a
-_mutation_ tool: the Synara build rides the patch's own input-admission
+_mutation_ tool: the Saint build rides the patch's own input-admission
 gate, exact-target lease registry and stable-Space validation
 (`background_mutation.rs`, `input/cancellation.rs`, `sdk_adapter.rs` lease
 lists — none of which exist upstream). A faithful upstream port needs a
@@ -132,7 +132,7 @@ walk:
    thread, so no panic can strand the collector. `CUA_AX_SERIAL_FETCH=1`
    restores the serial path for A/B timing and diagnosis.
 
-Live-verified in Synara's cert harness against real AppKit and Chromium
+Live-verified in Saint's cert harness against real AppKit and Chromium
 targets (tree output byte-identical to serial; ~4× walk speedup on
 Electron-class apps). The `parallel_prefetch_matches_serial_output_and_times_it`
 test compares serial vs pooled output against a live target and stays

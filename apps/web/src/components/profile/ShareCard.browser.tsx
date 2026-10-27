@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderKind } from "@saint/contracts";
 import { expect, it } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
@@ -31,8 +31,8 @@ it("keeps the full missing-token disclosure inside the exported card", async () 
     <ShareCard
       stats={baseStats}
       tokenStats={{ ...tokenStats, heatmap, unavailableProviders }}
-      displayName="Synara"
-      handle="@synara"
+      displayName="Saint"
+      handle="@saint"
       avatarColor="#2563eb"
       avatarImage={null}
     />,

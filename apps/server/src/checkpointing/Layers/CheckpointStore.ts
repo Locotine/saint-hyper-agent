@@ -28,7 +28,7 @@ import { CheckpointInvariantError, type CheckpointStoreError } from "../Errors.t
 import { GitCommandError } from "../../git/Errors.ts";
 import { GitCore } from "../../git/Services/GitCore.ts";
 import { CheckpointStore, type CheckpointStoreShape } from "../Services/CheckpointStore.ts";
-import { CheckpointRef } from "@synara/contracts";
+import { CheckpointRef } from "@saint/contracts";
 import { CHECKPOINT_REFS_PREFIX } from "../Utils.ts";
 
 const CHECKPOINT_DIFF_MAX_OUTPUT_BYTES = 10_000_000;
@@ -158,17 +158,17 @@ const makeCheckpointStore = Effect.gen(function* () {
       }
 
       yield* Effect.acquireUseRelease(
-        fs.makeTempDirectory({ prefix: "synara-fs-checkpoint-" }),
+        fs.makeTempDirectory({ prefix: "saint-fs-checkpoint-" }),
         (tempDir) =>
           Effect.gen(function* () {
             const tempIndexPath = path.join(tempDir, `index-${randomUUID()}`);
             const commitEnv: NodeJS.ProcessEnv = {
               ...process.env,
               GIT_INDEX_FILE: tempIndexPath,
-              GIT_AUTHOR_NAME: "Synara",
-              GIT_AUTHOR_EMAIL: "synara@users.noreply.github.com",
-              GIT_COMMITTER_NAME: "Synara",
-              GIT_COMMITTER_EMAIL: "synara@users.noreply.github.com",
+              GIT_AUTHOR_NAME: "Saint",
+              GIT_AUTHOR_EMAIL: "saint@users.noreply.github.com",
+              GIT_COMMITTER_NAME: "Saint",
+              GIT_COMMITTER_EMAIL: "saint@users.noreply.github.com",
             };
 
             const workingIndexInfo = yield* seedCheckpointIndex(input.cwd, tempIndexPath);
@@ -232,7 +232,7 @@ const makeCheckpointStore = Effect.gen(function* () {
               });
             }
 
-            const message = `Synara checkpoint ref=${input.checkpointRef}`;
+            const message = `Saint checkpoint ref=${input.checkpointRef}`;
             const commitTreeResult = yield* git.execute({
               operation,
               cwd: input.cwd,
@@ -408,7 +408,7 @@ const makeCheckpointStore = Effect.gen(function* () {
         // Reconstruct the immutable provider revision in a fresh index. Never
         // seed from today's index/files or ask apply to merge a mismatched base.
         return yield* Effect.acquireUseRelease(
-          fs.makeTempDirectory({ prefix: "synara-provider-patch-" }),
+          fs.makeTempDirectory({ prefix: "saint-provider-patch-" }),
           (tempDir) =>
             Effect.gen(function* () {
               const env = { ...process.env, GIT_INDEX_FILE: path.join(tempDir, "index") };
@@ -672,7 +672,7 @@ const makeCheckpointStore = Effect.gen(function* () {
       const affectedPaths = changedPaths.stdout.split("\0").filter((entry) => entry.length > 0);
 
       return yield* Effect.acquireUseRelease(
-        fs.makeTempDirectory({ prefix: "synara-checkpoint-undo-" }),
+        fs.makeTempDirectory({ prefix: "saint-checkpoint-undo-" }),
         (tempDir) =>
           Effect.gen(function* () {
             const patchPath = path.join(tempDir, "turn.patch");

@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { CommandId, ProjectId, ThreadId } from "@synara/contracts";
-import { SIDECHAT_INACTIVITY_EXPIRY_MS } from "@synara/shared/sidechatExpiry";
+import { CommandId, ProjectId, ThreadId } from "@saint/contracts";
+import { SIDECHAT_INACTIVITY_EXPIRY_MS } from "@saint/shared/sidechatExpiry";
 import { Deferred, Effect, Layer, ManagedRuntime, Stream } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { expect, it } from "vitest";
@@ -27,7 +27,7 @@ it.each(["never", "24h"] as const)(
         Layer.provideMerge(ServerSettingsService.layerTest()),
         Layer.provideMerge(SqlitePersistenceMemory),
         Layer.provideMerge(
-          ServerConfig.layerTest(process.cwd(), { prefix: "synara-expiry-queue-" }),
+          ServerConfig.layerTest(process.cwd(), { prefix: "saint-expiry-queue-" }),
         ),
         Layer.provideMerge(NodeServices.layer),
       ),

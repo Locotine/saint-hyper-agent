@@ -2,7 +2,7 @@
 // Purpose: Verifies the sidebar order holds while the pointer is over the list
 //          and settles once the pointer leaves or the user types elsewhere.
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderHook } from "vitest-browser-react";
 import { page } from "vitest/browser";

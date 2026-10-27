@@ -54,31 +54,27 @@ describe("computer permission copy", () => {
     const advice = computerStaleGrantAdvice(
       ["accessibility", "screenRecording"],
       "adhoc",
-      "com.emanueledipietro.synara.dev",
+      "com.locotine.saint.dev",
     );
     expect(advice).toContain("add the current build again");
-    expect(advice).not.toContain("Synara has cleared");
-    expect(advice).toContain("tccutil reset Accessibility com.emanueledipietro.synara.dev");
+    expect(advice).not.toContain("Saint has cleared");
+    expect(advice).toContain("tccutil reset Accessibility com.locotine.saint.dev");
     // `ScreenCapture`, not "Screen Recording": the label is not the service name,
     // and a user who types the label gets an error instead of a reset.
-    expect(advice).toContain("tccutil reset ScreenCapture com.emanueledipietro.synara.dev");
+    expect(advice).toContain("tccutil reset ScreenCapture com.locotine.saint.dev");
   });
 
   it("names the responsible app rather than assuming the released one", () => {
     // A `.dev` flavor resetting the production identifier would revoke a
-    // separately installed Synara's grants and fix nothing here.
-    const advice = computerStaleGrantAdvice(
-      ["accessibility"],
-      "adhoc",
-      "com.example.synara.canary",
-    );
-    expect(advice).toContain("tccutil reset Accessibility com.example.synara.canary");
-    expect(advice).not.toContain("com.emanueledipietro.synara");
+    // separately installed Saint's grants and fix nothing here.
+    const advice = computerStaleGrantAdvice(["accessibility"], "adhoc", "com.example.saint.canary");
+    expect(advice).toContain("tccutil reset Accessibility com.example.saint.canary");
+    expect(advice).not.toContain("com.locotine.saint");
   });
 
   it("withholds the tccutil sentence when no responsible bundle id is known", () => {
     // Better to say nothing than to hand the user a command that resets some
-    // other Synara. The System Settings advice still stands on its own.
+    // other Saint. The System Settings advice still stands on its own.
     for (const bundleId of [undefined, "", "   "]) {
       const advice = computerStaleGrantAdvice(["accessibility"], "adhoc", bundleId);
       expect(advice).toContain("add the current build again");
@@ -100,10 +96,10 @@ describe("computer permission copy", () => {
     const message = computerPermissionSetupMessage(
       ["accessibility"],
       "adhoc",
-      "com.emanueledipietro.synara",
+      "com.locotine.saint",
     );
     expect(message).toContain("System Settings");
-    expect(message).toContain("tccutil reset Accessibility com.emanueledipietro.synara");
+    expect(message).toContain("tccutil reset Accessibility com.locotine.saint");
   });
 });
 

@@ -1,6 +1,6 @@
 import "../index.css";
 
-import type { ServerProviderStatus } from "@synara/contracts";
+import type { ServerProviderStatus } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { page } from "vitest/browser";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";

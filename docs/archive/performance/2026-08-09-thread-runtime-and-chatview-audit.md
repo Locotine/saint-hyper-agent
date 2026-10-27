@@ -12,7 +12,7 @@ are the benchmark signals.
 ## Architecture and attribution boundary
 
 - Electron owns one main process, one primary browser renderer, Chromium GPU/utility
-  processes, and one Synara backend child. These are application infrastructure,
+  processes, and one Saint backend child. These are application infrastructure,
   not one process per thread.
 - A provider session normally owns an external provider process tree. Codex uses one
   `codex app-server` tree per provider session; Claude and ACP providers have similar
@@ -31,7 +31,7 @@ are the benchmark signals.
   those bounded warm leases still filter the shared event stream.
 
 CPU and RSS reported for `codex`, `claude`, `opencode`, or another provider child
-belong to that provider. Synara's additional cost is its Electron/backend process
+belong to that provider. Saint's additional cost is its Electron/backend process
 set, process-retention policy, provider event parsing/journaling/projection,
 WebSocket fanout, renderer work, PTY monitoring, and persistence.
 
@@ -51,15 +51,15 @@ bunx vite preview --config perf/vite.config.ts --host 127.0.0.1 --port 63912
 # Open /perf/?messages=1000&working=1
 ```
 
-The page exposes `window.__synaraPerf.snapshot()`, `resetMetrics()`,
+The page exposes `window.__saintPerf.snapshot()`, `resetMetrics()`,
 `scrollCycle(count)`, and `appendStreamingChunks(count)`. A cycle performs a
 scripted bottom-to-top-to-bottom stress pass aligned to animation frames.
 
 An isolated development instance used a separate database and ports:
 
 ```sh
-env -u SYNARA_AUTH_TOKEN SYNARA_PORT_OFFSET=4117 SYNARA_NO_BROWSER=1 \
-  bun run dev -- --home-dir ./.synara-perf-audit --port 59231
+env -u SAINT_AUTH_TOKEN SAINT_PORT_OFFSET=4117 SAINT_NO_BROWSER=1 \
+  bun run dev -- --home-dir ./.saint-perf-audit --port 59231
 ```
 
 The direct/provider-through comparison used this equivalent task:
@@ -81,13 +81,13 @@ and Bun, and must not be substituted for packaged-build measurements.
 
 ## Baseline runtime matrix
 
-| Scenario                                             | Synara CPU / memory                                                                           | Provider CPU / memory                                                              | Processes                                                               | Renderer/frame evidence                                                    | Observation                                                                                                                                                                                                                                                                                           |
+| Scenario                                             | Saint CPU / memory                                                                            | Provider CPU / memory                                                              | Processes                                                               | Renderer/frame evidence                                                    | Observation                                                                                                                                                                                                                                                                                           |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Packaged app, existing workload                      | Main 0.4% / 77 MB; server transient 7.9% / 178 MB; renderer 26.7% / 284 MB; GPU 25.8% / 48 MB | Two retained Claude children: 152 MB and 230 MB; 0.1-0.2% each                     | Electron main + server + renderer/GPU/helpers + provider trees          | Five-second renderer sample showed about 14% main-thread activity          | Uncontrolled snapshot; it shows renderer/GPU work can dominate while provider CPU is low.                                                                                                                                                                                                             |
-| Packaged backend, five-second sample                 | 269 MB physical, 387 MB peak; 4,110/4,211 main-thread samples in `kevent`                     | Not included                                                                       | One Synara backend                                                      | n/a                                                                        | The observed 7.9% was transient, not sustained backend CPU.                                                                                                                                                                                                                                           |
+| Packaged backend, five-second sample                 | 269 MB physical, 387 MB peak; 4,110/4,211 main-thread samples in `kevent`                     | Not included                                                                       | One Saint backend                                                       | n/a                                                                        | The observed 7.9% was transient, not sustained backend CPU.                                                                                                                                                                                                                                           |
 | Isolated dev, idle before changes                    | 0.3% / 93 MB server RSS after warm-up                                                         | One retained provider tree at 24 MB at the sampled instant                         | Backend + one warm provider pair; Vite/contracts are dev-only           | n/a                                                                        | Fixed journal fallback still performed four SQLite safety polls per second.                                                                                                                                                                                                                           |
 | One provider directly, during `sleep 15`             | none                                                                                          | Approximately 160 MB RSS, approximately 0% CPU                                     | Four including wrapper, native provider, code-mode host, and `sleep`    | n/a                                                                        | Provider-side reference cost.                                                                                                                                                                                                                                                                         |
-| Equivalent task through Synara                       | About 93 MB dev backend at the sampled instant                                                | Approximately 156 MB for the provider pair, approximately 0% CPU after completion  | Synara backend/browser plus provider tree                               | Response completed in 23 seconds                                           | The provider RSS was essentially the same as direct; Synara adds its own backend/browser processes and event pipeline. Model differed (GPT-5.5 through Synara versus GPT-5.6 direct), so wall time is not a valid latency comparison.                                                                 |
+| Equivalent task through Saint                        | About 93 MB dev backend at the sampled instant                                                | Approximately 156 MB for the provider pair, approximately 0% CPU after completion  | Saint backend/browser plus provider tree                                | Response completed in 23 seconds                                           | The provider RSS was essentially the same as direct; Saint adds its own backend/browser processes and event pipeline. Model differed (GPT-5.5 through Saint versus GPT-5.6 direct), so wall time is not a valid latency comparison.                                                                   |
 | Three concurrent dev sessions                        | 1.89 GB backend RSS and 6.8% sampled CPU                                                      | 299 MB total RSS across three provider pairs, approximately 0% CPU at the snapshot | One backend + six core provider processes, before optional MCP children | Separate dev browser pages                                                 | `server.getDiagnostics` with two sessions showed only 78 MB JS heap versus 1.03 GB RSS and 195 MB provider-child RSS. The excess was Bun/native memory, not transcript heap or provider RSS. This did not reproduce in the packaged backend sample and is classified as development-runtime overhead. |
 | Completed sessions left open                         | Backend remains; provider trees remain warm for up to ten minutes                             | Idle provider processes remain by policy                                           | One pair per warm provider session (provider dependent)                 | Inactive thread details are bounded to 32 client entries / 8 server leases | Bounded warm-resume tradeoff, not an orphan leak.                                                                                                                                                                                                                                                     |
 | Application shutdown after active/recovered sessions | Server exited                                                                                 | All observed provider descendants exited                                           | Zero descendants from the isolated tree                                 | n/a                                                                        | Explicit PID checks verified cleanup after SIGTERM.                                                                                                                                                                                                                                                   |
@@ -117,7 +117,7 @@ approximately zero CPU/GPU, confirming the animation as an independent idle cost
 
 ## Confirmed findings and implementation decisions
 
-### 1. Durable journal safety polling (medium/high idle impact, Synara-owned)
+### 1. Durable journal safety polling (medium/high idle impact, Saint-owned)
 
 `ProviderRuntimeIngestion` used a fixed 250 ms fallback poll. Even when caught up,
 every tick read the journal high-water sequence and consumer cursor. The live
@@ -134,7 +134,7 @@ after re-profiling exposed runaway CPU/RSS in Bun.
 - Live event latency is unchanged. A genuinely missed notification can now take up
   to five seconds to recover, while normal publication remains immediate.
 
-### 2. Unrelated streaming updates scanned retained thread entries (medium under concurrency, Synara renderer-owned)
+### 2. Unrelated streaming updates scanned retained thread entries (medium under concurrency, Saint renderer-owned)
 
 The global retention subscriber reconciled as many as 32 entries on every Zustand
 mutation, including every message/token update. It also reconstructed thread detail
@@ -148,7 +148,7 @@ For 100 message-only mutations with 32 retained entries, the avoidable lifecycle
 inspection upper bound falls from 3,200 to zero. Provider behavior is irrelevant to
 this path.
 
-### 3. Infinite ChatView working shimmer (medium steady renderer impact, Synara-owned; retained by design)
+### 3. Infinite ChatView working shimmer (medium steady renderer impact, Saint-owned; retained by design)
 
 Both the worktree-setup and generic working labels originally used an infinite
 text-mask animation. The working status is often present while the provider is
@@ -169,18 +169,18 @@ part of the desired product feedback. The table therefore records a measured
 tradeoff rather than a shipped CPU reduction. No streaming, event ordering, or
 auto-scroll behavior was changed.
 
-### 4. Claude lifecycle lock map retained every historical thread (low per thread, unbounded, Synara-owned)
+### 4. Claude lifecycle lock map retained every historical thread (low per thread, unbounded, Saint-owned)
 
 `ClaudeAdapter` stored one semaphore per thread ID and never removed keys. A shared
 ref-counted keyed lock now counts holders plus waiters and deletes a key after the
 last user exits, including failure paths. `ProviderService` uses the same helper for
 its binding write lock, so the provider-specific fix reuses shared lifecycle logic.
 
-### 5. Per-event durable journal cost (medium/high while streaming, Synara-owned; measured but not changed)
+### 5. Per-event durable journal cost (medium/high while streaming, Saint-owned; measured but not changed)
 
 Every canonical provider event, including `content.delta`, is durably appended
 before UI publication. The current append performs an event-id read and an insert in
-a transaction. This maps provider chunk frequency directly to Synara SQLite work.
+a transaction. This maps provider chunk frequency directly to Saint SQLite work.
 
 A single `INSERT ... ON CONFLICT` alternative was compared with the current lookup
 plus transactional insert. The revised microbenchmark uses file-backed SQLite with
@@ -248,7 +248,7 @@ product choice.
 - `ClaudeAdapter.test.ts`: 143 tests passed.
 - `ProviderService.test.ts`: 79 tests passed.
 - Production transcript harness build completed.
-- Shutdown PID audit found zero remaining descendants from the isolated Synara tree.
+- Shutdown PID audit found zero remaining descendants from the isolated Saint tree.
 - `bun fmt`: passed.
 - `bun lint`: passed with 0 errors and 401 existing warnings.
 - `bun typecheck`: 7/7 packages passed.

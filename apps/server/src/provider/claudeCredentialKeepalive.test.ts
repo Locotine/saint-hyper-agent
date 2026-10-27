@@ -3,7 +3,7 @@
 // Layer: Provider utility tests.
 // Exports: Vitest coverage for apps/server/src/provider/claudeCredentialKeepalive.ts.
 import { describe, it, assert } from "@effect/vitest";
-import { DEFAULT_SERVER_SETTINGS } from "@synara/contracts";
+import { DEFAULT_SERVER_SETTINGS } from "@saint/contracts";
 
 import {
   CLAUDE_CREDENTIAL_KEEPALIVE_AUTH_STATUS_ARGS,
@@ -26,14 +26,14 @@ describe("claudeCredentialKeepalive", () => {
     assert.equal(
       isClaudeCredentialKeepaliveEnabled({
         platform: "darwin",
-        env: { SYNARA_CLAUDE_KEEPALIVE: "1" },
+        env: { SAINT_CLAUDE_KEEPALIVE: "1" },
       }),
       true,
     );
     assert.equal(
       isClaudeCredentialKeepaliveEnabled({
         platform: "linux",
-        env: { SYNARA_CLAUDE_KEEPALIVE: "1" },
+        env: { SAINT_CLAUDE_KEEPALIVE: "1" },
       }),
       false,
     );
@@ -55,13 +55,13 @@ describe("claudeCredentialKeepalive", () => {
   it("clamps keepalive intervals to Node's maximum timer delay", () => {
     assert.equal(
       resolveClaudeCredentialKeepaliveIntervalMs({
-        SYNARA_CLAUDE_KEEPALIVE_MINUTES: "60",
+        SAINT_CLAUDE_KEEPALIVE_MINUTES: "60",
       }),
       60 * 60 * 1000,
     );
     assert.equal(
       resolveClaudeCredentialKeepaliveIntervalMs({
-        SYNARA_CLAUDE_KEEPALIVE_MINUTES: "999999999",
+        SAINT_CLAUDE_KEEPALIVE_MINUTES: "999999999",
       }),
       CLAUDE_CREDENTIAL_KEEPALIVE_MAX_INTERVAL_MS,
     );
@@ -70,7 +70,7 @@ describe("claudeCredentialKeepalive", () => {
   it("falls back to the default interval for invalid tuning values", () => {
     assert.equal(
       resolveClaudeCredentialKeepaliveIntervalMs({
-        SYNARA_CLAUDE_KEEPALIVE_MINUTES: "0",
+        SAINT_CLAUDE_KEEPALIVE_MINUTES: "0",
       }),
       30 * 60 * 1000,
     );
@@ -171,7 +171,7 @@ describe("claudeCredentialKeepalive", () => {
     let settled = false;
     const handle = startClaudeCredentialKeepalive({
       platform: "darwin",
-      env: { SYNARA_CLAUDE_KEEPALIVE: "1" },
+      env: { SAINT_CLAUDE_KEEPALIVE: "1" },
       runAuthStatus: ({ signal }) =>
         new Promise<void>((resolve) => {
           markStarted();

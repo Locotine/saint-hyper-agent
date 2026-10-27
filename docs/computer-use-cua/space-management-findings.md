@@ -1,7 +1,7 @@
 # macOS Space management — verified findings (SIP, arm64)
 
 > Historical fixture experiments on their recorded OS and driver revisions.
-> Synara currently exposes observed window membership only, not a complete
+> Saint currently exposes observed window membership only, not a complete
 > Space inventory or create/switch/move/owned-Space tools. These experiments do
 > not make an agent-owned workspace available in the product. See the
 > [current platform boundaries](README.md#linux-and-spaces-boundaries).
@@ -172,10 +172,10 @@ Dock performs these operations because it holds
 
 ```sh
 sh scripts/computer-use-fixtures/build-space-ctl.sh
-/private/tmp/synara-cua-implementation/space-ctl list
-/private/tmp/synara-cua-implementation/space-ctl all-spaces
-/private/tmp/synara-cua-implementation/space-ctl create-orphan   # prints managed=0
-/private/tmp/synara-cua-implementation/space-ctl move <sid> <wid>  # verified=0
+/private/tmp/saint-cua-implementation/space-ctl list
+/private/tmp/saint-cua-implementation/space-ctl all-spaces
+/private/tmp/saint-cua-implementation/space-ctl create-orphan   # prints managed=0
+/private/tmp/saint-cua-implementation/space-ctl move <sid> <wid>  # verified=0
 ```
 
 Freshly built binaries may be Gatekeeper-killed (`exit 137`); copy to a new

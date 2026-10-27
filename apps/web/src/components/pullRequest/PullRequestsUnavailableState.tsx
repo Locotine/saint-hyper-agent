@@ -155,13 +155,13 @@ export function PullRequestsUnavailableState({
         </EmptyTitle>
         <EmptyDescription>
           {notInstalled
-            ? "Synara reads GitHub data only through the gh CLI. Install it, then reopen this view."
+            ? "Saint reads GitHub data only through the gh CLI. Install it, then reopen this view."
             : notAuthenticated
               ? "Authenticate the GitHub CLI in a terminal, then retry."
               : rateLimited
                 ? resetTime
-                  ? `Synara pauses GitHub requests until the limit resets at ${resetTime}.`
-                  : "Synara pauses GitHub requests until the limit resets."
+                  ? `Saint pauses GitHub requests until the limit resets at ${resetTime}.`
+                  : "Saint pauses GitHub requests until the limit resets."
                 : error instanceof Error
                   ? error.message
                   : "The request to GitHub failed."}

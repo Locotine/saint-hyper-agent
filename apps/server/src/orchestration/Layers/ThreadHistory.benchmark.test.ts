@@ -9,7 +9,7 @@ import {
   ProjectId,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { expect, it } from "vitest";
@@ -36,16 +36,16 @@ const median = (values: readonly number[]) => {
 
 // Opt-in only (issue #1900): grows one thread's activity history through the real
 // engine and times the per-event reads that scale with that history.
-it.skipIf(!process.env.SYNARA_HISTORY_BENCHMARK_OUTPUT)(
+it.skipIf(!process.env.SAINT_HISTORY_BENCHMARK_OUTPUT)(
   "measures thread reads as activity history grows",
   async () => {
-    const output = process.env.SYNARA_HISTORY_BENCHMARK_OUTPUT!;
-    const milestones = (process.env.SYNARA_HISTORY_BENCHMARK_MILESTONES ?? "1000,5000,20000")
+    const output = process.env.SAINT_HISTORY_BENCHMARK_OUTPUT!;
+    const milestones = (process.env.SAINT_HISTORY_BENCHMARK_MILESTONES ?? "1000,5000,20000")
       .split(",")
       .map(Number);
-    const payloadBytes = Number(process.env.SYNARA_HISTORY_BENCHMARK_PAYLOAD_BYTES ?? 4_000);
+    const payloadBytes = Number(process.env.SAINT_HISTORY_BENCHMARK_PAYLOAD_BYTES ?? 4_000);
     const samples = 5;
-    const dir = await mkdtemp(join(tmpdir(), "synara-history-benchmark-"));
+    const dir = await mkdtemp(join(tmpdir(), "saint-history-benchmark-"));
     const dbPath = join(dir, "state.sqlite");
     const runtime = ManagedRuntime.make(
       OrchestrationEngineLive.pipe(

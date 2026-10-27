@@ -25,7 +25,7 @@ describe("composer transport status", () => {
     vi.advanceTimersByTime(1499);
     expect(message).toBeNull();
     vi.advanceTimersByTime(1);
-    expect(message).toBe("Reconnecting to Synara…");
+    expect(message).toBe("Reconnecting to Saint…");
     emitWsTransportState("open");
     expect(message).toBeNull();
   });
@@ -37,7 +37,7 @@ describe("composer transport status", () => {
     vi.advanceTimersByTime(1000);
     emitWsTransportState("connecting");
     vi.advanceTimersByTime(500);
-    expect(message).toBe("Reconnecting to Synara…");
+    expect(message).toBe("Reconnecting to Saint…");
   });
 
   it("cancels brief blips and starts a fresh delay for the next outage", () => {
@@ -52,12 +52,12 @@ describe("composer transport status", () => {
     vi.advanceTimersByTime(1499);
     expect(message).toBeNull();
     vi.advanceTimersByTime(1);
-    expect(message).toBe("Reconnecting to Synara…");
+    expect(message).toBe("Reconnecting to Saint…");
   });
 
   it.each([
-    ["incompatible", "Synara connection is incompatible."],
-    ["disposed", "Disconnected from Synara."],
+    ["incompatible", "Saint connection is incompatible."],
+    ["disposed", "Disconnected from Saint."],
   ] as const)("does not promise reconnection for %s", (state, expected) => {
     let message: string | null = null;
     unsubscribe = subscribeComposerTransportStatus((value) => (message = value));
@@ -72,12 +72,12 @@ describe("composer transport status", () => {
     const messages: (string | null)[] = [];
     unsubscribe = subscribeComposerTransportStatus((value) => messages.push(value));
     vi.advanceTimersByTime(1500);
-    expect(messages).toEqual(["Reconnecting to Synara…"]);
+    expect(messages).toEqual(["Reconnecting to Saint…"]);
     emitWsTransportState("open");
     emitWsTransportState("closed");
     unsubscribe();
     vi.advanceTimersByTime(2000);
     emitWsTransportState("open");
-    expect(messages).toEqual(["Reconnecting to Synara…", null]);
+    expect(messages).toEqual(["Reconnecting to Saint…", null]);
   });
 });

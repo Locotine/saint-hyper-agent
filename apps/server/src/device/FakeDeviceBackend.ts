@@ -21,7 +21,7 @@ import type {
   DeviceScreenshotResult,
   DeviceStartRecordingResult,
   DeviceStopRecordingResult,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import {
   DeviceBackendError,
@@ -175,14 +175,14 @@ export class FakeDeviceBackend implements DeviceBackend {
     this.failures.set(kind, error);
   }
 
-  /** Mark a device booted without going through Synara, as Simulator.app would. */
+  /** Mark a device booted without going through Saint, as Simulator.app would. */
   bootExternally(udid: string): void {
     const device = this.requireDevice(udid);
     this.devices.set(udid, { ...device, state: "booted", bootSource: "user" });
   }
 
   /**
-   * Stop a device behind Synara's back, as `simctl shutdown` from a shell or a
+   * Stop a device behind Saint's back, as `simctl shutdown` from a shell or a
    * crashed runtime would. The manager gets no notification, which is exactly
    * the case that used to leave a phantom holding a slot in the boot cap.
    */

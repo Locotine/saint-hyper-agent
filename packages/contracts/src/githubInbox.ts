@@ -18,7 +18,7 @@ import {
 } from "./pullRequests";
 
 // The inbox lists pull requests and issues for the GitHub repositories of the projects added in
-// Synara. Detail, diff, actions, comments, and pins for pull requests stay in `pullRequests.ts`.
+// Saint. Detail, diff, actions, comments, and pins for pull requests stay in `pullRequests.ts`.
 //
 // Pins: `pullRequests.setPinned` pins issues too. GitHub numbers pull requests and issues from one
 // sequence per repository, so (project, repository, number) identifies either kind and the pin

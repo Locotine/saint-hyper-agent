@@ -2,7 +2,7 @@
 // Boots the same `localImageEffectRouteLayer` that `makeEffectHttpRouteLayer` wires
 // into `effectServer.ts` and exercises it through a real HTTP listener.
 import http from "node:http";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -11,7 +11,7 @@ import {
   DEFAULT_SERVER_SETTINGS,
   ServerSettingsError,
   type ProviderInstanceId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { DateTime, Effect, Exit, Layer, Scope, Stream } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import { afterEach, describe, expect, it } from "vitest";
@@ -24,7 +24,12 @@ import {
   ServerConfig,
   type ServerConfigShape,
 } from "./config";
-import { attachmentsEffectRouteLayer, localImageEffectRouteLayer } from "./http";
+import {
+  attachmentsEffectRouteLayer,
+  htmlPreviewEffectRouteLayer,
+  localImageEffectRouteLayer,
+} from "./http";
+import { createHtmlPreviewGrant } from "./htmlPreviewFiles";
 import { createLocalPreviewGrant } from "./localImageFiles";
 import type { CodexGeneratedImageHomeCandidate } from "./codexGeneratedImages.ts";
 import { ManagedAttachmentRepositoryLive } from "./persistence/Layers/ManagedAttachments";
@@ -67,7 +72,7 @@ function makeGeneratedImage(prefix: string): { readonly homePath: string; readon
 }
 
 function makeServerConfig(overrides: Partial<ServerConfigShape> = {}): ServerConfigShape {
-  const baseDir = makeTempDir("synara-effect-route-");
+  const baseDir = makeTempDir("saint-effect-route-");
   return {
     mode: "web",
     port: 0,
@@ -100,7 +105,7 @@ function makeFakeServerAuth(): ServerAuthShape {
     policy: "loopback-browser" as const,
     bootstrapMethods: ["one-time-token" as const],
     sessionMethods: ["browser-session-cookie" as const, "bearer-session-token" as const],
-    sessionCookieName: "synara_session",
+    sessionCookieName: "saint_session",
   };
   const session = {
     sessionId: "session-id" as never,
@@ -211,7 +216,10 @@ function makeServerSettings(getSettings: ServerSettingsShape["getSettings"]): Se
 
 async function withEffectServer(
   config: ServerConfigShape,
-  routeLayer: typeof localImageEffectRouteLayer | typeof attachmentsEffectRouteLayer,
+  routeLayer:
+    | typeof localImageEffectRouteLayer
+    | typeof attachmentsEffectRouteLayer
+    | typeof htmlPreviewEffectRouteLayer,
   run: (origin: string) => Promise<void>,
   options: {
     readonly providerRegistry?: typeof ProviderAdapterRegistry.Service;
@@ -245,7 +253,9 @@ async function withEffectServer(
           );
           const httpApp = yield* routeLayer === localImageEffectRouteLayer
             ? HttpRouter.toHttpEffect(localImageEffectRouteLayer)
-            : HttpRouter.toHttpEffect(attachmentsEffectRouteLayer);
+            : routeLayer === htmlPreviewEffectRouteLayer
+              ? HttpRouter.toHttpEffect(htmlPreviewEffectRouteLayer)
+              : HttpRouter.toHttpEffect(attachmentsEffectRouteLayer);
           yield* httpServer.serve(httpApp);
         }).pipe(Effect.provide(servicesLayer)),
         scope,
@@ -264,7 +274,7 @@ async function withEffectServer(
 
 describe("localImageEffectRouteLayer", () => {
   it("serves an allowlisted workspace image and signals downloads via Content-Disposition", async () => {
-    const workspace = makeTempDir("synara-effect-image-workspace-");
+    const workspace = makeTempDir("saint-effect-image-workspace-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
     const imagePath = path.join(workspace, "hero.png");
     writeFileSync(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
@@ -287,7 +297,7 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("downloads files whose names are not plain ASCII through an RFC 5987 filename", async () => {
-    const workspace = makeTempDir("synara-effect-image-unicode-name-");
+    const workspace = makeTempDir("saint-effect-image-unicode-name-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
     const config = makeServerConfig({ cwd: workspace });
     const files = [
@@ -328,9 +338,9 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("serves an absolute local image outside the workspace for file-panel previews", async () => {
-    const workspace = makeTempDir("synara-effect-image-workspace-");
+    const workspace = makeTempDir("saint-effect-image-workspace-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
-    const externalRoot = makeTempDir("synara-effect-external-preview-");
+    const externalRoot = makeTempDir("saint-effect-external-preview-");
     const imagePath = path.join(externalRoot, "downloads-file.pdf");
     writeFileSync(imagePath, Buffer.from("%PDF-1.7"));
     const config = makeServerConfig({ cwd: workspace });
@@ -387,7 +397,7 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("serves an allowlisted workspace PDF and only allows the desktop app origin to read it", async () => {
-    const workspace = makeTempDir("synara-effect-pdf-workspace-");
+    const workspace = makeTempDir("saint-effect-pdf-workspace-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
     const pdfPath = path.join(workspace, "spec.pdf");
     writeFileSync(pdfPath, Buffer.from("%PDF-1.4"));
@@ -396,14 +406,14 @@ describe("localImageEffectRouteLayer", () => {
     await withEffectServer(config, localImageEffectRouteLayer, async (origin) => {
       const params = new URLSearchParams({ path: pdfPath, cwd: workspace });
       const response = await fetch(`${origin}/api/local-image?${params}`, {
-        headers: { Origin: "synara://app" },
+        headers: { Origin: "saint://app" },
       });
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("application/pdf");
       expect(response.headers.get("x-content-type-options")).toBe("nosniff");
       // The in-app viewer fetches bytes cross-origin, but only trusted app
       // origins should get a CORS-readable response.
-      expect(response.headers.get("access-control-allow-origin")).toBe("synara://app");
+      expect(response.headers.get("access-control-allow-origin")).toBe("saint://app");
       expect(response.headers.get("vary")).toBe("Origin");
       // Streamed responses must still advertise their size so the browser's
       // PDF viewer can show load progress.
@@ -416,7 +426,7 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("allows the configured Vite dev origin to read PDF bytes", async () => {
-    const workspace = makeTempDir("synara-effect-pdf-dev-origin-");
+    const workspace = makeTempDir("saint-effect-pdf-dev-origin-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
     const pdfPath = path.join(workspace, "spec.pdf");
     writeFileSync(pdfPath, Buffer.from("%PDF-1.4"));
@@ -437,7 +447,7 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("does not expose local preview bytes to untrusted web origins through CORS", async () => {
-    const workspace = makeTempDir("synara-effect-pdf-untrusted-origin-");
+    const workspace = makeTempDir("saint-effect-pdf-untrusted-origin-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
     const pdfPath = path.join(workspace, "spec.pdf");
     writeFileSync(pdfPath, Buffer.from("%PDF-1.4"));
@@ -456,25 +466,25 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("exposes missing-file errors to desktop downloads without allowing untrusted origins", async () => {
-    const workspace = makeTempDir("synara-effect-missing-image-");
+    const workspace = makeTempDir("saint-effect-missing-image-");
     const config = makeServerConfig({ cwd: workspace });
     await withEffectServer(config, localImageEffectRouteLayer, async (origin) => {
       const params = new URLSearchParams({ path: "missing.png", cwd: workspace, download: "1" });
-      for (const requestOrigin of ["synara://app", "https://example.test"]) {
+      for (const requestOrigin of ["saint://app", "https://example.test"]) {
         const response = await fetch(`${origin}/api/local-image?${params}`, {
           headers: { Origin: requestOrigin },
         });
         expect(response.status).toBe(404);
         expect(await response.text()).toBe("Not Found");
         expect(response.headers.get("access-control-allow-origin")).toBe(
-          requestOrigin === "synara://app" ? requestOrigin : null,
+          requestOrigin === "saint://app" ? requestOrigin : null,
         );
       }
     });
   });
 
   it("returns 404 when the requested path has an unsupported extension", async () => {
-    const workspace = makeTempDir("synara-effect-image-bad-ext-");
+    const workspace = makeTempDir("saint-effect-image-bad-ext-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
     const docPath = path.join(workspace, "notes.txt");
     writeFileSync(docPath, "hello");
@@ -488,9 +498,9 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("serves generated images from live Codex session homes after settings drift", async () => {
-    const workspace = makeTempDir("synara-effect-image-live-session-workspace-");
+    const workspace = makeTempDir("saint-effect-image-live-session-workspace-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
-    const image = makeGeneratedImage("synara-live-codex-home-");
+    const image = makeGeneratedImage("saint-live-codex-home-");
     const config = makeServerConfig({ cwd: workspace });
     const liveHomes = makeGeneratedImageHomeRegistry([
       { instanceId: "codex" as ProviderInstanceId, homePath: image.homePath },
@@ -514,9 +524,9 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("serves live Codex session images when settings cannot be read", async () => {
-    const workspace = makeTempDir("synara-effect-image-settings-failure-workspace-");
+    const workspace = makeTempDir("saint-effect-image-settings-failure-workspace-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
-    const image = makeGeneratedImage("synara-live-codex-settings-failure-home-");
+    const image = makeGeneratedImage("saint-live-codex-settings-failure-home-");
     const config = makeServerConfig({ cwd: workspace });
     const liveHomes = makeGeneratedImageHomeRegistry([
       { instanceId: "codex_work" as ProviderInstanceId, homePath: image.homePath },
@@ -548,9 +558,9 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("filters live Codex session images to instances enabled by readable settings", async () => {
-    const workspace = makeTempDir("synara-effect-image-settings-scope-workspace-");
+    const workspace = makeTempDir("saint-effect-image-settings-scope-workspace-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
-    const disabledImage = makeGeneratedImage("synara-live-codex-disabled-home-");
+    const disabledImage = makeGeneratedImage("saint-live-codex-disabled-home-");
     const config = makeServerConfig({ cwd: workspace });
     const settings = {
       ...DEFAULT_SERVER_SETTINGS,
@@ -591,7 +601,7 @@ describe("localImageEffectRouteLayer", () => {
   });
 
   it("returns 404 for missing files", async () => {
-    const workspace = makeTempDir("synara-effect-image-missing-");
+    const workspace = makeTempDir("saint-effect-image-missing-");
     writeFileSync(path.join(workspace, ".git"), "gitdir: .git");
     const ghostPath = path.join(workspace, "does-not-exist.png");
     const config = makeServerConfig({ cwd: workspace });
@@ -641,5 +651,59 @@ describe("attachmentsEffectRouteLayer", () => {
         expect(response.status, prefix).toBe(404);
       }
     });
+  });
+});
+
+describe("htmlPreviewEffectRouteLayer", () => {
+  it("streams a large page and its relative assets as a sandboxed document", async () => {
+    const root = makeTempDir("saint-html-preview-");
+    const site = path.join(root, "site");
+    mkdirSync(path.join(site, "assets"), { recursive: true });
+    const page = `<html><body>${"x".repeat(8 * 1024 * 1024)}</body></html>`;
+    writeFileSync(path.join(site, "report page.html"), page);
+    writeFileSync(path.join(site, "assets", "app.css"), "body{color:red}");
+    writeFileSync(path.join(site, ".env"), "SECRET=1");
+    writeFileSync(path.join(root, "outside.txt"), "outside");
+    symlinkSync(path.join(root, "outside.txt"), path.join(site, "link.txt"));
+    const { grant, entryName } = await createHtmlPreviewGrant({
+      requestedPath: path.join(site, "report page.html"),
+    });
+    expect(entryName).toBe("report page.html");
+
+    await withEffectServer(
+      makeServerConfig({ cwd: root }),
+      htmlPreviewEffectRouteLayer,
+      async (origin) => {
+        const base = `${origin}/api/html-preview/${grant}`;
+        const entry = await fetch(`${base}/${encodeURIComponent(entryName)}`);
+        expect(entry.status).toBe(200);
+        expect(entry.headers.get("content-type")).toContain("text/html");
+        expect(entry.headers.get("content-security-policy")).toContain("sandbox allow-scripts");
+        expect((await entry.text()).length).toBe(page.length);
+
+        const asset = await fetch(`${base}/assets/app.css`);
+        expect(asset.status).toBe(200);
+        expect(await asset.text()).toBe("body{color:red}");
+
+        for (const blocked of [
+          `${base}/.env`,
+          `${base}/link.txt`,
+          `${base}/%2E%2E/outside.txt`,
+          `${base}/..%2Foutside.txt`,
+          `${origin}/api/html-preview/not-a-grant/${encodeURIComponent(entryName)}`,
+        ]) {
+          expect((await fetch(blocked)).status, blocked).toBe(404);
+        }
+      },
+    );
+  });
+
+  it("refuses to grant files that are not HTML", async () => {
+    const root = makeTempDir("saint-html-preview-reject-");
+    writeFileSync(path.join(root, "notes.txt"), "x");
+    await expect(
+      createHtmlPreviewGrant({ requestedPath: path.join(root, "notes.txt") }),
+    ).rejects.toThrow("HTML file not found.");
+    await expect(createHtmlPreviewGrant({ requestedPath: "relative.html" })).rejects.toThrow();
   });
 });

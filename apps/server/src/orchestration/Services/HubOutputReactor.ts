@@ -8,7 +8,7 @@
  *
  * @module HubOutputReactor
  */
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { ServiceMap } from "effect";
 import type { Effect, Scope } from "effect";
 
@@ -57,5 +57,5 @@ export interface HubOutputReactorShape {
  * HubOutputReactor - Service tag for the Hub output capture worker.
  */
 export class HubOutputReactor extends ServiceMap.Service<HubOutputReactor, HubOutputReactorShape>()(
-  "synara/orchestration/Services/HubOutputReactor",
+  "saint/orchestration/Services/HubOutputReactor",
 ) {}

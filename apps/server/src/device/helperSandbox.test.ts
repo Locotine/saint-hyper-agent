@@ -55,7 +55,7 @@ describe("the opt-out", () => {
 
 describe("sandboxedHelperCommand", () => {
   const context = {
-    binaryPath: "/tmp/helper-cache/synara-device-helper",
+    binaryPath: "/tmp/helper-cache/saint-device-helper",
     helperSourceDir: HELPER_SOURCE_DIR,
     developerDir: "/Applications/Xcode.app/Contents/Developer",
   };

@@ -108,14 +108,14 @@ script `https://opencode.ai/install`.
 **Primary source:** [Pi docs in earendil-works/pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/index.md)
 checked 2026-08-07 (HTTP 200); `https://pi.dev/install.sh` HTTP 200.
 
-## Synara (project self-links)
+## Saint (project self-links)
 
 **Claims:** GitHub issues / new-issue links, releases, main-branch repository, and canary
 setup docs.
 
-**Primary source:** Local checkout `/tmp/synara` (checked 2026-08-07): `docs/canary.md`
-(Canary isolation, app name `Synara Canary`, bundle ID `com.emanueledipietro.synara.canary`,
-data dir `~/.synara-canary`) and `README.md` (MCP-native agent harness description).
+**Primary source:** Local checkout `/tmp/saint` (checked 2026-08-07): `docs/canary.md`
+(Canary isolation, app name `Saint Canary`, bundle ID `com.locotine.saint.canary`,
+data dir `~/.saint-canary`) and `README.md` (MCP-native agent harness description).
 Live GitHub URLs `https://github.com/Emanuele-web04/synara*` verified HTTP 200 on 2026-08-07.
 
 ## Site metadata (src/lib/seo.ts)
@@ -151,7 +151,7 @@ contains no cursor-agent mentions, so the live web check is the authoritative so
 
 **Decision — CORRECT:** removal of `cursor-agent upgrade` stands.
 
-## Synara — `/config` slash command (evidence-trail addendum)
+## Saint — `/config` slash command (evidence-trail addendum)
 
 **Claim removed:** `content/docs/reference/slash-commands.mdx` listed `/config` ("Open
 settings") among built-in slash commands.
@@ -164,7 +164,7 @@ the app.
 **Decision — REMOVAL STANDS:** evidence source is the app's built-in command list
 (unverified in this repo) — **needs app-source confirmation, low risk**.
 
-## Synara v0.7.2 feature documentation
+## Saint v0.7.2 feature documentation
 
 Date checked: **2026-08-15**
 
@@ -173,8 +173,8 @@ mode; full-thread and message-level forks; native fork coverage; local/worktree 
 the macOS iOS Simulator pane and device controls; workspace file and source search; stacked
 pull-request navigation and prefix merging; automation consecutive-failure policies.
 
-**Primary source:** Local Synara checkout
-`/Users/emanueledipietro/Developer/synara` at release tag `v0.7.2`, commit
+**Primary source:** Local Saint checkout
+`/Users/emanueledipietro/Developer/saint` at release tag `v0.7.2`, commit
 `18ff99857d5b84adab2019c2839fa4f6df761b7c`.
 
 Key source paths checked:
@@ -201,18 +201,18 @@ Key source paths checked:
 `docs/device-pane-spec.md` was treated as historical design context only because several
 pre-implementation non-goals changed before v0.7.2 shipped.
 
-## Synara v0.7.3 feature documentation
+## Saint v0.7.3 feature documentation
 
 Date checked: **2026-08-21**
 
 **Claims:** Guarded desktop quit and startup continuation; a floating task-owned browser;
 usage views for every locally verifiable provider; first-class WSL UNC launching; optional
-custom title bars on Windows and Linux; the headless release tarball and `synara server
+custom title bars on Windows and Linux; the headless release tarball and `saint server
 status`; cross-provider `/side`; and provider streaming, diagnostic, workspace, and runtime
 reliability fixes.
 
-**Primary source:** Local Synara checkout
-`/Users/emanueledipietro/Developer/synara` at the v0.7.3 release commit
+**Primary source:** Local Saint checkout
+`/Users/emanueledipietro/Developer/saint` at the v0.7.3 release commit
 `a93c47e275870f34ec7aa8cd72f2a0ff6246db7c`. The audited range from v0.7.2 contains 224
 commits, including 50 merge commits, across 321 changed files.
 
@@ -242,7 +242,7 @@ Key source paths checked:
 intermediate merge. The experimental DeepSeek Harness work was reverted before v0.7.3 and
 is therefore explicitly excluded from the shipped provider list.
 
-## Synara v0.8.0 feature documentation
+## Saint v0.8.0 feature documentation
 
 Date checked: **2026-09-01**
 
@@ -253,8 +253,8 @@ side-chat panes; sidebar navigation ordering; file actions and path/PDF handling
 Code removal and migration to OpenCode; and the release's security and platform boundary
 fixes.
 
-**Primary source:** Local Synara checkout
-`/Users/emanueledipietro/Developer/synara` at pre-release head
+**Primary source:** Local Saint checkout
+`/Users/emanueledipietro/Developer/saint` at pre-release head
 `8b428c474d49583637ad899fd9ada61cc40b18da`. The audited range from v0.7.3 contains 94
 commits, including 61 merged pull requests, across 518 changed files.
 
@@ -278,7 +278,7 @@ Key source paths checked:
 the 0.8.0 release. Historical Kilo Code references remain only inside older release notes;
 current provider navigation and marketing surfaces point to Devin CLI.
 
-## Synara v0.8.2 — 2026-09-06
+## Saint v0.8.2 — 2026-09-06
 
 Release-range audit: `v0.8.1..6edbd1b1a9a8d947f06a3d7f6b2e0f28654ae9a4` (43 commits). Product behavior was checked against this source head; the release commit adds version metadata and documentation to that source.
 
@@ -294,11 +294,11 @@ Release-range audit: `v0.8.1..6edbd1b1a9a8d947f06a3d7f6b2e0f28654ae9a4` (43 comm
 
 Source range: v0.8.2 through 1ff70e178 (the complete code changes included in v0.8.3). Provider recovery is grounded in apps/server/package.json and commit c34389ae8; packaged validation in apps/server/src/runtimeDependencySmoke.ts and scripts/verify-packaged-desktop-startup.ts. Persistent diff layout is grounded in apps/web/src/components/DiffPanel.tsx and its browser regression test. Existing organize and provider-troubleshooting guides were updated with focused contract coverage; no new navigation entries or external links were needed.
 
-## Synara v0.8.4 feature documentation
+## Saint v0.8.4 feature documentation
 
 Date checked: **2026-09-14**
 
-**Authority:** Local Synara checkout at pre-release product head
+**Authority:** Local Saint checkout at pre-release product head
 `0eaf3831e`, audited across the complete `v0.8.3..0eaf3831e` range.
 Release preparation additionally fixes Node 24 SQLite embedded-NUL text preservation,
 with completion/restart/resume regression coverage; this does not change the documented
@@ -356,9 +356,9 @@ operating guides; quantitative claims require the release's benchmark evidence.
 **Mirrors:** The release additions are synchronized to both public documentation trees;
 existing site-specific formatting and unrelated documentation differences are retained.
 
-## Synara 0.9.0 release audit — 2026-09-21
+## Saint 0.9.0 release audit — 2026-09-21
 
-Authority: Synara feature head `f3cffcb66bc205c5900bc7720b61d37b7cb39d5f`,
+Authority: Saint feature head `f3cffcb66bc205c5900bc7720b61d37b7cb39d5f`,
 complete ancestry since `v0.8.4`, and the final 0.9.0 release commit (version,
 notes and documentation changes after that feature head). Reviewed 51 included
 PR merge SHAs plus direct commits. #1197 was reverted; retired Computer
@@ -391,18 +391,18 @@ Use. Permission flows, every live provider/app combination, multi-display input
 and personalized installed-app signing were not certified by this docs audit.
 Existing external links are unchanged. UI/CI-only changes are covered by release
 notes, without unsupported battery, latency or package-size percentages. The new
-and updated guides are mirrored to Synara's marketing docs without replacing
+and updated guides are mirrored to Saint's marketing docs without replacing
 unrelated site-specific content.
 
-## Synara 1.0.5 Stable / 1.0.6-beta.1 audit — 2026-10-15
+## Saint 1.0.5 Stable / 1.0.6-beta.1 audit — 2026-10-15
 
 Authority: feature head `4b2441d1040080324f458602e30fbb7f946cb1f5`, tree
 `84da13f198460c42b11fd12db7ddeeb935cd7cc8`; complete Stable range after
 `v1.0.4` and Beta range after `v1.0.2-beta.1`. Per-change source map:
-Synara `docs/releases/1.0.5-source-audit.md`.
+Saint `docs/releases/1.0.5-source-audit.md`.
 
 Production deploys from the separate website repository; apps/marketing is the
-Synara repository mirror. The current production guides already documented
+Saint repository mirror. The current production guides already documented
 1.0.3/1.0.4 recovery and Computer Use. Their detail is retained, and stale
 history/cache claims in the mirror are replaced. New inline-visual and Beta
 Connectors guides have navigation and overview links and extend the existing
@@ -414,7 +414,7 @@ No real OAuth sign-in, installed-app upgrade, live microphone capture or
 universal provider/website compatibility is established by the docs audit.
 Unrelated dirty files in the older local website checkout remain untouched.
 
-## Synara 1.0.6 release audit — 2026-10-16
+## Saint 1.0.6 release audit — 2026-10-16
 
 Source: Stable range `v1.0.5..612aff6d8fdcdb9e849d8c8750a8683e7e2dca81` (16 commits). Provider discovery and troubleshooting updates cite their owning source files inline. Changelog highlights mirror the app entry; no Beta-only feature is promoted. Download snapshots are refreshed only after publication.
 
@@ -426,6 +426,6 @@ Updated existing guides and their navigation dependencies for editor/debugger li
 
 Publication verified: [Stable v1.0.8](https://github.com/Emanuele-web04/synara/releases/tag/v1.0.8), source `d7542782fd52a1dedf9634e1765ab62fa60e259f`, passed [workflow 39971610367](https://github.com/Emanuele-web04/synara/actions/runs/39971610367). [Beta v1.0.9-beta.1](https://github.com/Emanuele-web04/synara/releases/tag/v1.0.9-beta.1), source `143913ce19b343167072437c3871ec2ed1cd1160`, passed [workflow 39974728669](https://github.com/Emanuele-web04/synara/actions/runs/39974728669). Both exact-tag runs passed complete quality/server tests, four native packages, provenance, macOS signing/notarization and Intel startup, plus Windows Defender/startup under their exact version-scoped unsigned exceptions. Each public release has 18 assets; source and lockfile identities, public URLs and byte-identical channel aliases were verified. Stable remains Latest, Beta remains a prerelease, and the historical compatibility feed is unchanged. Download snapshots follow Stable 1.0.8. Manual installed-app upgrades, live provider/microphone behavior and browser-download reputation remain separately unqualified.
 
-## Synara Stable 1.0.9
+## Saint Stable 1.0.9
 
 Authority: release candidate `ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3` (tag `v1.0.9`), complete range `v1.0.8..ebd0d22b39ce3a0f7c6051dddc6090e9b85dc7c3` and `docs/releases/1.0.9-source-audit.md`. Audited Stable editor/connector promotion, conditional Stop and durable progress, visible goals, local project glyphs and worker actions, isolated OpenCode login/discovery, compressed SQLite recovery and macOS 13 updater gating. Existing guides and navigation are reused; no disconnected guide is added. Packaged startup is distinct from manual upgrades, macOS 13 runtime and live provider/connector sign-in.

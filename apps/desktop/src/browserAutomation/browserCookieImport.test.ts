@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { BrowserCookieImportInput, ThreadId } from "@synara/contracts";
+import { BrowserCookieImportInput, ThreadId } from "@saint/contracts";
 import { Schema } from "effect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DesktopBrowserManager } from "../browserManager";

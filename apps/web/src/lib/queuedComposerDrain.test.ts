@@ -4,7 +4,7 @@ import {
   ThreadId,
   TurnId,
   type PendingClaudeCacheReview,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { QueuedComposerTurn } from "../composerDraftStore";

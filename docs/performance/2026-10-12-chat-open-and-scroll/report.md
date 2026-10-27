@@ -62,7 +62,7 @@ the largest chat, with frame pacing unchanged.
   GPU raster (ANGLE Metal), a fresh profile per session, 1440×900 viewport.
 - Production `vite build` of each checkout served by its own isolated Bun 1.4.2 server
   (ports 3899 baseline, 3898 this change), each with a copy of the same database.
-- Database: a fresh migrated Synara database with synthetic chats only, shaped like real
+- Database: a fresh migrated Saint database with synthetic chats only, shaped like real
   Claude coding sessions (user prompt, commentary and Read/Grep/Bash/Edit tool calls with
   their lifecycle activities, a Markdown answer with lists, code blocks and tables,
   changed-file checkpoints): five benchmark chats (table above) and 48 short chats in

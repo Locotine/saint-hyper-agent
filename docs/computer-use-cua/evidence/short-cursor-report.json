@@ -1,6 +1,6 @@
 {
   "fixtureRevision": 7,
-  "fixture": "Synara Cua Fixture 14238",
+  "fixture": "Saint Cua Fixture 14238",
   "pid": 14238,
   "runtime": {
     "node": "24.18.1",
@@ -272,7 +272,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 220,
             "width": 320,
@@ -285,12 +285,12 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
+          "title": "Saint Cua Fixture 14238 B",
           "window_id": 4024,
           "z_index": 74
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -303,7 +303,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -313,7 +313,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 220,
             "width": 320,
@@ -326,12 +326,12 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
+          "title": "Saint Cua Fixture 14238 B",
           "window_id": 4024,
           "z_index": 74
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -344,59 +344,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
-          "window_id": 4023,
-          "z_index": 72
-        }
-      ]
-    },
-    {
-      "name": "get_window_state",
-      "pid": 14238,
-      "windowId": 4023,
-      "bounds": {
-        "height": 420,
-        "width": 640,
-        "x": 80,
-        "y": 80
-      }
-    },
-    {
-      "name": "list_windows",
-      "windows": [
-        {
-          "app_name": "Synara Cua Fixture",
-          "bounds": {
-            "height": 220,
-            "width": 320,
-            "x": 760,
-            "y": 100
-          },
-          "current_space_id": 1,
-          "is_on_screen": true,
-          "layer": 0,
-          "on_current_space": true,
-          "pid": 14238,
-          "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
-          "window_id": 4024,
-          "z_index": 74
-        },
-        {
-          "app_name": "Synara Cua Fixture",
-          "bounds": {
-            "height": 420,
-            "width": 640,
-            "x": 80,
-            "y": 80
-          },
-          "current_space_id": 1,
-          "is_on_screen": true,
-          "layer": 0,
-          "on_current_space": true,
-          "pid": 14238,
-          "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -417,7 +365,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 220,
             "width": 320,
@@ -430,12 +378,12 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
+          "title": "Saint Cua Fixture 14238 B",
           "window_id": 4024,
           "z_index": 74
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -448,7 +396,59 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
+          "window_id": 4023,
+          "z_index": 72
+        }
+      ]
+    },
+    {
+      "name": "get_window_state",
+      "pid": 14238,
+      "windowId": 4023,
+      "bounds": {
+        "height": 420,
+        "width": 640,
+        "x": 80,
+        "y": 80
+      }
+    },
+    {
+      "name": "list_windows",
+      "windows": [
+        {
+          "app_name": "Saint Cua Fixture",
+          "bounds": {
+            "height": 220,
+            "width": 320,
+            "x": 760,
+            "y": 100
+          },
+          "current_space_id": 1,
+          "is_on_screen": true,
+          "layer": 0,
+          "on_current_space": true,
+          "pid": 14238,
+          "space_ids": [1],
+          "title": "Saint Cua Fixture 14238 B",
+          "window_id": 4024,
+          "z_index": 74
+        },
+        {
+          "app_name": "Saint Cua Fixture",
+          "bounds": {
+            "height": 420,
+            "width": 640,
+            "x": 80,
+            "y": 80
+          },
+          "current_space_id": 1,
+          "is_on_screen": true,
+          "layer": 0,
+          "on_current_space": true,
+          "pid": 14238,
+          "space_ids": [1],
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -458,7 +458,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 220,
             "width": 320,
@@ -471,12 +471,12 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
+          "title": "Saint Cua Fixture 14238 B",
           "window_id": 4024,
           "z_index": 74
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -489,7 +489,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -499,7 +499,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -512,7 +512,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -522,7 +522,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -535,7 +535,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -556,7 +556,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -569,7 +569,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -579,7 +579,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -592,7 +592,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -602,7 +602,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -615,7 +615,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -636,7 +636,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 412,
             "width": 628,
@@ -649,7 +649,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -672,7 +672,7 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 B",
+          "title": "Saint Native Fixture 14741 B",
           "window_id": 4044,
           "z_index": 118
         },
@@ -690,12 +690,12 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "window_id": 4042,
           "z_index": 92
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -708,7 +708,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -731,7 +731,7 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 B",
+          "title": "Saint Native Fixture 14741 B",
           "window_id": 4044,
           "z_index": 118
         },
@@ -749,12 +749,12 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "window_id": 4042,
           "z_index": 92
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -767,7 +767,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -801,7 +801,7 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 B",
+          "title": "Saint Native Fixture 14741 B",
           "window_id": 4044,
           "z_index": 119
         },
@@ -819,12 +819,12 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "window_id": 4042,
           "z_index": 92
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -837,7 +837,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -860,7 +860,7 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 B",
+          "title": "Saint Native Fixture 14741 B",
           "window_id": 4044,
           "z_index": 119
         },
@@ -878,12 +878,12 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "window_id": 4042,
           "z_index": 92
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -896,7 +896,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -919,7 +919,7 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 B",
+          "title": "Saint Native Fixture 14741 B",
           "window_id": 4044,
           "z_index": 119
         },
@@ -937,12 +937,12 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "window_id": 4042,
           "z_index": 92
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -955,7 +955,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -978,7 +978,7 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 B",
+          "title": "Saint Native Fixture 14741 B",
           "window_id": 4044,
           "z_index": 119
         },
@@ -996,12 +996,12 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "window_id": 4042,
           "z_index": 92
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -1014,7 +1014,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -1037,7 +1037,7 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 B",
+          "title": "Saint Native Fixture 14741 B",
           "window_id": 4044,
           "z_index": 119
         },
@@ -1055,12 +1055,12 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "window_id": 4042,
           "z_index": 92
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -1073,7 +1073,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -1107,7 +1107,7 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 B",
+          "title": "Saint Native Fixture 14741 B",
           "window_id": 4044,
           "z_index": 119
         },
@@ -1125,12 +1125,12 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "window_id": 4042,
           "z_index": 92
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -1143,7 +1143,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -1166,7 +1166,7 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 B",
+          "title": "Saint Native Fixture 14741 B",
           "window_id": 4044,
           "z_index": 119
         },
@@ -1184,12 +1184,12 @@
           "on_current_space": true,
           "pid": 14741,
           "space_ids": [1],
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "window_id": 4042,
           "z_index": 92
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -1202,7 +1202,7 @@
           "on_current_space": true,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4023,
           "z_index": 72
         }
@@ -1212,7 +1212,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 220,
             "width": 320,
@@ -1225,12 +1225,12 @@
           "on_current_space": false,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
+          "title": "Saint Cua Fixture 14238 B",
           "window_id": 4051,
           "z_index": 111
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -1243,7 +1243,7 @@
           "on_current_space": false,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4050,
           "z_index": 107
         }
@@ -1253,7 +1253,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 220,
             "width": 320,
@@ -1266,12 +1266,12 @@
           "on_current_space": false,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
+          "title": "Saint Cua Fixture 14238 B",
           "window_id": 4051,
           "z_index": 111
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -1284,100 +1284,7 @@
           "on_current_space": false,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
-          "window_id": 4050,
-          "z_index": 107
-        }
-      ]
-    },
-    {
-      "name": "get_window_state",
-      "pid": 14238,
-      "windowId": 4050,
-      "bounds": {
-        "height": 420,
-        "width": 640,
-        "x": 80,
-        "y": 80
-      }
-    },
-    {
-      "name": "list_windows",
-      "windows": [
-        {
-          "app_name": "Synara Cua Fixture",
-          "bounds": {
-            "height": 220,
-            "width": 320,
-            "x": 760,
-            "y": 100
-          },
-          "current_space_id": 196,
-          "is_on_screen": false,
-          "layer": 0,
-          "on_current_space": false,
-          "pid": 14238,
-          "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
-          "window_id": 4051,
-          "z_index": 111
-        },
-        {
-          "app_name": "Synara Cua Fixture",
-          "bounds": {
-            "height": 420,
-            "width": 640,
-            "x": 80,
-            "y": 80
-          },
-          "current_space_id": 196,
-          "is_on_screen": false,
-          "layer": 0,
-          "on_current_space": false,
-          "pid": 14238,
-          "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
-          "window_id": 4050,
-          "z_index": 107
-        }
-      ]
-    },
-    {
-      "name": "list_windows",
-      "windows": [
-        {
-          "app_name": "Synara Cua Fixture",
-          "bounds": {
-            "height": 220,
-            "width": 320,
-            "x": 760,
-            "y": 100
-          },
-          "current_space_id": 196,
-          "is_on_screen": false,
-          "layer": 0,
-          "on_current_space": false,
-          "pid": 14238,
-          "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
-          "window_id": 4051,
-          "z_index": 111
-        },
-        {
-          "app_name": "Synara Cua Fixture",
-          "bounds": {
-            "height": 420,
-            "width": 640,
-            "x": 80,
-            "y": 80
-          },
-          "current_space_id": 196,
-          "is_on_screen": false,
-          "layer": 0,
-          "on_current_space": false,
-          "pid": 14238,
-          "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4050,
           "z_index": 107
         }
@@ -1398,7 +1305,7 @@
       "name": "list_windows",
       "windows": [
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 220,
             "width": 320,
@@ -1411,12 +1318,12 @@
           "on_current_space": false,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 B",
+          "title": "Saint Cua Fixture 14238 B",
           "window_id": 4051,
           "z_index": 111
         },
         {
-          "app_name": "Synara Cua Fixture",
+          "app_name": "Saint Cua Fixture",
           "bounds": {
             "height": 420,
             "width": 640,
@@ -1429,7 +1336,100 @@
           "on_current_space": false,
           "pid": 14238,
           "space_ids": [1],
-          "title": "Synara Cua Fixture 14238 A",
+          "title": "Saint Cua Fixture 14238 A",
+          "window_id": 4050,
+          "z_index": 107
+        }
+      ]
+    },
+    {
+      "name": "list_windows",
+      "windows": [
+        {
+          "app_name": "Saint Cua Fixture",
+          "bounds": {
+            "height": 220,
+            "width": 320,
+            "x": 760,
+            "y": 100
+          },
+          "current_space_id": 196,
+          "is_on_screen": false,
+          "layer": 0,
+          "on_current_space": false,
+          "pid": 14238,
+          "space_ids": [1],
+          "title": "Saint Cua Fixture 14238 B",
+          "window_id": 4051,
+          "z_index": 111
+        },
+        {
+          "app_name": "Saint Cua Fixture",
+          "bounds": {
+            "height": 420,
+            "width": 640,
+            "x": 80,
+            "y": 80
+          },
+          "current_space_id": 196,
+          "is_on_screen": false,
+          "layer": 0,
+          "on_current_space": false,
+          "pid": 14238,
+          "space_ids": [1],
+          "title": "Saint Cua Fixture 14238 A",
+          "window_id": 4050,
+          "z_index": 107
+        }
+      ]
+    },
+    {
+      "name": "get_window_state",
+      "pid": 14238,
+      "windowId": 4050,
+      "bounds": {
+        "height": 420,
+        "width": 640,
+        "x": 80,
+        "y": 80
+      }
+    },
+    {
+      "name": "list_windows",
+      "windows": [
+        {
+          "app_name": "Saint Cua Fixture",
+          "bounds": {
+            "height": 220,
+            "width": 320,
+            "x": 760,
+            "y": 100
+          },
+          "current_space_id": 196,
+          "is_on_screen": false,
+          "layer": 0,
+          "on_current_space": false,
+          "pid": 14238,
+          "space_ids": [1],
+          "title": "Saint Cua Fixture 14238 B",
+          "window_id": 4051,
+          "z_index": 111
+        },
+        {
+          "app_name": "Saint Cua Fixture",
+          "bounds": {
+            "height": 420,
+            "width": 640,
+            "x": 80,
+            "y": 80
+          },
+          "current_space_id": 196,
+          "is_on_screen": false,
+          "layer": 0,
+          "on_current_space": false,
+          "pid": 14238,
+          "space_ids": [1],
+          "title": "Saint Cua Fixture 14238 A",
           "window_id": 4050,
           "z_index": 107
         }
@@ -1447,8 +1447,8 @@
       "direct_runtime": false,
       "disclaim_env": false,
       "embedded": true,
-      "executable": "$HOME/Applications/Synara Cua Fixture.app/Contents/Resources/cua-driver/cua-driver",
-      "host_bundle_id": "com.synara.cua-fixture",
+      "executable": "$HOME/Applications/Saint Cua Fixture.app/Contents/Resources/cua-driver/cua-driver",
+      "host_bundle_id": "com.saint.cua-fixture",
       "note": "Embedded mode: these booleans reflect the HOST app's TCC grant (the driver is a child in the host's responsibility chain). No separate driver grant exists or is needed. If a permission is NOT granted, the host app must request it — the driver never raises its own prompt.",
       "pid": 14468,
       "responsible_ppid": 14238
@@ -1456,7 +1456,7 @@
   },
   "nativeFixtureWindows": [
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -1474,7 +1474,7 @@
       "z_index": 280
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -1492,7 +1492,7 @@
       "z_index": 279
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 220,
         "width": 320,
@@ -1505,12 +1505,12 @@
       "on_current_space": true,
       "pid": 14238,
       "space_ids": [1],
-      "title": "Synara Cua Fixture 14238 B",
+      "title": "Saint Cua Fixture 14238 B",
       "window_id": 4024,
       "z_index": 74
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 420,
         "width": 640,
@@ -1523,12 +1523,12 @@
       "on_current_space": true,
       "pid": 14238,
       "space_ids": [1],
-      "title": "Synara Cua Fixture 14238 A",
+      "title": "Saint Cua Fixture 14238 A",
       "window_id": 4023,
       "z_index": 72
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -1546,7 +1546,7 @@
       "z_index": 70
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -1571,7 +1571,7 @@
   "target": {
     "id": "cua:14238:4023",
     "pid": 14238,
-    "title": "Synara Cua Fixture 14238 A",
+    "title": "Saint Cua Fixture 14238 A",
     "siblingId": "cua:14238:4024"
   },
   "native": {
@@ -1580,7 +1580,7 @@
       {
         "label": "A",
         "minimized": false,
-        "title": "Synara Native Fixture 14741 A",
+        "title": "Saint Native Fixture 14741 A",
         "edits": 2,
         "key": false,
         "windowId": 4042,
@@ -1593,7 +1593,7 @@
       {
         "label": "B",
         "minimized": false,
-        "title": "Synara Native Fixture 14741 B",
+        "title": "Saint Native Fixture 14741 B",
         "edits": 0,
         "key": false,
         "windowId": 4044,
@@ -1611,11 +1611,11 @@
       },
       {
         "id": "cua:14741:4044",
-        "title": "Synara Native Fixture 14741 B"
+        "title": "Saint Native Fixture 14741 B"
       },
       {
         "id": "cua:14741:4042",
-        "title": "Synara Native Fixture 14741 A"
+        "title": "Saint Native Fixture 14741 A"
       }
     ],
     "cases": [
@@ -1640,7 +1640,7 @@
         "actual": {
           "label": "A",
           "minimized": false,
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "edits": 1,
           "key": false,
           "windowId": 4042,
@@ -1663,7 +1663,7 @@
         "actual": {
           "label": "A",
           "minimized": false,
-          "title": "Synara Native Fixture 14741 A",
+          "title": "Saint Native Fixture 14741 A",
           "edits": 2,
           "key": false,
           "windowId": 4042,
@@ -1704,7 +1704,7 @@
     "target": {
       "pid": 14238,
       "id": "cua:14238:4050",
-      "title": "Synara Cua Fixture 14238 A"
+      "title": "Saint Cua Fixture 14238 A"
     },
     "approvals": [
       {

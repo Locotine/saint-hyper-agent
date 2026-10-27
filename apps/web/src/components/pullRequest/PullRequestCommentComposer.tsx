@@ -8,7 +8,7 @@
 // Exports: PullRequestCommentComposer, GitHubCommentTarget, GitHubCommentMutation
 
 import { GLASS_RAISED_SURFACE_CLASS_NAME } from "~/surfaceStyles";
-import type { PullRequestDetailInput } from "@synara/contracts";
+import type { PullRequestDetailInput } from "@saint/contracts";
 import { useRef, useState } from "react";
 
 import { toastManager } from "~/components/ui/toast";

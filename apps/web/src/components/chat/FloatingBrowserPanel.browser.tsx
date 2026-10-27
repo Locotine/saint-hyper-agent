@@ -4,7 +4,7 @@
 
 import "../../index.css";
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { BROWSER_PANEL_BOUNDS_SYNC_EVENT } from "../../lib/browserPanelBoundsSync";

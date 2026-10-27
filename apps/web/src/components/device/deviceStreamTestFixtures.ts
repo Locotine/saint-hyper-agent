@@ -1,6 +1,6 @@
 // Shared device-stream regression fixtures.
 //
-// Frame cadence recorded from the real device helper (Synara 1.0.3, iOS 26.5
+// Frame cadence recorded from the real device helper (Saint 1.0.3, iOS 26.5
 // simulator, animated page, 20 s at ~60 fps, 1216 records with contiguous
 // sequences). The helper sends a codec-config record immediately before every
 // keyframe (17 of 17), forces a keyframe about every 2 s while the screen

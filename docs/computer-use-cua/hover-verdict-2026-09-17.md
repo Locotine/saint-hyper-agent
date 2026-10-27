@@ -1,6 +1,6 @@
 # Background hover verdict — macOS (2026-09-17)
 
-**Question.** Can Synara deliver a real hover (`mouseMoved`) to a background,
+**Question.** Can Saint deliver a real hover (`mouseMoved`) to a background,
 non-Electron macOS app — enough for hover reveals and tooltips — without moving
 the user's hardware pointer?
 
@@ -14,7 +14,7 @@ pointer, which `move_cursor` deliberately never does.
 
 ## Method
 
-- Driver: `cua-driver` 0.28.2, `synara_native_revision` 16, embedded socket
+- Driver: `cua-driver` 0.28.2, `saint_native_revision` 16, embedded socket
   protocol (`serve --embedded`), long-lived host pid for liveness.
 - Probe app: `/private/tmp/cua-hover/` — a minimal `NSApplication` window with
   a full-content `NSTrackingArea` (`.mouseEnteredAndExited`, `.mouseMoved`,
@@ -76,5 +76,5 @@ pointer-window override — verified by the same real-cursor-outside test.
 Probe sources and logs: `/private/tmp/cua-hover/` (`hover_probe*.swift`,
 `hidmove.swift`, `observer.swift`, `windump.swift`, `hover-app.log`). These are
 one-off diagnostics supporting the verdict, not a harness row; per Cua
-harness policy they do not certify upstream behavior — they justify Synara not
+harness policy they do not certify upstream behavior — they justify Saint not
 exposing a capability it cannot verify.

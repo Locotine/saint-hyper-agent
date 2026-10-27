@@ -12,7 +12,7 @@ import type {
   PullRequestAction,
   PullRequestDetailInput,
   PullRequestMergeMethod,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useRef, useState, type ReactNode } from "react";
 

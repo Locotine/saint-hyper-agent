@@ -6,7 +6,7 @@ import {
   type OrchestrationShellSnapshot,
   type OrchestrationThreadShell,
   type ProviderSession,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, Option } from "effect";
 import { describe, expect, it, vi } from "vitest";
 

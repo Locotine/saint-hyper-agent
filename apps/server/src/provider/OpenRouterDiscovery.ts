@@ -1,6 +1,6 @@
 // OpenRouter's public catalog is metadata only; credentials stay with the SDK.
 import type { Model } from "@earendil-works/pi-ai";
-import { outboundHttp, decodeOutboundJson } from "@synara/shared/outboundHttp";
+import { outboundHttp, decodeOutboundJson } from "@saint/shared/outboundHttp";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 

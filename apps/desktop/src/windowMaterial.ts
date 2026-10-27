@@ -12,7 +12,7 @@ import {
   DESKTOP_WINDOW_BLUR_RADIUS_MIN,
   type DesktopWindowMaterial,
   type DesktopWindowTranslucency,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import type { BrowserWindow } from "electron";
 
 /**

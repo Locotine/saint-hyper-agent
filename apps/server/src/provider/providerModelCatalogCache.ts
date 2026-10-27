@@ -9,7 +9,7 @@
  *
  * @module providerModelCatalogCache
  */
-import { ProviderListModelsResult } from "@synara/contracts";
+import { ProviderListModelsResult } from "@saint/contracts";
 import { Cause, Effect, FileSystem, Schema } from "effect";
 import * as path from "node:path";
 

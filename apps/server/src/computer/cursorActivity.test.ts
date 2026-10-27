@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ProviderRuntimeEvent } from "@synara/contracts";
+import type { ProviderRuntimeEvent } from "@saint/contracts";
 import { CursorActivity, cursorRuntimeActivity, cursorToolActivity } from "./cursorActivity.ts";
 
 const tick = () => vi.advanceTimersByTimeAsync(80);

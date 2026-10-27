@@ -1,7 +1,7 @@
 // FILE: EnvironmentUsageSection.logic.ts
 // Purpose: Pure compact-summary decisions for provider rows in the Environment panel.
 
-import type { ServerProviderUsageSnapshot } from "@synara/contracts";
+import type { ServerProviderUsageSnapshot } from "@saint/contracts";
 import type { ProviderUsageDisplayRow } from "~/lib/providerUsageDisplay";
 
 export interface EnvironmentProviderUsageSummary {

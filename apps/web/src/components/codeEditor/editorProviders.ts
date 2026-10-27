@@ -3,12 +3,12 @@
 //          (completion, hover, signature help, navigation, peek, symbols, code
 //          actions, inlay hints, formatting, folding) to the server's
 //          project-aware TypeScript service. Rename and workspace-symbol search
-//          go through Synara's own dialog and picker in MonacoEditorSurface.
+//          go through Saint's own dialog and picker in MonacoEditorSurface.
 // Layer: Web editor runtime
 // Exports: registerEditorProviders, INTELLIGENCE_LANGUAGES, APPLY_EDITS_COMMAND
 
 import * as monaco from "monaco-editor/editor/editor.api";
-import type { EditorFileEdits, EditorIntelligenceResult } from "@synara/contracts";
+import type { EditorFileEdits, EditorIntelligenceResult } from "@saint/contracts";
 
 import {
   applyEditorEdits,
@@ -26,10 +26,10 @@ import {
 /** Shiki language ids the project language service understands. */
 export const INTELLIGENCE_LANGUAGES = ["typescript", "tsx", "javascript", "jsx"] as const;
 /** The engine command that applies a code action's edits through the shared transaction. */
-export const APPLY_EDITS_COMMAND = "synara.editor.applyEdits";
+export const APPLY_EDITS_COMMAND = "saint.editor.applyEdits";
 const selector = INTELLIGENCE_LANGUAGES.map((language) => ({
   language,
-  scheme: "synara-workspace",
+  scheme: "saint-workspace",
 }));
 const kinds: Record<string, monaco.languages.CompletionItemKind> = {
   method: monaco.languages.CompletionItemKind.Method,
@@ -176,7 +176,7 @@ export function registerEditorProviders() {
             insertText: item.insertText,
             range: offsetRange(model, item.replacement),
             ...(item.source ? { detail: item.source } : {}),
-            synara: {
+            saint: {
               uri: model.uri.toString(),
               version: model.getVersionId(),
               offset,
@@ -187,8 +187,8 @@ export function registerEditorProviders() {
         };
       },
       async resolveCompletionItem(item, token) {
-        const metadata = (item as monaco.languages.CompletionItem & { synara?: CompletionMetadata })
-          .synara;
+        const metadata = (item as monaco.languages.CompletionItem & { saint?: CompletionMetadata })
+          .saint;
         if (!metadata) return item;
         const entry = entryForUri(monaco.Uri.parse(metadata.uri));
         if (!entry || entry.model.getVersionId() !== metadata.version) return item;
@@ -241,7 +241,7 @@ export function registerEditorProviders() {
       },
     }),
     // Ctrl/Cmd-click, F12, peek definition/references and Alt+F12 resolve
-    // through these; other workspace files open through Synara's file opener.
+    // through these; other workspace files open through Saint's file opener.
     monaco.languages.registerDefinitionProvider(selector, {
       provideDefinition: navigation("definition"),
     }),
@@ -254,7 +254,7 @@ export function registerEditorProviders() {
     }),
     // Outline for sticky headers, diff breadcrumbs and the symbol picker.
     monaco.languages.registerDocumentSymbolProvider(selector, {
-      displayName: "Synara TypeScript",
+      displayName: "Saint TypeScript",
       async provideDocumentSymbols(model, token) {
         const entry = editorEntry(model);
         if (!entry) return [];
@@ -325,7 +325,7 @@ export function registerEditorProviders() {
       },
     }),
     monaco.languages.registerDocumentFormattingEditProvider(selector, {
-      displayName: "Synara TypeScript",
+      displayName: "Saint TypeScript",
       async provideDocumentFormattingEdits(model, _options, token) {
         const entry = editorEntry(model);
         if (!entry) return [];

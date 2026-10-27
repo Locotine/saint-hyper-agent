@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { PropsWithChildren } from "react";
 import { afterEach, expect, it } from "vitest";
@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 it("retains a background draft through hydration and reveals its tab after promotion", async () => {
-  localStorage.setItem("synara:server-settings-migrated:v1", "1");
+  localStorage.setItem("saint:server-settings-migrated:v1", "1");
   const projectId = ProjectId.makeUnsafe("project");
   const threadId = ThreadId.makeUnsafe("background-draft");
   const activeThreadId = ThreadId.makeUnsafe("saved-thread");
@@ -83,7 +83,7 @@ it("retains a background draft through hydration and reveals its tab after promo
 });
 
 it("starts and stops the worktree tab spinner with its send before a session exists", async () => {
-  localStorage.setItem("synara:server-settings-migrated:v1", "1");
+  localStorage.setItem("saint:server-settings-migrated:v1", "1");
   const threadId = ThreadId.makeUnsafe("preparing-worktree-tab");
   useStore.setState({
     sidebarThreadSummaryById: {

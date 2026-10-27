@@ -1,11 +1,11 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const externalMcpRuntimeSecret = randomBytes(32).toString("base64url");
-export const EXTERNAL_MCP_RUNTIME_CHALLENGE_HEADER = "x-synara-runtime-challenge";
+export const EXTERNAL_MCP_RUNTIME_CHALLENGE_HEADER = "x-saint-runtime-challenge";
 
 export function computeExternalMcpRuntimeProof(secret: string, nonce: string): string {
   return createHmac("sha256", secret)
-    .update("synara.external-mcp.runtime\0")
+    .update("saint.external-mcp.runtime\0")
     .update(nonce)
     .digest("base64url");
 }

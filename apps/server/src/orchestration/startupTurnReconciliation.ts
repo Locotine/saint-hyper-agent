@@ -45,12 +45,12 @@ import type {
   RuntimeMode,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
-import { CommandId, EventId } from "@synara/contracts";
+} from "@saint/contracts";
+import { CommandId, EventId } from "@saint/contracts";
 import {
   derivePendingThreadRequestIds,
   type PendingThreadRequestKind,
-} from "@synara/shared/threadSummary";
+} from "@saint/shared/threadSummary";
 import { Array as Arr, Effect, Option } from "effect";
 import type { ProjectionPendingInteraction } from "../persistence/Services/ProjectionPendingInteractions.ts";
 import { ProjectionPendingInteractionRepository } from "../persistence/Services/ProjectionPendingInteractions.ts";

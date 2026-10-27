@@ -12,12 +12,12 @@ import {
   type ResolvedKeybindingRule,
   type ResolvedKeybindingsConfig,
   type ServerKeybindingEdit,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   encodeKeybindingRule,
   encodeKeybindingWhen,
   resolvedKeybindingRuleIdentity,
-} from "@synara/shared/keybindingRules";
+} from "@saint/shared/keybindingRules";
 
 import { fixedShortcutsForPlatform } from "./fixedShortcuts";
 import {
@@ -367,7 +367,7 @@ function collidingRules(
 
 /**
  * Why the first of `candidates` that lands on a fixed chord cannot have it: text
- * editing, the system, or one of Synara's own shortcuts takes that key first.
+ * editing, the system, or one of Saint's own shortcuts takes that key first.
  */
 function fixedShortcutReason(
   source: ShortcutEditorSource,

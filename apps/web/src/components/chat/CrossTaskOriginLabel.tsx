@@ -1,11 +1,11 @@
 // FILE: CrossTaskOriginLabel.tsx
-// Purpose: Identify the source thread for conversations created by another Synara agent.
+// Purpose: Identify the source thread for conversations created by another Saint agent.
 // Layer: Chat transcript UI
 
-import { type ProviderKind, type ThreadId } from "@synara/contracts";
+import { type ProviderKind, type ThreadId } from "@saint/contracts";
 import { memo, type ReactNode } from "react";
 
-import { SynaraLogo } from "../SynaraLogo";
+import { SaintLogo } from "../SaintLogo";
 import { cn } from "~/lib/utils";
 
 export interface CrossTaskOrigin {
@@ -16,20 +16,20 @@ export interface CrossTaskOrigin {
 }
 
 // A single, app-level attribution: the message reached this thread from another
-// Synara thread, so it reads as "Sent by Synara" with the Synara mark (the origin
+// Saint thread, so it reads as "Sent by Saint" with the Saint mark (the origin
 // provider is not surfaced here to keep one consistent label). A group
 // coordinator's brief names the group instead, so a worker thread says who
 // handed it the task and where the result goes back to.
 function crossTaskOriginText(origin: CrossTaskOrigin): string {
   const groupName = origin.coordinatorGroupName?.trim();
-  return groupName ? `Sent by the ${groupName} coordinator` : "Sent by Synara from another thread";
+  return groupName ? `Sent by the ${groupName} coordinator` : "Sent by Saint from another thread";
 }
 
 function OriginContent({ text }: { readonly text: string }): ReactNode {
   return (
     <>
       <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground/70">
-        <SynaraLogo className="h-4 w-auto" aria-label="Synara" />
+        <SaintLogo className="h-4 w-auto" aria-label="Saint" />
       </span>
       <span className="truncate">{text}</span>
     </>

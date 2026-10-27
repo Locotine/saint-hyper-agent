@@ -18,7 +18,7 @@ vi.mock("../lib/serverReactQuery", () => ({
   }),
 }));
 const clients: QueryClient[] = [];
-const storageKey = "synara:project-import-announcement:v1";
+const storageKey = "saint:project-import-announcement:v1";
 
 beforeEach(() => {
   localStorage.removeItem(storageKey);

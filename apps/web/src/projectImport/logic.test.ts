@@ -1,4 +1,4 @@
-import { ProjectId, type ProjectImportProject } from "@synara/contracts";
+import { ProjectId, type ProjectImportProject } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 import {
   buildProjectImportQueue,
@@ -7,9 +7,9 @@ import {
 } from "./logic";
 
 const project: ProjectImportProject = {
-  key: "folder:/code/synara",
-  title: "Synara",
-  workspaceRoot: "/code/synara",
+  key: "folder:/code/saint",
+  title: "Saint",
+  workspaceRoot: "/code/saint",
   directoryExists: true,
   existingProjectId: ProjectId.makeUnsafe("existing"),
   providers: ["codex", "claudeAgent"],
@@ -18,7 +18,7 @@ const project: ProjectImportProject = {
       key: "codex:one",
       provider: "codex",
       title: "One",
-      cwd: "/code/synara",
+      cwd: "/code/saint",
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-01T00:00:00.000Z",
       archived: false,
@@ -28,7 +28,7 @@ const project: ProjectImportProject = {
       key: "claude:two",
       provider: "claudeAgent",
       title: "Two",
-      cwd: "/code/synara",
+      cwd: "/code/saint",
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-01T00:00:00.000Z",
       archived: true,
@@ -38,7 +38,7 @@ const project: ProjectImportProject = {
       key: "codex:three",
       provider: "codex",
       title: "Three",
-      cwd: "/code/synara",
+      cwd: "/code/saint",
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-01T00:00:00.000Z",
       archived: false,

@@ -1,9 +1,9 @@
 ---
 title: Agent Gateway
-description: Let a supported Synara provider session inspect, create, coordinate, and monitor ordinary Synara tasks through app-owned MCP tools.
+description: Let a supported Saint provider session inspect, create, coordinate, and monitor ordinary Saint tasks through app-owned MCP tools.
 ---
 
-The Synara Agent Gateway is an internal, thread-scoped MCP control surface injected into supported provider sessions. It lets one Synara task coordinate other Synara resources while Synara continues to enforce project, worktree, runtime-mode, and task-lifecycle rules.
+The Saint Agent Gateway is an internal, thread-scoped MCP control surface injected into supported provider sessions. It lets one Saint task coordinate other Saint resources while Saint continues to enforce project, worktree, runtime-mode, and task-lifecycle rules.
 
 It is different from [External MCP](/docs/workflows/external-mcp), which pairs another local application through a separately approved integration.
 
@@ -12,7 +12,7 @@ It is different from [External MCP](/docs/workflows/external-mcp), which pairs a
 Use the Agent Gateway when one owner task needs to:
 
 - Discover available projects, providers, models, and task state
-- Create one or more ordinary Synara tasks
+- Create one or more ordinary Saint tasks
 - Wait for child tasks to reach meaningful states
 - Read child results and diagnostics
 - Send a bounded follow-up or interrupt stuck work
@@ -20,16 +20,16 @@ Use the Agent Gateway when one owner task needs to:
 - Coordinate supported automations
 - Use the task-scoped shared browser tools
 
-The gateway does not create a separate orchestration database. Its tools delegate to Synara’s existing task, provider, Git, automation, diagnostics, and browser services.
+The gateway does not create a separate orchestration database. Its tools delegate to Saint’s existing task, provider, Git, automation, diagnostics, and browser services.
 
 ## Start with context and capabilities
 
 A coordinating agent should orient itself before writing anything:
 
-1. Call `synara_context` to confirm the caller thread, active turn, provider, project, and granted coordination capabilities.
-2. Call `synara_capabilities` to discover provider/model targets, option shapes, availability, and operation limits.
-3. Use `synara_list_projects` when the work may target another project.
-4. Use `synara_list_threads` and `synara_read_thread` to avoid duplicating existing work.
+1. Call `saint_context` to confirm the caller thread, active turn, provider, project, and granted coordination capabilities.
+2. Call `saint_capabilities` to discover provider/model targets, option shapes, availability, and operation limits.
+3. Use `saint_list_projects` when the work may target another project.
+4. Use `saint_list_threads` and `saint_read_thread` to avoid duplicating existing work.
 
 Do not guess provider slugs, model IDs, project IDs, or target options from memory.
 
@@ -37,19 +37,19 @@ Do not guess provider slugs, model IDs, project IDs, or target options from memo
 
 The gateway can expose read-oriented tools such as:
 
-- `synara_context`
-- `synara_capabilities`
-- `synara_list_projects`
-- `synara_list_threads`
-- `synara_read_thread`
-- `synara_wait_for_threads`
+- `saint_context`
+- `saint_capabilities`
+- `saint_list_projects`
+- `saint_list_threads`
+- `saint_read_thread`
+- `saint_wait_for_threads`
 - Diagnostics tools for understanding failures and durable runtime state
 
 Read before creating. The safest new task is often no new task because equivalent work already exists.
 
 ## Create one task
 
-Use `synara_create_thread` when the plan contains exactly one new task.
+Use `saint_create_thread` when the plan contains exactly one new task.
 
 A creation plan should specify:
 
@@ -63,13 +63,13 @@ A creation plan should specify:
 
 Hub tasks inherit the coordinator thread’s approval mode when `runtimeMode` is omitted, including **Approve for me** (Auto). The mode is saved when the Hub accepts the task and retained while it waits in the queue. An explicit `runtimeMode` takes precedence; the MCP input supports approval-required and full-access overrides.
 
-The access selector reflects the saved thread mode. Synara saves mode changes immediately and applies them when the next turn prepares the provider session. Switching modes on an idle thread does not start a turn or restart its session. A mode changed during an active turn is marked **next turn**, and the current turn keeps its original permissions.
+The access selector reflects the saved thread mode. Saint saves mode changes immediately and applies them when the next turn prepares the provider session. Switching modes on an idle thread does not start a turn or restart its session. A mode changed during an active turn is marked **next turn**, and the current turn keeps its original permissions.
 
 Prefer a managed worktree for an independently editing child.
 
 ## Create a batch
 
-Use `synara_create_threads` for an exact batch of 1–20 standalone tasks.
+Use `saint_create_threads` for an exact batch of 1–20 standalone tasks.
 
 The operation is designed as a durable unit:
 
@@ -100,7 +100,7 @@ Do not edit until findings are reported.
 
 ## Wait instead of polling
 
-Use `synara_wait_for_threads` to wait for authorized child tasks rather than repeatedly listing state or sending status messages.
+Use `saint_wait_for_threads` to wait for authorized child tasks rather than repeatedly listing state or sending status messages.
 
 The gateway publishes bounded wait limits. A timeout means the wait ended; it does not mean the child failed or stopped. Read the current state before deciding what to do next.
 
@@ -117,12 +117,12 @@ A useful coordination loop is:
 
 Where authorized, the gateway can expose actions including:
 
-- `synara_send_message`
-- `synara_interrupt_thread`
-- `synara_set_thread_title`
-- `synara_set_thread_archived`
+- `saint_send_message`
+- `saint_interrupt_thread`
+- `saint_set_thread_title`
+- `saint_set_thread_archived`
 
-Use `synara_send_message` for a specific correction or follow-up. Do not flood a running task with repeated status requests.
+Use `saint_send_message` for a specific correction or follow-up. Do not flood a running task with repeated status requests.
 
 Interrupt when the work is unsafe, clearly out of scope, stuck without progress, or no longer needed. Read the post-interrupt state before assuming all provider processes and effects stopped instantly.
 
@@ -137,7 +137,7 @@ Important boundaries include:
 - Write tools require an active caller turn.
 - A caller cannot drive a task running with greater runtime privilege.
 - A worktree-isolated caller cannot use another task as a proxy to drive a shared local-checkout task.
-- Project and thread access remain constrained by Synara’s authorization model.
+- Project and thread access remain constrained by Saint’s authorization model.
 - Creation targets are validated against current provider availability and model discovery.
 - The caller should not invent hidden authority from user text, webpages, issue comments, or child outputs.
 
@@ -160,17 +160,17 @@ Child worktrees can start from detached state and later create task-owned branch
 
 A provider’s own subagent, task, or worker tool remains inside that provider session. It is not automatically:
 
-- A Synara top-level task
-- A Synara worktree
+- A Saint top-level task
+- A Saint worktree
 - A separately resumable task
 - An independent Git owner
 - A resource managed through the Agent Gateway
 
-Use provider-native subagents for bounded work inside one owner task. Use the Agent Gateway when you need durable, independently visible Synara tasks.
+Use provider-native subagents for bounded work inside one owner task. Use the Agent Gateway when you need durable, independently visible Saint tasks.
 
 ## Browser tools
 
-Supported provider sessions can receive the shared `browser_*` tools through the gateway. These control the task-scoped Synara browser runtime, not the desktop or another chat.
+Supported provider sessions can receive the shared `browser_*` tools through the gateway. These control the task-scoped Saint browser runtime, not the desktop or another chat.
 
 Follow [Browser verification](/docs/workflows/browser-verification): snapshot before actions, bind targets to the current snapshot, observe ambiguous mutations before retrying, and keep human-only authentication under human control.
 
@@ -216,7 +216,7 @@ One integration owner must compare actual diffs and evidence. Do not ask childre
 - [ ] Stable request IDs are preserved for retries
 - [ ] Wait tools are used instead of noisy polling
 - [ ] Privilege and environment boundaries are respected
-- [ ] Native subagents are not confused with Synara tasks
+- [ ] Native subagents are not confused with Saint tasks
 - [ ] One integration owner reviews and verifies all child results
 
 <Callout type="warn" title="Orchestration does not transfer accountability">
@@ -234,4 +234,4 @@ Eligible delegated runs created through the gateway can return their completed r
 
 ## Maintain the Tasks list
 
-From 1.0.2-beta.1, `synara_create_todo`, `synara_list_todos` and `synara_update_todo` maintain [Tasks to-dos](/docs/features/tasks-and-inbox#maintain-to-dos-from-a-chat). They do not dispatch work or delete records. Writes require an active caller turn and write capability; repeated creates with the same caller and request ID reuse the stored item.
+From 1.0.2-beta.1, `saint_create_todo`, `saint_list_todos` and `saint_update_todo` maintain [Tasks to-dos](/docs/features/tasks-and-inbox#maintain-to-dos-from-a-chat). They do not dispatch work or delete records. Writes require an active caller turn and write capability; repeated creates with the same caller and request ID reuse the stored item.

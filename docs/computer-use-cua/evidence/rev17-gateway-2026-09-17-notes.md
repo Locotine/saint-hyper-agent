@@ -11,11 +11,11 @@ provider-context caller, not a paid model turn).
 
 Identical invocation to `rev17-native-2026-09-17-notes.md`: worktree
 98b86be0c fixture bundle, external `CuaDriverHost`
-(`com.synara.cua-fixture-external`, endpoint
-`/var/folders/…/T/synara-cua-5J2V62/host.sock`,
+(`com.saint.cua-fixture-external`, endpoint
+`/var/folders/…/T/saint-cua-5J2V62/host.sock`,
 accessibility+screen_recording true through the host), `open -g -n -W`
-launch of `~/Applications/Synara Cua Fixture.app` with
-`SYNARA_CUA_FIXTURE_ENDPOINT`/`SYNARA_CUA_FIXTURE_CAPABILITY` set and the
+launch of `~/Applications/Saint Cua Fixture.app` with
+`SAINT_CUA_FIXTURE_ENDPOINT`/`SAINT_CUA_FIXTURE_CAPABILITY` set and the
 LIVE/FOREGROUND flags empty.
 
 ## Results (gateway section, 6/6)

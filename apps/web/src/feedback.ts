@@ -13,7 +13,7 @@ export const FEEDBACK_CATEGORIES = [
   { value: "bug", label: "Bug", lead: "I ran into a bug" },
   { value: "session", label: "Session", lead: "I hit a session problem" },
   { value: "ui", label: "UI", lead: "Something looked wrong" },
-  { value: "performance", label: "Performance", lead: "Synara felt slow" },
+  { value: "performance", label: "Performance", lead: "Saint felt slow" },
   { value: "idea", label: "Idea", lead: "I have an idea" },
   { value: "other", label: "Other", lead: "I have some feedback" },
 ] as const;
@@ -109,7 +109,7 @@ export function formatFeedbackSummary(input: {
     .filter((row): row is [string, string] => row[1] !== null && row[1] !== "")
     .map(([label, value]) => `${label}: ${value}`);
 
-  return [`${lead} in Synara ${diagnostics.appVersion}${usageContext}.`, "", ...detailLines].join(
+  return [`${lead} in Saint ${diagnostics.appVersion}${usageContext}.`, "", ...detailLines].join(
     "\n",
   );
 }
@@ -161,7 +161,7 @@ export async function submitFeedback(
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-synara-feedback": "1",
+        "x-saint-feedback": "1",
       },
       body: JSON.stringify(submission),
       signal: controller.signal,

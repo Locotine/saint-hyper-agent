@@ -12,13 +12,13 @@ packages/*/dist
 build/
 .logs/
 release/
-.synara
-/.synara/electron-dev
-/.synara/backups
-/.synara-*/
-/apps/server/.synara-*/
-/.synara/
-/.synara-*/
+.saint
+/.saint/electron-dev
+/.saint/backups
+/.saint-*/
+/apps/server/.saint-*/
+/.saint/
+/.saint-*/
 .idea/
 apps/web/.playwright
 apps/web/playwright-report
@@ -51,3 +51,7 @@ __screenshots__/
 
 # Local implementation plans.
 /plans/
+
+# Desktop installers built locally
+/*.deb
+/*.exe

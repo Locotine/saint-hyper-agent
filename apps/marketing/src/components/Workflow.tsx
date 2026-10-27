@@ -31,7 +31,7 @@ export default function Workflow() {
         <SplitShowcase
           kicker="04 / provider handoff"
           title="Hand the same task to another provider"
-          description="Change the provider while preserving the task environment and the context Synara passes forward. Review the working tree before and after every handoff."
+          description="Change the provider while preserving the task environment and the context Saint passes forward. Review the working tree before and after every handoff."
           reverse
         >
           <HandoffChatMock />
@@ -57,7 +57,7 @@ export default function Workflow() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/browser-syn.png"
-              alt="Synara browser verification beside a coding-agent task"
+              alt="Saint browser verification beside a coding-agent task"
               className="block h-auto w-full"
             />
           </div>

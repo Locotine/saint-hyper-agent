@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import * as os from "node:os";
 import * as path from "node:path";
 
-import type { ProviderListModelsResult } from "@synara/contracts";
+import type { ProviderListModelsResult } from "@saint/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Effect, type FileSystem } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

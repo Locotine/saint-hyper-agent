@@ -546,7 +546,7 @@ describe("AcpSessionRuntime initialize validation", () => {
     return AcpSessionRuntime.layer({
       spawn: { command: "in-memory-acp-agent", args: [] },
       cwd: process.cwd(),
-      clientInfo: { name: "synara-test", version: "0.0.0" },
+      clientInfo: { name: "saint-test", version: "0.0.0" },
       authPolicy: "on-demand",
       validateInitializeResult,
       teardownProcessTree: async () => ({ escalated: false, signalErrors: [] }),
@@ -688,7 +688,7 @@ describe("AcpSessionRuntime startup timeouts", () => {
     const runtimeLayer = AcpSessionRuntime.layer({
       spawn: { command: "in-memory-acp-agent", args: [] },
       cwd: process.cwd(),
-      clientInfo: { name: "synara-test", version: "0.0.0" },
+      clientInfo: { name: "saint-test", version: "0.0.0" },
       authPolicy: "always",
       authMethodId: "test-auth",
       startupTimeouts: {

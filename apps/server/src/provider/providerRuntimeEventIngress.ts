@@ -1,4 +1,4 @@
-import type { ProviderRuntimeEvent } from "@synara/contracts";
+import type { ProviderRuntimeEvent } from "@saint/contracts";
 
 import { stripDiagnosticImages } from "./stripDiagnosticImages.ts";
 
@@ -51,7 +51,7 @@ export function compactProviderRuntimeEventForIngress(
       ...(event.raw.method !== undefined ? { method: event.raw.method } : {}),
       ...(event.raw.messageType !== undefined ? { messageType: event.raw.messageType } : {}),
       payload: {
-        synaraTruncated: true,
+        saintTruncated: true,
         reason: "provider runtime event exceeded the callback ingress size limit",
         originalBytes,
       },

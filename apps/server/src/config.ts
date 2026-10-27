@@ -48,20 +48,20 @@ export function remoteAccessPolicyError(
 ): string | null {
   const isRemoteBind = !isLoopbackHost(config.host);
   if (config.publicUrl && !normalizeHttpsPublicOrigin(config.publicUrl)) {
-    return "SYNARA_PUBLIC_URL/--public-url must be an HTTPS root origin without credentials, path, query, or fragment (for example https://synara.example.com).";
+    return "SAINT_PUBLIC_URL/--public-url must be an HTTPS root origin without credentials, path, query, or fragment (for example https://saint.example.com).";
   }
   const isPubliclyExposed = isRemoteBind || Boolean(config.publicUrl);
   if (!isPubliclyExposed) return null;
   if (!config.authToken?.trim()) {
     return config.publicUrl
-      ? "Refusing to publish Synara through SYNARA_PUBLIC_URL/--public-url without SYNARA_AUTH_TOKEN/--auth-token."
-      : `Refusing to bind Synara to non-loopback host ${config.host ?? "<unspecified>"} without SYNARA_AUTH_TOKEN/--auth-token.`;
+      ? "Refusing to publish Saint through SAINT_PUBLIC_URL/--public-url without SAINT_AUTH_TOKEN/--auth-token."
+      : `Refusing to bind Saint to non-loopback host ${config.host ?? "<unspecified>"} without SAINT_AUTH_TOKEN/--auth-token.`;
   }
   if (config.devUrl) {
     return "Remote server binds cannot be combined with VITE_DEV_SERVER_URL/--dev-url yet; use a loopback host for development or run the built web UI for remote access.";
   }
   if (isRemoteBind && !config.publicUrl && !config.allowInsecureRemote) {
-    return "Refusing plaintext remote access. Configure an HTTPS reverse-proxy origin with SYNARA_PUBLIC_URL/--public-url, or explicitly accept unencrypted LAN traffic with SYNARA_ALLOW_INSECURE_REMOTE/--allow-insecure-remote.";
+    return "Refusing plaintext remote access. Configure an HTTPS reverse-proxy origin with SAINT_PUBLIC_URL/--public-url, or explicitly accept unencrypted LAN traffic with SAINT_ALLOW_INSECURE_REMOTE/--allow-insecure-remote.";
   }
   return null;
 }
@@ -180,7 +180,7 @@ export function resolveDefaultChatWorkspaceRoot(input: {
   const homeDir = input.homeDir.trim();
   const platform = input.platform ?? process.platform;
   const pathApi = platform === "win32" ? pathWin32 : pathPosix;
-  return pathApi.join(homeDir, "Documents", "Synara");
+  return pathApi.join(homeDir, "Documents", "Saint");
 }
 
 export function resolveDefaultStudioWorkspaceRoot(input: {
@@ -241,7 +241,7 @@ export const resolveCanonicalWorkspaceRoots = Effect.fn(function* (input: {
  * ServerConfig - Service tag for server runtime configuration.
  */
 export class ServerConfig extends ServiceMap.Service<ServerConfig, ServerConfigShape>()(
-  "synara/config/ServerConfig",
+  "saint/config/ServerConfig",
 ) {
   static readonly layerTest = (
     cwd: string,
@@ -260,7 +260,7 @@ export class ServerConfig extends ServiceMap.Service<ServerConfig, ServerConfigS
             : yield* fs.makeTempDirectoryScoped({
                 prefix:
                   typeof baseDirOrPrefix === "string"
-                    ? "synara-server-config-test-"
+                    ? "saint-server-config-test-"
                     : baseDirOrPrefix.prefix,
               });
         const derivedPaths = yield* deriveServerPaths(baseDir, devUrl);
@@ -310,7 +310,7 @@ export const resolveStaticDir = Effect.fn(function* () {
   // in-process asar header otherwise serves bytes from the wrong offsets).
   // Honored only when it actually contains the client, so a stale or bogus env
   // value degrades to the normal lookup instead of breaking serving.
-  const snapshotDir = process.env.SYNARA_STATIC_DIR?.trim();
+  const snapshotDir = process.env.SAINT_STATIC_DIR?.trim();
   if (snapshotDir) {
     const snapshotClient = resolve(snapshotDir);
     const snapshotStat = yield* exists(join(snapshotClient, "index.html")).pipe(

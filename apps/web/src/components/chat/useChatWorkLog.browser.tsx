@@ -4,7 +4,7 @@
 // Layer: Web chat hook browser tests
 // Depends on: the real store-backed useChatWorkLog hook.
 
-import { MessageId, TurnId } from "@synara/contracts";
+import { MessageId, TurnId } from "@saint/contracts";
 import { afterEach, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 

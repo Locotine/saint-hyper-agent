@@ -1,13 +1,13 @@
 ---
 title: Report a problem
-description: Create a minimal, reproducible Synara bug report with useful evidence and no exposed secrets.
+description: Create a minimal, reproducible Saint bug report with useful evidence and no exposed secrets.
 ---
 
 A useful report lets another person reproduce the problem, identify the failing layer, and compare expected behavior with the exact observed result. Preserve the work first, then reduce the failure before collecting more data.
 
 ## Before opening an issue
 
-1. Search existing [Synara issues](https://github.com/Emanuele-web04/synara/issues).
+1. Search existing [Saint issues](https://github.com/Emanuele-web04/synara/issues).
 2. Check the relevant troubleshooting and workflow guide.
 3. Confirm whether the problem occurs in a packaged release, current `main`, or a local modification.
 4. Reproduce it once with the smallest safe setup.
@@ -49,7 +49,7 @@ Example:
 
 ```text
 Starting state:
-- Synara packaged release 0.x.y on macOS
+- Saint packaged release 0.x.y on macOS
 - Codex CLI x.y.z, authenticated
 - Clean test repository on a local branch
 - One task using approval-required mode
@@ -81,7 +81,7 @@ Include:
 
 - Operating system and version
 - CPU architecture
-- Synara version
+- Saint version
 - Packaged release, source build, branch, and commit as applicable
 - Provider name
 - Provider executable path and version
@@ -187,7 +187,7 @@ For External MCP:
 - Pairing, paired, or connected state
 - Integration scopes and project allowlist without credentials
 - Client type
-- Whether `synara_overview` succeeds
+- Whether `saint_overview` succeeds
 - Exact lifecycle, rate, or active-task error
 - Whether the integration is expired or revoked
 
@@ -195,7 +195,7 @@ Never share the raw integration credential or private credential file.
 
 ## Diagnostic evidence
 
-Start with a redacted `synara_diagnose_thread` result when available. Add one narrower source only when it answers a specific question.
+Start with a redacted `saint_diagnose_thread` result when available. Add one narrower source only when it answers a specific question.
 
 For every diagnostic extract, state:
 
@@ -238,7 +238,7 @@ A one-sentence description of the observable failure.
 
 - OS:
 - Architecture:
-- Synara version/build:
+- Saint version/build:
 - Provider executable and version:
 - Model/options:
 - Environment: local checkout | worktree
@@ -293,7 +293,7 @@ List each change separately and its result.
 ## What not to do
 
 - Do not post “it does not work” without a reproduction
-- Do not upload the complete Synara data directory
+- Do not upload the complete Saint data directory
 - Do not paste an entire private task transcript
 - Do not run destructive cleanup merely to make the report simpler
 - Do not claim a failure is provider-wide without testing the provider directly
@@ -314,4 +314,4 @@ List each change separately and its result.
 - [ ] Exposed credentials were rotated or revoked
 - [ ] The issue is focused enough to verify a fix
 
-Open a new report in [Synara issues](https://github.com/Emanuele-web04/synara/issues/new) only after this checklist is complete.
+Open a new report in [Saint issues](https://github.com/Emanuele-web04/synara/issues/new) only after this checklist is complete.

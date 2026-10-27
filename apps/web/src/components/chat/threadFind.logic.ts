@@ -4,7 +4,7 @@
 // Layer: Chat transcript presentation-adjacent logic (unit-tested)
 // Depends on: timeline entry shape and message ids only.
 
-import { type MessageId } from "@synara/contracts";
+import { type MessageId } from "@saint/contracts";
 import { repairMarkdownTableDelimiters } from "../../lib/markdownTableRepair";
 import { deriveDisplayedUserMessageState } from "../../lib/terminalContext";
 import { type TimelineEntry } from "../../session-logic";

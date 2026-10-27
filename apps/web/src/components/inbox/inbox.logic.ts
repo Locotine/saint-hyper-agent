@@ -11,7 +11,7 @@ import type {
   StatsGetRecapInput,
   StatsGetRecapResult,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import type { SidebarThreadSummary } from "../../types";
 import { hasUnseenCompletion, resolveThreadStatusPill } from "../Sidebar.logic";

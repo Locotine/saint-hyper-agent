@@ -1,4 +1,4 @@
-import type { OrchestrationMessage } from "@synara/contracts";
+import type { OrchestrationMessage } from "@saint/contracts";
 import { Effect } from "effect";
 import { describe, expect, it, vi } from "vitest";
 

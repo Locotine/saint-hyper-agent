@@ -4,7 +4,7 @@
 // Layer: Chat composer state helpers
 // Exports: shouldShowPullRequestAutoFixHint + hint constants
 
-import type { PullRequestAutoFixState } from "@synara/contracts";
+import type { PullRequestAutoFixState } from "@saint/contracts";
 
 export const PULL_REQUEST_AUTO_FIX_HINT_MESSAGE = "Want to turn on auto-fix for this PR?";
 export const PULL_REQUEST_AUTO_FIX_HINT_ACTION_LABEL = "Turn on";

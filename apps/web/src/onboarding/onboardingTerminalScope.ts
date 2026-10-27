@@ -4,7 +4,7 @@
 //          with another window's sign-in terminal on the same server.
 // Layer: Web domain helper
 
-import type { ProviderKind, ThreadId } from "@synara/contracts";
+import type { ProviderKind, ThreadId } from "@saint/contracts";
 
 export const ONBOARDING_TERMINAL_SCOPE_PREFIX = "onboarding-terminal:";
 

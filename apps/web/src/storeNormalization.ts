@@ -14,16 +14,16 @@ import {
   type ProviderKind,
   ThreadId,
   type TurnId,
-} from "@synara/contracts";
-import { resolveThreadBranchRegressionGuard } from "@synara/shared/git";
-import { mergeAsyncUserInput } from "@synara/shared/asyncUserInput";
-import { normalizeModelSlug } from "@synara/shared/model";
-import { createStalePendingInteractionMatcher } from "@synara/shared/pendingInteractions";
+} from "@saint/contracts";
+import { resolveThreadBranchRegressionGuard } from "@saint/shared/git";
+import { mergeAsyncUserInput } from "@saint/shared/asyncUserInput";
+import { normalizeModelSlug } from "@saint/shared/model";
+import { createStalePendingInteractionMatcher } from "@saint/shared/pendingInteractions";
 import {
   deriveThreadSummaryMetadata,
   isStalePendingRequestFailureDetail,
   pendingRequestInstanceKey,
-} from "@synara/shared/threadSummary";
+} from "@saint/shared/threadSummary";
 
 import { orderedActivities } from "./workLog";
 import { toAttachmentPreviewUrl } from "./lib/wsHttpUrl";

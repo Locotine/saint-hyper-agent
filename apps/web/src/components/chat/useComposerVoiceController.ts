@@ -8,7 +8,7 @@ import {
   type ProviderKind,
   type ServerProviderStatus,
   type ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { Project } from "../../types";

@@ -5,7 +5,7 @@
 // Note: kept apart from GrokAdapter.test.ts because it mocks the Grok ACP runtime module.
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { type GrokModelOptions, ThreadId } from "@synara/contracts";
+import { type GrokModelOptions, ThreadId } from "@saint/contracts";
 import { Effect, Layer } from "effect";
 import { describe, expect, it, vi } from "vitest";
 

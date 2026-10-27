@@ -3,7 +3,7 @@
  * `computer_browser_*`.
  *
  * These are deliberately separate from the integrated `browser_*` family:
- * the integrated surface drives a Synara-owned browser through its own host,
+ * the integrated surface drives a Saint-owned browser through its own host,
  * while this surface dispatches through the desktop driver's CDP engine —
  * the only route that reaches a driver-launched isolated Chromium or an
  * approved existing profile, and the only input route that works on a
@@ -23,13 +23,13 @@
  *   code (for example `browser_requires_setup` → call computer_browser_prepare).
  * - Upload and download paths are canonicalized and must resolve inside the
  *   caller thread's workspace — the driver checks canonicality; the workspace
- *   boundary is Synara's own filesystem policy on top of that.
+ *   boundary is Saint's own filesystem policy on top of that.
  */
 import { realpath } from "node:fs/promises";
 import { Effect } from "effect";
 
-import type { ComputerBrowserToolName } from "@synara/contracts";
-import { COMPUTER_BROWSER_DRIVER_NAMES } from "@synara/contracts";
+import type { ComputerBrowserToolName } from "@saint/contracts";
+import { COMPUTER_BROWSER_DRIVER_NAMES } from "@saint/contracts";
 
 import {
   ComputerBackendError,
@@ -786,7 +786,7 @@ export function makeAgentGatewayComputerBrowserTools(
     entry(
       "computer_browser_prepare",
       "Prepare browser",
-      `Prepare driver-owned isolated Chromium (profile.mode "isolated_new" or "isolated_named", allow_launch:true), headless by default. Or detect an existing endpoint with pid (+ window_id), allow_launch:false and no strategy. Linux control requires the verified driver and packaged host's confirmed direct-X11 Escape listener; only owned isolated headless targets support mutation. Wayland/XWayland and standalone hosts permit reads/passive prepare only. Linux refuses visible launch and personal-profile control. On macOS, windowed:true needs the user's request to watch or their approval on the card Synara shows; a decline returns foreground_not_requested. Prefer "isolated_named" to preserve a profile across restarts; "isolated_new" starts empty. Use prepared_pid with computer_browser_state. Existing-profile attachment needs a consent grant this embedding cannot host (browser_consent_required).`,
+      `Prepare driver-owned isolated Chromium (profile.mode "isolated_new" or "isolated_named", allow_launch:true), headless by default. Or detect an existing endpoint with pid (+ window_id), allow_launch:false and no strategy. Linux control requires the verified driver and packaged host's confirmed direct-X11 Escape listener; only owned isolated headless targets support mutation. Wayland/XWayland and standalone hosts permit reads/passive prepare only. Linux refuses visible launch and personal-profile control. On macOS, windowed:true needs the user's request to watch or their approval on the card Saint shows; a decline returns foreground_not_requested. Prefer "isolated_named" to preserve a profile across restarts; "isolated_new" starts empty. Use prepared_pid with computer_browser_state. Existing-profile attachment needs a consent grant this embedding cannot host (browser_consent_required).`,
       {
         type: "object",
         properties: {

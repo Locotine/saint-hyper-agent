@@ -15,7 +15,7 @@ These changes do not add Computer tools or guidance to inactive sessions. Permis
 
 ## Live measurements
 
-All three samples used a fresh Synara Dev chat, Codex GPT-5.6 Sol, medium reasoning and Fast/priority. The task was to open Calculator and compute `123 × 45`. Calculator was already running, so these are not cold-launch measurements. The correct displayed result, `5.535`, was verified from the returned images in both optimized samples.
+All three samples used a fresh Saint Dev chat, Codex GPT-5.6 Sol, medium reasoning and Fast/priority. The task was to open Calculator and compute `123 × 45`. Calculator was already running, so these are not cold-launch measurements. The correct displayed result, `5.535`, was verified from the returned images in both optimized samples.
 
 | Metric                      | Before changes | Native fix, before app filter | Final code |
 | --------------------------- | -------------: | ----------------------------: | ---------: |

@@ -20,7 +20,7 @@ export const defaultWindowMaterialAddonPath = join(
   desktopDirectory,
   ".electron-runtime",
   "window-material",
-  "synara-window-material.node",
+  "saint-window-material.node",
 );
 
 // Matches the AppSnap helper's deployment target.
@@ -70,7 +70,7 @@ export function buildWindowMaterialAddon({
   const resolvedOutputPath = resolve(outputPath);
   const metadataPath = `${resolvedOutputPath}.build.json`;
   const fingerprint = createHash("sha256")
-    .update("synara-window-material-addon-build-v1\0")
+    .update("saint-window-material-addon-build-v1\0")
     .update(JSON.stringify(compileArguments.slice(0, -1)))
     .update("\0")
     .update(readFileSync(scriptPath))
@@ -82,9 +82,9 @@ export function buildWindowMaterialAddon({
     return resolvedOutputPath;
   }
 
-  const temporaryDirectory = mkdtempSync(join(tmpdir(), "synara-window-material-"));
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), "saint-window-material-"));
   try {
-    const unsignedAddon = join(temporaryDirectory, "synara-window-material.node");
+    const unsignedAddon = join(temporaryDirectory, "saint-window-material.node");
     run("xcrun", [...compileArguments, "-o", unsignedAddon], {
       env: { ...process.env, CLANG_MODULE_CACHE_PATH: join(temporaryDirectory, "module-cache") },
     });

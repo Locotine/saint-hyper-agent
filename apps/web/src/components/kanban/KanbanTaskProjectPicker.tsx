@@ -4,7 +4,7 @@
 // Layer: Kanban UI component
 // Exports: KanbanTaskProjectPicker
 
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 
 import { ProjectMenuPicker } from "~/components/ProjectMenuPicker";
 import { Button } from "~/components/ui/button";

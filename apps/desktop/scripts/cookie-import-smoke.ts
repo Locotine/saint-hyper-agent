@@ -6,11 +6,11 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { BetterWright, NetworkPolicy } from "betterwright";
 import { configureElectronNetwork } from "betterwright/electron";
-import { synaraHostTarget } from "../src/browserAutomation/betterwrightHostTarget";
+import { saintHostTarget } from "../src/browserAutomation/betterwrightHostTarget";
 
 configureElectronNetwork();
 void (async () => {
-  const home = await mkdtemp(join(tmpdir(), "synara-import-native-"));
+  const home = await mkdtemp(join(tmpdir(), "saint-import-native-"));
   app.setPath("userData", join(home, "electron"));
   await app.whenReady();
   // Generate the source here so this smoke can never select a personal profile.
@@ -24,7 +24,7 @@ void (async () => {
     webPreferences: { partition: "persist:import-smoke", sandbox: true, contextIsolation: true },
   });
   await view.webContents.loadURL("about:blank");
-  const hostTarget = synaraHostTarget(view.webContents, { cookieImport: true });
+  const hostTarget = saintHostTarget(view.webContents, { cookieImport: true });
   const browser = new BetterWright({
     home: join(home, "worker"),
     hostTarget,
@@ -45,7 +45,7 @@ void (async () => {
     if (!result.ok) return;
     assert.equal(result.synced, 1);
     assert.deepEqual(result.cookieImportDomains, ["127.0.0.1"]);
-    const stored = await view.webContents.session.cookies.get({ name: "synara_synthetic_import" });
+    const stored = await view.webContents.session.cookies.get({ name: "saint_synthetic_import" });
     assert.equal(stored.length, 1);
     assert.equal(stored[0]?.value, "synthetic-only");
     console.log("Native fixture import and stored-domain metadata passed");

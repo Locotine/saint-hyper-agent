@@ -7,7 +7,7 @@ import { DisclosureRegion } from "~/components/ui/DisclosureRegion";
 import { Button } from "~/components/ui/button";
 import { SettingsCard, SettingsRow, SettingsSectionShell } from "./SettingsPanelPrimitives";
 
-const STORAGE_KEY = "synara:computer-getting-started:v1";
+const STORAGE_KEY = "saint:computer-getting-started:v1";
 
 /** Introduce Computer where it is enabled, without opening another startup dialog. */
 export function ComputerGettingStarted({
@@ -46,7 +46,7 @@ export function ComputerGettingStarted({
           />
           <SettingsRow
             title="Approve the task"
-            description="If asked, approve Computer for the task. Use the permission guide when desktop access is missing. Synara may still ask before consequential actions."
+            description="If asked, approve Computer for the task. Use the permission guide when desktop access is missing. Saint may still ask before consequential actions."
           />
           <SettingsRow
             title="Follow and stop"

@@ -3,9 +3,9 @@ const { existsSync, realpathSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join, sep } = require("node:path");
 
-const home = realpathSync(process.env.SYNARA_COOKIE_FIXTURE_HOME);
+const home = realpathSync(process.env.SAINT_COOKIE_FIXTURE_HOME);
 if (
-  !home.startsWith(`${realpathSync(tmpdir())}${sep}synara-cookie-fixture-`) ||
+  !home.startsWith(`${realpathSync(tmpdir())}${sep}saint-cookie-fixture-`) ||
   !existsSync(join(home, "Library", "Cookies", "Cookies.binarycookies"))
 ) {
   throw new Error("Use a fresh profile from synthetic-cookie-profile.mjs.");

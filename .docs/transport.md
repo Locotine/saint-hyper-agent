@@ -2,7 +2,7 @@
 
 How the browser and server talk: connect negotiation, WebSocket compression, and static asset delivery.
 
-Synara's transport was originally built for localhost, where bandwidth is free and latency is negligible. The mechanisms below exist because neither holds over a real network — they are also what makes running a session against a remote host practical.
+Saint's transport was originally built for localhost, where bandwidth is free and latency is negligible. The mechanisms below exist because neither holds over a real network — they are also what makes running a session against a remote host practical.
 
 ## Connect negotiation
 

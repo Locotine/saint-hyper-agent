@@ -4,7 +4,7 @@ import * as Path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { MIGRATION_RECOVERY_MAX_RESUME_ATTEMPTS } from "@synara/shared/migrationRecovery";
+import { MIGRATION_RECOVERY_MAX_RESUME_ATTEMPTS } from "@saint/shared/migrationRecovery";
 
 import {
   hasVerifiedDesktopMigrationRestore,
@@ -26,7 +26,7 @@ describe("desktop migration recovery", () => {
         canOpenReleasePage: true,
       }),
     ).toEqual([
-      { label: "Update Synara and restart", decision: "install-update" },
+      { label: "Update Saint and restart", decision: "install-update" },
       { label: "Download latest release", decision: "open-release-page" },
       { label: "Open logs", decision: "open-logs" },
       { label: "Quit", decision: "quit" },
@@ -45,23 +45,23 @@ describe("desktop migration recovery", () => {
   it("targets the same production database and bundled restore authority as the server", () => {
     expect(
       resolveDesktopMigrationRecoveryPaths({
-        baseDir: Path.join(Path.sep, "home", "synara"),
+        baseDir: Path.join(Path.sep, "home", "saint"),
         appRoot: Path.join(Path.sep, "app"),
         isDevelopment: false,
       }),
     ).toEqual({
-      dbPath: Path.join(Path.sep, "home", "synara", "userdata", "state.sqlite"),
+      dbPath: Path.join(Path.sep, "home", "saint", "userdata", "state.sqlite"),
       markerPath: Path.join(
         Path.sep,
         "home",
-        "synara",
+        "saint",
         "userdata",
         "state.sqlite.migration-recovery.json",
       ),
       provenancePath: Path.join(
         Path.sep,
         "home",
-        "synara",
+        "saint",
         "userdata",
         "state.sqlite.migration-backup.json",
       ),
@@ -78,16 +78,16 @@ describe("desktop migration recovery", () => {
 
   it("uses the isolated development database when the desktop backend receives a dev URL", () => {
     const paths = resolveDesktopMigrationRecoveryPaths({
-      baseDir: Path.join(Path.sep, "home", "synara"),
+      baseDir: Path.join(Path.sep, "home", "saint"),
       appRoot: Path.join(Path.sep, "repo"),
       isDevelopment: true,
     });
 
-    expect(paths.dbPath).toBe(Path.join(Path.sep, "home", "synara", "dev", "state.sqlite"));
+    expect(paths.dbPath).toBe(Path.join(Path.sep, "home", "saint", "dev", "state.sqlite"));
   });
 
   it("continues only when the server-owned command clears the durable marker", async () => {
-    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "synara-desktop-recovery-"));
+    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "saint-desktop-recovery-"));
     const dbPath = Path.join(directory, "state.sqlite");
     const paths: DesktopMigrationRecoveryPaths = {
       dbPath,
@@ -126,7 +126,7 @@ describe("desktop migration recovery", () => {
   });
 
   it("fails closed when a successful command leaves the recovery marker behind", async () => {
-    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "synara-desktop-recovery-"));
+    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "saint-desktop-recovery-"));
     const dbPath = Path.join(directory, "state.sqlite");
     const paths: DesktopMigrationRecoveryPaths = {
       dbPath,
@@ -346,7 +346,7 @@ describe("desktop migration recovery", () => {
   });
 
   it("verifies that completed provenance records the exact restored backup", async () => {
-    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "synara-desktop-provenance-"));
+    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "saint-desktop-provenance-"));
     const paths = resolveDesktopMigrationRecoveryPaths({
       baseDir: directory,
       appRoot: directory,
@@ -370,7 +370,7 @@ describe("desktop migration recovery", () => {
 
   it("accepts a restore candidate only for the exact desktop database and provenance", () => {
     const paths = resolveDesktopMigrationRecoveryPaths({
-      baseDir: Path.join(Path.sep, "home", "synara"),
+      baseDir: Path.join(Path.sep, "home", "saint"),
       appRoot: Path.join(Path.sep, "app"),
       isDevelopment: false,
     });
@@ -403,7 +403,7 @@ describe("desktop migration recovery", () => {
   });
 
   it("relaunches only after the exact completed restore is verified", async () => {
-    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "synara-desktop-relaunch-"));
+    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "saint-desktop-relaunch-"));
     const paths = resolveDesktopMigrationRecoveryPaths({
       baseDir: directory,
       appRoot: directory,
@@ -447,7 +447,7 @@ describe("requiresDesktopMigrationRecovery", () => {
     contents: string | null,
     assert: (paths: DesktopMigrationRecoveryPaths) => void,
   ): Promise<void> {
-    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "synara-recovery-gate-"));
+    const directory = await FS.mkdtemp(Path.join(OS.tmpdir(), "saint-recovery-gate-"));
     try {
       const paths = resolveDesktopMigrationRecoveryPaths({
         baseDir: directory,

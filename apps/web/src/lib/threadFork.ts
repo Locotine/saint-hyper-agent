@@ -10,10 +10,10 @@ import type {
   ProviderInteractionMode,
   RuntimeMode,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import type { Thread } from "../types";
 import { resolveForkThreadEnvironment, type ForkThreadTarget } from "./threadEnvironment";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 import {
   buildThreadHandoffImportedMessages,
   hasImportableThreadMessages,

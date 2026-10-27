@@ -6,8 +6,8 @@ import { ComputerAuditHistorySection } from "./ComputerAuditHistorySection";
 import { ComputerGettingStarted } from "./ComputerGettingStarted";
 import { ComputerSettingsPanel } from "./ComputerSettingsPanel";
 import { AppSettingsSchema } from "~/appSettings";
-import type { ComputerStatusResult, DesktopAppSnapState } from "@synara/contracts";
-import { COMPUTER_PERMISSION_KINDS } from "@synara/shared/computerGrants";
+import type { ComputerStatusResult, DesktopAppSnapState } from "@saint/contracts";
+import { COMPUTER_PERMISSION_KINDS } from "@saint/shared/computerGrants";
 import { serverQueryKeys } from "~/lib/serverReactQuery";
 
 const api = vi.hoisted(() => ({ getAuditHistory: vi.fn(), getStatus: vi.fn() }));
@@ -19,7 +19,7 @@ vi.mock("~/nativeApi", async (importOriginal) => ({
 beforeEach(() => {
   api.getAuditHistory.mockReset();
   api.getStatus.mockReset();
-  window.localStorage.removeItem("synara:computer-getting-started:v1");
+  window.localStorage.removeItem("saint:computer-getting-started:v1");
 });
 
 it("remembers dismissal of the first-use guide and lets the user reopen it", async () => {
@@ -106,7 +106,7 @@ it.each<{
   {
     platform: "macos" as const,
     supported: true,
-    endpoint: "wss://remote.synara.test",
+    endpoint: "wss://remote.saint.test",
     showSetup: false,
   },
   {
@@ -140,7 +140,7 @@ it.each<{
       ...(setupError
         ? { permissionSetupErrorCode: "permission_setup_registration_unresolved" as const }
         : {}),
-      appDisplayName: "Synara",
+      appDisplayName: "Saint",
     };
     const appSnap = {
       getState: vi.fn(async () => appSnapState),

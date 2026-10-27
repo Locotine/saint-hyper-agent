@@ -7,7 +7,7 @@
 // Exports: GitHubItemAgentActions, SendToAgentMenuItems, GitHubItemSendTarget,
 //          TOP_BAR_NARROW_LABEL_CLASS_NAME
 
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 
 import { ComposerPickerMenuPopup } from "~/components/chat/ComposerPickerMenuPopup";
 import { MENU_ICON_CLASS_NAME } from "~/components/chat/composerPickerStyles";

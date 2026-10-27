@@ -1,4 +1,4 @@
-import { PullRequestAutoFixState } from "@synara/contracts";
+import { PullRequestAutoFixState } from "@saint/contracts";
 import { Effect, Layer, Schema } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";

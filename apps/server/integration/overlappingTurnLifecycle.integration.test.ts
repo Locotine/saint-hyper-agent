@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { CommandId, MessageId, ProjectId, ThreadId } from "@synara/contracts";
-import * as processRuntime from "@synara/shared/processRuntime";
+import { CommandId, MessageId, ProjectId, ThreadId } from "@saint/contracts";
+import * as processRuntime from "@saint/shared/processRuntime";
 import { Effect, Option } from "effect";
 import { expect, it, vi } from "vitest";
 
@@ -37,7 +37,7 @@ it.each([false, true])(
         (harness) =>
           Effect.gen(function* () {
             // Use the real adapter/process transport against a deterministic local
-            // protocol peer. Synara, Codex home/config/SQLite, and Git are isolated.
+            // protocol peer. Saint, Codex home/config/SQLite, and Git are isolated.
             const codexState = path.join(harness.rootDir, "codex-home-overlay");
             expect(path.isAbsolute(codexState)).toBe(true);
             expect([
@@ -51,7 +51,7 @@ it.each([false, true])(
               path.join(codexState, "config.toml"),
               `sqlite_home = ${JSON.stringify(codexState)}\n`,
             );
-            vi.stubEnv("SYNARA_HOME", harness.rootDir);
+            vi.stubEnv("SAINT_HOME", harness.rootDir);
             vi.stubEnv("CODEX_HOME", codexState);
             vi.stubEnv("CODEX_SQLITE_HOME", codexState);
             fs.copyFileSync(

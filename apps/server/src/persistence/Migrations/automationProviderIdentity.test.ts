@@ -34,7 +34,7 @@ describe("automation provider identity migration", () => {
       ).toEqual({
         provider,
         modelSelection: {
-          instanceId: `synara_unresolved_automation_${provider}`,
+          instanceId: `saint_unresolved_automation_${provider}`,
           model: "model",
         },
       });

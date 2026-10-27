@@ -3,7 +3,7 @@ import {
   type OrchestrationGetFullThreadDiffInput,
   type OrchestrationGetFullThreadDiffResult,
   type OrchestrationGetTurnDiffResult as OrchestrationGetTurnDiffResultType,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, Option, Schema } from "effect";
 
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
@@ -219,8 +219,8 @@ const make = Effect.gen(function* () {
         const truncated =
           raw !== null &&
           typeof raw === "object" &&
-          "synaraTruncated" in raw &&
-          raw.synaraTruncated === true;
+          "saintTruncated" in raw &&
+          raw.saintTruncated === true;
         // Codex cumulative patches are journal-owned. Other providers keep their
         // existing captured-ref path; never substitute a newer/other-turn event.
         const originalBytes =

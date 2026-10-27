@@ -1,13 +1,13 @@
 // FILE: editorRuntime.ts
 // Purpose: Load the standalone editor engine once with the editing features
-//          Synara exposes, the JSON/CSS/HTML language workers, and build its
-//          appearance from Synara's theme tokens and the shared Shiki theme.
+//          Saint exposes, the JSON/CSS/HTML language workers, and build its
+//          appearance from Saint's theme tokens and the shared Shiki theme.
 // Layer: Web editor runtime
 // Exports: monaco, editorAppearance, EDITOR_LINE_HEIGHT_PX
 // Depends on: editorHighlighting (tokenization), editorProviders (language service bridge).
 
 import * as monaco from "monaco-editor/editor/editor.api";
-// Code OSS editing features. Chrome that duplicates Synara's own surfaces stays
+// Code OSS editing features. Chrome that duplicates Saint's own surfaces stays
 // out: the command palette and quick-open pickers, the context menu, the inline
 // rename box, code lens and inline completions (nothing provides them).
 import "monaco-editor/features/codeEditor/register";
@@ -93,7 +93,7 @@ import { registerEditorProviders } from "./editorProviders";
   },
 };
 jsonDefaults.setModeConfiguration({ ...jsonDefaults.modeConfiguration, tokens: false });
-// Tailwind's @theme, @apply, @utility and friends are ordinary in Synara
+// Tailwind's @theme, @apply, @utility and friends are ordinary in Saint
 // projects; the CSS service honours this lint rule though its typings omit it.
 for (const defaults of [cssDefaults, scssDefaults, lessDefaults])
   defaults.setOptions({
@@ -117,7 +117,7 @@ const UNSET_FILL = "#010203";
 let colorContext: CanvasRenderingContext2D | null | undefined;
 /**
  * Resolves a CSS colour token to the opaque `#rrggbb` form the engine accepts.
- * Synara's tokens are often translucent (`--alpha(... / 4%)`, `color-mix` with
+ * Saint's tokens are often translucent (`--alpha(... / 4%)`, `color-mix` with
  * transparent), so the token is composited over `base`, the surface it would
  * sit on; tokens the canvas cannot parse, and fully transparent ones, fall back.
  */
@@ -151,7 +151,7 @@ const alpha = (color: string, opacity: number) =>
   `${color.slice(0, 7)}${hex(Math.round(opacity * 255))}`;
 
 /**
- * The engine's construction options for a surface: Synara's theme tokens for
+ * The engine's construction options for a surface: Saint's theme tokens for
  * every colour, the shared Shiki theme for syntax and bracket pairs, and the
  * chat code font. Re-run when the theme or the typography settings change.
  */
@@ -187,7 +187,7 @@ export function editorAppearance(
   // Bracket pair colours come from the same GitHub theme Shiki colours the code with.
   const shiki = (name: string, fallback: string) =>
     editorThemeColor(highlighter, theme, name) ?? fallback;
-  const name = `synara-${theme}`;
+  const name = `saint-${theme}`;
   setEditorHighlightingTheme(theme);
   monaco.editor.defineTheme(name, {
     base: dark ? "vs-dark" : "vs",

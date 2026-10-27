@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 
 import { useAppSettings } from "~/appSettings";
 import { APP_BASE_NAME } from "~/branding";
-import { SynaraLogo } from "~/components/SynaraLogo";
+import { SaintLogo } from "~/components/SaintLogo";
 import { useAnnouncementSheetSlot } from "~/components/announcementSheetSlot";
 import {
   Dialog,
@@ -147,7 +147,7 @@ function OnboardingFlow(props: {
           hero && "items-center text-center",
         )}
       >
-        {step === "welcome" ? <SynaraLogo aria-hidden className="mb-3.5 size-11" /> : null}
+        {step === "welcome" ? <SaintLogo aria-hidden className="mb-3.5 size-11" /> : null}
         {step === "done" ? (
           <span
             aria-hidden

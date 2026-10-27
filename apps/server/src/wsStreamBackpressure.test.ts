@@ -1,4 +1,4 @@
-import { WsRpcError } from "@synara/contracts";
+import { WsRpcError } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 import { Cause, Deferred, Effect, Exit, Fiber, Queue, Stream } from "effect";
 

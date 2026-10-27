@@ -1,6 +1,6 @@
 // Purpose: Floating composer that retains a transcript quote while the user writes a new prompt.
 
-import type { ThreadEnvironmentMode } from "@synara/contracts";
+import type { ThreadEnvironmentMode } from "@saint/contracts";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { ArrowUpRightIcon, ComposerSendArrowIcon, LoaderCircleIcon, XIcon } from "~/lib/icons";

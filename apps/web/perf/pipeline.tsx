@@ -5,7 +5,7 @@
 //          derivations -> ChatTranscriptPane, so per-flush store and derivation costs are
 //          measured on the same code path the app runs while a thread streams.
 // Layer: Perf tooling (dev-only page, not shipped in the app bundle)
-// Exposes: window.__synaraPipelinePerf { runStream, runQuiet, scrollCycle, snapshot, resetMetrics }
+// Exposes: window.__saintPipelinePerf { runStream, runQuiet, scrollCycle, snapshot, resetMetrics }
 //
 // URL params:
 //   messages=<n>      settled seed messages (default 200)
@@ -17,7 +17,7 @@
 
 import "../src/index.css";
 
-import { MessageId, ThreadId, TurnId } from "@synara/contracts";
+import { MessageId, ThreadId, TurnId } from "@saint/contracts";
 import type { LegendListRef } from "@legendapp/list/react";
 import {
   Profiler,
@@ -103,7 +103,7 @@ type RunReport = {
 
 declare global {
   interface Window {
-    __synaraPipelinePerf: {
+    __saintPipelinePerf: {
       runStream: (options?: StreamRunOptions) => Promise<RunReport>;
       runQuiet: (options?: QuietRunOptions) => Promise<RunReport>;
       scrollCycle: (cycles?: number) => Promise<FrameReport>;
@@ -460,7 +460,7 @@ function snapshot(): PipelineSnapshot {
   };
 }
 
-window.__synaraPipelinePerf = {
+window.__saintPipelinePerf = {
   runStream,
   runQuiet,
   scrollCycle: scrollCycleOnTranscript,
@@ -570,7 +570,7 @@ if (!rootElement) throw new Error("Missing #root element.");
 
 createRoot(rootElement).render(
   <StrictMode>
-    <Profiler id="synara-pipeline-perf" onRender={handleRender}>
+    <Profiler id="saint-pipeline-perf" onRender={handleRender}>
       <PipelineHarness />
     </Profiler>
   </StrictMode>,

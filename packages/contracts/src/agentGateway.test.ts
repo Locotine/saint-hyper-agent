@@ -2,17 +2,17 @@ import { assert, describe, it } from "@effect/vitest";
 import { Schema } from "effect";
 
 import {
-  SynaraCapabilitiesResult,
-  SynaraCreateThreadsInput,
-  SynaraCreatedThreadResult,
-  SynaraCreateThreadsResult,
-  SynaraGatewayErrorResult,
-  SynaraWaitForThreadsInput,
-  SynaraWaitForThreadsResult,
+  SaintCapabilitiesResult,
+  SaintCreateThreadsInput,
+  SaintCreatedThreadResult,
+  SaintCreateThreadsResult,
+  SaintGatewayErrorResult,
+  SaintWaitForThreadsInput,
+  SaintWaitForThreadsResult,
 } from "./agentGateway";
 
-const decodeCreate = Schema.decodeUnknownSync(SynaraCreateThreadsInput);
-const decodeWait = Schema.decodeUnknownSync(SynaraWaitForThreadsInput);
+const decodeCreate = Schema.decodeUnknownSync(SaintCreateThreadsInput);
+const decodeWait = Schema.decodeUnknownSync(SaintWaitForThreadsInput);
 
 const thread = {
   prompt: "Explain this repository",
@@ -34,7 +34,7 @@ describe("agent gateway contracts", () => {
         threads: [{ ...thread, inheritedRuntimeMode: "auto" }],
       }),
     );
-    const result = Schema.decodeUnknownSync(SynaraCreatedThreadResult)({
+    const result = Schema.decodeUnknownSync(SaintCreatedThreadResult)({
       index: 0,
       threadId: "auto-worker",
       projectId: "hub",
@@ -122,7 +122,7 @@ describe("agent gateway contracts", () => {
 
   it("decodes typed capability, creation, wait, and error results", () => {
     assert.doesNotThrow(() =>
-      Schema.decodeUnknownSync(SynaraCapabilitiesResult)({
+      Schema.decodeUnknownSync(SaintCapabilitiesResult)({
         targetConstruction: {
           codex: {
             modelValueSource: "providers[].models[].slug",
@@ -181,7 +181,7 @@ describe("agent gateway contracts", () => {
       }),
     );
     assert.doesNotThrow(() =>
-      Schema.decodeUnknownSync(SynaraCreateThreadsResult)({
+      Schema.decodeUnknownSync(SaintCreateThreadsResult)({
         operationId: "gateway:create:1",
         requestId: "request-1",
         requestedCount: 1,
@@ -206,7 +206,7 @@ describe("agent gateway contracts", () => {
       }),
     );
     assert.doesNotThrow(() =>
-      Schema.decodeUnknownSync(SynaraWaitForThreadsResult)({
+      Schema.decodeUnknownSync(SaintWaitForThreadsResult)({
         callerThreadId: "thread-parent",
         runIds: ["turn-1"],
         allTerminal: true,
@@ -222,7 +222,7 @@ describe("agent gateway contracts", () => {
             summaryTruncated: false,
             error: null,
             readThread: {
-              tool: "synara_read_thread",
+              tool: "saint_read_thread",
               arguments: { threadId: "thread-1" },
             },
           },
@@ -230,7 +230,7 @@ describe("agent gateway contracts", () => {
       }),
     );
     assert.doesNotThrow(() =>
-      Schema.decodeUnknownSync(SynaraGatewayErrorResult)({
+      Schema.decodeUnknownSync(SaintGatewayErrorResult)({
         error: { code: "creation_plan_locked", message: "A plan already exists." },
       }),
     );

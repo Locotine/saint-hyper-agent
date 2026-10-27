@@ -11,7 +11,7 @@ import { buildAntigravityTurnPrompt } from "./AntigravityAdapter.ts";
 import { buildPiTurnPrompt } from "./PiAdapter.ts";
 
 const computerContext = computerToolInstructions();
-const marker = "## Synara computer use";
+const marker = "## Saint computer use";
 
 describe("conditional Computer host context", () => {
   it.each(["default", "plan"] as const)(

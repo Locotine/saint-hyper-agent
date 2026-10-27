@@ -3,10 +3,10 @@ import type {
   RuntimeContentStreamKind,
   ThreadTokenUsageSnapshot,
   ToolLifecycleItemType,
-} from "@synara/contracts";
-import { summarizeToolRawOutput } from "@synara/shared/toolOutputSummary";
+} from "@saint/contracts";
+import { summarizeToolRawOutput } from "@saint/shared/toolOutputSummary";
 
-import { canonicalSynaraComputerToolName } from "../../agentGateway/computerToolPermission.ts";
+import { canonicalSaintComputerToolName } from "../../agentGateway/computerToolPermission.ts";
 import { computeUsagePercent, nonNegativeInteger, positiveInteger } from "../tokenUsage.ts";
 import { isImageGenerationToolName } from "../imageGenerationTool.ts";
 import {
@@ -210,7 +210,7 @@ function normalizeToolCallStatus(
   }
 }
 
-// Converts ACP's unstable usage updates into Synara's context-window snapshot shape.
+// Converts ACP's unstable usage updates into Saint's context-window snapshot shape.
 function tokenUsageSnapshotFromAcpUsageUpdate(input: {
   readonly size: unknown;
   readonly used: unknown;
@@ -504,7 +504,7 @@ function makeToolCallState(
   }
   // Native name fields identify the tool; provider titles are presentation only.
   // Keep arguments intact in rawInput, never promote their values into a title.
-  const computerToolName = canonicalSynaraComputerToolName(nativeToolName);
+  const computerToolName = canonicalSaintComputerToolName(nativeToolName);
   if (computerToolName) {
     data.toolName = computerToolName;
   }

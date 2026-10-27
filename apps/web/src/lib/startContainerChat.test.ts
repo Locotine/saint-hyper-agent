@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useComposerDraftStore, type ComposerThreadDraftState } from "../composerDraftStore";
@@ -11,9 +11,9 @@ import {
 
 const paths = {
   homeDir: "/Users/tester",
-  chatWorkspaceRoot: "/Users/tester/Documents/Synara/Chats",
-  studioWorkspaceRoot: "/Users/tester/Documents/Synara/Studio",
-  groupsWorkspaceRoot: "/Users/tester/Documents/Synara/Groups",
+  chatWorkspaceRoot: "/Users/tester/Documents/Saint/Chats",
+  studioWorkspaceRoot: "/Users/tester/Documents/Saint/Studio",
+  groupsWorkspaceRoot: "/Users/tester/Documents/Saint/Groups",
 };
 
 function successfulHandler() {
@@ -28,7 +28,7 @@ describe("startFreshChatForActiveSurface", () => {
     await startFreshChatForActiveSurface({
       activeProject: {
         kind: "group",
-        cwd: "/Users/tester/Documents/Synara/Groups/Team A",
+        cwd: "/Users/tester/Documents/Saint/Groups/Team A",
       },
       isGroupsRoute: false,
       paths,
@@ -48,7 +48,7 @@ describe("startFreshChatForActiveSurface", () => {
     await startFreshChatForActiveSurface({
       activeProject: {
         kind: "studio",
-        cwd: "/Users/tester/Documents/Synara/Studio",
+        cwd: "/Users/tester/Documents/Saint/Studio",
       },
       isGroupsRoute: false,
       paths,

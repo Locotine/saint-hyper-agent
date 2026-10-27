@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import { readClaudeSessionMessagePageInEnvironment } from "./importThreadRoute";
 
 it("pages the SDK-selected Claude chain in an isolated account without transferring huge tool results", async () => {
-  const configDir = await mkdtemp(path.join(tmpdir(), "synara-claude-history-page-"));
+  const configDir = await mkdtemp(path.join(tmpdir(), "saint-claude-history-page-"));
   try {
     const sessionId = randomUUID();
     const project = path.join(configDir, "projects", "fixture");

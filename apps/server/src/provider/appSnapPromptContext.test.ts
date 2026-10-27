@@ -1,4 +1,4 @@
-import type { ChatAttachment } from "@synara/contracts";
+import type { ChatAttachment } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 import { appendAppSnapPromptContext } from "./appSnapPromptContext.ts";
 

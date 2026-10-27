@@ -10,7 +10,7 @@ export function WorktreeMock() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/worktrees-syn.png"
-        alt="Synara worktree sessions — a separate branch per agent, each on its own worktree"
+        alt="Saint worktree sessions — a separate branch per agent, each on its own worktree"
         className="block h-auto w-full"
       />
     </div>

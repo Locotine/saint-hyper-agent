@@ -6,9 +6,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
 
-const application = join(homedir(), "Applications/Synara Cua Fixture.app");
+const application = join(homedir(), "Applications/Saint Cua Fixture.app");
 const output = process.argv[2];
-if (!output?.startsWith("/private/tmp/synara-cua-implementation/"))
+if (!output?.startsWith("/private/tmp/saint-cua-implementation/"))
   throw new Error("Use an explicit fixture output path.");
 const hostPath = join(application, "Contents/MacOS/Electron");
 const driverPath = join(application, "Contents/Resources/cua-driver/cua-driver");

@@ -1,6 +1,6 @@
 import "../index.css";
 
-import type { DesktopBridge, DesktopQuitConfirmationRequest } from "@synara/contracts";
+import type { DesktopBridge, DesktopQuitConfirmationRequest } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { page, userEvent } from "vitest/browser";
 import { afterEach, expect, it, vi } from "vitest";

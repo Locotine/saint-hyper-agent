@@ -6,7 +6,7 @@ import {
   type AutomationDefinition,
   type AutomationProposalState,
   type AutomationSchedule,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 export function automationProposalActivityId(automationId: AutomationDefinition["id"]): EventId {
   return EventId.makeUnsafe(`automation-proposal:${automationId}`);

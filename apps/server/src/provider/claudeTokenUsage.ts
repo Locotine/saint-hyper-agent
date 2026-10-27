@@ -3,7 +3,7 @@ import type {
   NonNullableUsage,
   SDKControlGetContextUsageResponse,
 } from "@anthropic-ai/claude-agent-sdk";
-import type { ThreadTokenUsageSnapshot } from "@synara/contracts";
+import type { ThreadTokenUsageSnapshot } from "@saint/contracts";
 import {
   getClaudeContextWindowSuffix,
   getDefaultAutoCompactWindow,
@@ -11,7 +11,7 @@ import {
   hasAutoCompactWindowOption,
   stripClaudeContextWindowSuffix,
   trimOrNull,
-} from "@synara/shared/model";
+} from "@saint/shared/model";
 
 import { positiveFiniteNumber } from "./tokenUsage.ts";
 

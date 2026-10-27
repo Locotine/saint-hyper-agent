@@ -1,7 +1,7 @@
 /**
  * The stability fixes from #1905 that live in the manager: a viewerless
  * attach must not take over another thread's stream, a helper that dies under
- * a live stream is replaced, and Synara keeps track of the simulators it
+ * a live stream is replaced, and Saint keeps track of the simulators it
  * booted through failed listings and concurrent boots.
  */
 import { describe, expect, it } from "vitest";
@@ -119,10 +119,10 @@ describe("boot ownership", () => {
       throw new DeviceBackendError("simctl list failed");
     };
 
-    await manager.synaraBootedDevices();
+    await manager.saintBootedDevices();
     backend.listDevices = listDevices;
 
-    // Still Synara's: quitting shuts it down.
+    // Still Saint's: quitting shuts it down.
     await manager.dispose();
     expect(backend.callsOfKind("shutdown").map((call) => call.udid)).toContain(DEVICE_A);
   });
@@ -144,7 +144,7 @@ describe("boot ownership", () => {
     bootA.resolve();
     await bootingA;
 
-    const owned = (await manager.synaraBootedDevices()).map((device) => device.udid);
+    const owned = (await manager.saintBootedDevices()).map((device) => device.udid);
     expect(owned.toSorted()).toEqual([DEVICE_A, DEVICE_B]);
   });
 });

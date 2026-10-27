@@ -23,7 +23,7 @@ const WINDOWS_PATHEXT = ".COM;.EXE;.BAT;.CMD";
 let dir: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(path.join(os.tmpdir(), "synara-exec-lookup-"));
+  dir = mkdtempSync(path.join(os.tmpdir(), "saint-exec-lookup-"));
 });
 
 afterEach(() => {
@@ -169,7 +169,7 @@ describe("isExecutableFile", () => {
 
 describe("resolveExecutable", () => {
   it("returns the first PATH hit", () => {
-    const second = mkdtempSync(path.join(os.tmpdir(), "synara-exec-lookup-2-"));
+    const second = mkdtempSync(path.join(os.tmpdir(), "saint-exec-lookup-2-"));
     try {
       writeFileSync(path.join(second, "codex"), "#!/bin/sh\n", { mode: 0o755 });
       expect(

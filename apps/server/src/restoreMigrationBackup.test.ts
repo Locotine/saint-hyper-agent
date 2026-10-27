@@ -26,20 +26,20 @@ describe("migration backup recovery CLI", () => {
       await fs.readFile(new URL("../package.json", import.meta.url), "utf8"),
     ) as { readonly bin?: Record<string, string> };
 
-    expect(packageJson.bin?.["synara-restore-migration-backup"]).toBe(
+    expect(packageJson.bin?.["saint-restore-migration-backup"]).toBe(
       "dist/restoreMigrationBackup.mjs",
     );
   });
 
-  it("rejects relative database paths and warns operators to stop Synara", async () => {
+  it("rejects relative database paths and warns operators to stop Saint", async () => {
     const capture = captureOutput();
 
     const exitCode = await runRestoreMigrationBackupCli(["state.sqlite"], capture.output);
 
     expect(exitCode).toBe(2);
     expect(capture.errors.join("\n")).toContain("Database path must be absolute");
-    expect(capture.errors.join("\n")).toContain("synara-restore-migration-backup");
-    expect(capture.warnings.join("\n")).toContain("Stop every Synara process");
+    expect(capture.errors.join("\n")).toContain("saint-restore-migration-backup");
+    expect(capture.warnings.join("\n")).toContain("Stop every Saint process");
     expect(capture.logs).toEqual([]);
   });
 

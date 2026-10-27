@@ -54,7 +54,7 @@ async function main() {
   await app.whenReady();
   assert.equal(linuxEscapeSession(), "x11", "smoke requires a direct disposable X11 session");
 
-  const root = await mkdtemp(join(tmpdir(), "synara-linux-smoke-"));
+  const root = await mkdtemp(join(tmpdir(), "saint-linux-smoke-"));
   await mkdir(join(root, "cua-driver"));
   await symlink(binary, join(root, "cua-driver", "cua-driver"));
   const capability = randomUUID() + randomUUID();
@@ -101,7 +101,7 @@ async function main() {
     isPackaged: true,
     resourcesPath: root,
     appRoot: root,
-    bundleId: "test.synara.linux.smoke",
+    bundleId: "test.saint.linux.smoke",
     capability,
     ownPids: () => new Set([process.pid]),
     inputMonitor: monitor,

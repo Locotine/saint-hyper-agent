@@ -4,12 +4,12 @@ import type {
   GitHubProjectProvisionInput,
   GitHubProjectProvisionPhase,
   GitHubProjectProvisionProgressEvent,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   parseGitHubRepositoryInput,
   parseGitHubRepositoryNameWithOwnerFromRemoteUrl,
-} from "@synara/shared/githubRepository";
-import { normalizeProjectDirectoryName } from "@synara/shared/projectDirectoryName";
+} from "@saint/shared/githubRepository";
+import { normalizeProjectDirectoryName } from "@saint/shared/projectDirectoryName";
 import { Effect, FileSystem, Path, PlatformError, Schema, Semaphore } from "effect";
 
 import { GitCommandError, GitHubCliError } from "../git/Errors";
@@ -146,7 +146,7 @@ function classifyCloneFailure(cause: unknown): GitHubProjectProvisioningError {
   if (exceededConfiguredCloneTimeout) {
     return provisioningError(
       "CLONE_TIMEOUT",
-      "The repository clone exceeded Synara's 30-minute limit. For very large repositories, clone it manually and add the local folder instead.",
+      "The repository clone exceeded Saint's 30-minute limit. For very large repositories, clone it manually and add the local folder instead.",
       false,
       cause,
     );
@@ -194,7 +194,7 @@ function classifyCloneFailure(cause: unknown): GitHubProjectProvisioningError {
   ) {
     return provisioningError(
       "NETWORK_ERROR",
-      "Synara could not reach GitHub. Check the server's network connection and retry.",
+      "Saint could not reach GitHub. Check the server's network connection and retry.",
       true,
       cause,
     );
@@ -210,7 +210,7 @@ function classifyCloneFailure(cause: unknown): GitHubProjectProvisioningError {
   if (lower.includes("permission denied") || lower.includes("operation not permitted")) {
     return provisioningError(
       "PERMISSION_DENIED",
-      "Synara does not have permission to write to the selected destination.",
+      "Saint does not have permission to write to the selected destination.",
       false,
       cause,
     );
@@ -240,7 +240,7 @@ function classifyPromotionFailure(cause: unknown): GitHubProjectProvisioningErro
   if (reason === "PermissionDenied") {
     return provisioningError(
       "PERMISSION_DENIED",
-      "Synara does not have permission to move the cloned repository into the selected destination.",
+      "Saint does not have permission to move the cloned repository into the selected destination.",
       false,
       cause,
     );
@@ -442,7 +442,7 @@ export const makeGitHubProjectProvisioner = Effect.fn(function* (
       if (!path.isAbsolute(expandedParent)) {
         return yield* provisioningError(
           "INVALID_DESTINATION",
-          "Choose an absolute destination folder on the Synara server.",
+          "Choose an absolute destination folder on the Saint server.",
           false,
         );
       }
@@ -488,7 +488,7 @@ export const makeGitHubProjectProvisioner = Effect.fn(function* (
           );
           const stagingPath = path.join(
             parent,
-            `.synara-clone-${process.pid}-${randomUUID().replace(/-/g, "")}`,
+            `.saint-clone-${process.pid}-${randomUUID().replace(/-/g, "")}`,
           );
           let promoted = false;
 

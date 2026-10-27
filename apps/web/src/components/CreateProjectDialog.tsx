@@ -5,13 +5,13 @@
 // Layer: Web UI dialog
 // Exports: CreateProjectDialog, CreateProjectSubmitValue
 
-import { type GitHubProjectProvisionProgressEvent, type SpaceId } from "@synara/contracts";
-import { parseGitHubRepositoryInput } from "@synara/shared/githubRepository";
-import { findProjectFolderProblem } from "@synara/shared/projectFolders";
-import { normalizeProjectDirectoryName } from "@synara/shared/projectDirectoryName";
+import { type GitHubProjectProvisionProgressEvent, type SpaceId } from "@saint/contracts";
+import { parseGitHubRepositoryInput } from "@saint/shared/githubRepository";
+import { findProjectFolderProblem } from "@saint/shared/projectFolders";
+import { normalizeProjectDirectoryName } from "@saint/shared/projectDirectoryName";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
-import { isElectron } from "../env";
+import { isElectron, remoteWindowHost } from "../env";
 import { useWindowFolderDrop } from "../hooks/useWindowFolderDrop";
 import { VOID_SPACE_KEY, spaceKey, toSpaceIconName } from "../lib/spaceGrouping";
 import { createSpace } from "../lib/spaces";
@@ -284,7 +284,8 @@ export function CreateProjectDialog(props: {
   // While the dialog is open it is the only interactive surface, so a folder dropped
   // anywhere in the window counts (see useWindowFolderDrop).
   const isDropTarget = useWindowFolderDrop({
-    enabled: props.open && isElectron && source === "local",
+    // A dropped folder is on this computer, not on a remote window's host.
+    enabled: props.open && isElectron && !remoteWindowHost && source === "local",
     // With a primary folder in place, another dropped folder joins the project.
     onFolder: (dropped) => {
       if (trimmedPath) addAdditionalFolder(dropped);
@@ -298,7 +299,11 @@ export function CreateProjectDialog(props: {
     // The confirm button stays enabled (and white) like the reference dialog;
     // an empty submit explains what is missing instead of being unclickable.
     if (source === "local" && trimmedPath.length === 0) {
-      setFormError("Type a folder path, or drop a folder above.");
+      setFormError(
+        remoteWindowHost
+          ? "Type a folder path, or browse for one above."
+          : "Type a folder path, or drop a folder above.",
+      );
       return;
     }
     const folderProblem =
@@ -314,7 +319,7 @@ export function CreateProjectDialog(props: {
       return;
     }
     if (source === "github" && !props.githubProvisioningAvailable) {
-      setFormError("Update the Synara server before adding a project from GitHub.");
+      setFormError("Update the Saint server before adding a project from GitHub.");
       return;
     }
     if (source === "github" && trimmedDestinationParent.length === 0) {
@@ -577,6 +582,8 @@ export function CreateProjectDialog(props: {
                           {pickedPath}
                         </span>
                       </span>
+                    ) : remoteWindowHost ? (
+                      `Browse folders on ${remoteWindowHost}`
                     ) : (
                       "Drop a folder here, or browse"
                     )}

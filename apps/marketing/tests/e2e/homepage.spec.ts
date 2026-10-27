@@ -13,7 +13,7 @@ test.describe("homepage functional flow", () => {
 
     const actions = page.locator("[data-home-actions]");
     const download = actions.getByRole("link", {
-      name: /Download for|Download Synara/,
+      name: /Download for|Download Saint/,
     });
     const github = actions.getByRole("link", { name: "Star on GitHub" });
 
@@ -64,7 +64,7 @@ test.describe("homepage functional flow", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
 
-    const faq = page.getByRole("button", { name: /What is Synara/ }).first();
+    const faq = page.getByRole("button", { name: /What is Saint/ }).first();
     await faq.press("Enter");
     await expect(faq).toHaveAttribute("aria-expanded", "true");
     await expect(page.locator('[role="region"]').first()).toBeVisible();
@@ -123,7 +123,7 @@ test.describe("homepage functional flow", () => {
     await preparePage(page, "light");
     await page.goto("/install", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("main")).toHaveCount(1);
-    await expect(page.locator("h1")).toHaveText("Download Synara");
+    await expect(page.locator("h1")).toHaveText("Download Saint");
     await page.goto("/docs", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("main")).toHaveCount(1);
   });

@@ -6,7 +6,7 @@ import {
   ModelRuntime,
   createAgentSessionServices,
 } from "@earendil-works/pi-coding-agent";
-import { outboundHttp } from "@synara/shared/outboundHttp";
+import { outboundHttp } from "@saint/shared/outboundHttp";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { refreshPiOpenCodeCatalog, parsePiOpenCodeCatalog } from "./piOpenCodeCatalog";
 import {

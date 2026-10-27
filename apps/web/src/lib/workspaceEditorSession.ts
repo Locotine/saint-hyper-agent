@@ -1,5 +1,5 @@
-import type { ProjectReadFileResult } from "@synara/contracts";
-import { isWorkspaceFileWriteConflictError } from "@synara/shared/workspaceFileWrite";
+import type { ProjectReadFileResult } from "@saint/contracts";
+import { isWorkspaceFileWriteConflictError } from "@saint/shared/workspaceFileWrite";
 import type { QueryClient } from "@tanstack/react-query";
 
 import { ensureNativeApi } from "~/nativeApi";

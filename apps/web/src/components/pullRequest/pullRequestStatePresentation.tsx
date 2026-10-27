@@ -9,7 +9,7 @@
 //          IssueStatePresentation, resolveIssueStatePresentation, ISSUE_STATE_PRESENTATION_ICONS,
 //          PullRequestConflictIcon
 
-import type { GitHubIssueState, GitHubIssueStateReason } from "@synara/contracts";
+import type { GitHubIssueState, GitHubIssueStateReason } from "@saint/contracts";
 
 import {
   GitMergeConflictIcon,

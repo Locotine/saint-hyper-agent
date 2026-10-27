@@ -42,7 +42,7 @@ import type {
   OrchestrationProject,
   OrchestrationReadModel,
   OrchestrationThread,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   CommandId,
   IsoDateTime,
@@ -52,7 +52,7 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Duration, Effect, FileSystem, Option, Schema } from "effect";
 import { randomUUID } from "node:crypto";
 
@@ -246,7 +246,7 @@ function buildCrashResumeRecord(input: {
       !managedProjects.has(thread.projectId) &&
       thread.creationSource !== "automation_run" &&
       thread.creationSource !== "provider_native" &&
-      thread.creationSource !== "synara_mcp" &&
+      thread.creationSource !== "saint_mcp" &&
       thread.creationSource !== "external_mcp" &&
       !isScheduledTurn &&
       message.dispatchOrigin !== "agent" &&
@@ -262,7 +262,7 @@ function buildCrashResumeRecord(input: {
     request: {
       threadIds: threads.slice(0, QUIT_RESUME_MAX_THREADS).map((thread) => thread.id),
       continuationPrompt:
-        "Synara stopped unexpectedly while this task was running. Check the conversation and current workspace state, verify whether pending operations already completed before repeating them, and continue the remaining work. Preserve pending approval and user decisions; ask again when needed.",
+        "Saint stopped unexpectedly while this task was running. Check the conversation and current workspace state, verify whether pending operations already completed before repeating them, and continue the remaining work. Preserve pending approval and user decisions; ask again when needed.",
     },
     threads,
     recordId: `crash:${randomUUID()}`,

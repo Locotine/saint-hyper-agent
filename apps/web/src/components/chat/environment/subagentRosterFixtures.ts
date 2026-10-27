@@ -2,7 +2,7 @@
 // Purpose: Shared roster-row fixture for the subagent summary and dock list tests.
 // Layer: Test support
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 
 import type { EnvironmentSubagentRosterItem } from "./EnvironmentSubagentsSection.logic";
 

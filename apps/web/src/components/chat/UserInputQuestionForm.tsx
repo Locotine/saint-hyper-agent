@@ -1,4 +1,4 @@
-import type { UserInputQuestion } from "@synara/contracts";
+import type { UserInputQuestion } from "@saint/contracts";
 import { useEffect, useEffectEvent, useRef, type ReactNode } from "react";
 import {
   derivePendingUserInputProgress,

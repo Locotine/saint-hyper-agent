@@ -4,7 +4,7 @@
 // Layer: Tasks UI component
 // Exports: TaskStatusGlyph, TaskStatusChip, TaskPriorityGlyph
 
-import type { TodoPriority } from "@synara/contracts";
+import type { TodoPriority } from "@saint/contracts";
 
 import { STATUS_GLYPH_CUTOUT_STROKE, StatusChip } from "~/components/ui/status-chip";
 import { cn } from "~/lib/utils";

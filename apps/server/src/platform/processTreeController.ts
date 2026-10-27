@@ -2,7 +2,7 @@
 // Purpose: Captures, inspects, and signals owned process trees across platforms.
 // Layer: Server platform runtime
 
-import { execProcessFile, spawnProcessSync } from "@synara/shared/processRuntime";
+import { execProcessFile, spawnProcessSync } from "@saint/shared/processRuntime";
 
 import { captureWindowsProcessChildrenMap } from "./windowsProcessSnapshot";
 

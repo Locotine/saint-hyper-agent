@@ -1,6 +1,6 @@
 // Beta icon generator. The macOS fallback has a quiet glass finish; other
 // platforms keep the original blueprint artwork. The native macOS 26 icon is
-// the layered Synara.icon asset, rendered by the system.
+// the layered Saint.icon asset, rendered by the system.
 import AppKit
 import CoreGraphics
 import Foundation
@@ -248,7 +248,7 @@ func drawComposerBackground(_ p: Palette) {
   source.draw(in: NSRect(x: 0, y: 0, width: D, height: D), from: .zero, operation: .copy, fraction: 1)
   NSGraphicsContext.restoreGraphicsState()
   let png = scaled.representation(using: .png, properties: [:])!
-  let output = URL(fileURLWithPath: FileManager.default.currentDirectoryPath + "/assets/beta/Synara.icon/Assets/background.png")
+  let output = URL(fileURLWithPath: FileManager.default.currentDirectoryPath + "/assets/beta/Saint.icon/Assets/background.png")
   try! png.write(to: output)
   print("saved \(output.path)")
 }

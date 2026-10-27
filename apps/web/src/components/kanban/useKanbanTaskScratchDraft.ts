@@ -4,7 +4,7 @@
 // Layer: Kanban UI hook
 // Exports: useKanbanTaskScratchDraft
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderKind } from "@saint/contracts";
 import type { AppSettings } from "../../appSettings";
 import { useCallback, useEffect, useRef } from "react";
 

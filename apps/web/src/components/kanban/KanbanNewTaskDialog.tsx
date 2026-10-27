@@ -8,7 +8,7 @@
 // Layer: Kanban UI component
 // Exports: KanbanNewTaskDialog
 
-import type { ProjectId, ProviderInteractionMode } from "@synara/contracts";
+import type { ProjectId, ProviderInteractionMode } from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 

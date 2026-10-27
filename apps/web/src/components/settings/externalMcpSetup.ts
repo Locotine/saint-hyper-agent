@@ -3,13 +3,13 @@ import type {
   ExternalMcpClientKind,
   ExternalMcpProjectScope,
   ExternalMcpStdioConfiguration,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
-// `synara` is reserved by the Codex provider for Synara's managed, in-process
+// `saint` is reserved by the Codex provider for Saint's managed, in-process
 // HTTP gateway. External clients run a separate stdio server, so they must use
 // a different entry name or Codex merges the two transports when it layers the
-// user's config over Synara's provider overlay.
-export const EXTERNAL_MCP_SERVER_NAME = "synara-external" as const;
+// user's config over Saint's provider overlay.
+export const EXTERNAL_MCP_SERVER_NAME = "saint-external" as const;
 
 export interface ExternalMcpClientConfiguration {
   readonly format: "command" | "json";
@@ -86,8 +86,8 @@ export function buildExternalMcpClientConfiguration(
       ),
       copyLabel: "Copy Codex command",
       instruction: /win/i.test(platform)
-        ? "Run this command in PowerShell. Codex will save Synara as a local MCP server; then open a new Codex task."
-        : "Run this command in Terminal. Codex will save Synara as a local MCP server; then open a new Codex task.",
+        ? "Run this command in PowerShell. Codex will save Saint as a local MCP server; then open a new Codex task."
+        : "Run this command in Terminal. Codex will save Saint as a local MCP server; then open a new Codex task.",
     };
   }
 
@@ -115,8 +115,8 @@ export function buildExternalMcpClientConfiguration(
       ),
       copyLabel: "Copy Claude command",
       instruction: /win/i.test(platform)
-        ? "Run this command in PowerShell. Claude Code will make Synara available in all your projects."
-        : "Run this command in Terminal. Claude Code will make Synara available in all your projects.",
+        ? "Run this command in PowerShell. Claude Code will make Saint available in all your projects."
+        : "Run this command in Terminal. Claude Code will make Saint available in all your projects.",
     };
   }
 
@@ -126,7 +126,7 @@ export function buildExternalMcpClientConfiguration(
     copyLabel: "Copy configuration",
     instruction:
       client === "claudeDesktop"
-        ? "In Claude Desktop, open Settings → Developer → Edit Config. Add the Synara entry without removing existing servers, save, and restart Claude Desktop."
+        ? "In Claude Desktop, open Settings → Developer → Edit Config. Add the Saint entry without removing existing servers, save, and restart Claude Desktop."
         : "Paste this into your app's local stdio MCP configuration.",
   };
 }
@@ -134,9 +134,9 @@ export function buildExternalMcpClientConfiguration(
 export function buildExternalMcpExamplePrompt(projectTitle: string | null): string {
   return [
     projectTitle === null
-      ? "Use Synara to create a new task: call synara_overview first, pick the most relevant project, and tell me which one you chose."
-      : `Use Synara to create a new task in the project named ${JSON.stringify(projectTitle)}.`,
-    "First inspect Synara's capabilities and choose an exact available provider and model; do not guess model names.",
+      ? "Use Saint to create a new task: call saint_overview first, pick the most relevant project, and tell me which one you chose."
+      : `Use Saint to create a new task in the project named ${JSON.stringify(projectTitle)}.`,
+    "First inspect Saint's capabilities and choose an exact available provider and model; do not guess model names.",
     "Use an isolated managed worktree and approval-required execution.",
     "Goal: [DESCRIBE THE WORK].",
     "Wait for the task to finish, then read the result and summarize it for me.",
@@ -144,7 +144,7 @@ export function buildExternalMcpExamplePrompt(projectTitle: string | null): stri
 }
 
 // The one block a user pastes into any coding agent (Codex, Claude Code, or
-// another MCP-capable app). The agent pairs the machine, registers Synara in
+// another MCP-capable app). The agent pairs the machine, registers Saint in
 // its own MCP configuration, and verifies the connection — no per-client
 // artifacts to juggle. `setupCommand` is null once pairing already happened.
 export function buildExternalMcpSetupPrompt(input: {
@@ -156,7 +156,7 @@ export function buildExternalMcpSetupPrompt(input: {
   const codex = buildExternalMcpClientConfiguration("codex", input.stdio, platform);
   const claude = buildExternalMcpClientConfiguration("claudeCode", input.stdio, platform);
   const sections: string[] = [
-    "Connect this coding agent to Synara via MCP. Complete every step yourself, in order, and report what happened.",
+    "Connect this coding agent to Saint via MCP. Complete every step yourself, in order, and report what happened.",
   ];
   if (input.setupCommand !== null) {
     sections.push(
@@ -171,14 +171,14 @@ export function buildExternalMcpSetupPrompt(input: {
   }
   sections.push(
     [
-      `Step 2 — Register Synara as a stdio MCP server named "${EXTERNAL_MCP_SERVER_NAME}" in your own configuration, using whichever mechanism your app supports:`,
+      `Step 2 — Register Saint as a stdio MCP server named "${EXTERNAL_MCP_SERVER_NAME}" in your own configuration, using whichever mechanism your app supports:`,
       "",
       `If you are Codex, run: ${codex.value}`,
       `If you are Claude Code, run: ${claude.value}`,
       "For any other MCP app, merge this into its MCP configuration:",
       jsonConfiguration(input.stdio),
     ].join("\n"),
-    'Step 3 — Verify. Reload your MCP servers if needed, then call the "synara_overview" tool and summarize the projects, providers, and permissions it returns.',
+    'Step 3 — Verify. Reload your MCP servers if needed, then call the "saint_overview" tool and summarize the projects, providers, and permissions it returns.',
   );
   return sections.join("\n\n");
 }

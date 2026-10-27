@@ -1,4 +1,4 @@
-# Synara Code-Quality Branch — Complete Review Handoff
+# Saint Code-Quality Branch — Complete Review Handoff
 
 > **Purpose:** give a human reviewer or another AI enough context to audit this branch without
 > reconstructing the entire conversation that produced it.
@@ -27,7 +27,7 @@ The most important architectural decision is the ACP cutover:
 
 - `@agentclientprotocol/sdk` version `1.2.1` is the only production ACP wire implementation.
 - Grok, Droid, and Cursor all use that same official SDK boundary.
-- Effect remains in Synara for lifecycle, cancellation, queues, errors, and application policy.
+- Effect remains in Saint for lifecycle, cancellation, queues, errors, and application policy.
 - The private `effect-acp` wire/client/protocol implementation is deleted from the current working
   tree; only still-consumed Effect schema/error adapters remain.
 - There is no provider-selectable fallback to the legacy wire implementation.
@@ -58,11 +58,11 @@ Reviewers must not treat the remote branch and the local working tree as the sam
 
 ### Committed branch: `5056e395e..9780ff8bb`
 
-| Commit              | Summary                                       |                                         Size |
-| ------------------- | --------------------------------------------- | -------------------------------------------: |
-| `0e5f6af9c`         | Refactor Synara orchestration and web UI flow |                  387 files, +43,323 / -9,299 |
-| `9780ff8bb`         | Consolidate desktop IPC channel constants     |                        14 files, +287 / -240 |
-| **Committed total** | Two commits after `v0.5.2`                    | **394 files, +43,571 / -9,500; net +34,071** |
+| Commit              | Summary                                      |                                         Size |
+| ------------------- | -------------------------------------------- | -------------------------------------------: |
+| `0e5f6af9c`         | Refactor Saint orchestration and web UI flow |                  387 files, +43,323 / -9,299 |
+| `9780ff8bb`         | Consolidate desktop IPC channel constants    |                        14 files, +287 / -240 |
+| **Committed total** | Two commits after `v0.5.2`                   | **394 files, +43,571 / -9,500; net +34,071** |
 
 ### Current tracked working-tree changes: `HEAD..working tree`
 
@@ -161,7 +161,7 @@ Provider process stdout/stdin
         ▼
 AcpSessionRuntime
   ├─ official ACP SDK: NDJSON, JSON-RPC, validation, correlation, cancellation
-  └─ Synara: lifecycle, bounds, logging, policy, normalized events
+  └─ Saint: lifecycle, bounds, logging, policy, normalized events
         │
         ▼
 Provider runtime ingestion
@@ -214,7 +214,7 @@ The table below explains what each workstream was trying to fix and what a revie
 
 | Workstream                              | Why it was needed                                                                   | Main change                                                             | Result to verify                                                       |
 | --------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `P2-ACP-01` ACP foundation              | Synara maintained a custom wire stack beside the official SDK                       | Official SDK owns all production ACP wire behavior; custom wire deleted | Grok, Droid, and Cursor have one wire implementation and no fallback   |
+| `P2-ACP-01` ACP foundation              | Saint maintained a custom wire stack beside the official SDK                        | Official SDK owns all production ACP wire behavior; custom wire deleted | Grok, Droid, and Cursor have one wire implementation and no fallback   |
 | `P2-WEB-STATE-01` Web state             | Thread data had normalized and derived/legacy owners that required synchronization  | Normalized slices became the runtime authority                          | Chat/thread updates cannot diverge between duplicate stores            |
 | `P2-PROVIDER-META-01` Provider metadata | Ordering, labels, discovery, health, usage, and settings visibility were duplicated | Shared exhaustive provider descriptor and revision-aware health         | Every provider surface uses consistent identity and presentation rules |
 
@@ -297,7 +297,7 @@ cursor policies. Review authentication, negotiation, cancellation, and reconnect
 
 ### The decision
 
-Use the official TypeScript SDK for the protocol wire, while keeping Effect for Synara's application
+Use the official TypeScript SDK for the protocol wire, while keeping Effect for Saint's application
 lifecycle.
 
 This is not “remove Effect from ACP.” It is a division of responsibility:
@@ -308,17 +308,17 @@ This is not “remove Effect from ACP.” It is a division of responsibility:
 | NDJSON framing and encoding                   | Official SDK           |
 | JSON-RPC request correlation and cancellation | Official SDK           |
 | Client handler dispatch                       | Official SDK           |
-| Provider process supervision                  | Synara/Effect          |
-| Queue and resource limits                     | Synara/Effect          |
-| Session/product policy                        | Synara/Effect          |
-| Normalized Synara events                      | Synara/Effect          |
-| Error translation into Synara domain errors   | Thin local adapter     |
+| Provider process supervision                  | Saint/Effect           |
+| Queue and resource limits                     | Saint/Effect           |
+| Session/product policy                        | Saint/Effect           |
+| Normalized Saint events                       | Saint/Effect           |
+| Error translation into Saint domain errors    | Thin local adapter     |
 
 ### Why this choice was made
 
 1. Maintaining two production wire implementations is the dirtiest long-term option.
 2. The official SDK follows upstream ACP behavior and reduces custom protocol ownership.
-3. Provider adapters should depend on a stable Synara runtime interface, not choose a protocol
+3. Provider adapters should depend on a stable Saint runtime interface, not choose a protocol
    implementation.
 4. Effect remains useful where it provides real value: scopes, interruption, supervision, bounded
    application queues, and typed domain failures.
@@ -344,7 +344,7 @@ This is not “remove Effect from ACP.” It is a division of responsibility:
 - protocol diagnostic and mock-peer fixtures;
 - Cursor client example.
 
-The package currently retains only generated/schema/error adapters still imported by Synara. A
+The package currently retains only generated/schema/error adapters still imported by Saint. A
 future deletion may replace those imports with official SDK types plus one local Effect error
 translation, but that should happen only when it removes the remaining package rather than creates a
 second compatibility layer.
@@ -385,7 +385,7 @@ The new benchmark uses the same runner and scenarios for both engines:
 - RSS and heap values are process-level measurements, not allocations attributed to a single class.
 
 The benchmark measures **wire machinery**, not model latency, provider process CPU, React rendering,
-SQLite persistence, or the full Synara app.
+SQLite persistence, or the full Saint app.
 
 ---
 
@@ -644,7 +644,7 @@ Review each chain end-to-end rather than file-by-file:
 Copy this prompt and attach the repository/worktree:
 
 ```text
-Review the Synara branch `codex/audit-code-quality` as a senior architecture, correctness,
+Review the Saint branch `codex/audit-code-quality` as a senior architecture, correctness,
 performance, and maintainability reviewer.
 
 Start by reading:

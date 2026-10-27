@@ -1,5 +1,5 @@
-import { ProjectId, ThreadId } from "@synara/contracts";
-import type { ModelSelection, ProjectAgentConfig } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
+import type { ModelSelection, ProjectAgentConfig } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import {

@@ -1,4 +1,4 @@
-import { MessageId, TurnId } from "@synara/contracts";
+import { MessageId, TurnId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { resolveForkSourceCutoff } from "./forkSourceCutoff.ts";

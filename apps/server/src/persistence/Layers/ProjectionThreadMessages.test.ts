@@ -1,4 +1,4 @@
-import { MessageId, ThreadId, TurnId } from "@synara/contracts";
+import { MessageId, ThreadId, TurnId } from "@saint/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer, Option } from "effect";
 

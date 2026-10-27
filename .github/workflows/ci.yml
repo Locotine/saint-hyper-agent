@@ -86,7 +86,7 @@ jobs:
       # Independent checks share the installed workspace; parallel waits for all
       # of them and fails the lane if any check fails, with separate step logs.
       - parallel:
-          - name: Verify Synara identity
+          - name: Verify Saint identity
             run: bun run brand:check
 
           - name: Verify Windows runtime boundary
@@ -119,7 +119,7 @@ jobs:
 
   # Keep each server shard serial internally, but use three independent runners.
   # The measured native 3-way split lowers the slowest shard without changing
-  # collected tests. Tests import @synara/contracts from source (its ESM export),
+  # collected tests. Tests import @saint/contracts from source (its ESM export),
   # so no package build precedes them; every lane starts at the test files.
   unit:
     name: Unit Tests (${{ matrix.pkg }})
@@ -134,20 +134,20 @@ jobs:
       matrix:
         include:
           - pkg: core
-            filters: "--filter=@synara/contracts --filter=@synara/shared --filter=@synara/scripts --filter=@synara/desktop"
+            filters: "--filter=@saint/contracts --filter=@saint/shared --filter=@saint/scripts --filter=@saint/desktop"
             test-args: ""
           - pkg: web
-            filters: "--filter=@synara/web"
+            filters: "--filter=@saint/web"
             test-args: ""
-          # Server lane tests the CLI package (package name @synara/cli).
+          # Server lane tests the CLI package (package name @saint/cli).
           - pkg: server 1/3
-            filters: "--filter=@synara/cli"
+            filters: "--filter=@saint/cli"
             test-args: "--shard=1/3"
           - pkg: server 2/3
-            filters: "--filter=@synara/cli"
+            filters: "--filter=@saint/cli"
             test-args: "--shard=2/3"
           - pkg: server 3/3
-            filters: "--filter=@synara/cli"
+            filters: "--filter=@saint/cli"
             test-args: "--shard=3/3"
     steps:
       - name: Checkout
@@ -157,7 +157,7 @@ jobs:
         uses: ./.github/actions/setup-workspace
 
       - name: Verify Linux terminal PTY native dependency
-        if: matrix.filters == '--filter=@synara/cli' && matrix.test-args == '--shard=1/3'
+        if: matrix.filters == '--filter=@saint/cli' && matrix.test-args == '--shard=1/3'
         run: node scripts/node-pty-smoke.mjs
 
       - name: Test (${{ matrix.pkg }})

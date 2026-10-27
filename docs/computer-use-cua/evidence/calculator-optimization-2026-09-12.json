@@ -24,28 +24,28 @@
         {
           "start": "2026-09-11T22:16:22.954Z",
           "seconds": 1.488,
-          "tools": ["tools.mcp__synara__computer_launch_app"],
+          "tools": ["tools.mcp__saint__computer_launch_app"],
           "discovery": false
         },
         {
           "start": "2026-09-11T22:16:26.515Z",
           "seconds": 0.071,
-          "tools": ["tools.mcp__synara__computer_list_windows"],
+          "tools": ["tools.mcp__saint__computer_list_windows"],
           "discovery": false
         },
         {
           "start": "2026-09-11T22:16:30.830Z",
           "seconds": 0.646,
           "tools": [
-            "tools.mcp__synara__computer_activate_window",
-            "tools.mcp__synara__computer_get_state"
+            "tools.mcp__saint__computer_activate_window",
+            "tools.mcp__saint__computer_get_state"
           ],
           "discovery": false
         },
         {
           "start": "2026-09-11T22:16:35.331Z",
           "seconds": 21.583,
-          "tools": ["tools.mcp__synara__computer_click"],
+          "tools": ["tools.mcp__saint__computer_click"],
           "discovery": false
         }
       ],
@@ -75,7 +75,7 @@
         {
           "start": "2026-09-11T22:42:56.336Z",
           "seconds": 2.08,
-          "tools": ["tools.mcp__synara__computer_launch_app"],
+          "tools": ["tools.mcp__saint__computer_launch_app"],
           "discovery": false
         },
         {
@@ -87,7 +87,7 @@
         {
           "start": "2026-09-11T22:43:01.478Z",
           "seconds": 0.085,
-          "tools": ["tools.mcp__synara__computer_list_windows"],
+          "tools": ["tools.mcp__saint__computer_list_windows"],
           "discovery": false
         },
         {
@@ -99,7 +99,7 @@
         {
           "start": "2026-09-11T22:43:04.852Z",
           "seconds": 0.266,
-          "tools": ["tools.mcp__synara__computer_get_state"],
+          "tools": ["tools.mcp__saint__computer_get_state"],
           "discovery": false
         },
         {
@@ -111,13 +111,13 @@
         {
           "start": "2026-09-11T22:43:10.908Z",
           "seconds": 5.64,
-          "tools": ["tools.mcp__synara__computer_click"],
+          "tools": ["tools.mcp__saint__computer_click"],
           "discovery": false
         },
         {
           "start": "2026-09-11T22:43:19.195Z",
           "seconds": 0.22,
-          "tools": ["tools.mcp__synara__computer_get_state"],
+          "tools": ["tools.mcp__saint__computer_get_state"],
           "discovery": false
         }
       ],
@@ -147,7 +147,7 @@
         {
           "start": "2026-09-11T22:46:09.069Z",
           "seconds": 1.632,
-          "tools": ["tools.mcp__synara__computer_launch_app"],
+          "tools": ["tools.mcp__saint__computer_launch_app"],
           "discovery": false
         },
         {
@@ -159,25 +159,25 @@
         {
           "start": "2026-09-11T22:46:14.077Z",
           "seconds": 0.061,
-          "tools": ["tools.mcp__synara__computer_list_windows"],
+          "tools": ["tools.mcp__saint__computer_list_windows"],
           "discovery": false
         },
         {
           "start": "2026-09-11T22:46:15.713Z",
           "seconds": 0.257,
-          "tools": ["tools.mcp__synara__computer_get_state"],
+          "tools": ["tools.mcp__saint__computer_get_state"],
           "discovery": false
         },
         {
           "start": "2026-09-11T22:46:19.748Z",
           "seconds": 5.937,
-          "tools": ["tools.mcp__synara__computer_click"],
+          "tools": ["tools.mcp__saint__computer_click"],
           "discovery": false
         },
         {
           "start": "2026-09-11T22:46:29.181Z",
           "seconds": 0.372,
-          "tools": ["tools.mcp__synara__computer_get_state"],
+          "tools": ["tools.mcp__saint__computer_get_state"],
           "discovery": false
         }
       ],

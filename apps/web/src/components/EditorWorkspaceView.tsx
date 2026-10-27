@@ -7,7 +7,7 @@ import {
   WorkspaceFileOpenerContext,
   resolveWorkspaceFileOpenTarget,
 } from "~/lib/workspaceFileOpener";
-import type { ProjectId } from "@synara/contracts";
+import type { ProjectId } from "@saint/contracts";
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 import {
   type CSSProperties,
@@ -82,9 +82,9 @@ import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
 import { WorkspaceFileEditorPane } from "./chat/WorkspaceFileEditorPane";
 import { WorkspaceFilePreview } from "./WorkspaceFilePreview";
 
-const EDITOR_CHAT_PANE_STORAGE_KEY = "synara.editor.chatPaneWidth";
-const EDITOR_SIDEBAR_VISIBLE_STORAGE_KEY = "synara.editor.sidebarVisible";
-const EDITOR_CHAT_PANE_VISIBLE_STORAGE_KEY = "synara.editor.chatPaneVisible";
+const EDITOR_CHAT_PANE_STORAGE_KEY = "saint.editor.chatPaneWidth";
+const EDITOR_SIDEBAR_VISIBLE_STORAGE_KEY = "saint.editor.sidebarVisible";
+const EDITOR_CHAT_PANE_VISIBLE_STORAGE_KEY = "saint.editor.chatPaneVisible";
 const EDITOR_CHAT_PANE_DEFAULT_WIDTH = 384;
 const EDITOR_CHAT_PANE_MIN_WIDTH = 320;
 const EDITOR_CHAT_PANE_MAX_WIDTH = 600;

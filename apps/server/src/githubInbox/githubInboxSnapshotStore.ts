@@ -7,7 +7,7 @@
 // viewer's `involves:@me` search. Each takes its own read slot and releases it on completion, so
 // a read never holds one slot while waiting for another.
 
-import type { GitHubInboxRateLimit, GitHubInboxSort, GitHubInboxState } from "@synara/contracts";
+import type { GitHubInboxRateLimit, GitHubInboxSort, GitHubInboxState } from "@saint/contracts";
 import { Effect, type Scope } from "effect";
 
 import { GitHubCliError } from "../git/Errors";

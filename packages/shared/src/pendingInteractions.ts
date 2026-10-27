@@ -6,7 +6,7 @@
 import type {
   OrchestrationPendingInteraction,
   OrchestrationThreadActivity,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { isStalePendingRequestFailureDetail, pendingRequestInstanceKey } from "./threadSummary";
 
 /** Index explicit callback invalidations without mixing runtime and orchestration sequences. */

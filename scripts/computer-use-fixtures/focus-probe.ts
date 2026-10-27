@@ -36,7 +36,7 @@ import {
 } from "../../apps/desktop/src/cuaFixtures/focusProbe";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const defaultBinary = "/private/tmp/synara-cua-implementation/focus-probe";
+const defaultBinary = "/private/tmp/saint-cua-implementation/focus-probe";
 
 interface CliOptions {
   binary: string;
@@ -76,7 +76,7 @@ const fail = (message: string): never => {
 
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
-    binary: process.env.SYNARA_CUA_FOCUS_PROBE ?? defaultBinary,
+    binary: process.env.SAINT_CUA_FOCUS_PROBE ?? defaultBinary,
     durationSeconds: null,
     wrap: null,
     hz: 50,

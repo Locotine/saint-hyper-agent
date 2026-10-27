@@ -16,7 +16,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 async function makeTemporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "synara-local-html-"));
+  const directory = await mkdtemp(join(tmpdir(), "saint-local-html-"));
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -36,7 +36,7 @@ describe("LocalHtmlPreviewRegistry", () => {
 
     const runtimeUrl = registry.toRuntimeUrl(sourceUrl);
 
-    expect(runtimeUrl).toBe("synara-local-preview://preview-token/index.html?theme=dark#content");
+    expect(runtimeUrl).toBe("saint-local-preview://preview-token/index.html?theme=dark#content");
     expect(registry.toDisplayUrl(runtimeUrl)).toBe(sourceUrl);
     expect(isLocalFileUrl(sourceUrl)).toBe(true);
     expect(isLocalHtmlPreviewUrl(runtimeUrl)).toBe(true);

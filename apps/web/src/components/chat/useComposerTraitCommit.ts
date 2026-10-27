@@ -3,7 +3,7 @@
 // Layer: Chat composer state hook
 // Depends on: composer draft store and provider option patch helpers.
 
-import type { ProviderInstanceId, ProviderKind, ThreadId } from "@synara/contracts";
+import type { ProviderInstanceId, ProviderKind, ThreadId } from "@saint/contracts";
 import { useCallback } from "react";
 
 import { useComposerDraftStore } from "../../composerDraftStore";

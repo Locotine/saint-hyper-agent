@@ -1,6 +1,6 @@
 import "../index.css";
 
-import { OrchestrationProposedPlanId } from "@synara/contracts";
+import { OrchestrationProposedPlanId } from "@saint/contracts";
 import { afterEach, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";

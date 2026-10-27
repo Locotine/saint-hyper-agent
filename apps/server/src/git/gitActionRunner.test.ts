@@ -1,4 +1,4 @@
-import { WsRpcError, type GitRunStackedActionInput } from "@synara/contracts";
+import { WsRpcError, type GitRunStackedActionInput } from "@saint/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { Deferred, Duration, Effect, Exit, Fiber, Layer, Scope, Stream } from "effect";
 import { TestClock } from "effect/testing";
@@ -22,7 +22,7 @@ const input: GitRunStackedActionInput = {
 const sessionLayer = SessionCredentialServiceLive.pipe(
   Layer.provide(SqlitePersistenceMemory),
   Layer.provide(ServerSecretStoreLive),
-  Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "synara-git-session-test-" })),
+  Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "saint-git-session-test-" })),
   Layer.provide(NodeServices.layer),
 );
 

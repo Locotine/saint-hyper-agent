@@ -14,7 +14,7 @@ export const WINDOWS_SHELL_APPUSERMODEL_SOURCE = `
 using System;
 using System.Runtime.InteropServices;
 
-namespace Synara {
+namespace Saint {
   public static class ShellAppUserModel {
     const ushort VT_LPWSTR = 31;
     const int GPS_READWRITE = 2;
@@ -290,7 +290,7 @@ export function ensureWindowsShellAppUserModelHelper(cacheDirectory: string): st
       "/nologo",
       "/target:exe",
       "/platform:x64",
-      `/main:Synara.ShellAppUserModel`,
+      `/main:Saint.ShellAppUserModel`,
       `/out:${exePath}`,
       csPath,
     ],

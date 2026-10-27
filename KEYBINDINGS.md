@@ -1,8 +1,8 @@
 # Keybindings
 
-Synara reads keybindings from:
+Saint reads keybindings from:
 
-- `~/.synara/userdata/keybindings.json`
+- `~/.saint/userdata/keybindings.json`
 
 The file must be a JSON array of rules:
 
@@ -23,7 +23,7 @@ Settings → Keybindings lists every built-in command with its shortcuts and wri
 - Some chords cannot be taken, because something else gets the key first. The list lives in [`apps/web/src/fixedShortcuts.ts`](apps/web/src/fixedShortcuts.ts):
   - text editing: Copy, Paste, Cut, Select All, Undo, Redo, plus line and word movement and deletion;
   - the system: Quit, Hide, and Minimize on macOS;
-  - Synara's own chords:
+  - Saint's own chords:
     - Settings and the keybindings sheet;
     - back and forward in the desktop app (⌘[ / ⌘] on macOS, Alt+← / Alt+→ elsewhere);
     - file search (Mod+P) and search in files (Mod+Shift+F);
@@ -259,7 +259,7 @@ The command identifiers are defined by [`STATIC_KEYBINDING_COMMANDS`](packages/c
 | `git.commitAndPush`                                      | Commit pending changes and push the active thread's repository.                                      |
 | `script.{id}.run`                                        | Run a project script, for example `script.test.run`.                                                 |
 
-The in-app code editor runs `editor.commands` through `editor.debug.stepOut` while it has focus. These commands belong to the native editor, which ships in Synara Beta only (see [BETA.md](BETA.md)); Stable keeps their defaults in the shared configuration but hides them from the Shortcuts sheet and Settings → Keybindings, and nothing runs them there. Their defaults are F-keys, which keep the same chord on every platform; on macOS, F11 is Show Desktop unless you change it in System Settings. `editor.goToSymbol`, `editor.goToLine` and `editor.problems` ship unassigned because Mod+Shift+O, Mod+G and Mod+Shift+M already add a project, toggle the terminal and open the model picker; the editor command picker (F1) reaches them. The engine's own editing chords (Ctrl+Space, Alt+F12, F8, Alt+Up and the rest) stay active while the editor has focus unless a Synara binding claims the key.
+The in-app code editor runs `editor.commands` through `editor.debug.stepOut` while it has focus. These commands belong to the native editor, which ships in Saint Beta only (see [BETA.md](BETA.md)); Stable keeps their defaults in the shared configuration but hides them from the Shortcuts sheet and Settings → Keybindings, and nothing runs them there. Their defaults are F-keys, which keep the same chord on every platform; on macOS, F11 is Show Desktop unless you change it in System Settings. `editor.goToSymbol`, `editor.goToLine` and `editor.problems` ship unassigned because Mod+Shift+O, Mod+G and Mod+Shift+M already add a project, toggle the terminal and open the model picker; the editor command picker (F1) reaches them. The engine's own editing chords (Ctrl+Space, Alt+F12, F8, Alt+Up and the rest) stay active while the editor has focus unless a Saint binding claims the key.
 
 The legacy identifiers `terminal.split`, `terminal.splitRight`, `terminal.splitLeft`, `terminal.splitDown`, and `terminal.splitUp` remain accepted by the schema for old files. They have no defaults, are omitted from Settings, and the dispatcher ignores them so they cannot consume terminal input.
 

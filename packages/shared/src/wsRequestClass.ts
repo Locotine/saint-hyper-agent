@@ -5,7 +5,7 @@
 //      connection and rejects the rest; the web transport queues against the same
 //      budgets so it never sends a request the server would reject.
 
-import { ORCHESTRATION_WS_METHODS, WS_METHODS, WsRpcError } from "@synara/contracts";
+import { ORCHESTRATION_WS_METHODS, WS_METHODS, WsRpcError } from "@saint/contracts";
 
 export type WsRequestClass = "control" | "standard" | "expensive-read";
 

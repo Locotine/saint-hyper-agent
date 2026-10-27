@@ -1,4 +1,4 @@
-import type { HubWorkItem, ThreadId } from "@synara/contracts";
+import type { HubWorkItem, ThreadId } from "@saint/contracts";
 import { DisclosureRegion } from "~/components/ui/DisclosureRegion";
 import { DisclosureChevron } from "~/components/ui/DisclosureChevron";
 import { IconButton } from "~/components/ui/icon-button";

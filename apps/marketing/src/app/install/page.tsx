@@ -13,14 +13,14 @@ import { INSTALL_JSONLD, breadcrumbJsonLd, jsonLdScript, pageMetadata } from "@/
 const INSTALL_PAGE_JSONLD = [
   INSTALL_JSONLD,
   breadcrumbJsonLd([
-    { name: "Synara", path: "/" },
+    { name: "Saint", path: "/" },
     { name: "Download", path: "/install" },
   ]),
 ];
 
 export const metadata = pageMetadata({
-  title: "Download Synara — Coding Agent Workspace",
-  description: `Download Synara for macOS, Windows, and Linux. ${PRODUCT_CATEGORY}`,
+  title: "Download Saint — Coding Agent Workspace",
+  description: `Download Saint for macOS, Windows, and Linux. ${PRODUCT_CATEGORY}`,
   path: "/install",
 });
 
@@ -48,7 +48,7 @@ export default async function InstallPage() {
               id="install-heading"
               className="mt-4 text-[2rem] font-medium leading-[1.08] tracking-[-0.04em] text-[var(--text-primary)] sm:text-[3rem]"
             >
-              Download Synara
+              Download Saint
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-[14px] leading-[1.7] text-[var(--text-secondary)] sm:text-[16px]">
               Install the desktop app, connect a coding-agent runtime already authenticated on your

@@ -1,5 +1,5 @@
-import type { ModelSelection, NativeApi, OrchestrationShellSnapshot } from "@synara/contracts";
-import { ProjectId, ThreadId } from "@synara/contracts";
+import type { ModelSelection, NativeApi, OrchestrationShellSnapshot } from "@saint/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Project, Thread } from "../types";

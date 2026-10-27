@@ -2,9 +2,9 @@
 import { Effect } from "effect";
 import { afterEach, expect, it, vi } from "vitest";
 import {
-  SYNARA_DESKTOP_BUNDLE_ID_ENV,
-  SYNARA_PRODUCTION_BUNDLE_ID,
-} from "@synara/shared/desktopIdentity";
+  SAINT_DESKTOP_BUNDLE_ID_ENV,
+  SAINT_PRODUCTION_BUNDLE_ID,
+} from "@saint/shared/desktopIdentity";
 
 import {
   AgentGatewayCredentials,
@@ -15,7 +15,7 @@ import { ServerSecretStore } from "../../auth/Services/ServerSecretStore";
 afterEach(() => vi.unstubAllEnvs());
 
 it("restores and publishes saved connectors on the Stable server by default", async () => {
-  vi.stubEnv(SYNARA_DESKTOP_BUNDLE_ID_ENV, SYNARA_PRODUCTION_BUNDLE_ID);
+  vi.stubEnv(SAINT_DESKTOP_BUNDLE_ID_ENV, SAINT_PRODUCTION_BUNDLE_ID);
   const { makeMcpConnectors } = await import("./McpConnectors");
   const connector = {
     connectorId: "saved-connector",

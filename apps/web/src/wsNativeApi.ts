@@ -16,6 +16,7 @@ import {
   type AuthRevokePairingLinkInput,
   type AuthSessionState,
   type AuthWebSocketTokenResult,
+  type ServerConfig,
   type ExternalMcpCreateIntegrationInput,
   type ExternalMcpCreateIntegrationResult,
   type ExternalMcpIntegration,
@@ -56,11 +57,12 @@ import {
   COMPUTER_WS_CHANNELS,
   COMPUTER_WS_METHODS,
   type ComputerEvent,
-} from "@synara/contracts";
-import { VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH } from "@synara/shared/binaryTransfer";
+} from "@saint/contracts";
+import { VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH } from "@saint/shared/binaryTransfer";
 import { Schema } from "effect";
 
 import { showConfirmDialogFallback } from "./confirmDialogFallback";
+import { pickRemoteFolder } from "./remoteFolderPickerStore";
 import { TASKS_OFFERED_BY_BUILD } from "./tasksSurface";
 import { showContextMenuFallback } from "./contextMenuFallback";
 import { requireHttpExternalUrl } from "./lib/externalUrl";
@@ -555,6 +557,8 @@ export function createWsNativeApi(): NativeApi {
     dialogs: {
       pickFolder: async () => {
         if (!window.desktopBridge) return null;
+        // The native dialog only shows this computer; remote windows browse the host.
+        if (window.desktopBridge.remoteWindow) return pickRemoteFolder();
         return window.desktopBridge.pickFolder();
       },
       saveFile: async (input) => {
@@ -617,6 +621,8 @@ export function createWsNativeApi(): NativeApi {
         transport.request(WS_METHODS.projectsResolveWorkspaceFileReferences, input),
       resolveOutOfRootFileReference: (input) =>
         transport.request(WS_METHODS.projectsResolveOutOfRootFileReference, input),
+      createHtmlPreviewGrant: (input) =>
+        transport.request(WS_METHODS.projectsCreateHtmlPreviewGrant, input),
       createLocalFilePreviewGrant: (input) =>
         transport.request(WS_METHODS.projectsCreateLocalFilePreviewGrant, input),
       writeFile: (input) => transport.request(WS_METHODS.projectsWriteFile, input),
@@ -638,8 +644,12 @@ export function createWsNativeApi(): NativeApi {
       listThreadOutputs: (input) => transport.request(WS_METHODS.studioListThreadOutputs, input),
     },
     shell: {
-      openInEditor: (cwd, editor) =>
-        transport.request(WS_METHODS.shellOpenInEditor, { cwd, editor }),
+      openInEditor: (cwd, editor) => {
+        // The server would launch the editor on the host; open it locally over SSH instead.
+        const remoteWindow = window.desktopBridge?.remoteWindow;
+        if (remoteWindow) return remoteWindow.openInEditor(cwd, editor);
+        return transport.request(WS_METHODS.shellOpenInEditor, { cwd, editor });
+      },
       openExternal: async (url) => {
         const externalUrl = requireHttpExternalUrl(url);
         if (window.desktopBridge) {
@@ -733,7 +743,13 @@ export function createWsNativeApi(): NativeApi {
       },
     },
     server: {
-      getConfig: () => transport.request(WS_METHODS.serverGetConfig),
+      getConfig: async () => {
+        const config: ServerConfig = await transport.request(WS_METHODS.serverGetConfig);
+        // Editors installed on the host cannot open in this window; offer the
+        // local editors that open host folders over Remote-SSH.
+        const remoteWindow = window.desktopBridge?.remoteWindow;
+        return remoteWindow ? { ...config, availableEditors: [...remoteWindow.editors] } : config;
+      },
       getEnvironment: () => transport.request(WS_METHODS.serverGetEnvironment),
       getSettings: () => transport.request(WS_METHODS.serverGetSettings),
       updateSettings: (input) => transport.request(WS_METHODS.serverUpdateSettings, input),
@@ -881,6 +897,8 @@ export function createWsNativeApi(): NativeApi {
       getTurnDiff: (input) => transport.request(ORCHESTRATION_WS_METHODS.getTurnDiff, input),
       getInlineVisual: (input) =>
         transport.request(ORCHESTRATION_WS_METHODS.getInlineVisual, input),
+      getThreadTranscript: (input) =>
+        transport.request(ORCHESTRATION_WS_METHODS.getThreadTranscript, input),
       getFullThreadDiff: (input) =>
         transport.request(ORCHESTRATION_WS_METHODS.getFullThreadDiff, input),
       replayEvents: (fromSequenceExclusive, threadId) =>

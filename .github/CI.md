@@ -42,13 +42,13 @@ The shared setup action defaults to `full`. Typecheck, Linux unit/browser and
 desktop build jobs keep the entire workspace. Only verified consumers opt into
 smaller installs:
 
-- `static`: root and `@synara/scripts`, including its workspace dependencies.
+- `static`: root and `@saint/scripts`, including its workspace dependencies.
   Identity, Windows boundary, formatting, lint, release smoke and CI contract
   tests all run. Root-only or root + shared installs cannot own release smoke.
 - `runtime`: all workspaces except marketing. Windows runs every existing native
   PTY/process/filesystem/shutdown/recovery test with lifecycle scripts enabled.
 - Native release artifact builders exclude marketing with `--ignore-scripts`
-  exactly as before. macOS device jobs select `@synara/scripts`, retaining their
+  exactly as before. macOS device jobs select `@saint/scripts`, retaining their
   existing `--ignore-scripts`, Xcode pairs, probe, simulator smoke and diagnostics.
 
 Filtered scopes never restore/save a full `node_modules` archive. Windows

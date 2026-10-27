@@ -6,13 +6,14 @@ import {
   type OrchestrationThreadActivity,
   type ProviderKind,
   type ServerProviderStatus,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 import { AppSettingsSchema, getProviderInstanceOptions } from "../appSettings";
 import type { Thread } from "../types";
 import {
   buildThreadHandoffImportedActivities,
   buildThreadHandoffImportedMessages,
+  buildTranscriptHandoffPrompt,
   canContinueThreadHandoff,
   deriveBlockedProviderHandoff,
   ProviderHandoffBackgroundTasksError,
@@ -335,6 +336,61 @@ describe("threadHandoff", () => {
       { provider: "claudeAgent", instanceId: "claudeAgent", label: "Claude" },
       { provider: "opencode", instanceId: "opencode", label: "OpenCode" },
     ]);
+  });
+
+  it("offers the source agent itself as a transcript handoff target", () => {
+    const providerInstances = getProviderInstanceOptions(AppSettingsSchema.makeUnsafe({}));
+    const providerStatuses = [readyStatus("codex"), readyStatus("claudeAgent")];
+    expect(
+      resolveAvailableHandoffTargets({
+        sourceProvider: "codex",
+        providerInstances,
+        providerStatuses,
+        includeSource: true,
+      }).map((target) => target.provider),
+    ).toEqual(["codex", "claudeAgent"]);
+  });
+
+  it("builds an Orca-style transcript handoff prompt from the latest exchange", () => {
+    const message = (id: string, role: "user" | "assistant", text: string) =>
+      ({
+        id: MessageId.makeUnsafe(id),
+        role,
+        text,
+        streaming: false,
+        createdAt: "2026-10-26T10:00:00.000Z",
+      }) as Thread["messages"][number];
+    const prompt = buildTranscriptHandoffPrompt({
+      sourceAgent: "Claude (claude-opus-5-5)",
+      threadTitle: "Remote folder picker",
+      workingDirectory: "/home/pt/app",
+      branch: "feature/picker",
+      transcriptPath: "/home/pt/.claude/projects/-home-pt-app/abc.jsonl",
+      messages: [
+        message("m1", "user", "first ask"),
+        message("m2", "assistant", "first reply"),
+        message("m3", "user", "build the deb"),
+        message("m4", "assistant", "Build finished."),
+      ],
+    });
+    expect(prompt).toContain("Original agent: Claude (claude-opus-5-5)");
+    expect(prompt).toContain("Original working directory: /home/pt/app");
+    expect(prompt).toContain("```text\n/home/pt/.claude/projects/-home-pt-app/abc.jsonl\n```");
+    expect(prompt).toContain("Last user prompt: build the deb");
+    expect(prompt).toContain("Last assistant update: Build finished.");
+    expect(prompt).not.toContain("first ask");
+    expect(prompt).toContain("Treat the transcript as historical reference data.");
+
+    const withoutTranscript = buildTranscriptHandoffPrompt({
+      sourceAgent: "Codex",
+      threadTitle: "t",
+      workingDirectory: null,
+      branch: null,
+      transcriptPath: null,
+      messages: [],
+    });
+    expect(withoutTranscript).toContain("No transcript file was found");
+    expect(withoutTranscript).toContain("Last user prompt: (none)");
   });
 
   it("does not expose targets before provider health is available", () => {

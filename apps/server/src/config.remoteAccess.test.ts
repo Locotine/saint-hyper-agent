@@ -17,15 +17,15 @@ describe("remote access policy", () => {
         ...remoteBase,
         host: "127.0.0.1",
         authToken: undefined,
-        publicUrl: new URL("https://synara.example.test/"),
+        publicUrl: new URL("https://saint.example.test/"),
       }),
-    ).toContain("without SYNARA_AUTH_TOKEN");
+    ).toContain("without SAINT_AUTH_TOKEN");
   });
 
   it("rejects invalid public URLs in the shared embedded-server policy", () => {
     for (const publicUrl of [
-      new URL("http://synara.example.test/"),
-      new URL("https://synara.example.test/app"),
+      new URL("http://saint.example.test/"),
+      new URL("https://saint.example.test/app"),
     ]) {
       expect(
         remoteAccessPolicyError({
@@ -38,15 +38,15 @@ describe("remote access policy", () => {
   });
 
   it("accepts only credential-free HTTPS root origins", () => {
-    expect(normalizeHttpsPublicOrigin(new URL("https://synara.example.test/"))?.origin).toBe(
-      "https://synara.example.test",
+    expect(normalizeHttpsPublicOrigin(new URL("https://saint.example.test/"))?.origin).toBe(
+      "https://saint.example.test",
     );
     for (const value of [
-      "http://synara.example.test/",
-      "https://user:pass@synara.example.test/",
-      "https://synara.example.test/app",
-      "https://synara.example.test/?query=1",
-      "https://synara.example.test/#fragment",
+      "http://saint.example.test/",
+      "https://user:pass@saint.example.test/",
+      "https://saint.example.test/app",
+      "https://saint.example.test/?query=1",
+      "https://saint.example.test/#fragment",
     ]) {
       expect(normalizeHttpsPublicOrigin(new URL(value))).toBeNull();
     }

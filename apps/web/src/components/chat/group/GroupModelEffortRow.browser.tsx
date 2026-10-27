@@ -1,6 +1,6 @@
 import "~/index.css";
 
-import { MODEL_OPTIONS_BY_PROVIDER, type ModelSelection } from "@synara/contracts";
+import { MODEL_OPTIONS_BY_PROVIDER, type ModelSelection } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

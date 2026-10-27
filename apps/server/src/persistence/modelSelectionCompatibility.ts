@@ -7,8 +7,8 @@ import {
   MODEL_OPTIONS_BY_PROVIDER,
   ProviderInstanceId,
   type ServerSettings,
-} from "@synara/contracts";
-import { isProviderKind } from "@synara/shared/providerInstances";
+} from "@saint/contracts";
+import { isProviderKind } from "@saint/shared/providerInstances";
 import { Schema } from "effect";
 
 type ModelProviderKind =
@@ -53,7 +53,7 @@ function readTrimmedString(record: Record<string, unknown>, key: string): string
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-// Imported instance ids may be runtime names rather than Synara provider literals.
+// Imported instance ids may be runtime names rather than Saint provider literals.
 function inferProviderFromLabel(label: string): ModelProviderKind | undefined {
   const lowerLabel = label.toLowerCase();
   // OMP must win over the `pi` token check: "Oh My Pi" and "OMP" labels would
@@ -286,8 +286,8 @@ export function normalizePersistedModelSelection(
     return input;
   }
 
-  // Newer Synara writes provider-less selections as { instanceId, model } and
-  // option rows as [{ id, value }]; Synara stores canonical provider/options objects.
+  // Newer Saint writes provider-less selections as { instanceId, model } and
+  // option rows as [{ id, value }]; Saint stores canonical provider/options objects.
   const instanceId = readTrimmedString(input, "instanceId");
   const providerFromSettings = resolveProviderFromSettings(settings, instanceId);
   if (

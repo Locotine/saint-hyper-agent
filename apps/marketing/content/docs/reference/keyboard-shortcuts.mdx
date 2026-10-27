@@ -1,6 +1,6 @@
 ---
 title: Keyboard shortcuts
-description: The full default keymap, verified against the Synara source, plus JSON customization.
+description: The full default keymap, verified against the Saint source, plus JSON customization.
 ---
 
 `mod` means Command on macOS and Control on Windows or Linux.
@@ -79,16 +79,16 @@ Models without effort controls keep normal keyboard focus navigation.
 Opening a file or source match sends it to the current task's file pane. Content search requires at least two characters and shows the matching path, line number, and source excerpt. The iOS Simulator exposes a customizable `device.toggle` command but has no default shortcut; open it from the right-dock add menu or assign a key in Settings.
 
 <Callout type="info" title="Spaces (preview on main)">
-  Synara `main` adds project spaces with `mod+alt+←` / `mod+alt+→` to switch spaces and
+  Saint `main` adds project spaces with `mod+alt+←` / `mod+alt+→` to switch spaces and
   `mod+alt+1`…`9` to jump. See [Features on main](/docs/reference/main-preview).
 </Callout>
 
 ## Custom keybindings
 
-A settings panel lets you explore and remap shortcuts. For full control, Synara reads user overrides from:
+A settings panel lets you explore and remap shortcuts. For full control, Saint reads user overrides from:
 
 ```text
-~/.synara/userdata/keybindings.json
+~/.saint/userdata/keybindings.json
 ```
 
 Workspace file search (`search.files`) and content search (`search.content`) can be remapped or unassigned in Settings. Their default chords yield to a focused terminal.

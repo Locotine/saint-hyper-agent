@@ -5,7 +5,7 @@ import { memo, useState, type ReactNode } from "react";
 import { page, userEvent } from "vitest/browser";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { DIFF_RENDER_MODE_STORAGE_KEY } from "../diffRenderMode";
 import { useDiffRenderModeStore } from "../diffRenderModeStore";
 

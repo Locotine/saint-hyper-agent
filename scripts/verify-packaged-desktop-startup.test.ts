@@ -21,7 +21,7 @@ afterEach(() => {
 
 describe("packaged desktop startup verification", () => {
   it("retains bounded failure diagnostics even when a startup log is missing", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-startup-diagnostics-test-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-startup-diagnostics-test-"));
     temporaryRoots.push(root);
     writeFileSync(join(root, "desktop-main.log"), "old entry" + "x".repeat(20_000) + "app ready");
 
@@ -50,7 +50,7 @@ describe("packaged desktop startup verification", () => {
       arch: "x64",
       version: "1.2.3",
       timeoutMs: 60_000,
-      executableName: "synara",
+      executableName: "saint",
     });
 
     expect(
@@ -64,11 +64,11 @@ describe("packaged desktop startup verification", () => {
         "--version",
         "1.2.3",
         "--executable-name",
-        "synara-beta",
+        "saint-beta",
       ]),
-    ).toMatchObject({ executableName: "synara-beta" });
+    ).toMatchObject({ executableName: "saint-beta" });
 
-    for (const bad of ["../outside", "a/b", "..", "synara\\beta"]) {
+    for (const bad of ["../outside", "a/b", "..", "saint\\beta"]) {
       expect(() =>
         parsePackagedDesktopStartupArgs([
           "--assets-dir",
@@ -102,20 +102,20 @@ describe("packaged desktop startup verification", () => {
   });
 
   it("isolates user state and removes inherited runtime authority", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-packaged-smoke-env-test-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-packaged-smoke-env-test-"));
     temporaryRoots.push(root);
 
     const env = createPackagedDesktopSmokeEnvironment(
       root,
-      { platform: "linux", version: "1.2.3", executableName: "synara-beta" },
+      { platform: "linux", version: "1.2.3", executableName: "saint-beta" },
       {
         PATH: process.env.PATH,
-        SYNARA_AUTH_TOKEN: "must-not-leak",
+        SAINT_AUTH_TOKEN: "must-not-leak",
         ELECTRON_RUN_AS_NODE: "1",
       },
     );
 
-    expect(env.SYNARA_AUTH_TOKEN).toBeUndefined();
+    expect(env.SAINT_AUTH_TOKEN).toBeUndefined();
     expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined();
     for (const name of [
       "HOME",
@@ -125,17 +125,17 @@ describe("packaged desktop startup verification", () => {
       "XDG_CONFIG_HOME",
       "XDG_CACHE_HOME",
       "XDG_DATA_HOME",
-      "SYNARA_HOME",
-      "SYNARA_BETA_HOME",
+      "SAINT_HOME",
+      "SAINT_BETA_HOME",
     ] as const) {
       expect(env[name]?.startsWith(root)).toBe(true);
       expect(existsSync(env[name]!)).toBe(true);
     }
-    expect(env.SYNARA_BETA_HOME).not.toBe(env.SYNARA_HOME);
+    expect(env.SAINT_BETA_HOME).not.toBe(env.SAINT_HOME);
   });
 
   it("rejects a missing packaged peer even when the development tree provides it", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-runtime-deps-test-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-runtime-deps-test-"));
     temporaryRoots.push(root);
     const app = join(root, "app.asar");
     const dist = join(app, "apps/server/dist");
@@ -172,7 +172,7 @@ describe("packaged desktop startup verification", () => {
   });
 
   it("bounds a runtime import that never finishes", () => {
-    const root = mkdtempSync(join(tmpdir(), "synara-runtime-timeout-test-"));
+    const root = mkdtempSync(join(tmpdir(), "saint-runtime-timeout-test-"));
     temporaryRoots.push(root);
     const dist = join(root, "app.asar/apps/server/dist");
     mkdirSync(dist, { recursive: true });

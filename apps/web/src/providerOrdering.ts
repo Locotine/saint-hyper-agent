@@ -3,8 +3,8 @@
 // Layer: Web settings utility
 // Exports: default order, normalization, and order comparison helpers.
 
-import type { ProviderKind } from "@synara/contracts";
-import { PROVIDER_DESCRIPTORS } from "@synara/shared/providerMetadata";
+import type { ProviderKind } from "@saint/contracts";
+import { PROVIDER_DESCRIPTORS } from "@saint/shared/providerMetadata";
 
 export const DEFAULT_PROVIDER_ORDER: readonly ProviderKind[] = PROVIDER_DESCRIPTORS.map(
   (descriptor) => descriptor.kind,

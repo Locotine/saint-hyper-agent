@@ -1,5 +1,5 @@
 // Verify the actual tooltip keeps the applied mode separate from runtime usage.
-import { EventId, type OrchestrationThreadActivity } from "@synara/contracts";
+import { EventId, type OrchestrationThreadActivity } from "@saint/contracts";
 import { expect, it } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";

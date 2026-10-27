@@ -31,14 +31,14 @@ async function startRecorder(): Promise<{ server: Server; origin: string; reques
 }
 
 async function launch() {
-  const mainPath = process.env.SYNARA_E2E_INLINE_VISUAL_MAIN;
-  const annotationPreloadPath = process.env.SYNARA_E2E_BROWSER_ANNOTATION_PRELOAD;
+  const mainPath = process.env.SAINT_E2E_INLINE_VISUAL_MAIN;
+  const annotationPreloadPath = process.env.SAINT_E2E_BROWSER_ANNOTATION_PRELOAD;
   if (!mainPath || !annotationPreloadPath) {
     throw new Error("Inline visual E2E bundles were not prepared.");
   }
   const recorder = await startRecorder();
   const home = mkdtempSync(
-    join(process.platform === "darwin" ? "/tmp" : tmpdir(), "synara-visuals-"),
+    join(process.platform === "darwin" ? "/tmp" : tmpdir(), "saint-visuals-"),
   );
   const application = await electron.launch({
     executablePath: requireFromDesktop("electron") as string,
@@ -47,9 +47,9 @@ async function launch() {
     env: {
       ...process.env,
       HOME: home,
-      SYNARA_HOME: home,
-      SYNARA_E2E_BROWSER_ANNOTATION_PRELOAD: annotationPreloadPath,
-      SYNARA_E2E_RECORDER_ORIGIN: recorder.origin,
+      SAINT_HOME: home,
+      SAINT_E2E_BROWSER_ANNOTATION_PRELOAD: annotationPreloadPath,
+      SAINT_E2E_RECORDER_ORIGIN: recorder.origin,
     },
   });
   const page = await application.firstWindow();

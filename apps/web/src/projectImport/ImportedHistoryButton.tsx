@@ -1,4 +1,4 @@
-import { ThreadId, type LoadProjectImportHistoryResult } from "@synara/contracts";
+import { ThreadId, type LoadProjectImportHistoryResult } from "@saint/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { expensiveReadErrorRefetchInterval } from "~/lib/expensiveReadRetry";

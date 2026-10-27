@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 
@@ -30,7 +30,7 @@ function parseLogLine(line: string) {
 describe("EventNdjsonLogger", () => {
   it.effect("writes image metadata without persisting model image bodies", () =>
     Effect.gen(function* () {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-provider-image-log-"));
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-provider-image-log-"));
       try {
         const logger = yield* makeEventNdjsonLogger(path.join(tempDir, "native.ndjson"), {
           stream: "native",
@@ -48,7 +48,7 @@ describe("EventNdjsonLogger", () => {
           {
             type: "image",
             mimeType: "image/png",
-            synaraImageOmitted: true,
+            saintImageOmitted: true,
             encodedLength: data.length,
             byteLength: 512 * 1024,
           },
@@ -62,7 +62,7 @@ describe("EventNdjsonLogger", () => {
 
   it.effect("writes effect-style lines to thread-scoped files", () =>
     Effect.gen(function* () {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-provider-log-"));
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-provider-log-"));
       const basePath = path.join(tempDir, "provider-native.ndjson");
 
       try {
@@ -115,7 +115,7 @@ describe("EventNdjsonLogger", () => {
     "falls back to a global segment when orchestration thread id is missing or invalid",
     () =>
       Effect.gen(function* () {
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-provider-log-"));
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-provider-log-"));
         const basePath = path.join(tempDir, "provider-canonical.ndjson");
 
         try {
@@ -151,7 +151,7 @@ describe("EventNdjsonLogger", () => {
 
   it.effect("rotates per-thread files when max size is exceeded", () =>
     Effect.gen(function* () {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "synara-provider-log-"));
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-provider-log-"));
       const basePath = path.join(tempDir, "provider-native.ndjson");
 
       try {

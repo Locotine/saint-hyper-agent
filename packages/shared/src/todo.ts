@@ -3,7 +3,7 @@
 //          write) and the web client (optimistic update) so both apply edits identically.
 // Exports: applyTodoPatch
 
-import type { Todo, TodoUpdateInput } from "@synara/contracts";
+import type { Todo, TodoUpdateInput } from "@saint/contracts";
 
 /**
  * Applies a partial update. `completed` stamps completedAt once (re-completing keeps

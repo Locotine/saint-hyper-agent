@@ -1,4 +1,4 @@
-import { CommandId, MessageId, ProjectId, ThreadId } from "@synara/contracts";
+import { CommandId, MessageId, ProjectId, ThreadId } from "@saint/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer, Option } from "effect";
@@ -21,9 +21,7 @@ const testLayer = OrchestrationEngineLive.pipe(
   Layer.provide(OrchestrationEventStoreLive),
   Layer.provide(OrchestrationCommandReceiptRepositoryLive),
   Layer.provideMerge(SqlitePersistenceMemory),
-  Layer.provideMerge(
-    ServerConfig.layerTest(process.cwd(), { prefix: "synara-snooze-projection-" }),
-  ),
+  Layer.provideMerge(ServerConfig.layerTest(process.cwd(), { prefix: "saint-snooze-projection-" })),
   Layer.provideMerge(ServerSettingsService.layerTest()),
   Layer.provideMerge(NodeServices.layer),
 );

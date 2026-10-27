@@ -1,5 +1,5 @@
-import type { ProviderKind, ProviderModelDescriptor } from "@synara/contracts";
-import { getModelCapabilities, hasEffortLevel, trimOrNull } from "@synara/shared/model";
+import type { ProviderKind, ProviderModelDescriptor } from "@saint/contracts";
+import { getModelCapabilities, hasEffortLevel, trimOrNull } from "@saint/shared/model";
 
 export type CodexReasoningEffortSupport = "supported" | "unsupported" | "unknown";
 

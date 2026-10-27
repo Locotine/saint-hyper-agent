@@ -3,7 +3,7 @@
 // Layer: Terminal presentation primitive
 // Depends on: shared terminal icon keys plus local provider/icon components.
 
-import type { TerminalIconKey } from "@synara/shared/terminalThreads";
+import type { TerminalIconKey } from "@saint/shared/terminalThreads";
 
 import { TerminalIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";

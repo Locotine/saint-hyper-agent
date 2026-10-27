@@ -4,7 +4,7 @@
 // Layer: Settings UI components
 // Depends on: the shortcut editor model, key capture, the shared dialog, and Keycap.
 
-import type { KeybindingShortcut, ServerKeybindingEdit } from "@synara/contracts";
+import type { KeybindingShortcut, ServerKeybindingEdit } from "@saint/contracts";
 import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 
 import { Button } from "~/components/ui/button";

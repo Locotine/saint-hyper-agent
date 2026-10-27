@@ -18,7 +18,7 @@ import {
   ProviderStartOptions,
   RuntimeMode,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import * as Schema from "effect/Schema";
 import type { DeepMutable } from "effect/Types";
 

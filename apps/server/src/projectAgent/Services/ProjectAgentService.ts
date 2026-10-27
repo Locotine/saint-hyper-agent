@@ -56,7 +56,7 @@ import type {
   ProjectTask,
   ProjectThreadIndexEntry,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { ServiceMap } from "effect";
 import type { Effect, Stream } from "effect";
 
@@ -305,4 +305,4 @@ export interface ProjectAgentServiceShape {
 export class ProjectAgentService extends ServiceMap.Service<
   ProjectAgentService,
   ProjectAgentServiceShape
->()("synara/projectAgent/Services/ProjectAgentService") {}
+>()("saint/projectAgent/Services/ProjectAgentService") {}

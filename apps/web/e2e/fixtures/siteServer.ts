@@ -23,7 +23,7 @@ const APP_HTML = `<!doctype html>
       }, true);
       for (const type of ["pointerdown", "pointerup", "pointercancel", "pointerrawupdate", "mousedown", "mousemove", "mouseup", "auxclick", "contextmenu", "click", "keydown", "keypress", "keyup", "beforeinput", "input", "paste", "compositionupdate"]) {
         window.addEventListener(type, (event) => {
-          const picker = document.querySelector("[data-synara-browser-annotations][data-interactive]");
+          const picker = document.querySelector("[data-saint-browser-annotations][data-interactive]");
           if (!picker) return;
           window.__annotationHostileCapture.push({
             type,
@@ -150,7 +150,7 @@ const APP_HTML = `<!doctype html>
       });
       dragSource.addEventListener("dragstart", (event) => {
         document.body.dataset.dragstart = String(Number(document.body.dataset.dragstart) + 1);
-        event.dataTransfer?.setData("text/plain", "synara-drag");
+        event.dataTransfer?.setData("text/plain", "saint-drag");
       });
       dragSource.addEventListener("mousedown", (event) => {
         document.body.dataset.dragButtons = String(event.buttons);
@@ -167,7 +167,7 @@ const APP_HTML = `<!doctype html>
         event.preventDefault();
         document.body.dataset.drop = String(Number(document.body.dataset.drop) + 1);
         dragState.textContent = "Dragged: " +
-          (event.dataTransfer?.getData("text/plain") === "synara-drag" ? "yes" : "event");
+          (event.dataTransfer?.getData("text/plain") === "saint-drag" ? "yes" : "event");
       });
       alertDialog.addEventListener("click", () => {
         alert("Fixture alert");

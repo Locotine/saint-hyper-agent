@@ -11,7 +11,7 @@ import nativeRelease from "../../packages/shared/src/cuaDriverRelease.json" with
 
 const driver = process.argv[2];
 if (!driver || !isAbsolute(driver)) throw new Error("Supply an absolute patched driver path.");
-const directory = await mkdtemp("/private/tmp/synara-cua-cancel-probe-");
+const directory = await mkdtemp("/private/tmp/saint-cua-cancel-probe-");
 await chmod(directory, 0o700);
 const socketPath = join(directory, "driver.sock");
 const child = spawn(driver, ["serve", "--embedded", "--no-overlay", "--socket", socketPath], {
@@ -75,7 +75,7 @@ try {
   }
   assert.equal(metadata?.result?.pid, child.pid);
   assert.equal(metadata?.result?.driver_version, nativeRelease.version);
-  assert.equal(metadata?.result?.synara_native_revision, nativeRelease.nativeRevision);
+  assert.equal(metadata?.result?.saint_native_revision, nativeRelease.nativeRevision);
   assert.equal(metadata?.result?.embedded, true);
   report.metadata = metadata.result;
   report.cases.push({ name: "patched-identity", passed: true });

@@ -10,7 +10,7 @@ import {
 } from "./externalMcpSetup";
 
 const stdio = {
-  command: "/Applications/Synara.app/Contents/MacOS/Synara",
+  command: "/Applications/Saint.app/Contents/MacOS/Saint",
   args: [
     "server.js",
     "mcp",
@@ -18,7 +18,7 @@ const stdio = {
     "--integration",
     "mcp_int_example",
     "--home-dir",
-    "/tmp/Synara home",
+    "/tmp/Saint home",
   ],
   env: { ELECTRON_RUN_AS_NODE: "1" },
 };
@@ -29,13 +29,13 @@ describe("external MCP guided setup", () => {
     const claude = buildExternalMcpClientConfiguration("claudeCode", stdio);
 
     expect(codex.value).toBe(
-      `codex mcp add ${EXTERNAL_MCP_SERVER_NAME} --env ELECTRON_RUN_AS_NODE=1 -- /Applications/Synara.app/Contents/MacOS/Synara server.js mcp serve --integration mcp_int_example --home-dir '/tmp/Synara home'`,
+      `codex mcp add ${EXTERNAL_MCP_SERVER_NAME} --env ELECTRON_RUN_AS_NODE=1 -- /Applications/Saint.app/Contents/MacOS/Saint server.js mcp serve --integration mcp_int_example --home-dir '/tmp/Saint home'`,
     );
     expect(claude.value).toBe(
-      `claude mcp add --scope user ${EXTERNAL_MCP_SERVER_NAME} -e ELECTRON_RUN_AS_NODE=1 -- /Applications/Synara.app/Contents/MacOS/Synara server.js mcp serve --integration mcp_int_example --home-dir '/tmp/Synara home'`,
+      `claude mcp add --scope user ${EXTERNAL_MCP_SERVER_NAME} -e ELECTRON_RUN_AS_NODE=1 -- /Applications/Saint.app/Contents/MacOS/Saint server.js mcp serve --integration mcp_int_example --home-dir '/tmp/Saint home'`,
     );
-    expect(codex.value).not.toContain("mcp add synara ");
-    expect(claude.value).not.toContain(" user synara ");
+    expect(codex.value).not.toContain("mcp add saint ");
+    expect(claude.value).not.toContain(" user saint ");
     expect(`${codex.value}${claude.value}`).not.toContain("syn_mcp_v1_");
   });
 
@@ -47,21 +47,21 @@ describe("external MCP guided setup", () => {
 
     expect(desktop.format).toBe("json");
     expect(parsed.mcpServers[EXTERNAL_MCP_SERVER_NAME]).toEqual(stdio);
-    expect(parsed.mcpServers.synara).toBeUndefined();
+    expect(parsed.mcpServers.saint).toBeUndefined();
   });
 
   it("builds terminal commands for PowerShell on Windows", () => {
     const codex = buildExternalMcpClientConfiguration("codex", stdio, "Win32");
     expect(codex.value).toBe(
-      `& 'codex' 'mcp' 'add' '${EXTERNAL_MCP_SERVER_NAME}' '--env' 'ELECTRON_RUN_AS_NODE=1' '--' '/Applications/Synara.app/Contents/MacOS/Synara' 'server.js' 'mcp' 'serve' '--integration' 'mcp_int_example' '--home-dir' '/tmp/Synara home'`,
+      `& 'codex' 'mcp' 'add' '${EXTERNAL_MCP_SERVER_NAME}' '--env' 'ELECTRON_RUN_AS_NODE=1' '--' '/Applications/Saint.app/Contents/MacOS/Saint' 'server.js' 'mcp' 'serve' '--integration' 'mcp_int_example' '--home-dir' '/tmp/Saint home'`,
     );
     expect(codex.instruction).toContain("PowerShell");
   });
 
   it("builds a project-specific prompt without exposing implementation identifiers", () => {
-    const prompt = buildExternalMcpExamplePrompt("Synara app");
+    const prompt = buildExternalMcpExamplePrompt("Saint app");
 
-    expect(prompt).toContain('project named "Synara app"');
+    expect(prompt).toContain('project named "Saint app"');
     expect(prompt).toContain("managed worktree");
     expect(prompt).toContain("approval-required");
     expect(prompt).not.toContain("projectId");
@@ -71,7 +71,7 @@ describe("external MCP guided setup", () => {
 
   it("builds one agent-facing setup prompt covering pairing, registration, and verification", () => {
     const prompt = buildExternalMcpSetupPrompt({
-      setupCommand: "synara mcp pair --code syn_pair_v1_example --home-dir /tmp/home",
+      setupCommand: "saint mcp pair --code syn_pair_v1_example --home-dir /tmp/home",
       stdio,
     });
 
@@ -79,7 +79,7 @@ describe("external MCP guided setup", () => {
     expect(prompt).toContain(`codex mcp add ${EXTERNAL_MCP_SERVER_NAME}`);
     expect(prompt).toContain(`claude mcp add --scope user ${EXTERNAL_MCP_SERVER_NAME}`);
     expect(prompt).toContain('"mcpServers"');
-    expect(prompt).toContain("synara_overview");
+    expect(prompt).toContain("saint_overview");
     expect(prompt).not.toContain("syn_mcp_v1_");
   });
 
@@ -88,13 +88,13 @@ describe("external MCP guided setup", () => {
 
     expect(prompt).toContain("already completed");
     expect(prompt).not.toContain("syn_pair_v1_");
-    expect(prompt).toContain("synara_overview");
+    expect(prompt).toContain("saint_overview");
   });
 
   it("builds a discovery-first example prompt for all-projects connections", () => {
     const prompt = buildExternalMcpExamplePrompt(null);
 
-    expect(prompt).toContain("synara_overview");
+    expect(prompt).toContain("saint_overview");
     expect(prompt).toContain("managed worktree");
   });
 

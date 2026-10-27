@@ -2,7 +2,7 @@
 // Purpose: Browser regressions for deferred matching and imperative active stepping.
 // Layer: Vitest browser tests
 
-import { MessageId } from "@synara/contracts";
+import { MessageId } from "@saint/contracts";
 import { page, userEvent } from "vitest/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";

@@ -1,4 +1,4 @@
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { flushSync } from "react-dom";
 import { beforeEach, expect, it } from "vitest";
 import { renderHook } from "vitest-browser-react";

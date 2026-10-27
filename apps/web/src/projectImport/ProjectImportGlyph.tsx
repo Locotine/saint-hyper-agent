@@ -1,11 +1,11 @@
 // FILE: ProjectImportGlyph.tsx
-// Purpose: Claude Code + Codex → Synara tile illustration shared by the project import promos.
+// Purpose: Claude Code + Codex → Saint tile illustration shared by the project import promos.
 // Layer: Web project-import UI
 // Exports: ProjectImportGlyph
 
 import { APP_ICON_TILE_SIZE_CLASSES, AppIconTile, ConnectorDots } from "~/components/AppIconTile";
 import { ProviderIcon } from "~/components/ProviderIcon";
-import { SynaraLogo } from "~/components/SynaraLogo";
+import { SaintLogo } from "~/components/SaintLogo";
 import { cn } from "~/lib/utils";
 
 type GlyphSize = "md" | "lg";
@@ -44,7 +44,7 @@ export function ProjectImportGlyph(props: { size?: GlyphSize; className?: string
         dotClassNames={["bg-[#d97757]/45", "bg-[#d97757]/70", "bg-[#d97757]"]}
       />
       <AppIconTile size={size} glow="left" glowColor={NEUTRAL_GLOW} className="rotate-6">
-        <SynaraLogo className={classes.icon} />
+        <SaintLogo className={classes.icon} />
       </AppIconTile>
     </span>
   );

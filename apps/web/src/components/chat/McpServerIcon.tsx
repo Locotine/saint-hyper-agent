@@ -1,11 +1,11 @@
 // FILE: McpServerIcon.tsx
 // Purpose: The leading icon of an MCP tool-call row: the connector's own icon (vendor mark
-//   or site favicon) for Synara connectors, the vendor mark for a server named after a known
+//   or site favicon) for Saint connectors, the vendor mark for a server named after a known
 //   brand (`stripe`, `notion`), and the generic MCP glyph otherwise.
 // Layer: Chat timeline UI
 // Exports: McpServerIcon
 
-import { MCP_CONNECTOR_SERVER_NAME_SUFFIX } from "@synara/shared/mcpConnectors";
+import { MCP_CONNECTOR_SERVER_NAME_SUFFIX } from "@saint/shared/mcpConnectors";
 import { useQuery } from "@tanstack/react-query";
 
 import { MCP_CONNECTORS_ON } from "~/betaFeatures";

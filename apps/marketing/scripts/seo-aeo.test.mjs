@@ -58,10 +58,10 @@ test("documentation titles and descriptions are unique and answer-ready", () => 
 test("the documentation landing page answers high-intent questions directly", () => {
   const source = read("content/docs/index.mdx");
   for (const heading of [
-    "What is Synara?",
-    "What does Synara control?",
-    "Does Synara include model access?",
-    "Does Synara upload code to its own cloud?",
+    "What is Saint?",
+    "What does Saint control?",
+    "Does Saint include model access?",
+    "Does Saint upload code to its own cloud?",
     "How should I run my first task?",
     "How do I run several agents safely?",
     "Where do I go when something fails?",

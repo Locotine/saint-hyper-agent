@@ -11,7 +11,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BackendIssueDetector } from "./backendIssueDetector";
-import { DESKTOP_DIAGNOSTIC_ISSUE_PREFIX } from "@synara/contracts";
+import { DESKTOP_DIAGNOSTIC_ISSUE_PREFIX } from "@saint/contracts";
 
 import {
   BetaDiagnostics,
@@ -36,7 +36,7 @@ const roots: string[] = [];
 const servers: Server[] = [];
 
 function makeRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "synara-beta-diag-test-"));
+  const root = mkdtempSync(join(tmpdir(), "saint-beta-diag-test-"));
   roots.push(root);
   return root;
 }
@@ -62,7 +62,7 @@ const makeDiagnostics = (root: string, endpoint?: string) =>
     appVersion: "9.9.9-beta.1",
     platform: "linux",
     arch: "x64",
-    env: endpoint ? { SYNARA_BETA_DIAGNOSTICS_URL: endpoint } : {},
+    env: endpoint ? { SAINT_BETA_DIAGNOSTICS_URL: endpoint } : {},
   });
 
 describe("sanitizeBetaDiagnosticsPayload", () => {
@@ -443,7 +443,7 @@ describe("BetaDiagnostics error tracking", () => {
     });
     diag.trackError(
       "main",
-      new Error("boom in /Users/alice/.synara-beta with sk-AbCdEfGhIjKlMnOpQrStUvWx"),
+      new Error("boom in /Users/alice/.saint-beta with sk-AbCdEfGhIjKlMnOpQrStUvWx"),
     );
     const events = readQueue(root);
     expect(events).toHaveLength(1);
@@ -848,23 +848,23 @@ describe("resolveBetaDiagnosticsEndpoint", () => {
     expect(resolveBetaDiagnosticsEndpoint({})).toBe(BETA_DIAGNOSTICS_ENDPOINT);
     expect(
       resolveBetaDiagnosticsEndpoint({
-        SYNARA_BETA_DIAGNOSTICS_URL: "https://staging.example.workers.dev",
+        SAINT_BETA_DIAGNOSTICS_URL: "https://staging.example.workers.dev",
       }),
     ).toBe("https://staging.example.workers.dev");
     // Loopback http targets are allowed for local worker development; other
     // plain-http overrides are ignored.
     expect(
-      resolveBetaDiagnosticsEndpoint({ SYNARA_BETA_DIAGNOSTICS_URL: "http://127.0.0.1:8787" }),
+      resolveBetaDiagnosticsEndpoint({ SAINT_BETA_DIAGNOSTICS_URL: "http://127.0.0.1:8787" }),
     ).toBe("http://127.0.0.1:8787");
     expect(
-      resolveBetaDiagnosticsEndpoint({ SYNARA_BETA_DIAGNOSTICS_URL: "http://localhost:8787" }),
+      resolveBetaDiagnosticsEndpoint({ SAINT_BETA_DIAGNOSTICS_URL: "http://localhost:8787" }),
     ).toBe("http://localhost:8787");
     expect(
-      resolveBetaDiagnosticsEndpoint({ SYNARA_BETA_DIAGNOSTICS_URL: "http://[::1]:8787" }),
+      resolveBetaDiagnosticsEndpoint({ SAINT_BETA_DIAGNOSTICS_URL: "http://[::1]:8787" }),
     ).toBe("http://[::1]:8787");
     expect(
       resolveBetaDiagnosticsEndpoint({
-        SYNARA_BETA_DIAGNOSTICS_URL: "http://diagnostics.example.com",
+        SAINT_BETA_DIAGNOSTICS_URL: "http://diagnostics.example.com",
       }),
     ).toBe(BETA_DIAGNOSTICS_ENDPOINT);
   });
@@ -880,7 +880,7 @@ describe("resolveBetaDiagnosticsEndpoint", () => {
       "not a url",
       "localhost:8787",
     ]) {
-      expect(resolveBetaDiagnosticsEndpoint({ SYNARA_BETA_DIAGNOSTICS_URL: override })).toBe(
+      expect(resolveBetaDiagnosticsEndpoint({ SAINT_BETA_DIAGNOSTICS_URL: override })).toBe(
         BETA_DIAGNOSTICS_ENDPOINT,
       );
     }

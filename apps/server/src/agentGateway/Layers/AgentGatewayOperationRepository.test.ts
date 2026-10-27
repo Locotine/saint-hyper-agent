@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { ProjectId, ThreadId } from "@synara/contracts";
+import { ProjectId, ThreadId } from "@saint/contracts";
 import { ProjectAgentRepositoryLive } from "../../persistence/Layers/ProjectAgentRepository.ts";
 import { ProjectAgentRepository } from "../../persistence/Services/ProjectAgentRepository.ts";
 import { Effect, Layer } from "effect";

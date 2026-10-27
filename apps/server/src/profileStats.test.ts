@@ -22,7 +22,7 @@ const testLayer = ProfileStatsQueryLive.pipe(
   Layer.provideMerge(SqlitePersistenceMemory),
   Layer.provide(
     ServerConfig.layerTest(process.cwd(), {
-      prefix: "synara-profile-stats-test-",
+      prefix: "saint-profile-stats-test-",
     }),
   ),
   Layer.provide(NodeServices.layer),
@@ -67,7 +67,7 @@ describe("ProfileStatsQuery", () => {
         for (const [threadId, parentThreadId, creationSource, sourceTurnId] of [
           ["root", null, null, null],
           ["mirrored-child", "root", "provider_native", "first"],
-          ["independent-child", "root", "synara_mcp", null],
+          ["independent-child", "root", "saint_mcp", null],
           ["uncovered-parent", null, null, null],
           ["uncovered-child", "uncovered-parent", "provider_native", "uncovered-parent-turn"],
           ["unknown-source-child", "uncovered-parent", "provider_native", null],

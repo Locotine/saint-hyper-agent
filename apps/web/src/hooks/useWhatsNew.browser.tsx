@@ -11,7 +11,7 @@ import { useOnboardingDialogStore } from "../onboarding/onboardingDialogStore";
 import { WhatsNewPopoutCard } from "../whatsNew/WhatsNewPopoutCard";
 import { useWhatsNew } from "../whatsNew/useWhatsNew";
 
-const storageKey = "synara:whats-new:v1";
+const storageKey = "saint:whats-new:v1";
 const entry = {
   version: "1.0.0",
   date: "Oct 5",

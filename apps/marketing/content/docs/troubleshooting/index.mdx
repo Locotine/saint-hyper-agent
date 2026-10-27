@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: Diagnose Synara problems safely, preserve useful evidence, and recover without losing work.
+description: Diagnose Saint problems safely, preserve useful evidence, and recover without losing work.
 ---
 
 Start by protecting the current state. A provider error, browser timeout, or failed Git operation is easier to investigate than a second failure caused by deleting a worktree, repeating a mutation, or reinstalling without preserving evidence.
@@ -12,7 +12,7 @@ Start by protecting the current state. A provider error, browser timeout, or fai
 
 ### Preserve the work
 
-Inspect the task diff and untracked files. Commit, stash, copy, or push anything you cannot afford to lose before restarting a provider, cleaning a worktree, or reinstalling Synara.
+Inspect the task diff and untracked files. Commit, stash, copy, or push anything you cannot afford to lose before restarting a provider, cleaning a worktree, or reinstalling Saint.
 
 </Step>
 <Step>
@@ -117,7 +117,7 @@ Repeat the smallest reproduction and then run the broader workflow that original
 
 | Symptom                                 | Start here                                                                         |
 | --------------------------------------- | ---------------------------------------------------------------------------------- |
-| Synara will not open or update          | [Desktop and updates](/docs/troubleshooting/desktop-and-updates)                   |
+| Saint will not open or update           | [Desktop and updates](/docs/troubleshooting/desktop-and-updates)                   |
 | Provider is missing or unauthenticated  | [Providers](/docs/troubleshooting/providers)                                       |
 | Task says working but makes no progress | [Tasks and runtime](/docs/troubleshooting/tasks-and-runtime)                       |
 | Task is waiting for approval or input   | [Tasks and runtime](/docs/troubleshooting/tasks-and-runtime)                       |
@@ -136,11 +136,11 @@ Stop and preserve state when:
 - Git reports a lock or unresolved operation
 - A worktree path disappeared while its task still matters
 - A provider repeatedly resumes into an error
-- An integration appears to target the wrong project or Synara installation
+- An integration appears to target the wrong project or Saint installation
 - Diagnostics may contain private source, prompts, URLs, account identifiers, or tokens
 
 <Callout type="warn" title="Never post raw diagnostics blindly">
-  Synara redacts common secret fields in its bounded diagnostic tools, but redaction is not a
+  Saint redacts common secret fields in its bounded diagnostic tools, but redaction is not a
   substitute for human review. Remove credentials, private prompts, proprietary code, local
   usernames, repository paths, and sensitive URLs before sharing anything publicly.
 </Callout>

@@ -1,9 +1,9 @@
 ---
 title: Worktrees
-description: Isolate concurrent Synara tasks with task-owned working directories and Git branches.
+description: Isolate concurrent Saint tasks with task-owned working directories and Git branches.
 ---
 
-A Git worktree gives a task a separate working directory and checked-out branch while sharing the repository’s object database and history. In Synara, it is the standard isolation boundary for concurrent tasks that may edit the same repository.
+A Git worktree gives a task a separate working directory and checked-out branch while sharing the repository’s object database and history. In Saint, it is the standard isolation boundary for concurrent tasks that may edit the same repository.
 
 ## Local checkout or worktree
 
@@ -36,7 +36,7 @@ Do not start several worktrees from an accidental or poorly understood base stat
 
 ## How task ownership works
 
-A worktree-backed Synara task owns:
+A worktree-backed Saint task owns:
 
 - Its working directory
 - Its checked-out branch or detached starting state
@@ -47,7 +47,7 @@ A worktree-backed Synara task owns:
 
 Terminals, file tools, provider operations, and Git actions for that task run inside the task’s environment rather than the primary checkout.
 
-Synara-managed worktrees remain associated with their tasks. Active environments are protected from routine cleanup, while archived environments can be pruned according to Synara’s managed-worktree lifecycle.
+Saint-managed worktrees remain associated with their tasks. Active environments are protected from routine cleanup, while archived environments can be pruned according to Saint’s managed-worktree lifecycle.
 
 ## Starting from a base ref
 
@@ -175,6 +175,6 @@ Stop development servers, watchers, shells, and provider child processes before 
 - [ ] No dependent process remains before cleanup
 
 <Callout type="info" title="Git is the preservation boundary">
-  Synara manages the environment, but commits and pushed refs are what make work portable and
+  Saint manages the environment, but commits and pushed refs are what make work portable and
   durable.
 </Callout>

@@ -7,7 +7,7 @@ import {
   type OrchestrationSession,
   type OrchestrationThreadShell,
   type ProviderSession,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -608,7 +608,7 @@ describe("planProviderRuntimeReconciliation", () => {
           id: "provider-runtime-reconcile:activity",
           tone: "info",
           kind: "provider.runtime.reconciled",
-          summary: "Synara recovered a stale running state",
+          summary: "Saint recovered a stale running state",
           payload: {
             provider: plan.provider,
             action: plan.action,

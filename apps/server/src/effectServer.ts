@@ -2,7 +2,7 @@ import { ProjectionPendingInteractionRepositoryLive } from "./persistence/Layers
 import { ProviderSessionRuntimeRepositoryLive } from "./persistence/Layers/ProviderSessionRuntime";
 import http from "node:http";
 
-import type { ServerSettingsError } from "@synara/contracts";
+import type { ServerSettingsError } from "@saint/contracts";
 import { Effect, Exit, FileSystem, Layer, Path, Schema, Scope, ServiceMap } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -103,7 +103,7 @@ export interface ServerShape {
 }
 
 export class Server extends ServiceMap.Service<Server, ServerShape>()(
-  "synara/effectServer/Server",
+  "saint/effectServer/Server",
 ) {}
 
 export class ServerLifecycleError extends Schema.TaggedErrorClass<ServerLifecycleError>()(

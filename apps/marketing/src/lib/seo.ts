@@ -40,7 +40,7 @@ export const SITE_TITLE = `${SITE_NAME} — AI Coding Workspace for Claude Code,
 export const SITE_DESCRIPTION = PRODUCT_META_DESCRIPTION;
 
 export const SEO_KEYWORDS = [
-  "Synara",
+  "Saint",
   "AI coding agents",
   "coding agent workspace",
   "local-first coding workspace",
@@ -71,10 +71,10 @@ export const OG_IMAGE = {
 };
 
 export const SITE_IMAGES = {
-  icon: "/synara-icon.png",
+  icon: "/saint-icon.png",
   og: "/og.png",
-  lightScreenshot: "/synara-ui-light.png",
-  darkScreenshot: "/synara-ui-dark.png",
+  lightScreenshot: "/saint-ui-light.png",
+  darkScreenshot: "/saint-ui-dark.png",
 };
 
 /** Builds an absolute production URL for metadata, sitemaps, and structured data. */
@@ -185,7 +185,7 @@ export const INSTALL_JSONLD = {
   "@context": "https://schema.org",
   "@type": "WebPage",
   "@id": `${SITE_URL}/install#webpage`,
-  name: "Download Synara",
+  name: "Download Saint",
   url: absoluteUrl("/install"),
   description: `Download ${SITE_NAME} for macOS, Windows, and Linux — ${PRODUCT_CATEGORY}`,
   isPartOf: { "@id": `${SITE_URL}/#website` },
@@ -203,10 +203,10 @@ export function changelogCollectionJsonLd(entries: readonly ChangelogEntry[]) {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     "@id": `${SITE_URL}/changelog#collection`,
-    name: "Synara changelog",
+    name: "Saint changelog",
     url: absoluteUrl("/changelog"),
     description:
-      "Release notes for Synara, including provider support, coding-agent workflows, reliability, performance, and installer updates.",
+      "Release notes for Saint, including provider support, coding-agent workflows, reliability, performance, and installer updates.",
     isPartOf: { "@id": `${SITE_URL}/#website` },
     about: { "@id": `${SITE_URL}/#app` },
     mainEntity: {
@@ -214,7 +214,7 @@ export function changelogCollectionJsonLd(entries: readonly ChangelogEntry[]) {
       itemListElement: entries.map((entry, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        name: `Synara ${entry.version}`,
+        name: `Saint ${entry.version}`,
         url: absoluteUrl(`/changelog/v${entry.version}`),
       })),
     },
@@ -228,10 +228,10 @@ export function releaseJsonLd(entry: ChangelogEntry) {
     "@context": "https://schema.org",
     "@type": "TechArticle",
     "@id": `${SITE_URL}/changelog/v${entry.version}#release-notes`,
-    headline: `Synara ${entry.version} release notes`,
-    name: `Synara ${entry.version} changelog`,
+    headline: `Saint ${entry.version} release notes`,
+    name: `Saint ${entry.version} changelog`,
     url: absoluteUrl(`/changelog/v${entry.version}`),
-    description: `What's new in Synara ${entry.version}: ${highlights}.`,
+    description: `What's new in Saint ${entry.version}: ${highlights}.`,
     image: absoluteUrl(entry.heroImage ?? SITE_IMAGES.og),
     datePublished: date,
     dateModified: date,
@@ -252,16 +252,16 @@ export function sponsorJsonLd(
     "@context": "https://schema.org",
     "@type": "WebPage",
     "@id": `${SITE_URL}/sponsor#webpage`,
-    name: "Sponsor Synara",
+    name: "Sponsor Saint",
     url: absoluteUrl("/sponsor"),
     description:
-      "Sponsor Synara through GitHub Sponsors. Monthly tiers from $5 to $499 plus custom one-time amounts fund development, releases, and docs for the free, open-source desktop app.",
+      "Sponsor Saint through GitHub Sponsors. Monthly tiers from $5 to $499 plus custom one-time amounts fund development, releases, and docs for the free, open-source desktop app.",
     isPartOf: { "@id": `${SITE_URL}/#website` },
     about: { "@id": `${SITE_URL}/#app` },
     primaryImageOfPage: absoluteUrl(SITE_IMAGES.og),
     mainEntity: {
       "@type": "OfferCatalog",
-      name: "Synara sponsorship tiers",
+      name: "Saint sponsorship tiers",
       itemListElement: tiers.map((tier) => ({
         "@type": "Offer",
         name: tier.label,
@@ -295,16 +295,16 @@ export function sponsorsPageJsonLd(sponsors: ReadonlyArray<{ name: string; url: 
     "@context": "https://schema.org",
     "@type": "WebPage",
     "@id": `${SITE_URL}/sponsors#webpage`,
-    name: "Synara sponsors",
+    name: "Saint sponsors",
     url: absoluteUrl("/sponsors"),
     description:
-      "The people and companies funding Synara, the free and open-source command center for agentic development.",
+      "The people and companies funding Saint, the free and open-source command center for agentic development.",
     isPartOf: { "@id": `${SITE_URL}/#website` },
     about: { "@id": `${SITE_URL}/#app` },
     primaryImageOfPage: absoluteUrl(SITE_IMAGES.og),
     mainEntity: {
       "@type": "ItemList",
-      name: "Synara sponsors",
+      name: "Saint sponsors",
       numberOfItems: sponsors.length,
       itemListElement: sponsors.map((sponsor, index) => ({
         "@type": "ListItem",

@@ -1,4 +1,4 @@
-import type { ResolvedKeybindingsConfig } from "@synara/contracts";
+import type { ResolvedKeybindingsConfig } from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, type RefObject } from "react";
 

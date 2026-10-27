@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import type { EditorFileEdits, ProjectReadFileResult } from "@synara/contracts";
+import type { EditorFileEdits, ProjectReadFileResult } from "@saint/contracts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const { api } = vi.hoisted(() => ({

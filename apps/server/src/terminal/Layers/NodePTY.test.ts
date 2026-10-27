@@ -4,7 +4,7 @@ import { assert, it } from "@effect/vitest";
 import { PtyAdapter } from "../Services/PTY";
 import { ensureNodePtySpawnHelperExecutable, makeNodePtyLayer } from "./NodePTY";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { prepareProcess } from "@synara/shared/platformProcess";
+import { prepareProcess } from "@saint/shared/platformProcess";
 
 it.layer(NodeServices.layer)("ensureNodePtySpawnHelperExecutable", (it) => {
   it.effect("adds executable bits when helper exists but is not executable", () =>

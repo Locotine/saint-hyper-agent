@@ -13,7 +13,7 @@ import { ProviderAdapterRequestError, ProviderAdapterValidationError } from "../
  * Fork the runtime's active session when the agent advertises `session/fork`.
  *
  * Fails with a `ProviderAdapterValidationError` when the capability is missing
- * so callers fall back to Synara's retained-transcript fork. Replay readiness
+ * so callers fall back to Saint's retained-transcript fork. Replay readiness
  * has its own bounded policy; the adapter timeout applies only after that gate
  * opens, preserving the full RPC allowance even when replay hits its hard cap.
  */
@@ -40,7 +40,7 @@ export function forkViaAcpRuntime(input: {
       return yield* new ProviderAdapterValidationError({
         provider: input.provider,
         operation: "forkThread",
-        issue: `This ${input.provider} ACP version advertises session/fork but cannot reopen the forked session; Synara will rebuild the fork from its retained transcript.`,
+        issue: `This ${input.provider} ACP version advertises session/fork but cannot reopen the forked session; Saint will rebuild the fork from its retained transcript.`,
       });
     }
     yield* input.runtime.awaitLoadReplayReady;

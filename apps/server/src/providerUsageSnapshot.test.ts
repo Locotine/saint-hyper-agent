@@ -32,7 +32,7 @@ function tokenCountLine(timestamp: string, totalTokens: number, note?: string): 
 }
 
 async function makeSessionFile(contents: string, name = "rollout.jsonl"): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "synara-provider-usage-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "saint-provider-usage-"));
   tempDirs.push(dir);
   const file = path.join(dir, name);
   await fs.writeFile(file, contents);
@@ -199,7 +199,7 @@ describe("readClaudeUsageSamples", () => {
 const recentIso = (hoursAgo: number) => new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
 
 async function makeProjectsRoot(): Promise<{ root: string; projectDir: string }> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "synara-claude-projects-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "saint-claude-projects-"));
   tempDirs.push(root);
   const projectDir = path.join(root, "project-a");
   await fs.mkdir(projectDir);

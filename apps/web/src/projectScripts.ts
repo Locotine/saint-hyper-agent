@@ -4,7 +4,7 @@ import {
   type KeybindingCommand,
   type ProjectScript,
   type ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema } from "effect";
 
 function normalizeScriptId(value: string): string {
@@ -82,10 +82,10 @@ export function projectScriptRuntimeEnv(
   input: ProjectScriptRuntimeEnvInput,
 ): Record<string, string> {
   const env: Record<string, string> = {
-    SYNARA_PROJECT_ROOT: input.project.cwd,
+    SAINT_PROJECT_ROOT: input.project.cwd,
   };
   if (input.worktreePath) {
-    env.SYNARA_WORKTREE_PATH = input.worktreePath;
+    env.SAINT_WORKTREE_PATH = input.worktreePath;
   }
   if (input.extraEnv) {
     return { ...env, ...input.extraEnv };

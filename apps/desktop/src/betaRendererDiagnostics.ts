@@ -1,7 +1,7 @@
 import {
   DESKTOP_RENDERER_ERROR_MESSAGE_MAX_LENGTH,
   DESKTOP_RENDERER_ERROR_STACK_MAX_LENGTH,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { ipcMain, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from "electron";
 
 import type { BetaDiagnostics } from "./betaDiagnostics";

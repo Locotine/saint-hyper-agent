@@ -6,13 +6,13 @@ import {
   deriveLiteralCommand,
   deriveReadableCommandDisplay,
   deriveReadableToolTitle,
-  deriveSynaraMcpToolTitle,
+  deriveSaintMcpToolTitle,
   extractMcpServerName,
   extractWebFetchUrl,
-  isSynaraBrowserToolCall,
+  isSaintBrowserToolCall,
   normalizeCompactToolLabel,
   resolveCommandVisualKind,
-  sanitizeSynaraMcpToolPreview,
+  sanitizeSaintMcpToolPreview,
 } from "./toolCallLabel";
 
 describe("extractWebFetchUrl", () => {
@@ -95,124 +95,124 @@ describe("normalizeCompactToolLabel", () => {
   });
 });
 
-describe("deriveSynaraMcpToolTitle", () => {
+describe("deriveSaintMcpToolTitle", () => {
   it.each([["browser_run", "Run browser actions"]])(
     "keeps current and historical %s messages readable",
     (toolName, title) => {
-      expect(deriveSynaraMcpToolTitle({ toolName, status: "completed" })).toBe(title);
-      expect(isSynaraBrowserToolCall({ title })).toBe(true);
+      expect(deriveSaintMcpToolTitle({ toolName, status: "completed" })).toBe(title);
+      expect(isSaintBrowserToolCall({ title })).toBe(true);
     },
   );
 
-  it("uses stable action-first names for Synara browser tools", () => {
+  it("uses stable action-first names for Saint browser tools", () => {
     for (const status of ["running", "completed", "failed"] as const) {
       expect(
-        deriveSynaraMcpToolTitle({
-          toolName: "mcp__synara__browser_open",
+        deriveSaintMcpToolTitle({
+          toolName: "mcp__saint__browser_open",
           status,
         }),
       ).toBe("Open browser tab");
     }
 
     expect(
-      deriveSynaraMcpToolTitle({
-        title: "Synara: Browser Snapshot",
+      deriveSaintMcpToolTitle({
+        title: "Saint: Browser Snapshot",
         status: "completed",
       }),
     ).toBe("Snapshot browser page");
   });
 
-  it("recognizes bare and already-humanized Synara tool names", () => {
-    expect(deriveSynaraMcpToolTitle({ toolName: "synara_send_message", status: "running" })).toBe(
-      "Synara is sending a message",
+  it("recognizes bare and already-humanized Saint tool names", () => {
+    expect(deriveSaintMcpToolTitle({ toolName: "saint_send_message", status: "running" })).toBe(
+      "Saint is sending a message",
     );
     expect(
-      deriveSynaraMcpToolTitle({ title: "Synara: Synara List Threads", status: "completed" }),
-    ).toBe("Synara listed threads");
-    expect(
-      deriveSynaraMcpToolTitle({ toolName: "synara_create_thread", status: "cancelled" }),
-    ).toBe("Synara stopped creating a thread");
+      deriveSaintMcpToolTitle({ title: "Saint: Saint List Threads", status: "completed" }),
+    ).toBe("Saint listed threads");
+    expect(deriveSaintMcpToolTitle({ toolName: "saint_create_thread", status: "cancelled" })).toBe(
+      "Saint stopped creating a thread",
+    );
   });
 
   it("ignores tools from other MCP servers", () => {
     expect(
-      deriveSynaraMcpToolTitle({
+      deriveSaintMcpToolTitle({
         toolName: "mcp__codex_apps__github_fetch_pr",
         status: "running",
       }),
     ).toBeNull();
   });
 
-  it("keeps future Synara actions branded without exposing raw identifiers", () => {
+  it("keeps future Saint actions branded without exposing raw identifiers", () => {
     expect(
-      deriveSynaraMcpToolTitle({
-        toolName: "mcp__synara__synara_delete_project",
+      deriveSaintMcpToolTitle({
+        toolName: "mcp__saint__saint_delete_project",
         status: "running",
       }),
-    ).toBe("Synara is handling delete project");
+    ).toBe("Saint is handling delete project");
     expect(
-      deriveSynaraMcpToolTitle({
-        toolName: "Synara__synara_delete_project",
+      deriveSaintMcpToolTitle({
+        toolName: "Saint__saint_delete_project",
         status: "completed",
       }),
-    ).toBe("Synara handled delete project");
+    ).toBe("Saint handled delete project");
     expect(
-      deriveSynaraMcpToolTitle({
-        toolName: "synara_is_handling_delete_project",
+      deriveSaintMcpToolTitle({
+        toolName: "saint_is_handling_delete_project",
         status: "completed",
       }),
-    ).toBe("Synara handled delete project");
+    ).toBe("Saint handled delete project");
   });
 
   it("does not reinterpret free text beginning with fallback status copy", () => {
     expect(
-      deriveSynaraMcpToolTitle({
-        title: "Synara is handling delete project after recovery",
+      deriveSaintMcpToolTitle({
+        title: "Saint is handling delete project after recovery",
         status: "completed",
       }),
     ).toBeNull();
     expect(
-      deriveSynaraMcpToolTitle({
-        title: "Synara handled delete project after recovery",
+      deriveSaintMcpToolTitle({
+        title: "Saint handled delete project after recovery",
         status: "running",
       }),
     ).toBeNull();
     expect(
-      deriveSynaraMcpToolTitle({
-        title: "Synara couldn't handle delete project after recovery",
+      deriveSaintMcpToolTitle({
+        title: "Saint couldn't handle delete project after recovery",
         status: "failed",
       }),
     ).toBeNull();
   });
 
-  it("removes transport identifiers without hiding meaningful Synara details", () => {
+  it("removes transport identifiers without hiding meaningful Saint details", () => {
     expect(
-      sanitizeSynaraMcpToolPreview({
-        preview: "Synara__synara_create_threads",
-        heading: "Synara created threads",
+      sanitizeSaintMcpToolPreview({
+        preview: "Saint__saint_create_threads",
+        heading: "Saint created threads",
         status: "completed",
       }),
     ).toBeNull();
     expect(
-      sanitizeSynaraMcpToolPreview({
+      sanitizeSaintMcpToolPreview({
         preview: 'Unexpected key "reasoningEffort" for Claude Agent',
-        heading: "Synara couldn't create threads",
+        heading: "Saint couldn't create threads",
         status: "failed",
       }),
     ).toBe('Unexpected key "reasoningEffort" for Claude Agent');
   });
 });
 
-describe("isSynaraBrowserToolCall", () => {
+describe("isSaintBrowserToolCall", () => {
   it("recognizes canonical presentation titles without a tool identifier", () => {
-    expect(isSynaraBrowserToolCall({ title: "Open browser tab" })).toBe(true);
-    expect(isSynaraBrowserToolCall({ fallbackLabel: "Snapshot browser page" })).toBe(true);
-    expect(isSynaraBrowserToolCall({ title: "Synara listed threads" })).toBe(false);
+    expect(isSaintBrowserToolCall({ title: "Open browser tab" })).toBe(true);
+    expect(isSaintBrowserToolCall({ fallbackLabel: "Snapshot browser page" })).toBe(true);
+    expect(isSaintBrowserToolCall({ title: "Saint listed threads" })).toBe(false);
   });
 });
 
 describe("deriveReadableToolTitle", () => {
-  it.each([["mcp__synara__computer_activate_window", "Activate a window"]])(
+  it.each([["mcp__saint__computer_activate_window", "Activate a window"]])(
     "uses the curated Computer label for %s",
     (toolName, expected) => {
       expect(
@@ -336,13 +336,13 @@ describe("deriveReadableCommandDisplay", () => {
   it("removes env and timeout wrappers from inline command summaries", () => {
     expect(
       deriveReadableCommandDisplay(
-        "env -u SYNARA_AUTH_TOKEN SYNARA_PORT_OFFSET=3158 timeout 180s bun run dev",
+        "env -u SAINT_AUTH_TOKEN SAINT_PORT_OFFSET=3158 timeout 180s bun run dev",
         true,
       ),
     ).toEqual({
       verb: "Running",
       target: "bun run dev",
-      fullCommand: "env -u SYNARA_AUTH_TOKEN SYNARA_PORT_OFFSET=3158 timeout 180s bun run dev",
+      fullCommand: "env -u SAINT_AUTH_TOKEN SAINT_PORT_OFFSET=3158 timeout 180s bun run dev",
     });
   });
 

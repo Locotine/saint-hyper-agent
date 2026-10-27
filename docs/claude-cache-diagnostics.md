@@ -1,19 +1,19 @@
 # Comparing Claude cache behavior offline
 
 Use existing Claude Code session JSONL files to compare terminal CLI, direct Agent SDK,
-and Synara runs. This command reads a file and prints metadata; it does not start a
+and Saint runs. This command reads a file and prints metadata; it does not start a
 provider, make API calls, or modify the transcript:
 
 ```sh
 node scripts/claude-cache-report.ts /path/to/cli-session.jsonl > /tmp/cli-cache.json
 node scripts/claude-cache-report.ts /path/to/sdk-session.jsonl > /tmp/sdk-cache.json
-node scripts/claude-cache-report.ts /path/to/synara-session.jsonl > /tmp/synara-cache.json
+node scripts/claude-cache-report.ts /path/to/saint-session.jsonl > /tmp/saint-cache.json
 bun run --cwd scripts test claude-cache-report.test.ts
 ```
 
 Inputs are Claude's native session JSONL records, including sessions launched by
-Synara. SDK assistant records with the same `message.id` and usage shape also work;
-SDK records without timestamps cannot provide timing evidence. Synara database
+Saint. SDK assistant records with the same `message.id` and usage shape also work;
+SDK records without timestamps cannot provide timing evidence. Saint database
 activity exports and raw `stream_event` deltas are not equivalent input formats.
 Compaction boundaries accept native `compactMetadata` and SDK `compact_metadata`
 records. Token counts absent from either format remain `null`.

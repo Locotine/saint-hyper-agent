@@ -3,7 +3,7 @@
 // server read tool. Staleness consults an injected epoch-ms `now`; no
 // wall-clock calls here.
 
-import type { OrchestrationSessionStatus } from "@synara/contracts";
+import type { OrchestrationSessionStatus } from "@saint/contracts";
 
 export type KanbanColumnV2Key = "draft" | "inProgress" | "awaitingYou" | "done";
 

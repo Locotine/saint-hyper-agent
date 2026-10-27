@@ -1,4 +1,4 @@
-import { ApprovalRequestId, ThreadId, TurnId } from "@synara/contracts";
+import { ApprovalRequestId, ThreadId, TurnId } from "@saint/contracts";
 import { afterEach, expect, it } from "vitest";
 import { renderHook } from "vitest-browser-react";
 

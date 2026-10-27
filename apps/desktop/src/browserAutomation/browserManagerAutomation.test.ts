@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { nativeTheme, type WebContents } from "electron";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -27,7 +27,7 @@ const { browserSession, fromId, webContentsViewConstructor, willDownloadListener
 );
 vi.mock("electron", async () => ({
   app: {
-    getName: () => "Synara",
+    getName: () => "Saint",
     getPreferredSystemLanguages: () => ["en-US"],
     userAgentFallback: "Mozilla/5.0 Electron/40.0.0",
   },
@@ -1179,7 +1179,7 @@ describe("DesktopBrowserManager automation runtime boundary", () => {
     ).toThrow(/not ready yet/i);
   });
 
-  it("adopts only a webview owned by the exact Synara window and browser partition", () => {
+  it("adopts only a webview owned by the exact Saint window and browser partition", () => {
     const manager = new DesktopBrowserManager();
     const state = manager.open({ threadId: THREAD_ID });
     const tabId = state.activeTabId!;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ClaudeCacheObservation } from "@synara/contracts";
+import type { ClaudeCacheObservation } from "@saint/contracts";
 import { assessClaudeCache } from "./claudeCache";
 
 const baseline: ClaudeCacheObservation = {

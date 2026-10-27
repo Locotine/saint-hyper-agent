@@ -1,4 +1,4 @@
-import { DEFAULT_GIT_RECENT_COMMIT_LIMIT } from "@synara/contracts";
+import { DEFAULT_GIT_RECENT_COMMIT_LIMIT } from "@saint/contracts";
 import type {
   GitHandoffThreadInput,
   GitReadWorkingTreeDiffInput,
@@ -7,7 +7,7 @@ import type {
   ModelSelection,
   NativeApi,
   ProviderStartOptions,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { ensureNativeApi } from "../nativeApi";
 import { createActivityRefreshThrottle } from "./activityRefreshThrottle";
@@ -975,7 +975,7 @@ export function gitRemoveWorktreeMutationOptions(input: { queryClient: QueryClie
       const api = ensureNativeApi();
       if (!cwd) throw new Error("Git worktree removal is unavailable.");
       // Every UI removal retires a thread-scoped managed worktree, so its
-      // temporary synara/* branch (if any) is reclaimed with it.
+      // temporary saint/* branch (if any) is reclaimed with it.
       return api.git.removeWorktree({ cwd, path, force, reclaimTemporaryBranch, archiveCleanup });
     },
     mutationKey: ["git", "mutation", "remove-worktree"] as const,

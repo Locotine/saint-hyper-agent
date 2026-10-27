@@ -13,7 +13,7 @@ import {
   ProjectAgentReportResultInput,
   ProjectAgentWriteDocumentInput,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Schema } from "effect";
 
 import type { ProjectAgentServiceShape } from "../projectAgent/Services/ProjectAgentService.ts";
@@ -54,7 +54,7 @@ export function makeProjectAgentTools(
   const getOverview: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_project_get_overview",
+      name: "saint_project_get_overview",
       description:
         "Read the current hub's coordinator overview: goal, focus, blockers, last summary, and linked repositories. The coordinator may create threads in this hub or any linked repository listed here and in the context packet. Does not include document bodies.",
       inputSchema: {
@@ -78,7 +78,7 @@ export function makeProjectAgentTools(
   const listTasks: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_project_list_tasks",
+      name: "saint_project_list_tasks",
       description: "List project coordinator tasks, including review state and dependencies.",
       inputSchema: {
         type: "object",
@@ -104,7 +104,7 @@ export function makeProjectAgentTools(
   const readDocument: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_project_read_document",
+      name: "saint_project_read_document",
       description:
         "Read a shared project document by relative path. Additional documents are retrieved through this tool instead of being injected into context.",
       inputSchema: {
@@ -132,7 +132,7 @@ export function makeProjectAgentTools(
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_project_write_document",
+      name: "saint_project_write_document",
       description:
         "Write a shared project document with an expected revision. Workers may write inbox entries only. Conflicting edits return a conflict instead of overwriting.",
       inputSchema: {
@@ -163,7 +163,7 @@ export function makeProjectAgentTools(
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_project_report_result",
+      name: "saint_project_report_result",
       description:
         "Report worker findings into the project inbox. This records evidence and moves the task to review. It does not mark the task done.",
       inputSchema: {
@@ -192,7 +192,7 @@ export function makeProjectAgentTools(
   const contextPacket: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_project_context",
+      name: "saint_project_context",
       description:
         "Load the bounded project context packet (goal, instructions, decisions, tasks) capped at 32,000 characters.",
       inputSchema: {
@@ -218,7 +218,7 @@ export function makeProjectAgentTools(
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_project_remember",
+      name: "saint_project_remember",
       description:
         "Save a note to the hub's shared memory (memory/<date>-<slug>.md) and update the MEMORY.md index every hub thread reads. Near-identical notes are deduplicated onto the existing memory file.",
       inputSchema: {
@@ -251,7 +251,7 @@ export function makeProjectAgentTools(
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_project_forget",
+      name: "saint_project_forget",
       description:
         "Remove a hub memory note file (memory/<date>-<slug>.md) and its index line in MEMORY.md.",
       inputSchema: {
@@ -283,9 +283,9 @@ export function makeProjectAgentTools(
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_project_link_repository",
+      name: "saint_project_link_repository",
       description:
-        "Coordinator only. Link an existing ordinary Synara project to this hub, by linkedProjectId or by its workspacePath. New hub threads can then be started in that repository. Unlinking stays a user action.",
+        "Coordinator only. Link an existing ordinary Saint project to this hub, by linkedProjectId or by its workspacePath. New hub threads can then be started in that repository. Unlinking stays a user action.",
       inputSchema: {
         type: "object",
         properties: {
@@ -320,7 +320,7 @@ export function makeProjectAgentTools(
   const libraryList: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_project_library_list",
+      name: "saint_project_library_list",
       description:
         "List files in the hub's Library (optionally under relativePath). Returns the library root path and entries.",
       inputSchema: {
@@ -348,7 +348,7 @@ export function makeProjectAgentTools(
     requiredCapability: "thread:write",
     requiresActiveTurn: true,
     definition: {
-      name: "synara_project_library_add",
+      name: "saint_project_library_add",
       description:
         "Copy a file or folder from this thread's own workspace into the hub's Library and commit it. sourcePath must resolve inside your workspace; destinationPath defaults to the source name at the library root.",
       inputSchema: {
@@ -380,7 +380,7 @@ export function makeProjectAgentTools(
   const listThreads: ToolEntry = {
     requiredCapability: "thread:read",
     definition: {
-      name: "synara_project_list_threads",
+      name: "saint_project_list_threads",
       description:
         "Coordinator only. List every hub thread — in the hub and in linked repositories — with its live state, PR link, last update time, and task id.",
       inputSchema: {

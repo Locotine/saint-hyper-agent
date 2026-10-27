@@ -1,6 +1,6 @@
 // FILE: sponsors/page.tsx
 // Purpose: The sponsor wall — a public thank-you listing everyone funding
-//          Synara, grouped by tier. The pitch and the tiers live at /sponsor.
+//          Saint, grouped by tier. The pitch and the tiers live at /sponsor.
 // Layer: App Router page (static)
 // Depends on: Navbar, SiteFooter, SectionEyebrow, SponsorRow, data/sponsors, lib/sponsors
 // Note: Only public GitHub sponsors belong in data/sponsors.ts — see the note
@@ -24,9 +24,9 @@ import {
 } from "@/lib/seo";
 
 export const metadata = pageMetadata({
-  title: "Sponsors — Synara",
+  title: "Sponsors — Saint",
   description:
-    "The people and companies funding Synara, the free and open-source command center for agentic development. Thank you to every sponsor and one-time donor.",
+    "The people and companies funding Saint, the free and open-source command center for agentic development. Thank you to every sponsor and one-time donor.",
   path: "/sponsors",
 });
 
@@ -40,7 +40,7 @@ const SPONSORS_JSONLD = [
     })),
   ),
   breadcrumbJsonLd([
-    { name: "Synara", path: "/" },
+    { name: "Saint", path: "/" },
     { name: "Sponsors", path: "/sponsors" },
   ]),
 ];
@@ -64,12 +64,12 @@ export default function SponsorsPage() {
         <header>
           <SectionEyebrow as="p">Sponsors</SectionEyebrow>
           <h1 className="mt-2.5 text-[1.35rem] font-medium leading-[1.2] tracking-[-0.03em] sm:text-[1.5rem]">
-            The people keeping Synara free
+            The people keeping Saint free
           </h1>
           <p className="mt-3 max-w-3xl text-[13.5px] leading-[1.65] text-[var(--text-secondary)]">
             {count === 0
-              ? "Synara is funded entirely by sponsorship. This page is where sponsors get listed — it's empty right now, so the first name on it is available."
-              : "Synara is funded entirely by sponsorship — there's no paid tier and no company behind it. Everyone below chose to fund work they could otherwise use for free. Thank you."}
+              ? "Saint is funded entirely by sponsorship. This page is where sponsors get listed — it's empty right now, so the first name on it is available."
+              : "Saint is funded entirely by sponsorship — there's no paid tier and no company behind it. Everyone below chose to fund work they could otherwise use for free. Thank you."}
           </p>
         </header>
 
@@ -99,7 +99,7 @@ export default function SponsorsPage() {
             Your name could be on this page
           </h2>
           <p className="mt-2 max-w-3xl text-[13px] leading-[1.65] text-[var(--text-secondary)]">
-            Sponsoring Synara gets you listed here. Every tier runs through GitHub Sponsors — the
+            Sponsoring Saint gets you listed here. Every tier runs through GitHub Sponsors — the
             full breakdown is on the sponsor page.
           </p>
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">

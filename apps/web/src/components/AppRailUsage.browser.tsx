@@ -4,7 +4,7 @@ import {
   DEFAULT_SERVER_SETTINGS_VIEW,
   type ServerProviderUsageSnapshot,
   type ServerSettingsView,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { page, userEvent } from "vitest/browser";
 import { beforeEach, describe, expect, it, vi } from "vitest";

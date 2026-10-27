@@ -58,7 +58,7 @@ describe("AcpSessionRuntime", () => {
               parameterizedModelPicker: true,
             },
           },
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
           requestLogger: (event) =>
             Effect.sync(() => {
@@ -83,7 +83,7 @@ describe("AcpSessionRuntime", () => {
       expect(sessionStarted?.payload).toMatchObject({
         _meta: {
           "x.ai/hooks": {
-            PreToolUse: [{ matcher: "*", hookCallbackIds: ["synara-plan-guard"] }],
+            PreToolUse: [{ matcher: "*", hookCallbackIds: ["saint-plan-guard"] }],
           },
         },
       });
@@ -97,10 +97,10 @@ describe("AcpSessionRuntime", () => {
           cwd: process.cwd(),
           sessionMeta: {
             "x.ai/hooks": {
-              PreToolUse: [{ matcher: "*", hookCallbackIds: ["synara-plan-guard"] }],
+              PreToolUse: [{ matcher: "*", hookCallbackIds: ["saint-plan-guard"] }],
             },
           },
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
           requestLogger: (event) =>
             Effect.sync(() => {
@@ -138,11 +138,11 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
             env: {
               VITEST: "true",
-              SYNARA_ACP_FAIL_SESSION_NEW_ONCE: "1",
+              SAINT_ACP_FAIL_SESSION_NEW_ONCE: "1",
             },
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
           freshSessionRetry: {
             shouldRetry: (error) =>
@@ -204,16 +204,16 @@ describe("AcpSessionRuntime", () => {
               args: [mockAgentPath],
               env: {
                 VITEST: "true",
-                SYNARA_ACP_ADVERTISE_AUTH_METHODS: "1",
-                SYNARA_ACP_REQUIRE_AUTH_FOR_SESSION: "1",
-                SYNARA_ACP_EMIT_ORPHAN_UPDATE: "1",
-                SYNARA_ACP_EMIT_AVAILABLE_COMMANDS: "1",
-                SYNARA_ACP_ORPHAN_UPDATE_DELAY_MS: "50",
-                SYNARA_ACP_FINAL_SESSION_DELAY_MS: "150",
+                SAINT_ACP_ADVERTISE_AUTH_METHODS: "1",
+                SAINT_ACP_REQUIRE_AUTH_FOR_SESSION: "1",
+                SAINT_ACP_EMIT_ORPHAN_UPDATE: "1",
+                SAINT_ACP_EMIT_AVAILABLE_COMMANDS: "1",
+                SAINT_ACP_ORPHAN_UPDATE_DELAY_MS: "50",
+                SAINT_ACP_FINAL_SESSION_DELAY_MS: "150",
               },
             },
             cwd: process.cwd(),
-            clientInfo: { name: "synara-test", version: "0.0.0" },
+            clientInfo: { name: "saint-test", version: "0.0.0" },
             authMethodId: "test-key",
             authPolicy: "on-demand",
             authSetupHeuristic: (initializeResult, setupResult) => {
@@ -292,9 +292,9 @@ describe("AcpSessionRuntime", () => {
               args: [mockAgentPath],
               env: {
                 VITEST: "true",
-                SYNARA_ACP_LOAD_REPLAY_DELAYS_MS: "0,0",
-                SYNARA_ACP_LOAD_REPLAY_MODE_ID: "code",
-                SYNARA_ACP_REJECT_PROMPT_DURING_LOAD_REPLAY: "1",
+                SAINT_ACP_LOAD_REPLAY_DELAYS_MS: "0,0",
+                SAINT_ACP_LOAD_REPLAY_MODE_ID: "code",
+                SAINT_ACP_REJECT_PROMPT_DURING_LOAD_REPLAY: "1",
               },
             },
             cwd: process.cwd(),
@@ -303,7 +303,7 @@ describe("AcpSessionRuntime", () => {
               quietMs: 20,
               hardTimeoutMs: 200,
             },
-            clientInfo: { name: "synara-test", version: "0.0.0" },
+            clientInfo: { name: "saint-test", version: "0.0.0" },
             authMethodId: "test",
           }),
         ),
@@ -338,8 +338,8 @@ describe("AcpSessionRuntime", () => {
               args: [mockAgentPath],
               env: {
                 VITEST: "true",
-                SYNARA_ACP_LOAD_REPLAY_DELAYS_MS: "10,25",
-                SYNARA_ACP_LOAD_REPLAY_MODE_ID: "code",
+                SAINT_ACP_LOAD_REPLAY_DELAYS_MS: "10,25",
+                SAINT_ACP_LOAD_REPLAY_MODE_ID: "code",
               },
             },
             cwd: process.cwd(),
@@ -348,7 +348,7 @@ describe("AcpSessionRuntime", () => {
               quietMs: 300,
               hardTimeoutMs: 3_000,
             },
-            clientInfo: { name: "synara-test", version: "0.0.0" },
+            clientInfo: { name: "saint-test", version: "0.0.0" },
             authMethodId: "test",
             requestLogger: (event) =>
               Effect.sync(() => {
@@ -383,8 +383,8 @@ describe("AcpSessionRuntime", () => {
               args: [mockAgentPath],
               env: {
                 VITEST: "true",
-                SYNARA_ACP_LOAD_REPLAY_DELAYS_MS: "10,25",
-                SYNARA_ACP_REJECT_CONFIG_DURING_LOAD_REPLAY: "1",
+                SAINT_ACP_LOAD_REPLAY_DELAYS_MS: "10,25",
+                SAINT_ACP_REJECT_CONFIG_DURING_LOAD_REPLAY: "1",
               },
             },
             cwd: process.cwd(),
@@ -393,7 +393,7 @@ describe("AcpSessionRuntime", () => {
               quietMs: 20,
               hardTimeoutMs: 200,
             },
-            clientInfo: { name: "synara-test", version: "0.0.0" },
+            clientInfo: { name: "saint-test", version: "0.0.0" },
             authMethodId: "test",
           }),
         ),
@@ -420,8 +420,8 @@ describe("AcpSessionRuntime", () => {
               args: [mockAgentPath],
               env: {
                 VITEST: "true",
-                SYNARA_ACP_LOAD_REPLAY_DELAYS_MS: "10,25",
-                SYNARA_ACP_LOAD_REPLAY_AVAILABLE_COMMANDS: "1",
+                SAINT_ACP_LOAD_REPLAY_DELAYS_MS: "10,25",
+                SAINT_ACP_LOAD_REPLAY_AVAILABLE_COMMANDS: "1",
               },
             },
             cwd: process.cwd(),
@@ -430,7 +430,7 @@ describe("AcpSessionRuntime", () => {
               quietMs: 20,
               hardTimeoutMs: 200,
             },
-            clientInfo: { name: "synara-test", version: "0.0.0" },
+            clientInfo: { name: "saint-test", version: "0.0.0" },
             authMethodId: "test",
           }),
         ),
@@ -460,7 +460,7 @@ describe("AcpSessionRuntime", () => {
           cwd: process.cwd(),
           resumeSessionId: "mock-session-1",
           sessionMeta: { reconnectPolicy: "keep-hooks" },
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
           requestLogger: (event) =>
             Effect.sync(() => {
@@ -504,7 +504,7 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
         }),
       ),
@@ -519,11 +519,11 @@ describe("AcpSessionRuntime", () => {
         spawn: {
           command: bunExe,
           args: [mockAgentPath],
-          env: { VITEST: "true", SYNARA_ACP_SUPPORT_SESSION_RESUME: "1" },
+          env: { VITEST: "true", SAINT_ACP_SUPPORT_SESSION_RESUME: "1" },
         },
         cwd: process.cwd(),
         ...(resumeSessionId !== undefined ? { resumeSessionId } : {}),
-        clientInfo: { name: "synara-test", version: "0.0.0" },
+        clientInfo: { name: "saint-test", version: "0.0.0" },
         authMethodId: "test",
       });
 
@@ -579,12 +579,12 @@ describe("AcpSessionRuntime", () => {
           spawn: {
             command: bunExe,
             args: [mockAgentPath],
-            env: { VITEST: "true", SYNARA_ACP_SUPPORT_SESSION_RESUME: "1" },
+            env: { VITEST: "true", SAINT_ACP_SUPPORT_SESSION_RESUME: "1" },
           },
           cwd: process.cwd(),
           resumeSessionId: "mock-session-1",
           sessionMeta: { reconnectPolicy: "keep-hooks" },
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
           requestLogger: (event) =>
             Effect.sync(() => {
@@ -611,11 +611,11 @@ describe("AcpSessionRuntime", () => {
           spawn: {
             command: bunExe,
             args: [mockAgentPath],
-            env: { VITEST: "true", SYNARA_ACP_SUPPORT_SESSION_LOAD: "0" },
+            env: { VITEST: "true", SAINT_ACP_SUPPORT_SESSION_LOAD: "0" },
           },
           cwd: process.cwd(),
           resumeSessionId: "mock-session-1",
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
           requestLogger: (event) =>
             Effect.sync(() => {
@@ -655,14 +655,14 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
             env: {
               VITEST: "true",
-              SYNARA_ACP_SUPPORT_SESSION_FORK: "1",
-              SYNARA_ACP_EMIT_AVAILABLE_COMMANDS: "1",
-              SYNARA_ACP_MODE_CONFIG_ID: "autonomy_level",
+              SAINT_ACP_SUPPORT_SESSION_FORK: "1",
+              SAINT_ACP_EMIT_AVAILABLE_COMMANDS: "1",
+              SAINT_ACP_MODE_CONFIG_ID: "autonomy_level",
             },
           },
           cwd: process.cwd(),
           clientCapabilities: { _meta: { parameterizedModelPicker: true } },
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
           requestLogger: (event) =>
             Effect.sync(() => {
@@ -708,12 +708,12 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
             env: {
               VITEST: "true",
-              SYNARA_ACP_SUPPORT_SESSION_FORK: "1",
-              SYNARA_ACP_SUPPORT_SESSION_LOAD: "0",
+              SAINT_ACP_SUPPORT_SESSION_FORK: "1",
+              SAINT_ACP_SUPPORT_SESSION_LOAD: "0",
             },
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
           requestLogger: (event) =>
             Effect.sync(() => {
@@ -755,9 +755,9 @@ describe("AcpSessionRuntime", () => {
               args: [mockAgentPath],
               env: {
                 VITEST: "true",
-                SYNARA_ACP_SUPPORT_SESSION_FORK: "1",
-                SYNARA_ACP_LOAD_REPLAY_DELAYS_MS: "10,25",
-                SYNARA_ACP_REJECT_FORK_DURING_LOAD_REPLAY: "1",
+                SAINT_ACP_SUPPORT_SESSION_FORK: "1",
+                SAINT_ACP_LOAD_REPLAY_DELAYS_MS: "10,25",
+                SAINT_ACP_REJECT_FORK_DURING_LOAD_REPLAY: "1",
               },
             },
             cwd: process.cwd(),
@@ -766,7 +766,7 @@ describe("AcpSessionRuntime", () => {
               quietMs: 20,
               hardTimeoutMs: 200,
             },
-            clientInfo: { name: "synara-test", version: "0.0.0" },
+            clientInfo: { name: "saint-test", version: "0.0.0" },
             authMethodId: "test",
           }),
         ),
@@ -805,8 +805,8 @@ describe("AcpSessionRuntime", () => {
               args: [mockAgentPath],
               env: {
                 VITEST: "true",
-                SYNARA_ACP_SUPPORT_SESSION_FORK: "1",
-                SYNARA_ACP_LOAD_REPLAY_DELAYS_MS: "0,50,100,150,199",
+                SAINT_ACP_SUPPORT_SESSION_FORK: "1",
+                SAINT_ACP_LOAD_REPLAY_DELAYS_MS: "0,50,100,150,199",
               },
             },
             cwd: process.cwd(),
@@ -815,7 +815,7 @@ describe("AcpSessionRuntime", () => {
               quietMs: 1_000,
               hardTimeoutMs: 200,
             },
-            clientInfo: { name: "synara-test", version: "0.0.0" },
+            clientInfo: { name: "saint-test", version: "0.0.0" },
             authMethodId: "test",
           }),
         ),
@@ -835,7 +835,7 @@ describe("AcpSessionRuntime", () => {
         },
         cwd: process.cwd(),
         resumeSessionId: "mock-session-1",
-        clientInfo: { name: "synara-test", version: "0.0.0" },
+        clientInfo: { name: "saint-test", version: "0.0.0" },
         authMethodId: "test",
       });
 
@@ -909,7 +909,7 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
         }),
       ),
@@ -967,11 +967,11 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
             env: {
               VITEST: "true",
-              SYNARA_ACP_EMIT_INTERLEAVED_ASSISTANT_TOOL_CALLS: "1",
+              SAINT_ACP_EMIT_INTERLEAVED_ASSISTANT_TOOL_CALLS: "1",
             },
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
         }),
       ),
@@ -1013,11 +1013,11 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
             env: {
               VITEST: "true",
-              SYNARA_ACP_EMIT_UPSTREAM_ASSISTANT_MESSAGE_IDS: "1",
+              SAINT_ACP_EMIT_UPSTREAM_ASSISTANT_MESSAGE_IDS: "1",
             },
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
         }),
       ),
@@ -1062,11 +1062,11 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
             env: {
               VITEST: "true",
-              SYNARA_ACP_EMIT_GENERIC_TOOL_PLACEHOLDERS: "1",
+              SAINT_ACP_EMIT_GENERIC_TOOL_PLACEHOLDERS: "1",
             },
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
         }),
       ),
@@ -1105,11 +1105,11 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
             env: {
               VITEST: "true",
-              SYNARA_ACP_EMIT_REASONING_THEN_TOOL_CALL: "1",
+              SAINT_ACP_EMIT_REASONING_THEN_TOOL_CALL: "1",
             },
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           authMethodId: "test",
         }),
       ),
@@ -1158,7 +1158,7 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           requestLogger: (event) =>
             Effect.sync(() => {
               requestEvents.push(event);
@@ -1193,7 +1193,7 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           requestLogger: (event) =>
             Effect.sync(() => {
               requestEvents.push(event);
@@ -1236,7 +1236,7 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
           protocolLogging: {
             logIncoming: true,
             logOutgoing: true,
@@ -1290,11 +1290,11 @@ describe("AcpSessionRuntime", () => {
             args: [mockAgentPath],
             env: {
               VITEST: "true",
-              SYNARA_ACP_REQUEST_LOG_PATH: requestLogPath,
+              SAINT_ACP_REQUEST_LOG_PATH: requestLogPath,
             },
           },
           cwd: process.cwd(),
-          clientInfo: { name: "synara-test", version: "0.0.0" },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
         }),
       ),
       Effect.scoped,

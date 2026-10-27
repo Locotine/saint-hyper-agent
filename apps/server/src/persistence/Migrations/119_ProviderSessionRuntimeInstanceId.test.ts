@@ -3,7 +3,7 @@
 //          the instance-id shape and provider_instance_id is backfilled.
 // Layer: Persistence migration test
 
-import { ModelSelection } from "@synara/contracts";
+import { ModelSelection } from "@saint/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";

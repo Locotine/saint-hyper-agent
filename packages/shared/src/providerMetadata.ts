@@ -1,7 +1,7 @@
 // FILE: providerMetadata.ts
 // Purpose: Exhaustive non-secret provider identity and presentation metadata.
 
-import { PROVIDER_DISPLAY_NAMES, type ProviderKind } from "@synara/contracts";
+import { PROVIDER_DISPLAY_NAMES, type ProviderKind } from "@saint/contracts";
 
 export interface ProviderDescriptor {
   readonly kind: ProviderKind;
@@ -15,7 +15,7 @@ export interface ProviderDescriptor {
    * can route steers without a runtime round-trip; keep the two in sync.
    */
   readonly supportsNativeTurnSteering: boolean;
-  /** Synara docs page covering install, sign-in, and verification for this runtime. */
+  /** Saint docs page covering install, sign-in, and verification for this runtime. */
   readonly setupDocsHref: string;
   readonly usage: {
     readonly signInCommand: string;

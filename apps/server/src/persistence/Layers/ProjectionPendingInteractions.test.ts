@@ -1,9 +1,9 @@
-import { ApprovalRequestId, ThreadId } from "@synara/contracts";
+import { ApprovalRequestId, ThreadId } from "@saint/contracts";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
 import * as SqlClient from "effect/unstable/sql/SqlClient";
-import { buildStalePendingRequestFailureDetail } from "@synara/shared/threadSummary";
+import { buildStalePendingRequestFailureDetail } from "@saint/shared/threadSummary";
 import { ProjectionPendingInteractionRepository } from "../Services/ProjectionPendingInteractions.ts";
 import { ProjectionPendingInteractionRepositoryLive } from "./ProjectionPendingInteractions.ts";
 import { SqlitePersistenceMemory } from "./Sqlite.ts";

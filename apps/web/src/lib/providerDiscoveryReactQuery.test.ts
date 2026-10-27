@@ -7,7 +7,7 @@ import type {
   NativeApi,
   ProviderListAgentsResult,
   ProviderListModelsResult,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { hashKey, QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 

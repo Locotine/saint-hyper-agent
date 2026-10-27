@@ -14,7 +14,7 @@ import {
   type ProviderModelOptions,
   type ServerProviderStatus,
   type ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   useDeferredValue,
   useEffect,

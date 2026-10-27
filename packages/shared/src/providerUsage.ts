@@ -5,7 +5,7 @@
 // read-only "sign in via CLI" hint used when a credential is missing or expired.
 // Layer: cross-cutting (no runtime deps beyond the ProviderKind type).
 
-import type { ProviderKind, ServerProviderUsageSnapshot } from "@synara/contracts";
+import type { ProviderKind, ServerProviderUsageSnapshot } from "@saint/contracts";
 import { PROVIDER_DESCRIPTORS, PROVIDER_DESCRIPTOR_BY_KIND } from "./providerMetadata";
 
 /** Providers, in display order, that expose a live usage source. */

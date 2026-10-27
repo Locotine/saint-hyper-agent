@@ -1,13 +1,13 @@
-// SYNARA_PERF=1 SYNARA_PERF_OUT=/tmp/diagnostics.json bun run --cwd apps/desktop test perf/browserDiagnostics.perf.test.ts
+// SAINT_PERF=1 SAINT_PERF_OUT=/tmp/diagnostics.json bun run --cwd apps/desktop test perf/browserDiagnostics.perf.test.ts
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { writeFileSync } from "node:fs";
 import type { WebContents } from "electron";
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { expect, it, vi } from "vitest";
 import { BrowserDiagnosticsStore } from "../src/browserAutomation/browserDiagnostics";
 
-it.skipIf(process.env.SYNARA_PERF !== "1")(
+it.skipIf(process.env.SAINT_PERF !== "1")(
   "measures bounded browser-log reads",
   async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -73,7 +73,7 @@ it.skipIf(process.env.SYNARA_PERF !== "1")(
       vi.useRealTimers();
     }
     writeFileSync(
-      process.env.SYNARA_PERF_OUT ?? "/tmp/synara-diagnostics.json",
+      process.env.SAINT_PERF_OUT ?? "/tmp/saint-diagnostics.json",
       JSON.stringify({ node: process.version, warmups: 3, samples: 11, report }, null, 2),
     );
   },

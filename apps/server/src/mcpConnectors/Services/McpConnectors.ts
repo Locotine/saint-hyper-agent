@@ -10,7 +10,7 @@ import type {
   McpConnectorConnectInput,
   McpConnectorConnectResult,
   McpConnectorSetup,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Data, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
@@ -50,5 +50,5 @@ export interface McpConnectorsShape {
 }
 
 export class McpConnectors extends ServiceMap.Service<McpConnectors, McpConnectorsShape>()(
-  "synara/mcpConnectors/Services/McpConnectors",
+  "saint/mcpConnectors/Services/McpConnectors",
 ) {}

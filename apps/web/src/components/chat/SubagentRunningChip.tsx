@@ -5,7 +5,7 @@
 // Layer: Chat transcript UI
 // Exports: SubagentRunningChip
 
-import { pluralize } from "@synara/shared/text";
+import { pluralize } from "@saint/shared/text";
 
 import { ArrowDownIcon, ArrowUpIcon } from "~/lib/icons";
 import { subagentStatusTextToneClassName } from "~/lib/subagentPresentation";

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 
 const [fixture, dbPath, statePath, mode] = process.argv.slice(2);
 const backend = spawn(process.execPath, [fixture, dbPath, statePath, mode], {
-  env: { ...process.env, SYNARA_DESKTOP_PARENT_STDIN: "1" },
+  env: { ...process.env, SAINT_DESKTOP_PARENT_STDIN: "1" },
   stdio: ["pipe", "ignore", "pipe"],
 });
 backend.stderr.pipe(process.stderr);

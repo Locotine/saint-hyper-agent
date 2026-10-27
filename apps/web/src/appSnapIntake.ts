@@ -3,7 +3,7 @@
 // Layer: Web composer domain
 // Depends on: composer draft store, composer image intake, and AppSnap icon cache.
 
-import type { DesktopAppSnapCapture, ThreadId } from "@synara/contracts";
+import type { DesktopAppSnapCapture, ThreadId } from "@saint/contracts";
 
 import { persistAppSnapIcon, readAppSnapIcon } from "./lib/appSnapIconStore";
 import { deleteComposerImageBlob, persistComposerImageBlob } from "./lib/composerImageBlobStore";
@@ -53,7 +53,7 @@ export async function insertAppSnapCaptureIntoDraft(
     existingAttachmentCount,
   });
   const image = images[0];
-  if (!image) throw new Error(error ?? "Synara could not attach the captured AppSnap.");
+  if (!image) throw new Error(error ?? "Saint could not attach the captured AppSnap.");
 
   let imageAddedToDraft = false;
   let blobKey: string | null = null;

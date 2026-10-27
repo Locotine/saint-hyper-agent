@@ -1,5 +1,5 @@
-import type { ComputerId } from "@synara/contracts";
-import { encodeComputerFrame } from "@synara/shared/computerFrame";
+import type { ComputerId } from "@saint/contracts";
+import { encodeComputerFrame } from "@saint/shared/computerFrame";
 import { describe, expect, it, vi } from "vitest";
 
 import { createComputerFrameSource, type WebSocketLike } from "./computerFrameSource";

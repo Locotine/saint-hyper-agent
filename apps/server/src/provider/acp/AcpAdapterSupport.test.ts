@@ -124,7 +124,7 @@ describe("AcpAdapterSupport", () => {
     ).toEqual({ outcome: "cancelled" });
   });
 
-  it("selects only allow-once for active Synara Computer calls in approval-required mode", () => {
+  it("selects only allow-once for active Saint Computer calls in approval-required mode", () => {
     const options = [
       { kind: "allow_always", optionId: "allow-session" },
       { kind: "allow_once", optionId: "allow-this-call" },
@@ -133,7 +133,7 @@ describe("AcpAdapterSupport", () => {
     const computer = {
       computerControlEnabled: true,
       activeTurn: true,
-      toolCall: { rawInput: { _toolName: "mcp__synara__computer_click" } },
+      toolCall: { rawInput: { _toolName: "mcp__saint__computer_click" } },
     } as const;
 
     expect(
@@ -164,7 +164,7 @@ describe("AcpAdapterSupport", () => {
       options,
       computerControlEnabled: true,
       activeTurn: true,
-      toolCall: { title: "mcp__synara__computer_click" },
+      toolCall: { title: "mcp__saint__computer_click" },
     };
 
     expect(resolveAcpPermissionPolicy({ ...base, runtimeMode: "auto" })).toBeUndefined();

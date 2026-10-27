@@ -3,7 +3,7 @@
 //          when the dialog's "send as goal" toggle is on (default off).
 // Layer: Web Kanban lib tests
 
-import { ProjectId } from "@synara/contracts";
+import { ProjectId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const harness = vi.hoisted(() => ({

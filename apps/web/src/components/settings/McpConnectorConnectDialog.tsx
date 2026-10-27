@@ -1,17 +1,17 @@
 // FILE: McpConnectorConnectDialog.tsx
-// Purpose: Consent dialog shown before Synara signs in to a connector: what the user
+// Purpose: Consent dialog shown before Saint signs in to a connector: what the user
 //   controls, the risk, and what data flows where, then a capsule to continue.
 // Layer: Settings UI components
 // Exports: McpConnectorConnectDialog, McpConnectorTarget
 
-import { MCP_CONNECTOR_CLIENT_REQUIRED_ERROR_CODE, type McpConnector } from "@synara/contracts";
-import { normalizeMcpConnectorUrl } from "@synara/shared/mcpConnectors";
+import { MCP_CONNECTOR_CLIENT_REQUIRED_ERROR_CODE, type McpConnector } from "@saint/contracts";
+import { normalizeMcpConnectorUrl } from "@saint/shared/mcpConnectors";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { AppIconTile, ConnectorDots } from "~/components/AppIconTile";
 import { ConnectorIcon } from "~/components/ConnectorIcon";
-import { SynaraLogo } from "~/components/SynaraLogo";
+import { SaintLogo } from "~/components/SaintLogo";
 import { Button } from "~/components/ui/button";
 import { CopyTextButton } from "~/components/ui/copyTextButton";
 import {
@@ -172,7 +172,7 @@ export function McpConnectorConnectDialog(props: {
         setAskForOwnApp(true);
         return;
       }
-      setError(cause instanceof Error ? cause.message : `Synara could not connect ${target.name}.`);
+      setError(cause instanceof Error ? cause.message : `Saint could not connect ${target.name}.`);
     }
   };
 
@@ -199,7 +199,7 @@ export function McpConnectorConnectDialog(props: {
                 glowColor={NEUTRAL_GLOW}
                 className="bg-black text-white"
               >
-                <SynaraLogo className="size-8 text-white" />
+                <SaintLogo className="size-8 text-white" />
               </AppIconTile>
               <ConnectorDots
                 size="xl"
@@ -221,11 +221,11 @@ export function McpConnectorConnectDialog(props: {
 
             <SettingsCard className="w-full">
               <ConsentSection title="You're in control">
-                Agents get only the access {name} grants Synara, and you can disconnect it anytime
-                in Settings.
+                Agents get only the access {name} grants Saint, and you can disconnect it anytime in
+                Settings.
               </ConsentSection>
               <ConsentSection title="Connectors may introduce elevated risk">
-                {name} is run by its own provider, not Synara. Its tools can read and change data in
+                {name} is run by its own provider, not Saint. Its tools can read and change data in
                 your account, and content it returns could try to steer your agent. Review tool
                 calls before you approve them.
               </ConsentSection>

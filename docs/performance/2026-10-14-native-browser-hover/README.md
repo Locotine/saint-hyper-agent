@@ -1,6 +1,6 @@
 # Native browser hover focus churn
 
-Investigated a Synara 1.0.4 report of a Mac freezing with two internal browsers
+Investigated a Saint 1.0.4 report of a Mac freezing with two internal browsers
 open and `CursorUIViewService` memory growth. The reported freeze and gigabyte-scale
 growth were **not reproduced**. A separate, concrete defect was reproduced:
 every passive pointer move dispatched by native browser automation temporarily

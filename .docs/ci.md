@@ -6,7 +6,7 @@
 
 `Format, Lint, Typecheck, Test, Browser Test, Build` runs on Ubuntu and blocks on:
 
-- Synara identity/brand validation;
+- Saint identity/brand validation;
 - `bun run fmt:check`;
 - `bun run lint`;
 - `bun run typecheck`;

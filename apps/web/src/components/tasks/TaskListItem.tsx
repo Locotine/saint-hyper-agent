@@ -6,8 +6,8 @@
 // Layer: Tasks UI component
 // Exports: TaskListItem
 
-import type { TodoUpdateInput } from "@synara/contracts";
-import { formatModelDisplayName } from "@synara/shared/model";
+import type { TodoUpdateInput } from "@saint/contracts";
+import { formatModelDisplayName } from "@saint/shared/model";
 import type { MouseEvent } from "react";
 
 import { ProviderIcon } from "~/components/ProviderIcon";

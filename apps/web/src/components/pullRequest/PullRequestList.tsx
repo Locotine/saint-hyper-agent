@@ -8,7 +8,7 @@
 // Layer: Pull request presentation
 // Exports: PullRequestList
 
-import type { GitHubInboxItem, GitHubInboxSort, ProjectId } from "@synara/contracts";
+import type { GitHubInboxItem, GitHubInboxSort, ProjectId } from "@saint/contracts";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { resolveSidebarThreadListPaging } from "~/components/Sidebar.logic";

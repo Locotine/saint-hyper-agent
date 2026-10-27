@@ -4,8 +4,8 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, realpath } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
-import { SYNARA_CUA_BUNDLE_ID } from "@synara/shared/desktopIdentity";
-import { spawnProcessSync } from "@synara/shared/processRuntime";
+import { SAINT_CUA_BUNDLE_ID } from "@saint/shared/desktopIdentity";
+import { spawnProcessSync } from "@saint/shared/processRuntime";
 import release from "../../packages/shared/src/cuaDriverRelease.json";
 
 const APPLICATION_LOOKUP_SCRIPT = `
@@ -25,7 +25,7 @@ export class PackagedAppInstallationError extends Error {
       "lookup-failed": "The read-only macOS application registration check could not complete.",
     };
     super(
-      `${descriptions[reason]} Copy the same packaged bundle to ~/Applications/Synara Cua.app without overwriting an existing app, register that installed copy, and quit the temporary instance. Rerun --prepare-only with --bundle "$HOME/Applications/Synara Cua.app" and a new isolated --home, then grant permissions to that copy. See scripts/computer-use-fixtures/packaged-e2e.md.`,
+      `${descriptions[reason]} Copy the same packaged bundle to ~/Applications/Saint Cua.app without overwriting an existing app, register that installed copy, and quit the temporary instance. Rerun --prepare-only with --bundle "$HOME/Applications/Saint Cua.app" and a new isolated --home, then grant permissions to that copy. See scripts/computer-use-fixtures/packaged-e2e.md.`,
     );
     this.name = "PackagedAppInstallationError";
   }
@@ -65,8 +65,8 @@ export async function artifactIdentity(bundle: string) {
     ["-c", "Print :CFBundleIdentifier", plist],
     { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
   ).trim();
-  if (bundleId !== SYNARA_CUA_BUNDLE_ID)
-    throw new Error("The runner requires an explicitly isolated Synara Cua application bundle.");
+  if (bundleId !== SAINT_CUA_BUNDLE_ID)
+    throw new Error("The runner requires an explicitly isolated Saint Cua application bundle.");
   // Registration exit status alone does not prove TCC can find the application.
   // This read-only check happens before either runner launches or creates a home.
   const registeredBundle = await registeredApplicationPath(bundleId);

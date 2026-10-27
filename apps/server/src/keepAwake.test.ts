@@ -1,13 +1,13 @@
 import { once } from "node:events";
-import { spawnProcess, spawnProcessSync } from "@synara/shared/processRuntime";
-import { resolveExecutable } from "@synara/shared/executable";
+import { spawnProcess, spawnProcessSync } from "@saint/shared/processRuntime";
+import { resolveExecutable } from "@saint/shared/executable";
 import {
   EventId,
   type OrchestrationEvent,
   type OrchestrationReadModel,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Duration, Effect, Exit, Layer, PubSub, Scope, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import {

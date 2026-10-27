@@ -1,6 +1,6 @@
 import { realpath } from "node:fs/promises";
 import { Worker } from "node:worker_threads";
-import type { EditorIntelligenceInput, EditorIntelligenceResult } from "@synara/contracts";
+import type { EditorIntelligenceInput, EditorIntelligenceResult } from "@saint/contracts";
 
 type Pending = {
   resolve: (value: EditorIntelligenceResult) => void;

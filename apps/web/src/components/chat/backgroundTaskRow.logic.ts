@@ -5,7 +5,7 @@
 // Layer: Web chat presentation helpers
 // Exports: describeBackgroundTaskStatus, summarizeBackgroundTaskGroup
 
-import { pluralize } from "@synara/shared/text";
+import { pluralize } from "@saint/shared/text";
 
 import { formatClockElapsed } from "../../session-logic";
 import type { WorkLogBackgroundTask } from "../../workLog";

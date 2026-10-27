@@ -1,17 +1,17 @@
-import type { SynaraPackagedDesktopFlavor } from "@synara/shared/desktopIdentity";
+import type { SaintPackagedDesktopFlavor } from "@saint/shared/desktopIdentity";
 
 export const BRAND_ASSET_PATHS = {
   productionMacIconPng: "assets/prod/black-macos-1024.png",
   // Icon Composer source for the macOS 26 bundle icon. Only a layered ".icon"
   // asset gets the Liquid Glass material; a flat ICNS/PNG never does.
-  productionMacIconComposer: "assets/prod/Synara.icon",
+  productionMacIconComposer: "assets/prod/Saint.icon",
   productionMacLegacyIconPng: "assets/prod/black-macos-legacy-1024.png",
   productionLinuxIconPng: "assets/prod/black-universal-1024.png",
-  productionWindowsIconIco: "assets/prod/synara-black-windows.ico",
-  productionWebFaviconIco: "assets/prod/synara-black-web-favicon.ico",
-  productionWebFavicon16Png: "assets/prod/synara-black-web-favicon-16x16.png",
-  productionWebFavicon32Png: "assets/prod/synara-black-web-favicon-32x32.png",
-  productionWebAppleTouchIconPng: "assets/prod/synara-black-web-apple-touch-180.png",
+  productionWindowsIconIco: "assets/prod/saint-black-windows.ico",
+  productionWebFaviconIco: "assets/prod/saint-black-web-favicon.ico",
+  productionWebFavicon16Png: "assets/prod/saint-black-web-favicon-16x16.png",
+  productionWebFavicon32Png: "assets/prod/saint-black-web-favicon-32x32.png",
+  productionWebAppleTouchIconPng: "assets/prod/saint-black-web-apple-touch-180.png",
   developmentWindowsIconIco: "assets/dev/blueprint-windows.ico",
   developmentWebFaviconIco: "assets/dev/blueprint-web-favicon.ico",
   developmentWebFavicon16Png: "assets/dev/blueprint-web-favicon-16x16.png",
@@ -23,7 +23,7 @@ export const BETA_ASSET_PATHS = {
   betaMacIconPng: "assets/beta/beta-macos-1024.png",
   // Icon Composer source for the beta macOS 26 bundle icon: same layered
   // treatment as production so beta gets Liquid Glass on the dock.
-  betaMacIconComposer: "assets/beta/Synara.icon",
+  betaMacIconComposer: "assets/beta/Saint.icon",
   betaMacLegacyIconPng: "assets/beta/beta-macos-legacy-1024.png",
   // One artwork serves both appearances: the dark dock slot reuses the rounded legacy file.
   betaMacLegacyDarkIconPng: "assets/beta/beta-macos-legacy-1024.png",
@@ -35,7 +35,7 @@ export const BETA_ASSET_PATHS = {
   betaWebAppleTouchIconPng: "assets/beta/beta-web-apple-touch-180.png",
 } as const;
 
-export type DesktopBuildFlavor = SynaraPackagedDesktopFlavor;
+export type DesktopBuildFlavor = SaintPackagedDesktopFlavor;
 
 export interface DesktopIconAssetPaths {
   readonly macIconPng: string;

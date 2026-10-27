@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId, TodoId, type Todo, type TodoUpdateInput } from "@synara/contracts";
+import { ProjectId, ThreadId, TodoId, type Todo, type TodoUpdateInput } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { beforeEach, expect, it, vi } from "vitest";

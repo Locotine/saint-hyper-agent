@@ -11,7 +11,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type { DiffRenderMode } from "./diffRenderMode";
 import { sanitizeStringKeyedRecord } from "./persistedRecord";
 
-export const THREAD_DIFF_RENDER_MODE_STORAGE_KEY = "synara:diff-render-mode-by-thread:v1";
+export const THREAD_DIFF_RENDER_MODE_STORAGE_KEY = "saint:diff-render-mode-by-thread:v1";
 export const MAX_SAVED_THREAD_DIFF_LAYOUTS = 512;
 
 function isDiffRenderMode(value: unknown): value is DiffRenderMode {

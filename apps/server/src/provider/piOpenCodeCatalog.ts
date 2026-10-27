@@ -1,7 +1,7 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { opencodeProvider } from "@earendil-works/pi-ai/providers/opencode";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { outboundHttp, decodeOutboundJson } from "@synara/shared/outboundHttp";
+import { outboundHttp, decodeOutboundJson } from "@saint/shared/outboundHttp";
 
 const CATALOG_URL = "https://pi.dev/api/models/providers/opencode";
 const INVENTORY_URL = "https://opencode.ai/zen/v1/models";

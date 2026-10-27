@@ -46,7 +46,7 @@
   </head>
   <body>
     <header>
-      Synara visible browser E2E shell
+      Saint visible browser E2E shell
       <input id="host-composer" aria-label="Host composer" />
     </header>
     <main id="browser-host"></main>
@@ -84,7 +84,7 @@
           Number(document.documentElement.dataset.attachAttempts || "0") + 1,
         );
         try {
-          await ipcRenderer.invoke("synara-e2e:attach-webview", { tabId, webContentsId });
+          await ipcRenderer.invoke("saint-e2e:attach-webview", { tabId, webContentsId });
         } catch {
           if (attachedWebviewKey === attachKey) attachedWebviewKey = null;
           if (attachRetryTimer === null) {
@@ -123,7 +123,7 @@
         delete document.documentElement.dataset.nativeRuntimeTabId;
         if (!webview) {
           webview = document.createElement("webview");
-          webview.setAttribute("partition", "persist:synara-browser");
+          webview.setAttribute("partition", "persist:saint-browser");
           webview.setAttribute(
             "webpreferences",
             "contextIsolation=yes,nodeIntegration=no,sandbox=yes",
@@ -151,7 +151,7 @@
         webview.setAttribute("src", tab.lastCommittedUrl || tab.url || "about:blank");
       };
 
-      ipcRenderer.on("synara-e2e:browser-state", (_event, state) => {
+      ipcRenderer.on("saint-e2e:browser-state", (_event, state) => {
         latestState = state;
         document.documentElement.dataset.browserVersion = String(state.version);
         if (!state.open || !state.activeTabId) {
@@ -170,9 +170,9 @@
         }
         mountActiveTab();
       });
-      ipcRenderer.on("synara-e2e:open-panel", () => mountActiveTab());
+      ipcRenderer.on("saint-e2e:open-panel", () => mountActiveTab());
       document.documentElement.dataset.shellReady = "true";
-      ipcRenderer.send("synara-e2e:shell-ready");
+      ipcRenderer.send("saint-e2e:shell-ready");
     </script>
   </body>
 </html>

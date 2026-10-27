@@ -14,7 +14,7 @@ Edits to that module pay the compiler cost again.
 ## Change and trade-off
 
 The Babel compiler plugin now applies to builds, `test` mode, and development
-explicitly started with `SYNARA_DEV_REACT_COMPILER=1` or `true`. Normal development
+explicitly started with `SAINT_DEV_REACT_COMPILER=1` or `true`. Normal development
 uses the React plugin's Oxc TypeScript/JSX transforms and Fast Refresh. The config
 remains an object so existing browser-test and performance configs can continue
 to merge it. Turbo forwards the opt-in variable.

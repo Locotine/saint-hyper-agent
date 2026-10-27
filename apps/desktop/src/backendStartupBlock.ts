@@ -10,7 +10,7 @@ import {
   parseMigrationSchemaTooNewStartupBlock,
   type MigrationDivergenceConsentChallenge,
   type MigrationSchemaTooNewStartupBlock,
-} from "@synara/shared/migrationRecovery";
+} from "@saint/shared/migrationRecovery";
 
 const MAX_GENERIC_STARTUP_OUTPUT_CHARS = 16_384;
 const MAX_STRUCTURED_STARTUP_BLOCK_CHARS = 1_048_576;

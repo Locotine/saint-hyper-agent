@@ -4,7 +4,7 @@
 // Layer: Chat composer presentation
 // Depends on: menu/tooltip primitives, provider icons, and composer picker text tokens.
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderKind } from "@saint/contracts";
 import { useState } from "react";
 
 import type { FastModeNotice } from "~/lib/fastModeState";

@@ -4,7 +4,7 @@ import {
   CUA_ACTION_TOOLS,
   CUA_BROWSER_TOOLS,
   CUA_READ_TOOLS,
-} from "@synara/shared/cuaDriverProtocol";
+} from "@saint/shared/cuaDriverProtocol";
 
 import { linuxBrowserCallIsReadOnly, linuxCuaAdmissionRefusal } from "./linuxCuaAdmission";
 
@@ -108,8 +108,8 @@ describe("Linux native admission", () => {
         target_id: "owned-endpoint",
         text: "must not type",
         browserInputControlVerified: true,
-        synara_browser_input_control: 1,
-        synara_native_revision: 32,
+        saint_browser_input_control: 1,
+        saint_native_revision: 32,
       },
       "foreground",
     );

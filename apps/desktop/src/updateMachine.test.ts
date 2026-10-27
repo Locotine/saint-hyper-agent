@@ -129,7 +129,7 @@ describe("updateMachine", () => {
       },
       "1.1.0",
       2,
-      "Synara restarted before the update was installed.",
+      "Saint restarted before the update was installed.",
     );
 
     expect(state).toMatchObject({
@@ -137,7 +137,7 @@ describe("updateMachine", () => {
       availableVersion: "1.1.0",
       downloadedVersion: null,
       installFailureCount: 2,
-      message: "Synara restarted before the update was installed.",
+      message: "Saint restarted before the update was installed.",
       errorContext: "install",
       canRetry: true,
     });

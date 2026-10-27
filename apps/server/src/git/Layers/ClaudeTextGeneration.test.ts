@@ -421,7 +421,7 @@ describe("ClaudeTextGenerationServiceLive", () => {
           assert.ok(cwd);
           isolatedCwd = cwd;
           assert.notStrictEqual(cwd, hostileRepoPath);
-          assert.match(path.basename(cwd), /^synara-claude-text-/);
+          assert.match(path.basename(cwd), /^saint-claude-text-/);
           assert.deepStrictEqual(readdirSync(cwd), []);
           if (process.platform !== "win32") {
             assert.strictEqual(statSync(cwd).mode & 0o777, 0o700);

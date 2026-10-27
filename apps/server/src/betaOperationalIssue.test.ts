@@ -1,11 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { diagnosticIssueReason } from "@synara/shared/diagnosticIssue";
-import { DESKTOP_DIAGNOSTIC_ISSUE_PREFIX } from "@synara/contracts";
+import { diagnosticIssueReason } from "@saint/shared/diagnosticIssue";
+import { DESKTOP_DIAGNOSTIC_ISSUE_PREFIX } from "@saint/contracts";
 import {
-  SYNARA_DESKTOP_BUNDLE_ID_ENV,
-  SYNARA_BETA_BUNDLE_ID,
-  SYNARA_PRODUCTION_BUNDLE_ID,
-} from "@synara/shared/desktopIdentity";
+  SAINT_DESKTOP_BUNDLE_ID_ENV,
+  SAINT_BETA_BUNDLE_ID,
+  SAINT_PRODUCTION_BUNDLE_ID,
+} from "@saint/shared/desktopIdentity";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -13,10 +13,10 @@ afterEach(() => {
   vi.resetModules();
 });
 
-it.each([SYNARA_PRODUCTION_BUNDLE_ID, "", SYNARA_BETA_BUNDLE_ID])(
+it.each([SAINT_PRODUCTION_BUNDLE_ID, "", SAINT_BETA_BUNDLE_ID])(
   "emits only allowlisted fields from a Beta backend (%s)",
   async (bundleId) => {
-    vi.stubEnv(SYNARA_DESKTOP_BUNDLE_ID_ENV, bundleId);
+    vi.stubEnv(SAINT_DESKTOP_BUNDLE_ID_ENV, bundleId);
     vi.resetModules();
     const { reportBetaOperationalIssue } = await import("./betaOperationalIssue");
     const write = vi.spyOn(process.stdout, "write").mockReturnValue(true);
@@ -28,7 +28,7 @@ it.each([SYNARA_PRODUCTION_BUNDLE_ID, "", SYNARA_BETA_BUNDLE_ID])(
     reportBetaOperationalIssue(issue);
     const calls = write.mock.calls.slice();
     write.mockRestore();
-    if (bundleId === SYNARA_BETA_BUNDLE_ID) {
+    if (bundleId === SAINT_BETA_BUNDLE_ID) {
       expect(calls).toEqual([
         [
           DESKTOP_DIAGNOSTIC_ISSUE_PREFIX +
@@ -48,7 +48,7 @@ it.each([
 ] as const)(
   "classifies the emitted Git failure without confusing signing with login (%s)",
   async (message, reason) => {
-    vi.stubEnv(SYNARA_DESKTOP_BUNDLE_ID_ENV, SYNARA_BETA_BUNDLE_ID);
+    vi.stubEnv(SAINT_DESKTOP_BUNDLE_ID_ENV, SAINT_BETA_BUNDLE_ID);
     const { reportBetaOperationalIssue } = await import("./betaOperationalIssue");
     const write = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     reportBetaOperationalIssue({
@@ -65,10 +65,10 @@ it.each([
   },
 );
 
-it.each([SYNARA_PRODUCTION_BUNDLE_ID, SYNARA_BETA_BUNDLE_ID])(
+it.each([SAINT_PRODUCTION_BUNDLE_ID, SAINT_BETA_BUNDLE_ID])(
   "gates stall diagnostics by baked desktop flavor (%s)",
   async (bundleId) => {
-    vi.stubEnv(SYNARA_DESKTOP_BUNDLE_ID_ENV, bundleId);
+    vi.stubEnv(SAINT_DESKTOP_BUNDLE_ID_ENV, bundleId);
     vi.resetModules();
     const { reportBetaOperationalIssue } = await import("./betaOperationalIssue");
     const write = vi.spyOn(process.stdout, "write").mockReturnValue(true);
@@ -80,7 +80,7 @@ it.each([SYNARA_PRODUCTION_BUNDLE_ID, SYNARA_BETA_BUNDLE_ID])(
     const calls = write.mock.calls.slice();
     write.mockRestore();
     expect(calls).toEqual(
-      bundleId === SYNARA_BETA_BUNDLE_ID
+      bundleId === SAINT_BETA_BUNDLE_ID
         ? [
             [
               DESKTOP_DIAGNOSTIC_ISSUE_PREFIX +

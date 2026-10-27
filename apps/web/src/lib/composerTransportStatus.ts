@@ -15,10 +15,10 @@ export function subscribeComposerTransportStatus(listener: (message: string | nu
         state === "open"
           ? null
           : state === "incompatible"
-            ? "Synara connection is incompatible."
+            ? "Saint connection is incompatible."
             : state === "disposed"
-              ? "Disconnected from Synara."
-              : "Reconnecting to Synara…";
+              ? "Disconnected from Saint."
+              : "Reconnecting to Saint…";
       if (message === null) {
         cancelTimer();
         if (visible) listener(null);

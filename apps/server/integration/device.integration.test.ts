@@ -1,5 +1,5 @@
 /**
- * Device pane end-to-end verification against a live Synara server.
+ * Device pane end-to-end verification against a live Saint server.
  *
  * Gated on `DEVICE_E2E=1` because it boots a real iOS simulator, which needs
  * macOS with Xcode and takes tens of seconds. CI never runs it.
@@ -22,7 +22,7 @@ import {
   DEVICE_FRAME_WS_PATH,
   DEVICE_FRAME_WS_UDID_PARAM,
   decodeDeviceFrame,
-} from "@synara/shared/deviceFrame";
+} from "@saint/shared/deviceFrame";
 import {
   DEVICE_WS_METHODS,
   WS_COMPATIBILITY_QUERY,
@@ -37,7 +37,7 @@ import {
   type DeviceScreenshotResult,
   type ThreadDeviceState,
   type WsBootstrapNegotiateResult,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFile, rm } from "node:fs/promises";
@@ -139,7 +139,7 @@ function firstTappableRow(node: unknown): { readonly x: number; readonly y: numb
 const SETTINGS_BUNDLE_ID = "com.apple.Preferences";
 
 /**
- * Reboot the simulator behind Synara's back, the way `simctl` from a terminal,
+ * Reboot the simulator behind Saint's back, the way `simctl` from a terminal,
  * Simulator.app, or an agent's own shell does. Nothing tells the server, so the
  * long-running helper is left holding an attachment bound to the dead boot.
  */
@@ -170,7 +170,7 @@ function terminateApp(udid: string, bundleId: string): Promise<void> {
  * recovery a reboot test must not trigger before its tap.
  */
 async function screenshotViaSimctl(udid: string): Promise<Buffer> {
-  const path = join(tmpdir(), `synara-device-e2e-${randomUUID()}.png`);
+  const path = join(tmpdir(), `saint-device-e2e-${randomUUID()}.png`);
   try {
     await simctl(["io", udid, "screenshot", path]);
     return await readFile(path);
@@ -408,7 +408,7 @@ describeE2e("device pane end-to-end", () => {
     const listed = await rpc.call<DeviceListResult>(DEVICE_WS_METHODS.list, {});
     const booted = listed.devices.find((device) => device.udid === target?.udid);
     expect(booted?.state).toBe("booted");
-    expect(booted?.bootSource).toBe("synara");
+    expect(booted?.bootSource).toBe("saint");
   }, 180_000);
 
   it("attaches the thread and streams H.264 frames driven by taps", async () => {
@@ -507,7 +507,7 @@ describeE2e("device pane end-to-end", () => {
     await rpc.call(DEVICE_WS_METHODS.detach, { threadId: THREAD_ID });
   }, 300_000);
 
-  it("keeps input working after the simulator is rebooted outside Synara", async () => {
+  it("keeps input working after the simulator is rebooted outside Saint", async () => {
     if (!target) throw new Error("no target device");
     const udid = target.udid;
 

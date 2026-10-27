@@ -26,7 +26,7 @@ import {
   WS_SERVER_RUNTIME_STATUS_CAPABILITY,
   WsCompatibilityError,
   type WsBootstrapNegotiateResult,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import {
   shouldKeepServerLifecycleStream,
@@ -69,7 +69,7 @@ import {
 } from "./threadDetailResumeCursors";
 import { markRequestNotSent } from "./lib/rpcTransportFailure";
 import { RpcRequestQueue } from "./lib/rpcRequestQueue";
-import { WS_REQUEST_CLASS_LIMITS } from "@synara/shared/wsRequestClass";
+import { WS_REQUEST_CLASS_LIMITS } from "@saint/shared/wsRequestClass";
 import {
   addWsCompatibilityIssueListener,
   emitWsCompatibilityIssue,
@@ -541,7 +541,7 @@ it.each([false, true])(
       vi.fn(() => Promise.resolve(jsonResponse(200, NEGOTIATION_RESULT))),
     );
     resetThreadDetailResumeCursorsForTests();
-    const transport = new WsTransport("ws://remote.synara.test:3020");
+    const transport = new WsTransport("ws://remote.saint.test:3020");
     const threadId = ThreadId.makeUnsafe("half-open-resume");
     try {
       await vi.waitFor(() => expect(sockets).toHaveLength(1));
@@ -610,7 +610,7 @@ it("uses any inbound server frame as liveness evidence even when pongs are absen
     "fetch",
     vi.fn(() => Promise.resolve(jsonResponse(200, NEGOTIATION_RESULT))),
   );
-  const transport = new WsTransport("ws://remote.synara.test:3020");
+  const transport = new WsTransport("ws://remote.saint.test:3020");
   try {
     await vi.waitFor(() => expect(sockets).toHaveLength(1));
     const socket = sockets[0]!;
@@ -704,7 +704,7 @@ it("bounds the feature probe even when server pongs keep arriving without its RP
     "fetch",
     vi.fn(() => Promise.resolve(jsonResponse(200, NEGOTIATION_RESULT))),
   );
-  const transport = new WsTransport("ws://remote.synara.test:3020");
+  const transport = new WsTransport("ws://remote.saint.test:3020");
   try {
     await vi.waitFor(() => expect(sockets).toHaveLength(1));
     const socket = sockets[0]!;
@@ -1383,9 +1383,9 @@ describe("WsTransport", () => {
       kind: "completed" as const,
       result: {
         worktree: {
-          path: "/repo/.codex/worktrees/generated/synara",
+          path: "/repo/.codex/worktrees/generated/saint",
           ref: "0123456789abcdef0123456789abcdef01234567",
-          branch: "synara/abcd1234",
+          branch: "saint/abcd1234",
         },
       },
     };

@@ -36,13 +36,13 @@ import {
 
 const temporaryDirectories: string[] = [];
 const artifact = {
-  path: Path.resolve("/tmp/Synara-update.zip"),
+  path: Path.resolve("/tmp/Saint-update.zip"),
   size: 123,
   sha512: "a".repeat(128),
 } as const;
 
 function createMarkerPath(): string {
-  const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "synara-update-marker-"));
+  const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-update-marker-"));
   temporaryDirectories.push(directory);
   return Path.join(directory, "pending-update-install.json");
 }

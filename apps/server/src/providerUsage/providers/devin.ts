@@ -3,7 +3,7 @@
 // API key stored by `devin auth login`, then calls SeatManagementService/GetUserStatus
 // on the configured Devin/Windsurf API server (default server.codeium.com).
 
-import type { ServerProviderUsageLimit, ServerProviderUsageLine } from "@synara/contracts";
+import type { ServerProviderUsageLimit, ServerProviderUsageLine } from "@saint/contracts";
 
 import {
   getDevinApiKeyEnv,

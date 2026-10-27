@@ -11,7 +11,7 @@ import {
   MessageId,
   ProjectId,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Layer, ManagedRuntime, Option } from "effect";
 import { expect, it } from "vitest";
 import { ServerConfig } from "../../config.ts";
@@ -45,7 +45,7 @@ it("fences streamed deltas and rollback revisions with the projected detail", as
       Layer.provide(OrchestrationCommandReceiptRepositoryLive),
       Layer.provideMerge(ProjectionThreadMessageRepositoryLive),
       Layer.provideMerge(SqlitePersistenceMemory),
-      Layer.provideMerge(ServerConfig.layerTest(process.cwd(), { prefix: "synara-fence-" })),
+      Layer.provideMerge(ServerConfig.layerTest(process.cwd(), { prefix: "saint-fence-" })),
       Layer.provideMerge(NodeServices.layer),
     ),
   );

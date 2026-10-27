@@ -3,7 +3,7 @@ title: Browser logins & sessions
 description: Manage saved accounts, import browser cookies deliberately, and understand shared sessions and optional Safari setup.
 ---
 
-Tabs and browser tool access belong to a task, but cookies and signed-in sessions are shared across Synara browser tabs and agent workflows. Moving a tab between the floating browser and right dock does not create a separate session.
+Tabs and browser tool access belong to a task, but cookies and signed-in sessions are shared across Saint browser tabs and agent workflows. Moving a tab between the floating browser and right dock does not create a separate session.
 
 ## Saved logins
 
@@ -11,7 +11,7 @@ In the desktop app, open the browser toolbar’s **Saved logins** key button to 
 
 Under **Saving & access**:
 
-- **Offer to save passwords** enables save and update prompts for supported login forms in Synara’s browser. It is off by default. Choose **Save**, **Update** or **Not now** when prompted.
+- **Offer to save passwords** enables save and update prompts for supported login forms in Saint’s browser. It is off by default. Choose **Save**, **Update** or **Not now** when prompted.
 - **Autosave accepted logins** skips those prompts when saving is enabled. It is off by default and requires **Offer to save passwords**. Turning password-saving offers off also turns autosave off.
 - **Allow agents to find saved accounts** controls discovery of matching account metadata and is on by default. Matching uses the exact page origin. Agent password filling and password generation are unavailable in this release.
 
@@ -25,14 +25,14 @@ Saved login deletion and vault locking affect the saved-password vault. They do 
 
 Cookie import is available through the desktop browser’s **Saved logins** dialog when a destination tab is selected. It copies compatible cookies from an available Chrome, Safari or Edge profile; available browsers and profiles depend on the platform and installed native reader. This imports signed-in browser sessions, not passwords into the Saved logins list.
 
-1. Select the Synara browser tab that should receive the session. For a site-only import, navigate to that site first.
+1. Select the Saint browser tab that should receive the session. For a site-only import, navigate to that site first.
 2. Open **Saved logins**, then **Import browser cookies**.
 3. Choose **Import scope**, **Browser** and **Profile**. **This site** includes the site, its subdomains and matching parent domains. **All sites in this profile** imports every compatible cookie in that profile.
-4. For a whole-profile import, select the checkbox granting Synara and its agents access to all imported signed-in sessions.
+4. For a whole-profile import, select the checkbox granting Saint and its agents access to all imported signed-in sessions.
 5. Select **Import for this site** or **Import all sites**. Keep the destination selected and avoid navigation while the import runs.
 6. Check the imported and skipped counts. Confirm the page’s signed-in state afterward; some cookies cannot transfer and the site may still require a fresh sign-in.
 
-Imported sessions are shared across Synara browser tabs and agent workflows. Choosing **This site** narrows the copied domains; it does not create a private session for that task.
+Imported sessions are shared across Saint browser tabs and agent workflows. Choosing **This site** narrows the copied domains; it does not create a private session for that task.
 
 Compatible imported session cookies can be restored after a clean app shutdown using secure local storage. An interrupted run’s session-cookie snapshot is discarded, and unavailable secure storage can prevent restoration. Import does not guarantee that every website remains signed in after a restart.
 
@@ -43,10 +43,10 @@ Safari cookie import may require macOS Full Disk Access. The optional **Bring yo
 To configure it later, open **Settings → General → Safari import setup**:
 
 1. Open **System Settings → Privacy & Security → Full Disk Access**.
-2. Enable the running Synara app. If it is not listed, choose **Show app in Finder** and drag that app into the list. The setup uses the actual running app bundle’s name and path.
-3. Quit and reopen Synara, then explicitly run the cookie import from the browser.
+2. Enable the running Saint app. If it is not listed, choose **Show app in Finder** and drag that app into the list. The setup uses the actual running app bundle’s name and path.
+3. Quit and reopen Saint, then explicitly run the cookie import from the browser.
 
-Full Disk Access is a broad macOS permission that reaches beyond Safari. You can decline and sign in directly in Synara instead. Opening System Settings or dismissing the setup does not prove that macOS has granted access; a later import reports the actual reader outcome.
+Full Disk Access is a broad macOS permission that reaches beyond Safari. You can decline and sign in directly in Saint instead. Opening System Settings or dismissing the setup does not prove that macOS has granted access; a later import reports the actual reader outcome.
 
 For browser interactions and embedded sign-in popups, continue with [Browser verification](/docs/workflows/browser-verification). See [Browser troubleshooting](/docs/troubleshooting/browser) for reader errors, locked saved logins, and persistence failures.
 
@@ -60,7 +60,7 @@ A suspended tab reloads its saved URL when reopened; unsaved forms or client-onl
 
 If a page is still empty, preserve its URL and the last tool result before following [browser troubleshooting](/docs/troubleshooting/browser).
 
-Source evidence: Synara v1.0.4 (`a62d7c733d19f5538ffc0d126d57437b3b578ff1`) `apps/desktop/src/browserManager.ts`.
+Source evidence: Saint v1.0.4 (`a62d7c733d19f5538ffc0d126d57437b3b578ff1`) `apps/desktop/src/browserManager.ts`.
 
 ## Typing while the agent works
 
@@ -70,4 +70,4 @@ Source evidence: feature head `4b2441d`; `apps/desktop/src/browserAutomation/bet
 
 ## Safari access detection in 1.0.8
 
-Synara checks Safari Full Disk Access from the desktop process that reads cookies. After access is granted and the app is relaunched, setup no longer repeats; revisiting Settings shows the granted status. A failed or unavailable probe can remain unknown, so inspect the current status instead of assuming the grant succeeded.
+Saint checks Safari Full Disk Access from the desktop process that reads cookies. After access is granted and the app is relaunched, setup no longer repeats; revisiting Settings shows the granted status. A failed or unavailable probe can remain unknown, so inspect the current status instead of assuming the grant succeeded.

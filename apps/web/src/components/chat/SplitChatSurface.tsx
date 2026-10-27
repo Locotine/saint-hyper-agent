@@ -1,4 +1,4 @@
-import { type ProjectId, type ProviderKind, type ThreadId, type TurnId } from "@synara/contracts";
+import { type ProjectId, type ProviderKind, type ThreadId, type TurnId } from "@saint/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import {
   type CSSProperties,
@@ -76,7 +76,7 @@ import {
 } from "./composerPickerStyles";
 import { routeSplitBrowserPanelOpenRequest } from "./browserPanelOpenRequest";
 import { cn } from "~/lib/utils";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 const SPLIT_PANE_PANEL_DEFAULT_WIDTH_PX = 22 * 16;
 const BROWSER_SPLIT_PANE_PANEL_DEFAULT_WIDTH_PX = 30 * 16;

@@ -1,4 +1,4 @@
-import type { DesktopSafariAccessInfo } from "@synara/contracts";
+import type { DesktopSafariAccessInfo } from "@saint/contracts";
 import { Schema } from "effect";
 import { SettingsIcon } from "~/lib/icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -14,15 +14,15 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 
-export const SAFARI_ACCESS_STORAGE_KEY = "synara:safari-access-onboarding:v1";
-const OPEN_EVENT = "synara:safari-access-setup";
+export const SAFARI_ACCESS_STORAGE_KEY = "saint:safari-access-onboarding:v1";
+const OPEN_EVENT = "saint:safari-access-setup";
 /** "continued" is a legacy value from the earlier two-button intro; treat it like "later". */
 const Decision = Schema.Literals(["unseen", "later", "continued"]);
 const SAFARI_ICON_SRC = "/app-icons/safari.png";
 
 const STATUS = {
-  settingsOpened: "System Settings is open. Once Synara is switched on, quit and reopen it.",
-  appRevealed: "Synara is selected in Finder. Drag it into the Full Disk Access list.",
+  settingsOpened: "System Settings is open. Once Saint is switched on, quit and reopen it.",
+  appRevealed: "Saint is selected in Finder. Drag it into the Full Disk Access list.",
   openFailed: "Couldn't open it automatically. It lives in System Settings › Privacy & Security.",
 } as const;
 
@@ -147,8 +147,8 @@ export function SafariAccessOnboarding({
               />
               <DialogTitle className="mt-1">Bring your Safari logins along?</DialogTitle>
               <DialogDescription className="text-balance leading-relaxed">
-                Synara's browser can pick up sites you're already signed into in Safari, so you
-                don't have to log in twice. It's optional, and nothing is copied until you ask.
+                Saint's browser can pick up sites you're already signed into in Safari, so you don't
+                have to log in twice. It's optional, and nothing is copied until you ask.
               </DialogDescription>
             </DialogHeader>
 
@@ -185,7 +185,7 @@ export function SafariAccessOnboarding({
                     </>
                   ) : null}
                 </Step>
-                <Step n={3}>Quit and reopen Synara.</Step>
+                <Step n={3}>Quit and reopen Saint.</Step>
               </ol>
             ) : null}
 

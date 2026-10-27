@@ -12,7 +12,7 @@ bun run dev
 bun run dev:desktop
 
 # Desktop development on an isolated port set
-SYNARA_DEV_INSTANCE=feature-xyz bun run dev:desktop
+SAINT_DEV_INSTANCE=feature-xyz bun run dev:desktop
 ```
 
 ## Production-style local run
@@ -37,10 +37,10 @@ bun run dist:desktop:win
 
 ## Published CLI package
 
-The server package is published as `@synara/cli` and exposes the `synara` executable. To run an npm-published version without installing it globally:
+The server package is published as `@saint/cli` and exposes the `saint` executable. To run an npm-published version without installing it globally:
 
 ```bash
-npx --yes --package=@synara/cli synara --help
+npx --yes --package=@saint/cli saint --help
 ```
 
 For repository scripts, release packaging, and multi-instance development details, see [scripts.md](./scripts.md).

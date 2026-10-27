@@ -6,10 +6,10 @@
  * provider-agnostic by converting tagged markdown into canonical runtime events.
  */
 
-import type { ProviderInteractionMode } from "@synara/contracts";
+import type { ProviderInteractionMode } from "@saint/contracts";
 
 export const PROVIDER_PLAN_MODE_PROMPT_PREFIX = [
-  "Synara plan mode is active.",
+  "Saint plan mode is active.",
   "Do not implement or mutate files in this turn. You may inspect or ask targeted questions as needed.",
   "When you are ready to present the final plan, wrap only the final plan markdown in these exact tags:",
   "<proposed_plan>",

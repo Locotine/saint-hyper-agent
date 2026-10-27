@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 
-import { CommandId, ThreadId } from "@synara/contracts";
+import { CommandId, ThreadId } from "@saint/contracts";
 import { Effect, Option } from "effect";
 
 import type { GitCoreShape } from "../git/Services/GitCore.ts";
@@ -29,7 +29,7 @@ export function recoverInterruptedAgentGatewayOperations(input: {
       Error
     >;
   };
-  readonly creationSource?: "synara_mcp" | "external_mcp";
+  readonly creationSource?: "saint_mcp" | "external_mcp";
   readonly retainOnMissingThreadProjection?: boolean;
   readonly snapshotQuery: ProjectionSnapshotQueryShape;
   readonly orchestrationEngine: OrchestrationEngineShape;
@@ -53,7 +53,7 @@ export function recoverInterruptedAgentGatewayOperations(input: {
               errorJson: JSON.stringify({
                 code: "server_restarted_before_dispatch",
                 message:
-                  "Synara restarted before dispatch began. No git or orchestration resources were touched.",
+                  "Saint restarted before dispatch began. No git or orchestration resources were touched.",
               }),
               now: gatewayIsoNow(),
             });
@@ -75,7 +75,7 @@ export function recoverInterruptedAgentGatewayOperations(input: {
                 );
                 if (Option.isSome(projected)) {
                   if (
-                    projected.value.creationSource !== (input.creationSource ?? "synara_mcp") ||
+                    projected.value.creationSource !== (input.creationSource ?? "saint_mcp") ||
                     projected.value.gatewayOperationId !== operation.operationId
                   ) {
                     return yield* Effect.fail(
@@ -198,7 +198,7 @@ export function recoverInterruptedAgentGatewayOperations(input: {
               errorJson: JSON.stringify({
                 code: "recovery_compensation_failed",
                 message:
-                  "Synara could not fully compensate the interrupted operation during startup recovery. The sanitized operation remains retryable and some resources may require manual cleanup; no replacements will be created.",
+                  "Saint could not fully compensate the interrupted operation during startup recovery. The sanitized operation remains retryable and some resources may require manual cleanup; no replacements will be created.",
                 errors: recoveryErrors,
               }),
               now: gatewayIsoNow(),
@@ -214,7 +214,7 @@ export function recoverInterruptedAgentGatewayOperations(input: {
             errorJson: JSON.stringify({
               code: "server_restarted",
               message:
-                "Synara restarted before the operation completed. Deterministic operation-owned resources were compensated; no replacements were created.",
+                "Saint restarted before the operation completed. Deterministic operation-owned resources were compensated; no replacements were created.",
               compensatedCount: plan.length,
             }),
             now: gatewayIsoNow(),
@@ -229,7 +229,7 @@ export function recoverInterruptedAgentGatewayOperations(input: {
                   errorJson: JSON.stringify({
                     code: "startup_recovery_failed",
                     message:
-                      "Synara could not recover the interrupted operation. The sanitized operation remains retryable and resources may require manual cleanup; no replacements will be created.",
+                      "Saint could not recover the interrupted operation. The sanitized operation remains retryable and resources may require manual cleanup; no replacements will be created.",
                     error: detail,
                   }),
                   now: gatewayIsoNow(),

@@ -5,9 +5,9 @@ import {
   MIGRATION_RUNTIME_SOURCE_RELATIVE_PATH,
   findMigrationRuntimeIdentityMismatch,
   type MigrationRuntimeIdentityMismatch,
-} from "@synara/shared/migrationRecovery";
+} from "@saint/shared/migrationRecovery";
 
-declare const __SYNARA_MIGRATION_RUNTIME_SOURCE_DIGEST__: string;
+declare const __SAINT_MIGRATION_RUNTIME_SOURCE_DIGEST__: string;
 
 export class MigrationRuntimeIdentityMismatchError extends Error {
   readonly _tag = "MigrationRuntimeIdentityMismatchError";
@@ -17,11 +17,11 @@ export class MigrationRuntimeIdentityMismatchError extends Error {
       mismatch.kind === "launcher-bundle"
         ? [
             "desktop and server bundles were built from different migration sources",
-            "Rebuild with bun run build:desktop before starting Synara.",
+            "Rebuild with bun run build:desktop before starting Saint.",
           ]
         : [
             "the server bundle was built from a different migration source than this checkout",
-            "Rebuild the server with bun run build before starting Synara.",
+            "Rebuild the server with bun run build before starting Saint.",
           ];
     super(
       `Refusing database startup because ${relationship}. ` +
@@ -33,8 +33,8 @@ export class MigrationRuntimeIdentityMismatchError extends Error {
 }
 
 export function embeddedMigrationRuntimeSourceDigest(): string | null {
-  return typeof __SYNARA_MIGRATION_RUNTIME_SOURCE_DIGEST__ === "string"
-    ? __SYNARA_MIGRATION_RUNTIME_SOURCE_DIGEST__
+  return typeof __SAINT_MIGRATION_RUNTIME_SOURCE_DIGEST__ === "string"
+    ? __SAINT_MIGRATION_RUNTIME_SOURCE_DIGEST__
     : null;
 }
 
@@ -72,7 +72,7 @@ export function verifyMigrationRuntimeIdentity(input: {
 }
 
 function readMigrationSourceIfPresent(cwd: string): string | undefined {
-  const checkoutRoot = findSynaraSourceCheckoutRoot(cwd);
+  const checkoutRoot = findSaintSourceCheckoutRoot(cwd);
   if (checkoutRoot === null) return undefined;
   const sourcePath = path.resolve(checkoutRoot, MIGRATION_RUNTIME_SOURCE_RELATIVE_PATH);
   try {
@@ -83,14 +83,14 @@ function readMigrationSourceIfPresent(cwd: string): string | undefined {
   }
 }
 
-function findSynaraSourceCheckoutRoot(cwd: string): string | null {
+function findSaintSourceCheckoutRoot(cwd: string): string | null {
   let candidate = path.resolve(cwd);
   for (;;) {
     try {
       const packageJson = JSON.parse(
         fs.readFileSync(path.join(candidate, "package.json"), "utf8"),
       ) as { readonly name?: unknown };
-      if (packageJson.name === "@synara/monorepo") return candidate;
+      if (packageJson.name === "@saint/monorepo") return candidate;
     } catch (cause) {
       if ((cause as NodeJS.ErrnoException).code !== "ENOENT") throw cause;
     }

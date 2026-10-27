@@ -4,7 +4,7 @@
 // Depends on: useTimelineRowHeightHints and a real React/browser runtime.
 
 import type { LegendListRef } from "@legendapp/list/react";
-import { MessageId } from "@synara/contracts";
+import { MessageId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 import { renderHook } from "vitest-browser-react";
 

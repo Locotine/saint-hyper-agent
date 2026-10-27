@@ -48,7 +48,7 @@ import {
   type ServerDiagnosticsResult,
   type ServerLifecycleStreamEvent,
   type ServerSettings,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { clamp } from "effect/Number";
 import { Effect, FileSystem, Layer, Option, Path, Queue, Schema, Scope, Stream } from "effect";
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
@@ -58,7 +58,7 @@ import { AutomationService } from "./automation/Services/AutomationService";
 import { TodoService } from "./todo/Services/TodoService";
 import { isServerBetaFeatureEnabled } from "./betaFeatureGate";
 import { readInlineVisual } from "./inlineVisualStore";
-import { INLINE_VISUALS_BETA_FEATURE } from "@synara/shared/betaFeatures";
+import { INLINE_VISUALS_BETA_FEATURE } from "@saint/shared/betaFeatures";
 import { ProjectAgentService } from "./projectAgent/Services/ProjectAgentService";
 import { isGroupCoordinatorHostProject } from "./projectAgent/groupCoordinatorHost";
 import {
@@ -99,20 +99,20 @@ import { CheckpointDiffQuery } from "./checkpointing/Services/CheckpointDiffQuer
 import { resolveThreadWorkspaceCwd } from "./checkpointing/Utils";
 import { ServerConfig, type ServerConfigShape } from "./config";
 import { realpathNearestExisting } from "./realpathNearestExisting";
-import { isGroupContainerKind } from "@synara/shared/projectContainers";
-import { PROJECT_FOLDERS_WORKTREE_ISSUE } from "@synara/shared/projectFolders";
-import { workspaceRootsEqual } from "@synara/shared/threadWorkspace";
-import { WORKSPACE_FILE_WRITE_CONFLICT_CODE } from "@synara/shared/workspaceFileWrite";
+import { isGroupContainerKind } from "@saint/shared/projectContainers";
+import { PROJECT_FOLDERS_WORKTREE_ISSUE } from "@saint/shared/projectFolders";
+import { workspaceRootsEqual } from "@saint/shared/threadWorkspace";
+import { WORKSPACE_FILE_WRITE_CONFLICT_CODE } from "@saint/shared/workspaceFileWrite";
 import {
   mergeProviderStartOptions,
   providerStartOptionsFromInstance,
   resolveModelSelectionInstanceId,
   resolveProviderInstance,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 import {
   isThreadDetailEventFor,
   THREAD_DETAIL_EVENT_TYPES,
-} from "@synara/shared/threadDetailEvents";
+} from "@saint/shared/threadDetailEvents";
 import { listStudioThreadOutputs } from "./studioOutputs";
 import {
   ensureStudioWorkspaceInstructionsFiles,
@@ -141,6 +141,7 @@ import {
   recordGitHandoffResult,
 } from "./gitHandoffOperations";
 import { DEFAULT_RESOLVED_KEYBINDINGS, Keybindings } from "./keybindings";
+import { createHtmlPreviewGrant } from "./htmlPreviewFiles";
 import { createLocalPreviewGrant } from "./localImageFiles";
 import { listLocalServers, stopLocalServer } from "./localServerMonitor";
 import {
@@ -176,7 +177,7 @@ import { ProjectionStateIncompleteError } from "./persistence/Errors";
 import { ProjectionSnapshotQuery } from "./orchestration/Services/ProjectionSnapshotQuery";
 import { shouldPublishThreadShellForEvent } from "./orchestration/threadShellEvents";
 import { ProviderDiscoveryService } from "./provider/Services/ProviderDiscoveryService";
-import { discoverSkillsCatalog, synaraSkillsDir } from "./provider/skillsCatalog";
+import { discoverSkillsCatalog, saintSkillsDir } from "./provider/skillsCatalog";
 import { recoverUnregisteredGitHubCheckout } from "./project/githubProjectRegistration";
 import { ProviderAdapterRegistry } from "./provider/Services/ProviderAdapterRegistry";
 import { ProviderHealth } from "./provider/Services/ProviderHealth";
@@ -194,6 +195,8 @@ import { ServerLifecycleEvents } from "./serverLifecycleEvents";
 import { ServerRuntimeStartup } from "./serverRuntimeStartup";
 import { KeepAwakeService } from "./keepAwake";
 import { ServerSettingsService } from "./serverSettings";
+import { ProviderSessionDirectory } from "./provider/Services/ProviderSessionDirectory";
+import { resolveProviderTranscriptPath } from "./provider/providerTranscripts";
 import { isLoopbackHost } from "./startupAccess";
 import { TerminalManager } from "./terminal/Services/Manager";
 import { TerminalThreadTitleTracker } from "./terminal/terminalThreadTitleTracker";
@@ -267,7 +270,7 @@ const THREAD_DETAIL_SNAPSHOT_BOOTSTRAP_TIMEOUT_MS = 5_000;
 const THREAD_DETAIL_SNAPSHOT_BOOTSTRAP_POLL_MS = 100;
 
 class WsRequestAdmissionMiddleware extends RpcMiddleware.Service<WsRequestAdmissionMiddleware>()(
-  "synara/WsRequestAdmissionMiddleware",
+  "saint/WsRequestAdmissionMiddleware",
   { error: WsRpcError, requiredForClient: false },
 ) {}
 
@@ -558,6 +561,7 @@ const makeWsRpcHandlersLayer = () =>
       const threadDiagnostics = yield* ThreadDiagnosticsQuery;
       const eventStore = yield* OrchestrationEventStore;
       const providerRuntimeEvents = yield* ProviderRuntimeEventRepository;
+      const providerSessionDirectory = yield* ProviderSessionDirectory;
       const readOwnerThreadDiagnostics = makeOwnerThreadDiagnosticReader({
         eventStore,
         providerRuntimeEvents,
@@ -1335,7 +1339,7 @@ const makeWsRpcHandlersLayer = () =>
           );
         }
         yield* requireLoopbackOwner(
-          "Connectors can be managed only on the computer running Synara.",
+          "Connectors can be managed only on the computer running Saint.",
         );
       });
       const connectorRpc = <A>(
@@ -1446,6 +1450,35 @@ const makeWsRpcHandlersLayer = () =>
           rpcEffect(threadSearchQuery.searchThreads(input), "Failed to search threads"),
         [ORCHESTRATION_WS_METHODS.repairState]: () =>
           rpcEffect(orchestrationEngine.repairState(), "Failed to repair orchestration state"),
+        [ORCHESTRATION_WS_METHODS.getThreadTranscript]: (input) =>
+          rpcEffect(
+            Effect.gen(function* () {
+              const binding = yield* providerSessionDirectory.getBinding(input.threadId);
+              if (Option.isNone(binding)) return { provider: null, transcriptPath: null };
+              const settings = yield* serverSettings.getSettings;
+              const claudeHome = settings.providers.claudeAgent.homePath.trim();
+              const codex = settings.providers.codex;
+              const transcriptPath = yield* Effect.promise(() =>
+                resolveProviderTranscriptPath({
+                  provider: binding.value.provider,
+                  resumeCursor: binding.value.resumeCursor,
+                  homes: {
+                    // An isolated Claude home keeps its config in `<home>/.claude`.
+                    claudeConfigDirs: claudeHome ? [`${claudeHome}/.claude`] : [],
+                    codexHomes: [
+                      codex.homePath,
+                      ...codex.accounts.flatMap((account) => [
+                        account.homePath,
+                        account.shadowHomePath,
+                      ]),
+                    ],
+                  },
+                }).catch(() => null),
+              );
+              return { provider: binding.value.provider, transcriptPath };
+            }),
+            "Failed to locate the thread transcript",
+          ),
         [ORCHESTRATION_WS_METHODS.getTurnDiff]: (input) =>
           rpcEffect(checkpointDiffQuery.getTurnDiff(input), "Failed to load turn diff"),
         [ORCHESTRATION_WS_METHODS.getFullThreadDiff]: (input) =>
@@ -1791,6 +1824,11 @@ const makeWsRpcHandlersLayer = () =>
             })),
             "Failed to resolve file reference outside the workspace",
           ),
+        [WS_METHODS.projectsCreateHtmlPreviewGrant]: (input) =>
+          rpcEffect(
+            Effect.tryPromise(() => createHtmlPreviewGrant({ requestedPath: input.path })),
+            "Failed to create HTML preview grant",
+          ),
         [WS_METHODS.projectsCreateLocalFilePreviewGrant]: (input) =>
           rpcEffect(
             Effect.promise(() => createLocalPreviewGrant({ requestedPath: input.path })),
@@ -1913,7 +1951,7 @@ const makeWsRpcHandlersLayer = () =>
                     operationId: input.operationId,
                     kind: "phase",
                     phase: "registering",
-                    message: "Adding project to Synara",
+                    message: "Adding project to Saint",
                   });
 
                   const { command: normalizedCommand, prepareWorkspaceRoot } =
@@ -2761,13 +2799,13 @@ const makeWsRpcHandlersLayer = () =>
               discoverSkillsCatalog({
                 cwd: input.cwd ?? null,
                 homeDir: config.homeDir,
-                synaraBaseDir: config.baseDir,
+                saintBaseDir: config.baseDir,
                 includeDuplicateOrigins: true,
               }),
             ).pipe(
               Effect.map((skills) => ({
                 skills,
-                synaraSkillsDir: synaraSkillsDir(config.baseDir),
+                saintSkillsDir: saintSkillsDir(config.baseDir),
               })),
             ),
             "Failed to list the skills catalog",
@@ -3524,7 +3562,7 @@ function makeWsNegotiateHttpRouteLayer() {
               headers: { "Cache-Control": "no-store", Vary: "Origin" },
             });
           }
-          // The desktop app fetches cross-origin (synara://app); reflect only
+          // The desktop app fetches cross-origin (saint://app); reflect only
           // origins the WS upgrade itself would trust.
           const origin = normalizeCorsOrigin(request.headers.origin);
           const corsHeaders =

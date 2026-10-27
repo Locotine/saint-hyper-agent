@@ -3,8 +3,8 @@
 // Layer: Web lib test
 // Exports: Vitest cases for threadArchive helpers
 
-import { ThreadId } from "@synara/contracts";
-import { THREAD_NOT_ARCHIVED_INVARIANT_MARKER } from "@synara/shared/errorMessages";
+import { ThreadId } from "@saint/contracts";
+import { THREAD_NOT_ARCHIVED_INVARIANT_MARKER } from "@saint/shared/errorMessages";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { archiveThreadFromClient, isThreadAlreadyUnarchivedError } from "./threadArchive";

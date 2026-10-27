@@ -5,7 +5,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { join } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
-import { cuaRequest, CUA_HOST_SOCKET_ENV, type CuaReply } from "@synara/shared/cuaDriverProtocol";
+import { cuaRequest, CUA_HOST_SOCKET_ENV, type CuaReply } from "@saint/shared/cuaDriverProtocol";
 import { CuaDriverHost } from "../cuaDriverHost";
 import { pngDimensions } from "../../../server/src/pngHeader";
 
@@ -13,16 +13,16 @@ import { pngDimensions } from "../../../server/src/pngHeader";
  * The fixture-only socket restricts the native surface; it never manufactures
  * action success, a screenshot, a provider callback or an approval response. */
 export async function runLiveFixture(directory: string, binaryPath: string) {
-  const serverEntry = process.env.SYNARA_CUA_FIXTURE_SERVER;
+  const serverEntry = process.env.SAINT_CUA_FIXTURE_SERVER;
   if (!serverEntry?.endsWith("/apps/server/dist/index.mjs"))
-    throw new Error("An explicit built Synara server is required.");
+    throw new Error("An explicit built Saint server is required.");
   await readFile(serverEntry);
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const workspace = join(directory, "workspace");
   await mkdir(workspace, { recursive: true });
   await writeFile(
     join(workspace, "README.md"),
-    "Owned Synara Computer integration fixture. No repository changes are needed.\n",
+    "Owned Saint Computer integration fixture. No repository changes are needed.\n",
   );
   const calls: Array<Record<string, unknown>> = [];
   const report: Record<string, unknown> = {
@@ -44,7 +44,7 @@ export async function runLiveFixture(directory: string, binaryPath: string) {
     return persistence;
   };
   await app.whenReady();
-  const title = `Synara Cua Live Fixture ${process.pid}`;
+  const title = `Saint Cua Live Fixture ${process.pid}`;
   const target = new BrowserWindow({
     title,
     width: 600,
@@ -68,15 +68,15 @@ export async function runLiveFixture(directory: string, binaryPath: string) {
   target.showInactive();
   target.webContents.on("will-navigate", (event) => event.preventDefault());
   target.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  // SYNARA_CUA_FIXTURE_ENDPOINT/CAPABILITY: external trusted driver, same
+  // SAINT_CUA_FIXTURE_ENDPOINT/CAPABILITY: external trusted driver, same
   // override as electron.ts — the adhoc bundle holds no TCC grants of its own.
-  const externalEndpoint = process.env.SYNARA_CUA_FIXTURE_ENDPOINT ?? "";
+  const externalEndpoint = process.env.SAINT_CUA_FIXTURE_ENDPOINT ?? "";
   const capability =
     externalEndpoint.length > 0
-      ? (process.env.SYNARA_CUA_FIXTURE_CAPABILITY ?? "")
+      ? (process.env.SAINT_CUA_FIXTURE_CAPABILITY ?? "")
       : randomBytes(32).toString("base64url");
   if (externalEndpoint.length > 0 && capability.length === 0)
-    throw new Error("SYNARA_CUA_FIXTURE_ENDPOINT requires SYNARA_CUA_FIXTURE_CAPABILITY.");
+    throw new Error("SAINT_CUA_FIXTURE_ENDPOINT requires SAINT_CUA_FIXTURE_CAPABILITY.");
   let host: CuaDriverHost | undefined;
   let nativeEndpoint: string;
   if (externalEndpoint.length > 0) {
@@ -85,7 +85,7 @@ export async function runLiveFixture(directory: string, binaryPath: string) {
     host = new CuaDriverHost({
       binaryPath,
       capability,
-      bundleId: "com.synara.cua-fixture",
+      bundleId: "com.saint.cua-fixture",
       setup: async () => {
         throw new Error("Fixture never requests new macOS permissions.");
       },
@@ -334,21 +334,21 @@ export async function runLiveFixture(directory: string, binaryPath: string) {
   const env = {
     ...process.env,
     ELECTRON_RUN_AS_NODE: "1",
-    SYNARA_HOME: join(directory, "server-home"),
-    SYNARA_MODE: "web",
-    SYNARA_PORT: String(port),
-    SYNARA_HOST: "127.0.0.1",
-    SYNARA_NO_BROWSER: "1",
-    SYNARA_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "1",
-    SYNARA_BROWSER_HOST_CAPABILITY_FD: "3",
+    SAINT_HOME: join(directory, "server-home"),
+    SAINT_MODE: "web",
+    SAINT_PORT: String(port),
+    SAINT_HOST: "127.0.0.1",
+    SAINT_NO_BROWSER: "1",
+    SAINT_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "1",
+    SAINT_BROWSER_HOST_CAPABILITY_FD: "3",
     [CUA_HOST_SOCKET_ENV]: endpoint,
   };
   for (const name of [
-    "SYNARA_AUTH_TOKEN",
+    "SAINT_AUTH_TOKEN",
     "VITE_DEV_SERVER_URL",
-    "SYNARA_BROWSER_HOST_CAPABILITY",
-    "SYNARA_BROWSER_HOST_PIPE_PATH",
-    "SYNARA_COMPUTER_BACKEND",
+    "SAINT_BROWSER_HOST_CAPABILITY",
+    "SAINT_BROWSER_HOST_PIPE_PATH",
+    "SAINT_COMPUTER_BACKEND",
   ])
     delete env[name as keyof typeof env];
   const server: ChildProcess = spawn(process.execPath, [serverEntry], {
@@ -389,13 +389,9 @@ export async function runLiveFixture(directory: string, binaryPath: string) {
     // login shell with a 5 s execFileSync timeout before the HTTP listener and
     // the readiness marker land. 120 s bounds that without hiding a wedged
     // server — the wait still exits as soon as the marker appears.
-    for (
-      let attempt = 0;
-      attempt < 1200 && !exited && !output.includes("Synara running");
-      attempt++
-    )
+    for (let attempt = 0; attempt < 1200 && !exited && !output.includes("Saint running"); attempt++)
       await pause(100);
-    if (!output.includes("Synara running"))
+    if (!output.includes("Saint running"))
       throw new Error("Live fixture server failed to become ready.");
     report.server = {
       pid: server.pid,

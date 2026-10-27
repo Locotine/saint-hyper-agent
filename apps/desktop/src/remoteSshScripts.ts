@@ -1,11 +1,13 @@
 // FILE: remoteSshScripts.ts
 // Purpose: POSIX shell scripts the desktop pipes to a remote host over ssh to install,
-//          start, and stop a Synara server there, plus parsers for their reports.
+//          start, and stop a Saint server there, plus parsers for their reports.
 // Layer: Desktop remote SSH utility
 // Exports: remote script builders, report parsers, REMOTE_SSH_LOGIN_SHELL_COMMAND
 
+import { REMOTE_SERVER_PROVIDERS, SAINT_PROVIDERS_ENV } from "@saint/shared/serverProviders";
+
 /** Report lines carry this prefix so login-shell banners on stdout never parse as data. */
-export const REMOTE_SSH_REPORT_PREFIX = "SYNARA_REMOTE ";
+export const REMOTE_SSH_REPORT_PREFIX = "SAINT_REMOTE ";
 
 /**
  * Remote command that reads a script from stdin inside the user's login shell,
@@ -14,12 +16,17 @@ export const REMOTE_SSH_REPORT_PREFIX = "SYNARA_REMOTE ";
  */
 export const REMOTE_SSH_LOGIN_SHELL_COMMAND = `sh -c 'exec "\${SHELL:-/bin/sh}" -lc "exec sh -s"'`;
 
-/** Minimum Node.js major the server bundle runs on (root `engines.node`). */
-export const REMOTE_SSH_MIN_NODE_MAJOR = 24;
+/** Shown when the host's Node.js cannot run the server; mirrors `isRemoteNodeVersionSupported`. */
+export const REMOTE_SSH_NODE_REQUIREMENT = "Node.js 22.16+, 23.11+ or 24+";
 
 export interface RemoteSshScriptTarget {
   /** Install folder relative to the remote `$HOME`, already validated. */
   readonly remoteRoot: string;
+  /**
+   * Folder whose `versions/` holds the installed server versions every install
+   * folder shares (the default install folder), relative to `$HOME`.
+   */
+  readonly storeRoot: string;
   readonly version: string;
 }
 
@@ -46,7 +53,7 @@ export function quoteShell(value: string): string {
 
 function assertSafeVersion(version: string): void {
   if (!/^[0-9A-Za-z.+-]+$/u.test(version)) {
-    throw new Error(`Unsupported Synara version for a remote install: ${version}`);
+    throw new Error(`Unsupported Saint version for a remote install: ${version}`);
   }
 }
 
@@ -55,8 +62,10 @@ function preamble(target: RemoteSshScriptTarget): string {
   return [
     "set -eu",
     `root="$HOME/"${quoteShell(target.remoteRoot)}`,
+    `store="$HOME/"${quoteShell(`${target.storeRoot}/versions`)}`,
     `version=${quoteShell(target.version)}`,
-    'install_dir="$root/versions/$version"',
+    'install_dir="$store/$version"',
+    'staging="$root/staging/$version"',
     'run_dir="$root/run"',
     `session=${quoteShell(remoteTmuxSessionName(target.remoteRoot))}`,
     `report() { printf '${REMOTE_SSH_REPORT_PREFIX}%s\\n' "$1"; }`,
@@ -65,7 +74,7 @@ function preamble(target: RemoteSshScriptTarget): string {
 
 /** One tmux session per install folder, so Stable, Beta and custom folders never collide. */
 export function remoteTmuxSessionName(remoteRoot: string): string {
-  return remoteRoot.replace(/^\.+/u, "").replace(/[^A-Za-z0-9_-]+/gu, "-") || "synara-remote";
+  return remoteRoot.replace(/^\.+/u, "").replace(/[^A-Za-z0-9_-]+/gu, "-") || "saint-remote";
 }
 
 const SERVER_ALIVE_FUNCTION = `server_alive() {
@@ -91,22 +100,27 @@ report "{\\"kind\\":\\"probe\\",\\"node\\":\\"$node_version\\",\\"npm\\":$npm_ok
 `;
 }
 
-/** Shell command that unpacks the gzipped install bundle from stdin into a staging folder. */
+/**
+ * Shell command that unpacks the gzipped install bundle from stdin into this
+ * install folder's own staging folder, so two folders installing at once never
+ * share one.
+ */
 export function buildRemoteUploadCommand(target: RemoteSshScriptTarget): string {
   assertSafeVersion(target.version);
-  const staging = `"$HOME/"${quoteShell(`${target.remoteRoot}/versions/${target.version}.partial`)}`;
+  const staging = `"$HOME/"${quoteShell(`${target.remoteRoot}/staging/${target.version}`)}`;
   return `sh -c ${quoteShell(`set -eu; rm -rf ${staging}; mkdir -p ${staging}; tar -xzf - -C ${staging}`)}`;
 }
 
 /**
  * Installs production dependencies with npm, applies the Bun patches listed in
- * `patches/index.tsv` (npm never reads `patchedDependencies`), then swaps the
- * staging folder into place. A patch that no longer applies fails the install
- * rather than shipping an unpatched runtime.
+ * `patches/index.tsv` (npm never reads `patchedDependencies`), drops the Claude
+ * Code binary the Agent SDK bundles (the server runs the host's `claude`), then
+ * publishes the version into the shared store with one atomic rename. A patch
+ * that no longer applies fails the install rather than shipping an unpatched
+ * runtime.
  */
 export function buildRemoteInstallScript(target: RemoteSshScriptTarget): string {
   return `${preamble(target)}
-staging="$install_dir.partial"
 cd "$staging"
 if ! npm install --omit=dev --no-audit --no-fund --loglevel=error >npm-install.log 2>&1; then
   tail -n 40 npm-install.log >&2
@@ -118,7 +132,7 @@ if [ -f patches/index.tsv ]; then
     [ -n "$package" ] || continue
     [ -d "node_modules/$package" ] || continue
     if ! command -v patch >/dev/null 2>&1; then
-      echo "The 'patch' command is required to install Synara on this host." >&2
+      echo "The 'patch' command is required to install Saint on this host." >&2
       exit 1
     fi
     if ! patch -p1 --forward --batch --silent -d "node_modules/$package" <"patches/$file" >&2; then
@@ -127,10 +141,28 @@ if [ -f patches/index.tsv ]; then
     fi
   done <patches/index.tsv
 fi
-cd "$root"
-rm -rf "$install_dir"
-mv "$staging" "$install_dir"
-: >"$install_dir/.installed"
+rm -rf node_modules/@anthropic-ai/claude-agent-sdk-*
+: >.installed
+cd "$HOME"
+mkdir -p "$store"
+# rename(2) never replaces a non-empty folder: when another install folder
+# published this version first, keep theirs. A folder without .installed is a
+# broken install from an older layout and is replaced.
+node -e '
+const fs = require("fs");
+const [staging, target] = process.argv.slice(1);
+try {
+  fs.renameSync(staging, target);
+} catch {
+  if (fs.existsSync(target + "/.installed")) {
+    fs.rmSync(staging, { recursive: true, force: true });
+  } else {
+    fs.rmSync(target, { recursive: true, force: true });
+    fs.renameSync(staging, target);
+  }
+}
+' "$staging" "$install_dir"
+rmdir "$root/staging" 2>/dev/null || true
 report '{"kind":"installed"}'
 `;
 }
@@ -144,7 +176,8 @@ export interface RemoteStartOptions {
 /**
  * Stops any server from this install folder, starts this version on a free
  * loopback port inside tmux (or detached with nohup when tmux is missing),
- * waits for /health, and removes other installed versions. The token travels
+ * waits for /health, and removes installed versions no server runs. Only the
+ * Codex and Claude providers run (`SAINT_PROVIDERS`). The token travels
  * on stdin and lives in a 0600 file, never in a process argument list.
  */
 export function buildRemoteStartScript(
@@ -170,8 +203,9 @@ quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\\\\\''/g")"; }
 {
   echo '#!/bin/sh'
   echo "export PATH=$(quote "$PATH")"
-  echo "SYNARA_AUTH_TOKEN=\\$(cat $(quote "$run_dir/token"))"
-  echo 'export SYNARA_AUTH_TOKEN'
+  echo "SAINT_AUTH_TOKEN=\\$(cat $(quote "$run_dir/token"))"
+  echo 'export SAINT_AUTH_TOKEN'
+  echo 'export ${SAINT_PROVIDERS_ENV}=${REMOTE_SERVER_PROVIDERS.join(",")}'
   echo "echo \\$\\$ >$(quote "$run_dir/server.pid")"
   echo "exec node $(quote "$install_dir/dist/index.mjs") --mode web --host 127.0.0.1 --port $port --home-dir $(quote "$root/home") --no-browser${devUrlFlag} >>$(quote "$run_dir/server.log") 2>&1"
 } >"$run_dir/server.sh"
@@ -188,14 +222,23 @@ const poll = () => fetch(url).then((r) => { if (r.ok) process.exit(0); throw 0; 
   .catch(() => Date.now() > deadline ? process.exit(1) : setTimeout(poll, 500));
 poll();
 ' "$port"; then
-  echo "The Synara server did not become ready on the remote host:" >&2
+  echo "The Saint server did not become ready on the remote host:" >&2
   tail -n 40 "$run_dir/server.log" >&2 2>/dev/null || true
   exit 1
 fi
-for other in "$root/versions"/*; do
+# Other versions go once no server (from any install folder) runs them.
+# Without pgrep nothing can be proven unused, so they stay.
+in_use() {
+  command -v pgrep >/dev/null 2>&1 || return 0
+  pgrep -f -- "$1/dist/index.mjs" >/dev/null 2>&1
+}
+for other in "$store"/*; do
   [ -e "$other" ] || continue
-  [ "$other" = "$install_dir" ] || rm -rf "$other"
+  [ "$other" = "$install_dir" ] && continue
+  in_use "$other" || rm -rf "$other"
 done
+# Folders installed before the shared store kept their own versions.
+if [ "$root/versions" != "$store" ]; then rm -rf "$root/versions"; fi
 report "{\\"kind\\":\\"started\\",\\"port\\":$port}"
 `;
 }
@@ -279,8 +322,15 @@ export function hasRemoteReport(stdout: string, kind: "installed" | "stopped"): 
   return findReport(stdout, kind) !== null;
 }
 
-/** Major version from `v24.13.1`, or null when node is missing or unparsable. */
-export function nodeMajorVersion(nodeVersion: string | null): number | null {
-  const match = nodeVersion ? /^v?(\d+)\./u.exec(nodeVersion) : null;
-  return match?.[1] ? Number(match[1]) : null;
+/**
+ * Whether the server bundle runs on this Node.js. It needs the `node:sqlite`
+ * `StatementSync.columns()` API, the same floor the server enforces at startup
+ * (apps/server/src/persistence/NodeSqliteClient.ts): 22.16, 23.11, or 24.
+ */
+export function isRemoteNodeVersionSupported(nodeVersion: string | null): boolean {
+  const match = nodeVersion ? /^v?(\d+)\.(\d+)\./u.exec(nodeVersion) : null;
+  if (!match?.[1] || !match[2]) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  return (major === 22 && minor >= 16) || (major === 23 && minor >= 11) || major >= 24;
 }

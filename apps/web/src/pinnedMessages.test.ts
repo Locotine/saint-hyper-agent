@@ -1,5 +1,5 @@
-import type { PinnedMessage } from "@synara/contracts";
-import { MessageId } from "@synara/contracts";
+import type { PinnedMessage } from "@saint/contracts";
+import { MessageId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { addPin, derivePinLabel, displayLabelFor, restorePinAtIndex } from "./pinnedMessages";

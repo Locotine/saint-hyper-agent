@@ -1,6 +1,6 @@
 $ vitest run --passWithNoTests src/cuaDriverHost.test.ts
 
- RUN  v4.1.10 /Users/emanueledipietro/.codex/worktrees/702b/synara/apps/desktop
+ RUN  v4.1.10 /Users/emanueledipietro/.codex/worktrees/702b/saint/apps/desktop
 
 
  Test Files  1 passed (1)

@@ -5,7 +5,7 @@
 
 import nodePath from "node:path";
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderKind } from "@saint/contracts";
 
 import { readJsonFile } from "../credentials";
 import { asRecord, buildSnapshot, needsAuthSnapshot } from "../parse";

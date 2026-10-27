@@ -1,4 +1,4 @@
-import type { OrchestrationThreadShell, ThreadId } from "@synara/contracts";
+import type { OrchestrationThreadShell, ThreadId } from "@saint/contracts";
 import { Deferred, Effect, Fiber, Option } from "effect";
 import { describe, expect, it, vi } from "vitest";
 

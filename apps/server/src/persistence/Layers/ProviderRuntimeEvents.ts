@@ -1,4 +1,4 @@
-import { NonNegativeInt, ProviderRuntimeEvent } from "@synara/contracts";
+import { NonNegativeInt, ProviderRuntimeEvent } from "@saint/contracts";
 import { Effect, Layer, Schema } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
@@ -121,7 +121,7 @@ const encodePersistableEvent = (event: ProviderRuntimeEvent) =>
                 ? { messageType: event.raw.messageType }
                 : {}),
               payload: {
-                synaraTruncated: true,
+                saintTruncated: true,
                 reason: "provider runtime event exceeded the durable journal size limit",
                 originalBytes,
               },

@@ -11,7 +11,7 @@ import {
   type WsBootstrapNegotiateInput,
   type WsBootstrapNegotiateResult,
   type WsCompatibilityAction,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect } from "effect";
 
 import { version as serverBuild } from "../package.json" with { type: "json" };
@@ -162,7 +162,7 @@ export function validateWsFeatureCompatibility(
   if (expectedServerInstanceId !== serverInstanceId) {
     return incompatibility(
       "reload",
-      "The Synara server restarted during WebSocket negotiation. Reload to reconnect to the new server generation.",
+      "The Saint server restarted during WebSocket negotiation. Reload to reconnect to the new server generation.",
       "WS_SERVER_GENERATION_CHANGED",
     );
   }

@@ -401,7 +401,7 @@ export const ProjectManagedWorker = Schema.Struct({
   /** Command id that requested the current turn — provenance for
    * `activeTurnOrigin`. */
   activeTurnCommandId: Schema.NullOr(Schema.String),
-  /** Latest structured `synara_project_report_result` summary; the settle row
+  /** Latest structured `saint_project_report_result` summary; the settle row
    * and batch roll-up prefer it over the generic outcome phrase. */
   resultSummary: Schema.NullOr(Schema.String),
   resultAt: Schema.NullOr(IsoDateTime),

@@ -12,7 +12,7 @@ const args = process.argv.slice(2);
 if (args.some((arg) => arg !== "--compiler")) {
   throw new Error("Usage: node scripts/measure-dev-transforms.mjs [--compiler]");
 }
-process.env.SYNARA_DEV_REACT_COMPILER = args.includes("--compiler") ? "1" : "0";
+process.env.SAINT_DEV_REACT_COMPILER = args.includes("--compiler") ? "1" : "0";
 const root = fileURLToPath(new URL("..", import.meta.url));
 process.chdir(root);
 const files = [

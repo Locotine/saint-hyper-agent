@@ -2,7 +2,7 @@
 // Purpose: Owns the exact ChatGPT voice-upload origin, multipart, and resource policy.
 // Layer: Shared Node/Electron provider transport
 
-import { SERVER_VOICE_TRANSCRIPTION_MAX_AUDIO_BYTES } from "@synara/contracts";
+import { SERVER_VOICE_TRANSCRIPTION_MAX_AUDIO_BYTES } from "@saint/contracts";
 
 import { encodeOutboundMultipart, outboundHttp, type OutboundHttpResponse } from "./outboundHttp";
 
@@ -16,7 +16,7 @@ const DEFAULT_VOICE_UPLOAD_USER_AGENT =
 const VOICE_UPLOAD_USER_AGENT = resolveVoiceUploadUserAgent();
 
 function resolveVoiceUploadUserAgent(): string {
-  const override = process.env.SYNARA_VOICE_UPLOAD_USER_AGENT?.trim();
+  const override = process.env.SAINT_VOICE_UPLOAD_USER_AGENT?.trim();
   return override && !/[\r\n]/u.test(override) ? override : DEFAULT_VOICE_UPLOAD_USER_AGENT;
 }
 

@@ -13,12 +13,12 @@ import {
 } from "./browserHostRpcClient.ts";
 
 const HEADER_BYTES = 4;
-const TEST_CAPABILITY = "synara-browser-host-client-test-capability-0123456789";
+const TEST_CAPABILITY = "saint-browser-host-client-test-capability-0123456789";
 
 function pipePathForTest(name: string): string {
   return process.platform === "win32"
-    ? String.raw`\\.\pipe\synara-${name}-${process.pid}-${crypto.randomUUID()}`
-    : path.join("/tmp", `synara-${process.pid}-${crypto.randomUUID().slice(0, 8)}.sock`);
+    ? String.raw`\\.\pipe\saint-${name}-${process.pid}-${crypto.randomUUID()}`
+    : path.join("/tmp", `saint-${process.pid}-${crypto.randomUUID().slice(0, 8)}.sock`);
 }
 
 function encodeFrame(value: unknown): Buffer {
@@ -111,7 +111,7 @@ describe("browser host RPC client", () => {
 
   it("preserves canonical error data returned by the desktop host", async () => {
     const envelope = {
-      type: "synara_browser_error",
+      type: "saint_browser_error",
       version: 1,
       error: { code: "BrowserAuthorizationDenied" },
     };
@@ -155,7 +155,7 @@ describe("browser host RPC client", () => {
           jsonrpc: "2.0",
           id: request.id,
           result: {
-            type: "synara-browser-host",
+            type: "saint-browser-host",
             metadata: {
               sessionId: "gateway-session:protocol",
               protocolVersion: 2,
@@ -297,11 +297,11 @@ describe("browser host RPC client", () => {
   it("prefers the canonical host path and accepts the legacy alias during upgrade", () => {
     expect(
       resolveBrowserHostPipePath({
-        SYNARA_BROWSER_HOST_PIPE_PATH: "/tmp/canonical.sock",
-        SYNARA_BROWSER_USE_PIPE_PATH: "/tmp/legacy.sock",
+        SAINT_BROWSER_HOST_PIPE_PATH: "/tmp/canonical.sock",
+        SAINT_BROWSER_USE_PIPE_PATH: "/tmp/legacy.sock",
       }),
     ).toBe("/tmp/canonical.sock");
-    expect(resolveBrowserHostPipePath({ SYNARA_BROWSER_USE_PIPE_PATH: "/tmp/legacy.sock" })).toBe(
+    expect(resolveBrowserHostPipePath({ SAINT_BROWSER_USE_PIPE_PATH: "/tmp/legacy.sock" })).toBe(
       "/tmp/legacy.sock",
     );
   });
@@ -309,12 +309,12 @@ describe("browser host RPC client", () => {
   it("accepts only a bounded private desktop capability from direct test environments", () => {
     expect(
       resolveBrowserHostCapability({
-        SYNARA_BROWSER_HOST_CAPABILITY: TEST_CAPABILITY,
+        SAINT_BROWSER_HOST_CAPABILITY: TEST_CAPABILITY,
       }),
     ).toBe(TEST_CAPABILITY);
     expect(
       resolveBrowserHostCapability({
-        SYNARA_BROWSER_HOST_CAPABILITY: "too-short",
+        SAINT_BROWSER_HOST_CAPABILITY: "too-short",
       }),
     ).toBeNull();
   });

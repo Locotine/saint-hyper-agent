@@ -8,8 +8,8 @@ import {
   DEFAULT_MODEL_BY_PROVIDER,
   DEFAULT_SERVER_SETTINGS_VIEW,
   ProviderInstanceId,
-} from "@synara/contracts";
-import { codexAccountInstanceId } from "@synara/shared/providerInstances";
+} from "@saint/contracts";
+import { codexAccountInstanceId } from "@saint/shared/providerInstances";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -1827,19 +1827,19 @@ function memoryStorage(entries: Record<string, string>): Storage {
   };
 }
 const readHidden = (storage: Storage) =>
-  JSON.parse(storage.getItem("synara:app-settings:v1") ?? "{}").hiddenRailItems;
+  JSON.parse(storage.getItem("saint:app-settings:v1") ?? "{}").hiddenRailItems;
 
 describe("revealHubsRailItemOnce", () => {
   it("shows Hubs saved under the old hidden default once, then keeps a later hide", () => {
     const storage = memoryStorage({
-      "synara:app-settings:v1": JSON.stringify({ hiddenRailItems: ["studio", "kanban"] }),
+      "saint:app-settings:v1": JSON.stringify({ hiddenRailItems: ["studio", "kanban"] }),
     });
 
     revealHubsRailItemOnce(storage);
     expect(readHidden(storage)).toEqual(["kanban"]);
 
     storage.setItem(
-      "synara:app-settings:v1",
+      "saint:app-settings:v1",
       JSON.stringify({ hiddenRailItems: ["kanban", "studio"] }),
     );
     revealHubsRailItemOnce(storage);

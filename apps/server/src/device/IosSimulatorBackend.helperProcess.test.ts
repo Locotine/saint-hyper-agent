@@ -169,7 +169,7 @@ function makeStack() {
   const backend = new IosSimulatorBackend({
     platform: "darwin",
     processEnv: {},
-    helperCacheRoot: "/tmp/synara-device-test-cache",
+    helperCacheRoot: "/tmp/saint-device-test-cache",
     makeHelperClient: (binaryPath, env) =>
       new HelperClient({ binaryPath, env, requestTimeoutMs: 2_000 }),
     run: async (command, args) => {
@@ -181,7 +181,7 @@ function makeStack() {
   });
   // As in IosSimulatorBackend.reboot.test.ts: stand in for the compiled binary.
   Object.defineProperty(backend, "compileHelperIfNeeded", {
-    value: async () => "/tmp/synara-device-test-cache/synara-device-helper",
+    value: async () => "/tmp/saint-device-test-cache/saint-device-helper",
   });
 
   let clock = 0;
@@ -227,7 +227,7 @@ afterEach(async () => {
   spawnHook.current = null;
 });
 
-describe("stream start after the simulator was rebooted outside Synara", () => {
+describe("stream start after the simulator was rebooted outside Saint", () => {
   it("re-attaches and streams again instead of timing out on the display wait", async () => {
     const { simulator, processes, manager, elapsedVirtualMs } = makeStack();
     disposeStack = () => manager.dispose();
@@ -235,7 +235,7 @@ describe("stream start after the simulator was rebooted outside Synara", () => {
     expect(streaming(await waitForState(manager, streaming))).toBe(true);
     expect(processes[0]?.streamStarts).toEqual(["ok"]);
 
-    // Simulator.app or the agent's own shell reboots the device. Synara sees
+    // Simulator.app or the agent's own shell reboots the device. Saint sees
     // no shutdown, so the client still holds the attachment from boot 1.
     simulator.bootGeneration = 2;
     // The user re-selects the device (detach, then attach the same udid).

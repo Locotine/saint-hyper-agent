@@ -9,7 +9,7 @@
 import { useState } from "react";
 
 import { ArrowLeftIcon, ArrowRightIcon } from "~/lib/icons";
-import { SynaraLogo } from "~/components/SynaraLogo";
+import { SaintLogo } from "~/components/SaintLogo";
 
 import { ChangelogAccordion } from "../whatsNew/ChangelogAccordion";
 import { FeatureSection } from "../whatsNew/FeatureSection";
@@ -141,7 +141,7 @@ function CurrentHeader({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <SynaraLogo aria-hidden className="size-8 shrink-0 text-foreground" />
+      <SaintLogo aria-hidden className="size-8 shrink-0 text-foreground" />
       <div className="flex min-w-0 flex-col">
         <DialogTitle className="text-base">What&rsquo;s new?</DialogTitle>
         <DialogDescription className="text-ui leading-snug">

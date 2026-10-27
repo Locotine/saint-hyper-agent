@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_SERVER_STATUS_URL,
-  fetchSynaraServerStatus,
-  formatSynaraServerStatus,
+  fetchSaintServerStatus,
+  formatSaintServerStatus,
 } from "./serverStatusCli.ts";
 
 describe("server status CLI probe", () => {
@@ -17,7 +17,7 @@ describe("server status CLI probe", () => {
       });
     });
 
-    const result = await fetchSynaraServerStatus({ fetch });
+    const result = await fetchSaintServerStatus({ fetch });
 
     expect(result).toMatchObject({
       reachable: true,
@@ -28,13 +28,13 @@ describe("server status CLI probe", () => {
         projection: { state: "healthy" },
       },
     });
-    expect(formatSynaraServerStatus(result)).toBe(
-      "Synara server: ready\nURL: http://127.0.0.1:3773\nProjection: healthy",
+    expect(formatSaintServerStatus(result)).toBe(
+      "Saint server: ready\nURL: http://127.0.0.1:3773\nProjection: healthy",
     );
   });
 
   it("reports a reachable server that is still starting", async () => {
-    const result = await fetchSynaraServerStatus({
+    const result = await fetchSaintServerStatus({
       fetch: async () =>
         Response.json({
           status: "ok",
@@ -44,11 +44,11 @@ describe("server status CLI probe", () => {
     });
 
     expect(result).toMatchObject({ reachable: true, ready: false });
-    expect(formatSynaraServerStatus(result)).toContain("Synara server: starting");
+    expect(formatSaintServerStatus(result)).toContain("Saint server: starting");
   });
 
   it("distinguishes an unhealthy projection from a server that is still starting", async () => {
-    const result = await fetchSynaraServerStatus({
+    const result = await fetchSaintServerStatus({
       fetch: async () =>
         Response.json({
           status: "ok",
@@ -58,12 +58,12 @@ describe("server status CLI probe", () => {
     });
 
     expect(result).toMatchObject({ reachable: true, ready: false });
-    expect(formatSynaraServerStatus(result)).toContain("Synara server: not ready");
+    expect(formatSaintServerStatus(result)).toContain("Saint server: not ready");
   });
 
   it("treats an unknown or missing projection health state as not ready", async () => {
     for (const projection of [{ state: "unknown" }, undefined]) {
-      const result = await fetchSynaraServerStatus({
+      const result = await fetchSaintServerStatus({
         fetch: async () =>
           Response.json({
             status: "ok",
@@ -81,26 +81,26 @@ describe("server status CLI probe", () => {
       Response.json({ status: "ok", startupReady: true, projection: { state: "healthy" } }),
     );
 
-    await fetchSynaraServerStatus({
-      url: "https://synara.example.com/some/path?ignored=1#hash",
+    await fetchSaintServerStatus({
+      url: "https://saint.example.com/some/path?ignored=1#hash",
       fetch,
     });
 
     expect(fetch).toHaveBeenCalledWith(
-      "https://synara.example.com/health",
+      "https://saint.example.com/health",
       expect.objectContaining({ headers: { Accept: "application/json" } }),
     );
   });
 
   it("rejects credentials and never reports URL secrets", async () => {
-    const result = await fetchSynaraServerStatus({
-      url: "https://user:password@synara.example.com/path?token=secret#fragment",
+    const result = await fetchSaintServerStatus({
+      url: "https://user:password@saint.example.com/path?token=secret#fragment",
     });
 
     expect(result).toEqual({
       reachable: false,
       ready: false,
-      url: "https://synara.example.com",
+      url: "https://saint.example.com",
       error: "Server URL must not contain credentials.",
     });
     expect(JSON.stringify(result)).not.toContain("password");
@@ -108,24 +108,24 @@ describe("server status CLI probe", () => {
   });
 
   it("fails closed for invalid URLs and malformed health responses", async () => {
-    await expect(fetchSynaraServerStatus({ url: "file:///tmp/synara" })).resolves.toMatchObject({
+    await expect(fetchSaintServerStatus({ url: "file:///tmp/saint" })).resolves.toMatchObject({
       reachable: false,
       ready: false,
       error: "Server URL must use http:// or https://.",
     });
 
     await expect(
-      fetchSynaraServerStatus({ fetch: async () => Response.json({ status: "ok" }) }),
+      fetchSaintServerStatus({ fetch: async () => Response.json({ status: "ok" }) }),
     ).resolves.toMatchObject({
       reachable: false,
       ready: false,
-      error: "Health response did not match the Synara health shape.",
+      error: "Health response did not match the Saint health shape.",
     });
   });
 
   it("reports HTTP and transport failures without throwing", async () => {
     await expect(
-      fetchSynaraServerStatus({
+      fetchSaintServerStatus({
         fetch: async () => new Response("offline", { status: 503 }),
       }),
     ).resolves.toMatchObject({
@@ -134,7 +134,7 @@ describe("server status CLI probe", () => {
       error: "Health request returned HTTP 503.",
     });
 
-    const result = await fetchSynaraServerStatus({
+    const result = await fetchSaintServerStatus({
       fetch: async () => {
         throw new Error("connection refused");
       },
@@ -144,7 +144,7 @@ describe("server status CLI probe", () => {
       ready: false,
       error: "connection refused",
     });
-    expect(formatSynaraServerStatus(result)).toContain("Synara server: unreachable");
+    expect(formatSaintServerStatus(result)).toContain("Saint server: unreachable");
   });
 });
 
@@ -163,7 +163,7 @@ it("prints aggregate loop metrics and rejects malformed optional metrics", async
     discardedIdleGapMs: 60_000,
     lastStall: { durationMs: 5200, ageMs: 1000 },
   };
-  const result = await fetchSynaraServerStatus({
+  const result = await fetchSaintServerStatus({
     fetch: async () =>
       Response.json({
         status: "ok",
@@ -172,12 +172,12 @@ it("prints aggregate loop metrics and rejects malformed optional metrics", async
         eventLoop,
       }),
   });
-  expect(formatSynaraServerStatus(result)).toContain(
+  expect(formatSaintServerStatus(result)).toContain(
     "Event loop: p50 20ms / p99 35ms / max 5200ms; ELU 90.0%; stall windows 2",
   );
-  expect(formatSynaraServerStatus(result)).toContain("Last stall: 5200ms (1000ms ago)");
-  expect(formatSynaraServerStatus(result)).toContain("Ambiguous idle gaps: 1 (60000ms total");
-  const malformed = await fetchSynaraServerStatus({
+  expect(formatSaintServerStatus(result)).toContain("Last stall: 5200ms (1000ms ago)");
+  expect(formatSaintServerStatus(result)).toContain("Ambiguous idle gaps: 1 (60000ms total");
+  const malformed = await fetchSaintServerStatus({
     fetch: async () =>
       Response.json({
         status: "ok",
@@ -185,5 +185,5 @@ it("prints aggregate loop metrics and rejects malformed optional metrics", async
         eventLoop: { ...eventLoop, delayMaxMs: "private text" },
       }),
   });
-  expect(formatSynaraServerStatus(malformed)).not.toContain("private text");
+  expect(formatSaintServerStatus(malformed)).not.toContain("private text");
 });

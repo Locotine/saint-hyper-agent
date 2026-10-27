@@ -1,4 +1,4 @@
-import type { DesktopDiagnosticReportStatus } from "@synara/contracts";
+import type { DesktopDiagnosticReportStatus } from "@saint/contracts";
 import { useEffect, useState } from "react";
 import { CopyTextButton } from "./ui/copyTextButton";
 

@@ -1,6 +1,6 @@
 import "../../index.css";
 
-import { MessageId } from "@synara/contracts";
+import { MessageId } from "@saint/contracts";
 import { type LegendListRef } from "@legendapp/list/react";
 import { page } from "vitest/browser";
 import { flushSync } from "react-dom";

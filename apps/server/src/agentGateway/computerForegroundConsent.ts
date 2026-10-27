@@ -1,4 +1,4 @@
-import type { OrchestrationMessage, ProviderApprovalDecision } from "@synara/contracts";
+import type { OrchestrationMessage, ProviderApprovalDecision } from "@saint/contracts";
 import { Effect } from "effect";
 
 import type { ComputerApprovalGate } from "../computer/ComputerApprovalGate.ts";

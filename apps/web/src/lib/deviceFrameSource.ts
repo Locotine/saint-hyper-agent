@@ -3,7 +3,7 @@
 // Layer: Web transport helper
 // Exports: DeviceFrameSource contract and the pane-facing factory, both thin
 // wrappers over the shared binaryFrameSource mechanism.
-// Depends on: @synara/shared/deviceFrame for the binary envelope
+// Depends on: @saint/shared/deviceFrame for the binary envelope
 
 import {
   DEVICE_FRAME_RESYNC_MESSAGE,
@@ -11,8 +11,8 @@ import {
   DEVICE_FRAME_WS_UDID_PARAM,
   decodeDeviceFrame,
   type DeviceFrame,
-} from "@synara/shared/deviceFrame";
-import type { DeviceUdid } from "@synara/contracts";
+} from "@saint/shared/deviceFrame";
+import type { DeviceUdid } from "@saint/contracts";
 
 import {
   binaryFrameSocketUrl,

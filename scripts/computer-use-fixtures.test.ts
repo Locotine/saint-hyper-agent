@@ -21,7 +21,7 @@ describe("belief-canary launch", () => {
     // -g is the load-bearing flag: without it `open` makes the app frontmost
     // and can pull the operator onto the fixture's Space.
     expect(printed).toMatch(/^open -g -n -W -a /u);
-    expect(printed).toContain("--env SYNARA_CUA_CANARY_DIR=");
+    expect(printed).toContain("--env SAINT_CUA_CANARY_DIR=");
     expect(printed).not.toMatch(/^open -n/u);
   });
 });

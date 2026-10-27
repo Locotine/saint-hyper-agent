@@ -1,7 +1,7 @@
 // FILE: threadFind.logic.test.ts
 // Purpose: Matching, next/prev wrap, and jump-to-message selection for in-thread find.
 
-import { MessageId, ThreadId } from "@synara/contracts";
+import { MessageId, ThreadId } from "@saint/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { appendPastedTextsToPrompt, createPastedTextDraft } from "../../lib/composerPastedText";
 import {

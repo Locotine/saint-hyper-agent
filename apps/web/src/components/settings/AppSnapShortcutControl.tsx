@@ -8,7 +8,7 @@ import {
   type DesktopAppSnapShortcutModifier,
   type DesktopAppSnapState,
   type ResolvedKeybindingsConfig,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   DEFAULT_APP_SNAP_SHORTCUT,
   appSnapModifierFromEventCode,
@@ -17,7 +17,7 @@ import {
   appSnapShortcutSystemConflict,
   isAppSnapShortcutKey,
   sameAppSnapShortcut,
-} from "@synara/shared/appSnapShortcut";
+} from "@saint/shared/appSnapShortcut";
 import { useRef, useState, type KeyboardEvent } from "react";
 
 import { appSnapShortcutConflictCommand } from "~/appSnapShortcut";
@@ -88,7 +88,7 @@ export function AppSnapShortcutControl({
     const conflictCommand = appSnapShortcutConflictCommand(nextCandidate, keybindings);
     if (conflictCommand) {
       const commandLabel = shortcutSheetCommandLabel(conflictCommand) ?? conflictCommand;
-      reportUnavailable(`Synara already uses this for “${commandLabel}”.`);
+      reportUnavailable(`Saint already uses this for “${commandLabel}”.`);
       return;
     }
     const systemConflict = appSnapShortcutSystemConflict(nextCandidate);
@@ -98,7 +98,7 @@ export function AppSnapShortcutControl({
     }
     const bridge = window.desktopBridge?.appSnap;
     if (!bridge) {
-      reportUnavailable("Requires the Synara desktop app on macOS.");
+      reportUnavailable("Requires the Saint desktop app on macOS.");
       return;
     }
     setCheckState({ status: "checking", availability: null });

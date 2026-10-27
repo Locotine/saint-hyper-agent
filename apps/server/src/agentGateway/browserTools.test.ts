@@ -288,7 +288,7 @@ describe("agent gateway browser tools", () => {
       "browser_upload",
       "browser_run",
       "browser_close",
-      "synara_e2e_review",
+      "saint_e2e_review",
     ]);
     expect(tools.every((tool) => tool.requiredCapability === "browser:control")).toBe(true);
     expect(tools.every((tool) => tool.requiresActiveTurn === true)).toBe(true);
@@ -430,7 +430,7 @@ describe("agent gateway browser tools", () => {
 
     const requests = execute.mock.calls.map(([request]) => request);
     const keys = requests.map((request) => request.arguments.idempotencyKey);
-    expect(keys[0]).toMatch(/^synara-mcp-[a-f0-9]{40}$/u);
+    expect(keys[0]).toMatch(/^saint-mcp-[a-f0-9]{40}$/u);
     expect(keys[1]).toBe(keys[0]);
     expect(keys[2]).not.toBe(keys[0]);
     expect(keys[3]).not.toBe(keys[0]);

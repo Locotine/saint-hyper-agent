@@ -11,7 +11,7 @@ import {
   migrationRecoveryMarkerPath,
   parseMigrationRecoveryResumeState,
   type MigrationSchemaTooNewStartupBlock,
-} from "@synara/shared/migrationRecovery";
+} from "@saint/shared/migrationRecovery";
 
 const execFile = promisify(ChildProcess.execFile);
 const RECOVERY_OUTPUT_LIMIT_BYTES = 64 * 1024;
@@ -62,7 +62,7 @@ export function invalidMigrationStartupRecoveryChoices(input: {
 }): ReadonlyArray<DesktopMigrationRecoveryChoice> {
   const choices: Array<DesktopMigrationRecoveryChoice> = [];
   if (input.canInstallUpdate) {
-    choices.push({ label: "Update Synara and restart", decision: "install-update" });
+    choices.push({ label: "Update Saint and restart", decision: "install-update" });
   }
   if (input.canOpenReleasePage) {
     choices.push({ label: "Download latest release", decision: "open-release-page" });

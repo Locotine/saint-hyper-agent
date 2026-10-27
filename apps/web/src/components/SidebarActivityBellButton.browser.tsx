@@ -29,15 +29,15 @@ vi.mock("../lib/serverReactQuery", async (importOriginal) => ({
   }),
 }));
 
-const activityKey = "synara:activity-onboarding:v1";
-const importKey = "synara:project-import-announcement:v1";
-const tourKey = "synara:feature-tour:since-0.9.2:v1";
+const activityKey = "saint:activity-onboarding:v1";
+const importKey = "saint:project-import-announcement:v1";
+const tourKey = "saint:feature-tour:since-0.9.2:v1";
 const coachmark = "See running tasks, completed work, and anything that needs your attention.";
 const clients: QueryClient[] = [];
 const screens: Awaited<ReturnType<typeof render>>[] = [];
 
 beforeEach(() => {
-  for (const key of [activityKey, importKey, tourKey, "synara:tasks-onboarding:v1"])
+  for (const key of [activityKey, importKey, tourKey, "saint:tasks-onboarding:v1"])
     localStorage.removeItem(key);
   useOnboardingDialogStore.setState({
     isOpen: false,
@@ -51,7 +51,7 @@ beforeEach(() => {
 afterEach(async () => {
   for (const screen of screens.splice(0)) await screen.unmount();
   for (const client of clients.splice(0)) client.clear();
-  for (const key of [activityKey, importKey, tourKey, "synara:tasks-onboarding:v1"])
+  for (const key of [activityKey, importKey, tourKey, "saint:tasks-onboarding:v1"])
     localStorage.removeItem(key);
 });
 
@@ -159,7 +159,7 @@ it("queues the Tasks hint behind Activity and remembers selection across layouts
   await page.getByRole("button", { name: "Open tasks" }).click();
   expect(selectTasks).toHaveBeenCalledOnce();
   await expect.element(page.getByText(copy)).not.toBeInTheDocument();
-  expect(localStorage.getItem("synara:tasks-onboarding:v1")).toBe("seen");
+  expect(localStorage.getItem("saint:tasks-onboarding:v1")).toBe("seen");
   await screen.unmount();
   screens.splice(screens.indexOf(screen), 1);
   const remounted = await render(

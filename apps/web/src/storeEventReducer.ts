@@ -6,25 +6,25 @@ import {
   type OrchestrationEvent,
   type OrchestrationPendingInteraction,
   type ThreadId,
-} from "@synara/contracts";
-import { resolveThreadBranchRegressionGuard } from "@synara/shared/git";
-import { deriveTurnStopActivity } from "@synara/shared/turnStopActivity";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+} from "@saint/contracts";
+import { resolveThreadBranchRegressionGuard } from "@saint/shared/git";
+import { deriveTurnStopActivity } from "@saint/shared/turnStopActivity";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 import {
   clearRemovedAsyncUserInputResponses,
   mergeAsyncUserInput,
-} from "@synara/shared/asyncUserInput";
+} from "@saint/shared/asyncUserInput";
 import {
   addPinnedMessage,
   removePinnedMessage,
   setPinnedMessageDone,
   setPinnedMessageLabel,
-} from "@synara/shared/pinnedMessages";
-import { deriveThreadSummaryMetadata, resolveHumanMessageAt } from "@synara/shared/threadSummary";
+} from "@saint/shared/pinnedMessages";
+import { deriveThreadSummaryMetadata, resolveHumanMessageAt } from "@saint/shared/threadSummary";
 import {
   createStalePendingInteractionMatcher,
   isPendingInteractionResponseClaimable,
-} from "@synara/shared/pendingInteractions";
+} from "@saint/shared/pendingInteractions";
 
 import { advanceMessageTextSegments } from "./messageTextSegments";
 import { isSessionRunningTurn } from "./session-logic";
@@ -75,7 +75,7 @@ export type ApplyOrchestrationEventOptions = {
   updateSidebarSummary?: boolean;
 };
 
-type ReadModelThread = import("@synara/contracts").OrchestrationReadModel["threads"][number];
+type ReadModelThread = import("@saint/contracts").OrchestrationReadModel["threads"][number];
 
 const THREAD_SUMMARY_ACTIVITY_KINDS = new Set([
   "approval.requested",

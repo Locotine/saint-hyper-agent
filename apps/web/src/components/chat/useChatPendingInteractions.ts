@@ -5,10 +5,10 @@ import {
   type ProviderApprovalDecision,
   type ProviderRequestKind,
   type ProviderUserInputAnswers,
-} from "@synara/contracts";
-import { describeErrorMessage } from "@synara/shared/errorMessages";
-import { respondingInteractionReclaimAt } from "@synara/shared/pendingInteractions";
-import { pendingRequestInstanceKey } from "@synara/shared/threadSummary";
+} from "@saint/contracts";
+import { describeErrorMessage } from "@saint/shared/errorMessages";
+import { respondingInteractionReclaimAt } from "@saint/shared/pendingInteractions";
+import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { newCommandId } from "~/lib/utils";

@@ -9,8 +9,8 @@ import {
   type OrchestrationReadModel,
   type OrchestrationThread,
   type SidechatExpiry,
-} from "@synara/contracts";
-import { SIDECHAT_INACTIVITY_EXPIRY_MS } from "@synara/shared/sidechatExpiry";
+} from "@saint/contracts";
+import { SIDECHAT_INACTIVITY_EXPIRY_MS } from "@saint/shared/sidechatExpiry";
 import { Effect, Exit, Layer, ManagedRuntime, PubSub, Scope, Stream } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 

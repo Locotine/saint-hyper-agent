@@ -1,6 +1,6 @@
 // FILE: editorHighlighting.ts
 // Purpose: Tokenize editor models with the Shiki highlighter the read-only
-//          previews and diffs already use, so edited code keeps Synara's
+//          previews and diffs already use, so edited code keeps Saint's
 //          GitHub themes instead of the engine's built-in palette.
 // Layer: Web editor runtime
 // Exports: ensureEditorLanguage, editorTokenRules, editorThemeColor,

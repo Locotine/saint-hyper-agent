@@ -54,7 +54,7 @@ const withTools = <A>(
   }) => Effect.Effect<A>,
 ) =>
   Effect.acquireUseRelease(
-    Effect.promise(() => mkdtemp(path.join(tmpdir(), "synara-inline-visuals-"))),
+    Effect.promise(() => mkdtemp(path.join(tmpdir(), "saint-inline-visuals-"))),
     (attachmentsDir) => {
       const appended: AppendInlineVisualActivityInput[] = [];
       const failAppend = { current: false };
@@ -82,7 +82,7 @@ const withTools = <A>(
 const html = (label: string) =>
   `<!doctype html><svg width="200" height="80"><text x="4" y="40">${label}</text></svg>`;
 
-describe("synara_show_visual", () => {
+describe("saint_show_visual", () => {
   it.effect("stores the page and records it on the caller's running turn", () =>
     withTools(({ attachmentsDir, appended, call }) =>
       Effect.gen(function* () {

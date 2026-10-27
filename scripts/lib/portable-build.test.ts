@@ -43,7 +43,7 @@ describe("portable release outputs", () => {
     for (const env of [
       { AZURE_TRUSTED_SIGNING_SUBJECT_DN: "publisher" },
       { VITE_FEEDBACK_ENDPOINT: "https://example.test" },
-      { SYNARA_WEB_SOURCEMAP: "1" },
+      { SAINT_WEB_SOURCEMAP: "1" },
     ])
       expect(() => verifyPortableBuild(root, commit, manifest, env)).toThrow("mismatch");
     writeFileSync(join(root, "bun.lock"), "changed");

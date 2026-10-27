@@ -135,7 +135,7 @@ jobs:
         if: steps.restore_checkpoint.outcome != 'success'
         # Preflight validates the entire workspace. Native artifacts retain all
         # runtime/build dependencies but do not install the unrelated marketing site.
-        run: bun install --frozen-lockfile --ignore-scripts --filter '!@synara/marketing'
+        run: bun install --frozen-lockfile --ignore-scripts --filter '!@saint/marketing'
 
       - name: Download macOS icon catalog
         if: inputs.platform == 'mac' && steps.restore_checkpoint.outcome != 'success'
@@ -156,7 +156,7 @@ jobs:
           test -d "$native_developer_dir"
           test -s "$RUNNER_TEMP/mac-icon/Assets.car"
           echo "DEVELOPER_DIR=$native_developer_dir" >> "$GITHUB_ENV"
-          echo "SYNARA_MAC_ICON_CATALOG=$RUNNER_TEMP/mac-icon/Assets.car" >> "$GITHUB_ENV"
+          echo "SAINT_MAC_ICON_CATALOG=$RUNNER_TEMP/mac-icon/Assets.car" >> "$GITHUB_ENV"
           DEVELOPER_DIR="$native_developer_dir" xcodebuild -version
 
       - name: Report runner capacity
@@ -196,7 +196,7 @@ jobs:
           AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME }}
           AZURE_TRUSTED_SIGNING_PUBLISHER_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
           AZURE_TRUSTED_SIGNING_SUBJECT_DN: ${{ secrets.AZURE_TRUSTED_SIGNING_SUBJECT_DN }}
-          SYNARA_PUBLISH_RELEASE: ${{ inputs.publish_release }}
+          SAINT_PUBLISH_RELEASE: ${{ inputs.publish_release }}
           ALLOW_UNSIGNED_WINDOWS_PUBLICATION: ${{ inputs.allow_unsigned_windows_publication }}
           SOURCE_COMMIT: ${{ inputs.source_commit }}
           SOURCE_TAG: ${{ inputs.source_tag }}
@@ -244,7 +244,7 @@ jobs:
               echo "macOS signing enabled."
               signed=true
               args+=(--signed)
-            elif [[ "$SYNARA_PUBLISH_RELEASE" == "true" ]]; then
+            elif [[ "$SAINT_PUBLISH_RELEASE" == "true" ]]; then
               echo "Publishing macOS artifacts requires every signing and notarization secret."
               exit 1
             else
@@ -263,7 +263,7 @@ jobs:
               echo "Windows signing enabled (Azure Trusted Signing)."
               signed=true
               args+=(--signed)
-            elif [[ "$SYNARA_PUBLISH_RELEASE" == "true" && "$ALLOW_UNSIGNED_WINDOWS_PUBLICATION" != "true" ]]; then
+            elif [[ "$SAINT_PUBLISH_RELEASE" == "true" && "$ALLOW_UNSIGNED_WINDOWS_PUBLICATION" != "true" ]]; then
               echo "Publishing Windows artifacts requires every Azure Trusted Signing secret."
               exit 1
             else
@@ -362,7 +362,7 @@ jobs:
             --platform "${{ inputs.platform }}" \
             --arch "${{ inputs.arch }}" \
             --version "${{ inputs.version }}" \
-            --executable-name "${{ inputs.desktop_flavor == 'beta' && 'synara-beta' || 'synara' }}"
+            --executable-name "${{ inputs.desktop_flavor == 'beta' && 'saint-beta' || 'saint' }}"
 
       - name: Upload qualified artifacts
         uses: actions/upload-artifact@v7
@@ -452,4 +452,4 @@ jobs:
             --platform "${{ inputs.platform }}" \
             --arch "${{ inputs.arch }}" \
             --version "${{ inputs.version }}" \
-            --executable-name "${{ inputs.desktop_flavor == 'beta' && 'synara-beta' || 'synara' }}"
+            --executable-name "${{ inputs.desktop_flavor == 'beta' && 'saint-beta' || 'saint' }}"

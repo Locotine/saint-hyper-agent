@@ -24,7 +24,7 @@ const directory = await mkdtemp(join(build, "cua-launch-proof-"));
 const appPath = join(directory, "Target.app");
 const executable = join(directory, "fixture");
 const focusProbe = join(directory, "focus-probe");
-const bundleId = `app.synara.fixture.background-launch.${randomUUID()}`;
+const bundleId = `app.saint.fixture.background-launch.${randomUUID()}`;
 const socketPath = join(directory, "driver.sock");
 const register =
   "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
@@ -153,7 +153,7 @@ try {
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>fixture</string>
 <key>CFBundleIdentifier</key><string>${bundleId}</string>
-<key>CFBundleName</key><string>Synara Background Launch Fixture</string>
+<key>CFBundleName</key><string>Saint Background Launch Fixture</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>

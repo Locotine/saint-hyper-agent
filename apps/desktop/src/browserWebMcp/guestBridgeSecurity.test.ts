@@ -6,7 +6,7 @@ vi.mock("electron", () => ({ contextBridge: electron }));
 import { installWebMcpBridgeInMainWorld } from "./guestBridge";
 
 it("does not expose WebMCP on insecure or permissions-policy-blocked documents", () => {
-  const root = globalThis as typeof globalThis & { readonly __synaraWebMcpBridgeV1?: unknown };
+  const root = globalThis as typeof globalThis & { readonly __saintWebMcpBridgeV1?: unknown };
   const fakeDocument = Object.assign(new EventTarget(), {
     permissionsPolicy: {
       features: vi.fn(() => ["tools"]),
@@ -22,7 +22,7 @@ it("does not expose WebMCP on insecure or permissions-policy-blocked documents",
 
   installWebMcpBridgeInMainWorld();
 
-  expect(root.__synaraWebMcpBridgeV1).toBeUndefined();
+  expect(root.__saintWebMcpBridgeV1).toBeUndefined();
   expect("modelContext" in fakeDocument).toBe(false);
 
   vi.stubGlobal("isSecureContext", true);
@@ -30,12 +30,12 @@ it("does not expose WebMCP on insecure or permissions-policy-blocked documents",
   installWebMcpBridgeInMainWorld();
 
   expect(fakeDocument.permissionsPolicy.allowsFeature).toHaveBeenCalledWith("tools");
-  expect(root.__synaraWebMcpBridgeV1).toBeUndefined();
+  expect(root.__saintWebMcpBridgeV1).toBeUndefined();
   expect("modelContext" in fakeDocument).toBe(false);
 });
 
 it("fails closed when Chromium does not recognize the tools policy feature", () => {
-  const root = globalThis as typeof globalThis & { readonly __synaraWebMcpBridgeV1?: unknown };
+  const root = globalThis as typeof globalThis & { readonly __saintWebMcpBridgeV1?: unknown };
   const fakeDocument = Object.assign(new EventTarget(), {
     permissionsPolicy: {
       features: vi.fn(() => ["camera", "microphone"]),
@@ -52,12 +52,12 @@ it("fails closed when Chromium does not recognize the tools policy feature", () 
   installWebMcpBridgeInMainWorld();
 
   expect(fakeDocument.permissionsPolicy.allowsFeature).not.toHaveBeenCalled();
-  expect(root.__synaraWebMcpBridgeV1).toBeUndefined();
+  expect(root.__saintWebMcpBridgeV1).toBeUndefined();
   expect("modelContext" in fakeDocument).toBe(false);
 });
 
 it("uses the host-validated response policy when Electron does not recognize tools", () => {
-  const root = globalThis as typeof globalThis & { readonly __synaraWebMcpBridgeV1?: unknown };
+  const root = globalThis as typeof globalThis & { readonly __saintWebMcpBridgeV1?: unknown };
   const fakeDocument = Object.assign(new EventTarget(), {
     permissionsPolicy: {
       features: vi.fn(() => ["camera", "microphone"]),
@@ -73,6 +73,6 @@ it("uses the host-validated response policy when Electron does not recognize too
 
   installWebMcpBridgeInMainWorld(true);
 
-  expect(root.__synaraWebMcpBridgeV1).toBeDefined();
+  expect(root.__saintWebMcpBridgeV1).toBeDefined();
   expect("modelContext" in fakeDocument).toBe(true);
 });

@@ -3,7 +3,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import { BROWSER_IPC_CHANNELS } from "../ipcChannels";
 
 /**
- * Install the page-facing WebMCP compatibility API and Synara's private bridge
+ * Install the page-facing WebMCP compatibility API and Saint's private bridge
  * in the main world before application scripts run. This function is
  * serialized by Electron, so every helper intentionally lives inside it.
  */
@@ -27,7 +27,7 @@ export function installWebMcpBridgeInMainWorld(hostAllowsCompatibility = false):
     readonly window: Window;
   };
 
-  const BRIDGE_PROPERTY = "__synaraWebMcpBridgeV1";
+  const BRIDGE_PROPERTY = "__saintWebMcpBridgeV1";
   const root = globalThis as typeof globalThis & Record<string, unknown>;
   if (root[BRIDGE_PROPERTY] !== undefined) return;
 
@@ -127,7 +127,7 @@ export function installWebMcpBridgeInMainWorld(hostAllowsCompatibility = false):
       }
     } catch {
       // A page may reject with an object whose coercion itself throws. Never
-      // let that hostile error value escape Synara's bounded error envelope.
+      // let that hostile error value escape Saint's bounded error envelope.
     }
     return {
       name: normalizedText(rawName, MAX_NAME_BYTES) ?? "WebMcpToolError",
@@ -156,7 +156,7 @@ export function installWebMcpBridgeInMainWorld(hostAllowsCompatibility = false):
     });
   };
 
-  const declarativeForm = Symbol("synara.webmcp.declarative-form");
+  const declarativeForm = Symbol("saint.webmcp.declarative-form");
   type DeclarativeTool = RegisteredPageTool & { readonly [declarativeForm]: HTMLFormElement };
   let ensureDeclarativeObservation = (): void => undefined;
 
@@ -520,7 +520,7 @@ export function installWebMcpBridgeInMainWorld(hostAllowsCompatibility = false):
       origin,
       annotations: {
         readOnlyHint: tool.annotations?.readOnlyHint === true,
-        // All page-provided metadata and results are untrusted to Synara even
+        // All page-provided metadata and results are untrusted to Saint even
         // when the page author omits the WebMCP hint.
         untrustedContentHint: true,
       },
@@ -590,7 +590,7 @@ export function installWebMcpBridgeInMainWorld(hostAllowsCompatibility = false):
           signal: controller.signal,
         });
         // The current draft returns stringified JSON. Accept an object as well
-        // so Synara remains compatible with early-preview Chromium builds.
+        // so Saint remains compatible with early-preview Chromium builds.
         const serializedResult =
           typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
         if (

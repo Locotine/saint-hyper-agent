@@ -2,7 +2,7 @@
 // Purpose: Prevents a replacement ACP runtime from starting before its predecessor exits.
 // Layer: Provider ACP lifecycle coordination
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import { Deferred, Effect } from "effect";
 
 export interface SessionTeardownGate {

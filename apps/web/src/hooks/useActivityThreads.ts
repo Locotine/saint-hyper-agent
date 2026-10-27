@@ -6,7 +6,7 @@
 
 import { useMemo } from "react";
 
-import type { ProjectAgentSummary, ProjectId } from "@synara/contracts";
+import type { ProjectAgentSummary, ProjectId } from "@saint/contracts";
 
 import {
   useCoordinatorThreadIds,

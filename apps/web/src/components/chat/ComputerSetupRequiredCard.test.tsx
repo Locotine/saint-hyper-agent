@@ -4,7 +4,7 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { ComputerStatusResult } from "@synara/contracts";
+import type { ComputerStatusResult } from "@saint/contracts";
 
 import { ComputerSetupRequiredCard } from "./ComputerSetupRequiredCard";
 
@@ -54,7 +54,7 @@ describe("ComputerSetupRequiredCard", () => {
   });
 
   it("explains a locally built copy's stale grant, and says nothing of it on a signed build", () => {
-    // The case that looks like a Synara bug: System Settings shows Synara
+    // The case that looks like a Saint bug: System Settings shows Saint
     // switched on, because the grant it lists belongs to a binary a rebuild
     // replaced. Without this the card tells the user to flip a switch that is
     // already flipped.
@@ -82,18 +82,18 @@ describe("ComputerSetupRequiredCard", () => {
   });
 
   it("names the responsible app in the tccutil fallback, and withholds it when unknown", () => {
-    // The command has to repair *this* Synara's TCC row. `.dev` and `.canary`
+    // The command has to repair *this* Saint's TCC row. `.dev` and `.canary`
     // are separate bundle identifiers, so a guessed production id would revoke a
     // separately installed release build's working grants and fix nothing here.
     const known = renderToStaticMarkup(
       <ComputerSetupRequiredCard
         missing={["accessibility"]}
         buildSignature="adhoc"
-        bundleId="com.emanueledipietro.synara.dev"
+        bundleId="com.locotine.saint.dev"
         onSetUp={() => undefined}
       />,
     );
-    expect(known).toContain("tccutil reset Accessibility com.emanueledipietro.synara.dev");
+    expect(known).toContain("tccutil reset Accessibility com.locotine.saint.dev");
 
     // A server with no desktop shell behind it has no responsible app, and the
     // card must say nothing rather than guess.

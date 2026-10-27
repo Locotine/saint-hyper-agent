@@ -7,7 +7,7 @@ import type {
   EditorDebugFrame,
   EditorDebugSnapshot,
   EditorDebugStartInput,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { ensureNativeApi } from "~/nativeApi";
 import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
 

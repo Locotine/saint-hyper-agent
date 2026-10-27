@@ -10,7 +10,7 @@ import {
   OrchestrationThreadActivity,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { approvalRequestKindFromRequestType, deriveThreadSummaryMetadata } from "./threadSummary";

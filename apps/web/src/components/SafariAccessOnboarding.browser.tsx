@@ -1,5 +1,5 @@
 import "../index.css";
-import type { DesktopBridge, DesktopSafariAccessInfo } from "@synara/contracts";
+import type { DesktopBridge, DesktopSafariAccessInfo } from "@saint/contracts";
 import { page } from "vitest/browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
@@ -14,8 +14,8 @@ import {
 const originalBridge = window.desktopBridge;
 const SUPPORTED_INFO = {
   supported: true,
-  appName: "Synara (Dev)",
-  appPath: "/Applications/Synara (Dev).app",
+  appName: "Saint (Dev)",
+  appPath: "/Applications/Saint (Dev).app",
 } as const;
 const defaultInfo = async (): Promise<DesktopSafariAccessInfo> => SUPPORTED_INFO;
 const api = {
@@ -109,10 +109,10 @@ describe("Safari access onboarding", () => {
     await expect.element(page.getByText("Next welcome")).not.toBeInTheDocument();
     await expect.element(page.getByRole("dialog")).toHaveTextContent("It's optional");
     await expect.element(page.getByRole("dialog")).toHaveTextContent("broad macOS permission");
-    await expect.element(page.getByRole("dialog")).toHaveTextContent("Synara (Dev)");
+    await expect.element(page.getByRole("dialog")).toHaveTextContent("Saint (Dev)");
     await expect
       .element(page.getByRole("button", { name: "Show app in Finder" }))
-      .toHaveAttribute("title", "/Applications/Synara (Dev).app");
+      .toHaveAttribute("title", "/Applications/Saint (Dev).app");
     expect(api.openSettings).not.toHaveBeenCalled();
     expect(localStorage.getItem(SAFARI_ACCESS_STORAGE_KEY)).toBeNull();
   });
@@ -125,7 +125,7 @@ describe("Safari access onboarding", () => {
     expect(localStorage.getItem(SAFARI_ACCESS_STORAGE_KEY)).toBeNull();
     await page.getByRole("button", { name: "Safari import setup" }).click();
     const dialog = page.getByRole("dialog");
-    await expect.element(dialog).toHaveTextContent("Full Disk Access is on for Synara (Dev).");
+    await expect.element(dialog).toHaveTextContent("Full Disk Access is on for Saint (Dev).");
     await expect.element(dialog).toHaveTextContent("Saved logins › Import browser cookies");
     await expect.element(dialog).not.toHaveTextContent("Quit and reopen");
     await expect
@@ -140,7 +140,7 @@ describe("Safari access onboarding", () => {
       await render(<Harness />);
       const dialog = page.getByRole("dialog");
       await expect.element(dialog).toBeVisible();
-      await expect.element(dialog).toHaveTextContent("Quit and reopen Synara.");
+      await expect.element(dialog).toHaveTextContent("Quit and reopen Saint.");
       await expect.element(dialog).not.toHaveTextContent("Full Disk Access is on");
       await expect.element(page.getByRole("button", { name: "Show app in Finder" })).toBeVisible();
     },

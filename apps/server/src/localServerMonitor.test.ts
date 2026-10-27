@@ -86,7 +86,7 @@ describe("localServerMonitor", () => {
     );
   });
 
-  it("keeps dev servers and ignores Electron/Synara-style application listeners", () => {
+  it("keeps dev servers and ignores Electron/Saint-style application listeners", () => {
     expect(
       detectDevServerKindFromText({
         command: "node",
@@ -97,21 +97,21 @@ describe("localServerMonitor", () => {
     expect(
       isIgnoredLocalServerProcess({
         command: "Electron",
-        args: "/Applications/Synara.app/Contents/MacOS/Synara",
+        args: "/Applications/Saint.app/Contents/MacOS/Saint",
         ports: [61449],
       }),
     ).toBe(true);
     expect(
       isIgnoredLocalServerProcess({
-        command: "Synara",
-        args: "/Applications/Synara.app/Contents/MacOS/Synara",
+        command: "Saint",
+        args: "/Applications/Saint.app/Contents/MacOS/Saint",
         ports: [61449],
       }),
     ).toBe(true);
     expect(
       detectDevServerKindFromText({
         command: "node",
-        args: "node /Users/emanueledipietro/Developer/synara/apps/web/node_modules/.bin/vite",
+        args: "node /Users/emanueledipietro/Developer/saint/apps/web/node_modules/.bin/vite",
         ports: [5733],
       }),
     ).toBe("Vite");
@@ -232,7 +232,7 @@ describe("localServerMonitor", () => {
         {
           ppid: 12064,
           commandLine:
-            "node /Users/emanueledipietro/Developer/synara-website/node_modules/.bin/next dev",
+            "node /Users/emanueledipietro/Developer/saint-website/node_modules/.bin/next dev",
         },
       ],
       [

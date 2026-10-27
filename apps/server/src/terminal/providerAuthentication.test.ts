@@ -12,12 +12,12 @@ import os from "node:os";
 import path from "node:path";
 import { Effect, Layer } from "effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { DEFAULT_SERVER_SETTINGS, type ProviderKind, type ServerSettings } from "@synara/contracts";
-import { applyServerSettingsPatch } from "@synara/shared/serverSettings";
+import { DEFAULT_SERVER_SETTINGS, type ProviderKind, type ServerSettings } from "@saint/contracts";
+import { applyServerSettingsPatch } from "@saint/shared/serverSettings";
 import {
   providerStartOptionsFromInstance,
   deriveProviderInstances,
-} from "@synara/shared/providerInstances";
+} from "@saint/shared/providerInstances";
 import { afterEach, expect, it } from "vitest";
 import { ServerSettingsService } from "../serverSettings";
 import { getDevinApiKeyEnv } from "../provider/acp/DevinAcpSupport";
@@ -38,7 +38,7 @@ function fixture(
   provider: ProviderKind,
   options?: { standalone?: boolean; helpExitCode?: number },
 ) {
-  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), "synara-login-")));
+  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), "saint-login-")));
   roots.push(root);
   const homeDir = path.join(root, "home");
   const stateDir = path.join(root, "state");
@@ -57,7 +57,7 @@ if (process.argv.includes('--help')) {
   process.exit(${options?.helpExitCode ?? 0});
 }
 const home = env.CODEX_HOME || env.CLAUDE_CONFIG_DIR || env.CURSOR_CONFIG_DIR || env.GROK_HOME || env.PI_CODING_AGENT_DIR || env.HOME;
-console.log(JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), home, user: env.USER, logname: env.LOGNAME, ambient: env.OPENAI_API_KEY || env.FACTORY_API_KEY || env.WINDSURF_API_KEY || env.GEMINI_API_KEY || '', authority: env.SYNARA_AUTH_TOKEN || '', nativeFlag: env.ELECTRON_RUN_AS_NODE || '' }));
+console.log(JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), home, user: env.USER, logname: env.LOGNAME, ambient: env.OPENAI_API_KEY || env.FACTORY_API_KEY || env.WINDSURF_API_KEY || env.GEMINI_API_KEY || '', authority: env.SAINT_AUTH_TOKEN || '', nativeFlag: env.ELECTRON_RUN_AS_NODE || '' }));
 process.stdin.once('data', () => { fs.mkdirSync(home, { recursive: true }); fs.writeFileSync(path.join(home, 'fixture-auth.json'), 'fixture-only'); process.exit(0); });
 `,
     { mode: 0o755 },
@@ -74,13 +74,13 @@ process.stdin.once('data', () => { fs.mkdirSync(home, { recursive: true }); fs.w
     HOME: homeDir,
     USER: "fixture-user",
     LOGNAME: "fixture-user",
-    SYNARA_HOME: path.join(root, "synara"),
+    SAINT_HOME: path.join(root, "saint"),
     OPENAI_API_KEY: "ambient-fixture",
     FACTORY_API_KEY: "ambient-fixture",
     WINDSURF_API_KEY: "ambient-fixture",
     windsurf_api_key: "ambient-lowercase-fixture",
     GEMINI_API_KEY: "ambient-fixture",
-    SYNARA_AUTH_TOKEN: "authority-fixture",
+    SAINT_AUTH_TOKEN: "authority-fixture",
     ELECTRON_RUN_AS_NODE: "1",
   };
   return { root, homeDir, stateDir, instanceId, settings, baseEnv };

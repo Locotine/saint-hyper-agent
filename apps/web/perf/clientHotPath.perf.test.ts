@@ -1,8 +1,8 @@
 // Perf probe: client store hot path under N concurrently streaming threads, plus the cost of
 // re-applying a real thread-detail snapshot (the periodic projection reconcile).
-//   SYNARA_PERF=1 bunx vitest run perf/clientHotPath.perf.test.ts
+//   SAINT_PERF=1 bunx vitest run perf/clientHotPath.perf.test.ts
 // Snapshot fixtures come from apps/server/perf/threadDetailSnapshot.perf.test.ts
-// (/tmp/synara-perf/snapshot-{p50,p90,max}.json).
+// (/tmp/saint-perf/snapshot-{p50,p90,max}.json).
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   MessageId,
@@ -10,7 +10,7 @@ import {
   ThreadId,
   type OrchestrationEvent,
   type OrchestrationThread,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema } from "effect";
 import { describe, it } from "vitest";
 
@@ -20,10 +20,10 @@ import { syncServerThreadDetail, syncServerThreadDetailHotPath } from "../src/st
 import type { AppState } from "../src/storeState";
 import { makeActivity, makeDomainEvent, makeState, makeThread } from "../src/storeTestFixtures";
 
-const ENABLED = process.env.SYNARA_PERF === "1";
-const FIXTURE_DIR = process.env.SYNARA_PERF_DIR ?? "/tmp/synara-perf";
+const ENABLED = process.env.SAINT_PERF === "1";
+const FIXTURE_DIR = process.env.SAINT_PERF_DIR ?? "/tmp/saint-perf";
 const THREAD_COUNTS = [1, 4, 8];
-const FLUSHES = Number(process.env.SYNARA_PERF_FLUSHES ?? 40);
+const FLUSHES = Number(process.env.SAINT_PERF_FLUSHES ?? 40);
 // Per thread per 100ms flush: a busy Codex/Claude turn interleaves text deltas with tool
 // activity. Real DB averages: ~66 chars per delta, ~1.8KB per tool.updated payload.
 const DELTAS_PER_THREAD_PER_FLUSH = 6;
@@ -233,7 +233,7 @@ describe.skipIf(!ENABLED)("client hot path perf", () => {
     }
     report.flush = flushReport;
     writeFileSync(
-      process.env.SYNARA_PERF_OUT ?? `${FIXTURE_DIR}/client-report.json`,
+      process.env.SAINT_PERF_OUT ?? `${FIXTURE_DIR}/client-report.json`,
       JSON.stringify(report, null, 2),
     );
   }, 300_000);

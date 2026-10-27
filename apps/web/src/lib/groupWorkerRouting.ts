@@ -7,7 +7,7 @@
 // Exports: resolveGroupWorkerRoutingDefaults, applyGroupWorkerRoutingDefaults,
 //          resolveGroupContainerThreadDefaults
 
-import { type ProjectId, type ServerProviderStatus, type ThreadId } from "@synara/contracts";
+import { type ProjectId, type ServerProviderStatus, type ThreadId } from "@saint/contracts";
 
 import { useComposerDraftStore } from "../composerDraftStore";
 import { readNativeApi } from "../nativeApi";

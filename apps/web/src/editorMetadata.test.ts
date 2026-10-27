@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EDITOR_ICON_ROUTE_PATH } from "@synara/shared/editorIcons";
+import { EDITOR_ICON_ROUTE_PATH } from "@saint/shared/editorIcons";
 import { resolveEditorNativeIconUrl } from "./editorMetadata";
 
 describe("resolveEditorNativeIconUrl", () => {

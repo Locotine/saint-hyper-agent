@@ -1,4 +1,4 @@
-import { TodoId } from "@synara/contracts";
+import { TodoId } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { page } from "vitest/browser";
 import type { ReactNode } from "react";

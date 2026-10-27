@@ -9,7 +9,7 @@ describe("Nushell environment capture", () => {
     "uses Nu syntax and loads interactive/login configuration for %s",
     (shell) => {
       const execFile = vi.fn<ShellExec>(
-        () => "__SYNARA_ENV_PATH_START__\n/mise/shims:/bin\n__SYNARA_ENV_PATH_END__\n",
+        () => "__SAINT_ENV_PATH_START__\n/mise/shims:/bin\n__SAINT_ENV_PATH_END__\n",
       );
 
       expect(readPathFromLoginShell(shell, execFile)).toBe("/mise/shims:/bin");
@@ -19,7 +19,7 @@ describe("Nushell environment capture", () => {
           "--login",
           "--interactive",
           "--commands",
-          "print '__SYNARA_ENV_PATH_START__'; do { ^printenv PATH } | complete | get stdout | print --no-newline; print '__SYNARA_ENV_PATH_END__'",
+          "print '__SAINT_ENV_PATH_START__'; do { ^printenv PATH } | complete | get stdout | print --no-newline; print '__SAINT_ENV_PATH_END__'",
         ],
         { encoding: "utf8", timeout: 5000, windowsHide: true },
       );
@@ -30,14 +30,14 @@ describe("Nushell environment capture", () => {
     const execFile = vi.fn<ShellExec>(() =>
       [
         "startup banner",
-        "__SYNARA_ENV_MISSING_START__",
-        "__SYNARA_ENV_MISSING_END__",
-        "__SYNARA_ENV_PATH_START__",
+        "__SAINT_ENV_MISSING_START__",
+        "__SAINT_ENV_MISSING_END__",
+        "__SAINT_ENV_PATH_START__",
         "/Users/example/My Tools:/bin",
-        "__SYNARA_ENV_PATH_END__",
-        "__SYNARA_ENV_CUSTOM_VAR_START__",
+        "__SAINT_ENV_PATH_END__",
+        "__SAINT_ENV_CUSTOM_VAR_START__",
         "  first line\nsecond line  ",
-        "__SYNARA_ENV_CUSTOM_VAR_END__",
+        "__SAINT_ENV_CUSTOM_VAR_END__",
       ].join("\n"),
     );
 
@@ -59,7 +59,7 @@ describe("Nushell environment capture", () => {
         shell,
         [
           "-ilc",
-          "printf '%s\\n' '__SYNARA_ENV_PATH_START__'; printenv PATH || true; printf '%s\\n' '__SYNARA_ENV_PATH_END__'",
+          "printf '%s\\n' '__SAINT_ENV_PATH_START__'; printenv PATH || true; printf '%s\\n' '__SAINT_ENV_PATH_END__'",
         ],
         { encoding: "utf8", timeout: 5000, windowsHide: true },
       );

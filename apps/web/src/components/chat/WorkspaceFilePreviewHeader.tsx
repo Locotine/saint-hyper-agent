@@ -13,7 +13,7 @@
 // Layer: Chat/editor file-preview UI
 // Exports: WorkspaceFilePreviewHeader
 
-import { isWorkspaceRelativePathSafe, joinWorkspaceRelativePath } from "@synara/shared/path";
+import { isWorkspaceRelativePathSafe, joinWorkspaceRelativePath } from "@saint/shared/path";
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 
 import { basenameOfPath } from "~/file-icons";
@@ -42,7 +42,7 @@ import {
 interface WorkspaceFilePreviewHeaderProps {
   workspaceRoot: string | null;
   filePath: string;
-  /** Markdown files get an inline Source/Preview segmented switcher. */
+  /** Markdown and HTML files get an inline Source/Preview segmented switcher. */
   isMarkdown: boolean;
   /** True while the rendered preview is shown; false for the source view. */
   markdownPreviewEnabled: boolean;

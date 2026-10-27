@@ -1,5 +1,5 @@
 {
-  "name": "@synara/scripts",
+  "name": "@saint/scripts",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
-    "@synara/contracts": "workspace:*",
-    "@synara/shared": "workspace:*",
+    "@saint/contracts": "workspace:*",
+    "@saint/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

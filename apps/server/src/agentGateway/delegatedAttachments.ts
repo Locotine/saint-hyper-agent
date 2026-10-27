@@ -7,7 +7,7 @@ import {
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   type ChatAttachment,
   type HubWorkSourceMessage,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Option } from "effect";
 
 import { resolveAttachmentRelativePath } from "../attachmentPaths.ts";

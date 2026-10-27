@@ -19,8 +19,8 @@ import {
   type ProjectAgentStreamEvent,
   type ServerProviderStatus,
   type ServerSettings,
-} from "@synara/contracts";
-import { MEMORY_AUTO_DOCUMENT_PATH, memoryThreadDocumentPath } from "@synara/shared/projectAgent";
+} from "@saint/contracts";
+import { MEMORY_AUTO_DOCUMENT_PATH, memoryThreadDocumentPath } from "@saint/shared/projectAgent";
 import { vi } from "vitest";
 import { PersistenceSqlError } from "../../persistence/Errors.ts";
 import { Cause, Deferred, Effect, Fiber, Layer, Option, Stream } from "effect";
@@ -59,7 +59,7 @@ import { ServerSettingsService } from "../../serverSettings.ts";
 import { ProviderHealth } from "../../provider/Services/ProviderHealth.ts";
 import { ProviderService } from "../../provider/Services/ProviderService.ts";
 import { ProjectionThreadSessionRepository } from "../../persistence/Services/ProjectionThreadSessions.ts";
-import type { ProviderSession } from "@synara/contracts";
+import type { ProviderSession } from "@saint/contracts";
 import { ProjectAgentService } from "../Services/ProjectAgentService.ts";
 import { ProjectAgentServiceLive } from "./ProjectAgentService.ts";
 
@@ -128,7 +128,7 @@ function makeTestLayer(options?: {
       worktreePath?: string | null;
       workingDirectory?: string | null;
       envMode?: string;
-      creationSource?: "synara_mcp";
+      creationSource?: "saint_mcp";
       sourceThreadId?: ThreadId;
     }
   > = {
@@ -2879,7 +2879,7 @@ it.effect("libraryAdd copies in-workspace files and rejects escapes", () => {
 
     // The group folder is the coordinator's workspace; the member thread gets
     // its own working directory — both under the tmp state dir, never the
-    // real ~/Documents/Synara workspace roots.
+    // real ~/Documents/Saint workspace roots.
     const groupFolder = path.join(serverConfig.stateDir, "group-folder");
     const memberWorkspace = path.join(serverConfig.stateDir, "member-workspace");
     yield* Effect.promise(() => fs.mkdir(path.join(groupFolder, "docs"), { recursive: true }));
@@ -3269,7 +3269,7 @@ it.effect("delete removes hub data, keeps custom libraries and linked repos", ()
       libraryPath: customLibrary,
     });
     const coordinator = coordinatorPrincipal(overview.config!.coordinatorThreadId!);
-    // Listing initializes the Synara marker so the custom root counts as
+    // Listing initializes the Saint marker so the custom root counts as
     // managed — a markerless non-empty folder is never treated as a library.
     yield* service.libraryList({ projectId: groupId }, { kind: "user" });
     yield* Effect.promise(() => fs.writeFile(path.join(customLibrary, "seed.txt"), "keep me"));
@@ -4350,7 +4350,7 @@ it.effect("isolates coordinator instructions from member and worker packets", ()
     assert.include(workerPacket, sectionHeading("Assigned Hub task", "server-state"));
     assert.include(workerPacket, "Work item: hub-work-packet");
     assert.include(workerPacket, "Progress revision: 3");
-    assert.include(workerPacket, "synara_hub_update_progress");
+    assert.include(workerPacket, "saint_hub_update_progress");
     assert.notInclude(memberPacket, "## Assigned Hub task");
     assert.notInclude(customCoordinatorPacket, "## Assigned Hub task");
     for (const packet of [memberPacket, workerPacket]) {
@@ -4591,7 +4591,7 @@ it.effect("posts a settle row into the coordinator thread and wakes it", () => {
     const rows = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.worker.settled",
+        command.activity.kind === "saint.worker.settled",
     );
     assert.equal(rows.length, 1);
     const row = rows[0]!;
@@ -4629,7 +4629,7 @@ it.effect("posts one roll-up when every worker in the creation batch settles", (
       harness.dispatched.filter(
         (command) =>
           command.type === "thread.activity.append" &&
-          command.activity.kind === "synara.workers.settled",
+          command.activity.kind === "saint.workers.settled",
       );
 
     yield* service.ingestSettledThreadEvent({
@@ -4689,7 +4689,7 @@ it.effect("posts one roll-up when every worker in the creation batch settles", (
     const settledRows = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.worker.settled",
+        command.activity.kind === "saint.worker.settled",
     );
     // Alpha done, Beta done, Gamma waiting, Gamma done.
     assert.equal(settledRows.length, 4);
@@ -4774,7 +4774,7 @@ it.effect("rolls up one created worker only after its unstarted Hub peers fail o
       harness.dispatched.filter(
         (command) =>
           command.type === "thread.activity.append" &&
-          command.activity.kind === "synara.workers.settled",
+          command.activity.kind === "saint.workers.settled",
       );
     for (const [threadId, sourceEventId] of [[threadA, "hub-roll-a-done"]] as const)
       yield* service.ingestSettledThreadEvent({
@@ -4866,7 +4866,7 @@ it.effect("flags quiet and overdue workers once per episode", () => {
       harness.dispatched.filter(
         (command) =>
           command.type === "thread.activity.append" &&
-          command.activity.kind === "synara.worker.stuck",
+          command.activity.kind === "saint.worker.stuck",
       );
     yield* TestClock.adjust("11 minutes");
     yield* service.inspectWorkerHealth();
@@ -4913,7 +4913,7 @@ it.effect("reports a missing worker shell once", () => {
       harness.dispatched.filter(
         (command) =>
           command.type === "thread.activity.append" &&
-          command.activity.kind === "synara.worker.settled" &&
+          command.activity.kind === "saint.worker.settled" &&
           command.activity.summary === "✗ Lost worker went missing",
       );
     yield* service.inspectWorkerHealth();
@@ -4938,8 +4938,7 @@ const stuckRowSummaries = (harness: ReturnType<typeof makeTestLayer>) =>
   harness.dispatched
     .filter(
       (command) =>
-        command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.worker.stuck",
+        command.type === "thread.activity.append" && command.activity.kind === "saint.worker.stuck",
     )
     .map((command) => (command.type === "thread.activity.append" ? command.activity.summary : ""));
 
@@ -5117,7 +5116,7 @@ it.effect("flags the worker Waiting on you once the recovery cap is exhausted", 
     assert.equal(Option.isSome(workerAfterFirst) ? workerAfterFirst.value.recoveriesUsed : null, 2);
 
     // The next full quiet window finds the re-dispatch produced nothing —
-    // the spent cap latches "Waiting on you" — a Synara-native needs-you row
+    // the spent cap latches "Waiting on you" — a Saint-native needs-you row
     // on the coordinator thread (with real actions, not a fake provider
     // request) and one wake for the coordinator to tell the user.
     yield* TestClock.adjust("11 minutes");
@@ -5130,7 +5129,7 @@ it.effect("flags the worker Waiting on you once the recovery cap is exhausted", 
     const needsYouRows = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.worker.needs-you",
+        command.activity.kind === "saint.worker.needs-you",
     );
     assert.equal(needsYouRows.length, 1);
     const needsYouRow = needsYouRows[0]!;
@@ -5204,7 +5203,7 @@ it.effect("settles a running worker whose live session disappeared", () => {
     const settled = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.worker.settled",
+        command.activity.kind === "saint.worker.settled",
     );
     assert.equal(settled.length, 1);
     const settleRow = settled[0]!;
@@ -5286,14 +5285,14 @@ it.effect("re-dispatches a worker that never starts once, then waits on you", ()
       harness.dispatched.some(
         (command) =>
           command.type === "thread.activity.append" &&
-          command.activity.kind === "synara.worker.needs-you",
+          command.activity.kind === "saint.worker.needs-you",
       ),
       true,
     );
   }).pipe(Effect.provide(Layer.merge(harness.layer, TestClock.layer())));
 });
 
-// synara_project_report_result drives the settle row and the roll-up instead
+// saint_project_report_result drives the settle row and the roll-up instead
 // of generic text; a finished worker without one gets "no result filed".
 it.effect("quotes report_result in the settle row and roll-up", () => {
   const harness = makeTestLayer();
@@ -5386,7 +5385,7 @@ it.effect("quotes report_result in the settle row and roll-up", () => {
     const settledRows = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.worker.settled",
+        command.activity.kind === "saint.worker.settled",
     );
     assert.equal(settledRows.length, 2);
     const summaryOf = (row: OrchestrationCommand) =>
@@ -5401,7 +5400,7 @@ it.effect("quotes report_result in the settle row and roll-up", () => {
     const rollups = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.workers.settled",
+        command.activity.kind === "saint.workers.settled",
     );
     assert.equal(rollups.length, 1);
     if (rollups[0]!.type === "thread.activity.append") {
@@ -5463,7 +5462,7 @@ it.effect("adds the tracked PR link to finished rows and the roll-up", () => {
     const settledRows = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.worker.settled",
+        command.activity.kind === "saint.worker.settled",
     );
     const summaryOf = (row: OrchestrationCommand) =>
       row.type === "thread.activity.append" ? row.activity.summary : "";
@@ -5475,7 +5474,7 @@ it.effect("adds the tracked PR link to finished rows and the roll-up", () => {
     const rollups = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.workers.settled",
+        command.activity.kind === "saint.workers.settled",
     );
     assert.equal(rollups.length, 1);
     if (rollups[0]!.type === "thread.activity.append") {
@@ -5824,7 +5823,7 @@ it.effect("suppresses monitor rows while the hub is paused", () => {
     const monitorRows = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        String(command.activity.kind).startsWith("synara.worker"),
+        String(command.activity.kind).startsWith("saint.worker"),
     );
     assert.equal(monitorRows.length, 0);
   }).pipe(Effect.provide(harness.layer));
@@ -6025,7 +6024,7 @@ it.effect("settles a missing diff as interrupted without resetting the recovery 
     const settled = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.worker.settled",
+        command.activity.kind === "saint.worker.settled",
     );
     assert.equal(settled.length, 1);
     if (settled[0]!.type === "thread.activity.append") {
@@ -6055,7 +6054,7 @@ it.effect("settles a missing diff as interrupted without resetting the recovery 
     const settledRows = harness.dispatched.filter(
       (command) =>
         command.type === "thread.activity.append" &&
-        command.activity.kind === "synara.worker.settled",
+        command.activity.kind === "saint.worker.settled",
     );
     assert.equal(settledRows.length, 2);
     if (settledRows[1]!.type === "thread.activity.append") {
@@ -6351,7 +6350,7 @@ it.effect("keeps taskless and settled managed workers from delegating further th
     );
     harness.threadShells[groupMemberThreadId] = {
       ...harness.threadShells[groupMemberThreadId]!,
-      creationSource: "synara_mcp",
+      creationSource: "saint_mcp",
       sourceThreadId: overview.config!.coordinatorThreadId,
     };
     const beforeTracking = yield* service.resolvePrincipalForThread(groupMemberThreadId);
@@ -6487,7 +6486,7 @@ it.effect("does not report a settlement after both real monitor CAS writes lose"
         harness.dispatched.filter(
           (command) =>
             command.type === "thread.activity.append" &&
-            command.activity.kind === "synara.worker.settled",
+            command.activity.kind === "saint.worker.settled",
         ).length,
         0,
       );

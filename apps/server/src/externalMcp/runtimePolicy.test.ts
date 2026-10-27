@@ -1,4 +1,4 @@
-import { EXTERNAL_MCP_MAX_PROMPT_CHARS, ExternalMcpCreateTaskInput } from "@synara/contracts";
+import { EXTERNAL_MCP_MAX_PROMPT_CHARS, ExternalMcpCreateTaskInput } from "@saint/contracts";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 

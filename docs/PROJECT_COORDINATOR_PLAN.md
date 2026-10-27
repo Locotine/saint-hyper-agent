@@ -1,16 +1,16 @@
 PLEASE IMPLEMENT THIS PLAN:
 
-# Synara Project Coordinator
+# Saint Project Coordinator
 
 **Summary**
 
-Add a **Project icon beside Environment** that opens a persistent workspace for the current Synara project. It combines a named coordinator, shared context, task tracking, and summaries across threads.
+Add a **Project icon beside Environment** that opens a persistent workspace for the current Saint project. It combines a named coordinator, shared context, task tracking, and summaries across threads.
 
 The design follows your choices:
 
-- Enhance existing Synara projects.
+- Enhance existing Saint projects.
 - Give each project one persistent coordinator thread in the main chat.
-- Keep shared context in private Synara storage.
+- Keep shared context in private Saint storage.
 - Allow autonomous progress within an assigned goal.
 - Show project information in the right panel.
 
@@ -20,9 +20,9 @@ Cursor launched Projects on September 10, 2026. Its documented model combines a 
 
 Your screenshots show the complementary interface: a Focus summary, linked work items, completion indicators, archived work, and browsable Markdown context. They establish the visible experience; they do not establish Cursor’s internal storage or coordination implementation.
 
-Synara already has much of the infrastructure:
+Saint already has much of the infrastructure:
 
-| Capability            | Current Synara implementation                                             | Required addition                                      |
+| Capability            | Current Saint implementation                                              | Required addition                                      |
 | --------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------ |
 | Projects and threads  | Persistent project IDs, workspace roots, thread relationships             | Coordinator identity and project configuration         |
 | Right-panel interface | Environment panel with docked and floating layouts                        | Shared panel host with a Project surface               |
@@ -32,9 +32,9 @@ Synara already has much of the infrastructure:
 | Task tracking         | Kanban columns derived from thread runtime state                          | Explicit task outcomes, dependencies, and acceptance   |
 | Project instructions  | Browser local storage                                                     | Shared server-backed instructions for enabled projects |
 
-These conclusions come from the checkout at `779cd649e060c17a57ede329b51fbe67e6b02663`, including [ChatView](<file:///Users/dilipreddy/Open Source Contributions/synara/apps/web/src/components/ChatView.tsx>), [Gateway creation](<file:///Users/dilipreddy/Open Source Contributions/synara/apps/server/src/agentGateway/creationCoordinator.ts>), [automation service](<file:///Users/dilipreddy/Open Source Contributions/synara/apps/server/src/automation/Services/AutomationService.ts>), and [Kanban derivation](<file:///Users/dilipreddy/Open Source Contributions/synara/apps/web/src/components/kanban/kanban.logic.ts>).
+These conclusions come from the checkout at `779cd649e060c17a57ede329b51fbe67e6b02663`, including [ChatView](<file:///Users/dilipreddy/Open Source Contributions/saint/apps/web/src/components/ChatView.tsx>), [Gateway creation](<file:///Users/dilipreddy/Open Source Contributions/saint/apps/server/src/agentGateway/creationCoordinator.ts>), [automation service](<file:///Users/dilipreddy/Open Source Contributions/saint/apps/server/src/automation/Services/AutomationService.ts>), and [Kanban derivation](<file:///Users/dilipreddy/Open Source Contributions/saint/apps/web/src/components/kanban/kanban.logic.ts>).
 
-**Architectural decision:** build project coordination on Synara’s existing execution infrastructure. Extend automation runs for event-driven continuations; keep goals, tasks, documents, and summaries in a dedicated project domain.
+**Architectural decision:** build project coordination on Saint’s existing execution infrastructure. Extend automation runs for event-driven continuations; keep goals, tasks, documents, and summaries in a dedicated project domain.
 
 The inspected checkout supports `heartbeat` and `standalone` automations. Use the existing targeted `heartbeat` execution path for the coordinator; do not assume newer capabilities exposed by the running host already exist in this source tree.
 
@@ -95,7 +95,7 @@ V1 supports one active goal per project, with multiple dependent tasks and worke
 
 ## 3. Shared context and persistence
 
-Use Synara’s configured `stateDir`, with the following private materialized workspace:
+Use Saint’s configured `stateDir`, with the following private materialized workspace:
 
 ```text
 project-context/<projectId>/
@@ -121,7 +121,7 @@ Ownership is explicit:
 
 **SQLite is authoritative.** Documents have immutable revisions, authors, timestamps, content hashes, and source references. Markdown files are recoverable materialized copies written atomically using existing server utilities.
 
-Edits through Synara or agent tools require an expected revision. Conflicting edits return a conflict instead of overwriting newer content. Unexpected external file changes are preserved and offered for explicit import; the materializer must not silently overwrite them.
+Edits through Saint or agent tools require an expected revision. Conflicting edits return a conflict instead of overwriting newer content. Unexpected external file changes are preserved and offered for explicit import; the materializer must not silently overwrite them.
 
 Additional rules:
 
@@ -183,7 +183,7 @@ Add a `NativeApi.projectAgent` namespace:
 
 Mutations carry stable request IDs; mutable records use revision checks. List methods use cursors with a maximum page size of 100.
 
-Subscriptions use the existing snapshot/replay pattern from [wsSnapshotLiveStream](<file:///Users/dilipreddy/Open Source Contributions/synara/apps/server/src/wsSnapshotLiveStream.ts>). Keep document bodies and historical transcripts out of shell snapshots.
+Subscriptions use the existing snapshot/replay pattern from [wsSnapshotLiveStream](<file:///Users/dilipreddy/Open Source Contributions/saint/apps/server/src/wsSnapshotLiveStream.ts>). Keep document bodies and historical transcripts out of shell snapshots.
 
 Expose corresponding project read, task, document, and result-reporting MCP tools. Derive project identity and permissions from the calling thread’s server-side association.
 
@@ -261,13 +261,13 @@ The coordinator may observe project threads, but it may drive only threads assoc
 
 Goal authorization can originate only from a user action. Worker reports, summaries, and imported documents are context, not authorization.
 
-These checks govern Synara-mediated operations. Native provider tools remain subject to the provider’s existing runtime permissions; the private context directory is not a process sandbox.
+These checks govern Saint-mediated operations. Native provider tools remain subject to the provider’s existing runtime permissions; the private context directory is not a process sandbox.
 
 ## 6. Summaries that remain accurate
 
 Use deterministic events for runtime state and a model for concise explanatory text.
 
-Add `generateProjectDigest` to the existing TextGeneration abstraction, with a shared prompt and validated result schema. Use Synara’s configured text-generation provider rather than assuming the coordinator’s provider supports that abstraction.
+Add `generateProjectDigest` to the existing TextGeneration abstraction, with a shared prompt and validated result schema. Use Saint’s configured text-generation provider rather than assuming the coordinator’s provider supports that abstraction.
 
 Generation rules:
 
@@ -295,7 +295,7 @@ Deliver as six reviewable increments:
 
 Keep the feature disabled until configured per project. Shipping an earlier increment must not activate autonomous work.
 
-V1 excludes cross-repository initiatives, cloud machines, cross-host document synchronization, Slack/GitHub subscriptions, and recurring maintenance goals. Existing execution continues only while the Synara server and required providers are available.
+V1 excludes cross-repository initiatives, cloud machines, cross-host document synchronization, Slack/GitHub subscriptions, and recurring maintenance goals. Existing execution continues only while the Saint server and required providers are available.
 
 ## 8. Verification and acceptance
 
@@ -323,7 +323,7 @@ Performance and interface coverage:
 - Test narrow windows, mobile sheets, split view, keyboard navigation, focus restoration, and reduced motion.
 - Track event backlog age, rejected duplicate dispatches, digest failures, and context-materialization conflicts.
 
-Run focused Vitest suites using `bun run test`, never `bun test`. Validate the interface in an isolated Synara instance with separate state and ports.
+Run focused Vitest suites using `bun run test`, never `bun test`. Validate the interface in an isolated Saint instance with separate state and ports.
 
 The repository requires `bun fmt`, `bun lint`, and `bun typecheck` before implementation is considered complete, but prohibits running them without an explicit request. Reserve one final bundled pass once authorized.
 

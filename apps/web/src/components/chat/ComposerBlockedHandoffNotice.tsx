@@ -4,7 +4,7 @@
 // Layer: Chat composer UI
 // Exports: ComposerBlockedHandoffNotice
 
-import { PROVIDER_DISPLAY_NAMES } from "@synara/contracts";
+import { PROVIDER_DISPLAY_NAMES } from "@saint/contracts";
 import { useState } from "react";
 
 import type { BlockedProviderHandoff } from "~/lib/threadHandoff";

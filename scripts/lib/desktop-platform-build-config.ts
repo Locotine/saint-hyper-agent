@@ -6,10 +6,10 @@
 import { fileURLToPath } from "node:url";
 
 import {
-  SYNARA_BETA_WINDOWS_INSTALLER_GUID,
-  SYNARA_STABLE_WINDOWS_INSTALLER_GUID,
-} from "@synara/shared/betaChannel";
-import type { SynaraPackagedDesktopFlavor } from "@synara/shared/desktopIdentity";
+  SAINT_BETA_WINDOWS_INSTALLER_GUID,
+  SAINT_STABLE_WINDOWS_INSTALLER_GUID,
+} from "@saint/shared/betaChannel";
+import type { SaintPackagedDesktopFlavor } from "@saint/shared/desktopIdentity";
 
 import {
   createDesktopBundleFilePatterns,
@@ -17,9 +17,9 @@ import {
 } from "./desktop-bundle-files.ts";
 
 export const MICROPHONE_USAGE_DESCRIPTION =
-  "Synara needs microphone access so you can record voice notes and transcribe them into the chat composer, and, if you turn it on, to move the chat message trail with your voice.";
+  "Saint needs microphone access so you can record voice notes and transcribe them into the chat composer, and, if you turn it on, to move the chat message trail with your voice.";
 export const AUDIO_CAPTURE_USAGE_DESCRIPTION =
-  "Synara reads how loud your Mac's audio is to animate the chat message trail. The audio itself is never recorded.";
+  "Saint reads how loud your Mac's audio is to animate the chat message trail. The audio itself is never recorded.";
 // Bundle metadata uses the product version; electron-updater compares Darwin releases.
 export const MAC_MINIMUM_SYSTEM_VERSION = "13.0";
 export const MAC_MINIMUM_DARWIN_VERSION = "22.0.0";
@@ -27,26 +27,26 @@ export const MAC_ENTITLEMENTS_PATH = "apps/desktop/resources/entitlements.mac.pl
 export const MAC_INHERITED_ENTITLEMENTS_PATH =
   "apps/desktop/resources/entitlements.mac.inherit.plist";
 export const MAC_APPSNAP_HELPER_STAGE_PATH =
-  "apps/desktop/native/appsnap/build/synara-appsnap-helper";
+  "apps/desktop/native/appsnap/build/saint-appsnap-helper";
 export const MAC_APPSNAP_HELPER_ASAR_EXCLUSION = "!apps/desktop/native/appsnap/build/**";
-export const MAC_APPSNAP_HELPER_BUNDLE_PATH = "Contents/Helpers/synara-appsnap-helper";
+export const MAC_APPSNAP_HELPER_BUNDLE_PATH = "Contents/Helpers/saint-appsnap-helper";
 // In-process Node-API addon for the adjustable window blur (apps/desktop/native/window-material).
 export const MAC_WINDOW_MATERIAL_ADDON_STAGE_PATH =
-  "apps/desktop/native/window-material/build/synara-window-material.node";
+  "apps/desktop/native/window-material/build/saint-window-material.node";
 export const MAC_WINDOW_MATERIAL_ADDON_ASAR_EXCLUSION = "!apps/desktop/native/window-material/**";
 export const MAC_WINDOW_MATERIAL_ADDON_BUNDLE_PATH =
-  "Contents/Frameworks/synara-window-material.node";
+  "Contents/Frameworks/saint-window-material.node";
 export const MAC_DEVICE_HELPER_STAGE_PATH = "apps/server/dist/device-helper";
 export const MAC_DEVICE_HELPER_RESOURCE_PATH = "Resources/device-helper";
-export const WINDOWS_INSTALLER_GUID = SYNARA_STABLE_WINDOWS_INSTALLER_GUID;
+export const WINDOWS_INSTALLER_GUID = SAINT_STABLE_WINDOWS_INSTALLER_GUID;
 // Asset catalog name of the compiled Icon Composer icon. macOS 26 reads
 // CFBundleIconName out of Assets.car and renders that layered icon with the
 // Liquid Glass material; older releases ignore it and keep using the ICNS.
-export const MAC_ICON_ASSET_NAME = "Synara";
+export const MAC_ICON_ASSET_NAME = "Saint";
 export const MAC_ICON_COMPOSER_DEPLOYMENT_TARGET = "26.0";
 export const MAC_ICON_ASSETS_CAR_STAGE_PATH = "apps/desktop/resources/Assets.car";
 export const MAC_ICON_ASSETS_CAR_BUNDLE_PATH = "Resources/Assets.car";
-export { SYNARA_BETA_WINDOWS_INSTALLER_GUID };
+export { SAINT_BETA_WINDOWS_INSTALLER_GUID };
 const MAC_DMG_ICON_PATH = "icon.icns";
 const NODE_PTY_ASAR_UNPACK_GLOBS = ["node_modules/node-pty/**"] as const;
 
@@ -72,7 +72,7 @@ export interface CreateDesktopPlatformBuildConfigInput {
   /** Seal isolated local bundles without selecting a release certificate. */
   readonly adHocSign?: boolean;
   readonly windowsAzureSignOptions?: Record<string, string>;
-  readonly flavor?: SynaraPackagedDesktopFlavor | undefined;
+  readonly flavor?: SaintPackagedDesktopFlavor | undefined;
 }
 
 export interface DesktopNativeBuildHostInput {
@@ -153,16 +153,16 @@ export function createDesktopPlatformBuildConfig(
       // The universal build stages the same pre-lipo'd helper and addon in both app trees.
       // @electron/universal needs this pattern to preserve those existing fat binaries.
       x64ArchFiles:
-        "Contents/{Helpers/synara-appsnap-helper,Frameworks/synara-window-material.node,Resources/cua-driver/cua-driver}",
+        "Contents/{Helpers/saint-appsnap-helper,Frameworks/saint-window-material.node,Resources/cua-driver/cua-driver}",
       extendInfo: {
         NSMicrophoneUsageDescription: MICROPHONE_USAGE_DESCRIPTION,
         NSAudioCaptureUsageDescription: AUDIO_CAPTURE_USAGE_DESCRIPTION,
         NSScreenCaptureUsageDescription:
-          "Synara captures the windows you authorize for Computer use.",
+          "Saint captures the windows you authorize for Computer use.",
         NSAccessibilityUsageDescription:
-          "Synara controls the windows you authorize for Computer use.",
+          "Saint controls the windows you authorize for Computer use.",
         NSLocalNetworkUsageDescription:
-          "Synara connects to the browsers it drives on this Mac so agents can browse in the background.",
+          "Saint connects to the browsers it drives on this Mac so agents can browse in the background.",
         CFBundleIconName: MAC_ICON_ASSET_NAME,
       },
     } satisfies Record<string, unknown>;
@@ -200,11 +200,11 @@ export function createDesktopPlatformBuildConfig(
         { from: "apps/desktop/resources/cua-driver", to: "Resources/cua-driver" },
         {
           from: MAC_APPSNAP_HELPER_STAGE_PATH,
-          to: "Helpers/synara-appsnap-helper",
+          to: "Helpers/saint-appsnap-helper",
         },
         {
           from: MAC_WINDOW_MATERIAL_ADDON_STAGE_PATH,
-          to: "Frameworks/synara-window-material.node",
+          to: "Frameworks/saint-window-material.node",
         },
         {
           from: MAC_DEVICE_HELPER_STAGE_PATH,
@@ -235,12 +235,14 @@ export function createDesktopPlatformBuildConfig(
       extraResources: [{ from: "apps/desktop/resources/cua-driver", to: "cua-driver" }],
       linux: {
         target: [input.target],
-        executableName: "synara",
+        executableName: "saint",
+        // deb/rpm need a maintainer; the author has no published email to derive one from.
+        maintainer: "Locotine",
         icon: "icon.png",
         category: "Development",
         desktop: {
           entry: {
-            StartupWMClass: "synara",
+            StartupWMClass: "saint",
           },
         },
       },
@@ -252,7 +254,7 @@ export function createDesktopPlatformBuildConfig(
     // Keep the Windows product registration stable while the public app ID changes.
     // This lets NSIS updates replace the existing installation and own its uninstaller.
     nsis: {
-      guid: input.flavor === "beta" ? SYNARA_BETA_WINDOWS_INSTALLER_GUID : WINDOWS_INSTALLER_GUID,
+      guid: input.flavor === "beta" ? SAINT_BETA_WINDOWS_INSTALLER_GUID : WINDOWS_INSTALLER_GUID,
     },
     win: {
       target: [input.target],

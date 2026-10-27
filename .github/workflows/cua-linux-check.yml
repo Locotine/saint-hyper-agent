@@ -73,8 +73,8 @@ jobs:
           release=packages/shared/src/cuaDriverRelease.json
           source_commit=$(jq -r .source "$release")
           rust_version=$(jq -r .rustVersion "$release")
-          native_patch="$GITHUB_WORKSPACE/apps/desktop/patches/cua-driver/0001-synara-native.patch"
-          linux_patch="$GITHUB_WORKSPACE/apps/desktop/patches/cua-driver/0002-synara-linux-browser.patch"
+          native_patch="$GITHUB_WORKSPACE/apps/desktop/patches/cua-driver/0001-saint-native.patch"
+          linux_patch="$GITHUB_WORKSPACE/apps/desktop/patches/cua-driver/0002-saint-linux-browser.patch"
           test "$(sha256sum "$native_patch" | cut -d ' ' -f 1)" = "$(jq -r .patchSha256 "$release")"
           test "$(sha256sum "$linux_patch" | cut -d ' ' -f 1)" = "$(jq -r .linuxBrowserPatchSha256 "$release")"
           rustup toolchain install "$rust_version" --profile minimal

@@ -21,9 +21,9 @@ import {
   ProviderRuntimeEvent,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { assert, describe, it } from "@effect/vitest";
-import { assessClaudeCache } from "@synara/shared/claudeCache";
+import { assessClaudeCache } from "@saint/shared/claudeCache";
 import {
   Cause,
   Deferred,
@@ -42,7 +42,7 @@ import { TestClock } from "effect/testing";
 import { afterEach, beforeEach, vi } from "vitest";
 
 import { attachmentRelativePath } from "../../attachmentStore.ts";
-import { SYNARA_HARNESS_POLICY_MARKER } from "../../agentGateway/harnessPolicy.ts";
+import { SAINT_HARNESS_POLICY_MARKER } from "../../agentGateway/harnessPolicy.ts";
 import {
   AgentGatewayCredentials,
   type AgentGatewayCredentialsShape,
@@ -733,22 +733,22 @@ function fakeSlashCommand(entry: string) {
   return alias ? Object.assign(command, { aliases: [alias] }) : command;
 }
 
-describe("Claude Synara harness policy", () => {
+describe("Claude Saint harness policy", () => {
   it("advertises scoped MCP additively when credentials are available", () => {
     const text = buildEmbeddedClaudeSystemPromptAppend(true);
-    assert.include(text, SYNARA_HARNESS_POLICY_MARKER);
+    assert.include(text, SAINT_HARNESS_POLICY_MARKER);
     assert.include(text, "Final responses must restate every needed scope");
     assert.include(text, "include all decision context");
-    assert.include(text, "Use the synara_* tools");
-    assert.notInclude(text, "Synara MCP control is unavailable");
+    assert.include(text, "Use the saint_* tools");
+    assert.notInclude(text, "Saint MCP control is unavailable");
   });
 
   it("stays truthful when scoped MCP credentials are absent", () => {
     const text = buildEmbeddedClaudeSystemPromptAppend(false);
-    assert.include(text, SYNARA_HARNESS_POLICY_MARKER);
+    assert.include(text, SAINT_HARNESS_POLICY_MARKER);
     assert.include(text, "Final responses must restate every needed scope");
     assert.include(text, "include all decision context");
-    assert.include(text, "Synara MCP control is unavailable");
+    assert.include(text, "Saint MCP control is unavailable");
   });
 });
 
@@ -838,7 +838,7 @@ describe("ClaudeAdapterLive", () => {
     },
   );
 
-  it.effect("starts an environment-only runtime with its Synara-scoped account directories", () => {
+  it.effect("starts an environment-only runtime with its Saint-scoped account directories", () => {
     const harness = makeHarness();
     return Effect.acquireUseRelease(
       Effect.sync(() => {
@@ -973,7 +973,7 @@ describe("ClaudeAdapterLive", () => {
     },
   );
 
-  it.effect("injects the canonical Synara browser MCP into an Opus 4.8 session", () => {
+  it.effect("injects the canonical Saint browser MCP into an Opus 4.8 session", () => {
     const gateway = makeGatewayCredentialsHarness();
     const harness = makeMultiQueryHarness({ gatewayCredentials: gateway.credentials });
     return Effect.gen(function* () {
@@ -991,7 +991,7 @@ describe("ClaudeAdapterLive", () => {
       const options = harness.createInputs[0]?.options;
       assert.equal(options?.model, "claude-opus-4-8");
       assert.deepEqual(options?.mcpServers, {
-        synara: {
+        saint: {
           type: "http",
           url: "http://127.0.0.1:48123/mcp",
           headers: { Authorization: "Bearer gateway-token-1" },
@@ -1035,7 +1035,7 @@ describe("ClaudeAdapterLive", () => {
   });
 
   it.effect(
-    "pre-approves Synara group tools for an opted-in coordinator session while Bash still asks",
+    "pre-approves Saint group tools for an opted-in coordinator session while Bash still asks",
     () => {
       const gateway = makeGatewayCredentialsHarness();
       const harness = makeMultiQueryHarness({ gatewayCredentials: gateway.credentials });
@@ -1045,7 +1045,7 @@ describe("ClaudeAdapterLive", () => {
           threadId: THREAD_ID,
           provider: "claudeAgent",
           runtimeMode: "approval-required",
-          autoApproveSynaraTools: true,
+          autoApproveSaintTools: true,
         });
 
         const canUseTool = harness.createInputs[0]?.options.canUseTool;
@@ -1054,8 +1054,8 @@ describe("ClaudeAdapterLive", () => {
         }
 
         for (const [index, toolName] of [
-          "mcp__synara__synara_create_thread",
-          "synara_project_link_repository",
+          "mcp__saint__saint_create_thread",
+          "saint_project_link_repository",
         ].entries()) {
           const result = (yield* Effect.promise(() =>
             canUseTool(
@@ -1063,8 +1063,8 @@ describe("ClaudeAdapterLive", () => {
               {},
               {
                 signal: new AbortController().signal,
-                toolUseID: `tool-use-synara-${index}`,
-                requestId: `request-synara-${index}`,
+                toolUseID: `tool-use-saint-${index}`,
+                requestId: `request-saint-${index}`,
               },
             ),
           )) as PermissionResult;
@@ -1105,7 +1105,7 @@ describe("ClaudeAdapterLive", () => {
     },
   );
 
-  it.effect("keeps Synara group tools on the approval path when the session did not opt in", () => {
+  it.effect("keeps Saint group tools on the approval path when the session did not opt in", () => {
     const gateway = makeGatewayCredentialsHarness();
     const harness = makeMultiQueryHarness({ gatewayCredentials: gateway.credentials });
     return Effect.gen(function* () {
@@ -1122,12 +1122,12 @@ describe("ClaudeAdapterLive", () => {
       }
 
       const pending = canUseTool(
-        "mcp__synara__synara_create_thread",
+        "mcp__saint__saint_create_thread",
         {},
         {
           signal: new AbortController().signal,
-          toolUseID: "tool-use-synara-no-opt-in",
-          requestId: "request-synara-no-opt-in",
+          toolUseID: "tool-use-saint-no-opt-in",
+          requestId: "request-saint-no-opt-in",
         },
       );
       const requested = yield* Stream.filter(
@@ -1372,10 +1372,10 @@ describe("ClaudeAdapterLive", () => {
       assert.equal(systemPrompt.excludeDynamicSections, true);
       assert.include(systemPrompt.append ?? "", "When spawning subagents");
       assert.include(systemPrompt.append ?? "", "worker-<tier>");
-      assert.include(systemPrompt.append ?? "", SYNARA_HARNESS_POLICY_MARKER);
-      assert.include(systemPrompt.append ?? "", "Synara is the host and harness");
+      assert.include(systemPrompt.append ?? "", SAINT_HARNESS_POLICY_MARKER);
+      assert.include(systemPrompt.append ?? "", "Saint is the host and harness");
       // This characterization harness intentionally omits gateway credentials.
-      assert.include(systemPrompt.append ?? "", "Synara MCP control is unavailable");
+      assert.include(systemPrompt.append ?? "", "Saint MCP control is unavailable");
     }).pipe(
       Effect.provideService(Random.Random, makeDeterministicRandomService()),
       Effect.provide(harness.layer),
@@ -2307,7 +2307,7 @@ describe("ClaudeAdapterLive", () => {
         assert.lengthOf(snapshot.turns, 1);
         assert.deepEqual(snapshot.turns[0]!.items, []);
         const eventJson = JSON.stringify(events);
-        assert.include(eventJson, '"synaraImageOmitted":true');
+        assert.include(eventJson, '"saintImageOmitted":true');
         assert.notInclude(eventJson, data);
         assert.isBelow(eventJson.length, 30_000);
         assert.equal(image.source.data, data);
@@ -8927,7 +8927,7 @@ await agent("Draft the spec", { label: "delta-agent", phase: "Two" });
 
       const permissionPromise = canUseTool(
         "mcp__github__create_issue",
-        { repo: "synara", apiKey: "ghp_live_secret" },
+        { repo: "saint", apiKey: "ghp_live_secret" },
         {
           signal: new AbortController().signal,
           toolUseID: "tool-use-secret-1",
@@ -8941,7 +8941,7 @@ await agent("Draft the spec", { label: "delta-agent", phase: "Two" });
       }
       assert.equal(
         requested.value.payload.detail,
-        'mcp__github__create_issue: {"repo":"synara","apiKey":"[redacted]"}',
+        'mcp__github__create_issue: {"repo":"saint","apiKey":"[redacted]"}',
       );
 
       yield* adapter.respondToRequest(
@@ -9065,7 +9065,7 @@ await agent("Draft the spec", { label: "delta-agent", phase: "Two" });
 
         const result = yield* Effect.promise(() =>
           canUseTool(
-            "mcp__synara__computer_click",
+            "mcp__saint__computer_click",
             { x: 12, y: 34 },
             {
               signal: new AbortController().signal,
@@ -9130,15 +9130,15 @@ await agent("Draft the spec", { label: "delta-agent", phase: "Two" });
 
       // MCP tools are the case that regressed: they classify as `mcp_tool_call`
       // item-wise, and the approval must still carry the canonical request type.
-      const mcpOpened = yield* requestTypeFor("mcp__synara__computer_launch_app", {
+      const mcpOpened = yield* requestTypeFor("mcp__saint__computer_launch_app", {
         app: "kcalc",
       });
       assert.equal(mcpOpened?.payload.requestType, "tool_approval");
       assert.deepEqual(mcpOpened?.payload.args as Record<string, unknown> | undefined, {
-        toolName: "mcp__synara__computer_launch_app",
+        toolName: "mcp__saint__computer_launch_app",
         input: { app: "kcalc" },
         sessionApprovalAvailable: false,
-        toolUseId: "tool-use-mcp__synara__computer_launch_app",
+        toolUseId: "tool-use-mcp__saint__computer_launch_app",
       });
 
       const genericOpened = yield* requestTypeFor("WebFetch", { url: "https://example.com" });
@@ -11710,7 +11710,7 @@ await agent("Draft the spec", { label: "delta-agent", phase: "Two" });
       const promptText = yield* Effect.promise(() =>
         readFirstPromptText(harness.getLastCreateQueryInput()),
       );
-      assert.include(promptText ?? "", "Synara plan mode is active.");
+      assert.include(promptText ?? "", "Saint plan mode is active.");
       assert.include(promptText ?? "", "<proposed_plan>");
       assert.include(promptText ?? "", "User request:\nplan this for me");
     }).pipe(
@@ -13771,7 +13771,7 @@ describe("Claude explicit native compaction", () => {
           if (native) {
             assert.equal(text, input);
           } else {
-            assert.include(text, "Synara plan mode is active.");
+            assert.include(text, "Saint plan mode is active.");
           }
         }).pipe(
           Effect.provideService(Random.Random, makeDeterministicRandomService()),

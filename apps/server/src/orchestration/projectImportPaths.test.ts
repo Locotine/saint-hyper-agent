@@ -32,12 +32,12 @@ it.runIf(process.platform === "win32")(
   "canonicalizes a missing extended drive path without losing its drive root",
   async () => {
     const missing = path.win32.toNamespacedPath(
-      path.win32.join(process.env.SystemDrive ?? "C:", "synara-absent-import-root-1298"),
+      path.win32.join(process.env.SystemDrive ?? "C:", "saint-absent-import-root-1298"),
     );
     const result = await canonicalImportPath(missing);
     expect(importPathIdentity(result)).toBe(
       importPathIdentity(
-        path.win32.join(process.env.SystemDrive ?? "C:", "synara-absent-import-root-1298"),
+        path.win32.join(process.env.SystemDrive ?? "C:", "saint-absent-import-root-1298"),
       ),
     );
     expect(result.startsWith("\\\\?\\")).toBe(false);

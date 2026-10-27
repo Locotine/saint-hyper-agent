@@ -8,19 +8,19 @@ type HostTarget = NonNullable<BetterWrightOptions["hostTarget"]>;
 
 type OpenedConnection = Awaited<ReturnType<typeof openBetterwrightConnection>>;
 
-export interface SynaraHostTarget extends HostTarget {
+export interface SaintHostTarget extends HostTarget {
   run: NonNullable<HostTarget["run"]>;
   /** Immediately revoke every transport this adapter vended; callers race worker shutdown. */
   revokeAll(cancel?: boolean): Promise<void>;
 }
 
 /**
- * Synara's HostTarget adapter. Browser tabs share a persistent Electron
+ * Saint's HostTarget adapter. Browser tabs share a persistent Electron
  * session, so the guard proxy is installed on the session for the duration of
  * each lease. This covers navigations, subresources, WebSockets, and workers;
  * the proxy resolves and dials the validated address itself.
  */
-export function synaraHostTarget(
+export function saintHostTarget(
   contents: WebContents,
   options: {
     uploadFiles?: readonly string[] | undefined;
@@ -28,7 +28,7 @@ export function synaraHostTarget(
     expectAgentInput?: BrowserAutomationVisibleRuntime["expectAgentInput"] | undefined;
     signal?: AbortSignal | undefined;
   } = {},
-): SynaraHostTarget {
+): SaintHostTarget {
   const connections = new Set<OpenedConnection>();
   const pending = new Set<Promise<OpenedConnection>>();
   const networkGuard = getBetterwrightNetworkGuard(contents.session);

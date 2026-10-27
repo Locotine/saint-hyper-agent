@@ -3,7 +3,7 @@
 // Layer: Server orchestration security boundary.
 // Exports: persistence patches and event-level defensive sanitization.
 
-import type { ProviderStartOptions } from "@synara/contracts";
+import type { ProviderStartOptions } from "@saint/contracts";
 
 const PROVIDER_OPTION_KEYS = [
   "codex",

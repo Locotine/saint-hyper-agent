@@ -4,7 +4,7 @@
 //          full list in the right dock (SubagentsDockPane).
 // Layer: Environment panel UI
 
-import { pluralize } from "@synara/shared/text";
+import { pluralize } from "@saint/shared/text";
 
 import { SubagentAvatarStack } from "../SubagentAvatar";
 import {

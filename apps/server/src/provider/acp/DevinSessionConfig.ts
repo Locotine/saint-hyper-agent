@@ -7,9 +7,9 @@ import type {
   AgentGatewayStdioProxySpawn,
 } from "../../agentGateway/Services/AgentGatewayCredentials.ts";
 import {
-  SYNARA_AGENT_GATEWAY_BOOTSTRAP_TOKEN_ENV,
-  SYNARA_AGENT_GATEWAY_URL_ENV,
-  SYNARA_MCP_SERVER_NAME,
+  SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN_ENV,
+  SAINT_AGENT_GATEWAY_URL_ENV,
+  SAINT_MCP_SERVER_NAME,
 } from "../../agentGateway/mcpInjection.ts";
 
 interface DevinMcpConfig {
@@ -72,11 +72,11 @@ export async function createDevinSessionConfig(
   ) {
     throw new Error("Devin user MCP config mcpServers must contain an object.");
   }
-  if (userServers && Object.prototype.hasOwnProperty.call(userServers, SYNARA_MCP_SERVER_NAME)) {
-    throw new Error("Devin user MCP config already defines the reserved 'synara' server name.");
+  if (userServers && Object.prototype.hasOwnProperty.call(userServers, SAINT_MCP_SERVER_NAME)) {
+    throw new Error("Devin user MCP config already defines the reserved 'saint' server name.");
   }
 
-  const root = await mkdtemp(path.join(input.tmpDir ?? os.tmpdir(), "synara-devin-"));
+  const root = await mkdtemp(path.join(input.tmpDir ?? os.tmpdir(), "saint-devin-"));
   let cleaned = false;
   const cleanup = async () => {
     if (cleaned) return;
@@ -111,12 +111,12 @@ export async function createDevinSessionConfig(
       ...userConfig,
       mcpServers: {
         ...(userServers as Record<string, unknown> | undefined),
-        [SYNARA_MCP_SERVER_NAME]: {
+        [SAINT_MCP_SERVER_NAME]: {
           command: input.stdioProxy.command,
           args: [...input.stdioProxy.args],
           env: {
-            [SYNARA_AGENT_GATEWAY_URL_ENV]: input.connection.url,
-            [SYNARA_AGENT_GATEWAY_BOOTSTRAP_TOKEN_ENV]: input.bootstrapToken,
+            [SAINT_AGENT_GATEWAY_URL_ENV]: input.connection.url,
+            [SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN_ENV]: input.bootstrapToken,
             ELECTRON_RUN_AS_NODE: "1",
           },
           transport: "stdio",

@@ -1,4 +1,4 @@
-import { ThreadId, type ThreadComputerState } from "@synara/contracts";
+import { ThreadId, type ThreadComputerState } from "@saint/contracts";
 import { afterEach, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { useComputerStateStore, useThreadComputerAvailability } from "../computerStateStore";

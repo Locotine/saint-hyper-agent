@@ -9,7 +9,7 @@
 // Layer: GitHub inbox presentation
 // Exports: GitHubIssueDetailPanel
 
-import type { GitHubIssueDetailInput } from "@synara/contracts";
+import type { GitHubIssueDetailInput } from "@saint/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 

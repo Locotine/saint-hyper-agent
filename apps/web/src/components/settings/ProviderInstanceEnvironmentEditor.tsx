@@ -9,7 +9,7 @@ import {
   ProviderInstanceEnvironmentVariableName,
   type ProviderInstanceEnvironment,
   type ProviderInstanceEnvironmentVariable,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";

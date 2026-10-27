@@ -11,7 +11,7 @@ import {
   type KeybindingCommand,
   type ResolvedKeybindingRule,
   type ResolvedKeybindingsConfig,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { NATIVE_EDITOR_ON } from "./betaFeatures";
 import { isMacPlatform } from "./lib/utils";
 import { formatShortcutLabel, resolveKeybindingForCommand } from "./keybindings";

@@ -5,11 +5,11 @@ import type {
   OrchestrationThread,
   ProjectKind,
   ThreadGoalAchievement,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   ASYNC_USER_INPUT_ALREADY_ANSWERED,
   formatAsyncUserInputResponse,
-} from "@synara/shared/asyncUserInput";
+} from "@saint/shared/asyncUserInput";
 import {
   EventId,
   MessageId,
@@ -20,22 +20,22 @@ import {
   SPACES_MAX_COUNT,
   THREAD_GOAL_ACHIEVEMENTS_MAX_COUNT,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   deriveAssociatedWorktreeMetadata,
   deriveAssociatedWorktreeMetadataPatch,
   workspaceRootsEqual,
-} from "@synara/shared/threadWorkspace";
-import { collectSubagentDescendants } from "@synara/shared/threadHierarchy";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
-import { autoRuntimeModeSelectionIssue } from "@synara/shared/runtimeMode";
-import { isGroupContainerKind } from "@synara/shared/projectContainers";
-import { findProjectFolderProblem } from "@synara/shared/projectFolders";
-import { providerSupportsNativeTurnSteering } from "@synara/shared/providerMetadata";
+} from "@saint/shared/threadWorkspace";
+import { collectSubagentDescendants } from "@saint/shared/threadHierarchy";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
+import { autoRuntimeModeSelectionIssue } from "@saint/shared/runtimeMode";
+import { isGroupContainerKind } from "@saint/shared/projectContainers";
+import { findProjectFolderProblem } from "@saint/shared/projectFolders";
+import { providerSupportsNativeTurnSteering } from "@saint/shared/providerMetadata";
 import {
   collectTailTurnIds,
   resolveTailUserMessageEditTarget,
-} from "@synara/shared/conversationEdit";
+} from "@saint/shared/conversationEdit";
 import { Effect } from "effect";
 
 import { computerActivationMetadata } from "../computer/computerActivation.ts";
@@ -1136,7 +1136,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         threadId: command.threadId,
       });
       // Provider-native threads mirror subagents the provider already runs;
-      // Synara never starts a session for them, so the Auto-mode capability
+      // Saint never starts a session for them, so the Auto-mode capability
       // check can only reject the projection (and durably poison the runtime
       // journal replaying it), never prevent an unverified Auto session.
       if (command.creationSource !== "provider_native") {

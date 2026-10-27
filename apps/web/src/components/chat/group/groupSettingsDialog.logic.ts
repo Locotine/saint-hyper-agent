@@ -8,8 +8,8 @@ import {
   type ProjectAgentConfigureInput,
   type ProjectAgentOverview,
   type ProjectId,
-} from "@synara/contracts";
-import { MEMORY_NOTES_DOCUMENT_PREFIX } from "@synara/shared/projectAgent";
+} from "@saint/contracts";
+import { MEMORY_NOTES_DOCUMENT_PREFIX } from "@saint/shared/projectAgent";
 
 import { isDefaultGroupCoordinatorName } from "../../../lib/groupCoordinatorName";
 import { deepEqualJson } from "../../../storeNormalization";

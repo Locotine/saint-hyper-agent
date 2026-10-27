@@ -4,11 +4,11 @@ import type {
   BrowserAnnotationMarker,
   BrowserAnnotationSource,
   BrowserAnnotationTheme,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   browserAnnotationDocumentIdentityUrl,
   sanitizeBrowserAnnotationUrl,
-} from "@synara/shared/browserAnnotations";
+} from "@saint/shared/browserAnnotations";
 
 import { BROWSER_ANNOTATION_GUEST_COMMAND_CHANNEL, BROWSER_IPC_CHANNELS } from "../ipcChannels";
 import {
@@ -33,7 +33,7 @@ import {
 } from "./guestProtocol";
 import "../browserWebMcp/guestBridge";
 
-const HOST_ATTRIBUTE = "data-synara-browser-annotations";
+const HOST_ATTRIBUTE = "data-saint-browser-annotations";
 /** Mutation storms are coalesced into at most one marker re-resolve per window. */
 const MARKER_REVALIDATE_DELAY_MS = 400;
 const VIEWPORT_GAP = 12;

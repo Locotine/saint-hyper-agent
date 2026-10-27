@@ -1,5 +1,5 @@
 // FILE: page.tsx
-// Purpose: Public marketing homepage for Synara.
+// Purpose: Public marketing homepage for Saint.
 // Layer: App Router page (server component)
 
 import { SiGithub, SiOpenai } from "react-icons/si";
@@ -119,14 +119,14 @@ export default async function Home() {
               <div className="relative overflow-hidden rounded-xl bg-[var(--block-elevated)] p-2 ring-1 ring-black/5 sm:rounded-2xl sm:p-3 dark:ring-white/10">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/synara-ui-light.png"
-                  alt="Synara — local-first command center for parallel coding agents, terminals, previews, diffs, and Git worktrees"
+                  src="/saint-ui-light.png"
+                  alt="Saint — local-first command center for parallel coding agents, terminals, previews, diffs, and Git worktrees"
                   className="block h-auto w-full rounded-lg dark:hidden sm:rounded-xl"
                 />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/synara-ui-dark.png"
-                  alt="Synara — local-first command center for parallel coding agents, terminals, previews, diffs, and Git worktrees"
+                  src="/saint-ui-dark.png"
+                  alt="Saint — local-first command center for parallel coding agents, terminals, previews, diffs, and Git worktrees"
                   className="hidden h-auto w-full rounded-lg dark:block sm:rounded-xl"
                 />
               </div>

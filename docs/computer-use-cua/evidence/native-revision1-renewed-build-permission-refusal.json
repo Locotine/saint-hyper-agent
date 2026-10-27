@@ -1,6 +1,6 @@
 {
   "fixtureRevision": 10,
-  "fixture": "Synara Cua Fixture 25728",
+  "fixture": "Saint Cua Fixture 25728",
   "pid": 25728,
   "runtime": {
     "node": "24.18.1",
@@ -68,8 +68,8 @@
       "direct_runtime": false,
       "disclaim_env": false,
       "embedded": true,
-      "executable": "/Users/emanueledipietro/Applications/Synara Cua Fixture.app/Contents/Resources/cua-driver/cua-driver",
-      "host_bundle_id": "com.synara.cua-fixture",
+      "executable": "/Users/emanueledipietro/Applications/Saint Cua Fixture.app/Contents/Resources/cua-driver/cua-driver",
+      "host_bundle_id": "com.saint.cua-fixture",
       "note": "Embedded mode: these booleans reflect the HOST app's TCC grant (the driver is a child in the host's responsibility chain). No separate driver grant exists or is needed. If a permission is NOT granted, the host app must request it — the driver never raises its own prompt.",
       "pid": 25738,
       "responsible_ppid": 25728
@@ -77,7 +77,7 @@
   },
   "nativeFixtureWindows": [
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 220,
         "width": 320,
@@ -95,7 +95,7 @@
       "z_index": 277
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -113,7 +113,7 @@
       "z_index": 234
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 420,
         "width": 642,
@@ -131,7 +131,7 @@
       "z_index": 36
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -149,7 +149,7 @@
       "z_index": 28
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -167,7 +167,7 @@
       "z_index": 21
     },
     {
-      "app_name": "Synara Cua Fixture",
+      "app_name": "Saint Cua Fixture",
       "bounds": {
         "height": 33,
         "width": 1728,
@@ -189,6 +189,6 @@
     "kind": "permission-required",
     "missing": ["accessibility", "screenRecording"],
     "buildSignature": "unknown",
-    "message": "Enable Accessibility and Screen Recording for Synara in System Settings, then relaunch Synara."
+    "message": "Enable Accessibility and Screen Recording for Saint in System Settings, then relaunch Saint."
   }
 }

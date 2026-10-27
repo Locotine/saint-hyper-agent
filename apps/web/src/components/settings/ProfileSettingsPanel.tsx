@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { type ProfileStats, type ProfileTokenStats, type ProviderKind } from "@synara/contracts";
+import { type ProfileStats, type ProfileTokenStats, type ProviderKind } from "@saint/contracts";
 import {
   serverProfileStatsQueryOptions,
   serverProfileTokenStatsQueryOptions,
@@ -122,7 +122,7 @@ function ProfileContent({
             <span>{handle}</span>
             <span aria-hidden>·</span>
             <span className="rounded-full border px-1.5 py-px text-ui leading-snug text-muted-foreground">
-              Synara
+              Saint
             </span>
           </div>
         </div>

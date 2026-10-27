@@ -2,9 +2,9 @@ import { Effect, Layer } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 import { ServerConfig } from "../../config.ts";
 
-import type { CursorModelSelection, ProviderStartOptions } from "@synara/contracts";
-import { sanitizeGeneratedThreadTitle } from "@synara/shared/chatThreads";
-import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@synara/shared/git";
+import type { CursorModelSelection, ProviderStartOptions } from "@saint/contracts";
+import { sanitizeGeneratedThreadTitle } from "@saint/shared/chatThreads";
+import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@saint/shared/git";
 
 import {
   applyCursorAcpModelSelection,
@@ -89,7 +89,7 @@ const makeCursorAcpConfig = (serverConfig: {
       cursorSettings: settings,
       childProcessSpawner,
       cwd,
-      clientInfo: { name: "synara-git-text", version: "0.0.0" },
+      clientInfo: { name: "saint-git-text", version: "0.0.0" },
     }),
   prepareRuntime: ({
     runtime,

@@ -10,7 +10,7 @@
 // while the turn kept running, or the reverse, and the user would have no way to
 // tell which one they had pressed.
 
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 
 import { ensureNativeApi } from "~/nativeApi";
 import { holdQueuedComposerTurnsForStop } from "./queuedComposerDrain";

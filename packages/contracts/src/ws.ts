@@ -70,6 +70,7 @@ import {
   ORCHESTRATION_WS_CHANNELS,
   OrchestrationGetFullThreadDiffInput,
   OrchestrationGetThreadDetailSnapshotInput,
+  OrchestrationGetThreadTranscriptInput,
   OrchestrationSearchThreadsInput,
   OrchestrationGetShellSnapshotInput,
   OrchestrationRepairStateInput,
@@ -122,6 +123,7 @@ import {
 } from "./terminal";
 import { KeybindingRule } from "./keybindings";
 import {
+  ProjectCreateHtmlPreviewGrantInput,
   ProjectCreateLocalFilePreviewGrantInput,
   ProjectDevServerEvent,
   ProjectDiscoverScriptsInput,
@@ -244,6 +246,7 @@ export const WS_METHODS = {
   projectsResolveWorkspaceFileReferences: "projects.resolveWorkspaceFileReferences",
   projectsResolveOutOfRootFileReference: "projects.resolveOutOfRootFileReference",
   projectsCreateLocalFilePreviewGrant: "projects.createLocalFilePreviewGrant",
+  projectsCreateHtmlPreviewGrant: "projects.createHtmlPreviewGrant",
   projectsWriteFile: "projects.writeFile",
   projectsRunDevServer: "projects.runDevServer",
   projectsStopDevServer: "projects.stopDevServer",
@@ -480,6 +483,10 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(ORCHESTRATION_WS_METHODS.getTurnDiff, OrchestrationGetTurnDiffInput),
   tagRequestBody(ORCHESTRATION_WS_METHODS.getFullThreadDiff, OrchestrationGetFullThreadDiffInput),
   tagRequestBody(ORCHESTRATION_WS_METHODS.getInlineVisual, OrchestrationGetInlineVisualInput),
+  tagRequestBody(
+    ORCHESTRATION_WS_METHODS.getThreadTranscript,
+    OrchestrationGetThreadTranscriptInput,
+  ),
   tagRequestBody(ORCHESTRATION_WS_METHODS.replayEvents, OrchestrationReplayEventsInput),
   tagRequestBody(ORCHESTRATION_WS_METHODS.subscribeShell, OrchestrationSubscribeShellInput),
   tagRequestBody(ORCHESTRATION_WS_METHODS.unsubscribeShell, OrchestrationUnsubscribeShellInput),
@@ -511,6 +518,7 @@ const WebSocketRequestBody = Schema.Union([
     WS_METHODS.projectsCreateLocalFilePreviewGrant,
     ProjectCreateLocalFilePreviewGrantInput,
   ),
+  tagRequestBody(WS_METHODS.projectsCreateHtmlPreviewGrant, ProjectCreateHtmlPreviewGrantInput),
   tagRequestBody(WS_METHODS.projectsWriteFile, ProjectWriteFileInput),
   tagRequestBody(WS_METHODS.projectsRunDevServer, ProjectRunDevServerInput),
   tagRequestBody(WS_METHODS.projectsStopDevServer, ProjectStopDevServerInput),

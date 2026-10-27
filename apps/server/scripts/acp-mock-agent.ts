@@ -11,45 +11,43 @@ import * as OfficialAcp from "@agentclientprotocol/sdk";
 import * as Effect from "effect/Effect";
 import type * as AcpSchema from "@agentclientprotocol/sdk";
 
-const requestLogPath = process.env.SYNARA_ACP_REQUEST_LOG_PATH;
-const exitLogPath = process.env.SYNARA_ACP_EXIT_LOG_PATH;
-const emitToolCalls = process.env.SYNARA_ACP_EMIT_TOOL_CALLS === "1";
+const requestLogPath = process.env.SAINT_ACP_REQUEST_LOG_PATH;
+const exitLogPath = process.env.SAINT_ACP_EXIT_LOG_PATH;
+const emitToolCalls = process.env.SAINT_ACP_EMIT_TOOL_CALLS === "1";
 const emitInterleavedAssistantToolCalls =
-  process.env.SYNARA_ACP_EMIT_INTERLEAVED_ASSISTANT_TOOL_CALLS === "1";
+  process.env.SAINT_ACP_EMIT_INTERLEAVED_ASSISTANT_TOOL_CALLS === "1";
 const emitUpstreamAssistantMessageIds =
-  process.env.SYNARA_ACP_EMIT_UPSTREAM_ASSISTANT_MESSAGE_IDS === "1";
-const emitReasoningThenToolCall = process.env.SYNARA_ACP_EMIT_REASONING_THEN_TOOL_CALL === "1";
-const emitGenericToolPlaceholders = process.env.SYNARA_ACP_EMIT_GENERIC_TOOL_PLACEHOLDERS === "1";
-const emitAskQuestion = process.env.SYNARA_ACP_EMIT_ASK_QUESTION === "1";
-const emitDevinTaskReplay = process.env.SYNARA_ACP_DEVIN_TASK_REPLAY === "1";
-const failSessionNewOnce = process.env.SYNARA_ACP_FAIL_SESSION_NEW_ONCE === "1";
-const failSetConfigOption = process.env.SYNARA_ACP_FAIL_SET_CONFIG_OPTION === "1";
-const exitOnSetConfigOption = process.env.SYNARA_ACP_EXIT_ON_SET_CONFIG_OPTION === "1";
-const rejectConfigDuringLoadReplay =
-  process.env.SYNARA_ACP_REJECT_CONFIG_DURING_LOAD_REPLAY === "1";
+  process.env.SAINT_ACP_EMIT_UPSTREAM_ASSISTANT_MESSAGE_IDS === "1";
+const emitReasoningThenToolCall = process.env.SAINT_ACP_EMIT_REASONING_THEN_TOOL_CALL === "1";
+const emitGenericToolPlaceholders = process.env.SAINT_ACP_EMIT_GENERIC_TOOL_PLACEHOLDERS === "1";
+const emitAskQuestion = process.env.SAINT_ACP_EMIT_ASK_QUESTION === "1";
+const emitDevinTaskReplay = process.env.SAINT_ACP_DEVIN_TASK_REPLAY === "1";
+const failSessionNewOnce = process.env.SAINT_ACP_FAIL_SESSION_NEW_ONCE === "1";
+const failSetConfigOption = process.env.SAINT_ACP_FAIL_SET_CONFIG_OPTION === "1";
+const exitOnSetConfigOption = process.env.SAINT_ACP_EXIT_ON_SET_CONFIG_OPTION === "1";
+const rejectConfigDuringLoadReplay = process.env.SAINT_ACP_REJECT_CONFIG_DURING_LOAD_REPLAY === "1";
 const promptResponseText =
-  process.env.SYNARA_ACP_PROMPT_RESPONSE_TEXT ?? process.env.ACP_MOCK_PROMPT_RESPONSE_TEXT;
-const supportsSessionResume = process.env.SYNARA_ACP_SUPPORT_SESSION_RESUME === "1";
-const supportsSessionLoad = process.env.SYNARA_ACP_SUPPORT_SESSION_LOAD !== "0";
-const supportsSessionFork = process.env.SYNARA_ACP_SUPPORT_SESSION_FORK === "1";
-const emitAvailableCommands = process.env.SYNARA_ACP_EMIT_AVAILABLE_COMMANDS === "1";
-const advertiseAuthMethods = process.env.SYNARA_ACP_ADVERTISE_AUTH_METHODS === "1";
-const requireAuthForSession = process.env.SYNARA_ACP_REQUIRE_AUTH_FOR_SESSION === "1";
-const emitOrphanUpdate = process.env.SYNARA_ACP_EMIT_ORPHAN_UPDATE === "1";
-const orphanUpdateDelayMs = Number(process.env.SYNARA_ACP_ORPHAN_UPDATE_DELAY_MS || "0");
-const finalSessionDelayMs = Number(process.env.SYNARA_ACP_FINAL_SESSION_DELAY_MS || "0");
-const loadReplayDelaysMs = (process.env.SYNARA_ACP_LOAD_REPLAY_DELAYS_MS ?? "")
+  process.env.SAINT_ACP_PROMPT_RESPONSE_TEXT ?? process.env.ACP_MOCK_PROMPT_RESPONSE_TEXT;
+const supportsSessionResume = process.env.SAINT_ACP_SUPPORT_SESSION_RESUME === "1";
+const supportsSessionLoad = process.env.SAINT_ACP_SUPPORT_SESSION_LOAD !== "0";
+const supportsSessionFork = process.env.SAINT_ACP_SUPPORT_SESSION_FORK === "1";
+const emitAvailableCommands = process.env.SAINT_ACP_EMIT_AVAILABLE_COMMANDS === "1";
+const advertiseAuthMethods = process.env.SAINT_ACP_ADVERTISE_AUTH_METHODS === "1";
+const requireAuthForSession = process.env.SAINT_ACP_REQUIRE_AUTH_FOR_SESSION === "1";
+const emitOrphanUpdate = process.env.SAINT_ACP_EMIT_ORPHAN_UPDATE === "1";
+const orphanUpdateDelayMs = Number(process.env.SAINT_ACP_ORPHAN_UPDATE_DELAY_MS || "0");
+const finalSessionDelayMs = Number(process.env.SAINT_ACP_FINAL_SESSION_DELAY_MS || "0");
+const loadReplayDelaysMs = (process.env.SAINT_ACP_LOAD_REPLAY_DELAYS_MS ?? "")
   .split(",")
   .map((value) => value.trim())
   .filter((value) => value.length > 0)
   .map(Number)
   .filter((value) => Number.isFinite(value) && value >= 0);
-const rejectPromptDuringLoadReplay =
-  process.env.SYNARA_ACP_REJECT_PROMPT_DURING_LOAD_REPLAY === "1";
-const rejectForkDuringLoadReplay = process.env.SYNARA_ACP_REJECT_FORK_DURING_LOAD_REPLAY === "1";
-const loadReplayModeId = process.env.SYNARA_ACP_LOAD_REPLAY_MODE_ID?.trim();
-const loadReplayAvailableCommands = process.env.SYNARA_ACP_LOAD_REPLAY_AVAILABLE_COMMANDS === "1";
-const modeConfigId = process.env.SYNARA_ACP_MODE_CONFIG_ID || "mode";
+const rejectPromptDuringLoadReplay = process.env.SAINT_ACP_REJECT_PROMPT_DURING_LOAD_REPLAY === "1";
+const rejectForkDuringLoadReplay = process.env.SAINT_ACP_REJECT_FORK_DURING_LOAD_REPLAY === "1";
+const loadReplayModeId = process.env.SAINT_ACP_LOAD_REPLAY_MODE_ID?.trim();
+const loadReplayAvailableCommands = process.env.SAINT_ACP_LOAD_REPLAY_AVAILABLE_COMMANDS === "1";
+const modeConfigId = process.env.SAINT_ACP_MODE_CONFIG_ID || "mode";
 const mainSessionId = "mock-session-1";
 const probeSessionId = "mock-session-probe";
 let sessionId = mainSessionId;
@@ -334,7 +332,7 @@ function requestInput(): ReadableStream<Uint8Array> {
   );
 }
 
-const app = OfficialAcp.agent({ name: "synara-acp-mock" });
+const app = OfficialAcp.agent({ name: "saint-acp-mock" });
 
 app.onRequest(OfficialAcp.methods.agent.initialize, ({ params: request }) =>
   runEffect(
@@ -840,7 +838,7 @@ app.onRequest(OfficialAcp.methods.agent.session.prompt, ({ client: context, para
             status: "completed",
             rawOutput: {
               exitCode: 0,
-              stdout: '{ "name": "synara" }',
+              stdout: '{ "name": "saint" }',
               stderr: "",
             },
           },

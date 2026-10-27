@@ -30,7 +30,7 @@ import {
   GitStatusResult,
   GitSummarizeDiffInput,
   GitSummarizeDiffResult,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { ServiceMap } from "effect";
 import type { Effect } from "effect";
 import type { GitManagerServiceError } from "../Errors.ts";
@@ -139,5 +139,5 @@ export interface GitManagerShape {
  * GitManager - Service tag for stacked Git workflow orchestration.
  */
 export class GitManager extends ServiceMap.Service<GitManager, GitManagerShape>()(
-  "synara/git/Services/GitManager",
+  "saint/git/Services/GitManager",
 ) {}

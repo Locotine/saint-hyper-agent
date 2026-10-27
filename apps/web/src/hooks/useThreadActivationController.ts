@@ -3,7 +3,7 @@
 // Exports: useThreadActivationController
 
 import type { useNavigate } from "@tanstack/react-router";
-import type { ThreadId } from "@synara/contracts";
+import type { ThreadId } from "@saint/contracts";
 import type { LastThreadRoute } from "../chatRouteRestore";
 import {
   resolveSplitViewThreadIds,
@@ -17,7 +17,7 @@ import {
   resolvePreferredSplitForCommand,
   resolveThreadCommandActivation,
 } from "../threadActivation.logic";
-import { isSidechatThread } from "@synara/shared/sidechatThread";
+import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 type Navigate = ReturnType<typeof useNavigate>;
 type ThreadTerminalStateById = Parameters<typeof selectThreadTerminalState>[0];

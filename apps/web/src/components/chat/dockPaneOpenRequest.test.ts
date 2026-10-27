@@ -1,4 +1,4 @@
-import { ThreadId } from "@synara/contracts";
+import { ThreadId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { routeSingleDockPaneOpenRequest } from "./dockPaneOpenRequest";

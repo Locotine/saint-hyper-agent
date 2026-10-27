@@ -76,7 +76,7 @@ describe("crash reports", () => {
   });
 
   it("returns only recent reports for this simulator, newest first", async () => {
-    directory = await mkdtemp(path.join(tmpdir(), "synara-crash-"));
+    directory = await mkdtemp(path.join(tmpdir(), "saint-crash-"));
     const now = Date.now();
     const write = async (name: string, contents: string, ageMs: number) => {
       const file = path.join(directory!, name);
@@ -115,7 +115,7 @@ describe("crash reports", () => {
   it("reads nothing from a directory that does not exist", async () => {
     await expect(
       readCrashReports({
-        directory: "/nonexistent/synara",
+        directory: "/nonexistent/saint",
         executable: "Shop",
         udid: UDID,
         sinceMs: 0,

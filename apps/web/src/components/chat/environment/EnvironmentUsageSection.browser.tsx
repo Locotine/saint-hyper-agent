@@ -3,7 +3,7 @@
 
 import "../../../index.css";
 
-import { DEFAULT_SERVER_SETTINGS_VIEW, type ServerProviderUsageSnapshot } from "@synara/contracts";
+import { DEFAULT_SERVER_SETTINGS_VIEW, type ServerProviderUsageSnapshot } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { page, userEvent } from "vitest/browser";
 import { describe, expect, it, vi } from "vitest";

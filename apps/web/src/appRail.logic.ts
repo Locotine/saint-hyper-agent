@@ -5,7 +5,7 @@
 // Exports: rail item ids/types, rail item order and visibility, railItemForPathname,
 //          reconcileActiveRailItem, buildRailSpacesSections
 
-import type { ProjectId, SpaceId } from "@synara/contracts";
+import type { ProjectId, SpaceId } from "@saint/contracts";
 
 import {
   groupItemsBySpace,

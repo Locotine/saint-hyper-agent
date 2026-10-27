@@ -4,7 +4,7 @@
 // Layer: Chat transcript row content
 // Exports: InlineVisualTable
 
-import type { InlineVisualBlock } from "@synara/contracts";
+import type { InlineVisualBlock } from "@saint/contracts";
 
 import { ArrowDownIcon, ArrowUpIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";

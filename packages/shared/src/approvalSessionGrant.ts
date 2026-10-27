@@ -1,4 +1,4 @@
-import type { ProviderRequestKind } from "@synara/contracts";
+import type { ProviderRequestKind } from "@saint/contracts";
 
 /**
  * Whether "Always allow this session" (`acceptForSession`) on a request of this

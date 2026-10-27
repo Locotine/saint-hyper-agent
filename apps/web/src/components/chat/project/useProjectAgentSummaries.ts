@@ -3,7 +3,7 @@ import {
   type ProjectAgentStreamEvent,
   type ProjectAgentSummary,
   type ProjectId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { useEffect } from "react";
 import { create } from "zustand";
 

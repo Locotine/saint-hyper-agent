@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEVICE_FRAME_RESYNC_MESSAGE } from "@synara/shared/deviceFrame";
+import { DEVICE_FRAME_RESYNC_MESSAGE } from "@saint/shared/deviceFrame";
 
 import { decodeResyncRequest, makeDeviceFrameSink } from "./deviceFrameRoute.ts";
 

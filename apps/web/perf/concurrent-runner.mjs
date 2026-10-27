@@ -60,9 +60,9 @@ try {
           await page.goto(
             `http://127.0.0.1:${server.address().port}/${variant}-dist/perf/concurrent.html?threads=${threads}&mode=${mode}`,
           );
-          await page.waitForFunction(() => window.__synaraConcurrentPerf);
+          await page.waitForFunction(() => window.__saintConcurrentPerf);
           await page.waitForTimeout(2000);
-          await page.evaluate(() => window.__synaraConcurrentPerf.run(10));
+          await page.evaluate(() => window.__saintConcurrentPerf.run(10));
           const cdp = await context.newCDPSession(page);
           await cdp.send("Performance.enable");
           await cdp.send("HeapProfiler.collectGarbage");
@@ -70,7 +70,7 @@ try {
             (await cdp.send("Performance.getMetrics")).metrics.map((m) => [m.name, m.value]),
           );
           const cpuBefore = (await browserCDP.send("SystemInfo.getProcessInfo")).processInfo;
-          const report = await page.evaluate(() => window.__synaraConcurrentPerf.run(60));
+          const report = await page.evaluate(() => window.__saintConcurrentPerf.run(60));
           const cpuAfter = (await browserCDP.send("SystemInfo.getProcessInfo")).processInfo;
           const after = Object.fromEntries(
             (await cdp.send("Performance.getMetrics")).metrics.map((m) => [m.name, m.value]),

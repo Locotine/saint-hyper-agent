@@ -7,7 +7,7 @@
 // Layer: Pull request presentation
 // Exports: PullRequestInfo, IssueInfo, GitHubItemInfoThread, GitHubItemInfoVariant
 
-import type { GitHubIssueDetail, PullRequestDetail, ThreadId } from "@synara/contracts";
+import type { GitHubIssueDetail, PullRequestDetail, ThreadId } from "@saint/contracts";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "~/components/ui/button";

@@ -48,7 +48,7 @@ function backend(initial: unknown[] = [cookie]) {
 }
 
 async function home() {
-  const path = await mkdtemp(join(tmpdir(), "synara-session-restore-test-"));
+  const path = await mkdtemp(join(tmpdir(), "saint-session-restore-test-"));
   homes.push(path);
   return path;
 }

@@ -1,9 +1,9 @@
 ---
 title: Antigravity
-description: Install, authenticate, verify, and run Antigravity CLI through Synara.
+description: Install, authenticate, verify, and run Antigravity CLI through Saint.
 ---
 
-Synara connects to Google’s Antigravity CLI through the `agy` executable. Antigravity owns its account session, models, permissions, tools, and conversation runtime; Synara supplies the task boundary, working environment, transcript, browser, terminal, diff, and Git workflow around it.
+Saint connects to Google’s Antigravity CLI through the `agy` executable. Antigravity owns its account session, models, permissions, tools, and conversation runtime; Saint supplies the task boundary, working environment, transcript, browser, terminal, diff, and Git workflow around it.
 
 ## Install
 
@@ -41,28 +41,28 @@ To remove stored credentials from an interactive Antigravity session, use:
 /logout
 ```
 
-Synara does not copy or replace the credential profile stored by Antigravity.
+Saint does not copy or replace the credential profile stored by Antigravity.
 
 ## Verify
 
 From a clean test directory:
 
 ```bash
-mkdir -p /tmp/agy-synara-check
-cd /tmp/agy-synara-check
+mkdir -p /tmp/agy-saint-check
+cd /tmp/agy-saint-check
 agy
 ```
 
-Confirm that Antigravity starts without a keyring or sign-in error and can answer a harmless read-only request. Exit before making changes. This isolates installation and authentication problems from Synara.
+Confirm that Antigravity starts without a keyring or sign-in error and can answer a harmless read-only request. Exit before making changes. This isolates installation and authentication problems from Saint.
 
-## Connect to Synara
+## Connect to Saint
 
 <Steps>
 <Step>
 
 ### Enable Antigravity
 
-Open provider settings and confirm that Synara detects `agy`.
+Open provider settings and confirm that Saint detects `agy`.
 
 </Step>
 <Step>
@@ -76,7 +76,7 @@ Use automatic discovery unless you intentionally installed Antigravity elsewhere
 
 ### Refresh models
 
-Confirm that Synara can discover the models exposed by the installed Antigravity runtime.
+Confirm that Saint can discover the models exposed by the installed Antigravity runtime.
 
 </Step>
 <Step>
@@ -88,25 +88,25 @@ Use a clean repository and a small objective. Review the selected model, mode, a
 </Step>
 </Steps>
 
-## Capabilities in Synara
+## Capabilities in Saint
 
 Antigravity sessions can expose:
 
 - Model selection discovered from the installed runtime
 - Assistant output, command execution, file changes, and web-search activity
-- Permission requests surfaced through Synara
+- Permission requests surfaced through Saint
 - Plan-oriented and normal task workflows supported by the runtime
 - Attachments projected into the provider prompt
 - Conversation continuity where the runtime supplies a conversation identifier
-- Synara’s terminal, browser, diff, checkpoint, and Git delivery surfaces
+- Saint’s terminal, browser, diff, checkpoint, and Git delivery surfaces
 
-Synara does not currently classify Antigravity as supporting native live-turn steering. Use interruption and follow-up controls according to the state shown in the active task.
+Saint does not currently classify Antigravity as supporting native live-turn steering. Use interruption and follow-up controls according to the state shown in the active task.
 
-Antigravity keeps its own settings and conversation data. Changes to its permission mode, sandbox, model, hooks, or workspace trust can alter behavior even when the same task is opened through Synara.
+Antigravity keeps its own settings and conversation data. Changes to its permission mode, sandbox, model, hooks, or workspace trust can alter behavior even when the same task is opened through Saint.
 
 ## Updating
 
-Antigravity includes a native update path and its installer can install or upgrade the CLI. Keep the installation directory writable by your user and restart Synara after the executable changes.
+Antigravity includes a native update path and its installer can install or upgrade the CLI. Keep the installation directory writable by your user and restart Saint after the executable changes.
 
 If an update is stuck, check Antigravity’s own updater status and lock files before reinstalling. Do not delete unrelated files from its configuration directory.
 
@@ -116,8 +116,8 @@ If an update is stuck, check Antigravity’s own updater status and lock files b
 
 1. Run `agy --version` from a fresh terminal.
 2. Confirm `~/.local/bin` or the Windows installation directory is on `PATH`.
-3. Remove or correct an obsolete custom binary path in Synara.
-4. Restart Synara after installation or shell-profile changes.
+3. Remove or correct an obsolete custom binary path in Saint.
+4. Restart Saint after installation or shell-profile changes.
 
 ### Authentication repeatedly opens or fails
 
@@ -125,11 +125,11 @@ Launch `agy` directly. Check whether the operating-system keyring is unlocked an
 
 ### Models are missing
 
-Update Antigravity, confirm the account can see the expected models in the CLI, then refresh provider status in Synara. Availability can depend on the account and runtime release.
+Update Antigravity, confirm the account can see the expected models in the CLI, then refresh provider status in Saint. Availability can depend on the account and runtime release.
 
 ### A completed reply ends with a timeout
 
-Synara can recover the exact `timeout waiting for response` error after a complete assistant reply when all tools and background tasks have settled and stop-hook cleanup captured the process tree before its parent exited and verified cleanup. Other provider errors, incomplete output, and interrupted turns remain failures or interruptions. A visible reply alone does not guarantee completion.
+Saint can recover the exact `timeout waiting for response` error after a complete assistant reply when all tools and background tasks have settled and stop-hook cleanup captured the process tree before its parent exited and verified cleanup. Other provider errors, incomplete output, and interrupted turns remain failures or interruptions. A visible reply alone does not guarantee completion.
 
 ### Antigravity reports an updater lock
 

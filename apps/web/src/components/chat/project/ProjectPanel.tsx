@@ -4,10 +4,10 @@ import {
   type ProjectId,
   type ProjectTask,
   type ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { SidePanelOverlay } from "~/components/chat/SidePanelOverlay";
-import { PROJECT_CONTEXT_PREVIEW_DOCUMENTS } from "@synara/shared/projectAgent";
-import { resolveGroupCoordinatorStatus } from "@synara/shared/groupThreadState";
+import { PROJECT_CONTEXT_PREVIEW_DOCUMENTS } from "@saint/shared/projectAgent";
+import { resolveGroupCoordinatorStatus } from "@saint/shared/groupThreadState";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import ChatMarkdown from "~/components/ChatMarkdown";
@@ -658,7 +658,7 @@ function ProjectContextFile({
         lastSavedRef.current = read.document.content;
         setConflict(
           read.head.conflictPending
-            ? "This file changed outside Synara. Keep typing to overwrite, or reopen the panel."
+            ? "This file changed outside Saint. Keep typing to overwrite, or reopen the panel."
             : null,
         );
       } catch (cause) {

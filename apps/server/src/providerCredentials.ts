@@ -28,7 +28,7 @@ export interface ProviderCredentialsShape {
 export class ProviderCredentials extends ServiceMap.Service<
   ProviderCredentials,
   ProviderCredentialsShape
->()("synara/providerCredentials/ProviderCredentials") {}
+>()("saint/providerCredentials/ProviderCredentials") {}
 
 export const makeProviderServerPasswordResolver =
   (credentials: ProviderCredentialsShape) =>

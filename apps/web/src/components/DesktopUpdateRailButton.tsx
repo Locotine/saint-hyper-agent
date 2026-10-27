@@ -1,4 +1,4 @@
-import type { DesktopUpdateState } from "@synara/contracts";
+import type { DesktopUpdateState } from "@saint/contracts";
 import { UpdateDownloadIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
 import { appRailButtonClassName } from "./AppRail";

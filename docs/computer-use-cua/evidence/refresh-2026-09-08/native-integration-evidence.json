@@ -53,8 +53,8 @@
     },
     "artifactReuse": true,
     "probe": {
-      "directory": "/private/tmp/synara-cua-cancel-probe-aCoVzc",
-      "driver": "/Users/emanueledipietro/.codex/worktrees/702b/synara/apps/desktop/resources/cua-driver/cua-driver",
+      "directory": "/private/tmp/saint-cua-cancel-probe-aCoVzc",
+      "driver": "/Users/emanueledipietro/.codex/worktrees/702b/saint/apps/desktop/resources/cua-driver/cua-driver",
       "driverPid": 98970,
       "inputToolsCalled": 0,
       "readinessToolsCalled": 1,
@@ -91,7 +91,7 @@
         "embedded": true,
         "mcp_protocol_version": "2025-06-18",
         "pid": 98970,
-        "synara_native_revision": 2,
+        "saint_native_revision": 2,
         "tools_list_schema_version": "1"
       },
       "exit": {
@@ -105,7 +105,7 @@
     "No native revision 2 GUI/input/capture fixture or RAM soak was run.",
     "The no-overlay control-plane probe required macOS service access outside the sandbox; initial sandboxed startup returned null NSPasteboard and exited before tools.",
     "ARM64 tests/probe executed locally; x64 was compiled and included in the universal binary, not executed.",
-    "The admission gate covers the Synara SDK tool path, not the separate upstream interactive worker API.",
+    "The admission gate covers the Saint SDK tool path, not the separate upstream interactive worker API.",
     "Existing upstream private SkyLight/Space APIs remain platform-dependent."
   ]
 }

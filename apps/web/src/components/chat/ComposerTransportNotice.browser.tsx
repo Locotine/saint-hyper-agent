@@ -24,7 +24,7 @@ describe("composer transport notice", () => {
       expect(screen.container.querySelector('[role="status"]')).toBeNull();
       await expect
         .element(page.getByRole("status"), { timeout: 4000 })
-        .toHaveTextContent("Reconnecting to Synara…");
+        .toHaveTextContent("Reconnecting to Saint…");
       expect(screen.container.querySelector("button")).toBeNull();
       await expect
         .element(page.getByRole("textbox", { name: "Message" }))
@@ -46,7 +46,7 @@ describe("composer transport notice", () => {
     try {
       await expect
         .element(page.getByRole("status"), { timeout: 4000 })
-        .toHaveTextContent("Reconnecting to Synara…");
+        .toHaveTextContent("Reconnecting to Saint…");
     } finally {
       await screen.unmount();
     }

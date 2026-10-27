@@ -5,7 +5,7 @@ import {
   type OrchestrationCommand,
   type OrchestrationReadModel,
   type OrchestrationThread,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Effect, Exit, Layer, ManagedRuntime, Scope, Stream } from "effect";
 import { describe, expect, it, vi } from "vitest";
 

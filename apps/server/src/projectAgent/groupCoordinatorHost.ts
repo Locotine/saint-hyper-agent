@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 
-import { MessageId, type ProjectKind, type ThreadId } from "@synara/contracts";
-import { isGroupContainerKind } from "@synara/shared/projectContainers";
-import { isWorkspaceRootWithin } from "@synara/shared/threadWorkspace";
+import { MessageId, type ProjectKind, type ThreadId } from "@saint/contracts";
+import { isGroupContainerKind } from "@saint/shared/projectContainers";
+import { isWorkspaceRootWithin } from "@saint/shared/threadWorkspace";
 
 export function isGroupCoordinatorHostProject(input: {
   readonly kind: ProjectKind | undefined;

@@ -10,12 +10,12 @@ import {
 
 const PATHS = {
   homeDir: "/Users/demo",
-  chatWorkspaceRoot: "/Users/demo/Documents/Synara",
+  chatWorkspaceRoot: "/Users/demo/Documents/Saint",
 };
 
 describe("resolveChatContainerWorkspaceRoot", () => {
   it("prefers the configured chat root and falls back to the home directory", () => {
-    expect(resolveChatContainerWorkspaceRoot(PATHS)).toBe("/Users/demo/Documents/Synara");
+    expect(resolveChatContainerWorkspaceRoot(PATHS)).toBe("/Users/demo/Documents/Saint");
     expect(resolveChatContainerWorkspaceRoot({ homeDir: "/Users/demo" })).toBe("/Users/demo");
     expect(resolveChatContainerWorkspaceRoot({ homeDir: "  ", chatWorkspaceRoot: "" })).toBeNull();
   });
@@ -23,7 +23,7 @@ describe("resolveChatContainerWorkspaceRoot", () => {
 
 describe("matchesLegacyHomeChatWorkspaceRoot", () => {
   it("matches the chat root and the home directory, tolerating trailing slashes", () => {
-    expect(matchesLegacyHomeChatWorkspaceRoot("/Users/demo/Documents/Synara/", PATHS)).toBe(true);
+    expect(matchesLegacyHomeChatWorkspaceRoot("/Users/demo/Documents/Saint/", PATHS)).toBe(true);
     expect(matchesLegacyHomeChatWorkspaceRoot("/Users/demo", PATHS)).toBe(true);
     expect(matchesLegacyHomeChatWorkspaceRoot("/Users/demo/Developer/app", PATHS)).toBe(false);
   });

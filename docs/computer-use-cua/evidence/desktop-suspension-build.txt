@@ -1,6 +1,6 @@
 $ tsdown
 ℹ tsdown v0.20.3 powered by rolldown v1.0.0-rc.3
-ℹ config file: /Users/emanueledipietro/.codex/worktrees/702b/synara/apps/desktop/tsdown.config.mts 
+ℹ config file: /Users/emanueledipietro/.codex/worktrees/702b/saint/apps/desktop/tsdown.config.mts 
 ℹ entry: src/main.ts
 ℹ tsconfig: tsconfig.json
 ℹ entry: src/preload.ts

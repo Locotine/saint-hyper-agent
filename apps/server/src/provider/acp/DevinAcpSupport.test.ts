@@ -429,7 +429,7 @@ describe("buildDevinAcpSpawnInput", () => {
       HOME: "/real/home",
       XDG_DATA_HOME: "/real/data",
       XDG_CONFIG_HOME: "/private/config",
-      SYNARA_AGENT_GATEWAY_BOOTSTRAP_TOKEN: "bootstrap-must-not-propagate",
+      SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN: "bootstrap-must-not-propagate",
     });
 
     expect(spawn.args).toEqual(["acp"]);
@@ -450,9 +450,9 @@ describe("makeDevinAcpRuntime", () => {
       capturedOptions = options;
       return Layer.succeed(AcpSessionRuntime, fakeRuntime);
     });
-    vi.stubEnv("HOME", "/tmp/synara-devin-acp-runtime-options-test");
-    vi.stubEnv("XDG_DATA_HOME", "/tmp/synara-devin-acp-runtime-options-test");
-    vi.stubEnv("APPDATA", "/tmp/synara-devin-acp-runtime-options-test");
+    vi.stubEnv("HOME", "/tmp/saint-devin-acp-runtime-options-test");
+    vi.stubEnv("XDG_DATA_HOME", "/tmp/saint-devin-acp-runtime-options-test");
+    vi.stubEnv("APPDATA", "/tmp/saint-devin-acp-runtime-options-test");
     vi.stubEnv("WINDSURF_API_KEY", "");
     vi.stubEnv("DEVIN_API_KEY", "");
     vi.stubEnv("windsurf_api_key", "");
@@ -466,7 +466,7 @@ describe("makeDevinAcpRuntime", () => {
           devinSettings: undefined,
           runtimeMode: "approval-required",
           cwd: "/tmp/project",
-          clientInfo: { name: "Synara", version: "0.0.0" },
+          clientInfo: { name: "Saint", version: "0.0.0" },
         }).pipe(Effect.scoped),
       );
 
@@ -584,9 +584,9 @@ describe("resolveDevinAcpAuthMethodId", () => {
       capturedOptions = options;
       return Layer.succeed(AcpSessionRuntime, fakeRuntime);
     });
-    vi.stubEnv("HOME", "/tmp/synara-devin-acp-runtime-interactive-test");
-    vi.stubEnv("XDG_DATA_HOME", "/tmp/synara-devin-acp-runtime-interactive-test");
-    vi.stubEnv("APPDATA", "/tmp/synara-devin-acp-runtime-interactive-test");
+    vi.stubEnv("HOME", "/tmp/saint-devin-acp-runtime-interactive-test");
+    vi.stubEnv("XDG_DATA_HOME", "/tmp/saint-devin-acp-runtime-interactive-test");
+    vi.stubEnv("APPDATA", "/tmp/saint-devin-acp-runtime-interactive-test");
     vi.stubEnv("WINDSURF_API_KEY", "");
     vi.stubEnv("DEVIN_API_KEY", "");
     vi.stubEnv("windsurf_api_key", "");
@@ -598,7 +598,7 @@ describe("resolveDevinAcpAuthMethodId", () => {
           devinSettings: undefined,
           runtimeMode: "approval-required",
           cwd: "/tmp/project",
-          clientInfo: { name: "Synara", version: "0.0.0" },
+          clientInfo: { name: "Saint", version: "0.0.0" },
         }).pipe(Effect.scoped),
       );
 

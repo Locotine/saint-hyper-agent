@@ -65,7 +65,7 @@ export async function resolveCodexProjectImportHome(
     resolveBaseCodexHomePath(input.env ?? process.env, input.homePath),
   );
   try {
-    // Synara's overlay links this file to the original home. Keep one provenance identity.
+    // Saint's overlay links this file to the original home. Keep one provenance identity.
     return path.dirname(await fs.realpath(path.join(home, ".codex-global-state.json")));
   } catch (error) {
     if (isMissing(error)) return home;

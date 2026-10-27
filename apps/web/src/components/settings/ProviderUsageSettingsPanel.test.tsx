@@ -2,7 +2,7 @@ import {
   DEFAULT_SERVER_SETTINGS,
   type ServerProviderUsageSnapshot,
   type ServerSettings,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";

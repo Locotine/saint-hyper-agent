@@ -14,11 +14,11 @@ export async function runCancellationFixture(
   approveCapture: (windowId: string) => void,
 ) {
   // With an embedded host, stop() tears the driver down at the broker level.
-  // With an external trusted host (SYNARA_CUA_FIXTURE_ENDPOINT) there is no
+  // With an external trusted host (SAINT_CUA_FIXTURE_ENDPOINT) there is no
   // local broker — backend.stopInput() sends the same `stop` method over the
   // socket, exercising the identical cancellation wire path.
   const stop = () => (host ? host.stop() : backend.stopInput());
-  const title = `Synara Cua Fixture ${process.pid} C`;
+  const title = `Saint Cua Fixture ${process.pid} C`;
   const channel = `fixture-cancel-${randomUUID()}`;
   const window = new BrowserWindow({
     title,
@@ -172,7 +172,7 @@ export async function runCancellationFixture(
       outcome: keyOutcome,
     });
 
-    // Key-vocabulary probe: three names admitted only through Synara-side
+    // Key-vocabulary probe: three names admitted only through Saint-side
     // spelling aliases (page_up/pagedown→driver pageup/pagedown, shift_l→the
     // generic shift code) must still produce real balanced key transitions in
     // the owned window. caps_lock is deliberately absent — macOS reports the
@@ -210,7 +210,7 @@ export async function runCancellationFixture(
       after: vocabAfter,
       keys: vocab,
     });
-    if (process.env.SYNARA_CUA_FIXTURE_FOREGROUND_CANCEL === "approved-once") {
+    if (process.env.SAINT_CUA_FIXTURE_FOREGROUND_CANCEL === "approved-once") {
       for (const mode of ["drag", "modified-click"] as const) {
         await observe();
         const baseline = { ...state };

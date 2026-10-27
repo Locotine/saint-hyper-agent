@@ -20,7 +20,7 @@ import {
   RuntimeTaskId,
   ThreadId,
   TurnId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   Cause,
   DateTime,
@@ -40,10 +40,10 @@ import {
 import { ChildProcessSpawner } from "effect/unstable/process";
 import type * as Acp from "@agentclientprotocol/sdk";
 
-import { buildAcpSynaraMcpServers } from "../../agentGateway/mcpInjection.ts";
+import { buildAcpSaintMcpServers } from "../../agentGateway/mcpInjection.ts";
 import {
-  type SynaraHarnessPolicyDeliveryState,
-  takeSynaraHarnessPolicyTextPartForProviderSession,
+  type SaintHarnessPolicyDeliveryState,
+  takeSaintHarnessPolicyTextPartForProviderSession,
 } from "../../agentGateway/harnessPolicy.ts";
 import { AgentGatewayCredentials } from "../../agentGateway/Services/AgentGatewayCredentials.ts";
 import { PROVIDER_ADAPTER_RUNTIME_EVENT_BUFFER_CAPACITY } from "../Services/ProviderAdapter.ts";
@@ -129,27 +129,27 @@ import { type EventNdjsonLogger, makeEventNdjsonLogger } from "./EventNdjsonLogg
 
 const PROVIDER = "droid" as const;
 
-export const takeDroidSynaraHarnessPolicyTextPart = (
-  state: SynaraHarnessPolicyDeliveryState,
+export const takeDroidSaintHarnessPolicyTextPart = (
+  state: SaintHarnessPolicyDeliveryState,
   scopedGatewayConnectionAvailable: boolean,
 ) =>
-  takeSynaraHarnessPolicyTextPartForProviderSession(state, {
+  takeSaintHarnessPolicyTextPartForProviderSession(state, {
     provider: PROVIDER,
     scopedGatewayConnectionAvailable,
   });
 const DROID_RESUME_VERSION = 1 as const;
 const DROID_ACP_TRANSPORT_DEBUG_MARKER = "droid-acp-meta-stripper-v2";
 const DROID_ACP_LOG_PAYLOAD_LIMIT = 4_000;
-const DROID_ACP_DEBUG_ENV = "SYNARA_DROID_ACP_DEBUG";
+const DROID_ACP_DEBUG_ENV = "SAINT_DROID_ACP_DEBUG";
 const LEGACY_DROID_ACP_DEBUG_ENV = "DP_DROID_ACP_DEBUG";
 const DROID_TURN_SETTLE_DRAIN_MAX_WAIT_MS = 1_000;
 const DROID_TURN_SETTLE_DRAIN_POLL_MS = 25;
 // Backstop for an alive-but-silent droid child: if a turn produces no ACP
 // activity for this long, force-fail it instead of showing "Working" forever.
 // Generous by design so legitimate long, quiet tool runs are not killed;
-// override with SYNARA_DROID_TURN_IDLE_TIMEOUT_MS when a workload needs longer.
+// override with SAINT_DROID_TURN_IDLE_TIMEOUT_MS when a workload needs longer.
 const DROID_TURN_IDLE_TIMEOUT_MS = resolveAcpTurnIdleTimeoutMs({
-  envVar: "SYNARA_DROID_TURN_IDLE_TIMEOUT_MS",
+  envVar: "SAINT_DROID_TURN_IDLE_TIMEOUT_MS",
   defaultMs: 600_000,
 });
 const DROID_TURN_WATCHDOG_INTERVAL_MS = 15_000;
@@ -164,7 +164,7 @@ const DROID_DISCOVERY_CACHE_MAX_ENTRIES = 16;
 const DROID_RESOURCE_DISCIPLINE_PROMPT =
   "Keep CPU-intensive validation work serial: never overlap builds, typechecks, linters, tests, package audits, or package-manager commands, including across background agents. Wait for one CPU-intensive command to finish before starting the next. Read-only code inspection may still run in parallel.";
 const DROID_PLAN_MODE_PROMPT_PREFIX = [
-  "Synara Droid plan mode is active.",
+  "Saint Droid plan mode is active.",
   "Do not implement or mutate files in this turn.",
   "Do not ask follow-up questions or wait for confirmation; if scope is ambiguous, choose a reasonable default and state the assumption in the plan.",
   "When ready, create the final implementation plan.",
@@ -243,7 +243,7 @@ interface DroidSessionContext {
   readonly activeAssistantItemsWithContent: Set<string>;
   activeTurnFailedToolDetail: string | undefined;
   activePromptFiber: Fiber.Fiber<void, never> | undefined;
-  /** Turns cancelled by Synara only because their Plan proposal was captured. */
+  /** Turns cancelled by Saint only because their Plan proposal was captured. */
   readonly planCapturedTurnIds: Set<TurnId>;
   // Epoch-ms of the last inbound ACP activity for the active turn; drives the
   // idle-progress watchdog that force-fails a silently hung turn.
@@ -855,11 +855,11 @@ export function makeDroidAdapter(
             cwd,
             ...(resumeSessionId ? { resumeSessionId } : {}),
             clientCapabilities: { elicitation: { form: {} } },
-            clientInfo: { name: "Synara", version: "0.0.0" },
+            clientInfo: { name: "Saint", version: "0.0.0" },
             ...(agentGatewayCredentials
               ? {
                   buildMcpServers: (initializeResult: Acp.InitializeResponse) =>
-                    buildAcpSynaraMcpServers({
+                    buildAcpSaintMcpServers({
                       connection: gatewaySessionLease!.connection,
                       initializeResult,
                       stdioProxy: agentGatewayCredentials.stdioProxy,
@@ -1032,7 +1032,7 @@ export function makeDroidAdapter(
               provider: PROVIDER,
               method: "session/resume",
               detail:
-                "Droid could not resume the requested native session. Synara refused the fresh fallback to avoid silently losing conversation context.",
+                "Droid could not resume the requested native session. Saint refused the fresh fallback to avoid silently losing conversation context.",
             });
           }
 
@@ -1568,7 +1568,7 @@ export function makeDroidAdapter(
             issue: "Turn requires non-empty text or attachments.",
           });
         }
-        const harnessPolicy = takeDroidSynaraHarnessPolicyTextPart(
+        const harnessPolicy = takeDroidSaintHarnessPolicyTextPart(
           ctx,
           agentGatewayCredentials !== undefined,
         );
@@ -1932,7 +1932,7 @@ export function makeDroidAdapter(
             runtime,
             targetCwd,
             unsupportedIssue:
-              "This Droid ACP version does not advertise session/fork; Synara will rebuild the fork from its retained transcript.",
+              "This Droid ACP version does not advertise session/fork; Saint will rebuild the fork from its retained transcript.",
             requestTimeoutMs: DROID_ACP_REQUEST_TIMEOUT_MS,
             timeoutError: droidAcpTimeoutError,
           });
@@ -1945,7 +1945,7 @@ export function makeDroidAdapter(
             provider: PROVIDER,
             operation: "forkThread",
             issue:
-              "The source Droid session has a turn in flight; Synara will rebuild the fork from its retained transcript.",
+              "The source Droid session has a turn in flight; Saint will rebuild the fork from its retained transcript.",
           });
         }
         const forked = activeSource
@@ -1973,7 +1973,7 @@ export function makeDroidAdapter(
                 childProcessSpawner,
                 cwd: sourceCwd,
                 resumeSessionId: sourceSessionId,
-                clientInfo: { name: "Synara Fork", version: "0.0.0" },
+                clientInfo: { name: "Saint Fork", version: "0.0.0" },
               });
               yield* runtime.start().pipe(
                 Effect.timeoutOption(DROID_ACP_REQUEST_TIMEOUT_MS),
@@ -2076,7 +2076,7 @@ export function makeDroidAdapter(
             ...(input.binaryPath ? { binaryPath: input.binaryPath } : {}),
             ...(input.environment ? { environment: input.environment } : {}),
             cwd,
-            clientName: "Synara Model Discovery",
+            clientName: "Saint Model Discovery",
           });
           yield* runtime.start();
           const result = yield* discoverDroidAcpModels(runtime);
@@ -2203,7 +2203,7 @@ export function makeDroidAdapter(
             ...(input.binaryPath ? { binaryPath: input.binaryPath } : {}),
             ...(input.environment ? { environment: input.environment } : {}),
             cwd,
-            clientName: "Synara Command Discovery",
+            clientName: "Saint Command Discovery",
           });
           yield* runtime.start();
           let commands = yield* runtime.getAvailableCommands;

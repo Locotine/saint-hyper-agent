@@ -1,4 +1,4 @@
-import type { DesktopRemoteSshHostState } from "@synara/contracts";
+import type { DesktopRemoteSshHostState } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { isRemoteHostBusy, remoteHostRows, remoteHostStatus } from "./remoteHostsSettingsModel";
@@ -9,7 +9,7 @@ const hostState = (
   extra: Partial<DesktopRemoteSshHostState> = {},
 ): DesktopRemoteSshHostState => ({
   host,
-  remoteRoot: ".synara-beta-remote",
+  remoteRoot: ".saint-beta-remote",
   phase,
   message: null,
   localPort: null,
@@ -20,9 +20,9 @@ describe("remoteHostRows", () => {
   it("keeps saved order, fills the default folder, and appends live unsaved hosts", () => {
     const rows = remoteHostRows({
       configHosts: [],
-      defaultRemoteRoot: ".synara-beta-remote",
+      defaultRemoteRoot: ".saint-beta-remote",
       savedHosts: [
-        { host: "k6", remoteRoot: "squad/synara" },
+        { host: "k6", remoteRoot: "squad/saint" },
         { host: "devbox", remoteRoot: null },
       ],
       hosts: [
@@ -32,9 +32,9 @@ describe("remoteHostRows", () => {
       ],
     });
     expect(rows.map((row) => [row.host, row.remoteRoot, row.saved])).toEqual([
-      ["k6", "squad/synara", true],
-      ["devbox", ".synara-beta-remote", true],
-      ["old", ".synara-beta-remote", false],
+      ["k6", "squad/saint", true],
+      ["devbox", ".saint-beta-remote", true],
+      ["old", ".saint-beta-remote", false],
     ]);
     expect(rows[1]?.state?.phase).toBe("connected");
     expect(rows[2]?.savedRemoteRoot).toBeNull();

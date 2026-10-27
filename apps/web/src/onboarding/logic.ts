@@ -5,7 +5,7 @@
 //          resolveOnboardingCompletionToReconcile, resolveLocalOnboardingCompletion,
 //          classifyProviderSetup, summarizeProviderSetup, toggleSelection
 
-import type { ProviderKind, ServerProviderStatus } from "@synara/contracts";
+import type { ProviderKind, ServerProviderStatus } from "@saint/contracts";
 
 export const ONBOARDING_STEPS = [
   "welcome",
@@ -145,7 +145,7 @@ export function classifyProviderSetup(input: {
   if (!input.status && input.detectionFailed) return "check-failed";
   if (!input.status || !input.status.available) return "not-installed";
   // Providers whose auth is not probed report "unknown"; treat a detected binary as
-  // usable rather than nagging for a sign-in Synara cannot verify.
+  // usable rather than nagging for a sign-in Saint cannot verify.
   return input.status.authStatus === "unauthenticated" ? "needs-sign-in" : "connected";
 }
 

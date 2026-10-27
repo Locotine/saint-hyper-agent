@@ -17,8 +17,8 @@ import {
   INLINE_VISUAL_EMBED_FENCE,
   ThreadId,
   type ProviderMentionReference,
-} from "@synara/contracts";
-import { isLocalAbsolutePath } from "@synara/shared/path";
+} from "@saint/contracts";
+import { isLocalAbsolutePath } from "@saint/shared/path";
 import "katex/dist/katex.min.css";
 import { matchWikiLinkAt, remarkWikiLinks } from "../lib/remarkWikiLinks";
 import { remarkGithubAlerts, type GithubAlertKind } from "../lib/remarkGithubAlerts";
@@ -88,7 +88,7 @@ import {
 } from "./composerInlineChip";
 import { LinkChipIcon } from "./LinkChipIcon";
 import { InlineAgentChip } from "./chat/InlineAgentChip";
-import { readInlineVisualEmbedId } from "@synara/shared/inlineVisual";
+import { readInlineVisualEmbedId } from "@saint/shared/inlineVisual";
 import { InlineVisualEmbedContext } from "./chat/inlineVisualEmbedContext";
 import { InlineLinkChip } from "./InlineLinkChip";
 import { InlineMentionChip } from "./chat/InlineMentionChip";
@@ -333,9 +333,9 @@ function restoreLiteralDollarPlaceholders(value: string): string {
     .replaceAll(encodeURIComponent(LITERAL_DOLLAR_PLACEHOLDER), "$");
 }
 
-// synara://thread/<target> links carry an id or title that may be
+// saint://thread/<target> links carry an id or title that may be
 // %-encoded; a malformed sequence keeps the raw target instead of throwing.
-function decodeSynaraThreadLinkTarget(target: string): string {
+function decodeSaintThreadLinkTarget(target: string): string {
   try {
     return decodeURIComponent(target).trim();
   } catch {
@@ -345,7 +345,7 @@ function decodeSynaraThreadLinkTarget(target: string): string {
 
 function markdownUrlTransform(href: string): string {
   const restoredHref = restoreLiteralDollarPlaceholders(href);
-  if (restoredHref.startsWith("thread://") || restoredHref.startsWith("synara://thread/")) {
+  if (restoredHref.startsWith("thread://") || restoredHref.startsWith("saint://thread/")) {
     return restoredHref;
   }
   return rewriteMarkdownFileUriHref(restoredHref) ?? defaultUrlTransform(restoredHref);
@@ -464,7 +464,7 @@ const AUTHORED_HTML_SCHEMA = {
   },
   protocols: {
     ...defaultSchema.protocols,
-    href: [...(defaultSchema.protocols?.href ?? []), "file", "thread", "synara"],
+    href: [...(defaultSchema.protocols?.href ?? []), "file", "thread", "saint"],
   },
 };
 function remarkFindableText() {
@@ -1355,8 +1355,8 @@ const MARKDOWN_COMPONENTS: Components = {
     const restoredHref = href ? restoreLiteralDollarPlaceholders(href) : href;
     const threadHref = restoredHref?.startsWith("thread://")
       ? restoredHref.slice("thread://".length)
-      : restoredHref?.startsWith("synara://thread/")
-        ? decodeSynaraThreadLinkTarget(restoredHref.slice("synara://thread/".length))
+      : restoredHref?.startsWith("saint://thread/")
+        ? decodeSaintThreadLinkTarget(restoredHref.slice("saint://thread/".length))
         : null;
     if (threadHref && onOpenThread) {
       return (

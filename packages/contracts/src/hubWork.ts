@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { SynaraCreateThreadSpec } from "./agentGateway";
+import { SaintCreateThreadSpec } from "./agentGateway";
 import {
   IsoDateTime,
   MessageId,
@@ -96,7 +96,7 @@ export const HubWorkRecord = Schema.Struct({
   /** Short reason the coordinator recorded when routing this task. */
   routingReason: Schema.optional(Schema.String.check(Schema.isMaxLength(500))),
   creationSpec: Schema.Struct({
-    ...SynaraCreateThreadSpec.fields,
+    ...SaintCreateThreadSpec.fields,
     // Snapshot the coordinator mode at submission, including Auto, without
     // exposing additional explicit modes on the MCP creation input.
     inheritedRuntimeMode: Schema.optional(RuntimeMode),

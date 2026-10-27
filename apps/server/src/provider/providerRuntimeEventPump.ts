@@ -7,7 +7,7 @@
  *
  * @module providerRuntimeEventPump
  */
-import type { ProviderKind, ProviderRuntimeEvent, ThreadId } from "@synara/contracts";
+import type { ProviderKind, ProviderRuntimeEvent, ThreadId } from "@saint/contracts";
 import { Cause, Effect, Stream } from "effect";
 import * as Semaphore from "effect/Semaphore";
 

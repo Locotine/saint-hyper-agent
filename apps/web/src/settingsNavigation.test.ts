@@ -2,7 +2,7 @@ import {
   isBetaFeatureEnabled,
   MCP_CONNECTORS_BETA_FEATURE,
   REMOTE_SSH_BETA_FEATURE,
-} from "@synara/shared/betaFeatures";
+} from "@saint/shared/betaFeatures";
 import { describe, expect, it } from "vitest";
 
 import {

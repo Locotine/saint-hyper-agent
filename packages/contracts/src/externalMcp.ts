@@ -4,7 +4,7 @@ import { IsoDateTime, MessageId, ProjectId, ThreadId, TrimmedNonEmptyString } fr
 import { ProviderKind, RuntimeMode } from "./orchestration";
 import { ProviderInstanceId } from "./providerInstance";
 
-export const EXTERNAL_MCP_AUDIENCE = "synara.external-mcp" as const;
+export const EXTERNAL_MCP_AUDIENCE = "saint.external-mcp" as const;
 export const EXTERNAL_MCP_MAX_PROMPT_CHARS = 100_000;
 export const EXTERNAL_MCP_MAX_REQUEST_ID_LENGTH = 256;
 export const EXTERNAL_MCP_DEFAULT_WAIT_MS = 30_000;

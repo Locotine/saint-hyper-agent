@@ -6,20 +6,20 @@ import { join } from "node:path";
 
 import { verifyMacAppSignature } from "./lib/mac-update-zip-finalize.ts";
 
-const CUA_BUNDLE_ID = "com.emanueledipietro.synara.cua";
+const CUA_BUNDLE_ID = "com.locotine.saint.cua";
 
 function withTemporaryMacApp(
   test: (appPath: string) => void,
   bundleId: string = CUA_BUNDLE_ID,
 ): void {
-  const root = mkdtempSync(join(tmpdir(), "synara-signature-test-"));
-  const appPath = join(root, "Synara Cua Signature Test.app");
+  const root = mkdtempSync(join(tmpdir(), "saint-signature-test-"));
+  const appPath = join(root, "Saint Cua Signature Test.app");
   try {
     mkdirSync(join(appPath, "Contents", "MacOS"), { recursive: true });
     mkdirSync(join(appPath, "Contents", "Resources"));
     const executable = join(appPath, "Contents", "MacOS", "probe");
     // This copied executable is never launched. A real signature on a tiny
-    // fixture exercises macOS validation without rebuilding/signing Synara.
+    // fixture exercises macOS validation without rebuilding/signing Saint.
     copyFileSync("/usr/bin/true", executable);
     chmodSync(executable, 0o755);
     writeFileSync(
@@ -27,7 +27,7 @@ function withTemporaryMacApp(
       `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0"><dict>
 <key>CFBundleIdentifier</key><string>${bundleId}</string>
-<key>CFBundleName</key><string>Synara Cua Signature Test</string>
+<key>CFBundleName</key><string>Saint Cua Signature Test</string>
 <key>CFBundleExecutable</key><string>probe</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
@@ -78,7 +78,7 @@ describe.skipIf(process.platform !== "darwin")("macOS packaged app identity", ()
     withTemporaryMacApp((appPath) => {
       signFixture(appPath);
       assert.throws(() => verifyMacAppSignature(appPath, false, CUA_BUNDLE_ID));
-    }, "com.emanueledipietro.synara");
+    }, "com.locotine.saint");
   });
 
   it("rejects resources changed after signing", () => {

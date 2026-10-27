@@ -4,7 +4,7 @@
 // Exports: AutomationCreationDraft plus pure warning/skill helpers.
 // Depends on: automation contracts shared with the native API.
 
-import { DEFAULT_AUTOMATION_FAST_INTERVAL_MAX_ITERATIONS } from "@synara/contracts";
+import { DEFAULT_AUTOMATION_FAST_INTERVAL_MAX_ITERATIONS } from "@saint/contracts";
 import type {
   AutomationMode,
   AutomationSchedule,
@@ -14,8 +14,8 @@ import type {
   ProjectId,
   RuntimeMode,
   ThreadId,
-} from "@synara/contracts";
-import { automationRequiresTargetThread } from "@synara/shared/automationMode";
+} from "@saint/contracts";
+import { automationRequiresTargetThread } from "@saint/shared/automationMode";
 
 import type { ChatAutomationExecutionScope } from "./automationIntent";
 
@@ -122,7 +122,7 @@ export function buildAutomationDraftWarnings(input: {
         input.worktreeMode === "auto" ? "Auto fallback may use local checkout" : "Local checkout",
       detail:
         input.worktreeMode === "auto"
-          ? "If Synara cannot create a worktree, runs may fall back to editing the active project checkout."
+          ? "If Saint cannot create a worktree, runs may fall back to editing the active project checkout."
           : "Runs may edit files in the active project checkout.",
       requiresAcknowledgement: true,
     });
@@ -145,7 +145,7 @@ export function buildAutomationDraftWarnings(input: {
     warnings.push({
       id: "generated-low-confidence",
       title: "Review generated fields",
-      detail: "Synara was not fully confident about the parsed automation fields.",
+      detail: "Saint was not fully confident about the parsed automation fields.",
       requiresAcknowledgement: false,
     });
   }

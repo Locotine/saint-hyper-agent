@@ -3,7 +3,7 @@ import {
   ComputerWindowId,
   type ComputerStatusResult,
   type ServerProviderStatus,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import {
   analyzeFocusSamples,
   type FocusProbeRunResult,
@@ -62,7 +62,7 @@ describe("packaged fixture evidence", () => {
   it.each(["/private/tmp", "/var/folders"])(
     "refuses an app under temporary root %s even if registration resolves to it",
     (root) => {
-      const bundle = `${root}/isolated/Synara Cua.app`;
+      const bundle = `${root}/isolated/Saint Cua.app`;
       expect(() => assertPackagedAppInstallation(bundle, bundle)).toThrow(
         "selected Cua app is in temporary storage",
       );
@@ -70,20 +70,20 @@ describe("packaged fixture evidence", () => {
   );
 
   it("requires LaunchServices to resolve the exact installed copy and gives actionable setup guidance", () => {
-    const bundle = "/Users/operator/Applications/Synara Cua.app";
-    for (const registered of [null, "/Applications/Synara Cua.app"]) {
+    const bundle = "/Users/operator/Applications/Saint Cua.app";
+    for (const registered of [null, "/Applications/Saint Cua.app"]) {
       expect(() => assertPackagedAppInstallation(bundle, registered)).toThrow(
         PackagedAppInstallationError,
       );
       expect(() => assertPackagedAppInstallation(bundle, registered)).toThrow(
-        '--bundle "$HOME/Applications/Synara Cua.app" and a new isolated --home',
+        '--bundle "$HOME/Applications/Saint Cua.app" and a new isolated --home',
       );
     }
     expect(() => assertPackagedAppInstallation(bundle, bundle)).not.toThrow();
   });
 
   it("does not mistake a stable directory sharing a temporary root prefix for temporary storage", () => {
-    const bundle = "/tmp-fixtures/Synara Cua.app";
+    const bundle = "/tmp-fixtures/Saint Cua.app";
     expect(() => assertPackagedAppInstallation(bundle, bundle)).not.toThrow();
   });
 
@@ -108,7 +108,7 @@ describe("packaged fixture evidence", () => {
     const fixture = {
       pid: 10,
       windowId: 20,
-      title: "Synara Native Fixture 10 A",
+      title: "Saint Native Fixture 10 A",
       label: "A" as const,
       clicks: 0,
       edits: 0,
@@ -269,7 +269,7 @@ describe("packaged fixture evidence", () => {
       pid: 10,
       windowId: 20,
       label: "A",
-      title: "Synara Native Fixture 10 A",
+      title: "Saint Native Fixture 10 A",
       clicks: 0,
       edits: 0,
       text: "abc",

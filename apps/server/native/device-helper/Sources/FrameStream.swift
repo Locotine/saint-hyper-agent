@@ -3,7 +3,7 @@
 // The simulator posts display updates via a damage-rectangle callback. Each
 // update is read out of the device IOSurface, encoded by VideoToolbox (hardware
 // where available), and written to the socket in the envelope defined by
-// `@synara/contracts` (see HEADER.md).
+// `@saint/contracts` (see HEADER.md).
 //
 // Backpressure is a hard requirement: the pane must never be the reason RPC
 // traffic stalls. The encoder drops frames while busy, and the writer drops
@@ -56,7 +56,7 @@ enum FrameEnvelope {
 /// the reader can frame without parsing the bitstream.
 final class FrameSocketWriter {
   private let descriptor: Int32
-  private let queue = DispatchQueue(label: "dev.synara.device-helper.socket")
+  private let queue = DispatchQueue(label: "dev.saint.device-helper.socket")
   private let stateLock = NSLock()
   private var closed = false
   private var descriptorClosed = false
@@ -201,7 +201,7 @@ final class FrameStream {
   private let deviceIdBytes: [UInt8]
   private let writer: FrameSocketWriter
   private let keyframeIntervalSeconds: Double
-  private let encodeQueue = DispatchQueue(label: "dev.synara.device-helper.encode")
+  private let encodeQueue = DispatchQueue(label: "dev.saint.device-helper.encode")
 
   private let damageCallbackUUID = NSUUID()
   private let surfaceCallbackUUID = NSUUID()

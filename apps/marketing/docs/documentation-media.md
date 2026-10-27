@@ -1,6 +1,6 @@
 # Documentation media system
 
-Use these rules for every screenshot, diagram, gallery, animation, and video added to Synara documentation.
+Use these rules for every screenshot, diagram, gallery, animation, and video added to Saint documentation.
 
 ## Goals
 
@@ -37,7 +37,7 @@ Use for real product captures or clearly labelled product-derived compositions.
 
 `provenance` is mandatory in practice:
 
-- `real` — a sanitized capture from the actual Synara application;
+- `real` — a sanitized capture from the actual Saint application;
 - `derived` — a composition built from real product surfaces to explain a workflow.
 
 Do not label a mock, prototype, or reconstructed composition as a real capture.
@@ -49,7 +49,7 @@ Use for diagrams or illustrations.
 ```mdx
 <DocsImage
   src="/docs/workflows/worktree-ownership.svg"
-  alt="Two Synara tasks using separate Git worktrees and branches"
+  alt="Two Saint tasks using separate Git worktrees and branches"
   width={1440}
   height={900}
   provenance="diagram"
@@ -143,7 +143,7 @@ Good:
 
 Weak:
 
-> Screenshot of Synara.
+> Screenshot of Saint.
 
 Use the caption for interpretation, sequence, caveats, or the reason the reader should inspect the media.
 

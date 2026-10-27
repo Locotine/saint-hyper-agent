@@ -1,5 +1,5 @@
-import { CommandId, type ProviderRuntimeEvent, type ThreadId } from "@synara/contracts";
-import { makeDrainableWorker, startDrainableWorkerProducers } from "@synara/shared/DrainableWorker";
+import { CommandId, type ProviderRuntimeEvent, type ThreadId } from "@saint/contracts";
+import { makeDrainableWorker, startDrainableWorkerProducers } from "@saint/shared/DrainableWorker";
 import { Cause, Effect, Layer, Option, Stream } from "effect";
 
 import { resolveThreadWorkspaceCwd } from "../../checkpointing/Utils.ts";
@@ -320,7 +320,7 @@ const make = Effect.gen(function* () {
   });
 
   const processProviderEvent = (event: ProviderRuntimeEvent) => {
-    // Native subagent lifecycle events carry the parent Synara thread id and the child identity
+    // Native subagent lifecycle events carry the parent Saint thread id and the child identity
     // in providerRefs. Treating them as parent turns would make shared-root ownership ambiguous
     // and suppress reconciliation when the actual parent turn completes.
     if (event.providerRefs?.providerParentThreadId !== undefined) return Effect.void;

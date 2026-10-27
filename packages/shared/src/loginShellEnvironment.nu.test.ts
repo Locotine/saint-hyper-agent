@@ -17,7 +17,7 @@ describe("Nushell login environment cache", () => {
   for (const { platform, segments } of platforms) {
     for (const name of ["env.nu", "config.nu", "login.nu"]) {
       it(`refreshes after creating, editing, or removing ${platform} ${name}`, () => {
-        const root = FS.mkdtempSync(Path.join(OS.tmpdir(), "synara-nu-cache-"));
+        const root = FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-nu-cache-"));
         try {
           const shell = Path.join(root, platform === "win32" ? "nu.exe" : "nu");
           FS.writeFileSync(shell, "shell fingerprint");
@@ -58,7 +58,7 @@ describe("Nushell login environment cache", () => {
   }
 
   it("does not invalidate another shell when Nushell configuration changes", () => {
-    const root = FS.mkdtempSync(Path.join(OS.tmpdir(), "synara-nu-cache-"));
+    const root = FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-nu-cache-"));
     try {
       const shell = Path.join(root, "bash");
       FS.writeFileSync(shell, "shell fingerprint");

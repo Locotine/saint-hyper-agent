@@ -14,7 +14,7 @@ const UPDATED_AT = "2026-09-02T10:00:00.000Z";
 const temporaryDirectories: string[] = [];
 
 async function fixtureHome() {
-  const directory = await mkdtemp(path.join(tmpdir(), "synara-claude-project-import-"));
+  const directory = await mkdtemp(path.join(tmpdir(), "saint-claude-project-import-"));
   temporaryDirectories.push(directory);
   return directory;
 }

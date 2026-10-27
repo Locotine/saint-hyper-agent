@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 function temporaryIconPath(): string {
-  const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "synara-app-icon-"));
+  const directory = FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-app-icon-"));
   temporaryDirectories.push(directory);
   return Path.join(directory, "desktop-app-icon");
 }

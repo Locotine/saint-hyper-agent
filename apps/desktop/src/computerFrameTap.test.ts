@@ -2,7 +2,7 @@ import type * as ChildProcess from "node:child_process";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 
-import type { CuaPreviewTarget } from "@synara/shared/cuaDriverProtocol";
+import type { CuaPreviewTarget } from "@saint/shared/cuaDriverProtocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ComputerFrameTap } from "./computerFrameTap";

@@ -5,7 +5,7 @@ events can share `message.id` and repeat provisional usage. Count each response
 once and add only increases from later snapshots. A block's UUID is a delivery
 identity, not an API response identity.
 
-Synara keeps request accounting on each native query context. The current and
+Saint keeps request accounting on each native query context. The current and
 previous SDK turn are retained; native results advance that boundary. Closing a
 UI turn early does not reset native accounting. Subagent contexts own independent
 counters. Successful results reconcile main-loop usage, including downward
@@ -22,7 +22,7 @@ corrections; missing or zeroed error results retain the observed estimate.
 
 `result.modelUsage` is not reset by a new process. When Claude Code resumes a
 session, it restores the totals it saved for that session, so the first result
-of a resumed process also counts earlier turns. Nothing in Synara knows that
+of a resumed process also counts earlier turns. Nothing in Saint knows that
 restored baseline, and Claude Code only restores it when the session was the
 last one saved for its project directory. The first result after a resume
 therefore only becomes the baseline: its turn carries no `modelUsage` or

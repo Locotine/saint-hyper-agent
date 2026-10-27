@@ -36,7 +36,7 @@ it("uses stringified arguments with the legacy navigator WebMCP API", async () =
 
   const bridge = (
     globalThis as typeof globalThis & {
-      readonly __synaraWebMcpBridgeV1: {
+      readonly __saintWebMcpBridgeV1: {
         readonly list: () => Promise<{
           readonly implementation: string;
           readonly tools: ReadonlyArray<{ readonly index: number; readonly signature: string }>;
@@ -49,7 +49,7 @@ it("uses stringified arguments with the legacy navigator WebMCP API", async () =
         ) => Promise<unknown>;
       };
     }
-  ).__synaraWebMcpBridgeV1;
+  ).__saintWebMcpBridgeV1;
   const listed = await bridge.list();
 
   expect(listed.implementation).toBe("native");

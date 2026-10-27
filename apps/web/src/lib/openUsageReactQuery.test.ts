@@ -10,7 +10,7 @@ describe("openUsageProviderSnapshotQueryOptions", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("can be disabled by privacy-safe active surfaces", () => {
-    const storage = new Map([["synara.openUsage.enabled", "true"]]);
+    const storage = new Map([["saint.openUsage.enabled", "true"]]);
     vi.stubGlobal("window", makeFakeWindow(storage));
 
     expect(openUsageProviderSnapshotQueryOptions("codex").enabled).toBe(true);

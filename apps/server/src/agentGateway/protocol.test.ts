@@ -13,12 +13,12 @@ describe("agent gateway MCP protocol", () => {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
-      params: { name: "synara_list_threads" },
+      params: { name: "saint_list_threads" },
     });
     assert.equal(parsed.kind, "request");
     if (parsed.kind !== "request") return;
     assert.equal(parsed.request.method, "tools/call");
-    assert.equal(parsed.request.params.name, "synara_list_threads");
+    assert.equal(parsed.request.params.name, "saint_list_threads");
   });
 
   it("classifies notifications by missing id", () => {
@@ -75,8 +75,8 @@ describe("agent gateway MCP protocol", () => {
     assert.deepEqual(result.capabilities, { tools: { listChanged: false } });
     assert.equal(result.instructions, "use the tools");
     assert.deepEqual(result.serverInfo, {
-      name: "synara",
-      title: "Synara App Control",
+      name: "saint",
+      title: "Saint App Control",
       version: "1.2.3",
     });
   });

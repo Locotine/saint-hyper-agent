@@ -13,7 +13,7 @@ import type {
   DesktopAppSnapState,
   ProviderInteractionMode,
   ThreadId,
-} from "@synara/contracts";
+} from "@saint/contracts";
 
 const harness = vi.hoisted(() => ({
   insertAppSnapCaptureIntoDraft: vi.fn(),
@@ -41,7 +41,7 @@ const READY_STATE: DesktopAppSnapState = {
   inputMonitoringPermission: "granted",
   screenRecordingPermission: "granted",
   message: null,
-  appDisplayName: "Synara",
+  appDisplayName: "Saint",
 };
 
 const CAPTURE: DesktopAppSnapCapture = {

@@ -1,5 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { CommandId, DEFAULT_SERVER_SETTINGS, MessageId } from "@synara/contracts";
+import { CommandId, DEFAULT_SERVER_SETTINGS, MessageId } from "@saint/contracts";
 import { Effect, Layer, ManagedRuntime, Option } from "effect";
 import { expect, it, vi } from "vitest";
 import { ServerConfig } from "../config";
@@ -32,7 +32,7 @@ function makeRuntime() {
       Layer.provide(ServerSettingsService.layerTest()),
       Layer.provideMerge(SqlitePersistenceMemory),
       Layer.provideMerge(
-        ServerConfig.layerTest(process.cwd(), { prefix: "synara-project-import-recovery-" }),
+        ServerConfig.layerTest(process.cwd(), { prefix: "saint-project-import-recovery-" }),
       ),
       Layer.provideMerge(NodeServices.layer),
     ),

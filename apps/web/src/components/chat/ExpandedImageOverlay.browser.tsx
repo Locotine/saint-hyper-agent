@@ -25,7 +25,7 @@ describe("ExpandedImageOverlay", () => {
               type="button"
               onClick={() =>
                 preview.setExpandedImage({
-                  images: [{ src: `${window.location.origin}/synara.png`, name: "Attachment" }],
+                  images: [{ src: `${window.location.origin}/saint.png`, name: "Attachment" }],
                   index: 0,
                 })
               }

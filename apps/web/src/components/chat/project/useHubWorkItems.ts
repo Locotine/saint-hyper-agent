@@ -1,4 +1,4 @@
-import type { HubWorkItem, ProjectId } from "@synara/contracts";
+import type { HubWorkItem, ProjectId } from "@saint/contracts";
 import { useEffect, useState } from "react";
 
 import { readNativeApi } from "~/nativeApi";

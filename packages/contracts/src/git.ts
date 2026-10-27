@@ -336,7 +336,7 @@ export const GitRemoveWorktreeInput = Schema.Struct({
       archiveSequence: NonNegativeInt,
     }),
   ),
-  // Managed worktrees are born on temporary synara/* branches. When set, a
+  // Managed worktrees are born on temporary saint/* branches. When set, a
   // removal also deletes that branch so retiring the worktree cannot strand it;
   // user-named branches are never touched. Handoff flows leave this unset
   // because they re-home the branch into the root checkout instead.

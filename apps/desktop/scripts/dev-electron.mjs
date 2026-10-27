@@ -84,12 +84,12 @@ function cleanupStaleDevApps() {
 
   const executable = escapeExtendedRegex(resolveElectronPath());
   const devRoot = escapeExtendedRegex(desktopDir);
-  const commandPattern = `^${executable}[[:space:]]+--synara-dev-root=${devRoot}([[:space:]]|$)`;
+  const commandPattern = `^${executable}[[:space:]]+--saint-dev-root=${devRoot}([[:space:]]|$)`;
   spawnSync("pkill", ["-f", "--", commandPattern], { stdio: "ignore" });
 }
 
 function listStaleComputerUsePids() {
-  // Only macOS exposes a verifiable Synara (Dev) executable path for these
+  // Only macOS exposes a verifiable Saint (Dev) executable path for these
   // helpers. Linux process command lines do not currently carry a dev-owner
   // marker, so reaping by the generic script name could kill another install.
   if (process.platform !== "darwin") {
@@ -100,7 +100,7 @@ function listStaleComputerUsePids() {
 
   return candidatePids.filter((pid) => {
     const command = readProcessCommand(pid);
-    if (!/Synara \(Dev\)\.app\/Contents\/MacOS\/Electron/.test(command)) {
+    if (!/Saint \(Dev\)\.app\/Contents\/MacOS\/Electron/.test(command)) {
       return false;
     }
     if (!/computerUseMcp\.mjs\s+mcp(?:\s|$)/.test(command)) {
@@ -122,7 +122,7 @@ function cleanupStaleComputerUseApps() {
   }
 
   console.error(
-    `[desktop-dev] Cleaning up ${stalePids.length} stale Synara (Dev) Computer Use helper process${stalePids.length === 1 ? "" : "es"} from other worktrees.`,
+    `[desktop-dev] Cleaning up ${stalePids.length} stale Saint (Dev) Computer Use helper process${stalePids.length === 1 ? "" : "es"} from other worktrees.`,
   );
 
   for (const pid of stalePids) {
@@ -141,17 +141,17 @@ function warnIfAlphaAppRunning() {
     return;
   }
 
-  const pids = listPidsByExactProcessName("Synara").filter((pid) =>
-    readProcessCommand(pid).startsWith("/Applications/Synara.app/Contents/MacOS/Synara"),
+  const pids = listPidsByExactProcessName("Saint").filter((pid) =>
+    readProcessCommand(pid).startsWith("/Applications/Saint.app/Contents/MacOS/Saint"),
   );
   if (pids.length === 0) {
     return;
   }
 
   console.error(
-    "[desktop-dev] Synara is still running. Close it before testing voice in Synara (Dev), or you may be looking at the wrong app/runtime.",
+    "[desktop-dev] Saint is still running. Close it before testing voice in Saint (Dev), or you may be looking at the wrong app/runtime.",
   );
-  console.error(`[desktop-dev] Running Synara process IDs: ${pids.join(", ")}`);
+  console.error(`[desktop-dev] Running Saint process IDs: ${pids.join(", ")}`);
 }
 
 function startApp() {
@@ -177,7 +177,7 @@ function startApp() {
   const electronPath = resolveElectronPath();
   const environment = { ...childEnv, VITE_DEV_SERVER_URL: devServerUrl };
   if (process.platform === "darwin") configureMacLauncher(electronPath, environment);
-  const app = spawn(electronPath, [`--synara-dev-root=${desktopDir}`, "dist-electron/main.js"], {
+  const app = spawn(electronPath, [`--saint-dev-root=${desktopDir}`, "dist-electron/main.js"], {
     cwd: desktopDir,
     env: environment,
     stdio: "inherit",

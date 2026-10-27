@@ -19,14 +19,14 @@ import {
   type ProviderKind,
   type ServerSettingsPatch,
   type ServerSettingsView,
-} from "@synara/contracts";
-import type { DeepPartial } from "@synara/shared/Struct";
+} from "@saint/contracts";
+import type { DeepPartial } from "@saint/shared/Struct";
 import {
   deriveProviderInstances,
   type ResolvedProviderInstance,
   resolveModelSelectionInstanceId,
-} from "@synara/shared/providerInstances";
-import { applyServerSettingsPatch } from "@synara/shared/serverSettings";
+} from "@saint/shared/providerInstances";
+import { applyServerSettingsPatch } from "@saint/shared/serverSettings";
 import {
   Cause,
   Deferred,
@@ -44,7 +44,7 @@ import {
 } from "effect";
 import * as Semaphore from "effect/Semaphore";
 import { writeFileStringAtomically } from "./atomicWrite";
-import { isServerBetaFeatureEnabled } from "./betaFeatureGate";
+import { isServerProviderAvailable } from "./betaFeatureGate";
 import { ServerSecretStoreLive } from "./auth/Layers/ServerSecretStore";
 import { ServerSecretStore } from "./auth/Services/ServerSecretStore";
 import { ServerConfig } from "./config";
@@ -130,7 +130,7 @@ export function toServerSettingsView(settings: ServerSettings): ServerSettingsVi
 export class ServerSettingsService extends ServiceMap.Service<
   ServerSettingsService,
   ServerSettingsShape
->()("synara/serverSettings/ServerSettingsService") {
+>()("saint/serverSettings/ServerSettingsService") {
   static readonly layerTest = (overrides: DeepPartial<ServerSettings> = {}) =>
     Layer.effect(
       ServerSettingsService,
@@ -204,13 +204,14 @@ export class ServerSettingsService extends ServiceMap.Service<
 }
 
 /**
- * Beta-only providers read as disabled on Stable, projected at the read
- * boundary only — the persisted file and `settingsRef` keep the user's own
- * value so a Beta -> Stable round trip never loses it.
+ * Beta-only providers read as disabled on Stable, and providers outside
+ * `SAINT_PROVIDERS` (remote SSH servers) read as disabled everywhere. This is
+ * projected at the read boundary only — the persisted file and `settingsRef`
+ * keep the user's own value so a Beta -> Stable round trip never loses it.
  */
 export function gateBetaOnlyProviders(
   settings: ServerSettings,
-  isEnabled: (feature: string) => boolean = isServerBetaFeatureEnabled,
+  isEnabled: (feature: string) => boolean = isServerProviderAvailable,
 ): ServerSettings {
   let changed = false;
   // A Record view for the write: the fixed Struct keys each keep their own

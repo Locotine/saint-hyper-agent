@@ -10,7 +10,7 @@ import {
   selectRecoverablePullRequestPins,
 } from "./pullRequests.logic";
 
-import type { PullRequestListEntry } from "@synara/contracts";
+import type { PullRequestListEntry } from "@saint/contracts";
 
 function makeEntry(overrides: Partial<PullRequestListEntry> = {}): PullRequestListEntry {
   return {

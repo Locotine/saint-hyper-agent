@@ -3,7 +3,7 @@
 Provenance: driver 0.28.2 / native rev 15 / patch 94261ed9 (see provenance
 inside rev15-electron-2026-09-17-report.json, `nativeBuild`). Fixture app
 built from this branch (`scripts/computer-use-fixtures/build-electron.mjs`),
-installed at `~/Applications/Synara Cua Fixture.app`.
+installed at `~/Applications/Saint Cua Fixture.app`.
 
 Method caveats (read before citing this as certification):
 

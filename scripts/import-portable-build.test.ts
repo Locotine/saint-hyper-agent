@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 it("imports a verified portable archive from a path containing a drive colon", () => {
-  const root = mkdtempSync(join(tmpdir(), "synara-portable-import-"));
+  const root = mkdtempSync(join(tmpdir(), "saint-portable-import-"));
   roots.push(root);
   const source = join(root, "source");
   const destination = join(root, "destination");

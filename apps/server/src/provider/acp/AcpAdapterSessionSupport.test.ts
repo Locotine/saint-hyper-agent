@@ -1,4 +1,4 @@
-import { ThreadId, TurnId, type ProviderSession } from "@synara/contracts";
+import { ThreadId, TurnId, type ProviderSession } from "@saint/contracts";
 import { Deferred, Effect, Exit, Scope } from "effect";
 import { describe, expect, it } from "vitest";
 

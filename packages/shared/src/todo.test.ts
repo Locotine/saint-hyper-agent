@@ -1,4 +1,4 @@
-import { ThreadId, type Todo, TodoId, TurnId } from "@synara/contracts";
+import { ThreadId, type Todo, TodoId, TurnId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import { applyTodoPatch } from "./todo";

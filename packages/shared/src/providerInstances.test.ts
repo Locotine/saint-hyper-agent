@@ -8,7 +8,7 @@ import {
   ProviderInstanceId,
   type ProviderInstanceConfig,
   type ServerSettings,
-} from "@synara/contracts";
+} from "@saint/contracts";
 import { Schema } from "effect";
 
 import {

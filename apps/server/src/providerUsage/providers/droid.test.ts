@@ -13,7 +13,7 @@ import nodePath from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { outboundHttp } from "@synara/shared/outboundHttp";
+import { outboundHttp } from "@saint/shared/outboundHttp";
 
 import { __resetDroidUsageRateLimitState, droidUsageFetcher, parseDroidUsage } from "./droid";
 import { decryptDroidCredentialFile, resolveDroidLocalCredential } from "./droidCredentials";
@@ -22,7 +22,7 @@ const NOW_MS = 1_780_000_000_000;
 const tempDirs: string[] = [];
 
 function makeHome(): string {
-  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "synara-droid-usage-"));
+  const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-droid-usage-"));
   tempDirs.push(homeDir);
   mkdirSync(nodePath.join(homeDir, ".factory"), { recursive: true });
   return homeDir;

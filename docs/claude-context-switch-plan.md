@@ -16,7 +16,7 @@ Treat normalized auto-compact overrides as spawn-fixed, reusing the existing res
 
 ## Sources
 
-This patch reuses Synara's existing spawn-profile boundary and leaves cache ownership with Claude.
+This patch reuses Saint's existing spawn-profile boundary and leaves cache ownership with Claude.
 
 Related Claude reports from the parent audit: [#78318](https://github.com/anthropics/claude-code/issues/78318) is related but its stale closure is not a fix, [#93901](https://github.com/anthropics/claude-code/issues/93901) concerns the ring, and [#78720](https://github.com/anthropics/claude-code/issues/78720) concerns resume cache misses on 2.1.263. No exact live-setting fix was found through 2.1.274. These are parent-audit observations, not newly verified upstream status.
 
@@ -29,7 +29,7 @@ The selected target is not the effective threshold: output reserves, environment
 ## Native resume evidence supplied during implementation
 
 The independently produced report was inspected at
-`/var/folders/14/rtp60871279g271xwzx2qrpc0000gn/T/synara-claude-resume-1m-check-4i5l2d/report.json`.
+`/var/folders/14/rtp60871279g271xwzx2qrpc0000gn/T/saint-claude-resume-1m-check-4i5l2d/report.json`.
 SDK 0.3.259 / CLI 2.1.274 used fixed model `claude-fable-5-1[1m]` and native UUID
 `143080a7-53c4-446a-a3b7-dedfef21f713` across four processes: initial 200k reported
 200000/167000, resume 1M 1000000/967000, resume 200k 200000/167000 and resume Auto
@@ -66,7 +66,7 @@ late background work, preserved event routing, and exactly one successful probe 
 
 ## Final verification (2026-09-17)
 
-All work remains in `db11b9ba36e6`, branch `synara/claude-context-switch-safety`, without commits or publication. Production changes are limited to shared model normalization, Claude adapter preparation/dispatch, provider service/coordinator retirement ordering, reactor selection/error projection, and contextWindow/ChatView reporting. Provider documentation, focused regressions, a browser tooltip test and the opt-in native probe accompany them.
+All work remains in `db11b9ba36e6`, branch `saint/claude-context-switch-safety`, without commits or publication. Production changes are limited to shared model normalization, Claude adapter preparation/dispatch, provider service/coordinator retirement ordering, reactor selection/error projection, and contextWindow/ChatView reporting. Provider documentation, focused regressions, a browser tooltip test and the opt-in native probe accompany them.
 
 | Check                                            | Final result                                                                         | Local evidence                               |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------- |

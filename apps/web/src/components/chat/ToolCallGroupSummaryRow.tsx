@@ -38,7 +38,7 @@ import {
 
 // One glyph per kind, matching the expanded rows; a mixed group wears the
 // working hammer. Tool calls and uncategorized calls keep their first entry's
-// own mark (MCP server, Synara, browser).
+// own mark (MCP server, Saint, browser).
 function summaryIcon(summary: ToolCallGroupSummary): LucideIcon {
   switch (summary.iconCategory) {
     case "read":
