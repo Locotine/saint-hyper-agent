@@ -127,4 +127,47 @@ describe("showFileReferenceContextMenu", () => {
     expect(harness.copyText).toHaveBeenCalledWith("/repo/output/video.mp4");
     expect(harness.showInFolder).not.toHaveBeenCalled();
   });
+
+  it("groups relative and full path copies and copies the workspace-joined path", async () => {
+    harness.clicked = "copy-full-path";
+
+    await showFileReferenceContextMenu({
+      path: "src/app.ts",
+      position: { x: 1, y: 2 },
+      onReferenceInChat: undefined,
+      workspaceRoot: "/home/pt/repo/",
+    });
+
+    expect(harness.showContextMenu).toHaveBeenCalledWith(
+      [
+        {
+          id: "copy-path-group",
+          label: "Copy path",
+          children: [
+            { id: "copy-path", label: "Relative path" },
+            { id: "copy-full-path", label: "Full path" },
+          ],
+        },
+      ],
+      { x: 1, y: 2 },
+    );
+    expect(harness.copyText).toHaveBeenCalledWith("/home/pt/repo/src/app.ts");
+  });
+
+  it("adds explorer actions and runs the chosen one", async () => {
+    const actions = { onNewFile: vi.fn(), onNewFolder: vi.fn(), onDelete: vi.fn() };
+    harness.clicked = "delete";
+
+    await showFileReferenceContextMenu({
+      path: "src",
+      position: { x: 1, y: 2 },
+      onReferenceInChat: undefined,
+      explorerActions: actions,
+    });
+
+    const items = harness.showContextMenu.mock.calls[0]?.[0] as Array<{ id: string }>;
+    expect(items.map((item) => item.id)).toEqual(["copy-path", "new-file", "new-folder", "delete"]);
+    expect(actions.onDelete).toHaveBeenCalledOnce();
+    expect(actions.onNewFile).not.toHaveBeenCalled();
+  });
 });

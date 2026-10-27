@@ -734,6 +734,34 @@ function resolveGitHubPublishConfig():
   };
 }
 
+/**
+ * GitLab Releases feed for forks hosted on GitLab, from
+ * `SAINT_DESKTOP_UPDATE_GITLAB_PROJECT` (`namespace/project`) and optionally
+ * `SAINT_DESKTOP_UPDATE_GITLAB_HOST`. The project must be public: the updater
+ * reads it without a token. `scripts/publish-gitlab-release.ts` uploads the
+ * assets as generic packages and links them from the release.
+ */
+function resolveGitLabPublishConfig():
+  | {
+      readonly provider: "gitlab";
+      readonly projectId: string;
+      readonly host?: string;
+      readonly uploadTarget: "generic_package";
+    }
+  | undefined {
+  const projectId = process.env.SAINT_DESKTOP_UPDATE_GITLAB_PROJECT?.trim() || "";
+  if (!/^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+$/u.test(projectId)) return undefined;
+  const host = process.env.SAINT_DESKTOP_UPDATE_GITLAB_HOST?.trim() || "";
+  return {
+    provider: "gitlab",
+    // electron-updater splices projectId into the API path as is, so a
+    // `namespace/project` path must arrive URL-encoded or GitLab answers 404.
+    projectId: encodeURIComponent(projectId),
+    ...(host ? { host } : {}),
+    uploadTarget: "generic_package",
+  };
+}
+
 const verifyStagedNodePty = Effect.fn("verifyStagedNodePty")(function* (
   stageAppDir: string,
   verbose: boolean,
@@ -959,7 +987,7 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     },
     forceCodeSigning: signed,
   };
-  const publishConfig = resolveGitHubPublishConfig();
+  const publishConfig = resolveGitLabPublishConfig() ?? resolveGitHubPublishConfig();
   if (artifactIdentity.identity.usesScriptedUpdates) {
     // Experimental bundles must never contain a Stable updater feed, even
     // when built from a shell used by the release workflow.
@@ -1524,7 +1552,11 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
             stageDistDir,
             signed: options.signed,
             verbose: options.verbose,
-            requireUpdateManifest: !artifactIdentity.identity.usesScriptedUpdates,
+            // electron-builder writes the update manifest only when a feed is
+            // configured; a local build without one has nothing to validate.
+            requireUpdateManifest:
+              !artifactIdentity.identity.usesScriptedUpdates &&
+              resolvedBuildConfig.buildConfig.publish != null,
             ...(artifactIdentity.identity.usesScriptedUpdates
               ? { expectedBundleIdentifier: artifactIdentity.identity.bundleId }
               : {}),

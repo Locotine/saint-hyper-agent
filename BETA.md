@@ -182,6 +182,34 @@ bun run dist:desktop:artifact -- --platform mac --target dmg --arch arm64 --flav
 resolved flavor (`saintDesktopFlavor`), so a packaged build cannot silently lose its
 identity at runtime; on packaged builds the embedded value wins over the env var.
 
+### Updates from a GitLab Releases feed
+
+A fork hosted on GitLab can ship updates from a **public** GitLab project, without CI. The updater reads the project anonymously, so keep the source in a private project and use a separate public one only for releases. Its package registry must allow anonymous downloads (the default for public projects), and it needs one commit on `main` to tag releases from.
+
+1. On every build machine, build with the feed configured. The build embeds it in `app-update.yml`:
+
+   ```bash
+   export SAINT_DESKTOP_UPDATE_GITLAB_PROJECT=<namespace>/<releases-project>
+   # SAINT_DESKTOP_UPDATE_GITLAB_HOST=git.example.com for self-managed GitLab
+   bun run dist:desktop:win -- --flavor beta        # Windows: NSIS installer
+   bun run dist:desktop:linux -- --flavor beta      # Ubuntu: AppImage
+   bun run dist:desktop:dmg:arm64 -- --flavor beta  # macOS
+   ```
+
+2. On each machine, upload its output folder. Every run adds its files to the release `v<version>`, which it creates on first use:
+
+   ```bash
+   GITLAB_TOKEN=<token with api scope> bun run release:gitlab -- release
+   ```
+
+   Uploads are generic packages (`saint-desktop/<version>/<file>`), linked from the release by file name. They are the names `latest.yml`, `latest-linux.yml` and `latest-mac.yml` that the updater looks up. Merge the two macOS manifests first with `scripts/merge-mac-update-manifests.ts` when you ship both architectures.
+
+   On Linux, add `scripts/linux/install-saint-beta.sh` to the folder you upload. Users run `bash install-saint-beta.sh` after downloading the AppImage: it copies it to `~/Applications/saint-beta.AppImage` (a name without a version, so updates overwrite it in place), adds the menu entry, icon and `saint-beta://` handler, offers to install `libfuse2` and to remove an older `.deb`, and `--uninstall` removes it again.
+
+3. Installed apps check the newest release and update in place on Windows (NSIS) and Linux (AppImage only; a `.deb` never updates). macOS installs only builds signed and notarized with a Developer ID. An unsigned Mac sees the update, fails to install it, and after two failures offers the GitLab release page for a manual download.
+
+Builds made before the feed was configured have no `app-update.yml` and never update. Install a feed-enabled build once by hand. Every version in this feed must be a `-beta.N` version: a Beta install refuses stable releases (see [Update channel isolation](#update-channel-isolation)).
+
 ## Joining beta from stable
 
 The stable app offers a one-click handoff under **Settings → General → Saint Beta**:

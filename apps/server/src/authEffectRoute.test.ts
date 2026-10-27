@@ -11,6 +11,7 @@ import {
   ATTACHMENT_UPLOAD_ROUTE_PATH,
   LIBRARY_UPLOAD_ROUTE_PATH,
   VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH,
+  WORKSPACE_UPLOAD_ROUTE_PATH,
 } from "@saint/shared/binaryTransfer";
 import { DateTime, Effect, Exit, Layer, Option, Scope } from "effect";
 import { HttpRouter } from "effect/unstable/http";
@@ -44,6 +45,9 @@ import {
   type ProviderAdapterRegistryShape,
 } from "./provider/Services/ProviderAdapterRegistry";
 import { ServerSettingsService } from "./serverSettings";
+import { WorkspaceEntriesLive } from "./workspace/Layers/WorkspaceEntries";
+import { WorkspaceFileSystemLive } from "./workspace/Layers/WorkspaceFileSystem";
+import { WorkspacePathsLive } from "./workspace/Layers/WorkspacePaths";
 
 const currentSessionId = AuthSessionId.makeUnsafe("11111111-1111-4111-8111-111111111111");
 const otherSessionId = AuthSessionId.makeUnsafe("22222222-2222-4222-8222-222222222222");
@@ -169,6 +173,11 @@ async function withAuthEffectServer(
               } as unknown as ProjectionSnapshotQueryShape),
           ),
           ManagedAttachmentRepositoryLive.pipe(Layer.provideMerge(SqlitePersistenceMemory)),
+          WorkspaceFileSystemLive.pipe(
+            Layer.provide(WorkspacePathsLive),
+            Layer.provide(WorkspaceEntriesLive),
+            Layer.provide(NodeServices.layer),
+          ),
           NodeServices.layer,
         ),
         scope,
@@ -733,6 +742,67 @@ describe("binaryUploadEffectRouteLayer", () => {
       );
     } finally {
       fs.rmSync(config.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("uploads dropped files into a workspace folder without replacing existing ones", async () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "saint-workspace-upload-"));
+    fs.mkdirSync(path.join(workspace, "docs"));
+    fs.writeFileSync(path.join(workspace, "docs", "report.pdf"), "existing");
+    const config = {
+      host: "0.0.0.0",
+      publicUrl: new URL("https://saint.example.test/"),
+    } as ServerConfigShape;
+    const upload = (serverOrigin: string, query: Record<string, string>, body: Uint8Array) =>
+      fetch(`${serverOrigin}${WORKSPACE_UPLOAD_ROUTE_PATH}?${new URLSearchParams(query)}`, {
+        method: "POST",
+        headers: { Authorization: "Bearer bearer-token" },
+        body,
+      });
+    try {
+      await withAuthEffectServer(
+        config,
+        makeServerAuth({ count: 0 }),
+        async (serverOrigin) => {
+          const bytes = Uint8Array.from([0, 255, 1, 254]);
+          const first = await upload(
+            serverOrigin,
+            { cwd: workspace, directory: "docs", name: "report.pdf" },
+            bytes,
+          );
+          expect(first.status).toBe(201);
+          expect(await first.json()).toEqual({ relativePath: "docs/report (1).pdf" });
+          expect(fs.readFileSync(path.join(workspace, "docs", "report.pdf"), "utf8")).toBe(
+            "existing",
+          );
+          expect([...fs.readFileSync(path.join(workspace, "docs", "report (1).pdf"))]).toEqual([
+            ...bytes,
+          ]);
+
+          const atRoot = await upload(serverOrigin, { cwd: workspace, name: "a.bin" }, bytes);
+          expect(await atRoot.json()).toEqual({ relativePath: "a.bin" });
+
+          const escaping = await upload(
+            serverOrigin,
+            { cwd: workspace, directory: "../outside", name: "x.txt" },
+            bytes,
+          );
+          expect(escaping.status).toBe(400);
+          const pathName = await upload(serverOrigin, { cwd: workspace, name: "a/b.txt" }, bytes);
+          expect(pathName.status).toBe(400);
+          const relativeCwd = await upload(serverOrigin, { cwd: "docs", name: "x.txt" }, bytes);
+          expect(relativeCwd.status).toBe(400);
+          const unauthenticated = await fetch(
+            `${serverOrigin}${WORKSPACE_UPLOAD_ROUTE_PATH}?${new URLSearchParams({ cwd: workspace, name: "y.txt" })}`,
+            { method: "POST", body: bytes },
+          );
+          expect(unauthenticated.status).toBe(401);
+          expect(fs.existsSync(path.join(workspace, "y.txt"))).toBe(false);
+        },
+        binaryUploadEffectRouteLayer,
+      );
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
     }
   });
 

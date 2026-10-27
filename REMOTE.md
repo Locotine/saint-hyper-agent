@@ -77,24 +77,27 @@ Open **Settings → Remote hosts**, enter an alias from `~/.ssh/config` (or `use
 
 The remote server listens only on the remote loopback interface. The auth token is generated per start, sent over stdin, and stored in `<folder>/run/token` with mode 0600. It never appears in an ssh or process argument list.
 
-| Action      | Effect                                                                            |
-| ----------- | --------------------------------------------------------------------------------- |
-| Disconnect  | Closes the tunnel and the host's windows. The server and its agents keep running. |
-| Stop server | Also stops the remote server. Installed files and data stay.                      |
-| Quit Saint  | Closes tunnels only.                                                              |
+| Action                 | Effect                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Disconnect             | Closes the tunnel and the host's windows. The server and its agents keep running.                             |
+| Stop server            | Also stops the remote server. Installed files and data stay.                                                  |
+| Quit Saint             | Closes tunnels only.                                                                                          |
+| Close the local window | Remote windows stay open. Launching Saint again reopens the local window; the app quits with its last window. |
 
-Remote layout, relative to the remote home (default folder `.saint-remote`, `.saint-beta-remote` for Beta):
+Remote layout, relative to the remote home (shared folder `.saint-remote`, `.saint-beta-remote` for Beta):
 
-| Path                | Contents                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------- |
-| `versions/<build>/` | Server bundle and `node_modules`. Only in the default folder, shared by every remote folder |
-| `home/`             | `SAINT_HOME` of the remote server (database, settings)                                      |
-| `run/`              | `server.sh`, `server.pid`, `server.json`, `token`, `server.log`                             |
-| `staging/`          | Upload and `npm install` in progress; removed when the version is published to `versions/`  |
+| Path                           | Contents                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------ |
+| `versions/<build>/`            | Server bundle and `node_modules`, shared by every desktop and remote folder                |
+| `clients/<client-id>/home/`    | `SAINT_HOME` of this desktop's remote server (database, settings, threads)                 |
+| `clients/<client-id>/run/`     | `server.sh`, `server.pid`, `server.json`, `token`, `server.log`                            |
+| `clients/<client-id>/staging/` | Upload and `npm install` in progress; removed when the version is published to `versions/` |
 
 `<build>` is the app version plus the first 12 hex digits of a SHA-256 of the server bundle (for example `1.0.9-3f2a9c1b7d4e`). A rebuild that keeps the version number therefore installs and starts its own server instead of reusing an older one, and the older install is removed once no server runs it.
 
-On shared accounts, set **Remote folder** to a folder of your own (for example `squad/saint-remote`). Each folder gets its own server, data and tmux session, and all folders run the same installed build from the default folder's `versions/`. The first folder to finish installing a version publishes it with one atomic rename; the others reuse it.
+`<client-id>` is the local user name plus 8 random hex digits (for example `anh-0a1b2c3d`), created once per desktop install and stored in `userdata/remote-ssh-client-id`. Desktops that reach the same remote account therefore run separate servers, with their own data and tmux session, and never see each other's threads. They share only the installed versions; the first to finish installing a version publishes it with one atomic rename and the others reuse it. This separates data per desktop, not per Unix user: anyone with a shell on that remote account can still read every folder.
+
+**Remote folder** in Settings overrides the client folder with one of your own (for example `squad/saint-remote`), for instance to reach the same server from two desktops. A folder used before client folders existed (data directly in `.saint-remote/home`) is left in place; set **Remote folder** to `.saint-remote` to reach it again, or stop its server there once nobody needs it.
 
 The remote server runs only Codex and Claude, through the `codex` and `claude` CLIs on the host's `PATH` (or the binary paths set in **Settings → Providers**). Other providers are hidden in remote windows, and the server refuses them.
 
@@ -102,14 +105,16 @@ Host requirements: key-based SSH (no password prompts), Node.js 22.16+ (23.11+ o
 
 In a remote window, paths belong to the host:
 
-| Action                          | Behavior in a remote window                                                                                                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Browse for a folder             | Opens an in-app picker that lists the host's folders through the server and marks git repositories.                                                                            |
-| Open in editor                  | Opens the folder in the local VS Code, VS Code Insiders, Cursor, Windsurf, or VSCodium through `vscode-remote://ssh-remote+<host>`. The editor needs its Remote-SSH extension. |
-| Preview an HTML file            | Renders it from the host in a sandboxed frame, with its relative assets and no size limit. The frame cannot read the app, its storage, or the server token.                    |
-| Drop files into the composer    | Uploads them as attachments instead of mentioning local paths.                                                                                                                 |
-| Drop a folder on "Add project"  | Not available. Browse or type the host path.                                                                                                                                   |
-| Reveal in Finder / file manager | Hidden.                                                                                                                                                                        |
+| Action                          | Behavior in a remote window                                                                                                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browse for a folder             | Opens an in-app picker that lists the host's folders through the server and marks git repositories.                                                                             |
+| Open in editor                  | Opens the folder in the local VS Code, VS Code Insiders, Cursor, Windsurf, or VSCodium through `vscode-remote://ssh-remote+<host>`. The editor needs its Remote-SSH extension.  |
+| Preview an HTML file            | Renders it from the host in a sandboxed frame, with its relative assets and no size limit. The frame cannot read the app, its storage, or the server token.                     |
+| Drop files into the composer    | Uploads them as attachments instead of mentioning local paths.                                                                                                                  |
+| Drop files on the Explorer      | Uploads them into the folder under the pointer (a file row means its folder, empty space the workspace root), up to 256 MB each. A taken name gets ` (1)`; nothing is replaced. |
+| Right-click in the Explorer     | **Copy path › Full path** copies the host path. **New File…**, **New Folder…** and **Delete…** act on the host; delete asks first and cannot be undone.                         |
+| Drop a folder on "Add project"  | Not available. Browse or type the host path.                                                                                                                                    |
+| Reveal in Finder / file manager | Hidden.                                                                                                                                                                         |
 
 These remain limits:
 

@@ -752,4 +752,77 @@ it.layer(TestLayer)("WorkspaceFileSystemLive", (it) => {
       }),
     );
   });
+
+  describe("explorer entries", () => {
+    it.effect("creates files and folders without replacing existing entries", () =>
+      Effect.gen(function* () {
+        const service = yield* WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        yield* writeTextFile(cwd, "notes.md", "keep");
+
+        expect(
+          yield* service.createEntry({ cwd, relativePath: "src/new.ts", kind: "file" }),
+        ).toEqual({ relativePath: "src/new.ts" });
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${cwd}/src/new.ts`, "utf8"))).toBe("");
+        yield* service.createEntry({ cwd, relativePath: "docs/specs", kind: "directory" });
+        expect((yield* Effect.promise(() => NodeFs.stat(`${cwd}/docs/specs`))).isDirectory()).toBe(
+          true,
+        );
+
+        const duplicate = yield* service
+          .createEntry({ cwd, relativePath: "notes.md", kind: "file" })
+          .pipe(Effect.flip);
+        expect(duplicate.message).toContain("notes.md already exists.");
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${cwd}/notes.md`, "utf8"))).toBe(
+          "keep",
+        );
+        const escaping = yield* service
+          .createEntry({ cwd, relativePath: "../outside", kind: "directory" })
+          .pipe(Effect.flip);
+        expect(escaping._tag).toBe("WorkspacePathOutsideRootError");
+      }),
+    );
+
+    it.effect("deletes files and folders but only the link, never its target", () =>
+      Effect.gen(function* () {
+        const service = yield* WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        const outside = yield* makeTempDir;
+        yield* writeTextFile(cwd, "dir/a.txt", "a");
+        yield* writeTextFile(cwd, "b.txt", "b");
+        yield* writeTextFile(outside, "secret.txt", "s");
+        yield* Effect.promise(() => makeDirectorySymlink(outside, `${cwd}/dir/link`));
+        yield* Effect.promise(() => makeDirectorySymlink(outside, `${cwd}/escape`));
+
+        expect(yield* service.deleteEntry({ cwd, relativePath: "b.txt" })).toEqual({
+          relativePath: "b.txt",
+          kind: "file",
+        });
+        expect(yield* service.deleteEntry({ cwd, relativePath: "escape" })).toEqual({
+          relativePath: "escape",
+          kind: "file",
+        });
+        expect(yield* service.deleteEntry({ cwd, relativePath: "dir" })).toEqual({
+          relativePath: "dir",
+          kind: "directory",
+        });
+        expect(yield* Effect.promise(() => NodeFs.readdir(cwd))).toEqual([]);
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${outside}/secret.txt`, "utf8"))).toBe(
+          "s",
+        );
+
+        // A path through a link that leaves the root is refused.
+        yield* Effect.promise(() => makeDirectorySymlink(outside, `${cwd}/via`));
+        const throughLink = yield* service
+          .deleteEntry({ cwd, relativePath: "via/secret.txt" })
+          .pipe(Effect.flip);
+        expect(throughLink._tag).toBe("WorkspacePathOutsideRootError");
+        expect(yield* Effect.promise(() => NodeFs.readFile(`${outside}/secret.txt`, "utf8"))).toBe(
+          "s",
+        );
+        const root = yield* service.deleteEntry({ cwd, relativePath: "." }).pipe(Effect.flip);
+        expect(root._tag).toBe("WorkspacePathOutsideRootError");
+      }),
+    );
+  });
 });

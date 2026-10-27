@@ -207,6 +207,7 @@ import {
   WorkspaceFileConflictError,
   WorkspaceFileDeletedError,
   WorkspaceFileSystem,
+  WorkspaceFileSystemError,
 } from "./workspace/Services/WorkspaceFileSystem";
 import {
   MAX_STREAMS_PER_RPC_CLIENT,
@@ -378,6 +379,14 @@ function readDescendantProcesses(rootPid: number): Promise<ProcessTableRow[]> {
       },
     );
   });
+}
+
+// Explorer entry errors reach a toast: show the detail ("a.txt already exists.")
+// rather than the operation-and-root prefix of the error's own message.
+function explorerEntryRpcError(cause: unknown, fallbackMessage: string) {
+  return cause instanceof WorkspaceFileSystemError
+    ? new WsRpcError({ message: cause.detail, retryable: false })
+    : toWsRpcError(cause, fallbackMessage);
 }
 
 export function toWsRpcError(cause: unknown, fallbackMessage: string) {
@@ -1911,6 +1920,22 @@ const makeWsRpcHandlersLayer = () =>
                   : toWsRpcError(cause, "Failed to write workspace file"),
             ),
           ),
+        [WS_METHODS.projectsCreateEntry]: (input) =>
+          workspaceFileSystem
+            .createEntry(input)
+            .pipe(
+              Effect.mapError((cause) =>
+                explorerEntryRpcError(cause, "Failed to create the entry"),
+              ),
+            ),
+        [WS_METHODS.projectsDeleteEntry]: (input) =>
+          workspaceFileSystem
+            .deleteEntry(input)
+            .pipe(
+              Effect.mapError((cause) =>
+                explorerEntryRpcError(cause, "Failed to delete the entry"),
+              ),
+            ),
         [WS_METHODS.projectsRunDevServer]: (input) =>
           rpcEffect(devServerManager.run(input), "Failed to start dev server"),
         [WS_METHODS.projectsStopDevServer]: (input) =>

@@ -36,6 +36,13 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collaps
 import { DisclosureChevron } from "../ui/DisclosureChevron";
 import { SearchInput } from "../ui/search-input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { useExplorerEntryActions } from "./explorerEntryActions";
+import {
+  EXPLORER_DROP_DIRECTORY_ATTRIBUTE,
+  EXPLORER_DROP_TARGET_CLASS_NAME,
+  explorerDropDirectoryFor,
+  useExplorerFileDrop,
+} from "./explorerFileDrop";
 import { EXPLORER_ROW_PROPS, useExplorerListNavigation } from "./explorerListNavigation";
 import { FileEntryIcon } from "./FileEntryIcon";
 import { fileRowClassName, fileRowIndentStyle } from "./fileRowStyles";
@@ -122,6 +129,8 @@ const ExplorerRow = forwardRef<
     depth: number;
     selected: boolean;
     expanded: boolean;
+    /** Highlights a folder row while local files are dragged over it. */
+    dropTarget?: boolean;
     onSelectFile: (path: string) => void;
     onPrefetchEntry: (entry: ProjectFileSystemEntry) => void;
     onEntryContextMenu: (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => void;
@@ -132,6 +141,7 @@ const ExplorerRow = forwardRef<
     depth,
     selected,
     expanded,
+    dropTarget = false,
     onSelectFile,
     onPrefetchEntry,
     onEntryContextMenu,
@@ -168,9 +178,13 @@ const ExplorerRow = forwardRef<
       {...EXPLORER_ROW_PROPS}
       ref={ref}
       type="button"
-      className={fileRowClassName(selected, cn("h-7 pr-2", className))}
+      className={fileRowClassName(
+        selected,
+        cn("h-7 pr-2", dropTarget && EXPLORER_DROP_TARGET_CLASS_NAME, className),
+      )}
       style={fileRowIndentStyle(depth)}
       title={entry.path}
+      {...{ [EXPLORER_DROP_DIRECTORY_ATTRIBUTE]: explorerDropDirectoryFor(entry) }}
       draggable
       onDragStart={handleDragStart}
       onClick={handleClick}
@@ -218,6 +232,7 @@ function WorkspaceDirectory(props: {
   depth: number;
   selectedFilePath: string | null;
   expandedDirectories: ReadonlySet<string>;
+  dropDirectory: string | null;
   onSelectFile: (path: string) => void;
   onToggleDirectory: (path: string) => void;
   onPrefetchEntry: (entry: ProjectFileSystemEntry) => void;
@@ -274,6 +289,7 @@ function WorkspaceDirectory(props: {
                   depth={props.depth}
                   selected={false}
                   expanded={expanded}
+                  dropTarget={entry.path === props.dropDirectory}
                   onSelectFile={props.onSelectFile}
                   onPrefetchEntry={props.onPrefetchEntry}
                   onEntryContextMenu={props.onEntryContextMenu}
@@ -289,6 +305,7 @@ function WorkspaceDirectory(props: {
                 depth={props.depth + 1}
                 selectedFilePath={props.selectedFilePath}
                 expandedDirectories={props.expandedDirectories}
+                dropDirectory={props.dropDirectory}
                 onSelectFile={props.onSelectFile}
                 onToggleDirectory={props.onToggleDirectory}
                 onPrefetchEntry={props.onPrefetchEntry}
@@ -305,19 +322,12 @@ function WorkspaceDirectory(props: {
 // Opening the file-reference context menu from a tree row (full entry) or a
 // search-result row (path only). Both wrap the same menu, so they live here
 // instead of being re-declared in every sidebar that renders these rows.
-function useTreeEntryContextMenu(
-  onReferenceInChat: ((reference: ChatFileReference) => void) | undefined,
-) {
-  return (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => {
-    void showFileReferenceContextMenu({ path: entry.path, position, onReferenceInChat });
-  };
-}
-
 function useResultEntryContextMenu(
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined,
+  workspaceRoot: string | null,
 ) {
   return (path: string, position: { x: number; y: number }) => {
-    void showFileReferenceContextMenu({ path, position, onReferenceInChat });
+    void showFileReferenceContextMenu({ path, position, onReferenceInChat, workspaceRoot });
   };
 }
 
@@ -331,9 +341,23 @@ function WorkspaceFilesTreeBody(props: {
   onToggleDirectory: (path: string) => void;
   onPrefetchEntry: (entry: ProjectFileSystemEntry) => void;
   onEntryContextMenu: (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => void;
+  onRootContextMenu: (position: { x: number; y: number }) => void;
 }) {
+  const fileDrop = useExplorerFileDrop(props.workspaceRoot);
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-1 py-1">
+    <div
+      className={cn(
+        "min-h-0 flex-1 overflow-auto px-1 py-1",
+        fileDrop.dropDirectory === "" && EXPLORER_DROP_TARGET_CLASS_NAME,
+      )}
+      {...fileDrop.handlers}
+      onContextMenu={(event) => {
+        // Rows open their own menu; only empty space below them lands here.
+        if ((event.target as Element).closest(`[${EXPLORER_DROP_DIRECTORY_ATTRIBUTE}]`)) return;
+        event.preventDefault();
+        props.onRootContextMenu({ x: event.clientX, y: event.clientY });
+      }}
+    >
       {props.workspaceRoot ? (
         <WorkspaceDirectory
           cwd={props.workspaceRoot}
@@ -341,6 +365,7 @@ function WorkspaceFilesTreeBody(props: {
           depth={0}
           selectedFilePath={props.selectedFilePath}
           expandedDirectories={props.expandedDirectories}
+          dropDirectory={fileDrop.dropDirectory}
           onSelectFile={props.onSelectFile}
           onToggleDirectory={props.onToggleDirectory}
           onPrefetchEntry={props.onPrefetchEntry}
@@ -365,7 +390,11 @@ export function WorkspaceFilesSidebar(props: {
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
 }) {
   const prefetchEntry = useExplorerEntryPrefetch(props.workspaceRoot);
-  const handleEntryContextMenu = useTreeEntryContextMenu(props.onReferenceInChat);
+  const entryActions = useExplorerEntryActions({
+    workspaceRoot: props.workspaceRoot,
+    onReferenceInChat: props.onReferenceInChat,
+    onSelectFile: props.onSelectFile,
+  });
   const handleListKeyDown = useExplorerListNavigation();
   return (
     <aside
@@ -379,8 +408,10 @@ export function WorkspaceFilesSidebar(props: {
         onSelectFile={props.onSelectFile}
         onToggleDirectory={props.onToggleDirectory}
         onPrefetchEntry={prefetchEntry}
-        onEntryContextMenu={handleEntryContextMenu}
+        onEntryContextMenu={entryActions.openEntryMenu}
+        onRootContextMenu={entryActions.openRootMenu}
       />
+      {entryActions.dialog}
     </aside>
   );
 }
@@ -592,7 +623,10 @@ export function WorkspaceSearchSidebar(props: {
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
 }) {
   const prefetchEntry = useExplorerEntryPrefetch(props.workspaceRoot);
-  const handleEntryContextMenu = useResultEntryContextMenu(props.onReferenceInChat);
+  const handleEntryContextMenu = useResultEntryContextMenu(
+    props.onReferenceInChat,
+    props.workspaceRoot,
+  );
   const handleListKeyDown = useExplorerListNavigation();
   const search = useWorkspaceFileSearch(props.workspaceRoot, props.query);
 
@@ -643,8 +677,15 @@ export function WorkspaceExplorerSidebar(props: {
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
 }) {
   const prefetchEntry = useExplorerEntryPrefetch(props.workspaceRoot);
-  const handleTreeEntryContextMenu = useTreeEntryContextMenu(props.onReferenceInChat);
-  const handleResultEntryContextMenu = useResultEntryContextMenu(props.onReferenceInChat);
+  const entryActions = useExplorerEntryActions({
+    workspaceRoot: props.workspaceRoot,
+    onReferenceInChat: props.onReferenceInChat,
+    onSelectFile: props.onSelectFile,
+  });
+  const handleResultEntryContextMenu = useResultEntryContextMenu(
+    props.onReferenceInChat,
+    props.workspaceRoot,
+  );
   const handleListKeyDown = useExplorerListNavigation();
   const search = useWorkspaceFileSearch(props.workspaceRoot, props.query);
 
@@ -667,7 +708,8 @@ export function WorkspaceExplorerSidebar(props: {
           onSelectFile={props.onSelectFile}
           onToggleDirectory={props.onToggleDirectory}
           onPrefetchEntry={prefetchEntry}
-          onEntryContextMenu={handleTreeEntryContextMenu}
+          onEntryContextMenu={entryActions.openEntryMenu}
+          onRootContextMenu={entryActions.openRootMenu}
         />
       ) : (
         <WorkspaceSearchResultsBody
@@ -679,6 +721,7 @@ export function WorkspaceExplorerSidebar(props: {
           onEntryContextMenu={handleResultEntryContextMenu}
         />
       )}
+      {entryActions.dialog}
     </aside>
   );
 }

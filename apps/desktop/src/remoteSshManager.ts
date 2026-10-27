@@ -40,7 +40,10 @@ export interface RemoteSshManagerDependencies {
   ) => ChildProcess;
   /** Install folder name of this build's server (see `remoteInstallVersion`); called once. */
   readonly installVersion: () => string;
+  /** Install folder of hosts with none of their own; this client's folder (see `clientRemoteRoot`). */
   readonly defaultRemoteRoot: string;
+  /** Folder whose `versions/` every install folder on a host shares. */
+  readonly storeRoot: string;
   /** Gzipped tar of the install bundle; called only when the remote lacks this version. */
   readonly createInstallBundle: () => Readable;
   readonly reserveLocalPort: () => Promise<number>;
@@ -231,7 +234,7 @@ export class RemoteSshManager {
   private target(record: HostRecord): RemoteSshScriptTarget {
     return {
       remoteRoot: record.remoteRoot,
-      storeRoot: this.deps.defaultRemoteRoot,
+      storeRoot: this.deps.storeRoot,
       version: this.installVersion(),
     };
   }

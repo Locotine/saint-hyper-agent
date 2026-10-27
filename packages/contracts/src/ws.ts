@@ -139,6 +139,8 @@ import {
   ProjectSearchLocalEntriesInput,
   ProjectStopDevServerInput,
   ProjectWriteFileInput,
+  ProjectCreateEntryInput,
+  ProjectDeleteEntryInput,
 } from "./project";
 import { StudioListThreadOutputsInput } from "./studio";
 import { OrchestrationGetInlineVisualInput } from "./inlineVisual";
@@ -248,6 +250,8 @@ export const WS_METHODS = {
   projectsCreateLocalFilePreviewGrant: "projects.createLocalFilePreviewGrant",
   projectsCreateHtmlPreviewGrant: "projects.createHtmlPreviewGrant",
   projectsWriteFile: "projects.writeFile",
+  projectsCreateEntry: "projects.createEntry",
+  projectsDeleteEntry: "projects.deleteEntry",
   projectsRunDevServer: "projects.runDevServer",
   projectsStopDevServer: "projects.stopDevServer",
   projectsListDevServers: "projects.listDevServers",
@@ -520,6 +524,8 @@ const WebSocketRequestBody = Schema.Union([
   ),
   tagRequestBody(WS_METHODS.projectsCreateHtmlPreviewGrant, ProjectCreateHtmlPreviewGrantInput),
   tagRequestBody(WS_METHODS.projectsWriteFile, ProjectWriteFileInput),
+  tagRequestBody(WS_METHODS.projectsCreateEntry, ProjectCreateEntryInput),
+  tagRequestBody(WS_METHODS.projectsDeleteEntry, ProjectDeleteEntryInput),
   tagRequestBody(WS_METHODS.projectsRunDevServer, ProjectRunDevServerInput),
   tagRequestBody(WS_METHODS.projectsStopDevServer, ProjectStopDevServerInput),
   tagRequestBody(WS_METHODS.projectsListDevServers, Schema.Struct({})),

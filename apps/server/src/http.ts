@@ -21,6 +21,8 @@ import {
   ATTACHMENT_UPLOAD_ROUTE_PATH,
   LIBRARY_UPLOAD_ROUTE_PATH,
   VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH,
+  WORKSPACE_UPLOAD_MAX_BYTES,
+  WORKSPACE_UPLOAD_ROUTE_PATH,
 } from "@saint/shared/binaryTransfer";
 import { EDITOR_ICON_ROUTE_PATH } from "@saint/shared/editorIcons";
 import { threadExportBlockedReason } from "@saint/shared/threadExport";
@@ -91,6 +93,8 @@ import {
   reserveManagedAttachmentUpload,
 } from "./managedAttachmentStore";
 import { ManagedAttachmentRepository } from "./persistence/Services/ManagedAttachments";
+import { WorkspaceFileSystem } from "./workspace/Services/WorkspaceFileSystem";
+import { isPlainUploadFileName } from "./workspace/uploadFileName";
 import { ComputerService } from "./computer/Services/ComputerService";
 import {
   authorizeDesktopShutdown,
@@ -1326,6 +1330,51 @@ const binaryUploadEffectHandler = Effect.gen(function* () {
     );
   }
 
+  // A local file dropped onto a folder in the Explorer, written into that
+  // workspace folder under a free name. Owner-only, like every other write.
+  if (url.pathname === WORKSPACE_UPLOAD_ROUTE_PATH) {
+    const cwd = url.searchParams.get("cwd")?.trim() ?? "";
+    const directory = url.searchParams.get("directory")?.trim() || null;
+    const name = url.searchParams.get("name") ?? "";
+    if (!nodePath.isAbsolute(cwd) || !isPlainUploadFileName(name)) {
+      return HttpServerResponse.jsonUnsafe(
+        { error: "Workspace upload metadata is invalid." },
+        { status: 400, headers: corsHeaders },
+      );
+    }
+    if (mutationSession !== null && mutationSession.role !== "owner") {
+      return HttpServerResponse.jsonUnsafe(
+        { error: "Owner authorization is required for this operation." },
+        { status: 403, headers: corsHeaders },
+      );
+    }
+    const declaredLength = Number(request.headers["content-length"] ?? "0");
+    if (Number.isFinite(declaredLength) && declaredLength > WORKSPACE_UPLOAD_MAX_BYTES) {
+      return HttpServerResponse.jsonUnsafe(
+        { error: "Request body too large." },
+        { status: 413, headers: corsHeaders },
+      );
+    }
+    const bytes = yield* readEffectBinary(request, WORKSPACE_UPLOAD_MAX_BYTES);
+    const workspaceFileSystem = yield* WorkspaceFileSystem;
+    return yield* workspaceFileSystem.uploadFile({ cwd, directory, name, bytes }).pipe(
+      Effect.map((result) =>
+        HttpServerResponse.jsonUnsafe(result, { status: 201, headers: corsHeaders }),
+      ),
+      Effect.catch((error) =>
+        Effect.succeed(
+          HttpServerResponse.jsonUnsafe(
+            { error: error.message },
+            {
+              status: error._tag === "WorkspacePathOutsideRootError" ? 400 : 500,
+              headers: corsHeaders,
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   if (url.pathname === VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH) {
     const provider = url.searchParams.get("provider")?.trim() ?? "";
     const providerInstanceId = url.searchParams.get("providerInstanceId")?.trim() || undefined;
@@ -1431,6 +1480,7 @@ export const binaryUploadEffectRouteLayer = Layer.mergeAll(
   HttpRouter.add("*", ATTACHMENT_CANCEL_ROUTE_PATH, binaryUploadEffectHandler),
   HttpRouter.add("*", VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH, binaryUploadEffectHandler),
   HttpRouter.add("*", LIBRARY_UPLOAD_ROUTE_PATH, binaryUploadEffectHandler),
+  HttpRouter.add("*", WORKSPACE_UPLOAD_ROUTE_PATH, binaryUploadEffectHandler),
 );
 
 export const attachmentsEffectRouteLayer = HttpRouter.add(

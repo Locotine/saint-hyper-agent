@@ -1,6 +1,10 @@
 import { Effect, Schema, ServiceMap } from "effect";
 
 import type {
+  ProjectCreateEntryInput,
+  ProjectCreateEntryResult,
+  ProjectDeleteEntryInput,
+  ProjectDeleteEntryResult,
   ProjectReadFileInput,
   ProjectReadFileResult,
   ProjectWriteFileInput,
@@ -47,6 +51,15 @@ export class WorkspaceFileDeletedError extends Schema.TaggedErrorClass<Workspace
   }
 }
 
+export interface WorkspaceUploadFileInput {
+  readonly cwd: string;
+  /** Workspace-relative folder to upload into; null for the workspace root. */
+  readonly directory: string | null;
+  /** Plain file name; a taken name gets a ` (n)` suffix instead of being replaced. */
+  readonly name: string;
+  readonly bytes: Uint8Array;
+}
+
 export interface WorkspaceFileSystemShape {
   readonly readFile: (
     input: ProjectReadFileInput,
@@ -62,6 +75,24 @@ export interface WorkspaceFileSystemShape {
     | WorkspaceFileDeletedError
     | WorkspaceFileSystemError
     | WorkspacePathOutsideRootError
+  >;
+  readonly createEntry: (
+    input: ProjectCreateEntryInput,
+  ) => Effect.Effect<
+    ProjectCreateEntryResult,
+    WorkspaceFileSystemError | WorkspacePathOutsideRootError
+  >;
+  readonly deleteEntry: (
+    input: ProjectDeleteEntryInput,
+  ) => Effect.Effect<
+    ProjectDeleteEntryResult,
+    WorkspaceFileSystemError | WorkspacePathOutsideRootError
+  >;
+  readonly uploadFile: (
+    input: WorkspaceUploadFileInput,
+  ) => Effect.Effect<
+    { readonly relativePath: string },
+    WorkspaceFileSystemError | WorkspacePathOutsideRootError
   >;
 }
 

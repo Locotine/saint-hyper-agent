@@ -4,7 +4,10 @@
 // Layer: Web UI helpers
 // Exports: showFileReferenceContextMenu, getRevealInFolderLabel
 
+import { joinWorkspaceRelativePath } from "@saint/shared/path";
+
 import { formatSelectionLabel, type ChatFileReference } from "~/lib/chatReferences";
+import { contextMenuGroup } from "~/lib/contextMenuGroup";
 import { copyTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { getNavigatorPlatform, isMacPlatform, isWindowsPlatform } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
@@ -33,6 +36,14 @@ export async function showFileReferenceContextMenu(input: {
   selection?: Omit<ChatFileReference, "path"> | null;
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
   onAskWhyInChat?: ((reference: ChatFileReference) => void) | undefined;
+  /** Root `path` is relative to; adds "Copy path › Full path" (the host's path in a remote window). */
+  workspaceRoot?: string | null;
+  /** File-tree actions; each receives nothing and acts on the clicked entry. */
+  explorerActions?: {
+    readonly onNewFile: () => void;
+    readonly onNewFolder: () => void;
+    readonly onDelete: () => void;
+  };
 }): Promise<void> {
   const api = readNativeApi();
   if (!api) {
@@ -51,7 +62,10 @@ export async function showFileReferenceContextMenu(input: {
   };
   const rangeLabel = formatSelectionLabel(reference);
   const hasSnippet = typeof reference.snippet === "string" && reference.snippet.trim().length > 0;
-  const clicked = await api.contextMenu.show(
+  const fullPath = input.workspaceRoot
+    ? joinWorkspaceRelativePath(input.workspaceRoot, input.path)
+    : null;
+  const clicked = await api.contextMenu.show<FileReferenceMenuItemId>(
     [
       ...(input.onReferenceInChat
         ? [
@@ -81,7 +95,17 @@ export async function showFileReferenceContextMenu(input: {
             },
           ]
         : []),
-      { id: "copy-path" as const, label: "Copy path" },
+      ...contextMenuGroup<FileReferenceMenuItemId>({ id: "copy-path-group", label: "Copy path" }, [
+        { id: "copy-path", label: "Relative path", standaloneLabel: "Copy path" },
+        ...(fullPath ? [{ id: "copy-full-path" as const, label: "Full path" }] : []),
+      ]),
+      ...(input.explorerActions
+        ? [
+            { id: "new-file" as const, label: "New File…", separatorBefore: true },
+            { id: "new-folder" as const, label: "New Folder…" },
+            { id: "delete" as const, label: "Delete…", destructive: true, separatorBefore: true },
+          ]
+        : []),
     ],
     input.position,
   );
@@ -108,5 +132,24 @@ export async function showFileReferenceContextMenu(input: {
   }
   if (clicked === "copy-path") {
     await copyTextToClipboard(input.path);
+    return;
   }
+  if (clicked === "copy-full-path" && fullPath) {
+    await copyTextToClipboard(fullPath);
+    return;
+  }
+  if (clicked === "new-file") input.explorerActions?.onNewFile();
+  if (clicked === "new-folder") input.explorerActions?.onNewFolder();
+  if (clicked === "delete") input.explorerActions?.onDelete();
 }
+
+type FileReferenceMenuItemId =
+  | "reference-in-chat"
+  | "ask-why-in-chat"
+  | "reveal-in-folder"
+  | "copy-path-group"
+  | "copy-path"
+  | "copy-full-path"
+  | "new-file"
+  | "new-folder"
+  | "delete";

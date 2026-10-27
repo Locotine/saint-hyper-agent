@@ -20,6 +20,7 @@ import {
 import { WorkspaceEntries } from "../Services/WorkspaceEntries";
 import { WorkspacePathOutsideRootError } from "../Services/WorkspacePaths";
 import { WorkspacePaths } from "../Services/WorkspacePaths";
+import { isPlainUploadFileName, uploadFileNameCandidates } from "../uploadFileName";
 import {
   prepareRealPathForWriteWithinRoot,
   resolveRealPathForCreateWithinRoot,
@@ -123,6 +124,10 @@ async function writeFileAtomically(
   filePath: string,
   contents: Uint8Array,
   expectedVersion?: string,
+  options?: {
+    /** Publish with link(2) instead of rename(2), failing with EEXIST rather than replacing. */
+    readonly noClobber?: boolean;
+  },
 ): Promise<void> {
   const realRoot = await NodeFs.realpath(workspaceRoot);
   const targetStat = await NodeFs.stat(filePath).catch((cause: unknown) => {
@@ -216,7 +221,12 @@ async function writeFileAtomically(
         throw new WorkspaceFileConflictError({ cwd: workspaceRoot, relativePath: filePath });
       }
     }
-    await NodeFs.rename(temporaryPath, filePath);
+    if (options?.noClobber) {
+      await NodeFs.link(temporaryPath, filePath);
+      await NodeFs.unlink(temporaryPath);
+    } else {
+      await NodeFs.rename(temporaryPath, filePath);
+    }
   } catch (cause) {
     await handle?.close().catch(() => undefined);
     if (temporaryPathValidated) {
@@ -575,7 +585,191 @@ export const makeWorkspaceFileSystem = Effect.gen(function* () {
     return { relativePath: target.relativePath, version: fileVersion(bytes) };
   });
 
-  return { readFile, writeFile } satisfies WorkspaceFileSystemShape;
+  // Files dropped into the Explorer. Each candidate name goes through the same
+  // lexical and real-path containment as writeFile, and is published with
+  // link(2) so a file that appears concurrently is never replaced.
+  const uploadFile: WorkspaceFileSystemShape["uploadFile"] = Effect.fn(
+    "WorkspaceFileSystem.uploadFile",
+  )(function* (input) {
+    const fail = (detail: string) =>
+      new WorkspaceFileSystemError({
+        cwd: input.cwd,
+        relativePath: input.name,
+        operation: "workspaceFileSystem.uploadFile",
+        detail,
+      });
+    if (!isPlainUploadFileName(input.name)) {
+      return yield* fail("The upload name must be a file name, not a path.");
+    }
+    const directory = input.directory?.trim().replace(/^\/+|\/+$/gu, "") || null;
+    for (const candidate of uploadFileNameCandidates(input.name)) {
+      const target = yield* workspacePaths.resolveRelativePathWithinRoot({
+        workspaceRoot: input.cwd,
+        relativePath: directory ? `${directory}/${candidate}` : candidate,
+      });
+      const outcome = yield* Effect.tryPromise({
+        try: async () => {
+          if (
+            await NodeFs.lstat(target.absolutePath).then(
+              () => true,
+              () => false,
+            )
+          ) {
+            return "taken" as const;
+          }
+          const prepared = await prepareRealPathForWriteWithinRoot(input.cwd, target.absolutePath);
+          const realTarget =
+            prepared === null
+              ? null
+              : await resolveRealPathForCreateWithinRoot(input.cwd, target.absolutePath);
+          if (realTarget === null) return "outside" as const;
+          try {
+            await writeFileAtomically(input.cwd, realTarget, input.bytes, undefined, {
+              noClobber: true,
+            });
+          } catch (cause) {
+            if ((cause as NodeJS.ErrnoException | null)?.code === "EEXIST") return "taken" as const;
+            throw cause;
+          }
+          return "written" as const;
+        },
+        catch: (cause) =>
+          new WorkspaceFileSystemError({
+            cwd: input.cwd,
+            relativePath: target.relativePath,
+            operation: "workspaceFileSystem.uploadFile",
+            detail: cause instanceof Error ? cause.message : String(cause),
+            cause,
+          }),
+      });
+      if (outcome === "outside") {
+        return yield* new WorkspacePathOutsideRootError({
+          workspaceRoot: input.cwd,
+          relativePath: target.relativePath,
+        });
+      }
+      if (outcome === "written") {
+        yield* workspaceEntries.invalidate(input.cwd);
+        return { relativePath: target.relativePath };
+      }
+    }
+    return yield* fail(`Too many files are already named like ${input.name}.`);
+  });
+
+  // Explorer "New File" / "New Folder". Missing parent folders are created
+  // inside the root; an existing entry at the path is an error, never replaced.
+  const createEntry: WorkspaceFileSystemShape["createEntry"] = Effect.fn(
+    "WorkspaceFileSystem.createEntry",
+  )(function* (input) {
+    const target = yield* workspacePaths.resolveRelativePathWithinRoot({
+      workspaceRoot: input.cwd,
+      relativePath: input.relativePath,
+    });
+    const outcome = yield* Effect.tryPromise({
+      try: async () => {
+        const prepared = await prepareRealPathForWriteWithinRoot(input.cwd, target.absolutePath);
+        const realTarget =
+          prepared === null
+            ? null
+            : await resolveRealPathForCreateWithinRoot(input.cwd, target.absolutePath);
+        if (realTarget === null) return "outside" as const;
+        try {
+          if (input.kind === "directory") {
+            await NodeFs.mkdir(realTarget);
+          } else {
+            await writeFileAtomically(input.cwd, realTarget, new Uint8Array(), undefined, {
+              noClobber: true,
+            });
+          }
+        } catch (cause) {
+          if ((cause as NodeJS.ErrnoException | null)?.code === "EEXIST") return "exists" as const;
+          throw cause;
+        }
+        return "created" as const;
+      },
+      catch: (cause) =>
+        new WorkspaceFileSystemError({
+          cwd: input.cwd,
+          relativePath: target.relativePath,
+          operation: "workspaceFileSystem.createEntry",
+          detail: cause instanceof Error ? cause.message : String(cause),
+          cause,
+        }),
+    });
+    if (outcome === "outside") {
+      return yield* new WorkspacePathOutsideRootError({
+        workspaceRoot: input.cwd,
+        relativePath: target.relativePath,
+      });
+    }
+    if (outcome === "exists") {
+      return yield* new WorkspaceFileSystemError({
+        cwd: input.cwd,
+        relativePath: target.relativePath,
+        operation: "workspaceFileSystem.createEntry",
+        detail: `${target.relativePath} already exists.`,
+      });
+    }
+    yield* workspaceEntries.invalidate(input.cwd);
+    return { relativePath: target.relativePath };
+  });
+
+  // Explorer "Delete". The parent folder is canonicalized inside the root and
+  // the entry itself is never followed: a link is removed, not its target,
+  // and a folder goes with its contents (links inside are removed as links).
+  const deleteEntry: WorkspaceFileSystemShape["deleteEntry"] = Effect.fn(
+    "WorkspaceFileSystem.deleteEntry",
+  )(function* (input) {
+    const target = yield* workspacePaths.resolveRelativePathWithinRoot({
+      workspaceRoot: input.cwd,
+      relativePath: input.relativePath,
+    });
+    const outcome = yield* Effect.tryPromise({
+      try: async () => {
+        const realParent = await resolveRealPathWithinRoot(
+          input.cwd,
+          NodePath.dirname(target.absolutePath),
+        );
+        if (realParent === null) return "outside" as const;
+        const entryPath = NodePath.join(realParent, NodePath.basename(target.absolutePath));
+        const stat = await NodeFs.lstat(entryPath);
+        if (stat.isDirectory()) {
+          await NodeFs.rm(entryPath, { recursive: true });
+          return "directory" as const;
+        }
+        await NodeFs.unlink(entryPath);
+        return "file" as const;
+      },
+      catch: (cause) =>
+        new WorkspaceFileSystemError({
+          cwd: input.cwd,
+          relativePath: target.relativePath,
+          operation: "workspaceFileSystem.deleteEntry",
+          detail: isFileNotFoundError(cause)
+            ? `${target.relativePath} no longer exists.`
+            : cause instanceof Error
+              ? cause.message
+              : String(cause),
+          cause,
+        }),
+    });
+    if (outcome === "outside") {
+      return yield* new WorkspacePathOutsideRootError({
+        workspaceRoot: input.cwd,
+        relativePath: target.relativePath,
+      });
+    }
+    yield* workspaceEntries.invalidate(input.cwd);
+    return { relativePath: target.relativePath, kind: outcome };
+  });
+
+  return {
+    readFile,
+    writeFile,
+    createEntry,
+    deleteEntry,
+    uploadFile,
+  } satisfies WorkspaceFileSystemShape;
 });
 
 export const WorkspaceFileSystemLive = Layer.effect(WorkspaceFileSystem, makeWorkspaceFileSystem);

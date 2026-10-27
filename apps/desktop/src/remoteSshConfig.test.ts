@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  clientRemoteRoot,
+  createRemoteClientId,
   defaultRemoteRoot,
   isValidSshTarget,
   normalizeRemoteRoot,
+  parseRemoteClientId,
   parseSavedRemoteSshHosts,
   parseSshConfigHosts,
   rememberRemoteSshHost,
@@ -93,5 +96,27 @@ describe("saved remote hosts", () => {
   it("treats unreadable files as empty", () => {
     expect(parseSavedRemoteSshHosts("not json")).toEqual([]);
     expect(parseSavedRemoteSshHosts("null")).toEqual([]);
+  });
+});
+
+describe("remote client ids", () => {
+  it("names the client after the local user plus random hex", () => {
+    expect(createRemoteClientId("Anh.Nguyen", "0A1B2C3D4E")).toBe("anh-nguyen-0a1b2c3d");
+    expect(createRemoteClientId("Ngô Văn", "deadbeef")).toBe("ng-v-n-deadbeef");
+    expect(createRemoteClientId("", "deadbeef")).toBe("user-deadbeef");
+  });
+
+  it("produces ids that parse back and form a valid remote folder", () => {
+    const id = createRemoteClientId("ac-claude-4", "0a1b2c3d");
+    expect(parseRemoteClientId(`${id}\n`)).toBe(id);
+    expect(normalizeRemoteRoot(clientRemoteRoot(".saint-remote", id))).toBe(
+      ".saint-remote/clients/ac-claude-4-0a1b2c3d",
+    );
+  });
+
+  it("rejects stored ids that are not ours", () => {
+    expect(parseRemoteClientId("")).toBeNull();
+    expect(parseRemoteClientId("../x-0a1b2c3d")).toBeNull();
+    expect(parseRemoteClientId("anh")).toBeNull();
   });
 });

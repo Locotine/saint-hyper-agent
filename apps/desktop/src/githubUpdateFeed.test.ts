@@ -4,7 +4,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { buildGitHubReleasesPageUrl, resolveGitHubUpdateSource } from "./githubUpdateFeed";
+import {
+  buildGitHubReleasesPageUrl,
+  resolveGitHubUpdateSource,
+  resolveGitLabReleasesPageUrl,
+} from "./githubUpdateFeed";
 
 describe("resolveGitHubUpdateSource", () => {
   it("returns null for non-github providers", () => {
@@ -51,5 +55,28 @@ describe("buildGitHubReleasesPageUrl", () => {
         "v0.0.31",
       ),
     ).toBe("https://github.com/openai/codex/releases/tag/v0.0.31");
+  });
+});
+
+describe("resolveGitLabReleasesPageUrl", () => {
+  it("points at the latest GitLab release page", () => {
+    expect(
+      resolveGitLabReleasesPageUrl({ provider: "gitlab", projectId: "squad/saint-releases" }),
+    ).toBe("https://gitlab.com/squad/saint-releases/-/releases/permalink/latest");
+    expect(
+      resolveGitLabReleasesPageUrl({ provider: "gitlab", projectId: "squad%2Fsaint-releases" }),
+    ).toBe("https://gitlab.com/squad/saint-releases/-/releases/permalink/latest");
+    expect(
+      resolveGitLabReleasesPageUrl({
+        provider: "gitlab",
+        projectId: "'squad/saint-releases'",
+        host: "git.example.com",
+      }),
+    ).toBe("https://git.example.com/squad/saint-releases/-/releases/permalink/latest");
+  });
+
+  it("returns null for other providers and numeric project ids", () => {
+    expect(resolveGitLabReleasesPageUrl({ provider: "github" })).toBeNull();
+    expect(resolveGitLabReleasesPageUrl({ provider: "gitlab", projectId: "71361100" })).toBeNull();
   });
 });

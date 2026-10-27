@@ -76,6 +76,7 @@ function makeManager(
     spawn,
     installVersion: () => "1.2.3",
     defaultRemoteRoot: ".saint-remote",
+    storeRoot: ".saint-remote",
     createInstallBundle: () => Readable.from([Buffer.from("bundle")]),
     reserveLocalPort: async () => 45_000,
     waitForHttpReady: async () => undefined,
@@ -158,6 +159,24 @@ describe("RemoteSshManager", () => {
     expect(seen).toEqual(["probe"]);
     expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
     expect(manager.states()[0]?.remoteRoot).toBe("squad/saint");
+  });
+
+  it("keeps each client's data apart while sharing installed versions", async () => {
+    const scripts: string[] = [];
+    const { spawn } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      scripts.push(stdin);
+      if (scriptKind(stdin) === "start")
+        return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
+      return { stdout: PROBE_FRESH.replace('"installed":false', '"installed":true') };
+    });
+    const { manager } = makeManager(spawn, {
+      defaultRemoteRoot: ".saint-remote/clients/anh-0a1b2c3d",
+    });
+    await manager.connect({ host: "devbox" });
+    expect(manager.states()[0]?.remoteRoot).toBe(".saint-remote/clients/anh-0a1b2c3d");
+    expect(scripts[0]).toContain(`root="$HOME/"'.saint-remote/clients/anh-0a1b2c3d'`);
+    expect(scripts[0]).toContain(`store="$HOME/"'.saint-remote/versions'`);
   });
 
   it("refuses hosts whose Node.js lacks the node:sqlite APIs", async () => {

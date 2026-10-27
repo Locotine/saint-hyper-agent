@@ -55,3 +55,4 @@ __screenshots__/
 # Desktop installers built locally
 /*.deb
 /*.exe
+/*.dmg

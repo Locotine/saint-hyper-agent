@@ -2,6 +2,7 @@
 // Purpose: Validates SSH remote targets and lists host aliases from the user's ssh config.
 // Layer: Desktop remote SSH utility
 // Exports: parseSshConfigHosts, isValidSshTarget, normalizeRemoteRoot, defaultRemoteRoot,
+//          createRemoteClientId, parseRemoteClientId, clientRemoteRoot,
 //          saved-host parse/remember/serialize helpers
 
 /**
@@ -50,6 +51,39 @@ export function normalizeRemoteRoot(value: string): string | null {
 /** `~/.saint` -> `.saint-remote`, `~/.saint-beta` -> `.saint-beta-remote`. */
 export function defaultRemoteRoot(homeDirectoryName: string): string {
   return `${homeDirectoryName.replace(/^\.?/u, ".")}-remote`;
+}
+
+const REMOTE_CLIENT_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,40}-[0-9a-f]{8}$/u;
+
+/**
+ * Names this desktop install on remote hosts: the local user name for
+ * readability plus random hex so two machines with the same user name never
+ * share a folder. Created once and kept in the desktop's state folder.
+ */
+export function createRemoteClientId(localUserName: string, randomHex: string): string {
+  const name =
+    localUserName
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/gu, "-")
+      .replace(/^[-_]+|-+$/gu, "")
+      .slice(0, 32) || "user";
+  return `${name}-${randomHex.toLowerCase().slice(0, 8)}`;
+}
+
+/** A stored client id, or null when the file content is not one. */
+export function parseRemoteClientId(contents: string): string | null {
+  const id = contents.trim();
+  return REMOTE_CLIENT_ID_PATTERN.test(id) ? id : null;
+}
+
+/**
+ * The install folder a host uses when none is set: this client's own folder
+ * under the shared one, so people who reach the same remote account through
+ * different desktops get separate servers and data (threads, settings), while
+ * the installed versions in `<storeRoot>/versions` stay shared.
+ */
+export function clientRemoteRoot(storeRoot: string, clientId: string): string {
+  return `${storeRoot}/clients/${clientId}`;
 }
 
 export interface SavedRemoteSshHost {

@@ -320,6 +320,10 @@ import {
   ProjectStopDevServerResult,
   ProjectWriteFileInput,
   ProjectWriteFileResult,
+  ProjectCreateEntryInput,
+  ProjectCreateEntryResult,
+  ProjectDeleteEntryInput,
+  ProjectDeleteEntryResult,
 } from "./project";
 import {
   ServerConfig,
@@ -716,6 +720,18 @@ export const WsProjectsCreateHtmlPreviewGrantRpc = Rpc.make(
 export const WsProjectsWriteFileRpc = Rpc.make(WS_METHODS.projectsWriteFile, {
   payload: ProjectWriteFileInput,
   success: ProjectWriteFileResult,
+  error: WsRpcError,
+});
+
+export const WsProjectsCreateEntryRpc = Rpc.make(WS_METHODS.projectsCreateEntry, {
+  payload: ProjectCreateEntryInput,
+  success: ProjectCreateEntryResult,
+  error: WsRpcError,
+});
+
+export const WsProjectsDeleteEntryRpc = Rpc.make(WS_METHODS.projectsDeleteEntry, {
+  payload: ProjectDeleteEntryInput,
+  success: ProjectDeleteEntryResult,
   error: WsRpcError,
 });
 
@@ -2035,6 +2051,8 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsProjectsCreateLocalFilePreviewGrantRpc,
   WsProjectsCreateHtmlPreviewGrantRpc,
   WsProjectsWriteFileRpc,
+  WsProjectsCreateEntryRpc,
+  WsProjectsDeleteEntryRpc,
   WsProjectsRunDevServerRpc,
   WsProjectsStopDevServerRpc,
   WsProjectsListDevServersRpc,

@@ -238,6 +238,10 @@ import type {
   ProjectStopDevServerResult,
   ProjectWriteFileInput,
   ProjectWriteFileResult,
+  ProjectCreateEntryInput,
+  ProjectCreateEntryResult,
+  ProjectDeleteEntryInput,
+  ProjectDeleteEntryResult,
 } from "./project";
 import type { FilesystemBrowseInput, FilesystemBrowseResult } from "./filesystem";
 import type {
@@ -1316,6 +1320,8 @@ export interface NativeApi {
       input: ProjectCreateHtmlPreviewGrantInput,
     ) => Promise<ProjectCreateHtmlPreviewGrantResult>;
     writeFile: (input: ProjectWriteFileInput) => Promise<ProjectWriteFileResult>;
+    createEntry: (input: ProjectCreateEntryInput) => Promise<ProjectCreateEntryResult>;
+    deleteEntry: (input: ProjectDeleteEntryInput) => Promise<ProjectDeleteEntryResult>;
     runDevServer: (input: ProjectRunDevServerInput) => Promise<ProjectRunDevServerResult>;
     stopDevServer: (input: ProjectStopDevServerInput) => Promise<ProjectStopDevServerResult>;
     listDevServers: () => Promise<ProjectListDevServersResult>;

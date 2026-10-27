@@ -282,7 +282,11 @@ import {
   verifyUpdateArtifactIdentity,
   type UpdateArtifactIdentity,
 } from "./updateArtifactIdentity";
-import { buildGitHubReleasesPageUrl, resolveGitHubUpdateSource } from "./githubUpdateFeed";
+import {
+  buildGitHubReleasesPageUrl,
+  resolveGitHubUpdateSource,
+  resolveGitLabReleasesPageUrl,
+} from "./githubUpdateFeed";
 import { isArm64HostRunningIntelBuild, resolveDesktopRuntimeInfo } from "./runtimeArch";
 import { BROWSER_SESSION_PARTITION, DesktopBrowserManager } from "./browserManager";
 import { BrowserSessionRestore } from "./browserAutomation/browserSessionRestore";
@@ -297,7 +301,10 @@ import {
   remoteInstallVersion,
 } from "./remoteSshBundle";
 import {
+  clientRemoteRoot,
+  createRemoteClientId,
   defaultRemoteRoot,
+  parseRemoteClientId,
   parseSavedRemoteSshHosts,
   serializeSavedRemoteSshHosts,
 } from "./remoteSshConfig";
@@ -578,7 +585,9 @@ const remoteSshWindows = new Map<
 >();
 const REMOTE_SSH_ENABLED = isBetaFeatureEnabled(REMOTE_SSH_BETA_FEATURE, desktopFlavor);
 const REMOTE_SSH_HOSTS_PATH = Path.join(STATE_DIR, "remote-ssh-hosts.json");
-const REMOTE_SSH_DEFAULT_ROOT = defaultRemoteRoot(desktopIdentity.defaultHomeDirectoryName);
+const REMOTE_SSH_CLIENT_ID_PATH = Path.join(STATE_DIR, "remote-ssh-client-id");
+// Shared by every desktop that reaches a host's account: holds installed versions.
+const REMOTE_SSH_STORE_ROOT = defaultRemoteRoot(desktopIdentity.defaultHomeDirectoryName);
 let remoteSshManager: RemoteSshManager | null = null;
 // Replaced when the IPC surface registers; the manager outlives re-registration.
 let publishRemoteSshState = (): void => {};
@@ -2256,6 +2265,26 @@ function clearUnreadNotificationBadge(): void {
   syncUnreadNotificationBadge();
 }
 
+function hasOpenRemoteSshWindow(): boolean {
+  return [...remoteSshWindows.values()].some((entry) => !entry.window.isDestroyed());
+}
+
+// Launching the app again while only remote SSH windows remain reopens the
+// local window; the backend kept running for them.
+function focusOrReopenMainWindow(): void {
+  if (
+    (!mainWindow || mainWindow.isDestroyed()) &&
+    hasOpenRemoteSshWindow() &&
+    app.isReady() &&
+    !isQuitting &&
+    !desktopStartupBlockedForDatabaseRestore
+  ) {
+    mainWindow = createWindow();
+    return;
+  }
+  focusMainWindow();
+}
+
 // Reuse the existing desktop window when the app is launched again so users
 // don't end up with multiple packaged instances racing the same local state.
 function focusMainWindow(options: { stealAppFocus?: boolean } = {}): void {
@@ -3765,7 +3794,9 @@ function configureAutoUpdater(): void {
   configuredUpdaterCacheDirName = resolveElectronUpdaterCacheDirName(appUpdateYml, app.getName());
   const githubUpdateSource = resolveGitHubUpdateSource(appUpdateYml);
   const releaseUrl =
-    githubUpdateSource === null ? null : buildGitHubReleasesPageUrl(githubUpdateSource);
+    githubUpdateSource === null
+      ? resolveGitLabReleasesPageUrl(appUpdateYml)
+      : buildGitHubReleasesPageUrl(githubUpdateSource);
   const enabled = shouldEnableAutoUpdates();
   setUpdateState({
     ...createInitialDesktopUpdateState(
@@ -3797,8 +3828,8 @@ function configureAutoUpdater(): void {
   autoUpdater.channel = desktopUpdateChannel(desktopFlavor);
   autoUpdater.allowPrerelease = DESKTOP_UPDATE_ALLOW_PRERELEASE;
   autoUpdater.allowDowngrade = false;
-  // Match electron-updater's native GitHub provider path; the packaged
-  // app-update.yml owns the production feed, and generic feeds stay mock-only.
+  // Match electron-updater's native GitHub (or GitLab) provider path; the
+  // packaged app-update.yml owns the production feed, and generic feeds stay mock-only.
   // macOS release builds repack and validate the Squirrel update zip, then omit
   // the stale zip blockmap so ShipIt always installs the exact signed payload.
   autoUpdater.disableDifferentialDownload =
@@ -5793,6 +5824,34 @@ function getDesktopCustomTitleBarState() {
   });
 }
 
+/**
+ * This desktop's folder on remote hosts. Desktops that share one remote
+ * account (and its default folder) would otherwise share one server and see
+ * each other's threads; the id persists so reconnects find the same data.
+ */
+function resolveRemoteSshDefaultRoot(): string {
+  // Stable refuses remote hosts; leave no state behind for them.
+  if (!REMOTE_SSH_ENABLED) return REMOTE_SSH_STORE_ROOT;
+  let clientId: string | null = null;
+  try {
+    clientId = parseRemoteClientId(FS.readFileSync(REMOTE_SSH_CLIENT_ID_PATH, "utf8"));
+  } catch {
+    clientId = null;
+  }
+  if (!clientId) {
+    let userName = "";
+    try {
+      userName = OS.userInfo().username;
+    } catch {
+      // No passwd entry: the random part alone keeps the id unique.
+    }
+    clientId = createRemoteClientId(userName, Crypto.randomBytes(4).toString("hex"));
+    FS.mkdirSync(STATE_DIR, { recursive: true });
+    FS.writeFileSync(REMOTE_SSH_CLIENT_ID_PATH, `${clientId}\n`);
+  }
+  return clientRemoteRoot(REMOTE_SSH_STORE_ROOT, clientId);
+}
+
 function readSavedRemoteSshHosts() {
   try {
     return parseSavedRemoteSshHosts(FS.readFileSync(REMOTE_SSH_HOSTS_PATH, "utf8"));
@@ -5802,12 +5861,14 @@ function readSavedRemoteSshHosts() {
 }
 
 function registerRemoteSshHandlers(): void {
+  const remoteSshDefaultRoot = resolveRemoteSshDefaultRoot();
   remoteSshManager ??= new RemoteSshManager({
     spawn: (command, args, options) =>
       spawnProcess(command, args, { ...options, env: process.env }),
     installVersion: () =>
       remoteInstallVersion(app.getVersion(), collectRemoteInstallEntries(resolveAppRoot())),
-    defaultRemoteRoot: REMOTE_SSH_DEFAULT_ROOT,
+    defaultRemoteRoot: remoteSshDefaultRoot,
+    storeRoot: REMOTE_SSH_STORE_ROOT,
     createInstallBundle: () => createTarGzStream(collectRemoteInstallEntries(resolveAppRoot())),
     reserveLocalPort: () =>
       Effect.service(NetService).pipe(
@@ -5825,7 +5886,7 @@ function registerRemoteSshHandlers(): void {
   const registration = registerRemoteSshIpc(ipcMain, {
     enabled: REMOTE_SSH_ENABLED,
     manager: remoteSshManager,
-    defaultRemoteRoot: REMOTE_SSH_DEFAULT_ROOT,
+    defaultRemoteRoot: remoteSshDefaultRoot,
     isControlRenderer: (event) =>
       !remoteSshWindows.has(event.sender.id) &&
       event.senderFrame === event.sender.mainFrame &&
@@ -6077,6 +6138,12 @@ function createWindow(): BrowserWindow {
       });
     } catch (error) {
       console.warn(`[desktop] Failed to persist window state: ${formatErrorMessage(error)}`);
+    }
+
+    // Remote SSH windows run on their own tunnel, so closing the local window
+    // leaves them open; the app quits with its last window.
+    if (hasOpenRemoteSshWindow() && !isQuitting && !desktopShutdownComplete) {
+      return;
     }
 
     if (
@@ -6360,7 +6427,7 @@ if (!hasSingleInstanceLock) {
   app.quit();
 } else {
   app.on("second-instance", () => {
-    focusMainWindow();
+    focusOrReopenMainWindow();
   });
 }
 
