@@ -1,5 +1,7 @@
 import {
+  hostIdOf,
   localThreadIdFromKey,
+  parseScopedThreadId,
   scopeLocalThread,
   scopeLocalProject,
   LOCAL_HOST_ID,
@@ -99,6 +101,7 @@ import {
   type AutomationDefinition,
   type AutomationListResult,
   MAX_PINNED_PROJECTS,
+  type DesktopRemoteSshState,
   type DesktopUpdateState,
   type OrchestrationShellSnapshot,
   type OrchestrationThreadPullRequest,
@@ -144,9 +147,17 @@ import {
 import { useRailShellStore } from "../railShellStore";
 import { isElectron, remoteWindowHost } from "../env";
 import { useRemoteSshState } from "../hooks/useRemoteSshState";
+import { useHostSearchThreads } from "../hosts/hostSearchThreads";
+import { remoteHostAlias } from "./settings/remoteHostsSettingsModel";
 import { formatRelativeTime } from "../lib/relativeTime";
 import { useAllHostProjects } from "../hosts/hostStores";
-import { RemoteHostProjects, RemoteHostsSidebarSection } from "./RemoteHostsSidebarSection";
+import {
+  AddProjectOnHostButton,
+  RemoteHostActivity,
+  RemoteHostProjects,
+  RemoteHostsSidebarSection,
+  useRemoteChatNeedsAnswer,
+} from "./RemoteHostsSidebarSection";
 import {
   isMacNavigatorPlatform,
   newCommandId,
@@ -1306,6 +1317,7 @@ export default function Sidebar() {
   // Multi-host lists hosts' projects with this computer's; a window running on a host keeps
   // the separate section.
   const multiHostRows = MULTI_HOST_ON && !remoteWindowHost;
+  const remoteChatNeedsAnswer = useRemoteChatNeedsAnswer();
   const hasRemoteHosts =
     remoteSshState !== null &&
     (remoteSshState.savedHosts.length > 0 || remoteSshState.hosts.length > 0);
@@ -7384,7 +7396,9 @@ export default function Sidebar() {
                     {!isOnGroups ? (
                       <SidebarActivityBellButton
                         active={activityViewEnabled}
-                        showUnreadDot={hasUnreadActivity}
+                        showUnreadDot={
+                          hasUnreadActivity || (multiHostRows && remoteChatNeedsAnswer)
+                        }
                         shortcutLabel={activityShortcutLabel}
                         onClick={() => setActivityViewEnabledSmoothly(!activityViewEnabled)}
                       />
@@ -7480,6 +7494,11 @@ export default function Sidebar() {
                         onCreateChat={handlePrimaryNewThread}
                         onAddProject={handleStartAddProject}
                       />
+                      {multiHostRows && remoteSshState ? (
+                        <SidebarMenu className="mt-3 gap-1">
+                          <RemoteHostActivity state={remoteSshState} />
+                        </SidebarMenu>
+                      ) : null}
                     </SidebarGroup>
                   ) : showRailSpacesPanel ? (
                     renderRailSpacesPanel()
@@ -7543,13 +7562,20 @@ export default function Sidebar() {
                             }}
                             {...threadSortMenuProps}
                           />
-                          <SidebarIconButton
-                            icon={AddPlusIcon}
-                            label="Add project"
-                            onClick={handleStartAddProject}
-                            tooltip="Add project"
-                            tooltipSide="right"
-                          />
+                          {multiHostRows ? (
+                            <AddProjectOnHostButton
+                              state={remoteSshState}
+                              onAddLocal={handleStartAddProject}
+                            />
+                          ) : (
+                            <SidebarIconButton
+                              icon={AddPlusIcon}
+                              label="Add project"
+                              onClick={handleStartAddProject}
+                              tooltip="Add project"
+                              tooltipSide="right"
+                            />
+                          )}
                         </>,
                       )}
 
@@ -8333,8 +8359,15 @@ export default function Sidebar() {
           providerInstances={sidebarProviderInstances}
           onImportThread={handleImportThread}
           onOpenThread={(threadId) => {
+            const scoped = parseScopedThreadId(threadId);
+            // A connected host's thread opens by its host-qualified route id.
+            if (scoped && hostIdOf(scoped) !== LOCAL_HOST_ID) {
+              void navigate({ to: "/$threadId", params: { threadId: scoped } });
+              return;
+            }
             activateThreadFromSidebarIntent(ThreadId.makeUnsafe(threadId));
           }}
+          remoteSshState={remoteSshState}
         />
       ) : null}
     </>
@@ -8376,8 +8409,12 @@ function SidebarSearchPaletteController(props: {
   providerInstances: readonly ProviderInstanceOption[];
   onImportThread: (target: ThreadImportTarget, externalId: string) => Promise<void>;
   onOpenThread: (threadId: string) => void;
+  remoteSshState: DesktopRemoteSshState | null;
 }) {
   const selectAllThreads = useMemo(() => createAllThreadsSelector(), []);
+  const hostSearchThreads = useHostSearchThreads(
+    (hostId) => remoteHostAlias(props.remoteSshState, hostId) ?? "Remote host",
+  );
   // Search keeps automation-run threads as an intent-driven escape hatch, while
   // structurally nested side chats stay out of standalone thread results.
   const selectSidebarDisplayThreads = useMemo(
@@ -8431,9 +8468,17 @@ function SidebarSearchPaletteController(props: {
       ];
     });
   }, [props.projectById, props.projects, sidebarDisplayThreads, threads]);
-  const searchPaletteThreads = useStableValue(
+  const localSearchPaletteThreads = useStableValue(
     rebuiltSearchPaletteThreads,
     areSidebarSearchThreadListsEqual,
+  );
+  // Multi-host: connected hosts' threads are searchable next to this computer's.
+  const searchPaletteThreads = useMemo(
+    () =>
+      MULTI_HOST_ON && hostSearchThreads.length > 0
+        ? [...localSearchPaletteThreads, ...hostSearchThreads]
+        : localSearchPaletteThreads,
+    [hostSearchThreads, localSearchPaletteThreads],
   );
 
   return (

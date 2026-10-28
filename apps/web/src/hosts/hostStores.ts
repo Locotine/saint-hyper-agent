@@ -3,7 +3,8 @@
 //          the cross-host reads the sidebar needs. Stores keep raw server ids; only this module
 //          pairs them with a host.
 // Layer: Web host stores
-// Exports: createHostStoreRegistry, hostStores, collectHostProjects, useAllHostProjects
+// Exports: createHostStoreRegistry, hostStores, collectHostProjects, useAllHostProjects,
+//          useRemoteHostIds
 
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { useSyncExternalStore } from "react";
@@ -120,6 +121,25 @@ export function createHostStoreRegistry(
 }
 
 export const hostStores = createHostStoreRegistry(useStore);
+
+let remoteIdsKey = "";
+let remoteIds: readonly HostId[] = [];
+
+/** Hosts other than this computer that have a store, stable until one joins or leaves. */
+function remoteHostIdsSnapshot(): readonly HostId[] {
+  const ids = hostStores.hostIds().filter((hostId) => hostId !== LOCAL_HOST_ID);
+  const key = ids.join("|");
+  if (key !== remoteIdsKey) {
+    remoteIdsKey = key;
+    remoteIds = ids;
+  }
+  return remoteIds;
+}
+
+/** Connected (or remembered) hosts, for surfaces that run once per host. */
+export function useRemoteHostIds(): readonly HostId[] {
+  return useSyncExternalStore(hostStores.subscribe, remoteHostIdsSnapshot);
+}
 
 /** Projects of this computer and every connected host, for lists that mix them. */
 export function useAllHostProjects(): readonly HostProject[] {

@@ -50,7 +50,7 @@ interface CatalogThreadInput {
   readonly hasPendingUserInput?: boolean | undefined;
 }
 
-function threadState(thread: CatalogThreadInput): RemoteCatalogThreadState {
+export function threadState(thread: CatalogThreadInput): RemoteCatalogThreadState {
   if (thread.hasPendingApprovals || thread.hasPendingUserInput) return "attention";
   const status = thread.session?.status;
   return status === "running" || status === "starting" ? "running" : "idle";

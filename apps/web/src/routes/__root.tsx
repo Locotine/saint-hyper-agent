@@ -36,7 +36,7 @@ import { QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Throttler } from "@tanstack/react-pacer";
 
 import { APP_DISPLAY_NAME, APP_VERSION } from "../branding";
-import { isBetaFeatureOn } from "../betaFeatures";
+import { isBetaFeatureOn, MULTI_HOST_ON } from "../betaFeatures";
 import { DesktopWindowControls } from "../components/DesktopWindowControls";
 import { RunningChatsQuitCoordinator } from "../components/RunningChatsQuitCoordinator";
 import { AppSnapCoordinator } from "../components/AppSnapCoordinator";
@@ -106,9 +106,13 @@ import {
 } from "../lib/terminalStateCleanup";
 import { useProjectRunStore } from "../projectRunStore";
 import { dockTerminalThreadId } from "../lib/dockTerminalScope";
-import { TaskCompletionNotifications } from "../notifications/taskCompletion";
+import {
+  RemoteHostTaskCompletionNotifications,
+  TaskCompletionNotifications,
+} from "../notifications/taskCompletion";
 import { PendingRemoteThreadOpener } from "../components/PendingRemoteThreadOpener";
 import { RemoteFolderPickerDialog } from "../components/RemoteFolderPickerDialog";
+import { RemoteHostStoreSync } from "../components/RemoteHostsSidebarSection";
 import { remoteWindowHost } from "../env";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
 import {
@@ -374,6 +378,12 @@ function RootRouteView() {
           <BrowserVaultDialog />
           <GlobalWhatsNewSurface />
           <TaskCompletionNotifications />
+          {MULTI_HOST_ON && !remoteWindowHost ? (
+            <>
+              <RemoteHostStoreSync />
+              <RemoteHostTaskCompletionNotifications />
+            </>
+          ) : null}
           <QueuedComposerDrainCoordinator />
           {/* Beta welcome must resolve the first-run gate even while Safari is queued. */}
           <BetaWelcomeDialog />
@@ -385,7 +395,7 @@ function RootRouteView() {
           <GlobalOnboardingDialog />
           <ProjectImportAnnouncementDialog />
           <GlobalProjectImportDialog />
-          {remoteWindowHost ? <RemoteFolderPickerDialog /> : null}
+          {remoteWindowHost || MULTI_HOST_ON ? <RemoteFolderPickerDialog /> : null}
           <AppSnapCoordinator />
           <DesktopProjectBootstrap />
           {remoteWindowHost ? <PendingRemoteThreadOpener /> : null}
