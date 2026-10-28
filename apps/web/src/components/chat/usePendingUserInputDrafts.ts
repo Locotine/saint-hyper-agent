@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { OrchestrationThreadActivity, ThreadId } from "@saint/contracts";
 import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
@@ -19,7 +20,8 @@ export function usePendingUserInputDrafts(
   requests: ReadonlyArray<PendingUserInput>,
   activities: ReadonlyArray<OrchestrationThreadActivity>,
 ) {
-  const drafts = useComposerThreadDraft(threadId).pendingUserInputDrafts ?? EMPTY_DRAFTS;
+  const drafts =
+    useComposerThreadDraft(scopeLocalThread(threadId)).pendingUserInputDrafts ?? EMPTY_DRAFTS;
   const answers = useMemo(() => draftAnswers(drafts), [drafts]);
   const answersRef = useRef<Answers>(answers);
   const requestsRef = useRef(requests);
@@ -31,7 +33,8 @@ export function usePendingUserInputDrafts(
   const setAnswers = useCallback(
     (update: (existing: Answers) => Answers) => {
       const store = useComposerDraftStore.getState();
-      const existing = store.draftsByThreadId[threadId]?.pendingUserInputDrafts ?? EMPTY_DRAFTS;
+      const existing =
+        store.draftsByThreadId[scopeLocalThread(threadId)]?.pendingUserInputDrafts ?? EMPTY_DRAFTS;
       const nextAnswers = update(draftAnswers(existing));
       const nextDrafts = { ...existing };
       for (const [key, requestAnswers] of Object.entries(nextAnswers)) {
@@ -44,7 +47,7 @@ export function usePendingUserInputDrafts(
         if (request) nextDrafts[key] = { request, answers: requestAnswers };
       }
       answersRef.current = nextAnswers;
-      store.setPendingUserInputDrafts(threadId, nextDrafts);
+      store.setPendingUserInputDrafts(scopeLocalThread(threadId), nextDrafts);
     },
     [threadId],
   );
@@ -79,7 +82,7 @@ export function usePendingUserInputDrafts(
     useComposerDraftStore
       .getState()
       .setPendingUserInputDrafts(
-        threadId,
+        scopeLocalThread(threadId),
         Object.fromEntries(Object.entries(drafts).filter(([key]) => !confirmed.has(key))),
       );
   }, [drafts, activities, threadId]);

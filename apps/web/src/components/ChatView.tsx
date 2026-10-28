@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID, scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
 import { type LegendListRef } from "@legendapp/list/react";
 import {
   parseComputerInvocation,
@@ -116,7 +117,7 @@ import {
   type ComposerImageAttachment,
   type DraftThreadEnvMode,
 } from "../composerDraftStore";
-import { composerDraftHasUnsentContent } from "../composerDraftDomain";
+import { composerDraftHasUnsentContent, localProjectDraftThread } from "../composerDraftDomain";
 import { useComposerFocusRequestStore } from "../composerFocusRequestStore";
 import {
   buildGoalSlashCommandPrompt,
@@ -759,7 +760,7 @@ export default function ChatView({
     showComposerPastedTextInField,
   } = useChatComposerDraft({ threadId });
   const draftThread = useComposerDraftStore(
-    (store) => store.draftThreadsByThreadId[threadId] ?? null,
+    (store) => store.draftThreadsByThreadId[scopeLocalThread(threadId)] ?? null,
   );
   const hasTemporaryThreadMarker = useTemporaryThreadStore((store) =>
     threadId ? store.temporaryThreadIds[threadId] === true : false,
@@ -1133,9 +1134,9 @@ export default function ChatView({
           removeDeletedThreadFromClientState:
             useStore.getState().removeDeletedThreadFromClientState,
         });
-        useComposerDraftStore.getState().clearDraftThread(terminalThreadId);
-        useTerminalStateStore.getState().clearTerminalState(terminalThreadId);
-        removeThreadFromSplitViews(terminalThreadId);
+        useComposerDraftStore.getState().clearDraftThread(scopeLocalThread(terminalThreadId));
+        useTerminalStateStore.getState().clearTerminalState(scopeLocalThread(terminalThreadId));
+        removeThreadFromSplitViews(LOCAL_HOST_ID, terminalThreadId);
         if (activeSplitView) {
           const nextSplitView = useSplitViewStore.getState().splitViewsById[activeSplitView.id];
           const nextThreadId = nextSplitView
@@ -1197,7 +1198,9 @@ export default function ChatView({
     onDeletePlaceholderThread: deletePlaceholderTerminalThread,
   });
   const localProjectInstructions = useProjectInstructionsStore((state) =>
-    activeProjectId ? (state.instructionsByProjectId[activeProjectId] ?? "") : "",
+    activeProjectId
+      ? (state.instructionsByProjectId[scopeLocalProject(activeProjectId)] ?? "")
+      : "",
   );
   const setProjectInstructions = useProjectInstructionsStore((state) => state.setInstructions);
   const serverProjectInstructions = useProjectInstructionsSource(activeProjectId ?? null);
@@ -2964,7 +2967,9 @@ export default function ChatView({
   );
   const composerImageAttachmentCount = useCallback(
     () =>
-      effectiveComposerAttachmentCount(useComposerDraftStore.getState().draftsByThreadId[threadId]),
+      effectiveComposerAttachmentCount(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+      ),
     [threadId],
   );
   const commitPreparedComposerImages = useCallback(
@@ -3377,7 +3382,7 @@ export default function ChatView({
       },
     ) => {
       if (!activeThreadId) return;
-      storeSetTerminalMetadata(activeThreadId, terminalId, metadata);
+      storeSetTerminalMetadata(scopeLocalThread(activeThreadId), terminalId, metadata);
     },
     onTerminalActivityChange: (
       terminalId: string,
@@ -3387,7 +3392,7 @@ export default function ChatView({
       },
     ) => {
       if (!activeThreadId) return;
-      storeSetTerminalActivity(activeThreadId, terminalId, activity);
+      storeSetTerminalActivity(scopeLocalThread(activeThreadId), terminalId, activity);
     },
     ...(canAddTerminalContextToChat ? { onAddTerminalContext: addTerminalContextToDraft } : {}),
   };
@@ -3511,7 +3516,7 @@ export default function ChatView({
     setTailAnchor(null);
   }, [settings.anchorSentMessagesToTop, tailAnchorScrollInFlightRef]);
   const selectionChatEnvMode = useProjectEnvironmentStore((state) =>
-    activeProject ? state.envModeByProjectId[activeProject.id] : undefined,
+    activeProject ? state.envModeByProjectId[scopeLocalProject(activeProject.id)] : undefined,
   );
   const {
     pendingTranscriptSelectionAction,
@@ -3847,7 +3852,7 @@ export default function ChatView({
     if (terminalState.entryPoint !== "terminal") {
       return;
     }
-    storeOpenTerminalThreadPage(activeThreadId);
+    storeOpenTerminalThreadPage(scopeLocalThread(activeThreadId));
   }, [activatedThreadIdRef, activeThreadId, storeOpenTerminalThreadPage, terminalState.entryPoint]);
 
   useEffect(() => {
@@ -3961,14 +3966,14 @@ export default function ChatView({
   const onPauseWorkflowRun = useCallback(async () => {
     if (!workflowRunState || !activeThreadId) return;
     const { workflowTaskId } = workflowRunState;
-    markWorkflowRunPaused(activeThreadId, workflowTaskId);
+    markWorkflowRunPaused(scopeLocalThread(activeThreadId), workflowTaskId);
     await onStopWorkflowRun();
   }, [activeThreadId, markWorkflowRunPaused, onStopWorkflowRun, workflowRunState]);
 
   const onDismissWorkflowRun = useCallback(() => {
     if (!workflowRunState || !activeThreadId) return;
     const { workflowTaskId } = workflowRunState;
-    markWorkflowRunDismissed(activeThreadId, workflowTaskId);
+    markWorkflowRunDismissed(scopeLocalThread(activeThreadId), workflowTaskId);
   }, [activeThreadId, markWorkflowRunDismissed, workflowRunState]);
 
   const onProviderModelSelect = useCallback(
@@ -4033,7 +4038,10 @@ export default function ChatView({
         nextRuntimeMode,
         persistRuntimeMode: persistRuntimeModeChange,
         commit: () => {
-          setComposerDraftModelSelectionAndSticky(activeThread.id, nextModelSelection);
+          setComposerDraftModelSelectionAndSticky(
+            scopeLocalThread(activeThread.id),
+            nextModelSelection,
+          );
           if (provider === "cursor" && !selectionOptions?.modelOptions) {
             setComposerDraftProviderModelOptions(
               activeThread.id,
@@ -4234,7 +4242,7 @@ export default function ChatView({
       const { files: nextFiles, error } = buildComposerFileAttachmentsFromFiles({
         files,
         existingAttachmentCount: effectiveComposerAttachmentCount(
-          useComposerDraftStore.getState().draftsByThreadId[activeThreadId],
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(activeThreadId)],
         ),
       });
 
@@ -5174,7 +5182,8 @@ export default function ChatView({
       const draft = (
         composerEditorRef.current?.readSnapshot()?.value ?? promptRef.current
       ).trimEnd();
-      const stagedDraft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+      const stagedDraft =
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
       const hasStagedContext =
         isPreparingComposerImages ||
         (stagedDraft !== undefined &&
@@ -5496,6 +5505,7 @@ export default function ChatView({
         useStore.getState().sidebarThreadSummaryById[nextThreadId]?.projectId ?? activeProjectId;
       if (!ownerProjectId) return;
       const splitViewId = useSplitViewStore.getState().createFromThread({
+        hostId: LOCAL_HOST_ID,
         sourceThreadId: nextThreadId,
         ownerProjectId,
       });
@@ -5521,7 +5531,7 @@ export default function ChatView({
   }, [activeProjectIdForNewChat, handleNewThread]);
   const onOpenEditorChat = useCallback(
     (nextThreadId: ThreadId) => {
-      storeOpenChatThreadPage(nextThreadId);
+      storeOpenChatThreadPage(scopeLocalThread(nextThreadId));
       return onNavigateToThread(nextThreadId);
     },
     [onNavigateToThread, storeOpenChatThreadPage],
@@ -5562,9 +5572,9 @@ export default function ChatView({
     if (!targetProjectId) return;
     // The shared New thread path reopens a pending draft before creating a chat. Keep
     // that draft's workspace instead of retargeting its unsent text to the viewed chat.
-    const pendingProjectDraft = useComposerDraftStore
-      .getState()
-      .getDraftThreadByProjectId(targetProjectId);
+    const pendingProjectDraft = localProjectDraftThread(
+      useComposerDraftStore.getState().getDraftThreadByProjectId(targetProjectId),
+    );
     void handleNewThread(
       targetProjectId,
       resolveInheritedThreadContext({
@@ -6115,7 +6125,8 @@ export default function ChatView({
     canCopyProjectInstructionsToNotes: !isLocalDraftThread,
     onProjectInstructionsChange: serverProjectInstructions.serverBacked
       ? serverProjectInstructions.onChange
-      : setProjectInstructions,
+      : (projectId: ProjectId, instructions: string) =>
+          setProjectInstructions(scopeLocalProject(projectId), instructions),
     onCopyProjectInstructionsToNotes: handleCopyProjectInstructionsToNotes,
     onToggleDiff,
     onOpenAutomation: (definition: AutomationDefinition) => onOpenAutomation(definition.id),
@@ -6786,7 +6797,9 @@ export default function ChatView({
           openInTarget={threadWorkspaceCwd}
           activeProjectScripts={isEditorRail ? undefined : activeProjectScripts}
           preferredScriptId={
-            activeProject ? (lastInvokedScriptByProjectId[activeProject.id] ?? null) : null
+            activeProject
+              ? (lastInvokedScriptByProjectId[scopeLocalProject(activeProject.id)] ?? null)
+              : null
           }
           keybindings={keybindings}
           availableEditors={availableEditors}

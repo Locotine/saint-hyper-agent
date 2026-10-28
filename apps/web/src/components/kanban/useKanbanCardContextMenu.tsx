@@ -6,6 +6,7 @@
 // Layer: Kanban UI hook
 // Exports: useKanbanCardContextMenu
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { THREAD_GOAL_MAX_CHARS, type ThreadId } from "@saint/contracts";
 import { resolveThreadWorkspaceCwd } from "@saint/shared/threadEnvironment";
 import { KANBAN_COLUMN_V2_LABELS } from "@saint/shared/kanban";
@@ -137,20 +138,20 @@ export function useKanbanCardContextMenu(): KanbanCardContextMenuController {
     useKanbanUiStore.getState().clearOptimisticDispatch(card.threadId);
     // Local-only draft (never promoted): just drop it from the draft store.
     if (card.thread === null) {
-      clearDraftThread(card.threadId);
+      clearDraftThread(scopeLocalThread(card.threadId));
       return;
     }
     // A settled thread can have a separate draft card for its unsent composer prompt.
     if (isKanbanDraftOnlyCard(card)) {
-      clearComposerContent(card.threadId);
+      clearComposerContent(scopeLocalThread(card.threadId));
       return;
     }
     await deleteActiveThreadFromClient({
       threadId: card.threadId,
       onDeleted: ({ thread }) => {
-        clearDraftThread(card.threadId);
-        clearProjectDraftThreadById(thread.projectId, thread.id);
-        clearTerminalState(card.threadId);
+        clearDraftThread(scopeLocalThread(card.threadId));
+        clearProjectDraftThreadById(thread.projectId, scopeLocalThread(thread.id));
+        clearTerminalState(scopeLocalThread(card.threadId));
       },
       removeWorktree: (worktree) => removeWorktreeMutation.mutateAsync(worktree),
       unknownWorktreeErrorMessage: "Unknown error.",
@@ -350,7 +351,9 @@ export function useKanbanCardContextMenu(): KanbanCardContextMenuController {
         // Prefer the live composer prompt (what Send-as-goal would send) over
         // the card title, which can be a fallback like "New thread".
         const livePrompt =
-          useComposerDraftStore.getState().draftsByThreadId[card.threadId]?.prompt.trim() ?? "";
+          useComposerDraftStore
+            .getState()
+            .draftsByThreadId[scopeLocalThread(card.threadId)]?.prompt.trim() ?? "";
         const goal = (livePrompt.length > 0 ? livePrompt : card.title).trim();
         if (goal.length === 0) {
           toastManager.add({

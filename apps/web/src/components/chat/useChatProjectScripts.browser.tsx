@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { type TerminalCloseInput, type TerminalOpenInput } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
@@ -37,33 +38,34 @@ it.each([
     const thread = makeThread({ projectId: project.id });
     const store = useTerminalStateStore.getState();
     const scopeId = dockTerminalThreadId(thread.id);
-    store.newTerminal(thread.id, "center-shell");
-    store.setTerminalActivity(thread.id, "center-shell", {
+    store.newTerminal(scopeLocalThread(thread.id), "center-shell");
+    store.setTerminalActivity(scopeLocalThread(thread.id), "center-shell", {
       hasRunningSubprocess: true,
       agentState: null,
     });
-    store.newTerminal(scopeId, "restored-shell");
-    store.ensureDockTerminal(scopeId, "action-pane");
-    store.ensureDockTerminal(scopeId, "sibling-pane");
+    store.newTerminal(scopeLocalThread(scopeId), "restored-shell");
+    store.ensureDockTerminal(scopeLocalThread(scopeId), "action-pane");
+    store.ensureDockTerminal(scopeLocalThread(scopeId), "sibling-pane");
     const siblingId =
-      useTerminalStateStore.getState().terminalStateByThreadId[scopeId]!.dockTerminalIdsByPaneId![
-        "sibling-pane"
-      ]!;
-    store.setTerminalActivity(scopeId, siblingId, {
+      useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(scopeId)]!
+        .dockTerminalIdsByPaneId!["sibling-pane"]!;
+    store.setTerminalActivity(scopeLocalThread(scopeId), siblingId, {
       hasRunningSubprocess: siblingBusy,
       agentState: null,
     });
-    if (missingTarget) store.closeTerminal(scopeId, "restored-shell");
-    else store.setActiveTerminal(scopeId, "restored-shell");
-    store.setTerminalOpen(scopeId, false);
+    if (missingTarget) store.closeTerminal(scopeLocalThread(scopeId), "restored-shell");
+    else store.setActiveTerminal(scopeLocalThread(scopeId), "restored-shell");
+    store.setTerminalOpen(scopeLocalThread(scopeId), false);
     useRightDockStore.getState().openPane(thread.id, { kind: "terminal", paneId: "sibling-pane" });
     useRightDockStore.getState().openPane(thread.id, { kind: "terminal", paneId: "action-pane" });
-    const centerState = useTerminalStateStore.getState().terminalStateByThreadId[thread.id];
+    const centerState =
+      useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(thread.id)];
     if (!missingTarget) useRightDockStore.getState().openPane(thread.id, { kind: "git" });
     useRightDockStore.getState().setDockOpen(thread.id, false);
     // Hydration does not restore activity; the renderer cannot authorize a close.
     expect(
-      useTerminalStateStore.getState().terminalStateByThreadId[scopeId]?.runningTerminalIds,
+      useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(scopeId)]
+        ?.runningTerminalIds,
     ).toEqual(siblingBusy ? [siblingId] : []);
     const setThreadError = vi.fn();
     const queryClient = new QueryClient();
@@ -110,7 +112,8 @@ it.each([
       expect(api.terminal.open).not.toHaveBeenCalled();
       expect(api.terminal.write).not.toHaveBeenCalled();
       expect(
-        useTerminalStateStore.getState().terminalStateByThreadId[scopeId]?.activeTerminalId,
+        useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(scopeId)]
+          ?.activeTerminalId,
       ).toBe("restored-shell");
     }
 
@@ -130,7 +133,8 @@ it.each([
     expect(launched.threadId).toBe(scopeId);
     expect(launched.cwd).toBe(project.cwd);
     expect(launched.terminalId).not.toBe("restored-shell");
-    const launchedState = useTerminalStateStore.getState().terminalStateByThreadId[scopeId]!;
+    const launchedState =
+      useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(scopeId)]!;
     expect(launchedState.terminalIds).toEqual(
       expect.arrayContaining([siblingId, launched.terminalId]),
     );
@@ -138,9 +142,9 @@ it.each([
       "sibling-pane": siblingId,
       "action-pane": launched.terminalId,
     });
-    expect(useTerminalStateStore.getState().terminalStateByThreadId[thread.id]).toEqual(
-      centerState,
-    );
+    expect(
+      useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(thread.id)],
+    ).toEqual(centerState);
     const dock = selectRightDockState(thread.id)(useRightDockStore.getState());
     expect(dock.open).toBe(true);
     expect(dock.activePaneId).toBe("action-pane");

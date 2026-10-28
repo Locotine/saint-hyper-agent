@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -187,7 +188,7 @@ describe("startContainerChat", () => {
     useComposerDraftStore.setState((state) => ({
       draftsByThreadId: {
         ...state.draftsByThreadId,
-        [threadId]: {
+        [scopeLocalThread(threadId)]: {
           prompt: "user typed this",
         } as unknown as ComposerThreadDraftState,
       },

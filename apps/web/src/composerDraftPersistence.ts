@@ -1,3 +1,4 @@
+import { parseScopedThreadId, type ScopedThreadId } from "@saint/shared/hostId";
 import { normalizePendingUserInputDrafts } from "./pendingUserInputRecovery";
 import { resolveComputerControlMode } from "./computerControlMode";
 // FILE: composerDraftPersistence.ts
@@ -115,6 +116,9 @@ function cloneBrowserAnnotation(annotation: BrowserAnnotationDraft): BrowserAnno
     source: { ...annotation.source },
   };
 }
+
+// Persisted state is normalized to scoped ids before it is validated or typed.
+const ScopedThreadIdSchema = Schema.String as Schema.Codec<ScopedThreadId, string>;
 
 const PersistedTerminalContextDraft = Schema.Struct({
   id: Schema.String,
@@ -378,15 +382,15 @@ const PersistedDraftThreadState = Schema.Struct({
   envMode: DraftThreadEnvModeSchema,
   goal: Schema.optionalKey(Schema.String),
   isTemporary: Schema.optionalKey(Schema.Boolean),
-  promotedTo: Schema.optionalKey(ThreadId),
+  promotedTo: Schema.optionalKey(ScopedThreadIdSchema),
 });
 
 type PersistedDraftThreadState = typeof PersistedDraftThreadState.Type;
 
 const PersistedComposerDraftStoreState = Schema.Struct({
-  draftsByThreadId: Schema.Record(ThreadId, PersistedComposerThreadDraftState),
-  draftThreadsByThreadId: Schema.Record(ThreadId, PersistedDraftThreadState),
-  projectDraftThreadIdByProjectId: Schema.Record(ProjectId, ThreadId),
+  draftsByThreadId: Schema.Record(Schema.String, PersistedComposerThreadDraftState),
+  draftThreadsByThreadId: Schema.Record(Schema.String, PersistedDraftThreadState),
+  projectDraftThreadIdByProjectId: Schema.Record(ProjectId, ScopedThreadIdSchema),
   stickyModelSelectionByProvider: Schema.optionalKey(
     Schema.Record(Schema.String, Schema.optional(ModelSelection)),
   ),
@@ -850,6 +854,13 @@ function normalizeDraftThreadEnvMode(
   return fallbackWorktreePath ? "worktree" : "local";
 }
 
+// Rows saved before host scoping hold bare thread ids: those are this computer's threads.
+function scopedKey(value: string): ScopedThreadId {
+  const scoped = parseScopedThreadId(value);
+  if (scoped === null) throw new Error("Empty thread id in persisted composer drafts");
+  return scoped;
+}
+
 function normalizePersistedDraftThreads(
   rawDraftThreadsByThreadId: unknown,
   rawProjectDraftThreadIdByProjectId: unknown,
@@ -857,7 +868,7 @@ function normalizePersistedDraftThreads(
   PersistedComposerDraftStoreState,
   "draftThreadsByThreadId" | "projectDraftThreadIdByProjectId"
 > {
-  const draftThreadsByThreadId: Record<ThreadId, PersistedDraftThreadState> = {};
+  const draftThreadsByThreadId: Record<ScopedThreadId, PersistedDraftThreadState> = {};
   if (rawDraftThreadsByThreadId && typeof rawDraftThreadsByThreadId === "object") {
     for (const [threadId, rawDraftThread] of Object.entries(
       rawDraftThreadsByThreadId as Record<string, unknown>,
@@ -896,12 +907,13 @@ function normalizePersistedDraftThreads(
       const promotedTo =
         typeof candidateDraftThread.promotedTo === "string" &&
         candidateDraftThread.promotedTo.length > 0
-          ? (candidateDraftThread.promotedTo as ThreadId)
+          ? scopedKey(candidateDraftThread.promotedTo)
           : undefined;
       if (typeof projectId !== "string" || projectId.length === 0) {
         continue;
       }
-      draftThreadsByThreadId[threadId as ThreadId] = {
+      const scopedThreadId = scopedKey(threadId);
+      draftThreadsByThreadId[scopedThreadId] = {
         projectId: projectId as ProjectId,
         createdAt:
           typeof createdAt === "string" && createdAt.length > 0
@@ -926,7 +938,7 @@ function normalizePersistedDraftThreads(
     }
   }
 
-  const projectDraftThreadIdByProjectId: Record<string, ThreadId> = {};
+  const projectDraftThreadIdByProjectId: Record<string, ScopedThreadId> = {};
   if (
     rawProjectDraftThreadIdByProjectId &&
     typeof rawProjectDraftThreadIdByProjectId === "object"
@@ -942,9 +954,10 @@ function normalizePersistedDraftThreads(
         typeof threadId === "string" &&
         threadId.length > 0
       ) {
-        projectDraftThreadIdByProjectId[mappingKey] = threadId as ThreadId;
-        if (!draftThreadsByThreadId[threadId as ThreadId]) {
-          draftThreadsByThreadId[threadId as ThreadId] = {
+        const scopedThreadId = scopedKey(threadId);
+        projectDraftThreadIdByProjectId[mappingKey] = scopedThreadId;
+        if (!draftThreadsByThreadId[scopedThreadId]) {
+          draftThreadsByThreadId[scopedThreadId] = {
             projectId: projectId as ProjectId,
             createdAt: new Date().toISOString(),
             runtimeMode: DEFAULT_RUNTIME_MODE,
@@ -955,14 +968,14 @@ function normalizePersistedDraftThreads(
             workingDirectory: null,
             envMode: "local",
           };
-        } else if (draftThreadsByThreadId[threadId as ThreadId]?.projectId !== projectId) {
-          draftThreadsByThreadId[threadId as ThreadId] = {
-            ...draftThreadsByThreadId[threadId as ThreadId]!,
+        } else if (draftThreadsByThreadId[scopedThreadId]?.projectId !== projectId) {
+          draftThreadsByThreadId[scopedThreadId] = {
+            ...draftThreadsByThreadId[scopedThreadId]!,
             projectId: projectId as ProjectId,
           };
-        } else if (draftThreadsByThreadId[threadId as ThreadId]?.entryPoint !== entryPoint) {
-          draftThreadsByThreadId[threadId as ThreadId] = {
-            ...draftThreadsByThreadId[threadId as ThreadId]!,
+        } else if (draftThreadsByThreadId[scopedThreadId]?.entryPoint !== entryPoint) {
+          draftThreadsByThreadId[scopedThreadId] = {
+            ...draftThreadsByThreadId[scopedThreadId]!,
             entryPoint,
           };
         }
@@ -1158,7 +1171,7 @@ function normalizePersistedDraftsByThreadId(
     ) {
       continue;
     }
-    nextDraftsByThreadId[threadId as ThreadId] = {
+    nextDraftsByThreadId[scopedKey(threadId)] = {
       ...(Object.keys(pendingUserInputDrafts).length > 0 ? { pendingUserInputDrafts } : {}),
       prompt,
       ...(promptHistorySavedDraft !== null ? { promptHistorySavedDraft } : {}),
@@ -1530,7 +1543,7 @@ export function partializeComposerDraftStoreState(
         ? { enableComputerControl: draft.enableComputerControl }
         : {}),
     };
-    persistedDraftsByThreadId[threadId as ThreadId] = persistedDraft;
+    persistedDraftsByThreadId[scopedKey(threadId)] = persistedDraft;
   }
   return {
     draftsByThreadId: persistedDraftsByThreadId,
@@ -1607,7 +1620,7 @@ export function normalizeCurrentPersistedComposerDraftStoreState(
 }
 
 function hydrateQueuedTurnsFromPersisted(
-  threadId: ThreadId,
+  threadId: ScopedThreadId,
   queuedTurns: ReadonlyArray<PersistedQueuedComposerTurn> | undefined,
 ): QueuedComposerTurn[] {
   if (!queuedTurns || queuedTurns.length === 0) {
@@ -1679,7 +1692,7 @@ function hydratePromptHistorySavedDraft(
 }
 
 export function toHydratedThreadDraft(
-  threadId: ThreadId,
+  threadId: ScopedThreadId,
   persistedDraft: PersistedComposerThreadDraftState,
 ): ComposerThreadDraftState {
   // The persisted draft is already in v3 shape (migration handles older formats)

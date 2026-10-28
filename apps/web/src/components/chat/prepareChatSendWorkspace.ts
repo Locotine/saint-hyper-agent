@@ -3,7 +3,9 @@ import {
   RuntimeMode,
   ThreadId,
   type ModelSelection,
+  type ProjectId,
 } from "@saint/contracts";
+import type { DraftThreadMutationOptions } from "../../composerDraftDomain";
 import {
   GENERIC_CHAT_THREAD_TITLE,
   buildPromptThreadTitleFallback,
@@ -67,7 +69,10 @@ interface Input {
   clearProjectDraftThreadId: ReturnType<
     typeof useComposerDraftStore.getState
   >["clearProjectDraftThreadId"];
-  setDraftThreadContext: ReturnType<typeof useComposerDraftStore.getState>["setDraftThreadContext"];
+  setDraftThreadContext: (
+    threadId: ThreadId,
+    options: DraftThreadMutationOptions & { projectId?: ProjectId },
+  ) => void;
   activeRootBranch: string | null;
   gitBranchSourceCwd: string | null;
   setStoreThreadError: (threadId: ThreadId, error: string | null) => void;

@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { ProjectId, ThreadId } from "@saint/contracts";
+import { scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
 import type { ResolvedTerminalVisualIdentity } from "@saint/shared/terminalThreads";
 import {
   buildRecentViewDisplayEntries,
@@ -20,6 +21,10 @@ function threadId(value: string): ThreadId {
   return ThreadId.makeUnsafe(value);
 }
 
+function scoped(value: string): ScopedThreadId {
+  return scopeLocalThread(threadId(value));
+}
+
 function projectId(value: string): ProjectId {
   return ProjectId.makeUnsafe(value);
 }
@@ -28,65 +33,62 @@ describe("recent view MRU logic", () => {
   it("moves reopened views to the front and caps the list at five", () => {
     const recentViews = ["thread-1", "thread-2", "thread-3", "thread-4", "thread-5"].map((id) => ({
       kind: "thread" as const,
-      threadId: threadId(id),
+      threadId: scoped(id),
     }));
 
     const reopened = upsertRecentView(recentViews, {
       kind: "thread",
-      threadId: threadId("thread-3"),
+      threadId: scoped("thread-3"),
     });
     expect(reopened.map(recentViewKey)).toEqual([
-      "thread:thread-3",
-      "thread:thread-1",
-      "thread:thread-2",
-      "thread:thread-4",
-      "thread:thread-5",
+      "thread:local~thread-3",
+      "thread:local~thread-1",
+      "thread:local~thread-2",
+      "thread:local~thread-4",
+      "thread:local~thread-5",
     ]);
 
     const withSixth = upsertRecentView(reopened, { kind: "settings" });
     expect(withSixth.map(recentViewKey)).toEqual([
       "settings",
-      "thread:thread-3",
-      "thread:thread-1",
-      "thread:thread-2",
-      "thread:thread-4",
+      "thread:local~thread-3",
+      "thread:local~thread-1",
+      "thread:local~thread-2",
+      "thread:local~thread-4",
     ]);
   });
 
   it("prunes deleted views and downgrades missing split views to plain threads", () => {
     const recentViews: RecentView[] = [
-      { kind: "thread", threadId: threadId("thread-1"), splitViewId: "split-missing" },
-      { kind: "thread", threadId: threadId("thread-deleted") },
+      { kind: "thread", threadId: scoped("thread-1"), splitViewId: "split-missing" },
+      { kind: "thread", threadId: scoped("thread-deleted") },
       { kind: "plugins" },
     ];
 
     const pruned = pruneRecentViews(recentViews, {
-      availableThreadIds: new Set([threadId("thread-1")]),
+      availableThreadIds: new Set([scoped("thread-1")]),
       availableSplitViewIds: new Set(["split-1"]),
     });
 
-    expect(pruned).toEqual([
-      { kind: "thread", threadId: threadId("thread-1") },
-      { kind: "plugins" },
-    ]);
+    expect(pruned).toEqual([{ kind: "thread", threadId: scoped("thread-1") }, { kind: "plugins" }]);
   });
 
   it("downgrades split views that no longer contain the saved thread", () => {
     const pruned = pruneRecentViews(
-      [{ kind: "thread", threadId: threadId("thread-1"), splitViewId: "split-1" }],
+      [{ kind: "thread", threadId: scoped("thread-1"), splitViewId: "split-1" }],
       {
-        availableThreadIds: new Set([threadId("thread-1"), threadId("thread-2")]),
+        availableThreadIds: new Set([scoped("thread-1"), scoped("thread-2")]),
         availableSplitViewIds: new Set(["split-1"]),
-        threadIdsBySplitViewId: new Map([["split-1", new Set([threadId("thread-2")])]]),
+        threadIdsBySplitViewId: new Map([["split-1", new Set([scoped("thread-2")])]]),
       },
     );
 
-    expect(pruned).toEqual([{ kind: "thread", threadId: threadId("thread-1") }]);
+    expect(pruned).toEqual([{ kind: "thread", threadId: scoped("thread-1") }]);
   });
 
   it("selects the previous MRU entry on the first forward cycle", () => {
     const recentViews: RecentView[] = [
-      { kind: "thread", threadId: threadId("thread-current") },
+      { kind: "thread", threadId: scoped("thread-current") },
       { kind: "settings" },
       { kind: "plugins" },
     ];
@@ -118,7 +120,7 @@ describe("recent view MRU logic", () => {
       }),
     ).toEqual({
       kind: "thread",
-      threadId: threadId("thread-focused"),
+      threadId: scoped("thread-focused"),
       splitViewId: "split-1",
     });
 
@@ -142,7 +144,7 @@ describe("recent view MRU logic", () => {
     } as SidebarThreadSummary;
 
     const entries = buildRecentViewDisplayEntries({
-      recentViews: [{ kind: "thread", threadId: terminalThreadId }],
+      recentViews: [{ kind: "thread", threadId: scopeLocalThread(terminalThreadId) }],
       currentView: null,
       threadsById: { [terminalThreadId]: threadSummary },
       projects: [project],

@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   ThreadId,
   type ModelSlug,
@@ -545,7 +546,7 @@ export function useChatComposerCommands({
           setComposerDraftPromptHistorySavedDraft(
             threadId,
             captureComposerPromptHistorySavedDraft({
-              threadId,
+              threadId: scopeLocalThread(threadId),
               draft: composerDraft,
               prompt: result.state.draft,
             }),

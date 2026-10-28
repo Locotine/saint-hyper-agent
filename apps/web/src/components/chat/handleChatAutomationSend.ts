@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ThreadId, type ModelSelection, type ProviderStartOptions } from "@saint/contracts";
 import { readNativeApi } from "~/nativeApi";
 import {

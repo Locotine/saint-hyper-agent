@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
@@ -39,6 +40,7 @@ function createSplitView(): SplitView {
   };
   return {
     id: "split-1",
+    hostId: LOCAL_HOST_ID,
     sourceThreadId: THREAD_A,
     ownerProjectId: PROJECT_ID,
     root: {

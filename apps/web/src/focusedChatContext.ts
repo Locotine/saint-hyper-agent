@@ -3,6 +3,7 @@
 // Layer: Route-aware UI helpers
 // Exports: hook used by shortcut, discovery, and thread creation flows
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ThreadId, type ThreadId as ThreadIdType } from "@saint/contracts";
 import { useMemo } from "react";
 import { useParams } from "@tanstack/react-router";
@@ -51,7 +52,9 @@ export function useFocusedChatContext(): FocusedChatContext {
     useMemo(() => createThreadShellSettingsSelector(focusedThreadId), [focusedThreadId]),
   );
   const activeDraftThread =
-    focusedThreadId !== null ? (draftThreadsByThreadId[focusedThreadId] ?? null) : null;
+    focusedThreadId !== null
+      ? (draftThreadsByThreadId[scopeLocalThread(focusedThreadId)] ?? null)
+      : null;
   const activeProjectId =
     activeDraftThread?.projectId ??
     activeThread?.projectId ??

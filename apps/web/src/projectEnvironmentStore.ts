@@ -1,16 +1,25 @@
-import type { ProjectId, ThreadEnvironmentMode } from "@saint/contracts";
+import type { ThreadEnvironmentMode } from "@saint/contracts";
+import type { ScopedProjectId } from "@saint/shared/hostId";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { createMemoryStorage } from "./lib/storage";
-import { isPlainObject, sanitizeStringKeyedRecord } from "./persistedRecord";
+import { createMemoryStorage, withLegacyKeyFallback } from "./lib/storage";
+import {
+  isPlainObject,
+  sanitizeStringKeyedRecord,
+  scopeProjectKeyedRecord,
+} from "./persistedRecord";
 
 interface ProjectEnvironmentStoreState {
-  envModeByProjectId: Partial<Record<ProjectId, ThreadEnvironmentMode>>;
-  setProjectEnvMode: (projectId: ProjectId, envMode: ThreadEnvironmentMode) => void;
+  envModeByProjectId: Partial<Record<ScopedProjectId, ThreadEnvironmentMode>>;
+  setProjectEnvMode: (projectId: ScopedProjectId, envMode: ThreadEnvironmentMode) => void;
 }
 
-const storage = typeof localStorage !== "undefined" ? localStorage : createMemoryStorage();
+// v1 was keyed by raw project ids. Read once as local projects, then left alone for a rollback.
+const storage =
+  typeof localStorage !== "undefined"
+    ? withLegacyKeyFallback(localStorage, "saint:project-environment:v1")
+    : createMemoryStorage();
 
 export const useProjectEnvironmentStore = create<ProjectEnvironmentStoreState>()(
   persist(
@@ -24,14 +33,16 @@ export const useProjectEnvironmentStore = create<ProjectEnvironmentStoreState>()
         ),
     }),
     {
-      name: "saint:project-environment:v1",
+      name: "saint:project-environment:v2",
       storage: createJSONStorage(() => storage),
       partialize: (state) => ({ envModeByProjectId: state.envModeByProjectId }),
       merge: (persisted, current) => ({
         ...current,
-        envModeByProjectId: sanitizeStringKeyedRecord(
-          isPlainObject(persisted) ? persisted.envModeByProjectId : undefined,
-          (value) => (value === "local" || value === "worktree" ? value : null),
+        envModeByProjectId: scopeProjectKeyedRecord(
+          sanitizeStringKeyedRecord(
+            isPlainObject(persisted) ? persisted.envModeByProjectId : undefined,
+            (value) => (value === "local" || value === "worktree" ? value : null),
+          ),
         ),
       }),
     },

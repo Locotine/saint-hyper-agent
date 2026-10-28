@@ -1,3 +1,4 @@
+import { scopeLocalProject } from "@saint/shared/hostId";
 import {
   EventId,
   ProviderInteractionMode,
@@ -296,7 +297,9 @@ export function useChatAutomationCreation({
         }
 
         const inheritedProjectInstructions =
-          useProjectInstructionsStore.getState().instructionsByProjectId[activeProject.id] ?? "";
+          useProjectInstructionsStore.getState().instructionsByProjectId[
+            scopeLocalProject(activeProject.id)
+          ] ?? "";
         const inheritedThreadNotes = mergeProjectInstructionsIntoThreadNotes({
           threadNotes,
           projectInstructions: inheritedProjectInstructions,

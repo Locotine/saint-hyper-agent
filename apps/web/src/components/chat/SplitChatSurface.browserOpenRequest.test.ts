@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
@@ -11,6 +12,7 @@ const THREAD_C = ThreadId.makeUnsafe("thread-c");
 function createSplitView(): SplitView {
   return {
     id: "split-1",
+    hostId: LOCAL_HOST_ID,
     sourceThreadId: THREAD_A,
     ownerProjectId: ProjectId.makeUnsafe("project-1"),
     focusedPaneId: "pane-a",

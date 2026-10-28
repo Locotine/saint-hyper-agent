@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   PROVIDER_DISPLAY_NAMES,
   THREAD_GOAL_MAX_CHARS,
@@ -274,8 +275,8 @@ export function useComposerSlashCommands(input: {
         // header shows it immediately, then the first send persists it right
         // after `thread.create` promotes the draft.
         const draftStore = useComposerDraftStore.getState();
-        if (draftStore.getDraftThread(activeThread.id)) {
-          draftStore.setDraftThreadContext(activeThread.id, { goal });
+        if (draftStore.getDraftThread(scopeLocalThread(activeThread.id))) {
+          draftStore.setDraftThreadContext(scopeLocalThread(activeThread.id), { goal });
           return true;
         }
       }
@@ -550,7 +551,8 @@ export function useComposerSlashCommands(input: {
             threadId: sidechatThreadId,
             selectedModelSelection: sidechatModelSelection,
             runtimeMode:
-              useComposerDraftStore.getState().draftsByThreadId[sidechatThreadId]?.runtimeMode ??
+              useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(sidechatThreadId)]
+                ?.runtimeMode ??
               getThreadFromState(useStore.getState(), sidechatThreadId)?.runtimeMode ??
               runtimeMode,
             prompt,

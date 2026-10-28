@@ -6,6 +6,7 @@
 //          and the shortcut). The embedded chat is stubbed; ChatView has its own coverage.
 // Layer: GitHub inbox test
 
+import { scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
 import "../../index.css";
 
 import {
@@ -486,13 +487,15 @@ describe("Send to agent", () => {
     await expect
       .poll(
         () =>
-          useComposerDraftStore.getState().draftsByThreadId["draft-thread" as ThreadId]
-            ?.pullRequestContexts,
+          useComposerDraftStore.getState().draftsByThreadId[
+            scopeLocalThread("draft-thread" as ThreadId)
+          ]?.pullRequestContexts,
       )
       .toHaveLength(1);
     const card =
-      useComposerDraftStore.getState().draftsByThreadId["draft-thread" as ThreadId]
-        ?.pullRequestContexts[0];
+      useComposerDraftStore.getState().draftsByThreadId[
+        scopeLocalThread("draft-thread" as ThreadId)
+      ]?.pullRequestContexts[0];
     expect(card).toMatchObject({
       itemKind: "issue",
       prNumber: 42,
@@ -506,7 +509,7 @@ describe("Send to agent", () => {
   it.each(["local", "worktree"] as const)(
     "waits for %s PR checkout but opens its thread without waiting for Git refreshes",
     async (mode) => {
-      useProjectEnvironmentStore.getState().setProjectEnvMode(projectA, mode);
+      useProjectEnvironmentStore.getState().setProjectEnvMode(scopeLocalProject(projectA), mode);
       const prepared = deferred<{ branch: string; worktreePath: string }>();
       preparePullRequestThread.mockReturnValueOnce(prepared.promise);
       const opened = deferred<ThreadId>();
@@ -561,8 +564,9 @@ describe("Send to agent", () => {
         await expect
           .poll(
             () =>
-              useComposerDraftStore.getState().draftsByThreadId["draft-thread" as ThreadId]
-                ?.pullRequestContexts[0]?.text,
+              useComposerDraftStore.getState().draftsByThreadId[
+                scopeLocalThread("draft-thread" as ThreadId)
+              ]?.pullRequestContexts[0]?.text,
           )
           .toBe("https://github.com/acme/widgets/pull/41");
         await expect
@@ -607,7 +611,8 @@ describe("Ask", () => {
     await expect.poll(shownSidechat).toBe(sidechatId);
     expect(inboxDock().open).toBe(true);
     const card =
-      useComposerDraftStore.getState().draftsByThreadId[sidechatId]?.pullRequestContexts[0];
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(sidechatId)]
+        ?.pullRequestContexts[0];
     expect(card).toMatchObject({ itemKind: "issue", prNumber: 42 });
     // Nothing is sent: the user writes the question.
     expect(dispatchCommand.mock.calls.map(([command]) => command.type)).toEqual(["thread.create"]);
@@ -699,7 +704,8 @@ describe("Ask", () => {
     expect(inboxDock().open).toBe(true);
     // The question waits in the side chat's queue, with the item's card, for the destination
     // chat to send through its normal first-send path; nothing else is dispatched here.
-    const queued = useComposerDraftStore.getState().draftsByThreadId[sidechatId]?.queuedTurns;
+    const queued =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(sidechatId)]?.queuedTurns;
     expect(queued).toHaveLength(1);
     expect(queued?.[0]).toMatchObject({
       kind: "chat",
@@ -729,7 +735,7 @@ describe("Ask", () => {
     const threadId = createdSidechats[0]!.threadId;
     await expect.poll(shownSidechat).toBe(threadId);
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.queuedTurns[0],
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.queuedTurns[0],
     ).toMatchObject({
       prompt: "Please explain this crash",
     });
@@ -748,7 +754,11 @@ describe("Ask", () => {
     await userEvent.keyboard("{Enter}");
 
     await expect
-      .poll(() => useComposerDraftStore.getState().draftsByThreadId[sidechatId]?.queuedTurns.length)
+      .poll(
+        () =>
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(sidechatId)]
+            ?.queuedTurns.length,
+      )
       .toBe(2);
     expect(createdSidechats).toHaveLength(1);
     expect(inboxDock().open).toBe(true);

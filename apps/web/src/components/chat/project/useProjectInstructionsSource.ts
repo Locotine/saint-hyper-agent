@@ -1,3 +1,4 @@
+import { scopeLocalProject } from "@saint/shared/hostId";
 import type { ProjectId } from "@saint/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -6,7 +7,7 @@ import { useProjectInstructionsStore } from "~/projectInstructionsStore";
 
 export function useProjectInstructionsSource(projectId: ProjectId | null) {
   const localInstructions = useProjectInstructionsStore((state) =>
-    projectId ? (state.instructionsByProjectId[projectId] ?? "") : "",
+    projectId ? (state.instructionsByProjectId[scopeLocalProject(projectId)] ?? "") : "",
   );
   const setLocalInstructions = useProjectInstructionsStore((state) => state.setInstructions);
   const [serverInstructions, setServerInstructions] = useState<string | null>(null);
@@ -83,7 +84,7 @@ export function useProjectInstructionsSource(projectId: ProjectId | null) {
           });
         return;
       }
-      setLocalInstructions(nextProjectId, instructions);
+      setLocalInstructions(scopeLocalProject(nextProjectId), instructions);
     },
     [revision, serverBacked, setLocalInstructions],
   );

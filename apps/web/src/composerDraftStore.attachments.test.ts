@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   OrchestrationProposedPlanId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
@@ -60,9 +61,9 @@ describe("composerDraftStore addImages", () => {
       lastModified: 12345,
     });
 
-    useComposerDraftStore.getState().addImages(threadId, [first, duplicate]);
+    useComposerDraftStore.getState().addImages(scopeLocalThread(threadId), [first, duplicate]);
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.images.map((image) => image.id)).toEqual(["img-1"]);
     expect(revokeSpy).toHaveBeenCalledWith("blob:duplicate");
   });
@@ -85,10 +86,10 @@ describe("composerDraftStore addImages", () => {
       lastModified: 999,
     });
 
-    useComposerDraftStore.getState().addImage(threadId, first);
-    useComposerDraftStore.getState().addImage(threadId, duplicateLater);
+    useComposerDraftStore.getState().addImage(scopeLocalThread(threadId), first);
+    useComposerDraftStore.getState().addImage(scopeLocalThread(threadId), duplicateLater);
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.images.map((image) => image.id)).toEqual(["img-a"]);
     expect(revokeSpy).toHaveBeenCalledWith("blob:b");
   });
@@ -103,9 +104,11 @@ describe("composerDraftStore addImages", () => {
       previewUrl: "blob:shared",
     });
 
-    useComposerDraftStore.getState().addImages(threadId, [first, duplicateSameUrl]);
+    useComposerDraftStore
+      .getState()
+      .addImages(scopeLocalThread(threadId), [first, duplicateSameUrl]);
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.images.map((image) => image.id)).toEqual(["img-shared"]);
     expect(revokeSpy).not.toHaveBeenCalledWith("blob:shared");
   });
@@ -122,17 +125,19 @@ describe("composerDraftStore addImages", () => {
           previewUrl: `blob:image-${index}`,
         }),
     );
-    expect(store.addImages(threadId, initialImages)).toBe(PROVIDER_SEND_TURN_MAX_ATTACHMENTS - 1);
-    expect(store.addFiles(threadId, [makeFile({ id: "last-slot" })])).toBe(1);
+    expect(store.addImages(scopeLocalThread(threadId), initialImages)).toBe(
+      PROVIDER_SEND_TURN_MAX_ATTACHMENTS - 1,
+    );
+    expect(store.addFiles(scopeLocalThread(threadId), [makeFile({ id: "last-slot" })])).toBe(1);
 
     const lateImage = makeImage({
       id: "late-image",
       name: "late-image.png",
       previewUrl: "blob:late-image",
     });
-    expect(store.addImage(threadId, lateImage)).toBe(false);
+    expect(store.addImage(scopeLocalThread(threadId), lateImage)).toBe(false);
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect((draft?.images.length ?? 0) + (draft?.files.length ?? 0)).toBe(
       PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
     );
@@ -146,7 +151,7 @@ describe("composerDraftStore addImages", () => {
       name: "persisted.png",
       previewUrl: "blob:persisted",
     });
-    await store.syncPersistedAttachments(threadId, [
+    await store.syncPersistedAttachments(scopeLocalThread(threadId), [
       {
         id: persistedImage.id,
         name: persistedImage.name,
@@ -156,9 +161,13 @@ describe("composerDraftStore addImages", () => {
       },
     ]);
 
-    expect(useComposerDraftStore.getState().addImage(threadId, persistedImage)).toBe(true);
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.images.map((image) => image.id),
+      useComposerDraftStore.getState().addImage(scopeLocalThread(threadId), persistedImage),
+    ).toBe(true);
+    expect(
+      useComposerDraftStore
+        .getState()
+        .draftsByThreadId[scopeLocalThread(threadId)]?.images.map((image) => image.id),
     ).toEqual(["persisted-image"]);
   });
 });
@@ -182,22 +191,24 @@ describe("composerDraftStore prompt history saved draft", () => {
       dataUrl: "data:image/png;base64,aGk=",
     };
 
-    store.setPrompt(threadId, "draft with attachments");
-    store.addImage(threadId, image);
-    store.addFiles(threadId, [file]);
-    store.syncPersistedAttachments(threadId, [persistedAttachment]);
-    const draftBeforeBrowse = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    store.setPrompt(scopeLocalThread(threadId), "draft with attachments");
+    store.addImage(scopeLocalThread(threadId), image);
+    store.addFiles(scopeLocalThread(threadId), [file]);
+    store.syncPersistedAttachments(scopeLocalThread(threadId), [persistedAttachment]);
+    const draftBeforeBrowse =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
 
     useComposerDraftStore.getState().setPromptHistorySavedDraft(
-      threadId,
+      scopeLocalThread(threadId),
       captureComposerPromptHistorySavedDraft({
-        threadId,
+        threadId: scopeLocalThread(threadId),
         draft: draftBeforeBrowse,
         prompt: draftBeforeBrowse.prompt,
       }),
     );
 
-    const browsingDraft = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    const browsingDraft =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
     expect(browsingDraft.images).toHaveLength(0);
     expect(browsingDraft.files).toHaveLength(0);
     expect(browsingDraft.persistedAttachments).toHaveLength(0);
@@ -218,23 +229,25 @@ describe("composerDraftStore prompt history saved draft", () => {
     const image = makeImage({ id: "img-restore", previewUrl: "blob:restore" });
     const file = makeFile({ id: "file-restore" });
 
-    store.setPrompt(threadId, "draft before history");
-    store.addImage(threadId, image);
-    store.addFiles(threadId, [file]);
-    const draftBeforeBrowse = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    store.setPrompt(scopeLocalThread(threadId), "draft before history");
+    store.addImage(scopeLocalThread(threadId), image);
+    store.addFiles(scopeLocalThread(threadId), [file]);
+    const draftBeforeBrowse =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
     store.setPromptHistorySavedDraft(
-      threadId,
+      scopeLocalThread(threadId),
       captureComposerPromptHistorySavedDraft({
-        threadId,
+        threadId: scopeLocalThread(threadId),
         draft: draftBeforeBrowse,
         prompt: draftBeforeBrowse.prompt,
       }),
     );
-    store.setPrompt(threadId, "recalled history prompt");
+    store.setPrompt(scopeLocalThread(threadId), "recalled history prompt");
 
-    useComposerDraftStore.getState().restorePromptHistorySavedDraft(threadId);
+    useComposerDraftStore.getState().restorePromptHistorySavedDraft(scopeLocalThread(threadId));
 
-    const restoredDraft = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    const restoredDraft =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
     expect(restoredDraft.prompt).toBe("draft before history");
     expect(restoredDraft.promptHistorySavedDraft).toBeNull();
     expect(restoredDraft.images.map((entry) => entry.id)).toEqual(["img-restore"]);
@@ -270,25 +283,27 @@ describe("composerDraftStore prompt history saved draft", () => {
     const selectedSkill = { name: "check-code", path: "/skills/check-code" };
     const selectedMention = { name: "linear", path: "plugin://linear" };
 
-    store.setPrompt(threadId, "draft with structured context");
-    store.addAssistantSelection(threadId, assistantSelection);
-    store.addTerminalContext(threadId, terminalContext);
-    store.addFileComment(threadId, fileComment);
-    store.addPastedTexts(threadId, [pastedText]);
-    store.setSkills(threadId, [selectedSkill]);
-    store.setMentions(threadId, [selectedMention]);
-    const draftBeforeBrowse = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    store.setPrompt(scopeLocalThread(threadId), "draft with structured context");
+    store.addAssistantSelection(scopeLocalThread(threadId), assistantSelection);
+    store.addTerminalContext(scopeLocalThread(threadId), terminalContext);
+    store.addFileComment(scopeLocalThread(threadId), fileComment);
+    store.addPastedTexts(scopeLocalThread(threadId), [pastedText]);
+    store.setSkills(scopeLocalThread(threadId), [selectedSkill]);
+    store.setMentions(scopeLocalThread(threadId), [selectedMention]);
+    const draftBeforeBrowse =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
 
     store.setPromptHistorySavedDraft(
-      threadId,
+      scopeLocalThread(threadId),
       captureComposerPromptHistorySavedDraft({
-        threadId,
+        threadId: scopeLocalThread(threadId),
         draft: draftBeforeBrowse,
         prompt: draftBeforeBrowse.prompt,
       }),
     );
 
-    const browsingDraft = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    const browsingDraft =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
     expect(browsingDraft.assistantSelections).toHaveLength(0);
     expect(browsingDraft.terminalContexts).toHaveLength(0);
     expect(browsingDraft.fileComments).toHaveLength(0);
@@ -310,10 +325,11 @@ describe("composerDraftStore prompt history saved draft", () => {
     expect(browsingDraft.promptHistorySavedDraft?.skills).toEqual([selectedSkill]);
     expect(browsingDraft.promptHistorySavedDraft?.mentions).toEqual([selectedMention]);
 
-    store.setPrompt(threadId, "recalled history prompt");
-    store.restorePromptHistorySavedDraft(threadId);
+    store.setPrompt(scopeLocalThread(threadId), "recalled history prompt");
+    store.restorePromptHistorySavedDraft(scopeLocalThread(threadId));
 
-    const restoredDraft = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    const restoredDraft =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
     expect(restoredDraft.prompt).toBe(draftBeforeBrowse.prompt);
     expect(restoredDraft.assistantSelections.map((entry) => entry.id)).toEqual(["sel-history"]);
     expect(restoredDraft.terminalContexts.map((entry) => entry.id)).toEqual(["ctx-history"]);
@@ -346,17 +362,18 @@ describe("composerDraftStore prompt history saved draft", () => {
     };
     const selectedSkill = { name: "check-code", path: "/skills/check-code" };
 
-    store.setPrompt(threadId, "persist me before history");
-    store.addImage(threadId, image);
-    store.syncPersistedAttachments(threadId, [persistedAttachment]);
-    store.addTerminalContext(threadId, terminalContext);
-    store.addPastedTexts(threadId, [pastedText]);
-    store.setSkills(threadId, [selectedSkill]);
-    const draftBeforeBrowse = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    store.setPrompt(scopeLocalThread(threadId), "persist me before history");
+    store.addImage(scopeLocalThread(threadId), image);
+    store.syncPersistedAttachments(scopeLocalThread(threadId), [persistedAttachment]);
+    store.addTerminalContext(scopeLocalThread(threadId), terminalContext);
+    store.addPastedTexts(scopeLocalThread(threadId), [pastedText]);
+    store.setSkills(scopeLocalThread(threadId), [selectedSkill]);
+    const draftBeforeBrowse =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
     store.setPromptHistorySavedDraft(
-      threadId,
+      scopeLocalThread(threadId),
       captureComposerPromptHistorySavedDraft({
-        threadId,
+        threadId: scopeLocalThread(threadId),
         draft: draftBeforeBrowse,
         prompt: draftBeforeBrowse.prompt,
       }),
@@ -378,9 +395,11 @@ describe("composerDraftStore prompt history saved draft", () => {
     };
 
     expect(
-      persistedState.draftsByThreadId?.[threadId]?.promptHistorySavedDraft?.attachments,
+      persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.promptHistorySavedDraft
+        ?.attachments,
     ).toEqual([persistedAttachment]);
-    const persistedSnapshot = persistedState.draftsByThreadId?.[threadId]?.promptHistorySavedDraft;
+    const persistedSnapshot =
+      persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.promptHistorySavedDraft;
     const persistedTerminalContexts = persistedSnapshot?.terminalContexts as
       | Array<Record<string, unknown>>
       | undefined;
@@ -400,7 +419,8 @@ describe("composerDraftStore prompt history saved draft", () => {
     const mergedState = persistApi
       .getOptions()
       .merge(persistedState, useComposerDraftStore.getInitialState());
-    const restoredSnapshot = mergedState.draftsByThreadId[threadId]?.promptHistorySavedDraft;
+    const restoredSnapshot =
+      mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.promptHistorySavedDraft;
 
     expect(restoredSnapshot?.images.map((entry) => entry.id)).toEqual(["img-persist-history"]);
     expect(restoredSnapshot?.files).toEqual([]);
@@ -427,13 +447,14 @@ describe("composerDraftStore prompt history saved draft", () => {
       dataUrl: "data:image/png;base64,aGk=",
     };
 
-    store.setPrompt(threadId, "draft before async image persistence");
-    store.addImage(threadId, image);
-    const draftBeforeBrowse = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    store.setPrompt(scopeLocalThread(threadId), "draft before async image persistence");
+    store.addImage(scopeLocalThread(threadId), image);
+    const draftBeforeBrowse =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
     store.setPromptHistorySavedDraft(
-      threadId,
+      scopeLocalThread(threadId),
       captureComposerPromptHistorySavedDraft({
-        threadId,
+        threadId: scopeLocalThread(threadId),
         draft: draftBeforeBrowse,
         prompt: draftBeforeBrowse.prompt,
       }),
@@ -445,7 +466,7 @@ describe("composerDraftStore prompt history saved draft", () => {
         version: COMPOSER_DRAFT_STORAGE_VERSION,
         state: {
           draftsByThreadId: {
-            [threadId]: {
+            [scopeLocalThread(threadId)]: {
               prompt: "recalled history prompt",
               promptHistorySavedDraft: {
                 prompt: "draft before async image persistence",
@@ -460,11 +481,14 @@ describe("composerDraftStore prompt history saved draft", () => {
       },
       Schema.Unknown,
     );
-    store.syncPromptHistorySavedDraftPersistedAttachments(threadId, [persistedAttachment]);
+    store.syncPromptHistorySavedDraftPersistedAttachments(scopeLocalThread(threadId), [
+      persistedAttachment,
+    ]);
     await Promise.resolve();
 
     const savedDraft =
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.promptHistorySavedDraft;
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.promptHistorySavedDraft;
     expect(savedDraft?.persistedAttachments.map((entry) => entry.id)).toEqual(["img-sync-history"]);
     expect(savedDraft?.nonPersistedImageIds).toEqual([]);
   });
@@ -486,21 +510,28 @@ describe("composerDraftStore prompt history saved draft", () => {
         windowTitle: "ChatGPT",
       },
     };
-    store.setPrompt(threadId, "saved before browsing history");
-    store.addImage(threadId, image);
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    store.setPrompt(scopeLocalThread(threadId), "saved before browsing history");
+    store.addImage(scopeLocalThread(threadId), image);
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
     store.setPromptHistorySavedDraft(
-      threadId,
-      captureComposerPromptHistorySavedDraft({ threadId, draft, prompt: draft.prompt }),
+      scopeLocalThread(threadId),
+      captureComposerPromptHistorySavedDraft({
+        threadId: scopeLocalThread(threadId),
+        draft,
+        prompt: draft.prompt,
+      }),
     );
     setLocalStorageItem(COMPOSER_DRAFT_STORAGE_KEY, { version: 2, state: {} }, Schema.Unknown);
 
     await expect(
-      store.syncPromptHistorySavedDraftPersistedAttachments(threadId, [attachment]),
+      store.syncPromptHistorySavedDraftPersistedAttachments(scopeLocalThread(threadId), [
+        attachment,
+      ]),
     ).resolves.toBe("unverified");
 
     const savedDraft =
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.promptHistorySavedDraft;
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.promptHistorySavedDraft;
     expect(savedDraft?.persistedAttachments).toEqual([attachment]);
     expect(savedDraft?.nonPersistedImageIds).toEqual([image.id]);
   });
@@ -511,20 +542,24 @@ describe("composerDraftStore prompt history saved draft", () => {
       id: "appsnap-history-hydrated",
       previewUrl: "blob:appsnap-history-original",
     });
-    store.setPrompt(threadId, "saved before history navigation");
-    store.addImage(threadId, originalImage);
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId]!;
+    store.setPrompt(scopeLocalThread(threadId), "saved before history navigation");
+    store.addImage(scopeLocalThread(threadId), originalImage);
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]!;
     store.setPromptHistorySavedDraft(
-      threadId,
-      captureComposerPromptHistorySavedDraft({ threadId, draft, prompt: draft.prompt }),
+      scopeLocalThread(threadId),
+      captureComposerPromptHistorySavedDraft({
+        threadId: scopeLocalThread(threadId),
+        draft,
+        prompt: draft.prompt,
+      }),
     );
     useComposerDraftStore.setState((state) => ({
       draftsByThreadId: {
         ...state.draftsByThreadId,
-        [threadId]: {
-          ...state.draftsByThreadId[threadId]!,
+        [scopeLocalThread(threadId)]: {
+          ...state.draftsByThreadId[scopeLocalThread(threadId)]!,
           promptHistorySavedDraft: {
-            ...state.draftsByThreadId[threadId]!.promptHistorySavedDraft!,
+            ...state.draftsByThreadId[scopeLocalThread(threadId)]!.promptHistorySavedDraft!,
             images: [],
           },
         },
@@ -535,10 +570,11 @@ describe("composerDraftStore prompt history saved draft", () => {
       id: originalImage.id,
       previewUrl: "blob:appsnap-history-restored",
     });
-    store.addPromptHistorySavedDraftImage(threadId, hydratedImage);
+    store.addPromptHistorySavedDraftImage(scopeLocalThread(threadId), hydratedImage);
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.promptHistorySavedDraft?.images,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.promptHistorySavedDraft?.images,
     ).toEqual([hydratedImage]);
   });
 
@@ -581,24 +617,25 @@ describe("composerDraftStore prompt history saved draft", () => {
     });
     const store = useComposerDraftStore.getState();
 
-    store.setPrompt(liveThreadId, "live draft");
-    store.addImages(liveThreadId, [staleLiveImage, unrelatedLiveImage]);
-    await store.syncPersistedAttachments(liveThreadId, [
+    store.setPrompt(scopeLocalThread(liveThreadId), "live draft");
+    store.addImages(scopeLocalThread(liveThreadId), [staleLiveImage, unrelatedLiveImage]);
+    await store.syncPersistedAttachments(scopeLocalThread(liveThreadId), [
       persistedAttachment(staleLiveImage),
       persistedAttachment(unrelatedLiveImage),
     ]);
 
-    store.setPrompt(savedThreadId, "saved draft");
-    store.addImages(savedThreadId, [staleSavedImage, unrelatedSavedImage]);
-    await store.syncPersistedAttachments(savedThreadId, [
+    store.setPrompt(scopeLocalThread(savedThreadId), "saved draft");
+    store.addImages(scopeLocalThread(savedThreadId), [staleSavedImage, unrelatedSavedImage]);
+    await store.syncPersistedAttachments(scopeLocalThread(savedThreadId), [
       persistedAttachment(staleSavedImage),
       persistedAttachment(unrelatedSavedImage),
     ]);
-    const savedDraft = useComposerDraftStore.getState().draftsByThreadId[savedThreadId]!;
+    const savedDraft =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(savedThreadId)]!;
     store.setPromptHistorySavedDraft(
-      savedThreadId,
+      scopeLocalThread(savedThreadId),
       captureComposerPromptHistorySavedDraft({
-        threadId: savedThreadId,
+        threadId: scopeLocalThread(savedThreadId),
         draft: savedDraft,
         prompt: savedDraft.prompt,
       }),
@@ -607,18 +644,20 @@ describe("composerDraftStore prompt history saved draft", () => {
     expect(
       useComposerDraftStore
         .getState()
-        .draftsByThreadId[liveThreadId]?.images.map((image) => image.id),
+        .draftsByThreadId[scopeLocalThread(liveThreadId)]?.images.map((image) => image.id),
     ).toEqual([staleLiveImage.id, unrelatedLiveImage.id]);
 
     store.removeAppSnapCapture(captureId);
 
-    const liveDraft = useComposerDraftStore.getState().draftsByThreadId[liveThreadId]!;
+    const liveDraft =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(liveThreadId)]!;
     expect(liveDraft.images.map((image) => image.id)).toEqual([unrelatedLiveImage.id]);
     expect(liveDraft.persistedAttachments.map((attachment) => attachment.id)).toEqual([
       unrelatedLiveImage.id,
     ]);
     const promptHistoryDraft =
-      useComposerDraftStore.getState().draftsByThreadId[savedThreadId]?.promptHistorySavedDraft;
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(savedThreadId)]
+        ?.promptHistorySavedDraft;
     expect(promptHistoryDraft?.images.map((image) => image.id)).toEqual([unrelatedSavedImage.id]);
     expect(promptHistoryDraft?.persistedAttachments.map((attachment) => attachment.id)).toEqual([
       unrelatedSavedImage.id,
@@ -645,29 +684,43 @@ describe("composerDraftStore pull request context cards", () => {
 
   it("replaces a card for the same PR scope instead of stacking it", () => {
     const store = useComposerDraftStore.getState();
-    expect(store.addPullRequestContext(threadId, card)).toBe(true);
+    expect(store.addPullRequestContext(scopeLocalThread(threadId), card)).toBe(true);
     expect(
-      store.addPullRequestContext(threadId, { ...card, id: "pr-card-2", subtitle: "Test, Lint" }),
+      store.addPullRequestContext(scopeLocalThread(threadId), {
+        ...card,
+        id: "pr-card-2",
+        subtitle: "Test, Lint",
+      }),
     ).toBe(true);
     expect(
-      store.addPullRequestContext(threadId, { ...card, id: "pr-card-3", scope: "comments" }),
+      store.addPullRequestContext(scopeLocalThread(threadId), {
+        ...card,
+        id: "pr-card-3",
+        scope: "comments",
+      }),
     ).toBe(true);
-    expect(store.addPullRequestContext(threadId, { ...card, id: "empty", text: " " })).toBe(false);
+    expect(
+      store.addPullRequestContext(scopeLocalThread(threadId), { ...card, id: "empty", text: " " }),
+    ).toBe(false);
 
-    const cards = useComposerDraftStore.getState().draftsByThreadId[threadId]?.pullRequestContexts;
+    const cards =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.pullRequestContexts;
     expect(cards?.map((entry) => [entry.id, entry.subtitle])).toEqual([
       ["pr-card-2", "Test, Lint"],
       ["pr-card-3", "Test"],
     ]);
 
-    store.removePullRequestContext(threadId, "pr-card-2");
-    store.removePullRequestContext(threadId, "pr-card-3");
+    store.removePullRequestContext(scopeLocalThread(threadId), "pr-card-2");
+    store.removePullRequestContext(scopeLocalThread(threadId), "pr-card-3");
     // Removing the last card leaves no empty draft behind.
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toBeUndefined();
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+    ).toBeUndefined();
   });
 
   it("persists and hydrates cards", () => {
-    useComposerDraftStore.getState().addPullRequestContext(threadId, card);
+    useComposerDraftStore.getState().addPullRequestContext(scopeLocalThread(threadId), card);
     const persistApi = useComposerDraftStore.persist as unknown as {
       getOptions: () => {
         merge: (
@@ -681,12 +734,16 @@ describe("composerDraftStore pull request context cards", () => {
     ) as unknown as {
       draftsByThreadId?: Record<string, { pullRequestContexts?: unknown }>;
     };
-    expect(persistedState.draftsByThreadId?.[threadId]?.pullRequestContexts).toEqual([card]);
+    expect(
+      persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.pullRequestContexts,
+    ).toEqual([card]);
 
     const mergedState = persistApi
       .getOptions()
       .merge(persistedState, useComposerDraftStore.getInitialState());
-    expect(mergedState.draftsByThreadId[threadId]?.pullRequestContexts).toEqual([card]);
+    expect(mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.pullRequestContexts).toEqual([
+      card,
+    ]);
   });
 });
 
@@ -708,19 +765,30 @@ describe("composerDraftStore copyTransferableComposerState", () => {
       24,
     ).prompt;
 
-    useComposerDraftStore.getState().setPrompt(sourceThreadId, copiedPrompt);
-    useComposerDraftStore.getState().setTerminalContexts(sourceThreadId, [sourceContext]);
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(sourceThreadId), copiedPrompt);
     useComposerDraftStore
       .getState()
-      .setSkills(sourceThreadId, [{ name: "check-code", path: "/skills/check-code" }]);
+      .setTerminalContexts(scopeLocalThread(sourceThreadId), [sourceContext]);
     useComposerDraftStore
       .getState()
-      .setMentions(sourceThreadId, [{ name: "linear", path: "plugin://linear" }]);
+      .setSkills(scopeLocalThread(sourceThreadId), [
+        { name: "check-code", path: "/skills/check-code" },
+      ]);
+    useComposerDraftStore
+      .getState()
+      .setMentions(scopeLocalThread(sourceThreadId), [{ name: "linear", path: "plugin://linear" }]);
 
-    useComposerDraftStore.getState().copyTransferableComposerState(sourceThreadId, targetThreadId);
+    useComposerDraftStore
+      .getState()
+      .copyTransferableComposerState(
+        scopeLocalThread(sourceThreadId),
+        scopeLocalThread(targetThreadId),
+      );
 
-    const sourceDraft = useComposerDraftStore.getState().draftsByThreadId[sourceThreadId];
-    const targetDraft = useComposerDraftStore.getState().draftsByThreadId[targetThreadId];
+    const sourceDraft =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(sourceThreadId)];
+    const targetDraft =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(targetThreadId)];
 
     expect(targetDraft).toMatchObject({
       prompt: sourceDraft?.prompt,
@@ -747,21 +815,25 @@ describe("composerDraftStore copyTransferableComposerState", () => {
         previewUrl: "blob:source-preview",
       });
 
-      useComposerDraftStore.getState().addImages(sourceThreadId, [sourceImage]);
+      useComposerDraftStore.getState().addImages(scopeLocalThread(sourceThreadId), [sourceImage]);
       useComposerDraftStore.setState((state) => ({
         draftsByThreadId: {
           ...state.draftsByThreadId,
-          [sourceThreadId]: {
-            ...state.draftsByThreadId[sourceThreadId]!,
+          [scopeLocalThread(sourceThreadId)]: {
+            ...state.draftsByThreadId[scopeLocalThread(sourceThreadId)]!,
             nonPersistedImageIds: ["img-source"],
           },
         },
       }));
       useComposerDraftStore
         .getState()
-        .copyTransferableComposerState(sourceThreadId, targetThreadId);
+        .copyTransferableComposerState(
+          scopeLocalThread(sourceThreadId),
+          scopeLocalThread(targetThreadId),
+        );
 
-      const targetDraft = useComposerDraftStore.getState().draftsByThreadId[targetThreadId];
+      const targetDraft =
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(targetThreadId)];
       expect(targetDraft?.images).toEqual([
         expect.objectContaining({
           id: "img-source",
@@ -788,12 +860,12 @@ describe("composerDraftStore copyTransferableComposerState", () => {
       },
     };
     const store = useComposerDraftStore.getState();
-    store.addImage(sourceThreadId, sourceImage);
+    store.addImage(scopeLocalThread(sourceThreadId), sourceImage);
     useComposerDraftStore.setState((state) => ({
       draftsByThreadId: {
         ...state.draftsByThreadId,
-        [sourceThreadId]: {
-          ...state.draftsByThreadId[sourceThreadId]!,
+        [scopeLocalThread(sourceThreadId)]: {
+          ...state.draftsByThreadId[scopeLocalThread(sourceThreadId)]!,
           persistedAttachments: [
             {
               id: sourceImage.id,
@@ -808,15 +880,18 @@ describe("composerDraftStore copyTransferableComposerState", () => {
       },
     }));
 
-    store.copyTransferableComposerState(sourceThreadId, targetThreadId);
-    store.removeImage(sourceThreadId, sourceImage.id);
+    store.copyTransferableComposerState(
+      scopeLocalThread(sourceThreadId),
+      scopeLocalThread(targetThreadId),
+    );
+    store.removeImage(scopeLocalThread(sourceThreadId), sourceImage.id);
     await Promise.resolve();
 
     expect(
       isComposerImageBlobReferenced(useComposerDraftStore.getState().draftsByThreadId, blobKey),
     ).toBe(true);
 
-    store.removeImage(targetThreadId, sourceImage.id);
+    store.removeImage(scopeLocalThread(targetThreadId), sourceImage.id);
     await Promise.resolve();
     expect(
       isComposerImageBlobReferenced(useComposerDraftStore.getState().draftsByThreadId, blobKey),
@@ -845,17 +920,26 @@ describe("composerDraftStore copyTransferableComposerState", () => {
   });
 
   it("preserves unrelated target draft state while replacing transferred composer content", () => {
-    useComposerDraftStore.getState().setPrompt(sourceThreadId, "follow-up for the other provider");
+    useComposerDraftStore
+      .getState()
+      .setPrompt(scopeLocalThread(sourceThreadId), "follow-up for the other provider");
     useComposerDraftStore.getState().setModelSelection(
-      targetThreadId,
+      scopeLocalThread(targetThreadId),
       modelSelection("claudeAgent", "claude-sonnet-4-6", {
         effort: "high",
       }),
     );
 
-    useComposerDraftStore.getState().copyTransferableComposerState(sourceThreadId, targetThreadId);
+    useComposerDraftStore
+      .getState()
+      .copyTransferableComposerState(
+        scopeLocalThread(sourceThreadId),
+        scopeLocalThread(targetThreadId),
+      );
 
-    expect(useComposerDraftStore.getState().draftsByThreadId[targetThreadId]).toMatchObject({
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(targetThreadId)],
+    ).toMatchObject({
       prompt: "follow-up for the other provider",
       modelSelectionByProvider: {
         claudeAgent: {
@@ -871,20 +955,30 @@ describe("composerDraftStore copyTransferableComposerState", () => {
   });
 
   it("does not transfer thread-bound restored plan source metadata", () => {
-    useComposerDraftStore.getState().setPrompt(sourceThreadId, "Implement the accepted plan");
-    useComposerDraftStore.getState().setRestoredSourceProposedPlan(sourceThreadId, {
-      threadId: sourceThreadId,
-      restoredPrompt: "Implement the accepted plan",
-      sourceProposedPlan: {
+    useComposerDraftStore
+      .getState()
+      .setPrompt(scopeLocalThread(sourceThreadId), "Implement the accepted plan");
+    useComposerDraftStore
+      .getState()
+      .setRestoredSourceProposedPlan(scopeLocalThread(sourceThreadId), {
         threadId: sourceThreadId,
-        planId: OrchestrationProposedPlanId.makeUnsafe("plan-source-transfer"),
-      },
-    });
+        restoredPrompt: "Implement the accepted plan",
+        sourceProposedPlan: {
+          threadId: sourceThreadId,
+          planId: OrchestrationProposedPlanId.makeUnsafe("plan-source-transfer"),
+        },
+      });
 
-    useComposerDraftStore.getState().copyTransferableComposerState(sourceThreadId, targetThreadId);
+    useComposerDraftStore
+      .getState()
+      .copyTransferableComposerState(
+        scopeLocalThread(sourceThreadId),
+        scopeLocalThread(targetThreadId),
+      );
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[targetThreadId]?.restoredSourceProposedPlan,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(targetThreadId)]
+        ?.restoredSourceProposedPlan,
     ).toBeNull();
   });
 });
@@ -926,10 +1020,12 @@ describe("composerDraftStore syncPersistedAttachments", () => {
       dataUrl: "data:image/png;base64,aGk=",
     });
     const store = useComposerDraftStore.getState();
-    store.addImages(threadId, [firstImage, secondImage]);
+    store.addImages(scopeLocalThread(threadId), [firstImage, secondImage]);
 
-    const firstSync = store.syncPersistedAttachments(threadId, [attachmentFor(firstImage)]);
-    const secondSync = store.syncPersistedAttachments(threadId, [
+    const firstSync = store.syncPersistedAttachments(scopeLocalThread(threadId), [
+      attachmentFor(firstImage),
+    ]);
+    const secondSync = store.syncPersistedAttachments(scopeLocalThread(threadId), [
       attachmentFor(firstImage),
       attachmentFor(secondImage),
     ]);
@@ -939,7 +1035,9 @@ describe("composerDraftStore syncPersistedAttachments", () => {
     expect(
       useComposerDraftStore
         .getState()
-        .draftsByThreadId[threadId]?.persistedAttachments.map((attachment) => attachment.id),
+        .draftsByThreadId[scopeLocalThread(threadId)]?.persistedAttachments.map(
+          (attachment) => attachment.id,
+        ),
     ).toEqual([firstImage.id, secondImage.id]);
     await expect(Promise.all([firstSync, secondSync])).resolves.toEqual([
       "unverified",
@@ -948,7 +1046,9 @@ describe("composerDraftStore syncPersistedAttachments", () => {
     expect(
       useComposerDraftStore
         .getState()
-        .draftsByThreadId[threadId]?.persistedAttachments.map((attachment) => attachment.id),
+        .draftsByThreadId[scopeLocalThread(threadId)]?.persistedAttachments.map(
+          (attachment) => attachment.id,
+        ),
     ).toEqual([firstImage.id, secondImage.id]);
   });
 
@@ -966,11 +1066,11 @@ describe("composerDraftStore syncPersistedAttachments", () => {
       dataUrl: "data:image/png;base64,aGk=",
     };
     const store = useComposerDraftStore.getState();
-    store.addImages(threadId, [image]);
+    store.addImages(scopeLocalThread(threadId), [image]);
 
     const before = pendingComposerAttachmentSyncGenerationCount();
-    const firstSync = store.syncPersistedAttachments(threadId, [attachment]);
-    const secondSync = store.syncPersistedAttachments(threadId, [attachment]);
+    const firstSync = store.syncPersistedAttachments(scopeLocalThread(threadId), [attachment]);
+    const secondSync = store.syncPersistedAttachments(scopeLocalThread(threadId), [attachment]);
 
     // Overlapping syncs share one (slot, thread) key, so only one entry is tracked at a time.
     expect(pendingComposerAttachmentSyncGenerationCount()).toBe(before + 1);
@@ -982,7 +1082,9 @@ describe("composerDraftStore syncPersistedAttachments", () => {
     expect(
       useComposerDraftStore
         .getState()
-        .draftsByThreadId[threadId]?.persistedAttachments.map((persisted) => persisted.id),
+        .draftsByThreadId[scopeLocalThread(threadId)]?.persistedAttachments.map(
+          (persisted) => persisted.id,
+        ),
     ).toEqual([image.id]);
   });
 
@@ -991,14 +1093,14 @@ describe("composerDraftStore syncPersistedAttachments", () => {
       id: "img-persisted",
       previewUrl: "blob:persisted",
     });
-    useComposerDraftStore.getState().addImage(threadId, image);
+    useComposerDraftStore.getState().addImage(scopeLocalThread(threadId), image);
     setLocalStorageItem(
       COMPOSER_DRAFT_STORAGE_KEY,
       {
         version: 2,
         state: {
           draftsByThreadId: {
-            [threadId]: {
+            [scopeLocalThread(threadId)]: {
               attachments: "not-an-array",
             },
           },
@@ -1007,22 +1109,26 @@ describe("composerDraftStore syncPersistedAttachments", () => {
       Schema.Unknown,
     );
 
-    const persisted = await useComposerDraftStore.getState().syncPersistedAttachments(threadId, [
-      {
-        id: image.id,
-        name: image.name,
-        mimeType: image.mimeType,
-        sizeBytes: image.sizeBytes,
-        dataUrl: image.previewUrl,
-      },
-    ]);
+    const persisted = await useComposerDraftStore
+      .getState()
+      .syncPersistedAttachments(scopeLocalThread(threadId), [
+        {
+          id: image.id,
+          name: image.name,
+          mimeType: image.mimeType,
+          sizeBytes: image.sizeBytes,
+          dataUrl: image.previewUrl,
+        },
+      ]);
     expect(persisted).toBe("unverified");
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.persistedAttachments,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.persistedAttachments,
     ).toHaveLength(1);
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.nonPersistedImageIds,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.nonPersistedImageIds,
     ).toEqual([image.id]);
   });
 
@@ -1045,14 +1151,14 @@ describe("composerDraftStore syncPersistedAttachments", () => {
         windowTitle: "ChatGPT",
       },
     };
-    useComposerDraftStore.getState().addImage(threadId, image);
+    useComposerDraftStore.getState().addImage(scopeLocalThread(threadId), image);
     setLocalStorageItem(
       COMPOSER_DRAFT_STORAGE_KEY,
       {
         version: COMPOSER_DRAFT_STORAGE_VERSION,
         state: {
           draftsByThreadId: {
-            [threadId]: {
+            [scopeLocalThread(threadId)]: {
               prompt: "",
               attachments: [attachment],
             },
@@ -1067,10 +1173,13 @@ describe("composerDraftStore syncPersistedAttachments", () => {
     );
 
     await expect(
-      useComposerDraftStore.getState().syncPersistedAttachments(threadId, [attachment]),
+      useComposerDraftStore
+        .getState()
+        .syncPersistedAttachments(scopeLocalThread(threadId), [attachment]),
     ).resolves.toBe("persisted");
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.nonPersistedImageIds,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.nonPersistedImageIds,
     ).toEqual([]);
   });
 
@@ -1095,7 +1204,7 @@ describe("composerDraftStore syncPersistedAttachments", () => {
     const mergedState = persistApi.getOptions().merge(
       {
         draftsByThreadId: {
-          [threadId]: {
+          [scopeLocalThread(threadId)]: {
             prompt: "",
             attachments: [
               {
@@ -1113,8 +1222,8 @@ describe("composerDraftStore syncPersistedAttachments", () => {
       useComposerDraftStore.getInitialState(),
     );
 
-    expect(mergedState.draftsByThreadId[threadId]?.images).toEqual([]);
-    expect(mergedState.draftsByThreadId[threadId]?.persistedAttachments).toEqual([
+    expect(mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.images).toEqual([]);
+    expect(mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.persistedAttachments).toEqual([
       expect.objectContaining({
         id: "appsnap-1",
         blobKey: `${threadId}:appsnap-1`,
@@ -1125,12 +1234,12 @@ describe("composerDraftStore syncPersistedAttachments", () => {
 
   it("omits inline AppSnap icons from localStorage metadata", () => {
     const image = makeImage({ id: "appsnap-icon", previewUrl: "blob:appsnap-icon" });
-    useComposerDraftStore.getState().addImage(threadId, image);
+    useComposerDraftStore.getState().addImage(scopeLocalThread(threadId), image);
     useComposerDraftStore.setState((state) => ({
       draftsByThreadId: {
         ...state.draftsByThreadId,
-        [threadId]: {
-          ...state.draftsByThreadId[threadId]!,
+        [scopeLocalThread(threadId)]: {
+          ...state.draftsByThreadId[scopeLocalThread(threadId)]!,
           persistedAttachments: [
             {
               id: image.id,
@@ -1162,11 +1271,13 @@ describe("composerDraftStore syncPersistedAttachments", () => {
       >;
     };
 
-    expect(persistedState.draftsByThreadId?.[threadId]?.attachments?.[0]?.source).toMatchObject({
+    expect(
+      persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.attachments?.[0]?.source,
+    ).toMatchObject({
       bundleIdentifier: "com.apple.Safari",
     });
     expect(
-      persistedState.draftsByThreadId?.[threadId]?.attachments?.[0]?.source,
+      persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.attachments?.[0]?.source,
     ).not.toHaveProperty("appIconDataUrl");
   });
 });

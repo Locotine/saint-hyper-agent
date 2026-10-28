@@ -4,6 +4,7 @@
 //          Priority ranking behind the section, the bell's dot, and "next needing attention".
 
 import type { ProjectId, ThreadId } from "@saint/contracts";
+import { scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
 import type { SidebarThreadSummary } from "../types";
 import {
   hasUnseenCompletion,
@@ -105,11 +106,11 @@ export interface ActivityViewModel {
 function isParkedActivityDraft(
   thread: Pick<SidebarThreadSummary, "id" | "hasLiveTailWork" | "session" | "latestTurn">,
   input: {
-    draftThreadIdSet: ReadonlySet<ThreadId> | null;
+    draftThreadIdSet: ReadonlySet<ScopedThreadId> | null;
     activeThreadId: ThreadId | null;
   },
 ): boolean {
-  if (!input.draftThreadIdSet?.has(thread.id)) return false;
+  if (!input.draftThreadIdSet?.has(scopeLocalThread(thread.id))) return false;
   if (thread.id === input.activeThreadId) return false;
   return !(
     isThreadRunningForActivity(thread) ||
@@ -125,7 +126,7 @@ function isParkedActivityDraft(
 export function buildActivityViewModel(input: {
   threads: readonly SidebarThreadSummary[];
   pinnedThreadIdSet: ReadonlySet<ThreadId>;
-  draftThreadIdSet?: ReadonlySet<ThreadId>;
+  draftThreadIdSet?: ReadonlySet<ScopedThreadId>;
   /** First sends preparing a worktree have no provider session or turn yet. */
   preparingThreadIdSet?: ReadonlySet<ThreadId>;
   /** The open thread: its draft is being typed, so it never moves to Drafts. */

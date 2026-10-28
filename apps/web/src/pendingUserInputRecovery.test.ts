@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ApprovalRequestId, EventId, ThreadId } from "@saint/contracts";
 import {
   buildStalePendingRequestFailureDetail,
@@ -44,17 +45,21 @@ afterEach(() => useComposerDraftStore.setState({ draftsByThreadId: {} }));
 it("preserves structured answers without a normal prompt through persistence and reload", () => {
   const threadId = ThreadId.makeUnsafe("saved-thread");
   const store = useComposerDraftStore.getState();
-  store.setPendingUserInputDrafts(threadId, { [key]: draft });
-  store.setPrompt(threadId, "");
+  store.setPendingUserInputDrafts(scopeLocalThread(threadId), { [key]: draft });
+  store.setPrompt(scopeLocalThread(threadId), "");
   const persisted = partializeComposerDraftStoreState(useComposerDraftStore.getState());
   const normalized = normalizeCurrentPersistedComposerDraftStoreState(
     JSON.parse(JSON.stringify(persisted)),
   );
-  const hydrated = toHydratedThreadDraft(threadId, normalized.draftsByThreadId[threadId]!);
+  const hydrated = toHydratedThreadDraft(
+    scopeLocalThread(threadId),
+    normalized.draftsByThreadId[scopeLocalThread(threadId)]!,
+  );
   expect(hydrated.pendingUserInputDrafts).toEqual({ [key]: draft });
-  store.clearComposerContent(threadId);
+  store.clearComposerContent(scopeLocalThread(threadId));
   expect(
-    useComposerDraftStore.getState().draftsByThreadId[threadId]?.pendingUserInputDrafts,
+    useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+      ?.pendingUserInputDrafts,
   ).toEqual({ [key]: draft });
 });
 

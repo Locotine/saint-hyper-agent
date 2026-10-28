@@ -1,3 +1,4 @@
+import { scopeLocalProject } from "@saint/shared/hostId";
 import { ProjectId } from "@saint/contracts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
@@ -13,21 +14,23 @@ describe("project environment preferences", () => {
 
   it("remembers each project's latest choice independently", () => {
     const { setProjectEnvMode } = useProjectEnvironmentStore.getState();
-    setProjectEnvMode(PROJECT_A, "worktree");
-    expect(useProjectEnvironmentStore.getState().envModeByProjectId[PROJECT_B]).toBeUndefined();
+    setProjectEnvMode(scopeLocalProject(PROJECT_A), "worktree");
+    expect(
+      useProjectEnvironmentStore.getState().envModeByProjectId[scopeLocalProject(PROJECT_B)],
+    ).toBeUndefined();
 
-    setProjectEnvMode(PROJECT_B, "worktree");
-    setProjectEnvMode(PROJECT_A, "local");
+    setProjectEnvMode(scopeLocalProject(PROJECT_B), "worktree");
+    setProjectEnvMode(scopeLocalProject(PROJECT_A), "local");
     expect(useProjectEnvironmentStore.getState().envModeByProjectId).toEqual({
-      [PROJECT_A]: "local",
-      [PROJECT_B]: "worktree",
+      [scopeLocalProject(PROJECT_A)]: "local",
+      [scopeLocalProject(PROJECT_B)]: "worktree",
     });
   });
 
   it("restores both choices from persisted storage", async () => {
     const { setProjectEnvMode } = useProjectEnvironmentStore.getState();
-    setProjectEnvMode(PROJECT_A, "local");
-    setProjectEnvMode(PROJECT_B, "worktree");
+    setProjectEnvMode(scopeLocalProject(PROJECT_A), "local");
+    setProjectEnvMode(scopeLocalProject(PROJECT_B), "worktree");
     const { name, storage } = useProjectEnvironmentStore.persist.getOptions();
     assert(name);
     assert(storage);
@@ -39,8 +42,8 @@ describe("project environment preferences", () => {
     await useProjectEnvironmentStore.persist.rehydrate();
 
     expect(useProjectEnvironmentStore.getState().envModeByProjectId).toEqual({
-      [PROJECT_A]: "local",
-      [PROJECT_B]: "worktree",
+      [scopeLocalProject(PROJECT_A)]: "local",
+      [scopeLocalProject(PROJECT_B)]: "worktree",
     });
   });
 
@@ -48,9 +51,10 @@ describe("project environment preferences", () => {
     const { merge } = useProjectEnvironmentStore.persist.getOptions();
     expect(
       merge!(
+        // v1 rows use raw ids: they are read as this computer's projects.
         { envModeByProjectId: { [PROJECT_A]: "worktree", [PROJECT_B]: "invalid" } },
         useProjectEnvironmentStore.getState(),
       ).envModeByProjectId,
-    ).toEqual({ [PROJECT_A]: "worktree" });
+    ).toEqual({ [scopeLocalProject(PROJECT_A)]: "worktree" });
   });
 });

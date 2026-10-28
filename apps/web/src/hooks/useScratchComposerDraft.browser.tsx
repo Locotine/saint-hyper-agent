@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ThreadId } from "@saint/contracts";
 import { flushSync } from "react-dom";
 import { beforeEach, expect, it } from "vitest";
@@ -25,7 +26,7 @@ it("keeps custom provider instances distinct while restoring and changing a scra
   >;
   useComposerDraftStore
     .getState()
-    .setModelSelectionAndSticky(ThreadId.makeUnsafe("previous-chat"), {
+    .setModelSelectionAndSticky(scopeLocalThread(ThreadId.makeUnsafe("previous-chat")), {
       provider: "codex",
       instanceId: "codex_work",
       model: "gpt-5.4",

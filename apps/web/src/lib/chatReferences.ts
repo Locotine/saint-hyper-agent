@@ -3,6 +3,7 @@
 //          thread's composer draft so panels outside ChatView can talk to the chatbox.
 // Layer: Web UI utility
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { CHAT_ASSISTANT_SELECTION_TEXT_MAX_CHARS, type ThreadId } from "@saint/contracts";
 
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -112,9 +113,12 @@ export function buildDiffSelectionReference(path: string, snippet: string): stri
 
 export function appendComposerPromptText(threadId: ThreadId, text: string): void {
   const store = useComposerDraftStore.getState();
-  const existingPrompt = store.draftsByThreadId[threadId]?.prompt ?? "";
+  const existingPrompt = store.draftsByThreadId[scopeLocalThread(threadId)]?.prompt ?? "";
   const needsSeparator = existingPrompt.length > 0 && !/\s$/.test(existingPrompt);
-  store.setPrompt(threadId, `${existingPrompt}${needsSeparator ? " " : ""}${text} `);
+  store.setPrompt(
+    scopeLocalThread(threadId),
+    `${existingPrompt}${needsSeparator ? " " : ""}${text} `,
+  );
   // Pull the user's attention to the composer so the insert is visible.
   requestComposerFocus(threadId);
 }
@@ -133,7 +137,7 @@ export function addChatFileComment(threadId: ThreadId, comment: FileCommentSelec
   if (!draft) {
     return false;
   }
-  useComposerDraftStore.getState().addFileComment(threadId, draft);
+  useComposerDraftStore.getState().addFileComment(scopeLocalThread(threadId), draft);
   requestComposerFocus(threadId);
   return true;
 }
@@ -146,7 +150,9 @@ export function addChatPullRequestContext(
   threadId: ThreadId,
   context: PullRequestContextDraft,
 ): boolean {
-  const added = useComposerDraftStore.getState().addPullRequestContext(threadId, context);
+  const added = useComposerDraftStore
+    .getState()
+    .addPullRequestContext(scopeLocalThread(threadId), context);
   if (added) {
     requestComposerFocus(threadId);
   }

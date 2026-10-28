@@ -2,6 +2,7 @@
 // Purpose: Resolve the active thread route into either a single chat surface or a persisted split view.
 // Layer: Route container
 
+import { bareLocalThreadParam, scopeLocalThread } from "@saint/shared/hostId";
 import { type ProjectId, ThreadId } from "@saint/contracts";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -49,7 +50,7 @@ function ChatThreadRouteContent() {
   const threadProjectId: ProjectId | null = useStore(threadProjectIdSelector);
   const threadExists = useStore(threadExistsSelector);
   const draftThreadState = useComposerDraftStore(
-    (store) => store.draftThreadsByThreadId[threadId] ?? null,
+    (store) => store.draftThreadsByThreadId[scopeLocalThread(threadId)] ?? null,
   );
   const draftThreadExists = draftThreadState !== null;
   const routeThreadExists = threadExists || draftThreadExists;
@@ -199,6 +200,11 @@ function ChatThreadRouteContent() {
 }
 
 export const Route = createFileRoute("/_chat/$threadId")({
+  // A local thread keeps its bare id in the URL; a host-qualified local id is shortened both ways.
+  params: {
+    parse: (params) => ({ threadId: bareLocalThreadParam(params.threadId) }),
+    stringify: (params) => ({ threadId: bareLocalThreadParam(params.threadId) }),
+  },
   validateSearch: (search) => parseDiffRouteSearch(search),
   component: ChatThreadRouteView,
 });

@@ -5,6 +5,7 @@ import {
   type ProviderKind,
   type ServerProviderStatus,
 } from "@saint/contracts";
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { normalizeModelSlug } from "@saint/shared/model";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -250,7 +251,7 @@ export function useChatProviderModels({
     ],
   );
   const { modelOptions: composerModelOptions, selectedModel } = useEffectiveComposerModelState({
-    threadId,
+    threadId: scopeLocalThread(threadId),
     selectedProvider,
     selectedProviderInstanceId,
     threadModelSelection: activeThread?.modelSelection,

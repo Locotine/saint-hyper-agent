@@ -6,6 +6,7 @@
 // Note: raw <button>s for autocomplete-suggestion rows and tab-title activate
 // regions are intentional — list-row and tab semantics, not shadcn Buttons.
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -590,16 +591,18 @@ export function BrowserPanel({
   const addComposerDraftImage = useComposerDraftStore((store) => store.addImage);
   const addBrowserAnnotation = useComposerDraftStore((store) => store.addBrowserAnnotation);
   const browserAnnotations = useComposerDraftStore(
-    (store) => store.draftsByThreadId[threadId]?.browserAnnotations ?? EMPTY_BROWSER_ANNOTATIONS,
+    (store) =>
+      store.draftsByThreadId[scopeLocalThread(threadId)]?.browserAnnotations ??
+      EMPTY_BROWSER_ANNOTATIONS,
   );
   const composerDraftImageCount = useComposerDraftStore(
-    (store) => store.draftsByThreadId[threadId]?.images.length ?? 0,
+    (store) => store.draftsByThreadId[scopeLocalThread(threadId)]?.images.length ?? 0,
   );
   const composerDraftFileCount = useComposerDraftStore(
-    (store) => store.draftsByThreadId[threadId]?.files.length ?? 0,
+    (store) => store.draftsByThreadId[scopeLocalThread(threadId)]?.files.length ?? 0,
   );
   const composerDraftAssistantSelectionCount = useComposerDraftStore(
-    (store) => store.draftsByThreadId[threadId]?.assistantSelections.length ?? 0,
+    (store) => store.draftsByThreadId[scopeLocalThread(threadId)]?.assistantSelections.length ?? 0,
   );
   const addressInputRef = useRef<HTMLInputElement>(null);
   const browserViewportRef = useRef<HTMLDivElement>(null);
@@ -698,7 +701,8 @@ export function BrowserPanel({
     enabled:
       isElectron && isLiveRuntime && workspaceReady && activeTab !== null && !showLocalServersHome,
     annotations: browserAnnotations,
-    addAnnotation: addBrowserAnnotation,
+    addAnnotation: (threadId, annotation) =>
+      addBrowserAnnotation(scopeLocalThread(threadId), annotation),
     onError: setLocalError,
   });
 
@@ -1548,7 +1552,7 @@ export function BrowserPanel({
       }
       try {
         const inserted = addComposerDraftImage(
-          threadId,
+          scopeLocalThread(threadId),
           await prepareComposerImageFromBrowserScreenshot(screenshot),
         );
         if (!inserted) {

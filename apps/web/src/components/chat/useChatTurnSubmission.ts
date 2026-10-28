@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ThreadId } from "@saint/contracts";
 import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
 import { resolveComputerInvocationMode } from "@saint/shared/computerInvocation";
@@ -400,7 +401,8 @@ export function useChatTurnSubmission({
       }
       let composerImagesForSend =
         queuedChatTurn?.images ??
-        useComposerDraftStore.getState().draftsByThreadId[activeThread.id]?.images ??
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(activeThread.id)]
+          ?.images ??
         composerImages;
       // AppSnap captures persist as IndexedDB blobs and hydrate into `images`
       // asynchronously (see AppSnapCoordinator). Right after a reload the user can
@@ -411,7 +413,7 @@ export function useChatTurnSubmission({
       if (queuedChatTurn === null) {
         const pendingBlobAttachments = findPendingBlobComposerAttachments({
           persistedAttachments:
-            useComposerDraftStore.getState().draftsByThreadId[activeThread.id]
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(activeThread.id)]
               ?.persistedAttachments ?? [],
           images: composerImagesForSend,
         });

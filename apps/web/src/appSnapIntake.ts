@@ -3,6 +3,7 @@
 // Layer: Web composer domain
 // Depends on: composer draft store, composer image intake, and AppSnap icon cache.
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { DesktopAppSnapCapture, ThreadId } from "@saint/contracts";
 
 import { persistAppSnapIcon, readAppSnapIcon } from "./lib/appSnapIconStore";
@@ -46,7 +47,7 @@ export async function insertAppSnapCaptureIntoDraft(
     lastModified: captureAtMs,
   });
   const draftStore = useComposerDraftStore.getState();
-  const draft = draftStore.draftsByThreadId[threadId];
+  const draft = draftStore.draftsByThreadId[scopeLocalThread(threadId)];
   const existingAttachmentCount = effectiveComposerAttachmentCount(draft);
   const { images, error } = await prepareComposerImageAttachmentsFromFiles({
     files: [file],
@@ -76,15 +77,16 @@ export async function insertAppSnapCaptureIntoDraft(
       file: appSnapImage.file,
     });
 
-    if (!draftStore.addImage(threadId, appSnapImage)) {
+    if (!draftStore.addImage(scopeLocalThread(threadId), appSnapImage)) {
       throw new Error(
         "The AppSnap was prepared, but this message already has the maximum number of references.",
       );
     }
     imageAddedToDraft = true;
     const currentPersistedAttachments =
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.persistedAttachments ?? [];
-    const result = await draftStore.syncPersistedAttachments(threadId, [
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.persistedAttachments ?? [];
+    const result = await draftStore.syncPersistedAttachments(scopeLocalThread(threadId), [
       ...currentPersistedAttachments.filter((attachment) => attachment.id !== appSnapImage.id),
       {
         id: appSnapImage.id,
@@ -96,7 +98,7 @@ export async function insertAppSnapCaptureIntoDraft(
       },
     ]);
     if (result === "rejected") {
-      draftStore.removeImage(threadId, appSnapImage.id);
+      draftStore.removeImage(scopeLocalThread(threadId), appSnapImage.id);
       await deleteComposerImageBlob(blobKey).catch((cleanupError) =>
         console.warn("[appsnap] Could not roll back rejected capture", cleanupError),
       );
@@ -105,7 +107,7 @@ export async function insertAppSnapCaptureIntoDraft(
     // Clear recalled prompt-history state only after the new attachment has
     // survived persistence verification. A rejected mutation must leave the
     // user's prior draft snapshot intact.
-    draftStore.setPromptHistorySavedDraft(threadId, null);
+    draftStore.setPromptHistorySavedDraft(scopeLocalThread(threadId), null);
     persistenceResult = result;
   } catch (error) {
     if (!imageAddedToDraft) {

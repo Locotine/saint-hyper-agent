@@ -4,6 +4,7 @@
 // Exports: useTemporaryThreadLifecycle
 
 import type { ThreadId } from "@saint/contracts";
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 import { useEffect, useRef } from "react";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { reconcileDeletedThreadFromClient } from "../lib/deletedThreadClientReconciliation";
@@ -24,7 +25,8 @@ export function useTemporaryThreadLifecycle(activeThreadId: ThreadId | null): vo
   const clearTemporaryThread = useTemporaryThreadStore((store) => store.clearTemporaryThread);
   const initialDraftIsTemporary = useComposerDraftStore(
     (store) =>
-      activeThreadId !== null && store.draftThreadsByThreadId[activeThreadId]?.isTemporary === true,
+      activeThreadId !== null &&
+      store.draftThreadsByThreadId[scopeLocalThread(activeThreadId)]?.isTemporary === true,
   );
   const previousThreadStateRef = useRef<{
     threadId: ThreadId | null;
@@ -44,7 +46,7 @@ export function useTemporaryThreadLifecycle(activeThreadId: ThreadId | null): vo
       threadId: activeThreadId,
       wasTemporary: activeThreadId
         ? temporaryThreadIds[activeThreadId] === true ||
-          draftThreadsByThreadId[activeThreadId]?.isTemporary === true
+          draftThreadsByThreadId[scopeLocalThread(activeThreadId)]?.isTemporary === true
         : false,
     };
 
@@ -62,9 +64,9 @@ export function useTemporaryThreadLifecycle(activeThreadId: ThreadId | null): vo
     void disposeTemporaryThread({
       temporaryThreadId,
       disposingThreadIds: disposingThreadIdsRef.current,
-      clearDraftThread,
-      clearTerminalState,
-      removeThreadFromSplitViews,
+      clearDraftThread: (threadId) => clearDraftThread(scopeLocalThread(threadId)),
+      clearTerminalState: (threadId) => clearTerminalState(scopeLocalThread(threadId)),
+      removeThreadFromSplitViews: (threadId) => removeThreadFromSplitViews(LOCAL_HOST_ID, threadId),
       clearTemporaryThread,
     });
   }, [

@@ -5,6 +5,7 @@
 // Exports: Group container lookup and creation helpers.
 
 import { type ProjectId, type ThreadId } from "@saint/contracts";
+import { localThreadId, type ScopedThreadId } from "@saint/shared/hostId";
 import { isWorkspaceRootWithin, workspaceRootsEqual } from "@saint/shared/threadWorkspace";
 import { isGroupContainerKind } from "@saint/shared/projectContainers";
 
@@ -104,9 +105,10 @@ export function findLegacyStudioContainerForAdoption<
 
 export function findGroupDraftThreadId(input: {
   readonly groupProjectIds: ReadonlySet<ProjectId>;
-  readonly projectDraftThreadIdByProjectId: Readonly<Record<string, ThreadId>>;
+  readonly projectDraftThreadIdByProjectId: Readonly<Record<string, ScopedThreadId>>;
   readonly draftThreadsByThreadId: Readonly<Record<string, DraftThreadState>>;
 }): ThreadId | null {
+  // Only this computer's drafts are addressed by the id this landing route navigates with.
   for (const projectId of input.groupProjectIds) {
     const draftThreadId = input.projectDraftThreadIdByProjectId[projectId];
     if (!draftThreadId) {
@@ -119,7 +121,7 @@ export function findGroupDraftThreadId(input: {
       draftThread.entryPoint === "chat" &&
       draftThread.promotedTo === undefined
     ) {
-      return draftThreadId;
+      return localThreadId(draftThreadId);
     }
   }
   return null;

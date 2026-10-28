@@ -1,13 +1,17 @@
-import type { ProjectId } from "@saint/contracts";
+import { parseScopedProjectId, type ScopedProjectId } from "@saint/shared/hostId";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-const LATEST_PROJECT_STORAGE_KEY = "saint:latest-project:v1";
+import { createMemoryStorage, withLegacyKeyFallback } from "./lib/storage";
+
+const LATEST_PROJECT_STORAGE_KEY = "saint:latest-project:v2";
+// v1 held a raw project id. Read once as a local project, then left alone for a rollback.
+const LEGACY_LATEST_PROJECT_STORAGE_KEY = "saint:latest-project:v1";
 
 interface LatestProjectStore {
-  latestProjectId: ProjectId | null;
-  setLatestProjectId: (projectId: ProjectId) => void;
-  clearLatestProjectId: (projectId?: ProjectId) => void;
+  latestProjectId: ScopedProjectId | null;
+  setLatestProjectId: (projectId: ScopedProjectId) => void;
+  clearLatestProjectId: (projectId?: ScopedProjectId) => void;
 }
 
 export const useLatestProjectStore = create<LatestProjectStore>()(
@@ -28,7 +32,11 @@ export const useLatestProjectStore = create<LatestProjectStore>()(
     }),
     {
       name: LATEST_PROJECT_STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        typeof localStorage === "undefined"
+          ? createMemoryStorage()
+          : withLegacyKeyFallback(localStorage, LEGACY_LATEST_PROJECT_STORAGE_KEY),
+      ),
       // Guard against a corrupt persisted value (non-string) reaching consumers
       // that treat it as a project id.
       merge: (persisted, current) => {
@@ -36,7 +44,8 @@ export const useLatestProjectStore = create<LatestProjectStore>()(
           ?.latestProjectId;
         return {
           ...current,
-          latestProjectId: typeof persistedId === "string" ? (persistedId as ProjectId) : null,
+          latestProjectId:
+            typeof persistedId === "string" ? parseScopedProjectId(persistedId) : null,
         };
       },
     },

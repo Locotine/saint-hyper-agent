@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 // FILE: useSidebarThreadActions.test.ts
 // Purpose: Covers Sidebar pin races, archive/Done navigation, undo, and batch deletion.
 // Layer: Web hook tests
@@ -542,7 +543,7 @@ describe("useSidebarThreadActions", () => {
     await vi.waitFor(() => expect(harness.dispatchCommand).toHaveBeenCalled());
     controller = render();
 
-    expect(harness.pinThread).toHaveBeenCalledWith(THREAD_ID);
+    expect(harness.pinThread).toHaveBeenCalledWith(scopeLocalThread(THREAD_ID));
     expect(harness.dispatchCommand).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "thread.meta.update",
@@ -559,8 +560,8 @@ describe("useSidebarThreadActions", () => {
     render().toggleThreadPinned(THREAD_ID);
     await vi.waitFor(() => expect(harness.toast).toHaveBeenCalled());
 
-    expect(harness.pinThread).toHaveBeenCalledWith(THREAD_ID);
-    expect(harness.unpinThread).toHaveBeenCalledWith(THREAD_ID);
+    expect(harness.pinThread).toHaveBeenCalledWith(scopeLocalThread(THREAD_ID));
+    expect(harness.unpinThread).toHaveBeenCalledWith(scopeLocalThread(THREAD_ID));
     expect(harness.toast).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Unable to pin thread" }),
     );
@@ -588,7 +589,7 @@ describe("useSidebarThreadActions", () => {
   });
 
   it("waits for hydration and deduplicates an in-flight legacy pin migration", async () => {
-    harness.pinnedThreadIds = [THREAD_ID];
+    harness.pinnedThreadIds = [scopeLocalThread(THREAD_ID)];
     let resolveMigration!: () => void;
     harness.dispatchCommand.mockImplementation(
       () => new Promise<void>((resolve) => (resolveMigration = resolve)),
@@ -1332,8 +1333,8 @@ describe("useSidebarThreadActions", () => {
       routeThreadId: THREAD_ID,
     }).deleteThread(THREAD_ID);
 
-    expect(harness.removeThreadFromSplitViews).toHaveBeenCalledWith(THREAD_ID);
-    expect(harness.clearDraftThread).toHaveBeenCalledWith(THREAD_ID);
+    expect(harness.removeThreadFromSplitViews).toHaveBeenCalledWith(LOCAL_HOST_ID, THREAD_ID);
+    expect(harness.clearDraftThread).toHaveBeenCalledWith(scopeLocalThread(THREAD_ID));
     expect(harness.clearTerminalState).toHaveBeenCalledWith(THREAD_ID);
     const navigation = harness.navigate.mock.calls.at(-1)?.[0] as {
       params: { threadId: ThreadId };

@@ -1,3 +1,4 @@
+import { scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
 import { type ProjectId, type ProviderInstanceId, ThreadId } from "@saint/contracts";
 import { getDefaultModel } from "@saint/shared/model";
 import { useNavigate, useRouter } from "@tanstack/react-router";
@@ -21,6 +22,7 @@ import {
   resolvePreferredComposerModelSelection,
   useComposerDraftStore,
 } from "../composerDraftStore";
+import { localProjectDraftThread } from "../composerDraftDomain";
 import {
   applyGroupWorkerRoutingDefaults,
   resolveGroupContainerThreadDefaults,
@@ -102,7 +104,7 @@ export function useHandleNewThread() {
     const entryPoint = options?.entryPoint ?? "chat";
     const defaultEnvMode =
       (entryPoint === "chat"
-        ? useProjectEnvironmentStore.getState().envModeByProjectId[projectId]
+        ? useProjectEnvironmentStore.getState().envModeByProjectId[scopeLocalProject(projectId)]
         : undefined) ?? settings.defaultThreadEnvMode;
     if (entryPoint === "chat") {
       const draftStore = useComposerDraftStore.getState();
@@ -142,7 +144,7 @@ export function useHandleNewThread() {
       if (!defaultModel) {
         return;
       }
-      setModelSelection(threadId, {
+      setModelSelection(scopeLocalThread(threadId), {
         provider: options.provider,
         instanceId: resolveSelectableProviderInstanceId(settings, options.provider),
         model: defaultModel,
@@ -159,7 +161,7 @@ export function useHandleNewThread() {
         return;
       }
       useComposerDraftStore.setState((state) => {
-        if (state.draftsByThreadId[threadId] !== undefined) {
+        if (state.draftsByThreadId[scopeLocalThread(threadId)] !== undefined) {
           return state;
         }
         return {
@@ -172,10 +174,10 @@ export function useHandleNewThread() {
     };
     const activateThreadEntryPoint = (threadId: ThreadId) => {
       if (entryPoint === "terminal") {
-        openTerminalThreadPage(threadId, { terminalOnly: true });
+        openTerminalThreadPage(scopeLocalThread(threadId), { terminalOnly: true });
         return;
       }
-      openChatThreadPage(threadId);
+      openChatThreadPage(scopeLocalThread(threadId));
     };
     const {
       getDraftThread,
@@ -189,9 +191,11 @@ export function useHandleNewThread() {
     } = useComposerDraftStore.getState();
     const shouldForceFreshThread = options?.fresh === true;
 
-    const storedDraftThreadCandidate = getDraftThreadByProjectId(projectId, entryPoint);
+    const storedDraftThreadCandidate = localProjectDraftThread(
+      getDraftThreadByProjectId(projectId, entryPoint),
+    );
     const latestActiveDraftThreadCandidate: DraftThreadState | null = focusedThreadId
-      ? getDraftThread(focusedThreadId)
+      ? getDraftThread(scopeLocalThread(focusedThreadId))
       : null;
     const storedDraftThread =
       !shouldForceFreshThread &&
@@ -219,12 +223,13 @@ export function useHandleNewThread() {
       useStore.getState().projects.find((project) => project.id === projectId)
         ?.defaultModelSelection ?? null;
     const applyUsableStickyState = (threadId: ThreadId) => {
-      applyStickyState(threadId);
+      applyStickyState(scopeLocalThread(threadId));
       if (options?.provider || !hasReconciledServerProviderStatuses(queryClient)) {
         return;
       }
 
-      const draft = useComposerDraftStore.getState().draftsByThreadId[threadId] ?? null;
+      const draft =
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)] ?? null;
       const stickyProviderInstanceId = draft?.activeProvider ?? null;
       const stickyProvider = stickyProviderInstanceId
         ? resolveProviderForInstanceId(stickyProviderInstanceId)
@@ -249,7 +254,7 @@ export function useHandleNewThread() {
       }
 
       setModelSelection(
-        threadId,
+        scopeLocalThread(threadId),
         resolvePreferredComposerModelSelection({
           draft: draft
             ? {
@@ -276,7 +281,8 @@ export function useHandleNewThread() {
         activeThread: activeThreadSnapshot,
         defaultProvider: options?.provider ?? settings.defaultProvider,
         draftComposerState:
-          useComposerDraftStore.getState().draftsByThreadId[targetThreadId] ?? null,
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(targetThreadId)] ??
+          null,
         draftThread,
         options: creationOptions,
         projectDefaultModelSelection,
@@ -319,7 +325,9 @@ export function useHandleNewThread() {
           markTemporaryThread(bootstrapPlan.threadId);
         }
         const preservedComposerDraft =
-          useComposerDraftStore.getState().draftsByThreadId[bootstrapPlan.threadId] ?? null;
+          useComposerDraftStore.getState().draftsByThreadId[
+            scopeLocalThread(bootstrapPlan.threadId)
+          ] ?? null;
         let resolvedStoredDraftThread: DraftThreadState | null = bootstrapPlan.draftThread;
         const shouldPreserveStoredTerminalContext =
           entryPoint === "terminal" && bootstrapPlan.draftThread.entryPoint === "terminal";
@@ -328,11 +336,13 @@ export function useHandleNewThread() {
           : buildDraftThreadContextPatch(entryPoint, options);
         const creationOptions = shouldPreserveStoredTerminalContext ? undefined : options;
         if (draftContextPatch) {
-          setDraftThreadContext(bootstrapPlan.threadId, draftContextPatch);
-          resolvedStoredDraftThread = getDraftThread(bootstrapPlan.threadId);
+          setDraftThreadContext(scopeLocalThread(bootstrapPlan.threadId), draftContextPatch);
+          resolvedStoredDraftThread = getDraftThread(scopeLocalThread(bootstrapPlan.threadId));
         }
         applyProviderOverride(bootstrapPlan.threadId);
-        setProjectDraftThreadId(projectId, bootstrapPlan.threadId, { entryPoint });
+        setProjectDraftThreadId(projectId, scopeLocalThread(bootstrapPlan.threadId), {
+          entryPoint,
+        });
         restoreComposerDraft(bootstrapPlan.threadId, preservedComposerDraft);
         activateThreadEntryPoint(bootstrapPlan.threadId);
         if (focusedThreadId === bootstrapPlan.threadId) {
@@ -374,15 +384,19 @@ export function useHandleNewThread() {
           markTemporaryThread(bootstrapPlan.threadId);
         }
         const preservedComposerDraft =
-          useComposerDraftStore.getState().draftsByThreadId[bootstrapPlan.threadId] ?? null;
+          useComposerDraftStore.getState().draftsByThreadId[
+            scopeLocalThread(bootstrapPlan.threadId)
+          ] ?? null;
         let resolvedActiveDraftThread: DraftThreadState | null = bootstrapPlan.draftThread;
         const draftContextPatch = buildDraftThreadContextPatch(entryPoint, options);
         if (draftContextPatch) {
-          setDraftThreadContext(bootstrapPlan.threadId, draftContextPatch);
-          resolvedActiveDraftThread = getDraftThread(bootstrapPlan.threadId);
+          setDraftThreadContext(scopeLocalThread(bootstrapPlan.threadId), draftContextPatch);
+          resolvedActiveDraftThread = getDraftThread(scopeLocalThread(bootstrapPlan.threadId));
         }
         applyProviderOverride(bootstrapPlan.threadId);
-        setProjectDraftThreadId(projectId, bootstrapPlan.threadId, { entryPoint });
+        setProjectDraftThreadId(projectId, scopeLocalThread(bootstrapPlan.threadId), {
+          entryPoint,
+        });
         restoreComposerDraft(bootstrapPlan.threadId, preservedComposerDraft);
         activateThreadEntryPoint(bootstrapPlan.threadId);
         if (entryPoint === "terminal") {
@@ -416,7 +430,7 @@ export function useHandleNewThread() {
         // Keep the previous routed draft alive while the destination loads. Replacing the
         // project's primary slot earlier makes the route guard redirect the old URL to Home.
         stage: () => {
-          registerDraftThread(threadId, { projectId, ...draftSeed });
+          registerDraftThread(scopeLocalThread(threadId), { projectId, ...draftSeed });
           activateThreadEntryPoint(threadId);
           // Seed the draft from the sticky (last-used) selection so a new chat
           // reopens with the model and options used most recently.
@@ -446,10 +460,10 @@ export function useHandleNewThread() {
         // TanStack resolves an older navigate() promise when a newer navigation supersedes it.
         // Verify the committed route before deleting the previous project draft.
         isDestinationActive: () => router.state.location.pathname === `/${threadId}`,
-        finalize: () => setProjectDraftThreadId(projectId, threadId, draftSeed),
+        finalize: () => setProjectDraftThreadId(projectId, scopeLocalThread(threadId), draftSeed),
         rollback: () => {
-          clearDraftThread(threadId);
-          clearTerminalState(threadId);
+          clearDraftThread(scopeLocalThread(threadId));
+          clearTerminalState(scopeLocalThread(threadId));
           if (wantsTemporaryThread) {
             clearTemporaryThread(threadId);
           }
@@ -461,7 +475,7 @@ export function useHandleNewThread() {
       if (entryPoint === "terminal") {
         await createTerminalThread(
           threadId,
-          resolveCreationState(threadId, getDraftThread(threadId), options),
+          resolveCreationState(threadId, getDraftThread(scopeLocalThread(threadId)), options),
         );
       }
       return threadId;

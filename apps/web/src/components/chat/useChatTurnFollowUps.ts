@@ -1,3 +1,4 @@
+import { scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
 import { MessageId, ThreadId, type ProviderKind, type TurnId } from "@saint/contracts";
 import { resolveTailUserMessageEditTarget } from "@saint/shared/conversationEdit";
 import { providerSupportsNativeTurnSteering } from "@saint/shared/providerMetadata";
@@ -103,7 +104,7 @@ interface ChatTurnFollowUpsInput {
   workflowRunState: ReturnType<typeof useChatWorkLog>["workflowRunState"];
   lateComposerSendHandlersRef: RefObject<LateComposerSendHandlers | null>;
   activeThreadId: ThreadId | null;
-  markWorkflowRunDismissed: (threadId: ThreadId, workflowTaskId: string) => void;
+  markWorkflowRunDismissed: (threadId: ScopedThreadId, workflowTaskId: string) => void;
   activeProject: Project | undefined;
   activeThreadAssociatedWorktree: ReturnType<typeof deriveAssociatedWorktreeMetadata>;
   syncServerShellSnapshot: ReturnType<typeof useStore.getState>["syncServerShellSnapshot"];
@@ -293,7 +294,8 @@ export function useChatTurnFollowUps({
         createdAt: messageCreatedAt,
       });
       if (!queuedTurn && planDispatchSettings.computerControlMode === "request") {
-        const draft = useComposerDraftStore.getState().draftsByThreadId[threadIdForSend];
+        const draft =
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadIdForSend)];
         if (
           draft?.computerControlMode === "request" &&
           computerControlChangeSequence.current === computerControlSequenceForSend
@@ -531,7 +533,7 @@ export function useChatTurnFollowUps({
       ...queuedChatTurnDispatchFields(turnDispatchSettings, undefined),
     });
     if (sent && activeThreadId) {
-      markWorkflowRunDismissed(activeThreadId, workflowTaskId);
+      markWorkflowRunDismissed(scopeLocalThread(activeThreadId), workflowTaskId);
     }
   }, [
     lateComposerSendHandlersRef,

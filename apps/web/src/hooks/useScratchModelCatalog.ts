@@ -6,6 +6,7 @@
 // Layer: Web UI hook
 // Exports: useScratchModelCatalog, ScratchModelCatalog
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   ModelSlug,
   ProviderInstanceId,
@@ -121,7 +122,7 @@ export function useScratchModelCatalog(input: {
       modelOptionsByProvider[selectedProvider])[0];
     if (firstOption) {
       useComposerDraftStore.getState().setModelSelection(
-        scratchThreadId,
+        scopeLocalThread(scratchThreadId),
         buildModelSelection(
           selectedProvider,
           firstOption.slug,

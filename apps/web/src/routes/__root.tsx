@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID, localThreadIdFromKey, scopeLocalThread } from "@saint/shared/hostId";
 import { EditorDirtyRouteGuard } from "../components/EditorDirtyRouteGuard";
 import {
   ORCHESTRATION_STREAM_OVERFLOW_CODE,
@@ -270,16 +271,17 @@ function detailThreadHasStarted(thread: OrchestrationThread): boolean {
 function reconcilePromotedDraftsFromShellThreads(
   threads: ReadonlyArray<OrchestrationShellSnapshot["threads"][number]>,
 ): void {
-  markPromotedDraftThreads(new Set(threads.map((thread) => thread.id)));
+  markPromotedDraftThreads(LOCAL_HOST_ID, new Set(threads.map((thread) => thread.id)));
   finalizePromotedDraftThreads(
+    LOCAL_HOST_ID,
     new Set(threads.filter((thread) => shellThreadHasStarted(thread)).map((thread) => thread.id)),
   );
 }
 
 function reconcilePromotedDraftFromThreadDetail(thread: OrchestrationThread): void {
-  markPromotedDraftThreads(new Set([thread.id]));
+  markPromotedDraftThreads(LOCAL_HOST_ID, new Set([thread.id]));
   if (detailThreadHasStarted(thread)) {
-    finalizePromotedDraftThreads(new Set([thread.id]));
+    finalizePromotedDraftThreads(LOCAL_HOST_ID, new Set([thread.id]));
   }
 }
 
@@ -832,7 +834,7 @@ function GlobalShortcutsDialog() {
   const platform = getNavigatorPlatform();
   const activeThreadTerminalState = useTerminalStateStore((state) =>
     focusedThreadId
-      ? selectThreadTerminalState(state.terminalStateByThreadId, focusedThreadId)
+      ? selectThreadTerminalState(state.terminalStateByThreadId, scopeLocalThread(focusedThreadId))
       : null,
   );
   const terminalOpen = activeThreadTerminalState?.terminalOpen ?? false;
@@ -1375,7 +1377,10 @@ function EventRouter() {
     };
 
     const isDraftThreadAwaitingProjection = (threadId: ThreadId): boolean => {
-      if (useComposerDraftStore.getState().draftThreadsByThreadId[threadId] === undefined) {
+      if (
+        useComposerDraftStore.getState().draftThreadsByThreadId[scopeLocalThread(threadId)] ===
+        undefined
+      ) {
         return false;
       }
       return (
@@ -1706,7 +1711,10 @@ function EventRouter() {
       const draftsByThreadId = useComposerDraftStore.getState().draftThreadsByThreadId;
       return threads
         .map((thread) => thread.id)
-        .filter((threadId) => subscribedThreadIds.has(threadId) && threadId in draftsByThreadId);
+        .filter(
+          (threadId) =>
+            subscribedThreadIds.has(threadId) && scopeLocalThread(threadId) in draftsByThreadId,
+        );
     }
 
     function reconcileMissingSubscribedThreadProjections(threadIds: readonly ThreadId[]) {
@@ -1873,9 +1881,13 @@ function EventRouter() {
     };
 
     const removeOrphanedTerminalsForCurrentState = () => {
+      // This snapshot is the local host's: only its drafts keep terminals alive here.
       const draftThreadIds = Object.keys(
         useComposerDraftStore.getState().draftThreadsByThreadId,
-      ) as ThreadId[];
+      ).flatMap((key) => {
+        const threadId = localThreadIdFromKey(key);
+        return threadId === null ? [] : [threadId];
+      });
       const activeThreadIds = collectActiveTerminalThreadIds({
         snapshotThreads: getThreadsFromState(useStore.getState()).map((thread) => ({
           id: thread.id,
@@ -1890,7 +1902,7 @@ function EventRouter() {
       for (const activeThreadId of Array.from(activeThreadIds)) {
         activeThreadIds.add(dockTerminalThreadId(activeThreadId));
       }
-      removeOrphanedTerminalStates(activeThreadIds);
+      removeOrphanedTerminalStates(LOCAL_HOST_ID, activeThreadIds);
       removeOrphanedTerminalRuntimes(activeThreadIds);
     };
 
@@ -2538,10 +2550,12 @@ function EventRouter() {
       if (event.type === "activity") {
         const terminalStore = useTerminalStateStore.getState();
         const currentCliKind =
-          selectThreadTerminalState(terminalStore.terminalStateByThreadId, terminalThreadId)
-            .terminalCliKindsById[event.terminalId] ?? null;
+          selectThreadTerminalState(
+            terminalStore.terminalStateByThreadId,
+            scopeLocalThread(terminalThreadId),
+          ).terminalCliKindsById[event.terminalId] ?? null;
         if (event.cliKind || currentCliKind !== null) {
-          terminalStore.setTerminalMetadata(terminalThreadId, event.terminalId, {
+          terminalStore.setTerminalMetadata(scopeLocalThread(terminalThreadId), event.terminalId, {
             cliKind: event.cliKind,
             label: event.cliKind ? defaultTerminalTitleForCliKind(event.cliKind) : "Terminal",
           });
@@ -2551,10 +2565,12 @@ function EventRouter() {
       if (activity === null) {
         return;
       }
-      useTerminalStateStore.getState().setTerminalActivity(terminalThreadId, event.terminalId, {
-        hasRunningSubprocess: activity.hasRunningSubprocess,
-        agentState: activity.agentState,
-      });
+      useTerminalStateStore
+        .getState()
+        .setTerminalActivity(scopeLocalThread(terminalThreadId), event.terminalId, {
+          hasRunningSubprocess: activity.hasRunningSubprocess,
+          agentState: activity.agentState,
+        });
     });
     // Dev servers are first-class server processes; mirror their lifecycle into the
     // client store so the sidebar indicator survives reconnects and stays consistent

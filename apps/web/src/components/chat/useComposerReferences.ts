@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   type ProviderKind,
   type ProviderMentionReference,
@@ -56,7 +57,7 @@ export function useComposerReferences({
       const resolved = typeof next === "function" ? next(existing) : next;
       selectedComposerSkillsRef.current = resolved;
       setSelectedComposerSkills(resolved);
-      setComposerDraftSkills(threadId, resolved);
+      setComposerDraftSkills(scopeLocalThread(threadId), resolved);
     },
     [setComposerDraftSkills, threadId],
   );
@@ -70,7 +71,7 @@ export function useComposerReferences({
       const resolved = typeof next === "function" ? next(existing) : next;
       selectedComposerMentionsRef.current = resolved;
       setSelectedComposerMentions(resolved);
-      setComposerDraftMentions(threadId, resolved);
+      setComposerDraftMentions(scopeLocalThread(threadId), resolved);
     },
     [setComposerDraftMentions, threadId],
   );

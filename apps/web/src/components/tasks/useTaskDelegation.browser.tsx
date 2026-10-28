@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ProjectId, ThreadId, TodoId, type Todo, type TodoUpdateInput } from "@saint/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -196,10 +197,14 @@ it.each(
       outcome === "persisted-start-failure";
     transport.dispatch.mockImplementation(async () => {
       if (outcome === "persisted-start-failure")
-        useComposerDraftStore.getState().clearPersistedAttachments(claimedThread!);
+        useComposerDraftStore
+          .getState()
+          .clearPersistedAttachments(scopeLocalThread(claimedThread!));
       if (outcome === "edited-start-failure") {
         // A user types in the open chat while its dispatch request is pending.
-        useComposerDraftStore.getState().setPrompt(claimedThread!, "My next message");
+        useComposerDraftStore
+          .getState()
+          .setPrompt(scopeLocalThread(claimedThread!), "My next message");
       }
       return failsStart ? { kind: "error", message: "Start refused" } : { kind: "dispatched" };
     });
@@ -274,7 +279,9 @@ it.each(
       const pending = hook.result.current.delegation.handleStart();
       if (outcome === "edited-link") {
         await vi.waitFor(() => expect(releaseLink).toBeDefined());
-        useComposerDraftStore.getState().setPrompt(claimedThread!, "My next message");
+        useComposerDraftStore
+          .getState()
+          .setPrompt(scopeLocalThread(claimedThread!), "My next message");
         releaseLink!();
       }
       await pending;
@@ -308,12 +315,15 @@ it.each(
         );
       }
       if (outcome === "edited-start-failure" || outcome === "edited-link") {
-        expect(useComposerDraftStore.getState().draftsByThreadId[claimedThread!]?.prompt).toBe(
-          "My next message",
-        );
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(claimedThread!)]
+            ?.prompt,
+        ).toBe("My next message");
       }
       if (destination === "new") {
-        const draft = useComposerDraftStore.getState().getDraftThread(claimedThread!);
+        const draft = useComposerDraftStore
+          .getState()
+          .getDraftThread(scopeLocalThread(claimedThread!));
         if (
           outcome === "unconfirmed" ||
           outcome === "confirmed" ||
@@ -323,7 +333,10 @@ it.each(
           outcome === "edited-start-failure"
         ) {
           expect(draft).toBeTruthy();
-          expect(useComposerDraftStore.getState().draftsByThreadId[claimedThread!]?.prompt).toBe(
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(claimedThread!)]
+              ?.prompt,
+          ).toBe(
             outcome === "edited-start-failure"
               ? "My next message"
               : "Keep my task\n\nKeep my notes",

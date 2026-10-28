@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import "../../index.css";
 
 import {
@@ -101,10 +102,10 @@ type HarnessProps = {
 };
 
 function Harness(props: HarnessProps) {
-  const prompt = useComposerThreadDraft(THREAD_ID).prompt;
+  const prompt = useComposerThreadDraft(scopeLocalThread(THREAD_ID)).prompt;
   const setPrompt = useComposerDraftStore((store) => store.setPrompt);
   const { modelOptions, selectedModel } = useEffectiveComposerModelState({
-    threadId: THREAD_ID,
+    threadId: scopeLocalThread(THREAD_ID),
     selectedProvider: "codex",
     threadModelSelection: null,
     projectModelSelection: null,
@@ -131,7 +132,7 @@ function Harness(props: HarnessProps) {
       threadId={THREAD_ID}
       modelOptions={modelOptions?.codex}
       prompt={prompt}
-      onPromptChange={(next) => setPrompt(THREAD_ID, next)}
+      onPromptChange={(next) => setPrompt(scopeLocalThread(THREAD_ID), next)}
     />
   );
 }
@@ -144,7 +145,7 @@ async function mountPicker(
   if (starred) {
     localStorage.setItem(STARRED_MODELS_STORAGE_KEY, JSON.stringify(starred));
   }
-  useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+  useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
     provider: "codex",
     model: GPT_5_5,
     ...(options ? { options } : {}),
@@ -465,7 +466,7 @@ describe("ComposerModelPicker", () => {
   it("keeps the panel open after switching model in slider mode so the slider stays usable", async () => {
     // Mirror the app: a picked model lands in the draft store and flows back as props.
     const onProviderModelChange = vi.fn((_provider: ProviderKind, model: ModelSlug) => {
-      useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+      useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
         provider: "codex",
         model,
         options: { reasoningEffort: "medium" },
@@ -496,7 +497,7 @@ describe("ComposerModelPicker", () => {
   });
 
   it("keeps the trigger's size while the slider panel is open", async () => {
-    useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+    useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
       provider: "codex",
       model: GPT_5_5,
       options: { reasoningEffort: "medium" },

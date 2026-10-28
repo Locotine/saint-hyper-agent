@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -62,6 +63,7 @@ function makeSplitView(overrides: SplitViewLayoutOverrides = {}): SplitView {
   const focusedSide = overrides.focusedSide ?? "second";
   return {
     id: "split-1",
+    hostId: LOCAL_HOST_ID,
     sourceThreadId: THREAD_A,
     ownerProjectId: PROJECT_ID,
     root: {
@@ -198,7 +200,10 @@ describe("useFocusedChatContext", () => {
       threads: [makeThread({ id: THREAD_A })],
       projects: [makeProject(), makeProject({ id: draftProjectId })],
       draftThreadsByThreadId: {
-        [draftThreadId]: makeDraftThread({ projectId: draftProjectId, branch: "feature/split" }),
+        [scopeLocalThread(draftThreadId)]: makeDraftThread({
+          projectId: draftProjectId,
+          branch: "feature/split",
+        }),
       },
     });
 

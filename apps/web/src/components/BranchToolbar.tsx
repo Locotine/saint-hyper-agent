@@ -1,6 +1,7 @@
 // FILE: BranchToolbar.tsx
 // Purpose: Renders the chat thread's compact workspace controls, including the
 // local usage popover, inline workspace handoff actions, and runtime access toggle.
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   ProviderKind,
   ProviderModelDescriptor,
@@ -283,7 +284,9 @@ export default function BranchToolbar({
   const showEnvironmentPicker = showEnvironmentPickerProp ?? true;
   const isPanel = variant === "panel";
   const setThreadWorkspaceAction = useStore((store) => store.setThreadWorkspace);
-  const draftThread = useComposerDraftStore((store) => store.getDraftThread(threadId));
+  const draftThread = useComposerDraftStore((store) =>
+    store.getDraftThread(scopeLocalThread(threadId)),
+  );
   const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
   const [rateLimitThreadsSelector] = useState(() => createAccountRateLimitThreadsSelector());
   const threads = useStore(rateLimitThreadsSelector);
@@ -364,7 +367,7 @@ export default function BranchToolbar({
           setThreadWorkspaceAction(activeThreadId, nextWorkspace);
           return;
         }
-        setDraftThreadContext(threadId, nextWorkspace);
+        setDraftThreadContext(scopeLocalThread(threadId), nextWorkspace);
         return;
       }
 
@@ -429,7 +432,7 @@ export default function BranchToolbar({
         currentWorktreePath: activeWorktreePath,
         effectiveEnvMode,
       });
-      setDraftThreadContext(threadId, {
+      setDraftThreadContext(scopeLocalThread(threadId), {
         branch,
         worktreePath,
         envMode: nextDraftEnvMode,

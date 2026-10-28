@@ -8,6 +8,7 @@
 //          use floating overlay only. The card surface and content are identical either way.
 // Layer: Environment panel container
 
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 import { SidePanelOverlay } from "~/components/chat/SidePanelOverlay";
 import type {
   AutomationDefinition,
@@ -446,12 +447,12 @@ export function EnvironmentPanel({
                 threadId: sidechat.id,
                 includeSubagentDescendants: true,
                 onDeleted: ({ thread }) => {
-                  usePinnedThreadsStore.getState().unpinThread(thread.id);
+                  usePinnedThreadsStore.getState().unpinThread(scopeLocalThread(thread.id));
                   const drafts = useComposerDraftStore.getState();
-                  drafts.clearDraftThread(thread.id);
-                  drafts.clearProjectDraftThreadById(thread.projectId, thread.id);
-                  useTerminalStateStore.getState().clearTerminalState(thread.id);
-                  useSplitViewStore.getState().removeThreadFromSplitViews(thread.id);
+                  drafts.clearDraftThread(scopeLocalThread(thread.id));
+                  drafts.clearProjectDraftThreadById(thread.projectId, scopeLocalThread(thread.id));
+                  useTerminalStateStore.getState().clearTerminalState(scopeLocalThread(thread.id));
+                  useSplitViewStore.getState().removeThreadFromSplitViews(LOCAL_HOST_ID, thread.id);
                   useTemporaryThreadStore.getState().clearTemporaryThread(thread.id);
                 },
                 removeWorktree: (worktree) => removeWorktreeMutation.mutateAsync(worktree),

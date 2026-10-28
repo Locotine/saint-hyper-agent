@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { describe, expect, it } from "vitest";
 
 import { ThreadId } from "@saint/contracts";
@@ -53,12 +54,12 @@ describe("composerThreadDraftIsPending", () => {
     expect(
       selectThreadIdsWithPendingDraft({
         draftsByThreadId: {
-          [ThreadId.makeUnsafe("b")]: { ...empty, prompt: "two" },
-          [ThreadId.makeUnsafe("c")]: { ...empty, runtimeMode: "full-access" },
-          [ThreadId.makeUnsafe("a")]: { ...empty, prompt: "one" },
+          [scopeLocalThread(ThreadId.makeUnsafe("b"))]: { ...empty, prompt: "two" },
+          [scopeLocalThread(ThreadId.makeUnsafe("c"))]: { ...empty, runtimeMode: "full-access" },
+          [scopeLocalThread(ThreadId.makeUnsafe("a"))]: { ...empty, prompt: "one" },
         },
       }),
-    ).toEqual(["a", "b"]);
+    ).toEqual(["local~a", "local~b"]);
   });
 });
 

@@ -2,6 +2,7 @@
 // Purpose: Coordinates diff-panel data sources, toolbar state, and patch body rendering.
 // Layer: Diff panel container
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { ThreadId, type ResolvedKeybindingsConfig, type TurnId } from "@saint/contracts";
@@ -523,12 +524,15 @@ export default function DiffPanel({
   );
   const activeThreadId = controlledThreadId ?? routeThreadId;
   const diffRenderMode = useDiffRenderModeStore((store) =>
-    store.getModeForThread(activeThreadId, defaultDiffRenderMode),
+    store.getModeForThread(
+      activeThreadId ? scopeLocalThread(activeThreadId) : null,
+      defaultDiffRenderMode,
+    ),
   );
   const setModeForThread = useDiffRenderModeStore((store) => store.setModeForThread);
   const setDiffRenderMode = useCallback(
     (nextMode: DiffRenderMode) => {
-      if (activeThreadId) setModeForThread(activeThreadId, nextMode);
+      if (activeThreadId) setModeForThread(scopeLocalThread(activeThreadId), nextMode);
       else setDefaultDiffRenderMode(nextMode);
     },
     [activeThreadId, setDefaultDiffRenderMode, setModeForThread],
@@ -540,7 +544,9 @@ export default function DiffPanel({
     useMemo(() => createDiffPanelRepoLiveRefreshSelector(activeThreadId), [activeThreadId]),
   );
   const draftThread = useComposerDraftStore((store) =>
-    activeThreadId ? (store.draftThreadsByThreadId[activeThreadId] ?? null) : null,
+    activeThreadId
+      ? (store.draftThreadsByThreadId[scopeLocalThread(activeThreadId)] ?? null)
+      : null,
   );
   const fallbackDraftProjectId = draftThread?.projectId ?? null;
   const fallbackDraftProject = useStore(

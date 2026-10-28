@@ -1,3 +1,4 @@
+import { scopeLocalProject } from "@saint/shared/hostId";
 import { ProjectId } from "@saint/contracts";
 import { expect, it } from "vitest";
 import { renderHook } from "vitest-browser-react";
@@ -12,13 +13,13 @@ it("follows task project edits until Run in is explicitly chosen", async () => {
   const first = makeProject({ id: ProjectId.makeUnsafe("target-first") });
   const second = makeProject({ id: ProjectId.makeUnsafe("target-second") });
   useStore.setState({ projects: [first, second] });
-  useLatestProjectStore.getState().setLatestProjectId(first.id);
+  useLatestProjectStore.getState().setLatestProjectId(scopeLocalProject(first.id));
   let projectId: ProjectId | null = null;
   const hook = await renderHook(() => useTaskDelegateTarget(projectId));
   try {
     expect(hook.result.current.target).toEqual({ kind: "project", projectId: first.id });
     // An unrelated chat-layout selection and project reorder must not move this task.
-    useLatestProjectStore.getState().setLatestProjectId(second.id);
+    useLatestProjectStore.getState().setLatestProjectId(scopeLocalProject(second.id));
     useStore.setState({ projects: [second, first] });
     await hook.rerender();
     expect(hook.result.current.target).toEqual({ kind: "project", projectId: first.id });

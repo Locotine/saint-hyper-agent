@@ -4,7 +4,6 @@ import {
 } from "../computerControlMode";
 import {
   DEFAULT_MODEL_BY_PROVIDER,
-  ProjectId,
   ThreadId,
   type AssistantDeliveryMode,
   type GitWorktreeSetupPhase,
@@ -75,7 +74,8 @@ export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "saint:last-invoked-script-by-
 export const DISMISSED_PROVIDER_HEALTH_BANNERS_KEY = "saint:dismissed-provider-health-banners";
 export const PROMPT_HISTORY_MAX_ENTRIES = 100;
 
-export const LastInvokedScriptByProjectSchema = Schema.Record(ProjectId, Schema.String);
+// Keys are host-scoped project ids; rows saved before scoping hold raw ids (local projects).
+export const LastInvokedScriptByProjectSchema = Schema.Record(Schema.String, Schema.String);
 export const DismissedProviderHealthBannersSchema = Schema.Array(Schema.String);
 
 export function canApplyComposerFocus(input: {

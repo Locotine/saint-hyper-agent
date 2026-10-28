@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 
 import { hostConnections } from "../hosts/hostConnectionRegistry";
 import { createHostShellPump } from "../hosts/hostShellPump";
+import { forgetHostClientState } from "../hosts/forgetHostClientState";
 import { createHostStoreSync } from "../hosts/hostStoreSync";
 import { hostStores } from "../hosts/hostStores";
 import { LIVE_CATALOG_ENABLED } from "./useRemoteHostCatalog";
@@ -25,7 +26,10 @@ export function useRemoteHostStoreSync(state: DesktopRemoteSshState): void {
       startPump: createHostShellPump,
       store: hostStores.get,
       setStatus: hostStores.setStatus,
-      removeStore: hostStores.remove,
+      removeStore: (hostId) => {
+        hostStores.remove(hostId);
+        forgetHostClientState(hostId);
+      },
     });
     syncRef.current = sync;
     return () => {

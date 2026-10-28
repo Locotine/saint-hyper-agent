@@ -3,6 +3,7 @@
 // Layer: Kanban UI hook
 // Exports: useKanbanTaskSubmit
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   AssistantDeliveryMode,
   ModelSlug,
@@ -111,7 +112,8 @@ export function useKanbanTaskSubmit(input: UseKanbanTaskSubmitInput) {
     const truncatedPrompt = truncateKanbanTaskPreview(taskPreview);
     // The scratch draft carries the full selection (model + reasoning effort +
     // speed) set through the picker; fall back to a bare selection otherwise.
-    const scratchState = useComposerDraftStore.getState().draftsByThreadId[scratchThreadId];
+    const scratchState =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(scratchThreadId)];
     const storedModelSelection =
       scratchState?.modelSelectionByProvider[
         providerInstanceModelSelectionKey(selectedProvider, selectedProviderInstanceId)

@@ -1,3 +1,4 @@
+import { scopeLocalProject } from "@saint/shared/hostId";
 // FILE: useStartGitHubItemThread.ts
 // Purpose: Hand a GitHub item to a fresh agent thread: for a pull request, prepare its branch
 //          (worktree or local, per Settings) first; then open a new draft thread in the chosen
@@ -54,8 +55,9 @@ export function useStartGitHubItemThread(input: {
     inFlight.current = true;
     setPendingAction(request.action);
     const mode =
-      useProjectEnvironmentStore.getState().envModeByProjectId[request.projectId] ??
-      settings.defaultThreadEnvMode;
+      useProjectEnvironmentStore.getState().envModeByProjectId[
+        scopeLocalProject(request.projectId)
+      ] ?? settings.defaultThreadEnvMode;
     const pullRequestUrl = request.pullRequestUrl;
     // A toast stays visible when the initiating menu closes and during navigation.
     const toastId = toastManager.add({

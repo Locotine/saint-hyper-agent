@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CommandId,
@@ -80,7 +81,7 @@ describe("threadCreatePromotion", () => {
   it("marks the draft as promoted when the thread already exists locally", async () => {
     const threadId = ThreadId.makeUnsafe("thread-existing-local");
     const projectId = ProjectId.makeUnsafe("project-promote");
-    useComposerDraftStore.getState().setProjectDraftThreadId(projectId, threadId);
+    useComposerDraftStore.getState().setProjectDraftThreadId(projectId, scopeLocalThread(threadId));
     useStore.getState().syncServerShellSnapshot({
       snapshotSequence: 1,
       spaces: [],
@@ -137,7 +138,9 @@ describe("threadCreatePromotion", () => {
       "exists",
     );
 
-    expect(useComposerDraftStore.getState().getDraftThread(threadId)?.promotedTo).toBe(threadId);
+    expect(
+      useComposerDraftStore.getState().getDraftThread(scopeLocalThread(threadId))?.promotedTo,
+    ).toBe(scopeLocalThread(threadId));
   });
 
   it("recovers duplicate promotions by syncing the shell snapshot", async () => {

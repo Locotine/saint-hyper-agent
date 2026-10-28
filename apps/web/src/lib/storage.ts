@@ -25,6 +25,29 @@ export function createMemoryStorage(): StateStorage {
   };
 }
 
+export interface SyncStateStorage {
+  getItem: (name: string) => string | null;
+  setItem: (name: string, value: string) => void;
+  removeItem: (name: string) => void;
+}
+
+/**
+ * Persisted state moves to a new key when its shape changes (raw thread ids to host-scoped
+ * ones). Until the new key is first written this reads `legacyName` instead; writes only
+ * ever touch `name`, so a rollback to the previous build still finds its own data. The
+ * caller's `merge` is what upgrades the old payload.
+ */
+export function withLegacyKeyFallback(
+  storage: SyncStateStorage,
+  legacyName: string,
+): SyncStateStorage {
+  return {
+    getItem: (name) => storage.getItem(name) ?? storage.getItem(legacyName),
+    setItem: (name, value) => storage.setItem(name, value),
+    removeItem: (name) => storage.removeItem(name),
+  };
+}
+
 /**
  * A zustand-persist-compatible storage that defers BOTH `partialize` and
  * `JSON.stringify` off the hot `set()` path.

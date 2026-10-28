@@ -4,6 +4,7 @@
 // Exports: promoteThreadCreate, isDuplicateThreadCreateError
 
 import type { ClientOrchestrationCommand, NativeApi, ThreadId } from "@saint/contracts";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { markPromotedDraftThreads } from "../composerDraftStore";
 import { readNativeApi } from "../nativeApi";
 import { useStore } from "../store";
@@ -40,7 +41,7 @@ async function recoverPromotedThreadFromShellSnapshot(
 ): Promise<boolean> {
   const snapshot = await api.orchestration.getShellSnapshot();
   useStore.getState().syncServerShellSnapshot(snapshot);
-  markPromotedDraftThreads(new Set(snapshot.threads.map((thread) => thread.id)));
+  markPromotedDraftThreads(LOCAL_HOST_ID, new Set(snapshot.threads.map((thread) => thread.id)));
   // getThreadFromState returns undefined for an unknown thread, never null.
   return getThreadFromState(useStore.getState(), threadId) !== undefined;
 }
@@ -51,13 +52,13 @@ async function dispatchPromoteThreadCreate(
   options: PromoteThreadCreateOptions = {},
 ): Promise<PromoteThreadCreateResult> {
   if (!options.force && getThreadFromState(useStore.getState(), command.threadId)) {
-    markPromotedDraftThreads(new Set([command.threadId]));
+    markPromotedDraftThreads(LOCAL_HOST_ID, new Set([command.threadId]));
     return "exists";
   }
 
   try {
     await api.orchestration.dispatchCommand(command);
-    markPromotedDraftThreads(new Set([command.threadId]));
+    markPromotedDraftThreads(LOCAL_HOST_ID, new Set([command.threadId]));
     return "created";
   } catch (error) {
     if (!isDuplicateThreadCreateError(error, command.threadId)) {

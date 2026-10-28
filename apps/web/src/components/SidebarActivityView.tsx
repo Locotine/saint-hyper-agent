@@ -4,6 +4,7 @@
 // Layer: Sidebar UI component
 // Exports: SidebarActivityView, ActivityThreadRow, SidebarSnoozedThreadsSection
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   useCallback,
   useEffect,
@@ -944,7 +945,7 @@ export function SidebarActivityView({
       isOpen={activeThreadId === thread.id}
       isSettled={isSettled}
       isPinned={pinnedThreadIdSet.has(thread.id)}
-      hasPendingDraft={draftThreadIdSet.has(thread.id)}
+      hasPendingDraft={draftThreadIdSet.has(scopeLocalThread(thread.id))}
       pr={
         // An explicit null from the resolver means the persisted PR was ruled out (e.g. the
         // checkout moved on); falling back to raw lastKnownPr would resurrect that stale

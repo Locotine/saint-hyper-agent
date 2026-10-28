@@ -9,6 +9,7 @@
 // Layer: Chat UI hook
 
 import type { ProjectId } from "@saint/contracts";
+import { scopeProject, LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { useCallback, useState } from "react";
 
 import { useGroupPanelClosedStore } from "~/groupPanelClosedStore";
@@ -36,7 +37,9 @@ export function useAuxiliarySurface(input: {
     projectId: input.projectId,
     projectPanelEnabled: input.projectPanelEnabled,
     environmentPanelVisible: input.environmentPanelVisible,
-    groupPanelClosed: input.projectId !== null && closedProjectIds.includes(input.projectId),
+    groupPanelClosed:
+      input.projectId !== null &&
+      closedProjectIds.includes(scopeProject(LOCAL_HOST_ID, input.projectId)),
   });
   const chooseAuxiliarySurface = useCallback(
     (surface: ChatAuxiliarySurface | null) => {
@@ -47,7 +50,7 @@ export function useAuxiliarySurface(input: {
   const setGroupPanelClosed = useCallback(
     (closed: boolean) => {
       if (input.projectId !== null) {
-        persistGroupPanelClosed(input.projectId, closed);
+        persistGroupPanelClosed(scopeProject(LOCAL_HOST_ID, input.projectId), closed);
       }
     },
     [input.projectId, persistGroupPanelClosed],

@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ThreadId } from "@saint/contracts";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";

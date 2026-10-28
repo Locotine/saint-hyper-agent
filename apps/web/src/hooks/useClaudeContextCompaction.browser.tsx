@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { MessageId, ThreadId, TurnId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "vitest-browser-react";
@@ -50,7 +51,9 @@ function callbacks() {
 
 describe("useClaudeContextCompaction", () => {
   it("uses the exact native command without sending draft settings or attachments", async () => {
-    useComposerDraftStore.getState().setPrompt(threadId, "Keep this draft for later");
+    useComposerDraftStore
+      .getState()
+      .setPrompt(scopeLocalThread(threadId), "Keep this draft for later");
     const actions = callbacks();
     const hook = await renderHook(() =>
       useClaudeContextCompaction({ threadId, disabledReason: null, ...actions }),
@@ -68,9 +71,9 @@ describe("useClaudeContextCompaction", () => {
       });
       expect(command).not.toHaveProperty("modelSelection");
       expect(command).not.toHaveProperty("providerOptions");
-      expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.prompt).toBe(
-        "Keep this draft for later",
-      );
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.prompt,
+      ).toBe("Keep this draft for later");
       expect(actions.onBegin).toHaveBeenCalledExactlyOnceWith({
         expectedUserMessageId: command.message.messageId,
       });
@@ -273,9 +276,9 @@ it("reuses an unconfirmed request after remount and persisted state hydration", 
   const original = mocks.dispatchCommand.mock.calls[0]![0];
   await first.unmount();
   // Simulate a page reload: the persisted request is all the new hook inherits.
-  const saved = sessionStorage.getItem("saint:claude-compaction-requests")!;
+  const saved = sessionStorage.getItem("saint:claude-compaction-requests:v2")!;
   useClaudeCompactionRequests.setState({ requests: {} });
-  sessionStorage.setItem("saint:claude-compaction-requests", saved);
+  sessionStorage.setItem("saint:claude-compaction-requests:v2", saved);
   await useClaudeCompactionRequests.persist.rehydrate();
   const second = await renderHook(() =>
     useClaudeContextCompaction({ threadId, disabledReason: null, ...callbacks() }),
@@ -314,7 +317,9 @@ it("forgets acknowledged compaction even when its message is outside the loaded 
   );
   try {
     await hook.result.current.compact();
-    expect(useClaudeCompactionRequests.getState().requests[threadId]).toBeUndefined();
+    expect(
+      useClaudeCompactionRequests.getState().requests[scopeLocalThread(threadId)],
+    ).toBeUndefined();
   } finally {
     await hook.unmount();
   }
@@ -365,9 +370,9 @@ it("does not erase a newer request when an older acknowledgement arrives late", 
     const secondCommand = mocks.dispatchCommand.mock.calls[1]![0];
     acceptFirst();
     await firstSend;
-    expect(useClaudeCompactionRequests.getState().requests[threadId]?.commandId).toBe(
-      secondCommand.commandId,
-    );
+    expect(
+      useClaudeCompactionRequests.getState().requests[scopeLocalThread(threadId)]?.commandId,
+    ).toBe(secondCommand.commandId);
     acceptSecond();
     await secondSend;
   } finally {

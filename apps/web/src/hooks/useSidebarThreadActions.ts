@@ -3,6 +3,7 @@
 // Layer: Web Sidebar controller hook
 // Exports: useSidebarThreadActions
 
+import { LOCAL_HOST_ID, localThreadIds, scopeLocalThread } from "@saint/shared/hostId";
 import { type ProjectId, ThreadId } from "@saint/contracts";
 import { pluralize } from "@saint/shared/text";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -148,7 +149,11 @@ export function useSidebarThreadActions(input: {
   const clearProjectDraftThreadById = useComposerDraftStore(
     (store) => store.clearProjectDraftThreadById,
   );
-  const persistedPinnedThreadIds = usePinnedThreadsStore((store) => store.pinnedThreadIds);
+  const persistedScopedPinnedThreadIds = usePinnedThreadsStore((store) => store.pinnedThreadIds);
+  const persistedPinnedThreadIds = useMemo(
+    () => localThreadIds(persistedScopedPinnedThreadIds),
+    [persistedScopedPinnedThreadIds],
+  );
   const pinThreadLocally = usePinnedThreadsStore((store) => store.pinThread);
   const unpinThread = usePinnedThreadsStore((store) => store.unpinThread);
   const prunePinnedThreads = usePinnedThreadsStore((store) => store.prunePinnedThreads);
@@ -223,9 +228,9 @@ export function useSidebarThreadActions(input: {
 
       setOptimisticThreadPinned(threadId, isPinned);
       if (isPinned) {
-        pinThreadLocally(threadId);
+        pinThreadLocally(scopeLocalThread(threadId));
       } else {
-        unpinThread(threadId);
+        unpinThread(scopeLocalThread(threadId));
       }
 
       try {
@@ -242,9 +247,9 @@ export function useSidebarThreadActions(input: {
         }
         const confirmedPinned = sidebarThreadSummaryByIdRef.current[threadId]?.isPinned === true;
         if (confirmedPinned) {
-          pinThreadLocally(threadId);
+          pinThreadLocally(scopeLocalThread(threadId));
         } else {
-          unpinThread(threadId);
+          unpinThread(scopeLocalThread(threadId));
         }
         clearOptimisticThreadPinned(threadId);
         throw error;
@@ -647,7 +652,10 @@ export function useSidebarThreadActions(input: {
 
   useEffect(() => {
     if (!threadsHydrated) return;
-    prunePinnedThreads(sidebarThreads.map((thread) => thread.id));
+    prunePinnedThreads(
+      LOCAL_HOST_ID,
+      sidebarThreads.map((thread) => thread.id),
+    );
   }, [sidebarThreads, threadsHydrated, prunePinnedThreads]);
 
   useEffect(() => {
@@ -706,11 +714,11 @@ export function useSidebarThreadActions(input: {
             : null,
         }),
         onDeleted: ({ thread, prepared }) => {
-          unpinThread(threadId);
-          clearComposerDraftForThread(threadId);
-          clearProjectDraftThreadById(thread.projectId, thread.id);
+          unpinThread(scopeLocalThread(threadId));
+          clearComposerDraftForThread(scopeLocalThread(threadId));
+          clearProjectDraftThreadById(thread.projectId, scopeLocalThread(thread.id));
           clearTerminalState(threadId);
-          removeThreadFromSplitViews(threadId);
+          removeThreadFromSplitViews(LOCAL_HOST_ID, threadId);
           clearTemporaryThread(threadId);
 
           if (routeSplitViewId && prepared?.deletedPaneInActiveSplit) {

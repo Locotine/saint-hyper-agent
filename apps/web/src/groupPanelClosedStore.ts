@@ -5,18 +5,21 @@
 //          the Environment panel preference on purpose (W1 regression class):
 //          closing Groups must never flip the env default.
 // Layer: Web state
-import type { ProjectId } from "@saint/contracts";
+import { parseScopedProjectId, type ScopedProjectId } from "@saint/shared/hostId";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { createMemoryStorage, withLegacyKeyFallback } from "./lib/storage";
 import { normalizePinnedIds, pinId, unpinId } from "./pinning.logic";
 
 interface GroupPanelClosedStoreState {
-  closedProjectIds: ProjectId[];
-  setGroupPanelClosed: (projectId: ProjectId, closed: boolean) => void;
+  closedProjectIds: ScopedProjectId[];
+  setGroupPanelClosed: (projectId: ScopedProjectId, closed: boolean) => void;
 }
 
-const GROUP_PANEL_CLOSED_STORAGE_KEY = "saint:group-panel-closed:v1";
+const GROUP_PANEL_CLOSED_STORAGE_KEY = "saint:group-panel-closed:v2";
+// v1 held raw project ids. Read once as local projects, then left alone for a rollback.
+const LEGACY_GROUP_PANEL_CLOSED_STORAGE_KEY = "saint:group-panel-closed:v1";
 
 export const useGroupPanelClosedStore = create<GroupPanelClosedStoreState>()(
   persist(
@@ -35,7 +38,11 @@ export const useGroupPanelClosedStore = create<GroupPanelClosedStoreState>()(
     }),
     {
       name: GROUP_PANEL_CLOSED_STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        typeof localStorage === "undefined"
+          ? createMemoryStorage()
+          : withLegacyKeyFallback(localStorage, LEGACY_GROUP_PANEL_CLOSED_STORAGE_KEY),
+      ),
       partialize: (state) => ({
         closedProjectIds: normalizePinnedIds(state.closedProjectIds),
       }),
@@ -48,7 +55,12 @@ export const useGroupPanelClosedStore = create<GroupPanelClosedStoreState>()(
           )?.closedProjectIds ?? [];
         return {
           ...currentState,
-          closedProjectIds: normalizePinnedIds(candidate),
+          closedProjectIds: normalizePinnedIds(
+            candidate.flatMap((id) => {
+              const scoped = typeof id === "string" ? parseScopedProjectId(id) : null;
+              return scoped === null ? [] : [scoped];
+            }),
+          ),
         };
       },
     },

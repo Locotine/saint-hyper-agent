@@ -3,6 +3,7 @@
 // Layer: Web Kanban hook tests
 
 import { ProjectId, ThreadId } from "@saint/contracts";
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const harness = vi.hoisted(() => ({
@@ -196,9 +197,12 @@ describe("useKanbanCardContextMenu", () => {
     await vi.waitFor(() => expect(harness.deleteActiveThread).toHaveBeenCalled());
 
     expect(harness.clearOptimisticDispatch).toHaveBeenCalledWith(THREAD_ID);
-    expect(harness.clearDraftThread).toHaveBeenCalledWith(THREAD_ID);
-    expect(harness.clearProjectDraftThreadById).toHaveBeenCalledWith(PROJECT_ID, THREAD_ID);
-    expect(harness.clearTerminalState).toHaveBeenCalledWith(THREAD_ID);
+    expect(harness.clearDraftThread).toHaveBeenCalledWith(scopeLocalThread(THREAD_ID));
+    expect(harness.clearProjectDraftThreadById).toHaveBeenCalledWith(
+      PROJECT_ID,
+      scopeLocalThread(THREAD_ID),
+    );
+    expect(harness.clearTerminalState).toHaveBeenCalledWith(scopeLocalThread(THREAD_ID));
   });
 
   it("uses the shared archive command while server-side cleanup owns active sessions", async () => {
@@ -220,7 +224,9 @@ describe("useKanbanCardContextMenu", () => {
     } as KanbanCard;
 
     useKanbanCardContextMenu().onCardContextMenu(draftCard, EVENT);
-    await vi.waitFor(() => expect(harness.clearDraftThread).toHaveBeenCalledWith(THREAD_ID));
+    await vi.waitFor(() =>
+      expect(harness.clearDraftThread).toHaveBeenCalledWith(scopeLocalThread(THREAD_ID)),
+    );
 
     expect(harness.deleteActiveThread).not.toHaveBeenCalled();
     expect(harness.clearComposerContent).not.toHaveBeenCalled();
@@ -234,7 +240,9 @@ describe("useKanbanCardContextMenu", () => {
     } as KanbanCard;
 
     useKanbanCardContextMenu().onCardContextMenu(draftCard, EVENT);
-    await vi.waitFor(() => expect(harness.clearComposerContent).toHaveBeenCalledWith(THREAD_ID));
+    await vi.waitFor(() =>
+      expect(harness.clearComposerContent).toHaveBeenCalledWith(scopeLocalThread(THREAD_ID)),
+    );
 
     expect(harness.deleteActiveThread).not.toHaveBeenCalled();
     expect(harness.clearDraftThread).not.toHaveBeenCalled();

@@ -5,6 +5,7 @@
 // Depends on: the picker's tabs/row/trait-row pieces, composer trait helpers, starred
 //   model storage, and shared menu primitives.
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   type ModelSlug,
   type ProviderAgentDescriptor,
@@ -262,7 +263,7 @@ export function ComposerModelPicker(props: ComposerModelPickerProps) {
   // Options a provider's models would run with: the composer's own for the selected
   // provider, otherwise that provider's draft / sticky selection.
   const draftSelectionByProvider = useComposerDraftStore(
-    (store) => store.draftsByThreadId[threadId]?.modelSelectionByProvider,
+    (store) => store.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider,
   );
   const stickySelectionByProvider = useComposerDraftStore(
     (store) => store.stickyModelSelectionByProvider,

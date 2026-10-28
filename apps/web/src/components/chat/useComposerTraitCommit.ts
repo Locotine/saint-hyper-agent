@@ -3,6 +3,7 @@
 // Layer: Chat composer state hook
 // Depends on: composer draft store and provider option patch helpers.
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ProviderInstanceId, ProviderKind, ThreadId } from "@saint/contracts";
 import { useCallback } from "react";
 
@@ -24,7 +25,7 @@ export function useComposerTraitCommit(input: {
   return useCallback(
     (patch: Record<string, unknown>) => {
       setProviderModelOptions(
-        threadId,
+        scopeLocalThread(threadId),
         provider,
         buildNextProviderOptions(provider, modelOptions, patch),
         {

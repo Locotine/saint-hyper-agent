@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ThreadId } from "@saint/contracts";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import {
@@ -19,18 +20,18 @@ export function ComposerExpiredUserInputNotice({
 }) {
   const dismiss = () => {
     const store = useComposerDraftStore.getState();
-    const drafts = store.draftsByThreadId[threadId]?.pendingUserInputDrafts ?? {};
+    const drafts = store.draftsByThreadId[scopeLocalThread(threadId)]?.pendingUserInputDrafts ?? {};
     store.setPendingUserInputDrafts(
-      threadId,
+      scopeLocalThread(threadId),
       Object.fromEntries(Object.entries(drafts).filter(([key]) => key !== requestKey)),
     );
   };
   const restore = () => {
     const store = useComposerDraftStore.getState();
-    store.restorePromptHistorySavedDraft(threadId);
-    const current = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    store.restorePromptHistorySavedDraft(scopeLocalThread(threadId));
+    const current = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     const prompt = restoreUserInputDraft(current?.prompt ?? "", draft);
-    store.setPrompt(threadId, prompt);
+    store.setPrompt(scopeLocalThread(threadId), prompt);
     dismiss();
     onRestore(prompt);
   };

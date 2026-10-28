@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ThreadId } from "@saint/contracts";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -152,10 +153,10 @@ export function useChatQueuedTurns({
   const hasPendingCacheReview =
     hasPendingCacheReviewInput === true || activeThread?.claudeCacheReview != null;
   const queueResumedTurnId = useComposerDraftStore(
-    (store) => store.draftsByThreadId[threadId]?.queueResumedTurnId ?? null,
+    (store) => store.draftsByThreadId[scopeLocalThread(threadId)]?.queueResumedTurnId ?? null,
   );
   const queueStoppedTurnId = useComposerDraftStore(
-    (store) => store.draftsByThreadId[threadId]?.queueStoppedTurnId ?? null,
+    (store) => store.draftsByThreadId[scopeLocalThread(threadId)]?.queueStoppedTurnId ?? null,
   );
   // A stop, failure, or usage limit pauses the queue until Resume or a new turn ends normally.
   const queuePause = useMemo(
@@ -355,7 +356,9 @@ export function useChatQueuedTurns({
       }
       const queuedTurnForSend = useComposerDraftStore
         .getState()
-        .draftsByThreadId[threadId]?.queuedTurns.find((entry) => entry.id === queuedTurn.id);
+        .draftsByThreadId[scopeLocalThread(threadId)]?.queuedTurns.find(
+          (entry) => entry.id === queuedTurn.id,
+        );
       if (!queuedTurnForSend || !tryBeginQueuedComposerAutoDispatch(threadId)) {
         return;
       }
@@ -396,7 +399,9 @@ export function useChatQueuedTurns({
     if (!queuePause) {
       return;
     }
-    useComposerDraftStore.getState().resumeQueuedTurns(threadId, queuePause.turnId);
+    useComposerDraftStore
+      .getState()
+      .resumeQueuedTurns(scopeLocalThread(threadId), queuePause.turnId);
   }, [queuePause, threadId]);
 
   // Edit on the paused notice takes the next queued message back into the composer;

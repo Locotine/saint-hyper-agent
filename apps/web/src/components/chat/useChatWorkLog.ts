@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { OrchestrationThreadActivity, type TurnId } from "@saint/contracts";
 import { useMemo } from "react";
 import { setsEqual, useStableValue } from "../../hooks/useStableValue";
@@ -214,7 +215,9 @@ export function useChatWorkLog({
   // card apart from a plain stop; dismissed retires a settled card the run's
   // activities would otherwise keep visible. Survive reloads via
   // workflowRunUiStore instead of living in component state.
-  const workflowRunUiThreadState = useWorkflowRunUiThreadState(activeThreadId);
+  const workflowRunUiThreadState = useWorkflowRunUiThreadState(
+    activeThreadId ? scopeLocalThread(activeThreadId) : null,
+  );
   const pausedWorkflowTaskIds = useMemo(
     () => new Set(workflowRunUiThreadState.pausedByUser),
     [workflowRunUiThreadState.pausedByUser],

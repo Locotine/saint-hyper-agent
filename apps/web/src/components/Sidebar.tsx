@@ -1,3 +1,11 @@
+import {
+  localThreadIdFromKey,
+  scopeLocalThread,
+  scopeLocalProject,
+  LOCAL_HOST_ID,
+  localProjectId,
+  localProjectIds,
+} from "@saint/shared/hostId";
 import { useProjectImportDialogStore } from "~/projectImport/projectImportDialogStore";
 // FILE: Sidebar.tsx
 // Purpose: Renders the project/thread sidebar, including row status, sorting, and thread actions.
@@ -1343,7 +1351,11 @@ export default function Sidebar() {
     getActiveComposerSendThreadIds,
   );
   const temporaryThreadIds = useTemporaryThreadStore((store) => store.temporaryThreadIds);
-  const persistedPinnedProjectIds = usePinnedProjectsStore((store) => store.pinnedProjectIds);
+  const persistedScopedPinnedProjectIds = usePinnedProjectsStore((store) => store.pinnedProjectIds);
+  const persistedPinnedProjectIds = useMemo(
+    () => localProjectIds(persistedScopedPinnedProjectIds),
+    [persistedScopedPinnedProjectIds],
+  );
   const pinProjectLocally = usePinnedProjectsStore((store) => store.pinProject);
   const unpinProject = usePinnedProjectsStore((store) => store.unpinProject);
   const prunePinnedProjects = usePinnedProjectsStore((store) => store.prunePinnedProjects);
@@ -1587,7 +1599,9 @@ export default function Sidebar() {
     (isMacNavigatorPlatform() ? "⇧⌘O" : "Ctrl+Shift+O");
   const usageSettingsShortcutLabel = shortcutLabelForCommand(keybindings, "settings.usage");
   const { activeProjectId: focusedProjectId } = useFocusedChatContext();
-  const latestProjectId = useLatestProjectStore((state) => state.latestProjectId);
+  const latestProjectId = useLatestProjectStore((state) =>
+    state.latestProjectId ? localProjectId(state.latestProjectId) : null,
+  );
   // Shared with the composer project picker, which opens this same dialog.
   const createProjectDialogOpen = useCreateProjectDialogStore((state) => state.isOpen);
   const setCreateProjectDialogOpen = useCreateProjectDialogStore((state) => state.setOpen);
@@ -1947,7 +1961,7 @@ export default function Sidebar() {
     ],
   );
   const routeTerminalState = routeThreadId
-    ? selectThreadTerminalState(terminalStateByThreadId, routeThreadId)
+    ? selectThreadTerminalState(terminalStateByThreadId, scopeLocalThread(routeThreadId))
     : null;
   const terminalOpen = routeTerminalState?.terminalOpen ?? false;
   const terminalWorkspaceOpen = shouldRenderTerminalWorkspace({
@@ -1994,7 +2008,7 @@ export default function Sidebar() {
   } = useSidebarThreadActions({
     activeSplitView,
     appSettings,
-    clearTerminalState,
+    clearTerminalState: (threadId) => clearTerminalState(scopeLocalThread(threadId)),
     filterThreadsToActiveSpace,
     handleNewChat,
     projectById,
@@ -2065,7 +2079,7 @@ export default function Sidebar() {
   // out of the Groups surface and snap the segmented picker back to Projects.
   const activeRouteProjectId = routeThreadId
     ? (sidebarThreadSummaryById[routeThreadId]?.projectId ??
-      draftThreadsByThreadId[routeThreadId]?.projectId ??
+      draftThreadsByThreadId[scopeLocalThread(routeThreadId)]?.projectId ??
       null)
     : null;
   const activeRouteProject = activeRouteProjectId
@@ -2208,7 +2222,7 @@ export default function Sidebar() {
 
       setOptimisticProjectPinned(projectId, isPinned);
       if (isPinned) {
-        const accepted = pinProjectLocally(projectId);
+        const accepted = pinProjectLocally(scopeLocalProject(projectId));
         if (!accepted) {
           clearOptimisticProjectPinned(projectId);
           toastManager.add({
@@ -2219,7 +2233,7 @@ export default function Sidebar() {
           return;
         }
       } else {
-        unpinProject(projectId);
+        unpinProject(scopeLocalProject(projectId));
       }
 
       try {
@@ -2237,9 +2251,9 @@ export default function Sidebar() {
 
         const confirmedPinned = projectByIdRef.current.get(projectId)?.isPinned === true;
         if (confirmedPinned) {
-          pinProjectLocally(projectId);
+          pinProjectLocally(scopeLocalProject(projectId));
         } else {
-          unpinProject(projectId);
+          unpinProject(scopeLocalProject(projectId));
         }
         clearOptimisticProjectPinned(projectId);
         throw error;
@@ -2256,7 +2270,9 @@ export default function Sidebar() {
   const toggleProjectPinned = useCallback(
     (projectId: ProjectId) => {
       const optimisticPinned = optimisticPinnedStateByProjectIdRef.current.get(projectId);
-      const locallyPinned = usePinnedProjectsStore.getState().pinnedProjectIds.includes(projectId);
+      const locallyPinned = usePinnedProjectsStore
+        .getState()
+        .pinnedProjectIds.includes(scopeLocalProject(projectId));
       const serverPinned = projectByIdRef.current.get(projectId)?.isPinned === true;
       const isPinned = optimisticPinned ?? (locallyPinned || serverPinned);
       void setProjectPinned(projectId, !isPinned).catch((error) => {
@@ -2572,8 +2588,9 @@ export default function Sidebar() {
   // for both the settings back button and the segment switcher.
   const groupDraftThreadIds = useMemo(() => {
     const draftThreadIds = new Set<string>();
-    for (const [threadId, draft] of Object.entries(draftThreadsByThreadId)) {
-      if (groupProjectIdSet.has(draft.projectId)) {
+    for (const [key, draft] of Object.entries(draftThreadsByThreadId)) {
+      const threadId = localThreadIdFromKey(key);
+      if (threadId !== null && groupProjectIdSet.has(draft.projectId)) {
         draftThreadIds.add(threadId);
       }
     }
@@ -2581,8 +2598,9 @@ export default function Sidebar() {
   }, [draftThreadsByThreadId, groupProjectIdSet]);
   const nonGroupDraftThreadIds = useMemo(() => {
     const draftThreadIds = new Set<string>();
-    for (const [threadId, draft] of Object.entries(draftThreadsByThreadId)) {
-      if (!groupProjectIdSet.has(draft.projectId)) {
+    for (const [key, draft] of Object.entries(draftThreadsByThreadId)) {
+      const threadId = localThreadIdFromKey(key);
+      if (threadId !== null && !groupProjectIdSet.has(draft.projectId)) {
         draftThreadIds.add(threadId);
       }
     }
@@ -2878,7 +2896,7 @@ export default function Sidebar() {
         // preferences only when creating a fresh one.
         envMode:
           draftThread?.envMode ??
-          useProjectEnvironmentStore.getState().envModeByProjectId[projectId] ??
+          useProjectEnvironmentStore.getState().envModeByProjectId[scopeLocalProject(projectId)] ??
           appSettings.defaultThreadEnvMode,
         providerStatuses,
         statusesReconciled: hasReconciledServerProviderStatuses(queryClient),
@@ -3736,7 +3754,7 @@ export default function Sidebar() {
         const terminalStore = useTerminalStateStore.getState();
         const currentTerminalState = selectThreadTerminalState(
           terminalStore.terminalStateByThreadId,
-          threadId,
+          scopeLocalThread(threadId),
         );
 
         const targetTerminalId = currentTerminalState.activeTerminalId;
@@ -3754,9 +3772,9 @@ export default function Sidebar() {
         const previousPresentationMode = currentTerminalState.presentationMode;
         const previousActiveTerminalId = currentTerminalState.activeTerminalId;
 
-        terminalStore.setTerminalPresentationMode(threadId, "workspace");
-        terminalStore.setTerminalOpen(threadId, true);
-        terminalStore.setActiveTerminal(threadId, targetTerminalId);
+        terminalStore.setTerminalPresentationMode(scopeLocalThread(threadId), "workspace");
+        terminalStore.setTerminalOpen(scopeLocalThread(threadId), true);
+        terminalStore.setActiveTerminal(scopeLocalThread(threadId), targetTerminalId);
 
         const cdCommand = `cd ${quotePosixShellArgument(threadWorkspacePath)}\r`;
         try {
@@ -3783,10 +3801,13 @@ export default function Sidebar() {
         } catch (error) {
           // Open may already have created a PTY, even if navigation or its
           // acknowledgement failed. Keep its identity available for reattach.
-          terminalStore.setTerminalPresentationMode(threadId, previousPresentationMode);
-          terminalStore.setTerminalOpen(threadId, previousTerminalOpen);
+          terminalStore.setTerminalPresentationMode(
+            scopeLocalThread(threadId),
+            previousPresentationMode,
+          );
+          terminalStore.setTerminalOpen(scopeLocalThread(threadId), previousTerminalOpen);
           if (previousActiveTerminalId) {
-            terminalStore.setActiveTerminal(threadId, previousActiveTerminalId);
+            terminalStore.setActiveTerminal(scopeLocalThread(threadId), previousActiveTerminalId);
           }
           toastManager.add({
             type: "error",
@@ -3994,13 +4015,13 @@ export default function Sidebar() {
     activeSplitView,
     clearSelection,
     navigate,
-    openChatThreadPage,
+    openChatThreadPage: (threadId) => openChatThreadPage(scopeLocalThread(threadId)),
     openSidechatDock: ({ sourceThreadId, sidechatThreadId }) =>
       openRightDockPane(sourceThreadId, {
         kind: "sidechat",
         threadId: sidechatThreadId,
       }),
-    openTerminalThreadPage,
+    openTerminalThreadPage: (threadId) => openTerminalThreadPage(scopeLocalThread(threadId)),
     prewarmThreadDetailForIntent,
     rememberLastThreadRouteNow,
     routeSplitViewId: routeSearch.splitViewId,
@@ -4971,7 +4992,10 @@ export default function Sidebar() {
     if (!shouldPrunePinnedThreads({ threadsHydrated })) {
       return;
     }
-    prunePinnedProjects(allStandardProjectsBase.map((project) => project.id));
+    prunePinnedProjects(
+      LOCAL_HOST_ID,
+      allStandardProjectsBase.map((project) => project.id),
+    );
     prunePinnedProjectAgents(projects.map((project) => project.id));
   }, [
     allStandardProjectsBase,
@@ -5327,7 +5351,7 @@ export default function Sidebar() {
         isSettled={false}
         isPinned={pinnedThreadIdSet.has(thread.id)}
         threadJumpLabel={visibleThreadJumpLabelByThreadId.get(thread.id) ?? null}
-        hasPendingDraft={draftThreadIdSet.has(thread.id)}
+        hasPendingDraft={draftThreadIdSet.has(scopeLocalThread(thread.id))}
         pr={
           prByThreadId.has(thread.id)
             ? (prByThreadId.get(thread.id) ?? null)
@@ -5440,7 +5464,10 @@ export default function Sidebar() {
   }
 
   function renderPinnedThreadRow(thread: SidebarThreadSummary) {
-    const threadTerminalState = selectThreadTerminalState(terminalStateByThreadId, thread.id);
+    const threadTerminalState = selectThreadTerminalState(
+      terminalStateByThreadId,
+      scopeLocalThread(thread.id),
+    );
     const threadEntryPoint = threadTerminalState.entryPoint;
     const terminalStatus = terminalStatusFromThreadState({
       runningTerminalIds: threadTerminalState.runningTerminalIds,
@@ -5573,7 +5600,10 @@ export default function Sidebar() {
     // same small-label treatment as pinned rows' project name.
     projectContextLabel?: string,
   ) {
-    const threadTerminalState = selectThreadTerminalState(terminalStateByThreadId, thread.id);
+    const threadTerminalState = selectThreadTerminalState(
+      terminalStateByThreadId,
+      scopeLocalThread(thread.id),
+    );
     const threadEntryPoint = threadTerminalState.entryPoint;
     const isActive = visualActiveSidebarThreadId === thread.id;
     const isPinned = pinnedThreadIdSet.has(thread.id);
@@ -5588,7 +5618,7 @@ export default function Sidebar() {
     const terminalCount = threadTerminalState.terminalIds.length;
     const isTemporaryThread =
       temporaryThreadIds[thread.id] === true ||
-      draftThreadsByThreadId[thread.id]?.isTemporary === true;
+      draftThreadsByThreadId[scopeLocalThread(thread.id)]?.isTemporary === true;
     const secondaryMetaClass = isHighlighted
       ? "text-foreground/54 dark:text-foreground/64"
       : "text-muted-foreground/34";
@@ -8225,7 +8255,7 @@ export default function Sidebar() {
                     prewarmThreadDetailForIntent(coordinatorThreadId);
                     setOptimisticActiveThreadId(coordinatorThreadId);
                     setSelectionAnchor(coordinatorThreadId);
-                    openChatThreadPage(coordinatorThreadId);
+                    openChatThreadPage(scopeLocalThread(coordinatorThreadId));
                     rememberLastThreadRouteNow({ threadId: coordinatorThreadId });
                     void navigate({
                       to: "/$threadId",

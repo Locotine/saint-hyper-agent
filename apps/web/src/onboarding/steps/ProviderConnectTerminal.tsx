@@ -4,6 +4,7 @@
 //          and disposes every session on unmount.
 // Layer: Web UI component
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ProviderKind } from "@saint/contracts";
 import { useEffect, useRef } from "react";
 
@@ -33,7 +34,7 @@ export function ProviderConnectTerminal(props: {
       for (const terminalId of terminalIdsRef.current) {
         disposeAndCloseTerminalSession({ api, threadId: scopeId, terminalId });
       }
-      clearTerminalState(scopeId);
+      clearTerminalState(scopeLocalThread(scopeId));
     },
     [clearTerminalState, scopeId],
   );
@@ -42,7 +43,7 @@ export function ProviderConnectTerminal(props: {
     if (terminalState.terminalOpen) {
       return;
     }
-    openTerminalThreadPage(scopeId, { terminalOnly: true });
+    openTerminalThreadPage(scopeLocalThread(scopeId), { terminalOnly: true });
   }, [openTerminalThreadPage, scopeId, terminalState.terminalOpen]);
 
   const commandStartedRef = useRef(false);

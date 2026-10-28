@@ -7,6 +7,7 @@
 // Layer: GitHub inbox orchestration hook
 // Exports: useGitHubInboxSidechat
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ProjectId, ThreadId } from "@saint/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -89,7 +90,7 @@ function enqueueItemQuestion(input: {
   modelSelection: ModelSelection;
   providerOptionsForDispatch: ReturnType<typeof getProviderStartOptions>;
 }): void {
-  useComposerDraftStore.getState().enqueueQueuedTurn(input.threadId, {
+  useComposerDraftStore.getState().enqueueQueuedTurn(scopeLocalThread(input.threadId), {
     id: randomUUID(),
     kind: "chat",
     createdAt: new Date().toISOString(),

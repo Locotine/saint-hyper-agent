@@ -1,5 +1,6 @@
 // A single terminal panel with an independent, chat-owned dock session.
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { type ProjectId, type ThreadId } from "@saint/contracts";
 import { resolveThreadWorkspaceCwd } from "@saint/shared/threadEnvironment";
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
@@ -76,11 +77,12 @@ export function DockTerminalPane(props: {
     const paneKey = `${scopeId}:${props.paneId}`;
     if (initializedPaneRef.current === paneKey) return;
     initializedPaneRef.current = paneKey;
-    ensureDockTerminal(scopeId, props.paneId);
+    ensureDockTerminal(scopeLocalThread(scopeId), props.paneId);
   }, [ensureDockTerminal, props.paneId, scopeId]);
 
   useEffect(() => {
-    if (terminalId && (props.isActive ?? true)) setActiveTerminal(scopeId, terminalId);
+    if (terminalId && (props.isActive ?? true))
+      setActiveTerminal(scopeLocalThread(scopeId), terminalId);
   }, [props.isActive, scopeId, setActiveTerminal, terminalId]);
 
   const onSessionExited = (terminalId: string) => {

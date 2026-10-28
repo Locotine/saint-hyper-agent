@@ -1,3 +1,4 @@
+import { scopeLocalProject, type ScopedProjectId } from "@saint/shared/hostId";
 // FILE: kanban.logic.ts
 // Purpose: Pure derivation of the kanban control-center board (columns, cards, ordering)
 //          from sidebar thread summaries and composer draft snapshots.
@@ -244,7 +245,7 @@ export interface BuildKanbanBoardInput {
   draftThreads: readonly KanbanDraftThreadSnapshot[];
   composerDraftByThreadId: Readonly<Record<string, KanbanComposerDraftSnapshot | undefined>>;
   /** Manual draft-column card order per project (kanban UI store). */
-  draftOrderByProjectId: Readonly<Record<string, readonly string[] | undefined>>;
+  draftOrderByProjectId: Readonly<Record<ScopedProjectId, readonly string[] | undefined>>;
   /**
    * Maps a thread's stored projectId to the board it should appear on. Used to fold
    * duplicate home chat-container projects into the one canonical "Chats" board;
@@ -946,10 +947,10 @@ export function buildKanbanBoard(
     // When the user reveals the folded tail, the cap drops for this build so
     // every review card renders (H1).
     const cap = needsReviewActive && !v2?.uncapped ? KANBAN_NEEDS_REVIEW_CAP : Infinity;
-    const draft = orderDraftCards(bucket.draft, input.draftOrderByProjectId[project.id]).slice(
-      0,
-      cap,
-    );
+    const draft = orderDraftCards(
+      bucket.draft,
+      input.draftOrderByProjectId[scopeLocalProject(project.id)],
+    ).slice(0, cap);
     const inProgress = bucket.inProgress.toSorted(compareByRecencyDesc).slice(0, cap);
     const awaitingYou = bucket.awaitingYou.toSorted(compareByRecencyDesc).slice(0, cap);
     const done = bucket.done.toSorted(compareByRecencyDesc).slice(0, cap);

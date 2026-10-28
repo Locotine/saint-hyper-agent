@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   PROVIDER_DISPLAY_NAMES,
   ProviderInteractionMode,
@@ -146,10 +147,10 @@ export function useChatRuntimeModes({
         if (serverThread) {
           onRuntimeModePersisted(nextMode);
         } else {
-          setComposerDraftRuntimeMode(threadId, nextMode);
+          setComposerDraftRuntimeMode(scopeLocalThread(threadId), nextMode);
         }
         if (isLocalDraftThread) {
-          setDraftThreadContext(threadId, { runtimeMode: nextMode });
+          setDraftThreadContext(scopeLocalThread(threadId), { runtimeMode: nextMode });
         }
         scheduleComposerFocus();
         return true;
@@ -199,9 +200,9 @@ export function useChatRuntimeModes({
   const handleInteractionModeChange = useCallback(
     (mode: ProviderInteractionMode) => {
       if (mode === interactionMode) return;
-      setComposerDraftInteractionMode(threadId, mode);
+      setComposerDraftInteractionMode(scopeLocalThread(threadId), mode);
       if (isLocalDraftThread) {
-        setDraftThreadContext(threadId, { interactionMode: mode });
+        setDraftThreadContext(scopeLocalThread(threadId), { interactionMode: mode });
       }
       if (serverThread) {
         const api = readNativeApi();

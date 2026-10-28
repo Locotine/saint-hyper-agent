@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   type ModelSelection,
   type ProjectAgentConfig,
@@ -248,7 +249,7 @@ describe("applyGroupWorkerRoutingDefaults", () => {
       providerStatuses: [GROUP_PROVIDER_STATUS, FALLBACK_PROVIDER_STATUS],
     });
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[THREAD_ID];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)];
     expect(draft?.activeProvider).toBe("claudeAgent");
     expect(draft?.modelSelectionByProvider.claudeAgent?.model).toBe("claude-opus-4-5");
     expect(draft?.providerOptionsForDispatch).toEqual(GROUP_PROVIDER_OPTIONS);
@@ -261,7 +262,7 @@ describe("applyGroupWorkerRoutingDefaults", () => {
       providerStatuses: [],
     });
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[THREAD_ID];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)];
     expect(draft?.activeProvider).toBe("claudeAgent");
     expect(draft?.modelSelectionByProvider.claudeAgent?.model).toBe("claude-opus-4-5");
   });
@@ -271,7 +272,7 @@ describe("applyGroupWorkerRoutingDefaults", () => {
     // draft is on codex because claudeAgent is not installed.
     useComposerDraftStore
       .getState()
-      .setModelSelection(THREAD_ID, { provider: "codex", model: "gpt-5.4" });
+      .setModelSelection(scopeLocalThread(THREAD_ID), { provider: "codex", model: "gpt-5.4" });
     applyGroupWorkerRoutingDefaults({
       threadId: THREAD_ID,
       defaults: {
@@ -293,7 +294,7 @@ describe("applyGroupWorkerRoutingDefaults", () => {
       ],
     });
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[THREAD_ID];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)];
     // The configured model stays as the per-provider default, but the active
     // provider is not pinned to an unusable one — a send would dispatch codex.
     expect(draft?.activeProvider).toBe("codex");
@@ -305,7 +306,7 @@ describe("applyGroupWorkerRoutingDefaults", () => {
   it("keeps the usable fallback active when the group's provider is signed out", () => {
     useComposerDraftStore
       .getState()
-      .setModelSelection(THREAD_ID, { provider: "codex", model: "gpt-5.4" });
+      .setModelSelection(scopeLocalThread(THREAD_ID), { provider: "codex", model: "gpt-5.4" });
     applyGroupWorkerRoutingDefaults({
       threadId: THREAD_ID,
       defaults: { modelSelection: GROUP_MODEL },
@@ -323,7 +324,7 @@ describe("applyGroupWorkerRoutingDefaults", () => {
       ],
     });
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[THREAD_ID];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)];
     expect(draft?.activeProvider).toBe("codex");
     expect(draft?.modelSelectionByProvider.claudeAgent?.model).toBe("claude-opus-4-5");
   });

@@ -7,10 +7,15 @@
 // Layer: UI state store
 // Exports: useWorkflowRunUiStore, useWorkflowRunUiThreadState, default-state helper
 
-import type { ThreadId } from "@saint/contracts";
+import type { ScopedThreadId } from "@saint/shared/hostId";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { isPlainObject, sanitizeStringKeyedRecord } from "./persistedRecord";
+import { createMemoryStorage, withLegacyKeyFallback } from "./lib/storage";
+import {
+  isPlainObject,
+  sanitizeStringKeyedRecord,
+  scopeThreadKeyedRecord,
+} from "./persistedRecord";
 
 export interface WorkflowRunUiThreadState {
   pausedByUser: readonly string[];
@@ -18,15 +23,17 @@ export interface WorkflowRunUiThreadState {
 }
 
 interface WorkflowRunUiStoreState {
-  stateByThreadId: Record<string, WorkflowRunUiThreadState | undefined>;
-  markPaused: (threadId: ThreadId, workflowTaskId: string) => void;
-  unmarkPaused: (threadId: ThreadId, workflowTaskId: string) => void;
-  markDismissed: (threadId: ThreadId, workflowTaskId: string) => void;
+  stateByThreadId: Record<ScopedThreadId, WorkflowRunUiThreadState | undefined>;
+  markPaused: (threadId: ScopedThreadId, workflowTaskId: string) => void;
+  unmarkPaused: (threadId: ScopedThreadId, workflowTaskId: string) => void;
+  markDismissed: (threadId: ScopedThreadId, workflowTaskId: string) => void;
   // Drops all tracked flags for a thread (e.g. once the thread itself is deleted).
-  clearThread: (threadId: ThreadId) => void;
+  clearThread: (threadId: ScopedThreadId) => void;
 }
 
-const WORKFLOW_RUN_UI_STORAGE_KEY = "saint:workflow-run-ui:v1";
+const WORKFLOW_RUN_UI_STORAGE_KEY = "saint:workflow-run-ui:v2";
+// v1 was keyed by raw thread ids. Read once as local threads, then left alone for a rollback.
+const LEGACY_WORKFLOW_RUN_UI_STORAGE_KEY = "saint:workflow-run-ui:v1";
 // Workflow task ids accumulate one per run; a thread re-running workflows for
 // months should still not grow this without bound. Keep the newest entries.
 const MAX_ENTRIES_PER_LIST = 50;
@@ -93,8 +100,8 @@ function sanitizeWorkflowRunUiThreadState(rawState: unknown): WorkflowRunUiThrea
 // degrades to defaults instead of flowing into the UI.
 export function sanitizeWorkflowRunUiStateByThreadId(
   value: unknown,
-): Record<string, WorkflowRunUiThreadState> {
-  return sanitizeStringKeyedRecord(value, sanitizeWorkflowRunUiThreadState);
+): Record<ScopedThreadId, WorkflowRunUiThreadState> {
+  return scopeThreadKeyedRecord(sanitizeStringKeyedRecord(value, sanitizeWorkflowRunUiThreadState));
 }
 
 export const useWorkflowRunUiStore = create<WorkflowRunUiStoreState>()(
@@ -158,7 +165,11 @@ export const useWorkflowRunUiStore = create<WorkflowRunUiStoreState>()(
     }),
     {
       name: WORKFLOW_RUN_UI_STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        typeof localStorage === "undefined"
+          ? createMemoryStorage()
+          : withLegacyKeyFallback(localStorage, LEGACY_WORKFLOW_RUN_UI_STORAGE_KEY),
+      ),
       merge: (persisted, current) => ({
         ...current,
         stateByThreadId: sanitizeWorkflowRunUiStateByThreadId(
@@ -169,7 +180,7 @@ export const useWorkflowRunUiStore = create<WorkflowRunUiStoreState>()(
   ),
 );
 
-export function selectWorkflowRunUiThreadState(threadId: ThreadId | null) {
+export function selectWorkflowRunUiThreadState(threadId: ScopedThreadId | null) {
   return (store: WorkflowRunUiStoreState): WorkflowRunUiThreadState =>
     // Keep the fallback snapshot stable so React does not observe a phantom store
     // change while mounting a thread that has no tracked workflow-run flags yet.
@@ -177,6 +188,8 @@ export function selectWorkflowRunUiThreadState(threadId: ThreadId | null) {
     getDefaultWorkflowRunUiThreadState();
 }
 
-export function useWorkflowRunUiThreadState(threadId: ThreadId | null): WorkflowRunUiThreadState {
+export function useWorkflowRunUiThreadState(
+  threadId: ScopedThreadId | null,
+): WorkflowRunUiThreadState {
   return useWorkflowRunUiStore(selectWorkflowRunUiThreadState(threadId));
 }

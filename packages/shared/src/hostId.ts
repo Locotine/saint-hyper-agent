@@ -74,6 +74,11 @@ export function scopeThread(hostId: HostId, threadId: ThreadId): ScopedThreadId 
   return scope<"thread">(hostId, threadId);
 }
 
+/** This computer's thread. Stands in until a call site knows its host (P4/P5). */
+export function scopeLocalThread(threadId: ThreadId): ScopedThreadId {
+  return scopeThread(LOCAL_HOST_ID, threadId);
+}
+
 export function scopeProject(hostId: HostId, projectId: ProjectId): ScopedProjectId {
   return scope<"project">(hostId, projectId);
 }
@@ -82,6 +87,58 @@ export function unscopeThread(scoped: ScopedThreadId): ThreadRef {
   const parts = unscope(scoped);
   if (!parts) throw new Error(`Not a scoped thread ID: ${scoped}`);
   return { hostId: parts.hostId, threadId: parts.rawId as ThreadId };
+}
+
+/** The raw id of a thread on this computer; `null` for another host's thread. */
+export function localThreadId(scoped: ScopedThreadId): ThreadId | null {
+  const ref = unscopeThread(scoped);
+  return ref.hostId === LOCAL_HOST_ID ? ref.threadId : null;
+}
+
+/** This computer's threads among `scoped`, as raw ids, in order. */
+export function localThreadIds(scoped: readonly ScopedThreadId[]): ThreadId[] {
+  const threadIds: ThreadId[] = [];
+  for (const id of scoped) {
+    const threadId = localThreadId(id);
+    if (threadId !== null) threadIds.push(threadId);
+  }
+  return threadIds;
+}
+
+/**
+ * `localThreadId` for a record key that may predate scoping: a bare key is a local thread.
+ * Lets code that still addresses threads by the server id read host-keyed records.
+ */
+export function localThreadIdFromKey(key: string): ThreadId | null {
+  const scoped = parseScopedThreadId(key);
+  return scoped === null ? null : localThreadId(scoped);
+}
+
+/** A thread route param: this computer's host-qualified ids are shortened to the bare id; others pass through. */
+export function bareLocalThreadParam(value: string): string {
+  const scoped = parseScopedThreadId(value);
+  return (scoped !== null && localThreadId(scoped)) || value;
+}
+
+/** This computer's project. Stands in until a call site knows its host (P4/P5). */
+export function scopeLocalProject(projectId: ProjectId): ScopedProjectId {
+  return scopeProject(LOCAL_HOST_ID, projectId);
+}
+
+/** The raw id of a project on this computer; `null` for another host's project. */
+export function localProjectId(scoped: ScopedProjectId): ProjectId | null {
+  const ref = unscopeProject(scoped);
+  return ref.hostId === LOCAL_HOST_ID ? ref.projectId : null;
+}
+
+/** This computer's projects among `scoped`, as raw ids, in order. */
+export function localProjectIds(scoped: readonly ScopedProjectId[]): ProjectId[] {
+  const projectIds: ProjectId[] = [];
+  for (const id of scoped) {
+    const projectId = localProjectId(id);
+    if (projectId !== null) projectIds.push(projectId);
+  }
+  return projectIds;
 }
 
 export function unscopeProject(scoped: ScopedProjectId): ProjectRef {

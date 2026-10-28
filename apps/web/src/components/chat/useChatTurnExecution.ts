@@ -1,3 +1,4 @@
+import { scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
 import type {
   ProjectId,
   ProjectKind,
@@ -35,6 +36,7 @@ import {
   useComposerDraftStore,
   type DraftThreadEnvMode,
   type QueuedComposerChatTurn,
+  type RestoredComposerSourceProposedPlan,
 } from "../../composerDraftStore";
 import {
   cloneComposerImageAttachment,
@@ -157,6 +159,14 @@ type ChatTurnExecutionInput = Pick<
   | "scheduleFailedWorktreeSetupDispatchReset"
   | "resetLocalDispatch"
 >;
+
+// The send flow holds the server's thread id; the draft store keys by host.
+function setStoredRestoredSourceProposedPlan(
+  threadId: ThreadId,
+  plan: RestoredComposerSourceProposedPlan | null,
+): void {
+  useComposerDraftStore.getState().setRestoredSourceProposedPlan(scopeLocalThread(threadId), plan);
+}
 
 export function useChatTurnExecution({
   prepareProviderHandoffForSend,
@@ -371,7 +381,7 @@ export function useChatTurnExecution({
         if (isLocalDraftThread) {
           const inheritedProjectInstructions =
             useProjectInstructionsStore.getState().instructionsByProjectId[
-              targetProjectIdForSend
+              scopeLocalProject(targetProjectIdForSend)
             ] ?? "";
           const inheritedThreadNotes = mergeProjectInstructionsIntoThreadNotes({
             threadNotes,
@@ -724,10 +734,7 @@ export function useChatTurnExecution({
         if (queuedChatTurn === null) {
           (activeThreadIdRef.current === threadIdForSend
             ? setRestoredQueuedSourceProposedPlan
-            : useComposerDraftStore.getState().setRestoredSourceProposedPlan)(
-            threadIdForSend,
-            null,
-          );
+            : setStoredRestoredSourceProposedPlan)(threadIdForSend, null);
         }
       })().catch(async (err: unknown) => {
         // The server already recorded this message, so the turn exists whatever failed
@@ -851,7 +858,8 @@ export function useChatTurnExecution({
               return next.length === existing.length ? existing : next;
             });
         }
-        const retryDraft = useComposerDraftStore.getState().draftsByThreadId[threadIdForSend];
+        const retryDraft =
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadIdForSend)];
         if (
           queuedChatTurn === null &&
           !turnStartSucceeded &&
@@ -880,7 +888,7 @@ export function useChatTurnExecution({
           if (sourceProposedPlanForSend) {
             (isFocusedSend
               ? setRestoredQueuedSourceProposedPlan
-              : useComposerDraftStore.getState().setRestoredSourceProposedPlan)(threadIdForSend, {
+              : setStoredRestoredSourceProposedPlan)(threadIdForSend, {
               threadId: threadIdForSend,
               restoredPrompt: promptForSend,
               sourceProposedPlan: sourceProposedPlanForSend,
@@ -891,54 +899,68 @@ export function useChatTurnExecution({
           (isFocusedSend
             ? addComposerImagesToDraft
             : (value: Parameters<typeof addComposerImagesToDraft>[0]) =>
-                useComposerDraftStore.getState().addImages(threadIdForSend, value))(
+                useComposerDraftStore
+                  .getState()
+                  .addImages(scopeLocalThread(threadIdForSend), value))(
             composerImagesSnapshot.map(cloneComposerImageAttachment),
           );
           (isFocusedSend
             ? addComposerFilesToDraft
             : (value: Parameters<typeof addComposerFilesToDraft>[0]) =>
-                useComposerDraftStore.getState().addFiles(threadIdForSend, value))(
-            composerFilesSnapshot,
-          );
+                useComposerDraftStore
+                  .getState()
+                  .addFiles(scopeLocalThread(threadIdForSend), value))(composerFilesSnapshot);
           for (const selection of composerAssistantSelectionsSnapshot) {
             (isFocusedSend
               ? addComposerAssistantSelectionToDraft
               : (value: Parameters<typeof addComposerAssistantSelectionToDraft>[0]) =>
-                  useComposerDraftStore.getState().addAssistantSelection(threadIdForSend, value))(
-              selection,
-            );
+                  useComposerDraftStore
+                    .getState()
+                    .addAssistantSelection(scopeLocalThread(threadIdForSend), value))(selection);
           }
           addComposerDraftBrowserAnnotations(threadIdForSend, composerBrowserAnnotationsSnapshot);
           for (const comment of composerFileCommentsSnapshot) {
             (isFocusedSend
               ? addComposerFileCommentToDraft
               : (value: Parameters<typeof addComposerFileCommentToDraft>[0]) =>
-                  useComposerDraftStore.getState().addFileComment(threadIdForSend, value))(comment);
+                  useComposerDraftStore
+                    .getState()
+                    .addFileComment(scopeLocalThread(threadIdForSend), value))(comment);
           }
           (isFocusedSend
             ? addComposerTerminalContextsToDraft
             : (value: Parameters<typeof addComposerTerminalContextsToDraft>[0]) =>
-                useComposerDraftStore.getState().addTerminalContexts(threadIdForSend, value))(
+                useComposerDraftStore
+                  .getState()
+                  .addTerminalContexts(scopeLocalThread(threadIdForSend), value))(
             composerTerminalContextsSnapshot,
           );
           (isFocusedSend
             ? addComposerPastedTextsToDraft
             : (value: Parameters<typeof addComposerPastedTextsToDraft>[0]) =>
-                useComposerDraftStore.getState().addPastedTexts(threadIdForSend, value))(
+                useComposerDraftStore
+                  .getState()
+                  .addPastedTexts(scopeLocalThread(threadIdForSend), value))(
             composerPastedTextsSnapshot,
           );
           (isFocusedSend
             ? addComposerPullRequestContextsToDraft
             : (value: Parameters<typeof addComposerPullRequestContextsToDraft>[0]) =>
                 value.forEach((context) =>
-                  useComposerDraftStore.getState().addPullRequestContext(threadIdForSend, context),
+                  useComposerDraftStore
+                    .getState()
+                    .addPullRequestContext(scopeLocalThread(threadIdForSend), context),
                 ))(composerPullRequestContextsSnapshot);
           if (isFocusedSend) {
             updateSelectedComposerSkills(composerSkillsSnapshot);
             updateSelectedComposerMentions(composerMentionsSnapshot);
           } else {
-            useComposerDraftStore.getState().setSkills(threadIdForSend, composerSkillsSnapshot);
-            useComposerDraftStore.getState().setMentions(threadIdForSend, composerMentionsSnapshot);
+            useComposerDraftStore
+              .getState()
+              .setSkills(scopeLocalThread(threadIdForSend), composerSkillsSnapshot);
+            useComposerDraftStore
+              .getState()
+              .setMentions(scopeLocalThread(threadIdForSend), composerMentionsSnapshot);
           }
           if (isFocusedSend)
             setComposerTrigger(detectComposerTrigger(promptForSend, promptForSend.length));

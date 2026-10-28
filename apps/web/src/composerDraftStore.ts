@@ -2,6 +2,7 @@
 // Purpose: Public Zustand facade for composer drafts, model choices, attachments, and persistence.
 // Exports: Stable composer draft API, hooks, and promotion helpers.
 
+import { scopeThread, unscopeThread, type HostId, type ScopedThreadId } from "@saint/shared/hostId";
 import {
   type ModelSelection,
   type ProviderInstanceId,
@@ -16,6 +17,7 @@ import { useShallow } from "zustand/react/shallow";
 import { createComposerDraftStoreState } from "./composerDraftActions";
 import {
   COMPOSER_DRAFT_STORAGE_KEY,
+  LEGACY_COMPOSER_DRAFT_STORAGE_KEY,
   COMPOSER_DRAFT_STORAGE_VERSION,
   composerThreadDraftIsPending,
   composerThreadDraftPreviewText,
@@ -39,6 +41,7 @@ import {
   createDeferredPersistStorage,
   createMemoryStorage,
   flushStorageBeforePageHide,
+  withLegacyKeyFallback,
   type StateStorage,
 } from "./lib/storage";
 
@@ -79,7 +82,9 @@ export { partializeComposerDraftStoreState } from "./composerDraftPersistence";
 
 const COMPOSER_PERSIST_DEBOUNCE_MS = 300;
 const composerBaseStorage: StateStorage =
-  typeof localStorage !== "undefined" ? localStorage : createMemoryStorage();
+  typeof localStorage !== "undefined"
+    ? withLegacyKeyFallback(localStorage, LEGACY_COMPOSER_DRAFT_STORAGE_KEY)
+    : createMemoryStorage();
 const composerPersistStorage = createDeferredPersistStorage<
   ComposerDraftStoreState,
   PersistedComposerDraftStoreState
@@ -109,7 +114,7 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
         const draftsByThreadId = Object.fromEntries(
           Object.entries(normalizedPersisted.draftsByThreadId).map(([threadId, draft]) => [
             threadId,
-            toHydratedThreadDraft(threadId as ThreadId, draft),
+            toHydratedThreadDraft(threadId as ScopedThreadId, draft),
           ]),
         );
         return {
@@ -125,11 +130,11 @@ export const useComposerDraftStore = create<ComposerDraftStoreState>()(
   ),
 );
 
-export function useComposerThreadDraft(threadId: ThreadId): ComposerThreadDraftState {
+export function useComposerThreadDraft(threadId: ScopedThreadId): ComposerThreadDraftState {
   return useComposerDraftStore((state) => selectComposerThreadDraft(state, threadId));
 }
 
-export function useThreadHasPendingDraft(threadId: ThreadId): boolean {
+export function useThreadHasPendingDraft(threadId: ScopedThreadId): boolean {
   return useComposerDraftStore((state) => {
     const draft = state.draftsByThreadId[threadId];
     return draft !== undefined && composerThreadDraftIsPending(draft);
@@ -137,7 +142,7 @@ export function useThreadHasPendingDraft(threadId: ThreadId): boolean {
 }
 
 /** Short excerpt of the chat's unsent prompt, or null when it has no draft text. */
-export function useThreadDraftPreviewText(threadId: ThreadId): string | null {
+export function useThreadDraftPreviewText(threadId: ScopedThreadId): string | null {
   return useComposerDraftStore((state) =>
     composerThreadDraftPreviewText(state.draftsByThreadId[threadId]),
   );
@@ -147,13 +152,13 @@ export function useThreadDraftPreviewText(threadId: ThreadId): string | null {
  * Threads whose composer holds an unsent message. The set only changes identity when
  * a thread gains or loses its draft, not on every keystroke.
  */
-export function useThreadIdsWithPendingDraft(): ReadonlySet<ThreadId> {
+export function useThreadIdsWithPendingDraft(): ReadonlySet<ScopedThreadId> {
   const threadIds = useComposerDraftStore(useShallow(selectThreadIdsWithPendingDraft));
   return useMemo(() => new Set(threadIds), [threadIds]);
 }
 
 export function useEffectiveComposerModelState(input: {
-  threadId: ThreadId;
+  threadId: ScopedThreadId;
   selectedProvider: ProviderKind;
   selectedProviderInstanceId?: ProviderInstanceId | null | undefined;
   threadModelSelection: ModelSelection | null | undefined;
@@ -178,19 +183,26 @@ export function useEffectiveComposerModelState(input: {
 }
 
 // Mark drafts as promoted first; route/composer cleanup happens after the server thread starts.
-export function markPromotedDraftThreads(serverThreadIds: ReadonlySet<ThreadId>): void {
+export function markPromotedDraftThreads(
+  hostId: HostId,
+  serverThreadIds: ReadonlySet<ThreadId>,
+): void {
   const store = useComposerDraftStore.getState();
-  const draftThreadIds = Object.keys(store.draftThreadsByThreadId) as ThreadId[];
+  const draftThreadIds = Object.keys(store.draftThreadsByThreadId) as ScopedThreadId[];
   for (const draftId of draftThreadIds) {
-    if (serverThreadIds.has(draftId)) {
+    const draft = unscopeThread(draftId);
+    if (draft.hostId === hostId && serverThreadIds.has(draft.threadId)) {
       store.markDraftThreadPromoting(draftId);
     }
   }
 }
 
-export function finalizePromotedDraftThreads(serverThreadIds: ReadonlySet<ThreadId>): void {
+export function finalizePromotedDraftThreads(
+  hostId: HostId,
+  serverThreadIds: ReadonlySet<ThreadId>,
+): void {
   const store = useComposerDraftStore.getState();
   for (const threadId of serverThreadIds) {
-    store.finalizePromotedDraftThread(threadId);
+    store.finalizePromotedDraftThread(scopeThread(hostId, threadId));
   }
 }

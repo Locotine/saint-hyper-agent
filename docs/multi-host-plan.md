@@ -72,6 +72,7 @@
 Token không vào state persist; `wsUrl(host)` gọi mới mỗi epoch.
 
 ### 2.5 Persist & migration (P3)
+> Trạng thái từng store (đã làm / hoãn có lý do): [multi-host-p0-inventory.md § P3 status](multi-host-p0-inventory.md#p3-status). `storePersistence` v9 và react-query key được hoãn có lý do ở đó.
 - Migration có phiên bản v8→v9 cho các store persist: khoá thread/project thô → `local~<raw>`; đọc được bản cũ (fallback), ghi bản mới; test migration từng store (fixture trước/sau).
 - `saint:renderer-state:v8` (project theo cwd) → khoá `hostId + cwd`; `cwd` remote là POSIX, so sánh phân biệt hoa/thường.
 - Dọn khi `forget host`: xoá draft/tab/ghim/terminal state mang host đó + GC khi khởi động.

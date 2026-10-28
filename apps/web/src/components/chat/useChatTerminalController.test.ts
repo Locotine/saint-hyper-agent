@@ -3,6 +3,7 @@
 // Layer: Chat terminal controller tests
 
 import { ThreadId } from "@saint/contracts";
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const reactHarness = vi.hoisted(() => {
@@ -204,10 +205,13 @@ describe("useChatTerminalController", () => {
     result = render();
     expect(result.terminalFocusRequestId).toBe(1);
     expect(terminalHarness.actions.setTerminalPresentationMode).toHaveBeenCalledWith(
-      THREAD_ID,
+      scopeLocalThread(THREAD_ID),
       "workspace",
     );
-    expect(terminalHarness.actions.setTerminalOpen).toHaveBeenCalledWith(THREAD_ID, true);
+    expect(terminalHarness.actions.setTerminalOpen).toHaveBeenCalledWith(
+      scopeLocalThread(THREAD_ID),
+      true,
+    );
     expect(terminalHarness.actions.newTerminal).not.toHaveBeenCalled();
   });
 
@@ -238,7 +242,10 @@ describe("useChatTerminalController", () => {
       terminalId: "terminal-1",
       requireStructuredClose: true,
     });
-    expect(terminalHarness.actions.closeTerminal).toHaveBeenCalledWith(THREAD_ID, "terminal-1");
+    expect(terminalHarness.actions.closeTerminal).toHaveBeenCalledWith(
+      scopeLocalThread(THREAD_ID),
+      "terminal-1",
+    );
     expect(onDeletePlaceholderThread).toHaveBeenCalledWith(THREAD_ID);
     expect(result.terminalFocusRequestId).toBe(1);
   });
@@ -281,7 +288,10 @@ describe("useChatTerminalController", () => {
       clearHistoryBeforeClose: true,
       processAlreadyExited: true,
     });
-    expect(terminalHarness.actions.closeTerminal).toHaveBeenCalledWith(THREAD_ID, "terminal-1");
+    expect(terminalHarness.actions.closeTerminal).toHaveBeenCalledWith(
+      scopeLocalThread(THREAD_ID),
+      "terminal-1",
+    );
     expect(onDeletePlaceholderThread).not.toHaveBeenCalled();
     expect(result.terminalFocusRequestId).toBe(1);
   });

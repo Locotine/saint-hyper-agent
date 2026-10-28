@@ -5,6 +5,7 @@
 // Layer: Tasks UI hooks
 // Exports: useTodoList, useTodoMutations, useTodoEventSubscription, useTaskRows
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   Todo,
   TodoCreateInput,
@@ -353,7 +354,8 @@ export function useTaskRows(todos: readonly Todo[], now?: Date): TaskRowModel[] 
       todos.map((todo, index) => {
         const thread = linkedThreads[index] ?? null;
         const hasDraftThread =
-          todo.threadId !== null && draftThreadsByThreadId[todo.threadId] !== undefined;
+          todo.threadId !== null &&
+          draftThreadsByThreadId[scopeLocalThread(todo.threadId)] !== undefined;
         return {
           todo,
           thread,

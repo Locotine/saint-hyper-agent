@@ -1,4 +1,5 @@
 import { ProjectId, ThreadId } from "@saint/contracts";
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { PropsWithChildren } from "react";
 import { afterEach, expect, it } from "vitest";
@@ -48,8 +49,12 @@ it("retains a background draft through hydration and reveals its tab after promo
     hasPendingApprovals: false,
     hasPendingUserInput: false,
   } as SidebarThreadSummary;
-  useComposerDraftStore.getState().setProjectDraftThreadId(projectId, threadId, {});
-  useOpenThreadTabsStore.setState({ threadIds: [activeThreadId, threadId] });
+  useComposerDraftStore
+    .getState()
+    .setProjectDraftThreadId(projectId, scopeLocalThread(threadId), {});
+  useOpenThreadTabsStore.setState({
+    threadIds: [activeThreadId, threadId].map(scopeLocalThread),
+  });
   useStore.setState({
     threadsHydrated: true,
     sidebarThreadSummaryById: { [activeThreadId]: summary },
@@ -62,8 +67,8 @@ it("retains a background draft through hydration and reveals its tab after promo
   });
   try {
     expect(hook.result.current.map((tab) => tab.threadId)).toEqual([activeThreadId]);
-    expect(useOpenThreadTabsStore.getState().threadIds).toContain(threadId);
-    useComposerDraftStore.getState().clearDraftThread(threadId);
+    expect(useOpenThreadTabsStore.getState().threadIds).toContain(scopeLocalThread(threadId));
+    useComposerDraftStore.getState().clearDraftThread(scopeLocalThread(threadId));
     useStore.setState({
       sidebarThreadSummaryById: {
         [activeThreadId]: summary,
@@ -100,7 +105,7 @@ it("starts and stops the worktree tab spinner with its send before a session exi
       } as SidebarThreadSummary,
     },
   });
-  useOpenThreadTabsStore.setState({ threadIds: [threadId] });
+  useOpenThreadTabsStore.setState({ threadIds: [scopeLocalThread(threadId)] });
   const queryClient = createQueryClient();
   const hook = await renderHook(() => useOpenThreadTabs({ activeThreadId: threadId }), {
     wrapper: ({ children }: PropsWithChildren) => (
@@ -125,4 +130,19 @@ it("starts and stops the worktree tab spinner with its send before a session exi
     await hook.unmount();
     queryClient.clear();
   }
+});
+
+it("reads tabs saved under the raw-id key as this computer's threads and leaves that key alone", async () => {
+  const legacy = JSON.stringify({ state: { threadIds: ["thread-a", "thread-b"] }, version: 0 });
+  localStorage.setItem("saint:open-thread-tabs:v1", legacy);
+  const reloaded = useOpenThreadTabsStore;
+  await reloaded.persist.rehydrate();
+
+  expect(reloaded.getState().threadIds).toEqual([
+    scopeLocalThread(ThreadId.makeUnsafe("thread-a")),
+    scopeLocalThread(ThreadId.makeUnsafe("thread-b")),
+  ]);
+  reloaded.getState().openThreadTab(scopeLocalThread(ThreadId.makeUnsafe("thread-c")));
+  expect(localStorage.getItem("saint:open-thread-tabs:v1")).toBe(legacy);
+  expect(localStorage.getItem("saint:open-thread-tabs:v2")).toContain("local~thread-c");
 });

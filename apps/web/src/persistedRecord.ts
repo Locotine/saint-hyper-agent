@@ -1,7 +1,15 @@
 // FILE: persistedRecord.ts
 // Purpose: Shared helpers for validating untrusted persisted (localStorage) state.
 // Layer: Web UI state utilities
-// Exports: plain-object guard and a string-keyed record sanitizer used by stores.
+// Exports: plain-object guard, a string-keyed record sanitizer used by stores, and the
+//          re-keying that upgrades raw-id records to host-scoped ids.
+
+import {
+  parseScopedProjectId,
+  parseScopedThreadId,
+  type ScopedProjectId,
+  type ScopedThreadId,
+} from "@saint/shared/hostId";
 
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -33,6 +41,30 @@ export function sanitizeStringKeyedRecord<T>(
     if (sanitized !== null) {
       result[key] = sanitized;
     }
+  }
+  return result;
+}
+
+// Records saved before host scoping are keyed by raw ids: those are this computer's.
+// Already-scoped keys pass through, so re-reading the new format is a no-op.
+export function scopeThreadKeyedRecord<T>(
+  record: Readonly<Record<string, T>>,
+): Record<ScopedThreadId, T> {
+  const result: Record<ScopedThreadId, T> = {};
+  for (const [key, value] of Object.entries(record)) {
+    const scoped = parseScopedThreadId(key);
+    if (scoped !== null) result[scoped] = value;
+  }
+  return result;
+}
+
+export function scopeProjectKeyedRecord<T>(
+  record: Readonly<Record<string, T>>,
+): Record<ScopedProjectId, T> {
+  const result: Record<ScopedProjectId, T> = {};
+  for (const [key, value] of Object.entries(record)) {
+    const scoped = parseScopedProjectId(key);
+    if (scoped !== null) result[scoped] = value;
   }
   return result;
 }

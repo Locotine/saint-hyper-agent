@@ -5,11 +5,11 @@
 // Layer: UI state store
 // Exports: useOpenThreadTabsStore
 
-import type { ThreadId } from "@saint/contracts";
+import type { ScopedThreadId } from "@saint/shared/hostId";
 import { create } from "zustand";
-import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
-import { createMemoryStorage } from "./lib/storage";
+import { createMemoryStorage, withLegacyKeyFallback, type SyncStateStorage } from "./lib/storage";
 import {
   addOpenThreadTab,
   moveOpenThreadTab,
@@ -19,19 +19,22 @@ import {
 } from "./openThreadTabs.logic";
 
 interface OpenThreadTabsStoreState {
-  threadIds: readonly ThreadId[];
-  openThreadTab: (threadId: ThreadId) => void;
-  closeThreadTab: (threadId: ThreadId) => void;
-  moveThreadTab: (threadId: ThreadId, overThreadId: ThreadId) => void;
-  pruneThreadTabs: (isKept: (threadId: ThreadId) => boolean) => void;
+  /** Tabs of every host. Only this computer's render until remote threads get a UI. */
+  threadIds: readonly ScopedThreadId[];
+  openThreadTab: (threadId: ScopedThreadId) => void;
+  closeThreadTab: (threadId: ScopedThreadId) => void;
+  moveThreadTab: (threadId: ScopedThreadId, overThreadId: ScopedThreadId) => void;
+  pruneThreadTabs: (isKept: (threadId: ScopedThreadId) => boolean) => void;
 }
 
-const OPEN_THREAD_TABS_STORAGE_KEY = "saint:open-thread-tabs:v1";
+const OPEN_THREAD_TABS_STORAGE_KEY = "saint:open-thread-tabs:v2";
+// v1 held raw thread ids. Read once as local threads, then left alone for a rollback.
+const LEGACY_OPEN_THREAD_TABS_STORAGE_KEY = "saint:open-thread-tabs:v1";
 // The editor rail's own per-project chat tabs, which this store replaced. Not migrated
 // (the rail's tabs were a subset of the threads on screen); dropped on the first write.
 const LEGACY_EDITOR_RAIL_CHAT_TABS_STORAGE_KEY = "saint.editor.railChatTabsByProjectId";
 
-function createOpenThreadTabsStorage(): StateStorage {
+function createOpenThreadTabsStorage(): SyncStateStorage {
   return {
     getItem: (name) => localStorage.getItem(name),
     setItem: (name, value) => {
@@ -75,7 +78,12 @@ export const useOpenThreadTabsStore = create<OpenThreadTabsStoreState>()(
     {
       name: OPEN_THREAD_TABS_STORAGE_KEY,
       storage: createJSONStorage(() =>
-        typeof localStorage === "undefined" ? createMemoryStorage() : createOpenThreadTabsStorage(),
+        typeof localStorage === "undefined"
+          ? createMemoryStorage()
+          : withLegacyKeyFallback(
+              createOpenThreadTabsStorage(),
+              LEGACY_OPEN_THREAD_TABS_STORAGE_KEY,
+            ),
       ),
       partialize: (state) => ({ threadIds: state.threadIds }),
       merge: (persistedState, currentState) => ({

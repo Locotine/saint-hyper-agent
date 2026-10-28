@@ -6,6 +6,7 @@
 // Layer: Chat command helper
 // Exports: respondToThreadApproval
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   ApprovalRequestId,
   ProviderApprovalDecision,
@@ -55,7 +56,7 @@ export async function respondToThreadApproval(input: {
     input.requestKind,
   );
   if (durableRuntimeMode) {
-    useComposerDraftStore.getState().setRuntimeMode(threadId, durableRuntimeMode);
+    useComposerDraftStore.getState().setRuntimeMode(scopeLocalThread(threadId), durableRuntimeMode);
   }
   await api.orchestration
     .dispatchCommand({

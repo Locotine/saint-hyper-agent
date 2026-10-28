@@ -1,3 +1,4 @@
+import { scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
 import {
   type NativeApi,
   type OrchestrationShellSnapshot,
@@ -94,21 +95,23 @@ export function useChatWorkspaceSelection({
   const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
   const moveDraftThreadToProject = useComposerDraftStore((store) => store.moveDraftThreadToProject);
   const draftThread = useComposerDraftStore(
-    (store) => store.draftThreadsByThreadId[threadId] ?? null,
+    (store) => store.draftThreadsByThreadId[scopeLocalThread(threadId)] ?? null,
   );
   const homeDir = useWorkspacePathsStore((state) => state.homeDir);
   const chatWorkspaceRoot = useWorkspacePathsStore((state) => state.chatWorkspaceRoot);
   const onEnvModeChange = useCallback(
     (mode: DraftThreadEnvMode) => {
       if (activeProject) {
-        useProjectEnvironmentStore.getState().setProjectEnvMode(activeProject.id, mode);
+        useProjectEnvironmentStore
+          .getState()
+          .setProjectEnvMode(scopeLocalProject(activeProject.id), mode);
       }
       const nextBranch =
         mode === "worktree"
           ? (activeThread?.branch ?? draftThread?.branch ?? activeRootBranch ?? null)
           : (activeThread?.branch ?? draftThread?.branch ?? null);
       if (isLocalDraftThread) {
-        setDraftThreadContext(threadId, {
+        setDraftThreadContext(scopeLocalThread(threadId), {
           envMode: mode,
           ...(mode === "local" ? { worktreePath: null } : {}),
           ...(nextBranch ? { branch: nextBranch } : {}),
@@ -151,7 +154,7 @@ export function useChatWorkspaceSelection({
       },
     ) => {
       // Project moves reset branch; the previous project's current branch may not exist here.
-      moveDraftThreadToProject(threadId, projectId, LOCAL_PROJECT_DRAFT_CONTEXT);
+      moveDraftThreadToProject(scopeLocalThread(threadId), projectId, LOCAL_PROJECT_DRAFT_CONTEXT);
       if (options?.restoreComposerFocus ?? true) {
         scheduleComposerFocus();
       }
@@ -166,7 +169,7 @@ export function useChatWorkspaceSelection({
     const restoreComposerFocus = !composerEditorRef.current?.isFocused();
     if (isLocalDraftThread) {
       if (isGroupContainer) {
-        setDraftThreadContext(threadId, {
+        setDraftThreadContext(scopeLocalThread(threadId), {
           envMode: "local",
           branch: null,
           worktreePath: null,
@@ -204,7 +207,7 @@ export function useChatWorkspaceSelection({
           moveEmptyDraftToLocalProject(homeProjectId, { restoreComposerFocus });
         })();
       }
-      setDraftThreadContext(threadId, {
+      setDraftThreadContext(scopeLocalThread(threadId), {
         envMode: "local",
         worktreePath: null,
         workingDirectory: null,
@@ -259,7 +262,7 @@ export function useChatWorkspaceSelection({
     (workspaceRoot: string) => {
       if (isGroupContainer) {
         if (isLocalDraftThread) {
-          setDraftThreadContext(threadId, {
+          setDraftThreadContext(scopeLocalThread(threadId), {
             envMode: "local",
             branch: null,
             worktreePath: null,
@@ -291,7 +294,7 @@ export function useChatWorkspaceSelection({
         return;
       }
       if (isLocalDraftThread) {
-        setDraftThreadContext(threadId, {
+        setDraftThreadContext(scopeLocalThread(threadId), {
           envMode: "worktree",
           worktreePath: workspaceRoot,
         });

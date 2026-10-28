@@ -3,6 +3,7 @@
 // Layer: Web orchestration helper
 // Exports: dispatchQueuedComposerTurnHeadless
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { AssistantDeliveryMode, MessageId, ThreadId } from "@saint/contracts";
 
 import {
@@ -101,7 +102,7 @@ async function dispatchQueuedComposerTurnOnce(
       });
       useComposerDraftStore
         .getState()
-        .setInteractionMode(input.threadId, queuedTurn.interactionMode);
+        .setInteractionMode(scopeLocalThread(input.threadId), queuedTurn.interactionMode);
       await api.orchestration.dispatchCommand({
         type: "thread.turn.start",
         commandId: newCommandId(),

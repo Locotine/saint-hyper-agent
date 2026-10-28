@@ -8,6 +8,7 @@
 // Layer: Tasks UI component
 // Exports: TaskHandOff
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { Todo, TodoUpdateInput } from "@saint/contracts";
 import { applyClaudePromptEffortPrefix, isClaudeUltrathinkPrompt } from "@saint/shared/model";
 import { useQuery } from "@tanstack/react-query";
@@ -77,7 +78,8 @@ export function TaskHandOff({
   // into the draft's prompt, so that choice is read from there.
   const readPrompt = () => {
     const prompt = buildDelegationPrompt(readTodo());
-    const draftPrompt = useComposerDraftStore.getState().draftsByThreadId[scratchThreadId]?.prompt;
+    const draftPrompt =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(scratchThreadId)]?.prompt;
     return isClaudeUltrathinkPrompt(draftPrompt) && !isClaudeUltrathinkPrompt(prompt)
       ? applyClaudePromptEffortPrefix(prompt, "ultrathink")
       : prompt;

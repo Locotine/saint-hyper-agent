@@ -4,6 +4,7 @@
 // Layer: Routing
 // Depends on: the shared restore/create route surface plus the home-chat new-chat handler.
 
+import { localThreadIdFromKey } from "@saint/shared/hostId";
 import { SpaceId, type ProjectId } from "@saint/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -59,8 +60,9 @@ function ChatIndexRouteView() {
   // isn't a home-chat draft, and `promotedTo` means the draft already became a real thread, so
   // its stale id is no longer valid (matches the filtering findGroupDraftThreadId applies).
   const draftProjectIdByThreadId = new Map<string, ProjectId>();
-  for (const [threadId, draft] of Object.entries(draftThreadsByThreadId)) {
-    if (draft.entryPoint === "chat" && draft.promotedTo === undefined) {
+  for (const [key, draft] of Object.entries(draftThreadsByThreadId)) {
+    const threadId = localThreadIdFromKey(key);
+    if (threadId !== null && draft.entryPoint === "chat" && draft.promotedTo === undefined) {
       draftProjectIdByThreadId.set(threadId, draft.projectId);
     }
   }

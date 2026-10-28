@@ -1,3 +1,4 @@
+import { scopeLocalProject, scopeLocalThread } from "@saint/shared/hostId";
 import {
   ThreadId,
   type KeybindingCommand,
@@ -5,13 +6,14 @@ import {
   type ProjectScript,
 } from "@saint/contracts";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { dockTerminalThreadId } from "~/lib/dockTerminalScope";
 import { decodeProjectScriptKeybindingRule } from "~/lib/projectScriptKeybindings";
 import { serverQueryKeys } from "~/lib/serverReactQuery";
 import { newCommandId, randomUUID } from "~/lib/utils";
 import { readNativeApi } from "~/nativeApi";
+import { scopeProjectKeyedRecord } from "~/persistedRecord";
 import {
   commandForProjectScript,
   nextProjectScriptId,
@@ -53,10 +55,14 @@ export function useChatProjectScripts({
   const pendingScriptThreads = useRef(new Set<ThreadId>());
   const storeEnsureDockTerminal = useTerminalStateStore((state) => state.ensureDockTerminal);
   const storeSetTerminalMetadata = useTerminalStateStore((state) => state.setTerminalMetadata);
-  const [lastInvokedScriptByProjectId, setLastInvokedScriptByProjectId] = useLocalStorage(
+  const [storedLastInvokedScriptByProjectId, setLastInvokedScriptByProjectId] = useLocalStorage(
     LAST_INVOKED_SCRIPT_BY_PROJECT_KEY,
     EMPTY_LAST_INVOKED_SCRIPT_BY_PROJECT,
     LastInvokedScriptByProjectSchema,
+  );
+  const lastInvokedScriptByProjectId = useMemo(
+    () => scopeProjectKeyedRecord(storedLastInvokedScriptByProjectId),
+    [storedLastInvokedScriptByProjectId],
   );
 
   const runProjectScript = useCallback(
@@ -68,14 +74,18 @@ export function useChatProjectScripts({
       if (!api || !activeThreadId || !activeProject || !activeThread) return null;
       if (options?.rememberAsLastInvoked !== false) {
         setLastInvokedScriptByProjectId((current) => {
-          if (current[activeProject.id] === script.id) return current;
-          return { ...current, [activeProject.id]: script.id };
+          const projectId = scopeLocalProject(activeProject.id);
+          if (current[projectId] === script.id) return current;
+          // Rows written before host scoping hold raw ids; this write upgrades them.
+          return { ...scopeProjectKeyedRecord(current), [projectId]: script.id };
         });
       }
       const targetCwd = options?.cwd ?? gitCwd ?? activeProject.cwd;
       const terminalThreadId = dockTerminalThreadId(activeThreadId);
       const terminalState =
-        useTerminalStateStore.getState().terminalStateByThreadId[terminalThreadId];
+        useTerminalStateStore.getState().terminalStateByThreadId[
+          scopeLocalThread(terminalThreadId)
+        ];
       const dock = selectRightDockState(activeThreadId)(useRightDockStore.getState());
       const terminalPane =
         dock.panes.find((pane) => pane.id === dock.activePaneId && pane.kind === "terminal") ??
@@ -117,7 +127,11 @@ export function useChatProjectScripts({
           onOpened: () => {
             // Attach only after the requested cwd/env are set, but before writing
             // so the session stays accessible if command delivery fails.
-            storeEnsureDockTerminal(terminalThreadId, targetPaneId, targetTerminalId);
+            storeEnsureDockTerminal(
+              scopeLocalThread(terminalThreadId),
+              targetPaneId,
+              targetTerminalId,
+            );
             const dockStore = useRightDockStore.getState();
             if (
               selectRightDockState(activeThreadId)(dockStore).panes.some(
@@ -132,7 +146,7 @@ export function useChatProjectScripts({
           },
         });
         if (metadata) {
-          storeSetTerminalMetadata(terminalThreadId, targetTerminalId, {
+          storeSetTerminalMetadata(scopeLocalThread(terminalThreadId), targetTerminalId, {
             cliKind: metadata.cliKind,
             label: metadata.label,
           });
@@ -151,7 +165,9 @@ export function useChatProjectScripts({
             onlyIfIdle: true,
             deleteHistory: false,
           });
-          useTerminalStateStore.getState().closeTerminal(terminalThreadId, baseTerminalId);
+          useTerminalStateStore
+            .getState()
+            .closeTerminal(scopeLocalThread(terminalThreadId), baseTerminalId);
         }
         await runScriptInTargetTerminal();
         pendingScriptThreads.current.delete(activeThreadId);

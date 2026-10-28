@@ -1,4 +1,5 @@
-import { ThreadId } from "@saint/contracts";
+import { scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
+import { ThreadId, type ProjectId } from "@saint/contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clampCollapsedComposerCursor,
@@ -11,11 +12,16 @@ import {
   useComposerDraftStore,
   useComposerThreadDraft,
   type BrowserAnnotationDraft,
+  type ComposerDraftStoreState,
   type ComposerAssistantSelectionAttachment,
   type ComposerFileAttachment,
   type ComposerImageAttachment,
   type RestoredComposerSourceProposedPlan,
 } from "../../composerDraftStore";
+import {
+  localProjectDraftThread,
+  type DraftThreadMutationOptions,
+} from "../../composerDraftDomain";
 import { type PastedTextDraft } from "../../lib/composerPastedText";
 import { type FileCommentDraft } from "../../lib/fileComments";
 import { type PullRequestContextDraft } from "../../lib/pullRequestContext";
@@ -32,8 +38,22 @@ interface ChatComposerDraftInput {
   threadId: ThreadId;
 }
 
+/**
+ * A composer-draft action addressed by the server thread id. The store keys drafts by host,
+ * and this chat surface only shows this computer's threads.
+ */
+function useLocalThreadAction<Args extends unknown[], Result>(
+  select: (store: ComposerDraftStoreState) => (threadId: ScopedThreadId, ...args: Args) => Result,
+) {
+  const action = useComposerDraftStore(select);
+  return useCallback(
+    (threadId: ThreadId, ...args: Args) => action(scopeLocalThread(threadId), ...args),
+    [action],
+  );
+}
+
 export function useChatComposerDraft({ threadId }: ChatComposerDraftInput) {
-  const composerDraft = useComposerThreadDraft(threadId);
+  const composerDraft = useComposerThreadDraft(scopeLocalThread(threadId));
   const prompt = composerDraft.prompt;
   const composerPromptHistorySavedDraft = composerDraft.promptHistorySavedDraft;
   const composerPromptHistorySavedDraftImages = composerPromptHistorySavedDraft?.images ?? null;
@@ -76,80 +96,88 @@ export function useChatComposerDraft({ threadId }: ChatComposerDraftInput) {
   );
   const nonPersistedComposerImageIds = composerDraft.nonPersistedImageIds;
   const durablyPersistedComposerImageIds = composerDraft.persistedAttachments;
-  const setComposerDraftPrompt = useComposerDraftStore((store) => store.setPrompt);
-  const setComposerDraftPromptHistorySavedDraft = useComposerDraftStore(
+  const setComposerDraftPrompt = useLocalThreadAction((store) => store.setPrompt);
+  const setComposerDraftPromptHistorySavedDraft = useLocalThreadAction(
     (store) => store.setPromptHistorySavedDraft,
   );
-  const restoreComposerDraftPromptHistorySavedDraft = useComposerDraftStore(
+  const restoreComposerDraftPromptHistorySavedDraft = useLocalThreadAction(
     (store) => store.restorePromptHistorySavedDraft,
   );
-  const setComposerDraftModelSelection = useComposerDraftStore((store) => store.setModelSelection);
-  const setComposerDraftProviderModelOptions = useComposerDraftStore(
+  const setComposerDraftModelSelection = useLocalThreadAction((store) => store.setModelSelection);
+  const setComposerDraftProviderModelOptions = useLocalThreadAction(
     (store) => store.setProviderModelOptions,
   );
-  const setComposerDraftRuntimeMode = useComposerDraftStore((store) => store.setRuntimeMode);
-  const setComposerDraftInteractionMode = useComposerDraftStore(
-    (store) => store.setInteractionMode,
-  );
-  const setComposerDraftComputerControlMode = useComposerDraftStore(
+  const setComposerDraftRuntimeMode = useLocalThreadAction((store) => store.setRuntimeMode);
+  const setComposerDraftInteractionMode = useLocalThreadAction((store) => store.setInteractionMode);
+  const setComposerDraftComputerControlMode = useLocalThreadAction(
     (store) => store.setComputerControlMode,
   );
-  const setComposerDraftComputerControl = useComposerDraftStore(
+  const setComposerDraftComputerControl = useLocalThreadAction(
     (store) => store.setEnableComputerControl,
   );
-  const enqueueQueuedComposerTurn = useComposerDraftStore((store) => store.enqueueQueuedTurn);
-  const insertQueuedComposerTurn = useComposerDraftStore((store) => store.insertQueuedTurn);
-  const removeQueuedComposerTurnFromDraft = useComposerDraftStore(
-    (store) => store.removeQueuedTurn,
-  );
-  const addComposerDraftImages = useComposerDraftStore((store) => store.addImages);
-  const removeComposerDraftImage = useComposerDraftStore((store) => store.removeImage);
-  const addComposerDraftFiles = useComposerDraftStore((store) => store.addFiles);
-  const removeComposerDraftFile = useComposerDraftStore((store) => store.removeFile);
-  const addComposerDraftAssistantSelection = useComposerDraftStore(
+  const enqueueQueuedComposerTurn = useLocalThreadAction((store) => store.enqueueQueuedTurn);
+  const insertQueuedComposerTurn = useLocalThreadAction((store) => store.insertQueuedTurn);
+  const removeQueuedComposerTurnFromDraft = useLocalThreadAction((store) => store.removeQueuedTurn);
+  const addComposerDraftImages = useLocalThreadAction((store) => store.addImages);
+  const removeComposerDraftImage = useLocalThreadAction((store) => store.removeImage);
+  const addComposerDraftFiles = useLocalThreadAction((store) => store.addFiles);
+  const removeComposerDraftFile = useLocalThreadAction((store) => store.removeFile);
+  const addComposerDraftAssistantSelection = useLocalThreadAction(
     (store) => store.addAssistantSelection,
   );
-  const addComposerDraftBrowserAnnotations = useComposerDraftStore(
+  const addComposerDraftBrowserAnnotations = useLocalThreadAction(
     (store) => store.addBrowserAnnotations,
   );
-  const removeComposerDraftBrowserAnnotation = useComposerDraftStore(
+  const removeComposerDraftBrowserAnnotation = useLocalThreadAction(
     (store) => store.removeBrowserAnnotation,
   );
-  const clearComposerDraftAssistantSelections = useComposerDraftStore(
+  const clearComposerDraftAssistantSelections = useLocalThreadAction(
     (store) => store.clearAssistantSelections,
   );
-  const addComposerDraftFileComment = useComposerDraftStore((store) => store.addFileComment);
-  const clearComposerDraftFileComments = useComposerDraftStore((store) => store.clearFileComments);
-  const insertComposerDraftTerminalContext = useComposerDraftStore(
+  const addComposerDraftFileComment = useLocalThreadAction((store) => store.addFileComment);
+  const clearComposerDraftFileComments = useLocalThreadAction((store) => store.clearFileComments);
+  const insertComposerDraftTerminalContext = useLocalThreadAction(
     (store) => store.insertTerminalContext,
   );
-  const addComposerDraftTerminalContexts = useComposerDraftStore(
+  const addComposerDraftTerminalContexts = useLocalThreadAction(
     (store) => store.addTerminalContexts,
   );
-  const removeComposerDraftTerminalContext = useComposerDraftStore(
+  const removeComposerDraftTerminalContext = useLocalThreadAction(
     (store) => store.removeTerminalContext,
   );
-  const addComposerDraftPastedTexts = useComposerDraftStore((store) => store.addPastedTexts);
-  const removeComposerDraftPastedText = useComposerDraftStore((store) => store.removePastedText);
-  const addComposerDraftPullRequestContext = useComposerDraftStore(
+  const addComposerDraftPastedTexts = useLocalThreadAction((store) => store.addPastedTexts);
+  const removeComposerDraftPastedText = useLocalThreadAction((store) => store.removePastedText);
+  const addComposerDraftPullRequestContext = useLocalThreadAction(
     (store) => store.addPullRequestContext,
   );
-  const removeComposerDraftPullRequestContext = useComposerDraftStore(
+  const removeComposerDraftPullRequestContext = useLocalThreadAction(
     (store) => store.removePullRequestContext,
   );
-  const setComposerDraftTerminalContexts = useComposerDraftStore(
+  const setComposerDraftTerminalContexts = useLocalThreadAction(
     (store) => store.setTerminalContexts,
   );
-  const setComposerDraftRestoredSourceProposedPlan = useComposerDraftStore(
+  const setComposerDraftRestoredSourceProposedPlan = useLocalThreadAction(
     (store) => store.setRestoredSourceProposedPlan,
   );
-  const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
-  const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
-  const getDraftThreadByProjectId = useComposerDraftStore(
+  const clearComposerDraftContent = useLocalThreadAction((store) => store.clearComposerContent);
+  const setDraftThreadContext = useLocalThreadAction((store) => store.setDraftThreadContext);
+  const getScopedDraftThreadByProjectId = useComposerDraftStore(
     (store) => store.getDraftThreadByProjectId,
   );
-  const getDraftThread = useComposerDraftStore((store) => store.getDraftThread);
-  const setProjectDraftThreadId = useComposerDraftStore((store) => store.setProjectDraftThreadId);
+  const getDraftThreadByProjectId = useCallback(
+    (...args: Parameters<typeof getScopedDraftThreadByProjectId>) =>
+      localProjectDraftThread(getScopedDraftThreadByProjectId(...args)),
+    [getScopedDraftThreadByProjectId],
+  );
+  const getDraftThread = useLocalThreadAction((store) => store.getDraftThread);
+  const setScopedProjectDraftThreadId = useComposerDraftStore(
+    (store) => store.setProjectDraftThreadId,
+  );
+  const setProjectDraftThreadId = useCallback(
+    (projectId: ProjectId, threadId: ThreadId, options?: DraftThreadMutationOptions) =>
+      setScopedProjectDraftThreadId(projectId, scopeLocalThread(threadId), options),
+    [setScopedProjectDraftThreadId],
+  );
   const clearProjectDraftThreadId = useComposerDraftStore(
     (store) => store.clearProjectDraftThreadId,
   );

@@ -6,6 +6,7 @@
 // Layer: Web UI hook
 // Exports: useScratchComposerDraft, ScratchComposerDraft, ScratchModelDraft
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ModelSlug, ProviderInstanceId, ProviderKind, ThreadId } from "@saint/contracts";
 import { getDefaultModel } from "@saint/shared/model";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -36,14 +37,14 @@ export function useScratchComposerDraft(input: {
   const [initialPrompt] = useState(input.initialPrompt ?? "");
   useEffect(() => {
     const store = useComposerDraftStore.getState();
-    store.applyStickyState(scratchThreadId);
-    if (initialPrompt.length > 0) store.setPrompt(scratchThreadId, initialPrompt);
+    store.applyStickyState(scopeLocalThread(scratchThreadId));
+    if (initialPrompt.length > 0) store.setPrompt(scopeLocalThread(scratchThreadId), initialPrompt);
     return () => {
-      useComposerDraftStore.getState().clearDraftThread(scratchThreadId);
+      useComposerDraftStore.getState().clearDraftThread(scopeLocalThread(scratchThreadId));
     };
   }, [initialPrompt, scratchThreadId]);
 
-  const scratchDraft = useComposerThreadDraft(scratchThreadId);
+  const scratchDraft = useComposerThreadDraft(scopeLocalThread(scratchThreadId));
   const stickyActiveProvider = useComposerDraftStore((state) => state.stickyActiveProvider);
   const stickyModelSelectionByProvider = useComposerDraftStore(
     (state) => state.stickyModelSelectionByProvider,
@@ -83,7 +84,7 @@ export function useScratchComposerDraft(input: {
 
   const setPrompt = useCallback(
     (nextPrompt: string) => {
-      useComposerDraftStore.getState().setPrompt(scratchThreadId, nextPrompt);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(scratchThreadId), nextPrompt);
     },
     [scratchThreadId],
   );
@@ -98,7 +99,7 @@ export function useScratchComposerDraft(input: {
     ) => {
       // Mirrors the composer: update the scratch draft and persist the sticky selection.
       useComposerDraftStore.getState().setModelSelectionAndSticky(
-        scratchThreadId,
+        scopeLocalThread(scratchThreadId),
         buildModelSelection(provider, model, options, supportsAutoMode, {
           instanceId: instanceId ?? provider,
         }),

@@ -4,10 +4,18 @@
 // Exports: pane/split types, tree-aware selectors, and id-based mutation helpers used by sidebar and route surfaces
 
 import { type ProjectId, type ThreadId, type TurnId } from "@saint/contracts";
+import {
+  LOCAL_HOST_ID,
+  parseScopedThreadId,
+  scopeThread,
+  type HostId,
+  type ScopedThreadId,
+} from "@saint/shared/hostId";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { type ChatRightPanel } from "./diffRouteSearch";
+import { createMemoryStorage, withLegacyKeyFallback } from "./lib/storage";
 import { randomUUID } from "./lib/utils";
 import {
   canSubdividePane,
@@ -57,6 +65,8 @@ export type Pane = LeafPane | SplitNode;
 
 export interface SplitView {
   id: SplitViewId;
+  /** Every pane's thread lives on this host; leaf and source ids are its raw ids. */
+  hostId: HostId;
   sourceThreadId: ThreadId;
   ownerProjectId: ProjectId;
   root: Pane;
@@ -66,11 +76,13 @@ export interface SplitView {
 }
 
 interface CreateFromThreadInput {
+  hostId: HostId;
   sourceThreadId: ThreadId;
   ownerProjectId: ProjectId;
 }
 
 interface CreateFromDropInput {
+  hostId: HostId;
   sourceThreadId: ThreadId;
   ownerProjectId: ProjectId;
   droppedThreadId: ThreadId;
@@ -94,7 +106,7 @@ interface RemovePaneFromSplitViewInput {
 interface SplitViewStore {
   hasHydrated: boolean;
   splitViewsById: Record<SplitViewId, SplitView | undefined>;
-  splitViewIdBySourceThreadId: Record<string, SplitViewId | undefined>;
+  splitViewIdBySourceThreadId: Record<ScopedThreadId, SplitViewId | undefined>;
   createFromThread: (input: CreateFromThreadInput) => SplitViewId;
   createFromDrop: (input: CreateFromDropInput) => SplitViewId;
   removeSplitView: (splitViewId: SplitViewId) => void;
@@ -108,7 +120,8 @@ interface SplitViewStore {
     paneId: PaneId,
     patch: Partial<SplitViewPanePanelState>,
   ) => void;
-  removeThreadFromSplitViews: (threadId: ThreadId) => void;
+  /** Removes the thread from `hostId`'s split views only. */
+  removeThreadFromSplitViews: (hostId: HostId, threadId: ThreadId) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
 }
 
@@ -116,8 +129,11 @@ interface SplitViewStore {
 // `saint:*` and `saint:*` keys are copied over by
 // `storageKeyMigration` before this store hydrates, so older payloads still
 // flow through the v1 -> v2 schema migration below.
-const SPLIT_VIEW_STORAGE_KEY = "saint:split-view-state:v1";
-const SPLIT_VIEW_STORAGE_VERSION = 2;
+const SPLIT_VIEW_STORAGE_KEY = "saint:split-view-state:v2";
+// v1 (schema 2) had no host: every split was this computer's. Read once, then left alone for
+// a rollback; schema 3 adds `hostId` and keys the source map by scoped thread id.
+const LEGACY_SPLIT_VIEW_STORAGE_KEY = "saint:split-view-state:v1";
+const SPLIT_VIEW_STORAGE_VERSION = 3;
 const DEFAULT_RATIO = 0.5;
 const MIN_RATIO = 0.25;
 const MAX_RATIO = 0.75;
@@ -173,6 +189,7 @@ function buildSplitViewFromThread(input: CreateFromThreadInput): SplitView {
   });
   return {
     id: randomUUID(),
+    hostId: input.hostId,
     sourceThreadId: input.sourceThreadId,
     ownerProjectId: input.ownerProjectId,
     root,
@@ -196,6 +213,7 @@ function buildSplitViewFromDrop(
   );
   return {
     id: existing?.id ?? randomUUID(),
+    hostId: input.hostId,
     sourceThreadId: input.sourceThreadId,
     ownerProjectId: input.ownerProjectId,
     root,
@@ -232,6 +250,7 @@ function migrateLegacySplitView(legacy: LegacySplitViewLike): SplitView | null {
   });
   return {
     id: legacy.id,
+    hostId: LOCAL_HOST_ID,
     sourceThreadId: legacy.sourceThreadId,
     ownerProjectId: legacy.ownerProjectId,
     root,
@@ -250,7 +269,7 @@ function migrateLegacyPersistedState(state: unknown): SplitViewStoreState | null
     return null;
   }
   const splitViewsById: Record<SplitViewId, SplitView | undefined> = {};
-  const splitViewIdBySourceThreadId: Record<string, SplitViewId | undefined> = {};
+  const splitViewIdBySourceThreadId: Record<ScopedThreadId, SplitViewId | undefined> = {};
 
   for (const [splitViewId, value] of Object.entries(legacyMap)) {
     if (!isLegacySplitViewLike(value)) {
@@ -261,13 +280,36 @@ function migrateLegacyPersistedState(state: unknown): SplitViewStoreState | null
       continue;
     }
     splitViewsById[splitViewId] = migrated;
-    splitViewIdBySourceThreadId[migrated.sourceThreadId] = splitViewId;
+    splitViewIdBySourceThreadId[sourceKey(migrated)] = splitViewId;
   }
 
   return {
     splitViewsById,
     splitViewIdBySourceThreadId,
   };
+}
+
+function sourceKey(splitView: Pick<SplitView, "hostId" | "sourceThreadId">): ScopedThreadId {
+  return scopeThread(splitView.hostId, splitView.sourceThreadId);
+}
+
+// Schema 2 splits were all this computer's: give them a host and re-key the source map.
+function migrateUnhostedPersistedState(state: unknown): SplitViewStoreState {
+  const splitViewsById: Record<SplitViewId, SplitView | undefined> = {};
+  const splitViewIdBySourceThreadId: Record<ScopedThreadId, SplitViewId | undefined> = {};
+  const persisted = (state ?? {}) as Partial<{
+    splitViewsById: Record<string, (Omit<SplitView, "hostId"> & { hostId?: HostId }) | undefined>;
+    splitViewIdBySourceThreadId: Record<string, SplitViewId | undefined>;
+  }>;
+  for (const [splitViewId, splitView] of Object.entries(persisted.splitViewsById ?? {})) {
+    if (!splitView) continue;
+    splitViewsById[splitViewId] = { ...splitView, hostId: splitView.hostId ?? LOCAL_HOST_ID };
+  }
+  for (const [key, splitViewId] of Object.entries(persisted.splitViewIdBySourceThreadId ?? {})) {
+    const scoped = parseScopedThreadId(key);
+    if (scoped !== null) splitViewIdBySourceThreadId[scoped] = splitViewId;
+  }
+  return { splitViewsById, splitViewIdBySourceThreadId };
 }
 
 function resolveUpdatedAt(): string {
@@ -296,13 +338,15 @@ function updateSplitView(
 
 // Re-anchor only to threads that are not already the source of another split view.
 function resolveNextSourceThreadId(input: {
+  hostId: HostId;
   root: Pane;
   splitViewId: SplitViewId;
-  splitViewIdBySourceThreadId: Record<string, SplitViewId | undefined>;
+  splitViewIdBySourceThreadId: Record<ScopedThreadId, SplitViewId | undefined>;
 }): ThreadId | null {
   for (const leaf of collectLeaves(input.root)) {
     if (!leaf.threadId) continue;
-    const existingSourceSplitId = input.splitViewIdBySourceThreadId[leaf.threadId];
+    const existingSourceSplitId =
+      input.splitViewIdBySourceThreadId[scopeThread(input.hostId, leaf.threadId)];
     if (!existingSourceSplitId || existingSourceSplitId === input.splitViewId) {
       return leaf.threadId;
     }
@@ -363,7 +407,7 @@ export const useSplitViewStore = create<SplitViewStore>()(
       splitViewIdBySourceThreadId: {},
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       createFromThread: (input) => {
-        const existingId = get().splitViewIdBySourceThreadId[input.sourceThreadId] ?? null;
+        const existingId = get().splitViewIdBySourceThreadId[sourceKey(input)] ?? null;
         if (existingId) {
           return existingId;
         }
@@ -376,13 +420,13 @@ export const useSplitViewStore = create<SplitViewStore>()(
           },
           splitViewIdBySourceThreadId: {
             ...state.splitViewIdBySourceThreadId,
-            [input.sourceThreadId]: splitView.id,
+            [sourceKey(input)]: splitView.id,
           },
         }));
         return splitView.id;
       },
       createFromDrop: (input) => {
-        const existingId = get().splitViewIdBySourceThreadId[input.sourceThreadId] ?? null;
+        const existingId = get().splitViewIdBySourceThreadId[sourceKey(input)] ?? null;
         const existing = existingId ? (get().splitViewsById[existingId] ?? null) : null;
         const splitView = buildSplitViewFromDrop(input, existing);
         set((state) => ({
@@ -392,7 +436,7 @@ export const useSplitViewStore = create<SplitViewStore>()(
           },
           splitViewIdBySourceThreadId: {
             ...state.splitViewIdBySourceThreadId,
-            [input.sourceThreadId]: splitView.id,
+            [sourceKey(input)]: splitView.id,
           },
         }));
         return splitView.id;
@@ -404,7 +448,7 @@ export const useSplitViewStore = create<SplitViewStore>()(
           const nextSplitViewsById = { ...state.splitViewsById };
           const nextSplitViewIdBySourceThreadId = { ...state.splitViewIdBySourceThreadId };
           delete nextSplitViewsById[splitViewId];
-          delete nextSplitViewIdBySourceThreadId[existing.sourceThreadId];
+          delete nextSplitViewIdBySourceThreadId[sourceKey(existing)];
           return {
             splitViewsById: nextSplitViewsById,
             splitViewIdBySourceThreadId: nextSplitViewIdBySourceThreadId,
@@ -430,6 +474,7 @@ export const useSplitViewStore = create<SplitViewStore>()(
             }
             if (leaf.threadId === splitView.sourceThreadId) {
               nextSourceThreadId = resolveNextSourceThreadId({
+                hostId: splitView.hostId,
                 root: nextRoot,
                 splitViewId,
                 splitViewIdBySourceThreadId: state.splitViewIdBySourceThreadId,
@@ -451,8 +496,8 @@ export const useSplitViewStore = create<SplitViewStore>()(
             const nextSplitViewsById = { ...nextState.splitViewsById };
             const nextSplitViewIdBySourceThreadId = { ...nextState.splitViewIdBySourceThreadId };
             delete nextSplitViewsById[splitViewId];
-            if (nextSplitViewIdBySourceThreadId[existing.sourceThreadId] === splitViewId) {
-              delete nextSplitViewIdBySourceThreadId[existing.sourceThreadId];
+            if (nextSplitViewIdBySourceThreadId[sourceKey(existing)] === splitViewId) {
+              delete nextSplitViewIdBySourceThreadId[sourceKey(existing)];
             }
             return {
               splitViewsById: nextSplitViewsById,
@@ -470,10 +515,11 @@ export const useSplitViewStore = create<SplitViewStore>()(
           }
 
           const nextSplitViewIdBySourceThreadId = { ...nextState.splitViewIdBySourceThreadId };
-          if (nextSplitViewIdBySourceThreadId[existing.sourceThreadId] === splitViewId) {
-            delete nextSplitViewIdBySourceThreadId[existing.sourceThreadId];
+          if (nextSplitViewIdBySourceThreadId[sourceKey(existing)] === splitViewId) {
+            delete nextSplitViewIdBySourceThreadId[sourceKey(existing)];
           }
-          nextSplitViewIdBySourceThreadId[nextSourceThreadId] = splitViewId;
+          nextSplitViewIdBySourceThreadId[scopeThread(existing.hostId, nextSourceThreadId)] =
+            splitViewId;
           return {
             ...nextState,
             splitViewIdBySourceThreadId: nextSplitViewIdBySourceThreadId,
@@ -528,12 +574,12 @@ export const useSplitViewStore = create<SplitViewStore>()(
           const nextSplitViewIdBySourceThreadId = { ...state.splitViewIdBySourceThreadId };
 
           if (current.sourceThreadId === currentTargetLeaf.threadId) {
-            delete nextSplitViewIdBySourceThreadId[current.sourceThreadId];
+            delete nextSplitViewIdBySourceThreadId[sourceKey(current)];
           }
 
           if (!result.nextRoot) {
             delete nextSplitViewsById[splitViewId];
-            delete nextSplitViewIdBySourceThreadId[current.sourceThreadId];
+            delete nextSplitViewIdBySourceThreadId[sourceKey(current)];
             return {
               splitViewsById: nextSplitViewsById,
               splitViewIdBySourceThreadId: nextSplitViewIdBySourceThreadId,
@@ -545,7 +591,7 @@ export const useSplitViewStore = create<SplitViewStore>()(
           );
           if (!hasAnyThread) {
             delete nextSplitViewsById[splitViewId];
-            delete nextSplitViewIdBySourceThreadId[current.sourceThreadId];
+            delete nextSplitViewIdBySourceThreadId[sourceKey(current)];
             return {
               splitViewsById: nextSplitViewsById,
               splitViewIdBySourceThreadId: nextSplitViewIdBySourceThreadId,
@@ -555,6 +601,7 @@ export const useSplitViewStore = create<SplitViewStore>()(
           const nextSourceThreadId =
             current.sourceThreadId === currentTargetLeaf.threadId
               ? resolveNextSourceThreadId({
+                  hostId: current.hostId,
                   root: result.nextRoot,
                   splitViewId,
                   splitViewIdBySourceThreadId: nextSplitViewIdBySourceThreadId,
@@ -568,7 +615,8 @@ export const useSplitViewStore = create<SplitViewStore>()(
             };
           }
           if (nextSourceThreadId !== current.sourceThreadId) {
-            nextSplitViewIdBySourceThreadId[nextSourceThreadId] = splitViewId;
+            nextSplitViewIdBySourceThreadId[scopeThread(current.hostId, nextSourceThreadId)] =
+              splitViewId;
           }
 
           const focusedStillPresent = !result.removedLeafIds.includes(current.focusedPaneId);
@@ -638,14 +686,14 @@ export const useSplitViewStore = create<SplitViewStore>()(
             };
           }),
         ),
-      removeThreadFromSplitViews: (threadId) =>
+      removeThreadFromSplitViews: (hostId, threadId) =>
         set((state) => {
           let didChange = false;
           const nextSplitViewsById = { ...state.splitViewsById };
           const nextSplitViewIdBySourceThreadId = { ...state.splitViewIdBySourceThreadId };
 
           for (const [splitViewId, splitView] of Object.entries(state.splitViewsById)) {
-            if (!splitView) {
+            if (!splitView || splitView.hostId !== hostId) {
               continue;
             }
             const result = removeLeafByThreadIdInTree(splitView.root, threadId);
@@ -656,12 +704,12 @@ export const useSplitViewStore = create<SplitViewStore>()(
             didChange = true;
             if (result.nextRoot === null) {
               delete nextSplitViewsById[splitViewId];
-              delete nextSplitViewIdBySourceThreadId[splitView.sourceThreadId];
+              delete nextSplitViewIdBySourceThreadId[sourceKey(splitView)];
               continue;
             }
             if (!collectLeaves(result.nextRoot).some((leaf) => leaf.threadId !== null)) {
               delete nextSplitViewsById[splitViewId];
-              delete nextSplitViewIdBySourceThreadId[splitView.sourceThreadId];
+              delete nextSplitViewIdBySourceThreadId[sourceKey(splitView)];
               continue;
             }
 
@@ -672,6 +720,7 @@ export const useSplitViewStore = create<SplitViewStore>()(
             const nextSourceThreadId =
               splitView.sourceThreadId === threadId
                 ? resolveNextSourceThreadId({
+                    hostId: splitView.hostId,
                     root: result.nextRoot,
                     splitViewId,
                     splitViewIdBySourceThreadId: nextSplitViewIdBySourceThreadId,
@@ -679,14 +728,15 @@ export const useSplitViewStore = create<SplitViewStore>()(
                 : splitView.sourceThreadId;
 
             if (splitView.sourceThreadId === threadId) {
-              delete nextSplitViewIdBySourceThreadId[splitView.sourceThreadId];
+              delete nextSplitViewIdBySourceThreadId[sourceKey(splitView)];
             }
             if (!nextSourceThreadId) {
               delete nextSplitViewsById[splitViewId];
               continue;
             }
             if (nextSourceThreadId !== splitView.sourceThreadId) {
-              nextSplitViewIdBySourceThreadId[nextSourceThreadId] = splitViewId;
+              nextSplitViewIdBySourceThreadId[scopeThread(splitView.hostId, nextSourceThreadId)] =
+                splitViewId;
             }
 
             nextSplitViewsById[splitViewId] = {
@@ -711,7 +761,11 @@ export const useSplitViewStore = create<SplitViewStore>()(
     {
       name: SPLIT_VIEW_STORAGE_KEY,
       version: SPLIT_VIEW_STORAGE_VERSION,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        typeof localStorage === "undefined"
+          ? createMemoryStorage()
+          : withLegacyKeyFallback(localStorage, LEGACY_SPLIT_VIEW_STORAGE_KEY),
+      ),
       partialize: (state) => ({
         splitViewsById: state.splitViewsById,
         splitViewIdBySourceThreadId: state.splitViewIdBySourceThreadId,
@@ -731,6 +785,9 @@ export const useSplitViewStore = create<SplitViewStore>()(
       migrate: (persistedState, version) => {
         if (version >= SPLIT_VIEW_STORAGE_VERSION) {
           return persistedState as SplitViewStoreState;
+        }
+        if (version === 2) {
+          return migrateUnhostedPersistedState(persistedState);
         }
         return (
           migrateLegacyPersistedState(persistedState) ?? {

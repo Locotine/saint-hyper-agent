@@ -1,3 +1,4 @@
+import { localThreadId, unscopeThread, type ScopedThreadId } from "@saint/shared/hostId";
 import type { PendingUserInputRecoveryDraft } from "./pendingUserInputRecovery";
 import type { ComposerComputerControlMode } from "./computerControlMode";
 // FILE: composerDraftDomain.ts
@@ -55,7 +56,9 @@ import {
   type ThreadPrimarySurface,
 } from "./types";
 
-export const COMPOSER_DRAFT_STORAGE_KEY = "saint:composer-drafts:v1";
+export const COMPOSER_DRAFT_STORAGE_KEY = "saint:composer-drafts:v2";
+// v1 keyed drafts by bare thread id. Read once as this computer's threads, then left alone for a rollback.
+export const LEGACY_COMPOSER_DRAFT_STORAGE_KEY = "saint:composer-drafts:v1";
 export const COMPOSER_DRAFT_STORAGE_VERSION = 6;
 export type DraftThreadEnvMode = "local" | "worktree";
 const TERMINAL_DRAFT_THREAD_MAPPING_SUFFIX = "::terminal";
@@ -235,7 +238,7 @@ export interface DraftThreadState {
   // `thread.meta.update` when the first send promotes the draft.
   goal?: string;
   isTemporary?: boolean;
-  promotedTo?: ThreadId;
+  promotedTo?: ScopedThreadId;
 }
 
 export interface DraftThreadMutationOptions {
@@ -259,27 +262,37 @@ export interface DraftThreadMutationOptions {
 type DraftThreadCreatedAtMode = "accept-empty" | "preserve-existing-on-empty";
 
 export interface ProjectDraftThread extends DraftThreadState {
-  threadId: ThreadId;
+  threadId: ScopedThreadId;
+}
+
+/** A project's draft thread addressed by the id the server knows it by (this computer only). */
+export type LocalProjectDraftThread = Omit<ProjectDraftThread, "threadId"> & { threadId: ThreadId };
+
+export function localProjectDraftThread(
+  draft: ProjectDraftThread | null,
+): LocalProjectDraftThread | null {
+  const threadId = draft ? localThreadId(draft.threadId) : null;
+  return draft && threadId ? { ...draft, threadId } : null;
 }
 
 export interface ComposerDraftStoreState {
   setPendingUserInputDrafts: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     drafts: Record<string, PendingUserInputRecoveryDraft>,
   ) => void;
-  draftsByThreadId: Record<ThreadId, ComposerThreadDraftState>;
-  draftThreadsByThreadId: Record<ThreadId, DraftThreadState>;
-  projectDraftThreadIdByProjectId: Record<string, ThreadId>;
+  draftsByThreadId: Record<ScopedThreadId, ComposerThreadDraftState>;
+  draftThreadsByThreadId: Record<ScopedThreadId, DraftThreadState>;
+  projectDraftThreadIdByProjectId: Record<string, ScopedThreadId>;
   stickyModelSelectionByProvider: ModelSelectionByProviderInstance;
   stickyActiveProvider: ProviderInstanceId | null;
   getDraftThreadByProjectId: (
     projectId: ProjectId,
     entryPoint?: ThreadPrimarySurface,
   ) => ProjectDraftThread | null;
-  getDraftThread: (threadId: ThreadId) => DraftThreadState | null;
+  getDraftThread: (threadId: ScopedThreadId) => DraftThreadState | null;
   setProjectDraftThreadId: (
     projectId: ProjectId,
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     options?: DraftThreadMutationOptions,
   ) => void;
   /**
@@ -290,7 +303,7 @@ export interface ComposerDraftStoreState {
    * existing draft thread is left untouched.
    */
   registerDraftThread: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     options: {
       projectId: ProjectId;
       createdAt?: string;
@@ -305,7 +318,7 @@ export interface ComposerDraftStoreState {
     },
   ) => void;
   setDraftThreadContext: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     options: DraftThreadMutationOptions & { projectId?: ProjectId },
   ) => void;
   /**
@@ -313,33 +326,36 @@ export interface ComposerDraftStoreState {
    * the draft that used to occupy that slot, if no other project still maps it.
    */
   moveDraftThreadToProject: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     projectId: ProjectId,
     options?: DraftThreadMutationOptions,
   ) => void;
   clearProjectDraftThreadId: (projectId: ProjectId, entryPoint?: ThreadPrimarySurface) => void;
   clearProjectDraftThreads: (projectId: ProjectId) => void;
-  clearProjectDraftThreadById: (projectId: ProjectId, threadId: ThreadId) => void;
-  markDraftThreadPromoting: (threadId: ThreadId, promotedTo?: ThreadId) => void;
-  finalizePromotedDraftThread: (threadId: ThreadId) => void;
-  clearDraftThread: (threadId: ThreadId) => void;
+  clearProjectDraftThreadById: (projectId: ProjectId, threadId: ScopedThreadId) => void;
+  markDraftThreadPromoting: (threadId: ScopedThreadId, promotedTo?: ScopedThreadId) => void;
+  finalizePromotedDraftThread: (threadId: ScopedThreadId) => void;
+  clearDraftThread: (threadId: ScopedThreadId) => void;
   setStickyModelSelection: (modelSelection: ModelSelection | null | undefined) => void;
-  setPrompt: (threadId: ThreadId, prompt: string) => void;
+  setPrompt: (threadId: ScopedThreadId, prompt: string) => void;
   setPromptHistorySavedDraft: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     savedDraft: ComposerPromptHistorySavedDraft | null,
   ) => void;
-  restorePromptHistorySavedDraft: (threadId: ThreadId) => void;
-  addPromptHistorySavedDraftImage: (threadId: ThreadId, image: ComposerImageAttachment) => boolean;
+  restorePromptHistorySavedDraft: (threadId: ScopedThreadId) => void;
+  addPromptHistorySavedDraftImage: (
+    threadId: ScopedThreadId,
+    image: ComposerImageAttachment,
+  ) => boolean;
   syncPromptHistorySavedDraftPersistedAttachments: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     attachments: PersistedComposerImageAttachment[],
   ) => Promise<ComposerAttachmentPersistenceResult>;
-  setTerminalContexts: (threadId: ThreadId, contexts: TerminalContextDraft[]) => void;
-  setSkills: (threadId: ThreadId, skills: ProviderSkillReference[]) => void;
-  setMentions: (threadId: ThreadId, mentions: ProviderMentionReference[]) => void;
+  setTerminalContexts: (threadId: ScopedThreadId, contexts: TerminalContextDraft[]) => void;
+  setSkills: (threadId: ScopedThreadId, skills: ProviderSkillReference[]) => void;
+  setMentions: (threadId: ScopedThreadId, mentions: ProviderMentionReference[]) => void;
   setModelSelection: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     modelSelection: ModelSelection | null | undefined,
   ) => void;
   /**
@@ -348,21 +364,21 @@ export interface ComposerDraftStoreState {
    * composer's provider pick.
    */
   seedModelSelection: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     modelSelection: ModelSelection | null | undefined,
   ) => void;
-  setModelSelectionAndSticky: (threadId: ThreadId, modelSelection: ModelSelection) => void;
+  setModelSelectionAndSticky: (threadId: ScopedThreadId, modelSelection: ModelSelection) => void;
   setProviderOptionsForDispatch: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     providerOptions: ProviderStartOptions | null | undefined,
   ) => void;
   setModelOptions: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     modelOptions: ProviderModelOptions | null | undefined,
   ) => void;
-  applyStickyState: (threadId: ThreadId) => void;
+  applyStickyState: (threadId: ScopedThreadId) => void;
   setProviderModelOptions: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     provider: ProviderKind,
     nextProviderOptions: ProviderModelOptions[ProviderKind] | null | undefined,
     options?: {
@@ -371,75 +387,82 @@ export interface ComposerDraftStoreState {
       persistSticky?: boolean;
     },
   ) => void;
-  setRuntimeMode: (threadId: ThreadId, runtimeMode: RuntimeMode | null | undefined) => void;
+  setRuntimeMode: (threadId: ScopedThreadId, runtimeMode: RuntimeMode | null | undefined) => void;
   setInteractionMode: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     interactionMode: ProviderInteractionMode | null | undefined,
   ) => void;
   setComputerControlMode: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     mode: ComposerComputerControlMode,
     options?: { revokeQueued?: boolean; generation?: number },
   ) => void;
-  setEnableComputerControl: (threadId: ThreadId, enabled: boolean) => void;
-  enqueueQueuedTurn: (threadId: ThreadId, queuedTurn: QueuedComposerTurn) => void;
-  insertQueuedTurn: (threadId: ThreadId, queuedTurn: QueuedComposerTurn, index: number) => void;
-  removeQueuedTurn: (threadId: ThreadId, queuedTurnId: string) => void;
-  pauseQueuedTurnsAfterStop: (threadId: ThreadId, stoppedTurnId: string | null) => void;
-  resumeQueuedTurns: (threadId: ThreadId, pausedTurnId: string | null) => void;
-  addImage: (threadId: ThreadId, image: ComposerImageAttachment) => boolean;
-  addImages: (threadId: ThreadId, images: ComposerImageAttachment[]) => number;
-  removeImage: (threadId: ThreadId, imageId: string) => void;
+  setEnableComputerControl: (threadId: ScopedThreadId, enabled: boolean) => void;
+  enqueueQueuedTurn: (threadId: ScopedThreadId, queuedTurn: QueuedComposerTurn) => void;
+  insertQueuedTurn: (
+    threadId: ScopedThreadId,
+    queuedTurn: QueuedComposerTurn,
+    index: number,
+  ) => void;
+  removeQueuedTurn: (threadId: ScopedThreadId, queuedTurnId: string) => void;
+  pauseQueuedTurnsAfterStop: (threadId: ScopedThreadId, stoppedTurnId: string | null) => void;
+  resumeQueuedTurns: (threadId: ScopedThreadId, pausedTurnId: string | null) => void;
+  addImage: (threadId: ScopedThreadId, image: ComposerImageAttachment) => boolean;
+  addImages: (threadId: ScopedThreadId, images: ComposerImageAttachment[]) => number;
+  removeImage: (threadId: ScopedThreadId, imageId: string) => void;
   removeAppSnapCapture: (captureId: string) => void;
-  addFiles: (threadId: ThreadId, files: ComposerFileAttachment[]) => number;
-  removeFile: (threadId: ThreadId, fileId: string) => void;
+  addFiles: (threadId: ScopedThreadId, files: ComposerFileAttachment[]) => number;
+  removeFile: (threadId: ScopedThreadId, fileId: string) => void;
   addAssistantSelection: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     selection: ComposerAssistantSelectionAttachment,
   ) => boolean;
-  removeAssistantSelection: (threadId: ThreadId, selectionId: string) => void;
-  clearAssistantSelections: (threadId: ThreadId) => void;
+  removeAssistantSelection: (threadId: ScopedThreadId, selectionId: string) => void;
+  clearAssistantSelections: (threadId: ScopedThreadId) => void;
   addBrowserAnnotation: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     annotation: Omit<BrowserAnnotationDraft, "ordinal"> & { ordinal?: number },
   ) => boolean;
   addBrowserAnnotations: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     annotations: ReadonlyArray<Omit<BrowserAnnotationDraft, "ordinal"> & { ordinal?: number }>,
   ) => number;
-  removeBrowserAnnotation: (threadId: ThreadId, annotationId: string) => void;
-  clearBrowserAnnotations: (threadId: ThreadId) => void;
-  addFileComment: (threadId: ThreadId, comment: FileCommentDraft) => boolean;
-  removeFileComment: (threadId: ThreadId, commentId: string) => void;
-  clearFileComments: (threadId: ThreadId) => void;
-  addPastedTexts: (threadId: ThreadId, pastedTexts: PastedTextDraft[]) => void;
-  removePastedText: (threadId: ThreadId, pastedTextId: string) => void;
-  clearPastedTexts: (threadId: ThreadId) => void;
-  addPullRequestContext: (threadId: ThreadId, context: PullRequestContextDraft) => boolean;
-  removePullRequestContext: (threadId: ThreadId, contextId: string) => void;
-  clearPullRequestContexts: (threadId: ThreadId) => void;
+  removeBrowserAnnotation: (threadId: ScopedThreadId, annotationId: string) => void;
+  clearBrowserAnnotations: (threadId: ScopedThreadId) => void;
+  addFileComment: (threadId: ScopedThreadId, comment: FileCommentDraft) => boolean;
+  removeFileComment: (threadId: ScopedThreadId, commentId: string) => void;
+  clearFileComments: (threadId: ScopedThreadId) => void;
+  addPastedTexts: (threadId: ScopedThreadId, pastedTexts: PastedTextDraft[]) => void;
+  removePastedText: (threadId: ScopedThreadId, pastedTextId: string) => void;
+  clearPastedTexts: (threadId: ScopedThreadId) => void;
+  addPullRequestContext: (threadId: ScopedThreadId, context: PullRequestContextDraft) => boolean;
+  removePullRequestContext: (threadId: ScopedThreadId, contextId: string) => void;
+  clearPullRequestContexts: (threadId: ScopedThreadId) => void;
   insertTerminalContext: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     prompt: string,
     context: TerminalContextDraft,
     index: number,
   ) => boolean;
-  addTerminalContext: (threadId: ThreadId, context: TerminalContextDraft) => void;
-  addTerminalContexts: (threadId: ThreadId, contexts: TerminalContextDraft[]) => void;
-  removeTerminalContext: (threadId: ThreadId, contextId: string) => void;
-  clearTerminalContexts: (threadId: ThreadId) => void;
-  clearPersistedAttachments: (threadId: ThreadId) => void;
+  addTerminalContext: (threadId: ScopedThreadId, context: TerminalContextDraft) => void;
+  addTerminalContexts: (threadId: ScopedThreadId, contexts: TerminalContextDraft[]) => void;
+  removeTerminalContext: (threadId: ScopedThreadId, contextId: string) => void;
+  clearTerminalContexts: (threadId: ScopedThreadId) => void;
+  clearPersistedAttachments: (threadId: ScopedThreadId) => void;
   syncPersistedAttachments: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     attachments: PersistedComposerImageAttachment[],
   ) => Promise<ComposerAttachmentPersistenceResult>;
-  copyTransferableComposerState: (sourceThreadId: ThreadId, targetThreadId: ThreadId) => void;
+  copyTransferableComposerState: (
+    sourceThreadId: ScopedThreadId,
+    targetThreadId: ScopedThreadId,
+  ) => void;
   setRestoredSourceProposedPlan: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     source: RestoredComposerSourceProposedPlan | null,
   ) => void;
   clearComposerContent: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     options?: { readonly preservePreviewUrls?: boolean },
   ) => void;
 }
@@ -560,9 +583,9 @@ export function draftThreadStatesEqual(
 }
 
 export function removeProjectDraftMappingsForThread(
-  projectDraftThreadIdByProjectId: Record<string, ThreadId>,
-  threadId: ThreadId,
-): Record<string, ThreadId> {
+  projectDraftThreadIdByProjectId: Record<string, ScopedThreadId>,
+  threadId: ScopedThreadId,
+): Record<string, ScopedThreadId> {
   let nextProjectDraftThreadIdByProjectId = projectDraftThreadIdByProjectId;
   for (const [mappingKey, mappedThreadId] of Object.entries(projectDraftThreadIdByProjectId)) {
     if (mappedThreadId !== threadId) {
@@ -739,9 +762,11 @@ export function hydratePastedTextsFromPersisted(
 }
 
 export function normalizeTerminalContextForThread(
-  threadId: ThreadId,
+  threadId: ScopedThreadId,
   context: TerminalContextDraft,
 ): TerminalContextDraft | null {
+  // The context records its own thread by the id the server knows it by.
+  const { threadId: rawThreadId } = unscopeThread(threadId);
   const terminalId = context.terminalId.trim();
   const terminalLabel = context.terminalLabel.trim();
   if (terminalId.length === 0 || terminalLabel.length === 0) {
@@ -751,7 +776,7 @@ export function normalizeTerminalContextForThread(
   const lineEnd = Math.max(lineStart, Math.floor(context.lineEnd));
   return {
     ...context,
-    threadId,
+    threadId: rawThreadId,
     terminalId,
     terminalLabel,
     lineStart,
@@ -761,7 +786,7 @@ export function normalizeTerminalContextForThread(
 }
 
 export function normalizeTerminalContextsForThread(
-  threadId: ThreadId,
+  threadId: ScopedThreadId,
   contexts: ReadonlyArray<TerminalContextDraft>,
 ): TerminalContextDraft[] {
   const existingIds = new Set<string>();
@@ -786,7 +811,7 @@ export function normalizeTerminalContextsForThread(
 }
 
 export function captureComposerPromptHistorySavedDraft(input: {
-  threadId: ThreadId;
+  threadId: ScopedThreadId;
   draft: ComposerThreadDraftState;
   prompt: string;
 }): ComposerPromptHistorySavedDraft {
@@ -812,7 +837,7 @@ export function captureComposerPromptHistorySavedDraft(input: {
 export function buildTransferredComposerDraft(input: {
   sourceDraft: ComposerThreadDraftState;
   targetDraft: ComposerThreadDraftState | undefined;
-  targetThreadId: ThreadId;
+  targetThreadId: ScopedThreadId;
 }): ComposerThreadDraftState {
   const { sourceDraft, targetDraft, targetThreadId } = input;
   const base = targetDraft ?? createEmptyThreadDraft();
@@ -864,7 +889,7 @@ export function cloneComposerImageAttachment(
 
 function clonePromptHistorySavedDraft(
   savedDraft: ComposerPromptHistorySavedDraft | null,
-  targetThreadId: ThreadId,
+  targetThreadId: ScopedThreadId,
 ): ComposerPromptHistorySavedDraft | null {
   if (!savedDraft) {
     return null;
@@ -1022,10 +1047,10 @@ export function composerThreadDraftPreviewText(
 /** Thread ids with a pending draft, sorted so shallow selectors stay stable while typing. */
 export function selectThreadIdsWithPendingDraft(
   state: Pick<ComposerDraftStoreState, "draftsByThreadId">,
-): ThreadId[] {
-  const threadIds: ThreadId[] = [];
+): ScopedThreadId[] {
+  const threadIds: ScopedThreadId[] = [];
   for (const [threadId, draft] of Object.entries(state.draftsByThreadId)) {
-    if (composerThreadDraftIsPending(draft)) threadIds.push(threadId as ThreadId);
+    if (composerThreadDraftIsPending(draft)) threadIds.push(threadId as ScopedThreadId);
   }
   return threadIds.toSorted();
 }
@@ -1087,7 +1112,7 @@ const EMPTY_THREAD_DRAFT = Object.freeze<ComposerThreadDraftState>({
 
 export function selectComposerThreadDraft(
   state: Pick<ComposerDraftStoreState, "draftsByThreadId">,
-  threadId: ThreadId,
+  threadId: ScopedThreadId,
 ): ComposerThreadDraftState {
   return state.draftsByThreadId[threadId] ?? EMPTY_THREAD_DRAFT;
 }

@@ -4,6 +4,7 @@
 // Layer: Web orchestration helper
 // Exports: Container-chat startup plus segment-aware fresh-chat dispatch.
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ModelSelection, ProjectId, ProviderStartOptions, ThreadId } from "@saint/contracts";
 import type { Project } from "../types";
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -84,7 +85,7 @@ export async function startContainerChat(input: {
     if (threadId && threadDefaults && input.applyThreadDefaults) {
       // A thread id that already had a draft is a reused draft, not a fresh
       // one — the user's existing selections win over container defaults.
-      if (draftsBeforeCreate[threadId] === undefined) {
+      if (draftsBeforeCreate[scopeLocalThread(threadId)] === undefined) {
         input.applyThreadDefaults(threadId, threadDefaults);
       }
     }

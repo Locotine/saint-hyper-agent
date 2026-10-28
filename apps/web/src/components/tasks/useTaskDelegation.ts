@@ -6,6 +6,7 @@
 // Layer: Tasks UI hook
 // Exports: useTaskDelegation
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ServerProviderStatus, ThreadId, Todo, TodoUpdateInput } from "@saint/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -201,7 +202,7 @@ export function useTaskDelegation(options: {
     const chatId = thread.id;
     const composerStore = useComposerDraftStore.getState();
     const canUseComposer = () => {
-      const chatDraft = useComposerDraftStore.getState().draftsByThreadId[chatId];
+      const chatDraft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(chatId)];
       // Never send or replace an unrelated message in the chosen chat.
       if (!chatDraft || !composerDraftHasUnsentContent(chatDraft)) return true;
       toastManager.add({
@@ -237,7 +238,7 @@ export function useTaskDelegation(options: {
       defaultProvider: settings.defaultProvider,
       providerInstances,
     });
-    composerStore.setPrompt(chatId, prompt);
+    composerStore.setPrompt(scopeLocalThread(chatId), prompt);
     const result = await dispatchDraftThread({
       threadId: chatId,
       projectId: thread.projectId,
@@ -251,8 +252,8 @@ export function useTaskDelegation(options: {
     if (!started) {
       // Remove only our prompt; the user may have typed a new message while sending.
       const currentStore = useComposerDraftStore.getState();
-      if (currentStore.draftsByThreadId[chatId]?.prompt === prompt) {
-        currentStore.setPrompt(chatId, "");
+      if (currentStore.draftsByThreadId[scopeLocalThread(chatId)]?.prompt === prompt) {
+        currentStore.setPrompt(scopeLocalThread(chatId), "");
       }
       await unlinkChat(chatId, false);
     }
@@ -283,7 +284,8 @@ export function useTaskDelegation(options: {
       toastManager.add({ type: "error", title: "Couldn't prepare a chat for that folder" });
       return false;
     }
-    const scratch = useComposerDraftStore.getState().draftsByThreadId[scratchThreadId];
+    const scratch =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(scratchThreadId)];
     const storedSelection =
       scratch?.modelSelectionByProvider[
         providerInstanceModelSelectionKey(selectedProvider, selectedProviderInstanceId)
@@ -303,7 +305,7 @@ export function useTaskDelegation(options: {
     let createdComposerState: ComposerThreadDraftState | undefined;
     let created: Awaited<ReturnType<typeof createAndDispatchDraftThread>>;
     // The new chat copies the scratch draft (traits and all) rather than `prompt`.
-    useComposerDraftStore.getState().setPrompt(scratchThreadId, prompt);
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(scratchThreadId), prompt);
     try {
       created = await createAndDispatchDraftThread({
         projectId,
@@ -319,7 +321,8 @@ export function useTaskDelegation(options: {
         providerOptions: getProviderStartOptions(settings, selectedProviderInstanceId),
         providerInstances: getProviderInstanceOptions(settings),
         beforeDispatch: async (newThreadId) => {
-          createdComposerState = useComposerDraftStore.getState().draftsByThreadId[newThreadId];
+          createdComposerState =
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(newThreadId)];
           linked = await linkChat({
             id: todo.id,
             threadId: newThreadId,
@@ -345,9 +348,12 @@ export function useTaskDelegation(options: {
       // Keep uncertain links reachable, and never discard edits made during the request.
       if (
         unlinked &&
-        composerDraftsMatchForCleanup(currentStore.draftsByThreadId[threadId], createdComposerState)
+        composerDraftsMatchForCleanup(
+          currentStore.draftsByThreadId[scopeLocalThread(threadId)],
+          createdComposerState,
+        )
       ) {
-        currentStore.clearDraftThread(threadId);
+        currentStore.clearDraftThread(scopeLocalThread(threadId));
       }
     }
     return started;

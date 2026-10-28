@@ -5,6 +5,7 @@
 // Layer: Tasks UI hooks
 // Exports: useTaskAgentThread, useTaskAgentActions
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   ApprovalRequestId,
   ProviderApprovalDecision,
@@ -120,7 +121,8 @@ export function useTaskAgentActions(
         lifecycleGeneration,
         requestKind,
         runtimeMode:
-          useComposerDraftStore.getState().draftsByThreadId[threadId]?.runtimeMode ??
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+            ?.runtimeMode ??
           threadRuntimeMode ??
           "approval-required",
       });

@@ -6,6 +6,7 @@
 // Exports: dispatchDraftThread, DraftThreadDispatchHooks, DraftThreadDispatchResult,
 //          DraftThreadOpenReason
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   AssistantDeliveryMode,
   ModelSelection,
@@ -138,7 +139,8 @@ export function resolveDraftThreadDispatchTarget(input: {
   providerInstances?: ReadonlyArray<DraftDispatchProviderInstance> | undefined;
 }): DraftThreadDispatchTarget {
   const composerStore = useComposerDraftStore.getState();
-  const draftComposerState = composerStore.draftsByThreadId[input.threadId] ?? null;
+  const draftComposerState =
+    composerStore.draftsByThreadId[scopeLocalThread(input.threadId)] ?? null;
   const project =
     useStore.getState().projects.find((candidate) => candidate.id === input.projectId) ?? null;
   const resolveConfiguredProvider = (instanceId: ProviderInstanceId) =>
@@ -242,7 +244,7 @@ async function dispatchDraftThreadOnce(
   // Re-read the composer at send time: edits made in an open chat must win over
   // whatever the caller last saw, and a stale prompt must never be dispatched.
   const composerStore = useComposerDraftStore.getState();
-  const draftComposerState = composerStore.draftsByThreadId[threadId] ?? null;
+  const draftComposerState = composerStore.draftsByThreadId[scopeLocalThread(threadId)] ?? null;
   const draftPrompt = draftComposerState?.prompt ?? "";
   const prompt = draftPrompt.trim();
   if (
@@ -258,7 +260,7 @@ async function dispatchDraftThreadOnce(
   const project = appState.projects.find((candidate) => candidate.id === projectId) ?? null;
   const existingThread = thread ? getThreadFromState(appState, threadId) : null;
   const { modelSelection } = resolveDraftThreadDispatchTarget(input);
-  const draftThread = composerStore.getDraftThread(threadId);
+  const draftThread = composerStore.getDraftThread(scopeLocalThread(threadId));
   // Worktree creation is owned by the full chat composer path. This helper stays a
   // control surface and opens chat when a draft still needs that preflight.
   const dispatchEnvironment = {
@@ -512,8 +514,13 @@ async function dispatchDraftThreadOnce(
   // Clear the consumed draft only while we still own it. An open composer may
   // have received new text or attachments while the dispatch reply was pending.
   const currentStore = useComposerDraftStore.getState();
-  if (composerDraftsMatchForCleanup(currentStore.draftsByThreadId[threadId], draftComposerState)) {
-    currentStore.clearComposerContent(threadId);
+  if (
+    composerDraftsMatchForCleanup(
+      currentStore.draftsByThreadId[scopeLocalThread(threadId)],
+      draftComposerState,
+    )
+  ) {
+    currentStore.clearComposerContent(scopeLocalThread(threadId));
   }
   markPendingTurnDispatch(threadId);
   return { kind: "dispatched", ...(goalWarning ? { warning: goalWarning } : {}) };

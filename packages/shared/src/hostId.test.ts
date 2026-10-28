@@ -2,13 +2,16 @@ import type { ProjectId, ThreadId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
 import {
+  bareLocalThreadParam,
   generateHostKey,
   hostIdOf,
   isHostKey,
   LOCAL_HOST_ID,
+  localThreadIdFromKey,
   parseHostId,
   parseScopedProjectId,
   parseScopedThreadId,
+  scopeLocalThread,
   scopeProject,
   scopeThread,
   sshHostId,
@@ -32,6 +35,10 @@ describe("hostId", () => {
     expect(parseHostId("ssh:XYZ")).toBeNull();
     expect(parseHostId("remote")).toBeNull();
     expect(() => sshHostId("nope")).toThrow();
+  });
+
+  it("scopes a local thread to the local host", () => {
+    expect(scopeLocalThread(thread)).toBe(scopeThread(LOCAL_HOST_ID, thread));
   });
 
   it("round-trips scoped thread and project ids", () => {
@@ -66,5 +73,24 @@ describe("hostId", () => {
     expect(() => scopeThread(remote, "" as ThreadId)).toThrow();
     expect(() => unscopeThread(thread as never)).toThrow();
     expect(() => unscopeThread("bogus~x" as never)).toThrow();
+  });
+});
+
+describe("bareLocalThreadParam", () => {
+  it("shortens this computer's scoped ids and leaves everything else alone", () => {
+    expect(bareLocalThreadParam(scopeLocalThread(thread))).toBe(thread);
+    expect(bareLocalThreadParam(thread)).toBe(thread);
+    const remoteScoped = scopeThread(remote, thread);
+    expect(bareLocalThreadParam(remoteScoped)).toBe(remoteScoped);
+    expect(bareLocalThreadParam("")).toBe("");
+  });
+});
+
+describe("localThreadIdFromKey", () => {
+  it("reads a bare key as a local thread and skips other hosts", () => {
+    expect(localThreadIdFromKey(thread)).toBe(thread);
+    expect(localThreadIdFromKey(scopeLocalThread(thread))).toBe(thread);
+    expect(localThreadIdFromKey(scopeThread(remote, thread))).toBeNull();
+    expect(localThreadIdFromKey("")).toBeNull();
   });
 });

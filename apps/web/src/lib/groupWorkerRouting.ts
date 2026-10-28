@@ -7,6 +7,7 @@
 // Exports: resolveGroupWorkerRoutingDefaults, applyGroupWorkerRoutingDefaults,
 //          resolveGroupContainerThreadDefaults
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { type ProjectId, type ServerProviderStatus, type ThreadId } from "@saint/contracts";
 
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -61,13 +62,16 @@ export function applyGroupWorkerRoutingDefaults(input: {
   if (modelSelection) {
     const status = findProviderStatus(input.providerStatuses, modelSelection.provider);
     if (input.providerStatuses.length === 0 || isProviderUsable(status)) {
-      draftStore.setModelSelection(input.threadId, modelSelection);
+      draftStore.setModelSelection(scopeLocalThread(input.threadId), modelSelection);
     } else {
-      draftStore.seedModelSelection(input.threadId, modelSelection);
+      draftStore.seedModelSelection(scopeLocalThread(input.threadId), modelSelection);
     }
   }
   if (input.defaults.providerOptions) {
-    draftStore.setProviderOptionsForDispatch(input.threadId, input.defaults.providerOptions);
+    draftStore.setProviderOptionsForDispatch(
+      scopeLocalThread(input.threadId),
+      input.defaults.providerOptions,
+    );
   }
 }
 

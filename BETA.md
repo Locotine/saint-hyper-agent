@@ -398,6 +398,16 @@ ingest works.
 
 ## Data
 
+Renderer state that names threads or projects (drafts, tabs, pins, splits,
+terminal layout, recent views, per-project preferences) is stored under
+host-qualified ids since the multi-host P3 change. Each such store moved to a
+new localStorage key (for example `saint:composer-drafts:v1` →
+`saint:composer-drafts:v2`): the first run reads the old key once, treating
+its raw ids as this computer's, and writes only the new key. The old key is
+left untouched, so installing an older build again (a beta → older beta
+downgrade, or a rollback) finds its own state as it was at the upgrade, without
+anything changed since.
+
 Without an explicit import, beta starts with an empty `~/.saint-beta` home. It
 does not copy, share, or migrate stable (`~/.saint`) or Canary
 (`~/.saint-canary`) data on its own. Both apps can run at the same time: the
