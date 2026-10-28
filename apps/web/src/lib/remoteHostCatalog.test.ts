@@ -1,8 +1,13 @@
 import type { DesktopRemoteSshHostState, OrchestrationShellSnapshot } from "@saint/contracts";
+import { sshHostId } from "@saint/shared/hostId";
 import { describe, expect, it } from "vitest";
 
+import { syncServerShellSnapshot } from "../storeProjection";
+import { initialState } from "../storeState";
+import { makeReadModelThread, makeShellSnapshot } from "../storeTestFixtures";
 import {
   REMOTE_CATALOG_THREAD_LIMIT,
+  buildRemoteCatalogFromState,
   buildRemoteCatalogProjects,
   remoteHostSidebarStatus,
 } from "./remoteHostCatalog";
@@ -78,6 +83,55 @@ describe("buildRemoteCatalogProjects", () => {
     const result = buildRemoteCatalogProjects(snapshot([project("a", "Alpha")], threads));
     expect(result[0]?.threads).toHaveLength(REMOTE_CATALOG_THREAD_LIMIT);
     expect(result[0]?.hiddenThreadCount).toBe(3);
+  });
+});
+
+describe("buildRemoteCatalogFromState", () => {
+  it("matches the snapshot-built catalog once the snapshot has gone through a host store", () => {
+    const base = makeShellSnapshot(makeReadModelThread({}));
+    const shellThread = (id: string, projectId: string, extra: Record<string, unknown> = {}) =>
+      ({
+        ...base.threads[0]!,
+        id,
+        projectId,
+        title: `thread ${id}`,
+        updatedAt: `2026-10-28T10:00:${id.padStart(2, "0")}.000Z`,
+        archivedAt: null,
+        parentThreadId: null,
+        ...extra,
+      }) as unknown as ShellThread;
+    const shellProject = (id: string, title: string, kind: ShellProject["kind"] = "project") =>
+      ({
+        ...base.projects[0]!,
+        id,
+        title,
+        kind,
+        workspaceRoot: `/srv/${id}`,
+      }) as unknown as ShellProject;
+    const full: OrchestrationShellSnapshot = {
+      ...base,
+      projects: [
+        shellProject("b", "Beta"),
+        shellProject("a", "Alpha"),
+        shellProject("c", "Chats", "chat"),
+      ],
+      threads: [
+        shellThread("10", "a"),
+        shellThread("30", "a"),
+        shellThread("20", "a", { hasPendingApprovals: true }),
+        shellThread("11", "a", { archivedAt: "2026-10-28T09:00:00.000Z" }),
+        shellThread("12", "a", { parentThreadId: "10" }),
+        shellThread("13", "b"),
+      ],
+    };
+
+    const state = syncServerShellSnapshot({ ...initialState, hostId: sshHostId("a1b2c3d4") }, full);
+
+    expect(buildRemoteCatalogFromState(state)).toEqual(buildRemoteCatalogProjects(full));
+    expect(buildRemoteCatalogFromState(state).map((entry) => entry.title)).toEqual([
+      "Alpha",
+      "Beta",
+    ]);
   });
 });
 

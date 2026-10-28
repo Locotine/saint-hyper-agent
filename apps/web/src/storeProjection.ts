@@ -39,6 +39,7 @@ import {
   type ProjectNormalizationInput,
 } from "./storeNormalization";
 import {
+  EMPTY_REMEMBERED_PROJECT_UI_STATE,
   forgetProjectState,
   projectCwdKey,
   rememberProjectState,
@@ -57,6 +58,7 @@ import {
   EMPTY_THREAD_TURN_STATE_BY_ID,
   EMPTY_TURN_DIFF_BY_THREAD,
   EMPTY_TURN_DIFF_IDS_BY_THREAD,
+  isLocalHostState,
   type AppState,
   type ThreadDetailSyncState,
 } from "./storeState";
@@ -235,6 +237,14 @@ const activityId = (activity: Thread["activities"][number]): string => activity.
 const proposedPlanId = (plan: Thread["proposedPlans"][number]): string => plan.id;
 const turnDiffId = (summary: Thread["turnDiffSummaries"][number]): TurnId => summary.turnId;
 
+/**
+ * A remote host's store shares no remembered UI state with this computer, and must not
+ * write to it: that state is keyed by cwd, and the same path can exist on both machines.
+ */
+function rememberedUiStateFor(state: AppState) {
+  return isLocalHostState(state) ? undefined : EMPTY_REMEMBERED_PROJECT_UI_STATE;
+}
+
 export function upsertProject(
   state: AppState,
   incoming: ProjectNormalizationInput,
@@ -250,7 +260,7 @@ export function upsertProject(
           (project) => projectCwdKey(project.cwd) === projectCwdKey(incoming.workspaceRoot),
         )
       : undefined);
-  const nextProject = normalizeProject(incoming, existingProject);
+  const nextProject = normalizeProject(incoming, existingProject, rememberedUiStateFor(state));
 
   if (existingProject) {
     if (existingProject === nextProject) {
@@ -688,7 +698,7 @@ function clearThreadDetailSyncState(state: AppState, threadId: ThreadId): AppSta
   // let a resubscribe gap-replay on top of missing history. The full-sync
   // paths cover their bulk invalidations separately: the shell snapshot prunes
   // with `retainThreadDetailResumeCursors`, the read-model resync resets all.
-  clearThreadDetailResumeCursor(threadId);
+  if (isLocalHostState(state)) clearThreadDetailResumeCursor(threadId);
   if (
     !Object.hasOwn(state.threadDetailSyncById ?? {}, threadId) &&
     !Object.hasOwn(state.threadDetailRevisionSequenceById ?? {}, threadId)
@@ -1129,7 +1139,7 @@ function removeProjectState(state: AppState, projectId: Project["id"]): AppState
   }
 
   const removedProject = state.projects.find((project) => project.id === projectId);
-  if (removedProject) {
+  if (removedProject && isLocalHostState(state)) {
     forgetProjectState(removedProject.cwd);
   }
 
@@ -1301,7 +1311,8 @@ export function syncServerShellSnapshot(
   if (isStaleSnapshot(state, snapshot.snapshotSequence)) {
     return state;
   }
-  rememberProjectState(state.projects);
+  const isLocal = isLocalHostState(state);
+  if (isLocal) rememberProjectState(state.projects);
   const deletedProjectIdsById = state.deletedProjectIdsById ?? {};
   const deletedThreadIdsById = state.deletedThreadIdsById ?? {};
   const snapshotThreads = snapshot.threads.filter(
@@ -1314,16 +1325,18 @@ export function syncServerShellSnapshot(
   );
   // The snapshot is the authoritative project set; drop remembered UI state that
   // cannot match it before the new projects are normalized and remembered.
-  resetStaleRememberedProjectState(
-    new Set(snapshotProjects.map((project) => projectCwdKey(project.workspaceRoot))),
-  );
+  if (isLocal) {
+    resetStaleRememberedProjectState(
+      new Set(snapshotProjects.map((project) => projectCwdKey(project.workspaceRoot))),
+    );
+  }
   const spaces = mapSpaces(snapshot.spaces ?? [], state.spaces ?? []);
-  const projects = mapProjects(snapshotProjects, state.projects);
-  rememberProjectState(projects);
+  const projects = mapProjects(snapshotProjects, state.projects, rememberedUiStateFor(state));
+  if (isLocal) rememberProjectState(projects);
   const nextThreadIds = new Set(snapshotThreads.map((thread) => thread.id));
   // The retains below prune detail slices down to the snapshot's threads; any
   // resume cursor for a pruned thread must fall with its detail.
-  retainThreadDetailResumeCursors(nextThreadIds);
+  if (isLocal) retainThreadDetailResumeCursors(nextThreadIds);
 
   const normalizedState: AppState = {
     ...state,
@@ -1499,7 +1512,8 @@ export function syncServerReadModel(state: AppState, readModel: OrchestrationRea
   if (isStaleSnapshot(state, readModel.snapshotSequence)) {
     return state;
   }
-  rememberProjectState(state.projects);
+  const isLocal = isLocalHostState(state);
+  if (isLocal) rememberProjectState(state.projects);
   const deletedProjectIdsById = state.deletedProjectIdsById ?? {};
   const deletedThreadIdsById = state.deletedThreadIdsById ?? {};
   // Ids the server still reports as live at this snapshot sequence; anything else is either
@@ -1519,11 +1533,13 @@ export function syncServerReadModel(state: AppState, readModel: OrchestrationRea
   );
   // The read model is the authoritative project set; drop remembered UI state that
   // cannot match it before the new projects are normalized and remembered.
-  resetStaleRememberedProjectState(
-    new Set(liveProjects.map((project) => projectCwdKey(project.workspaceRoot))),
-  );
-  const projects = mapProjects(liveProjects, state.projects);
-  rememberProjectState(projects);
+  if (isLocal) {
+    resetStaleRememberedProjectState(
+      new Set(liveProjects.map((project) => projectCwdKey(project.workspaceRoot))),
+    );
+  }
+  const projects = mapProjects(liveProjects, state.projects, rememberedUiStateFor(state));
+  if (isLocal) rememberProjectState(projects);
   const nextThreads = readModel.threads
     .filter(
       (thread) =>
@@ -1552,7 +1568,7 @@ export function syncServerReadModel(state: AppState, readModel: OrchestrationRea
   // surviving thread's cursor would vouch for history the replacement does not
   // contain. No cursor survives — the next subscribe takes a snapshot and
   // re-establishes one that matches what is actually cached.
-  resetThreadDetailResumeCursors();
+  if (isLocal) resetThreadDetailResumeCursors();
   let normalizedState: AppState = {
     ...state,
     threadIds: reuseThreadIdRegistry(state.threadIds, nextThreadIds),

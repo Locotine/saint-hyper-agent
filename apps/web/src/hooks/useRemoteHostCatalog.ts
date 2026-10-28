@@ -4,12 +4,15 @@
 // Exports: useRemoteHostCatalog, RemoteHostCatalog
 
 import { ORCHESTRATION_WS_METHODS, type OrchestrationShellSnapshot } from "@saint/contracts";
-import { sshHostId } from "@saint/shared/hostId";
-import { useEffect, useState } from "react";
+import { sshHostId, type HostId } from "@saint/shared/hostId";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
-import { hostConnections } from "../hosts/hostConnectionRegistry";
-import { watchShellCatalog } from "../hosts/shellCatalogWatcher";
-import { buildRemoteCatalogProjects, type RemoteCatalogProject } from "../lib/remoteHostCatalog";
+import { hostStores, type HostStreamStatus } from "../hosts/hostStores";
+import {
+  buildRemoteCatalogFromState,
+  buildRemoteCatalogProjects,
+  type RemoteCatalogProject,
+} from "../lib/remoteHostCatalog";
 import { WsTransport } from "../wsTransport";
 
 export const REMOTE_CATALOG_REFRESH_MS = 15_000;
@@ -31,7 +34,7 @@ export interface RemoteHostIdentity {
  * Kill switch for the push-driven catalog: `localStorage["saint:multi-host-live-catalog"] = "off"`
  * restores the 15 s poll without a rebuild. Read once per page load.
  */
-const LIVE_CATALOG_ENABLED = (() => {
+export const LIVE_CATALOG_ENABLED = (() => {
   try {
     return window.localStorage.getItem("saint:multi-host-live-catalog") !== "off";
   } catch {
@@ -40,9 +43,8 @@ const LIVE_CATALOG_ENABLED = (() => {
 })();
 
 /**
- * A connected host's projects and threads. Hosts that carry a key follow the host's shell
- * stream through the shared per-host connection; otherwise (or with the kill switch) the
- * snapshot is polled.
+ * A connected host's projects and threads. Hosts that carry a key read their store, which
+ * follows the host's shell stream; otherwise (or with the kill switch) the snapshot is polled.
  */
 export function useRemoteHostCatalog(
   host: string,
@@ -52,64 +54,64 @@ export function useRemoteHostCatalog(
   const hostKey = LIVE_CATALOG_ENABLED ? (identity?.hostKey ?? null) : null;
   const live = hostKey !== null;
   const polled = usePolledRemoteHostCatalog(host, live ? null : localPort);
-  const pushed = useLiveRemoteHostCatalog(
-    host,
-    live ? localPort : null,
-    hostKey,
-    identity?.epoch ?? 0,
-  );
+  const pushed = useLiveRemoteHostCatalog(hostKey);
   return live ? pushed : polled;
 }
 
-function useLiveRemoteHostCatalog(
-  host: string,
-  localPort: number | null,
-  hostKey: string | null,
-  epoch: number,
-): RemoteHostCatalog {
-  const [catalog, setCatalog] = useState<RemoteHostCatalog>(LOADING);
+const catalogCache = new Map<
+  HostId,
+  {
+    projects: unknown;
+    summaries: unknown;
+    hydrated: boolean;
+    stream: HostStreamStatus;
+    result: RemoteHostCatalog;
+  }
+>();
 
-  // A new epoch is a new token: its connection and every answer from the old one are dropped.
-  useEffect(() => {
-    const bridge = window.desktopBridge?.remoteSsh;
-    if (!bridge || localPort === null || hostKey === null) return;
-    let current = true;
-    let stop: (() => void) | null = null;
-    let release: (() => void) | null = null;
-    setCatalog(LOADING);
-
-    void (async () => {
-      try {
-        const url = await bridge.wsUrl(host);
-        if (!current) return;
-        if (!url) throw new Error("The host's server is not reachable.");
-        const lease = hostConnections.acquire(sshHostId(hostKey), epoch, url);
-        release = lease.release;
-        stop = watchShellCatalog(lease.transport, {
-          snapshot: (snapshot) =>
-            setCatalog({
-              status: "ready",
-              projects: buildRemoteCatalogProjects(snapshot),
-              message: null,
-            }),
-          error: (message) =>
-            setCatalog((previous) => ({ status: "error", projects: previous.projects, message })),
-        });
-      } catch (error) {
-        if (!current) return;
-        const message = error instanceof Error ? error.message : String(error);
-        setCatalog((previous) => ({ status: "error", projects: previous.projects, message }));
-      }
-    })();
-
-    return () => {
-      current = false;
-      stop?.();
-      release?.();
+/** The host's catalog from its store, stable until something it shows changes. */
+function readHostCatalog(hostId: HostId): RemoteHostCatalog {
+  const state = hostStores.peek(hostId)?.getState();
+  const stream = hostStores.status(hostId);
+  const projects = state?.projects;
+  const summaries = state?.sidebarThreadSummaryById;
+  const hydrated = state?.threadsHydrated ?? false;
+  const cached = catalogCache.get(hostId);
+  if (
+    cached &&
+    cached.projects === projects &&
+    cached.summaries === summaries &&
+    cached.hydrated === hydrated &&
+    cached.stream === stream
+  ) {
+    return cached.result;
+  }
+  const entries = state ? buildRemoteCatalogFromState(state) : [];
+  let result: RemoteHostCatalog;
+  if (!hydrated) {
+    result =
+      stream.status === "stale" && stream.message
+        ? { status: "error", projects: entries, message: stream.message }
+        : LOADING;
+  } else if (stream.status === "stale") {
+    result = {
+      status: "error",
+      projects: entries,
+      message: stream.message ?? "The host's server is not reachable.",
     };
-  }, [host, localPort, hostKey, epoch]);
+  } else {
+    result = { status: "ready", projects: entries, message: null };
+  }
+  catalogCache.set(hostId, { projects, summaries, hydrated, stream, result });
+  return result;
+}
 
-  return catalog;
+/** Reads the host's store; `useRemoteHostStoreSync` is what keeps that store current. */
+function useLiveRemoteHostCatalog(hostKey: string | null): RemoteHostCatalog {
+  const hostId = hostKey === null ? null : sshHostId(hostKey);
+  return useSyncExternalStore(hostStores.subscribe, () =>
+    hostId === null ? LOADING : readHostCatalog(hostId),
+  );
 }
 
 /**

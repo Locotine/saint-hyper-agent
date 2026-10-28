@@ -6,6 +6,7 @@
 import type { DesktopRemoteSshHostState, OrchestrationShellSnapshot } from "@saint/contracts";
 
 import { isRemoteHostBusy } from "../components/settings/remoteHostsSettingsModel";
+import type { AppState } from "../storeState";
 
 /** Threads listed per project before the sidebar shows a count instead. */
 export const REMOTE_CATALOG_THREAD_LIMIT = 8;
@@ -29,35 +30,50 @@ export interface RemoteCatalogProject {
   readonly hiddenThreadCount: number;
 }
 
-type ShellThread = OrchestrationShellSnapshot["threads"][number];
+/** The few fields a catalog row needs; a shell snapshot and a host store both supply them. */
+interface CatalogProjectInput {
+  readonly id: string;
+  readonly title: string;
+  readonly kind?: string | undefined;
+  readonly workspaceRoot: string;
+}
 
-function threadState(thread: ShellThread): RemoteCatalogThreadState {
+interface CatalogThreadInput {
+  readonly id: string;
+  readonly projectId: string;
+  readonly title: string;
+  readonly updatedAt?: string | undefined;
+  readonly archivedAt?: string | null | undefined;
+  readonly parentThreadId?: string | null | undefined;
+  readonly session?: { readonly status?: string } | null | undefined;
+  readonly hasPendingApprovals?: boolean | undefined;
+  readonly hasPendingUserInput?: boolean | undefined;
+}
+
+function threadState(thread: CatalogThreadInput): RemoteCatalogThreadState {
   if (thread.hasPendingApprovals || thread.hasPendingUserInput) return "attention";
   const status = thread.session?.status;
   return status === "running" || status === "starting" ? "running" : "idle";
 }
 
-/**
- * Standard projects of a host with their live (not archived, not sub-agent)
- * threads, newest first. Chats, studios and groups stay on the host's own UI.
- */
-export function buildRemoteCatalogProjects(
-  snapshot: OrchestrationShellSnapshot,
+function buildCatalog(
+  allProjects: readonly CatalogProjectInput[],
+  allThreads: readonly CatalogThreadInput[],
 ): RemoteCatalogProject[] {
   const threadsByProject = new Map<string, RemoteCatalogThread[]>();
-  for (const thread of snapshot.threads) {
+  for (const thread of allThreads) {
     if (thread.archivedAt || thread.parentThreadId) continue;
     const entry: RemoteCatalogThread = {
       id: thread.id,
       title: thread.title,
       state: threadState(thread),
-      updatedAt: thread.updatedAt,
+      updatedAt: thread.updatedAt ?? "",
     };
     const list = threadsByProject.get(thread.projectId);
     if (list) list.push(entry);
     else threadsByProject.set(thread.projectId, [entry]);
   }
-  return snapshot.projects
+  return allProjects
     .filter((project) => project.kind === "project")
     .map((project) => {
       const threads = (threadsByProject.get(project.id) ?? []).toSorted((a, b) =>
@@ -72,6 +88,39 @@ export function buildRemoteCatalogProjects(
       };
     })
     .toSorted((a, b) => a.title.localeCompare(b.title));
+}
+
+/**
+ * Standard projects of a host with their live (not archived, not sub-agent)
+ * threads, newest first. Chats, studios and groups stay on the host's own UI.
+ */
+export function buildRemoteCatalogProjects(
+  snapshot: OrchestrationShellSnapshot,
+): RemoteCatalogProject[] {
+  return buildCatalog(
+    snapshot.projects.map((project) => ({
+      id: project.id,
+      title: project.title,
+      kind: project.kind,
+      workspaceRoot: project.workspaceRoot,
+    })),
+    snapshot.threads,
+  );
+}
+
+/** The same catalog read from a host's store, which a shell stream keeps current. */
+export function buildRemoteCatalogFromState(
+  state: Pick<AppState, "projects" | "sidebarThreadSummaryById">,
+): RemoteCatalogProject[] {
+  return buildCatalog(
+    state.projects.map((project) => ({
+      id: project.id,
+      title: project.name,
+      kind: project.kind,
+      workspaceRoot: project.cwd,
+    })),
+    Object.values(state.sidebarThreadSummaryById),
+  );
 }
 
 export type RemoteHostSidebarStatus = "connected" | "connecting" | "error" | "offline";

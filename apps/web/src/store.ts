@@ -13,7 +13,8 @@ import {
 } from "@saint/contracts";
 import { Debouncer } from "@tanstack/react-pacer";
 import { resolveThreadBranchRegressionGuard } from "@saint/shared/git";
-import { create } from "zustand";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { create, type StateCreator } from "zustand";
 
 import {
   normalizeProjectAppearance,
@@ -319,88 +320,105 @@ interface AppStore extends AppState {
   setThreadWorkspace: (threadId: ThreadId, patch: ThreadWorkspacePatch) => void;
 }
 
-export const useStore = create<AppStore>((set) => ({
-  ...readPersistedState(initialState),
-  syncServerShellSnapshot: (snapshot) => set((state) => syncServerShellSnapshot(state, snapshot)),
-  syncServerThreadDetail: (thread) => set((state) => syncServerThreadDetail(state, thread)),
-  syncServerThreadDetailHotPath: (thread, snapshotSequence, historyRevisionSequence) =>
-    set((state) =>
-      syncServerThreadDetailHotPath(state, thread, snapshotSequence, historyRevisionSequence),
-    ),
-  syncServerReadModel: (readModel) => set((state) => syncServerReadModel(state, readModel)),
-  applyShellEvent: (event) => set((state) => applyShellEvent(state, event)),
-  applyOrchestrationEvents: (events) => set((state) => applyOrchestrationEvents(state, events)),
-  applyOrchestrationEventsHotPath: (events) =>
-    set((state) =>
-      applyOrchestrationEventsHotPath(state, events, {
-        updateSidebarSummary: false,
+// Remote hosts get the same store without this computer's saved state, and without writing any.
+const appStoreCreator =
+  (hostId: HostId): StateCreator<AppStore> =>
+  (set, get) => ({
+    ...(hostId === LOCAL_HOST_ID ? readPersistedState(initialState) : { ...initialState, hostId }),
+    syncServerShellSnapshot: (snapshot) => set((state) => syncServerShellSnapshot(state, snapshot)),
+    syncServerThreadDetail: (thread) => set((state) => syncServerThreadDetail(state, thread)),
+    syncServerThreadDetailHotPath: (thread, snapshotSequence, historyRevisionSequence) =>
+      set((state) =>
+        syncServerThreadDetailHotPath(state, thread, snapshotSequence, historyRevisionSequence),
+      ),
+    syncServerReadModel: (readModel) => set((state) => syncServerReadModel(state, readModel)),
+    applyShellEvent: (event) => set((state) => applyShellEvent(state, event)),
+    applyOrchestrationEvents: (events) => set((state) => applyOrchestrationEvents(state, events)),
+    applyOrchestrationEventsHotPath: (events) =>
+      set((state) =>
+        applyOrchestrationEventsHotPath(state, events, {
+          updateSidebarSummary: false,
+        }),
+      ),
+    evictThreadDetail: (threadId) =>
+      set((state) => evictThreadDetailFromClientState(state, threadId)),
+    // Dropping a batch of leases evicts several threads at once. Every store update
+    // re-runs the retention reconcile, so folding them into one write keeps that at
+    // a single pass instead of one per thread.
+    evictThreadDetails: (threadIds) =>
+      set((state) => {
+        let nextState: AppState = state;
+        for (const threadId of threadIds) {
+          nextState = evictThreadDetailFromClientState(nextState, threadId);
+        }
+        return nextState;
       }),
-    ),
-  evictThreadDetail: (threadId) =>
-    set((state) => evictThreadDetailFromClientState(state, threadId)),
-  // Dropping a batch of leases evicts several threads at once. Every store update
-  // re-runs the retention reconcile, so folding them into one write keeps that at
-  // a single pass instead of one per thread.
-  evictThreadDetails: (threadIds) =>
-    set((state) => {
-      let nextState: AppState = state;
-      for (const threadId of threadIds) {
-        nextState = evictThreadDetailFromClientState(nextState, threadId);
-      }
-      return nextState;
-    }),
-  markThreadDetailSyncFailed: (threadId) =>
-    set((state) => markThreadDetailSyncFailedInClientState(state, threadId)),
-  clearThreadDetailSyncFailure: (threadId) =>
-    set((state) => clearThreadDetailSyncFailureInClientState(state, threadId)),
-  removeDeletedProjectFromClientState: (projectId) =>
-    set((state) => removeDeletedProjectFromClientState(state, projectId)),
-  removeDeletedThreadFromClientState: (threadId) =>
-    set((state) => removeDeletedThreadFromClientState(state, threadId)),
-  markThreadVisited: (threadId, visitedAt) =>
-    set((state) => markThreadVisited(state, threadId, visitedAt)),
-  markThreadUnread: (threadId) => set((state) => markThreadUnread(state, threadId)),
-  toggleProject: (projectId) => set((state) => toggleProject(state, projectId)),
-  setProjectExpanded: (projectId, expanded) =>
-    set((state) => setProjectExpanded(state, projectId, expanded)),
-  setAllProjectsExpanded: (expanded) => set((state) => setAllProjectsExpanded(state, expanded)),
-  collapseProjectsExcept: (activeProjectId) =>
-    set((state) => collapseProjectsExcept(state, activeProjectId)),
-  reorderProjects: (draggedProjectId, targetProjectId) =>
-    set((state) => reorderProjects(state, draggedProjectId, targetProjectId)),
-  reorderSpacesLocally: (orderedSpaceIds) =>
-    set((state) => applySpaceOrder(state, orderedSpaceIds)),
-  renameProjectLocally: (projectId, name) => {
-    set((state) => renameProjectLocally(state, projectId, name));
-    persistAppStateNow();
-  },
-  setProjectAppearanceLocally: (projectId, appearance) => {
-    set((state) => setProjectAppearanceLocally(state, projectId, appearance));
-    persistAppStateNow();
-  },
-  setError: (threadId, error) => set((state) => setError(state, threadId, error)),
-  setThreadWorkspace: (threadId, patch) =>
-    set((state) => setThreadWorkspace(state, threadId, patch)),
-}));
-
-// Persist state changes with debouncing to avoid localStorage thrashing.
-// Project snapshots only depend on `state.projects` (immutable — every project mutation
-// produces a new array), so skip them on the streaming hot path where only thread slices move.
-let lastRememberedProjects: readonly Project[] | undefined;
-useStore.subscribe((state) => {
-  if (state.projects !== lastRememberedProjects) {
-    lastRememberedProjects = state.projects;
-    rememberProjectState(state.projects);
-  }
-  debouncedPersistState.maybeExecute(state);
-});
-
-// Flush pending writes synchronously before page unload to prevent data loss.
-if (typeof window !== "undefined") {
-  window.addEventListener("beforeunload", () => {
-    persistAppStateNow();
+    markThreadDetailSyncFailed: (threadId) =>
+      set((state) => markThreadDetailSyncFailedInClientState(state, threadId)),
+    clearThreadDetailSyncFailure: (threadId) =>
+      set((state) => clearThreadDetailSyncFailureInClientState(state, threadId)),
+    removeDeletedProjectFromClientState: (projectId) =>
+      set((state) => removeDeletedProjectFromClientState(state, projectId)),
+    removeDeletedThreadFromClientState: (threadId) =>
+      set((state) => removeDeletedThreadFromClientState(state, threadId)),
+    markThreadVisited: (threadId, visitedAt) =>
+      set((state) => markThreadVisited(state, threadId, visitedAt)),
+    markThreadUnread: (threadId) => set((state) => markThreadUnread(state, threadId)),
+    toggleProject: (projectId) => set((state) => toggleProject(state, projectId)),
+    setProjectExpanded: (projectId, expanded) =>
+      set((state) => setProjectExpanded(state, projectId, expanded)),
+    setAllProjectsExpanded: (expanded) => set((state) => setAllProjectsExpanded(state, expanded)),
+    collapseProjectsExcept: (activeProjectId) =>
+      set((state) => collapseProjectsExcept(state, activeProjectId)),
+    reorderProjects: (draggedProjectId, targetProjectId) =>
+      set((state) => reorderProjects(state, draggedProjectId, targetProjectId)),
+    reorderSpacesLocally: (orderedSpaceIds) =>
+      set((state) => applySpaceOrder(state, orderedSpaceIds)),
+    renameProjectLocally: (projectId, name) => {
+      set((state) => renameProjectLocally(state, projectId, name));
+      if (hostId === LOCAL_HOST_ID) persistAppStateNow(get());
+    },
+    setProjectAppearanceLocally: (projectId, appearance) => {
+      set((state) => setProjectAppearanceLocally(state, projectId, appearance));
+      if (hostId === LOCAL_HOST_ID) persistAppStateNow(get());
+    },
+    setError: (threadId, error) => set((state) => setError(state, threadId, error)),
+    setThreadWorkspace: (threadId, patch) =>
+      set((state) => setThreadWorkspace(state, threadId, patch)),
   });
+
+export type HostStore = ReturnType<typeof createHostStore>;
+
+/**
+ * One orchestration store per host. This computer's store (`useStore`) is the only one
+ * that reads and writes saved renderer state; a remote host's store is memory only.
+ */
+export function createHostStore(hostId: HostId) {
+  const store = create<AppStore>(appStoreCreator(hostId));
+  if (hostId !== LOCAL_HOST_ID) return store;
+
+  // Persist state changes with debouncing to avoid localStorage thrashing.
+  // Project snapshots only depend on `state.projects` (immutable — every project mutation
+  // produces a new array), so skip them on the streaming hot path where only thread slices move.
+  let lastRememberedProjects: readonly Project[] | undefined;
+  store.subscribe((state) => {
+    if (state.projects !== lastRememberedProjects) {
+      lastRememberedProjects = state.projects;
+      rememberProjectState(state.projects);
+    }
+    debouncedPersistState.maybeExecute(state);
+  });
+
+  // Flush pending writes synchronously before page unload to prevent data loss.
+  if (typeof window !== "undefined") {
+    window.addEventListener("beforeunload", () => {
+      persistAppStateNow(store.getState());
+    });
+  }
+  return store;
 }
+
+export const useStore = createHostStore(LOCAL_HOST_ID);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {

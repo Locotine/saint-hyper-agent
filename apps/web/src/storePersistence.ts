@@ -41,6 +41,17 @@ const rememberedProjectUiState: RememberedProjectUiState = {
   projectAppearanceForCwd: (cwdKey) => persistedProjectAppearanceByCwd.get(cwdKey),
 };
 
+/** What a remote host's projects see: nothing remembered, so no local name, order or expansion. */
+export const EMPTY_REMEMBERED_PROJECT_UI_STATE: RememberedProjectUiState = {
+  expandedProjectCount: 0,
+  isLegacyExpansionPayload: false,
+  isProjectExpanded: () => false,
+  projectOrderCount: 0,
+  projectOrderIndexForCwd: () => undefined,
+  projectNameForCwd: () => undefined,
+  projectAppearanceForCwd: () => undefined,
+};
+
 export function projectCwdKey(cwd: string): string {
   return normalizeWorkspaceRootForComparison(cwd);
 }

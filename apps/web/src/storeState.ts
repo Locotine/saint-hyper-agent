@@ -3,6 +3,7 @@
 // Exports: AppState, its initial value, and immutable empty normalized records.
 
 import type { MessageId, ThreadId, TurnId } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 
 import type {
   ChatMessage,
@@ -22,6 +23,12 @@ import type {
 export type ThreadDetailSyncState = "synced" | "failed";
 
 export interface AppState {
+  /**
+   * The host this store mirrors; absent means this computer. A remote store must not
+   * touch the process-wide state that only this computer owns (remembered project UI
+   * state by cwd, thread resume cursors); see `isLocalHostState`.
+   */
+  hostId?: HostId;
   /** Highest authoritative snapshot integrated by this store instance. */
   shellSnapshotSequence?: number;
   spaces: Space[];
@@ -52,6 +59,11 @@ export interface AppState {
    */
   deletedProjectIdsById?: Record<Project["id"], number>;
   deletedThreadIdsById?: Record<ThreadId, number>;
+}
+
+/** Whether `state` is this computer's own store (the only one that owns the global singletons). */
+export function isLocalHostState(state: AppState): boolean {
+  return (state.hostId ?? LOCAL_HOST_ID) === LOCAL_HOST_ID;
 }
 
 // These references are shared by selectors and projection writes. Keep them stable

@@ -33,7 +33,11 @@ import {
   derivePendingBackgroundWork,
   hasLiveTurnTailWork,
 } from "./session-logic";
-import { getRememberedProjectUiState, projectCwdKey } from "./storePersistence";
+import {
+  getRememberedProjectUiState,
+  projectCwdKey,
+  type RememberedProjectUiState,
+} from "./storePersistence";
 import { resolveInitialLastVisitedAt } from "./threadVisitedPersistence";
 import type {
   ChatAttachment,
@@ -399,8 +403,9 @@ function normalizeProjectScripts(
 export function normalizeProject(
   incoming: ProjectNormalizationInput,
   previous: Project | undefined,
+  /** A remote host's projects pass `EMPTY_REMEMBERED_PROJECT_UI_STATE`. */
+  rememberedUiState: RememberedProjectUiState = getRememberedProjectUiState(),
 ): Project {
-  const rememberedUiState = getRememberedProjectUiState();
   const workspaceRootKey = projectCwdKey(incoming.workspaceRoot);
   const folderName = basenameOfPath(incoming.workspaceRoot) ?? incoming.title;
   const localName =
@@ -2230,8 +2235,8 @@ export function normalizeThreadShellSnapshot(
 export function mapProjects(
   incoming: ReadonlyArray<ProjectNormalizationInput>,
   previous: Project[],
+  rememberedUiState: RememberedProjectUiState = getRememberedProjectUiState(),
 ): Project[] {
-  const rememberedUiState = getRememberedProjectUiState();
   const previousById = new Map(previous.map((project) => [project.id, project] as const));
   const previousByCwd = new Map(
     previous.map((project) => [projectCwdKey(project.cwd), project] as const),
@@ -2247,7 +2252,7 @@ export function mapProjects(
       const previousWithSameId = previousById.get(project.id);
       const existing =
         previousWithSameId ?? previousByCwd.get(projectCwdKey(project.workspaceRoot));
-      return normalizeProject(project, existing);
+      return normalizeProject(project, existing, rememberedUiState);
     })
     .map((project, incomingIndex) => {
       const previousIndex =

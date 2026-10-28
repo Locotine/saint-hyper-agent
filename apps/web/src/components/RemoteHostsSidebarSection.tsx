@@ -9,6 +9,7 @@ import { useState } from "react";
 
 import { toastManager } from "~/components/ui/toast";
 import { useRemoteHostCatalog } from "~/hooks/useRemoteHostCatalog";
+import { useRemoteHostStoreSync } from "~/hooks/useRemoteHostStoreSync";
 import { FolderIcon, MonitorIcon, ServerIcon } from "~/lib/icons";
 import { rememberPendingRemoteThread } from "~/lib/pendingRemoteThread";
 import { cn } from "~/lib/utils";
@@ -194,6 +195,7 @@ export function RemoteHostsSidebarSection(props: {
   state: DesktopRemoteSshState;
   activeHost: string | null;
 }) {
+  useRemoteHostStoreSync(props.state);
   const rows = remoteHostRows(props.state);
   if (rows.length === 0) return null;
   return (
