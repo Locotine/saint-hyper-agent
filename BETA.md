@@ -232,7 +232,7 @@ Stable builds from 1.0.11 no longer show this card: Saint Beta is retired, and o
   sha512, unpacks it with `ditto`, checks the bundle id is
   `com.locotine.saint.beta`, and verifies the code signature is valid
   and signed by the same team id as the running app (`codesign --verify
-  --deep --strict` plus a `TeamIdentifier` match; skipped when the running
+--deep --strict` plus a `TeamIdentifier` match; skipped when the running
   build is itself unsigned). Only then is `Saint Beta.app` moved into
   `/Applications` — then opened. On other platforms the card opens the public
   download page instead.

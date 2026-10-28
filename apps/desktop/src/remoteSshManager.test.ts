@@ -327,6 +327,23 @@ describe("RemoteSshManager", () => {
     expect(states.at(-1)).toMatchObject({ phase: "idle" });
   });
 
+  it("disconnect during an install kills its ssh instead of waiting for the timeout", async () => {
+    const { spawn, calls } = fakeSpawn((_args, stdin) => {
+      const kind = scriptKind(stdin);
+      if (kind === "probe") return { stdout: PROBE_FRESH };
+      return kind === "install" ? "tunnel" : {};
+    });
+    const { manager } = makeManager(spawn);
+    const connecting = manager.connect({ host: "devbox" });
+    await vi.waitFor(() =>
+      expect(calls.some((call) => scriptKind(call.stdin.join("")) === "install")).toBe(true),
+    );
+    manager.disconnect("devbox");
+    await expect(connecting).rejects.toThrow("Connection cancelled.");
+    const install = calls.find((call) => scriptKind(call.stdin.join("")) === "install");
+    expect(install?.child.kill).toHaveBeenCalled();
+  });
+
   it("installs without npm when this build's dependencies are already on the host", async () => {
     const seen: string[] = [];
     const { spawn } = fakeSpawn((args, stdin) => {

@@ -310,8 +310,10 @@ export class RemoteSshManager {
   ): Promise<DesktopRemoteSshHostState> {
     const host = record.state.host;
     const target = this.target(record);
+    const startedAt = Date.now();
     const step = (phase: DesktopRemoteSshPhase, message: string | null = null) => {
       if (signal.aborted) throw new RemoteSshError("Connection cancelled.");
+      this.deps.log(`[remote-ssh] ${host} ${phase} +${Date.now() - startedAt}ms`);
       this.update(record, phase, message);
     };
     try {
@@ -322,6 +324,7 @@ export class RemoteSshManager {
         host,
         buildRemoteProbeScript(target),
         PROBE_TIMEOUT_MS,
+        signal,
       );
       const probe = parseRemoteProbeReport(probeResult.stdout);
       if (!probe) throw new RemoteSshError(this.failureMessage("reach the host", probeResult));
@@ -349,6 +352,7 @@ export class RemoteSshManager {
             buildRemoteUploadCommand(target),
             this.deps.createInstallBundle(),
             UPLOAD_TIMEOUT_MS,
+            signal,
           );
           if (upload.code !== 0) {
             throw new RemoteSshError(this.failureMessage("upload the server", upload));
@@ -358,6 +362,7 @@ export class RemoteSshManager {
             host,
             buildRemoteInstallScript(target),
             INSTALL_TIMEOUT_MS,
+            signal,
           );
           if (!hasRemoteReport(install.stdout, "installed")) {
             throw new RemoteSshError(this.failureMessage("install the server", install));
@@ -369,6 +374,7 @@ export class RemoteSshManager {
           host,
           buildRemoteStartScript(target, { token, devUrl: this.deps.devUrl }),
           START_TIMEOUT_MS,
+          signal,
         );
         const started = parseRemoteStartReport(start.stdout);
         if (!started) throw new RemoteSshError(this.failureMessage("start the server", start));
@@ -392,6 +398,7 @@ export class RemoteSshManager {
     } catch (error) {
       this.closeTunnel(record);
       const message = error instanceof Error ? error.message : String(error);
+      this.deps.log(`[remote-ssh] ${host} failed +${Date.now() - startedAt}ms: ${message}`);
       if (!signal.aborted) this.update(record, "error", message);
       throw error instanceof RemoteSshError ? error : new RemoteSshError(message);
     }
@@ -542,8 +549,13 @@ export class RemoteSshManager {
     });
   }
 
-  private runScript(host: string, script: string, timeoutMs: number): Promise<SshRunResult> {
-    return this.runSsh(host, REMOTE_SSH_LOGIN_SHELL_COMMAND, script, timeoutMs);
+  private runScript(
+    host: string,
+    script: string,
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ): Promise<SshRunResult> {
+    return this.runSsh(host, REMOTE_SSH_LOGIN_SHELL_COMMAND, script, timeoutMs, signal);
   }
 
   private runSsh(
@@ -551,6 +563,7 @@ export class RemoteSshManager {
     remoteCommand: string,
     stdin: string | Readable,
     timeoutMs: number,
+    signal?: AbortSignal,
   ): Promise<SshRunResult> {
     const controlPath = this.controlPath();
     // ControlMaster=no uses a live shared connection and connects on its own
@@ -574,12 +587,26 @@ export class RemoteSshManager {
       child.stderr?.on("data", (chunk: string) => {
         stderr = (stderr + chunk).slice(-STDERR_TAIL_CHARS * 4);
       });
-      const timer = setTimeout(() => {
+      // Killing ssh ends the remote shell's stdin; the next install clears what it left running.
+      const stop = (error: RemoteSshError) => {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
         child.kill();
-        reject(new RemoteSshError(`ssh to ${host} timed out.`));
+        reject(error);
+      };
+      const onAbort = () => stop(new RemoteSshError("Connection cancelled."));
+      const timer = setTimeout(() => {
+        const stage = tail(stderr);
+        stop(new RemoteSshError(`ssh to ${host} timed out.${stage ? `\n${stage}` : ""}`));
       }, timeoutMs);
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      signal?.addEventListener("abort", onAbort, { once: true });
       child.once("error", (error) => {
         clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
         reject(
           new RemoteSshError(
             (error as NodeJS.ErrnoException).code === "ENOENT"
@@ -590,6 +617,7 @@ export class RemoteSshManager {
       });
       child.once("close", (code) => {
         clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
         resolve({ code, stdout, stderr });
       });
       // A remote that exits early closes stdin; the result above reports why.

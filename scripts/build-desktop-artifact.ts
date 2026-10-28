@@ -1010,7 +1010,10 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     platform,
     target,
     signed,
-    adHocSign: artifactIdentity.identity.usesScriptedUpdates && !signed,
+    // Without a Developer ID, Electron's broken linker signature makes macOS call the
+    // downloaded app "damaged" with no way past it but `xattr`. An ad-hoc seal turns
+    // that into "cannot verify", which Privacy & Security → Open Anyway accepts.
+    adHocSign: !signed,
     flavor,
     ...(windowsAzureSignOptions ? { windowsAzureSignOptions } : {}),
   } as const;

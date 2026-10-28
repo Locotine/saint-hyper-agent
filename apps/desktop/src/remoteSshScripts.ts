@@ -213,7 +213,22 @@ try {
 export function buildRemoteInstallScript(target: RemoteSshScriptTarget): string {
   return `${preamble(target)}
 ${PUBLISH_FUNCTION}
-mkdir -p "$store" "$deps_store"
+mkdir -p "$store" "$deps_store" "$root/staging"
+# Killing the local ssh (timeout, Cancel) sends the remote shell no signal, so an
+# earlier install of this folder can still be running npm in the staging below.
+pid_file="$root/staging/install.pid"
+old_pid=$(cat "$pid_file" 2>/dev/null || true)
+if [ -n "$old_pid" ] && [ "$old_pid" != "$$" ] && kill -0 "$old_pid" 2>/dev/null; then
+  case "$(ps -p "$old_pid" -o args= 2>/dev/null || true)" in
+    "sh -s"*)
+      echo "Stopping an earlier install that is still running." >&2
+      pkill -TERM -P "$old_pid" 2>/dev/null || true
+      kill -TERM "$old_pid" 2>/dev/null || true
+      sleep 2
+      ;;
+  esac
+fi
+echo "$$" >"$pid_file"
 if [ ! -f "$deps_store/$deps_key/.installed" ]; then
   deps_staging="$root/staging/deps-$deps_key"
   rm -rf "$deps_staging"
@@ -221,10 +236,12 @@ if [ ! -f "$deps_store/$deps_key/.installed" ]; then
   cp "$staging/package.json" "$deps_staging/package.json"
   if [ -d "$staging/patches" ]; then cp -R "$staging/patches" "$deps_staging/patches"; fi
   cd "$deps_staging"
+  echo "Running npm install in $deps_staging (log: npm-install.log)." >&2
   if ! npm install --omit=dev --omit=optional --no-audit --no-fund --loglevel=error >npm-install.log 2>&1; then
     tail -n 40 npm-install.log >&2
     exit 1
   fi
+  echo "npm install finished; applying dependency patches." >&2
   if [ -f patches/index.tsv ]; then
     tab=$(printf '\\t')
     while IFS="$tab" read -r package file; do
@@ -256,6 +273,7 @@ ln -s "$deps_link" node_modules
 : >.installed
 cd "$HOME"
 publish "$staging" "$store/$version" "$deps_link"
+rm -f "$pid_file"
 rmdir "$root/staging" 2>/dev/null || true
 report '{"kind":"installed"}'
 `;

@@ -133,6 +133,8 @@ The current release is **1.0.12**. Download it from [GitLab Releases](https://gi
 | Windows x64           | `Saint-<version>-x64.exe`         | Run the NSIS installer. Unsigned builds show a SmartScreen warning.                                                                      |
 | macOS (Apple Silicon) | `Saint-<version>-arm64.dmg`       | Open the disk image and drag Saint to Applications. Requires macOS 13 or later. Intel builds are not published; build them on macOS.     |
 
+On first launch, an unsigned macOS build shows **“Saint” Not Opened**. Choose **Done**, then **System Settings → Privacy & Security → Open Anyway** and confirm. Builds older than the ad-hoc sealed ones say **is damaged** instead; for those run `xattr -dr com.apple.quarantine /Applications/Saint.app` once.
+
 Saint Beta is retired. To move Beta data into Saint once, quit both apps and run `copy-saint-beta-data.sh` (macOS/Linux) or `copy-saint-beta-data.ps1` (Windows) from the release assets. The Stable data it replaces is kept as a backup. See [CHANGELOG](./CHANGELOG.md) for release notes.
 
 Workspace Git features require [Git 2.29 or newer](https://github.com/git/git/blob/v2.29.0/Documentation/RelNotes/2.29.0.txt). Background refreshes preserve the FETCH_HEAD used by explicit fetch workflows. Ahead/behind counts use local refs and can update on the next status poll, up to 60 seconds after a successful background refresh; status reads do not wait for the remote.

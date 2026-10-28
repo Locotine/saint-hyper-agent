@@ -75,6 +75,8 @@ Open **Settings → Remote hosts**, enter an alias from `~/.ssh/config` (or `use
 3. Starts `node --max-old-space-size=1024 --max-semi-space-size=8 dist/index.mjs --mode web --host 127.0.0.1 --port <free port>` in the tmux session `<folder name>` (falls back to `nohup` without tmux), with `SAINT_PROVIDERS=codex,claudeAgent`. It also removes installed versions that no server runs (checked with `pgrep`) and dependency folders no remaining version uses.
 4. Forwards a local loopback port with `ssh -N -L` (its own connection) and opens a window whose backend is that port.
 
+Each step is written to `desktop-main.log` (`[remote-ssh] <host> <phase> +<ms>`). **Disconnect** during a step stops its ssh at once, and a timed-out step reports the last stage it reached (for example `Running npm install in …`). Killing ssh sends the remote shell no signal, so the next install first stops an earlier install of the same folder that is still running.
+
 To keep a host that many people share light, the remote server releases what it does not use:
 
 | Setting                                                | Effect                                                                                                                                                                                                                            |

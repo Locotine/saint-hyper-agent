@@ -69,7 +69,7 @@ export interface CreateDesktopPlatformBuildConfigInput {
   readonly platform: "linux" | "mac" | "win";
   readonly target: string;
   readonly signed?: boolean;
-  /** Seal isolated local bundles without selecting a release certificate. */
+  /** Seal unsigned macOS bundles ad hoc, without selecting a release certificate. */
   readonly adHocSign?: boolean;
   readonly windowsAzureSignOptions?: Record<string, string>;
   readonly flavor?: SaintPackagedDesktopFlavor | undefined;

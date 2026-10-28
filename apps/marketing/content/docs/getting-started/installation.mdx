@@ -38,6 +38,10 @@ Use the [download page](/install) or an official GitLab release. Avoid third-par
 
 Open the downloaded installer and complete the normal installation flow for your operating system.
 
+On macOS, a release built without an Apple Developer ID is not notarized, so the first launch shows **“Saint” Not Opened** (“Apple could not verify…”). Choose **Done**, then open **System Settings → Privacy & Security**, scroll to **Security**, choose **Open Anyway** next to the Saint message, and confirm with your password or Touch ID. macOS remembers the choice for that copy of the app. On macOS 13 and 14 you can instead Control-click Saint in Applications and choose **Open**.
+
+If macOS says Saint **is damaged and can’t be opened**, the copy predates ad-hoc sealed builds and has no **Open Anyway** button. Install a newer release, or remove the download quarantine once: `xattr -dr com.apple.quarantine /Applications/Saint.app`.
+
 On Linux, your desktop environment may require making the AppImage executable before opening it:
 
 ```bash

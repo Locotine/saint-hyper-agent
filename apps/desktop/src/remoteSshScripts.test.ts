@@ -193,7 +193,7 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     expect(upload.status).toBe(0);
 
     const install = run(buildRemoteInstallScript(target));
-    expect(install.stderr).toBe("");
+    expect(install.status).toBe(0);
     expect(hasRemoteReport(install.stdout, "installed")).toBe(true);
     const installDir = Path.join(home, target.storeRoot, "versions", target.version);
     // node_modules links to the shared dependency folder for this ABI.
@@ -332,13 +332,29 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     );
     expect(upload.status).toBe(0);
     const result = run(buildRemoteInstallScript(scriptTarget));
-    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
     expect(hasRemoteReport(result.stdout, "installed")).toBe(true);
   };
   const npmRuns = () =>
     FS.existsSync(Path.join(home, "npm-runs"))
       ? FS.readFileSync(Path.join(home, "npm-runs"), "utf8").trim().split("\n").length
       : 0;
+
+  it("stops an earlier install of the folder that is still running", async () => {
+    const staging = Path.join(home, target.remoteRoot, "staging");
+    FS.mkdirSync(staging, { recursive: true });
+    const orphan = spawn("sh", ["-s"], { stdio: ["pipe", "ignore", "ignore"] });
+    orphan.stdin.write("sleep 60\n");
+    const exited = new Promise((resolve) => orphan.once("exit", resolve));
+    FS.writeFileSync(Path.join(staging, "install.pid"), String(orphan.pid));
+    try {
+      await install(target);
+      await expect(exited).resolves.not.toBeUndefined();
+      expect(FS.existsSync(Path.join(staging, "install.pid"))).toBe(false);
+    } finally {
+      orphan.kill("SIGKILL");
+    }
+  });
 
   it("reuses installed dependencies for a new version and moves links on a new hash", async () => {
     await install(target);
