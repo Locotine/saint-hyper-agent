@@ -23,6 +23,18 @@ function Save-DefenderState($name) {
         ConvertTo-Json -Depth 6 | Set-Content "$evidence/$name-preferences.json"
     ConvertTo-Json -InputObject @(Get-MpThreatDetection) -Depth 8 | Set-Content "$evidence/$name-detections.json"
 }
+function Update-DefenderSignatures([string]$Source) {
+    for ($attempt = 1; $attempt -le 4; $attempt++) {
+        try {
+            if ($Source) { Update-MpSignature -UpdateSource $Source } else { Update-MpSignature }
+            return $true
+        } catch {
+            Write-Output "Update-MpSignature attempt $attempt failed: $($_.Exception.Message)"
+            if ($attempt -lt 4) { Start-Sleep -Seconds (15 * $attempt) }
+        }
+    }
+    return $false
+}
 Save-DefenderState 'before'
 $results = @()
 try {
@@ -37,14 +49,17 @@ try {
         }
     }
     Set-MpPreference -DisableRealtimeMonitoring $false -DisableArchiveScanning $false -DisableIOAVProtection $false -DisableBehaviorMonitoring $false -DisableScriptScanning $false
-    Update-MpSignature
+    # The Defender RPC endpoint is flaky on fresh hosted runners ("The remote procedure
+    # call failed"). Retry, and let the freshness/version gates below decide, so a
+    # transient failure cannot qualify stale definitions but also does not fail alone.
+    $updated = Update-DefenderSignatures
     $signatureStatus = Get-MpComputerStatus
-    if (-not $signatureStatus.AntivirusSignatureLastUpdated -or $signatureStatus.AntivirusSignatureLastUpdated -lt (Get-Date).AddDays(-1)) {
+    if (-not $updated -or -not $signatureStatus.AntivirusSignatureLastUpdated -or $signatureStatus.AntivirusSignatureLastUpdated -lt (Get-Date).AddDays(-1)) {
         # A configured source can successfully return older staged definitions.
         # Retry Microsoft's direct source; the freshness gate below still applies.
         Save-DefenderState 'default-update'
-        Write-Output 'Configured update source returned stale definitions; retrying MMPC.'
-        Update-MpSignature -UpdateSource MMPC
+        Write-Output 'Configured update source failed or returned stale definitions; retrying MMPC.'
+        $null = Update-DefenderSignatures -Source 'MMPC'
     }
     for ($attempt = 0; $attempt -lt 12; $attempt++) {
         if ((Get-MpComputerStatus).RealTimeProtectionEnabled) { break }
