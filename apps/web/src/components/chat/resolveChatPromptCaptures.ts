@@ -1,5 +1,5 @@
 import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS } from "@saint/contracts";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import {
   type ComposerAssistantSelectionAttachment,
   type ComposerFileAttachment,
@@ -16,7 +16,7 @@ import {
 import { type Thread } from "../../types";
 import { toastManager } from "../ui/toast";
 interface Input {
-  api: NonNullable<ReturnType<typeof readNativeApi>>;
+  api: NonNullable<ReturnType<typeof readLocalNativeApi>>;
   activeThread: Thread;
   promptForSend: string;
   composerImagesForSend: ComposerImageAttachment[];

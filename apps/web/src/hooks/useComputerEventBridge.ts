@@ -22,7 +22,7 @@ import {
 import { type DesktopBridge, ThreadId } from "@saint/contracts";
 import { readLocalComputerPermissionBridge } from "~/lib/computerProvisioning";
 import { serverQueryKeys } from "~/lib/serverReactQuery";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { useComputerPreviewStore } from "../computerPreviewStore";
 import { useComputerStateStore } from "../computerStateStore";
 
@@ -60,7 +60,7 @@ export function useComputerEventBridge(): void {
   const queryClient = useQueryClient();
   useEffect(() => subscribeComputerPermissionStatus(queryClient), [queryClient]);
   useEffect(() => {
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     if (!api.computer) {
       return;
     }

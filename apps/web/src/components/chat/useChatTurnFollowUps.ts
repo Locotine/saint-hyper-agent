@@ -7,7 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback } from "react";
 import { newCommandId, newMessageId, newThreadId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { ProviderHandoffBackgroundTasksError } from "~/lib/threadHandoff";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { formatOutgoingComposerPrompt } from "../../lib/composerSend";
@@ -162,7 +162,7 @@ export function useChatTurnFollowUps({
     queuedTurn,
     resumeQueueAfterSend: preparedQueueResume,
   }: PlanFollowUpSubmission): Promise<boolean> {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (
       !api ||
       !activeThread ||
@@ -357,7 +357,7 @@ export function useChatTurnFollowUps({
 
   const onEditUserMessage = useCallback(
     async (messageId: MessageId, text: string): Promise<boolean> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeThread || !isServerThread || isRevertingCheckpoint) {
         return false;
       }
@@ -547,7 +547,7 @@ export function useChatTurnFollowUps({
   ]);
 
   const onImplementPlanInNewThread = useCallback(async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (
       !api ||
       !activeThread ||

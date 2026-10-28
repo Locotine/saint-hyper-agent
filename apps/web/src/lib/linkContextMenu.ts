@@ -13,7 +13,7 @@ import { createContext } from "react";
 import type { GitHubLinkOpenTarget } from "~/appSettings";
 import { copyTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { openExternalLink } from "~/lib/linkChips";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 
 /** In-app destinations a chat surface offers for the links it renders. */
 export interface ChatLinkActions {
@@ -77,7 +77,7 @@ export async function showLinkContextMenu(input: {
   position: { x: number; y: number };
   actions: ChatLinkActions | null;
 }): Promise<void> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return;
   }

@@ -16,7 +16,7 @@ import {
   type ReactElement,
 } from "react";
 import { type ProjectDirectoryEntry, type ProjectId, type SpaceId } from "@saint/contracts";
-import { readNativeApi } from "../../nativeApi";
+import { readLocalNativeApi } from "../../nativeApi";
 import { useStore } from "../../store";
 import { PlusIcon, XIcon, FolderIcon } from "~/lib/icons";
 import { getLocalFoldersGroupLabel } from "~/lib/localFoldersGroupLabel";
@@ -365,7 +365,7 @@ export const ProjectPicker = memo(function ProjectPicker({
     let cancelled = false;
     const timeoutId = window.setTimeout(() => {
       if (cancelled) return;
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         setErrorMessage("App is still connecting. Try again in a moment.");
         return;
@@ -438,7 +438,7 @@ export const ProjectPicker = memo(function ProjectPicker({
       }
       setErrorMessage("Choosing a folder needs the desktop app.");
     };
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       setErrorMessage("App is still connecting. Try again in a moment.");
       return;

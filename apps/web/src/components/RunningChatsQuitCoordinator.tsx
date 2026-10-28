@@ -14,7 +14,7 @@ import {
   type RunningChatQuitSummary,
 } from "~/lib/runningChatsQuitConfirmation";
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useStore } from "~/store";
 
 import { RunningChatsQuitDialog, type RunningChatsQuitDecision } from "./RunningChatsQuitDialog";
@@ -55,7 +55,7 @@ export function RunningChatsQuitCoordinator() {
       const stopped = stopRunningChatsForQuit({
         chats: chatsToStop,
         dispatchInterrupt: (threadId) => {
-          const api = readNativeApi();
+          const api = readLocalNativeApi();
           if (!api) {
             return;
           }
@@ -70,7 +70,7 @@ export function RunningChatsQuitCoordinator() {
           ? {
               resume: {
                 prepare: (threadIds: ReadonlyArray<string>) => {
-                  const api = readNativeApi();
+                  const api = readLocalNativeApi();
                   if (!api) {
                     return Promise.reject(new Error("Native API unavailable"));
                   }

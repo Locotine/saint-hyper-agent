@@ -35,8 +35,8 @@ const api = {
 };
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => api,
-  ensureNativeApi: () => api,
+  readLocalNativeApi: () => api,
+  ensureLocalNativeApi: () => api,
   readNativeApiServerCapability: () => false,
   onNativeApiServerCapabilitiesChange: () => () => {},
 }));

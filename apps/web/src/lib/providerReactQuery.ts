@@ -10,7 +10,7 @@ import {
 } from "@saint/contracts";
 import { queryOptions } from "@tanstack/react-query";
 import { Option, Schema } from "effect";
-import { ensureNativeApi } from "../nativeApi";
+import { ensureLocalNativeApi } from "../nativeApi";
 import {
   expensiveReadErrorRefetchInterval,
   expensiveReadRetryDelay,
@@ -147,7 +147,7 @@ export function checkpointDiffQueryOptions(input: CheckpointDiffQueryInput) {
   return queryOptions({
     queryKey: providerQueryKeys.checkpointDiff(input),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.threadId || decodedRequest._tag === "None") {
         throw new Error("Checkpoint diff is unavailable.");
       }
@@ -206,7 +206,7 @@ export function inlineVisualQueryOptions(input: { threadId: ThreadId; visualId: 
   return queryOptions({
     queryKey: ["inlineVisual", input.threadId, input.visualId] as const,
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       const result = await api.orchestration.getInlineVisual(input);
       return result.html;
     },

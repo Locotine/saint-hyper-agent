@@ -27,7 +27,7 @@ const notifications = vi.hoisted(() => ({ add: vi.fn() }));
 vi.mock("../ui/toast", () => ({ toastManager: notifications }));
 vi.mock("../../nativeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../nativeApi")>()),
-  ensureNativeApi: () => ({ todo: transport }),
+  ensureLocalNativeApi: () => ({ todo: transport }),
 }));
 
 function makeTodo(id: string): Todo {

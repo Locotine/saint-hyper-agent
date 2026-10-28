@@ -88,7 +88,7 @@ import {
 import { type PullRequestContextScope } from "~/lib/pullRequestContext";
 import { formatRelativeTime } from "~/lib/relativeTime";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { useRightDockStore } from "~/rightDockStore";
 import {
   ENVIRONMENT_ROW_CLASS_NAME,
@@ -472,7 +472,7 @@ export function EnvironmentPullRequestSection({
   };
 
   const openInGitHub = () => {
-    void ensureNativeApi()
+    void ensureLocalNativeApi()
       .shell.openExternal(displayPr.url)
       .catch((error: unknown) => {
         toastManager.add({

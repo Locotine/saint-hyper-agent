@@ -36,7 +36,7 @@ import {
   resolvePreferredComposerModelSelection,
   useComposerDraftStore,
 } from "../composerDraftStore";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import type { SidebarThreadSummary } from "../types";
@@ -236,7 +236,7 @@ async function dispatchDraftThreadOnce(
   input: DraftThreadDispatchInput,
 ): Promise<DraftThreadDispatchResult> {
   const { threadId, projectId, thread } = input;
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return { kind: "unavailable" };
   }

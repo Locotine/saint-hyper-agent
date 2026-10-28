@@ -26,7 +26,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   useNavigate: () => state.navigate,
 }));
 vi.mock("../../nativeApi", () => ({
-  readNativeApi: () => ({ orchestration: { dispatchCommand: state.dispatch } }),
+  readLocalNativeApi: () => ({ orchestration: { dispatchCommand: state.dispatch } }),
 }));
 vi.mock("./useSubagentStripSource", () => ({
   useThreadSubagentRoster: () => ({

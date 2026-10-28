@@ -11,7 +11,7 @@ import { isElectron } from "~/env";
 import { disclosureChevronClassName } from "~/lib/disclosureMotion";
 import { ChevronRightIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { IMPORT_PROVIDER_LABELS, projectImportItemKey, selectableProjectImportKeys } from "./logic";
 
 export function ProjectImportProjectCard(props: {
@@ -39,7 +39,7 @@ export function ProjectImportProjectCard(props: {
     props.onPickerBusyChange(true);
     setPickerError(null);
     try {
-      const path = await ensureNativeApi().dialogs.pickFolder();
+      const path = await ensureLocalNativeApi().dialogs.pickFolder();
       if (path) props.onWorkspaceRootChange(path);
     } catch (error) {
       setPickerError(error instanceof Error ? error.message : "Could not open the folder picker.");

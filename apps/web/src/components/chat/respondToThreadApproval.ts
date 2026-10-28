@@ -21,7 +21,7 @@ import {
 } from "@saint/shared/errorMessages";
 
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { useStore } from "../../store";
 import {
@@ -43,7 +43,7 @@ export async function respondToThreadApproval(input: {
   /** The thread's current runtime mode, to persist a supervised "always allow". */
   runtimeMode: RuntimeMode;
 }): Promise<void> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) return;
   const { threadId, requestId, decision, lifecycleGeneration } = input;
   const setThreadError = useStore.getState().setError;

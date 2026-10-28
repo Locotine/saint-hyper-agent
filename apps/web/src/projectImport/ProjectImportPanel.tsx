@@ -11,7 +11,7 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 import { CheckIcon, LoaderCircleIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { useStore } from "~/store";
 import {
   buildProjectImportQueue,
@@ -97,7 +97,7 @@ export function ProjectImportPanel(props: {
     setScanning(true);
     setError(null);
     try {
-      const result = await ensureNativeApi().orchestration.listProjectImports({ providers });
+      const result = await ensureLocalNativeApi().orchestration.listProjectImports({ providers });
       if (!mountedRef.current) return;
       setCatalog(result);
       setSelected(
@@ -124,7 +124,7 @@ export function ProjectImportPanel(props: {
     setRunning(true);
     setError(null);
     try {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       for (const [index, item] of items.entries()) {
         if (stopRef.current) break;
         setProgress({ current: index + 1, total: items.length, title: item.title });

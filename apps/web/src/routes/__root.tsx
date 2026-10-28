@@ -70,7 +70,7 @@ import {
   serverQueryKeys,
   serverSettingsQueryOptions,
 } from "../lib/serverReactQuery";
-import { ensureNativeApi, readNativeApi } from "../nativeApi";
+import { ensureLocalNativeApi, readLocalNativeApi } from "../nativeApi";
 import { registerThreadDetailSyncRetry, retryThreadDetailSync } from "../threadDetailSyncRetry";
 import {
   finalizePromotedDraftThreads,
@@ -346,7 +346,7 @@ function RootRouteView() {
     );
   }
 
-  if (!readNativeApi()) {
+  if (!readLocalNativeApi()) {
     return (
       <>
         <div className="flex h-screen flex-col bg-background text-foreground">
@@ -596,7 +596,7 @@ async function runProviderUpdateAll(params: {
   const failures: Array<{ provider: ServerProviderStatus; reason: string }> = [];
 
   try {
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     for (const provider of providers) {
       try {
         const driver = provider.driver ?? provider.provider;
@@ -1306,7 +1306,7 @@ function EventRouter() {
   }, [pathname, subscribedThreadIds, visibleThreadIds]);
 
   useEffect(() => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     let disposed = false;
     let needsProviderInvalidation = false;
@@ -2924,7 +2924,7 @@ function DesktopProjectBootstrap() {
 
   useEffect(() => {
     let disposed = false;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !threadsHydrated) {
       return;
     }

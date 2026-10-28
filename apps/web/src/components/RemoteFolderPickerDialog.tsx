@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { remoteWindowHost } from "../env";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useRemoteFolderPickerStore } from "../remoteFolderPickerStore";
 import { ArrowUpIcon, EyeIcon, FolderIcon, GitBranchIcon, HomeIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
@@ -56,7 +56,7 @@ function RemoteFolderPickerContent(props: { onSettle: (path: string | null) => v
   const browseQuery = useQuery<FilesystemBrowseResult>({
     queryKey: ["remote-folder-picker", directory],
     queryFn: async () => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) throw new Error("The app server is unavailable.");
       return api.filesystem.browse({ partialPath: browsePath(directory) });
     },

@@ -16,7 +16,7 @@ import {
 import { deriveAssociatedWorktreeMetadata } from "@saint/shared/threadWorkspace";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { newCommandId, newMessageId, newThreadId } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import type { Project, Thread } from "../types";
 import type { ComposerTrigger } from "../composer-logic";
 import { extendReplacementRangeForTrailingSpace } from "../composerTriggerInsertion";
@@ -166,7 +166,7 @@ export function useComposerSlashCommands(input: {
   });
 
   const compactProviderThread = useCallback(async (): Promise<boolean> => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (
       !api ||
       !canOfferCompactCommand ||
@@ -455,7 +455,7 @@ export function useComposerSlashCommands(input: {
       /** Fork from a specific turn: imports the transcript up to (and including) this message. */
       throughMessageId?: MessageId | null;
     }) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeProject || !activeThread || !isServerThread) {
         toastManager.add({
           type: "warning",
@@ -496,7 +496,7 @@ export function useComposerSlashCommands(input: {
   const sidechatCreationByKeyRef = useRef(new Map<string, SidechatCreationFlight>());
   const createSidechatFromSlashCommand = useCallback(
     (inputOptions?: { initialPrompt?: string; targetProvider?: ProviderKind }): Promise<true> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (
         !api ||
         !activeProject ||
@@ -603,7 +603,7 @@ export function useComposerSlashCommands(input: {
 
   const runCodexReviewStart = useCallback(
     async (target: "changes" | "base-branch") => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeThread || !activeProject) {
         toastManager.add({
           type: "warning",
@@ -761,7 +761,7 @@ export function useComposerSlashCommands(input: {
   );
 
   const checkClaudeFastSlashCommandAvailability = useCallback(async (): Promise<boolean> => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !providerCommandDiscoveryCwd) {
       editorActions.clearComposerSlashDraft();
       toastManager.add({

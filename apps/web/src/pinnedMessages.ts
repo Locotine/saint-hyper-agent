@@ -20,7 +20,7 @@ import {
 } from "@saint/shared/pinnedMessages";
 
 import { newCommandId } from "./lib/utils";
-import { readNativeApi } from "./nativeApi";
+import { readLocalNativeApi } from "./nativeApi";
 
 // Strip the most common leading block markers (headings, list bullets, blockquotes)
 // and inline emphasis so an auto-derived label reads as plain prose.
@@ -146,7 +146,7 @@ async function dispatchSidepanelCommand(
         readonly notes: string;
       },
 ): Promise<void> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return;
   }

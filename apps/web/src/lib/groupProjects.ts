@@ -11,7 +11,7 @@ import { isGroupContainerKind } from "@saint/shared/projectContainers";
 
 import { GROUPS_ON } from "../betaFeatures";
 import type { DraftThreadState } from "../composerDraftStore";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
 import type { Project } from "../types";
@@ -138,7 +138,7 @@ function findGroupContainerCandidateById<
 export async function createGroupProject(input: {
   readonly title: string;
 }): Promise<ProjectId | null> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return null;
   }

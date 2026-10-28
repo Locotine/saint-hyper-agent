@@ -16,13 +16,13 @@ import { formatRelativeTime } from "~/lib/relativeTime";
 import { studioThreadOutputsQueryOptions } from "~/lib/serverReactQuery";
 import { humanizeStudioOutputName } from "~/lib/studioOutputDisplay";
 import { useWorkspaceFileOpener } from "~/lib/workspaceFileOpener";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 
 import { FileEntryIcon } from "../FileEntryIcon";
 import { EnvironmentLabeledSection, EnvironmentRow } from "./EnvironmentRow";
 
 function revealEntryInFinder(entry: StudioOutputEntry) {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   void api?.shell.showInFolder(entry.fullPath).catch(() => {});
 }
 

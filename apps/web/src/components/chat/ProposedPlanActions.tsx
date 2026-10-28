@@ -6,7 +6,7 @@ import {
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { ArrowDownIcon, ArrowUpIcon, CopyIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { IconButton } from "../ui/icon-button";
 import { toastManager } from "../ui/toast";
 
@@ -52,7 +52,7 @@ export const ProposedPlanActions = memo(function ProposedPlanActions({
   };
 
   const handleDownload = () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !workspaceRoot) {
       toastManager.add({
         type: "error",
@@ -87,7 +87,7 @@ export const ProposedPlanActions = memo(function ProposedPlanActions({
   };
 
   const handleExport = () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
 
     if (!api.dialogs.saveFile) {

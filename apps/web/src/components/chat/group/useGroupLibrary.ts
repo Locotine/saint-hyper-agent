@@ -16,7 +16,7 @@ import { LIBRARY_UPLOAD_ROUTE_PATH } from "@saint/shared/binaryTransfer";
 import { useEffect, useRef, useState } from "react";
 
 import { resolveWsHttpUrl } from "~/lib/wsHttpUrl";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 
 const ROOT_DIRECTORY = "";
 
@@ -30,7 +30,9 @@ const libraryUploadErrorMessage = (payload: unknown, status: number) => {
   return typeof message === "string" ? message : `Library upload failed with status ${status}.`;
 };
 
-type NativeLibraryApi = NonNullable<ReturnType<typeof readNativeApi>>["projectAgent"]["library"];
+type NativeLibraryApi = NonNullable<
+  ReturnType<typeof readLocalNativeApi>
+>["projectAgent"]["library"];
 
 export function useGroupLibrary(input: {
   readonly projectId: ProjectId | null;
@@ -56,7 +58,7 @@ export function useGroupLibrary(input: {
   // directory already fetched (including collapsed ones) is re-listed and
   // replaced as each result arrives.
   const load = () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const projectId = projectIdRef.current;
     if (!input.enabled || !projectId || !api?.projectAgent) return;
     if (refreshInFlightRef.current !== null) {
@@ -105,7 +107,7 @@ export function useGroupLibrary(input: {
     // A mutation in flight for the previous project must not leave the busy
     // flag stuck on the new one.
     setBusy(false);
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!input.enabled || !projectId || !api?.projectAgent) {
       setRoot(null);
       setEntriesByDir(new Map());
@@ -160,7 +162,7 @@ export function useGroupLibrary(input: {
   }, [input.enabled, input.projectId]);
 
   const loadDirectory = async (relativePath: string | undefined) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const projectId = projectIdRef.current;
     if (!api?.projectAgent || !projectId) return false;
     const dir = relativePath ?? ROOT_DIRECTORY;
@@ -193,7 +195,7 @@ export function useGroupLibrary(input: {
   };
 
   const refreshStatus = async (projectId: ProjectId) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api?.projectAgent) return;
     const nextStatus = await api.projectAgent.library.status({ projectId }).catch(() => null);
     if (nextStatus && projectIdRef.current === projectId) setStatus(nextStatus);
@@ -202,7 +204,7 @@ export function useGroupLibrary(input: {
   const runMutation = async (
     work: (library: NativeLibraryApi, projectId: ProjectId) => Promise<void>,
   ) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const projectId = projectIdRef.current;
     if (!api?.projectAgent || !projectId) return false;
     setBusy(true);
@@ -252,7 +254,7 @@ export function useGroupLibrary(input: {
     });
 
   const history = async (relativePath?: string) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const projectId = projectIdRef.current;
     if (!api?.projectAgent || !projectId) return [] as readonly LibraryCommit[];
     const historyArgs = relativePath === undefined ? { projectId } : { projectId, relativePath };

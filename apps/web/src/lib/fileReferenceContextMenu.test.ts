@@ -17,7 +17,7 @@ vi.mock("~/hooks/useCopyToClipboard", () => ({
 }));
 
 vi.mock("~/nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     contextMenu: { show: harness.showContextMenu },
     shell: { showInFolder: harness.showInFolder },
   }),

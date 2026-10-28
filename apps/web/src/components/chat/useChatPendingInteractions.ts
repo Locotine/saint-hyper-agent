@@ -12,7 +12,7 @@ import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import {
   collapseExpandedComposerCursor,
   detectComposerTrigger,
@@ -257,7 +257,7 @@ export function useChatPendingInteractions({
       lifecycleGeneration?: string,
       requestKind?: ProviderRequestKind,
     ) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeThreadId) return;
       const requestKey = pendingRequestInstanceKey(requestId, lifecycleGeneration);
 
@@ -288,7 +288,7 @@ export function useChatPendingInteractions({
       answers: ProviderUserInputAnswers,
       lifecycleGeneration?: string,
     ) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeThreadId) return;
       const requestKey = pendingRequestInstanceKey(requestId, lifecycleGeneration);
       const submissionKey = `${activeThreadId}:${requestKey}`;

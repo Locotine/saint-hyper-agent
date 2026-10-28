@@ -13,7 +13,7 @@ import {
 const listSummaries = vi.fn<() => Promise<{ summaries: ProjectAgentSummary[] }>>();
 
 vi.mock("~/nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     projectAgent: {
       listSummaries,
       onEvent: () => () => {},

@@ -12,7 +12,7 @@ import {
 
 let cachedDesktopApi: NativeApi | undefined;
 
-export function readNativeApi(): NativeApi | undefined {
+export function readLocalNativeApi(): NativeApi | undefined {
   if (typeof window === "undefined") return undefined;
   if (cachedDesktopApi && window.nativeApi === cachedDesktopApi) return cachedDesktopApi;
 
@@ -24,8 +24,8 @@ export function readNativeApi(): NativeApi | undefined {
   return createWsNativeApi();
 }
 
-export function ensureNativeApi(): NativeApi {
-  const api = readNativeApi();
+export function ensureLocalNativeApi(): NativeApi {
+  const api = readLocalNativeApi();
   if (!api) {
     throw new Error("Native API not found");
   }

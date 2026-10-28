@@ -2,7 +2,7 @@ import { ThreadId, type LoadProjectImportHistoryResult } from "@saint/contracts"
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { expensiveReadErrorRefetchInterval } from "~/lib/expensiveReadRetry";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 
 type HistoryState = LoadProjectImportHistoryResult & {
   threadId: string;
@@ -30,7 +30,7 @@ export function useImportedHistory(threadId: string, enabled: boolean) {
         failureCount: previous?.threadId === threadId ? previous.failureCount : 0,
       }));
       try {
-        const result = await ensureNativeApi().orchestration.loadProjectImportHistory({
+        const result = await ensureLocalNativeApi().orchestration.loadProjectImportHistory({
           threadId: ThreadId.makeUnsafe(threadId),
           ...(cursor ? { cursor } : {}),
         });

@@ -9,7 +9,7 @@ const calls = vi.hoisted(() => ({
   upsert: vi.fn(),
 }));
 vi.mock("~/nativeApi", () => ({
-  ensureNativeApi: () => ({ computer: { getThreadState: calls.getThreadState } }),
+  ensureLocalNativeApi: () => ({ computer: { getThreadState: calls.getThreadState } }),
 }));
 vi.mock("../computerStateStore", () => ({
   useComputerStateStore: (

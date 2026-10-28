@@ -12,7 +12,7 @@ import { useEffect } from "react";
 
 import { usePreferredEditor } from "../editorPreferences";
 import { isOpenFavoriteEditorShortcut } from "../keybindings";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 
 export function useOpenFavoriteEditorShortcut({
   keybindings,
@@ -33,7 +33,7 @@ export function useOpenFavoriteEditorShortcut({
     if (!enabled) return;
     const handler = (e: globalThis.KeyboardEvent) => {
       if (!isOpenFavoriteEditorShortcut(e, keybindings)) return;
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !openInTarget || !preferredEditor) return;
       e.preventDefault();
       void api.shell.openInEditor(openInTarget, preferredEditor);

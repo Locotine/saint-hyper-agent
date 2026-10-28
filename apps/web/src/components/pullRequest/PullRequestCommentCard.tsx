@@ -20,7 +20,7 @@ import {
   PR_FINE_TEXT_CLASS_NAME,
   PR_META_TEXT_CLASS_NAME,
 } from "./pullRequestText";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { PullRequestActorLabel } from "./PullRequestActorLabel";
 import { PullRequestMarkdown } from "./PullRequestMarkdown";
 import { parseFindingComment, type PullRequestCommentSeverity } from "./pullRequestComment.logic";
@@ -103,7 +103,7 @@ export function PullRequestCommentCard({
           <div className="mt-2 flex justify-end">
             <button
               type="button"
-              onClick={() => void ensureNativeApi().shell.openExternal(replyUrl)}
+              onClick={() => void ensureLocalNativeApi().shell.openExternal(replyUrl)}
               className={cn(
                 PR_META_TEXT_CLASS_NAME,
                 "rounded px-1.5 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground",

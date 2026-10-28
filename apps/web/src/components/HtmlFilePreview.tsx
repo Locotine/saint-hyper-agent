@@ -10,7 +10,7 @@ import { describeErrorMessage } from "@saint/shared/errorMessages";
 import { HTML_PREVIEW_ROUTE_PATH } from "@saint/shared/localPreviewFiles";
 import { useQuery } from "@tanstack/react-query";
 
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { resolveWsHttpUrl } from "~/lib/wsHttpUrl";
 import { PanelStateMessage } from "./chat/PanelStateMessage";
 
@@ -27,7 +27,7 @@ export function HtmlFilePreview(props: {
   const grantQuery = useQuery({
     queryKey: ["projects", "html-preview-grant", props.absolutePath, props.cacheKey],
     queryFn: async () => {
-      const createGrant = readNativeApi()?.projects.createHtmlPreviewGrant;
+      const createGrant = readLocalNativeApi()?.projects.createHtmlPreviewGrant;
       if (!createGrant) throw new Error("Update the Saint server to preview HTML files.");
       return createGrant({ path: props.absolutePath });
     },

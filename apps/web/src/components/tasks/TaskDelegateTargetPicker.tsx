@@ -7,7 +7,7 @@
 import { ProjectMenuPicker } from "~/components/ProjectMenuPicker";
 import { Button } from "~/components/ui/button";
 import { ChevronDownIcon, FolderIcon } from "~/lib/icons";
-import { readNativeApi } from "../../nativeApi";
+import { readLocalNativeApi } from "../../nativeApi";
 import { folderLabel } from "./tasks.logic";
 import type { TaskDelegateTargetState } from "./useTaskDelegateTarget";
 
@@ -15,7 +15,7 @@ export function TaskDelegateTargetPicker({ runIn }: { runIn: TaskDelegateTargetS
   const { target, setTarget, projectOptions, targetProject } = runIn;
 
   const handleChooseFolder = async () => {
-    const path = await readNativeApi()?.dialogs.pickFolder();
+    const path = await readLocalNativeApi()?.dialogs.pickFolder();
     if (path) {
       setTarget({ kind: "folder", path });
     }

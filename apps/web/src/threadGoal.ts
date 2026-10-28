@@ -1,14 +1,14 @@
 import { type ThreadGoalStartBehavior, type ThreadId } from "@saint/contracts";
 
 import { newCommandId } from "./lib/utils";
-import { readNativeApi } from "./nativeApi";
+import { readLocalNativeApi } from "./nativeApi";
 
 export async function dispatchThreadGoal(
   threadId: ThreadId,
   goal: string,
   options: { readonly startBehavior?: ThreadGoalStartBehavior } = {},
 ): Promise<void> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     throw new Error("Saint API is unavailable.");
   }
@@ -22,7 +22,7 @@ export async function dispatchThreadGoal(
 }
 
 export async function dispatchThreadGoalPaused(threadId: ThreadId, paused: boolean): Promise<void> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     throw new Error("Saint API is unavailable.");
   }

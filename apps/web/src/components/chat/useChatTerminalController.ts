@@ -9,7 +9,7 @@ import {
   resolveTerminalCloseTitle,
   shouldPromptForTerminalClose,
 } from "../../lib/terminalCloseConfirmation";
-import { readNativeApi } from "../../nativeApi";
+import { readLocalNativeApi } from "../../nativeApi";
 import { shouldAutoDeleteTerminalThreadOnLastClose } from "../ChatView.logic";
 import { toastManager } from "../ui/toast";
 import { disposeAndCloseTerminalSession } from "../terminal/terminalSession";
@@ -145,7 +145,7 @@ export function useChatTerminalController({
   );
   const closeTerminal = useCallback(
     async (terminalId: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!activeThreadId || !api) return;
       const isFinalTerminal = terminalState.terminalIds.length <= 1;
       const shouldDeletePlaceholderThread = shouldAutoDeleteTerminalThreadOnLastClose({
@@ -212,7 +212,7 @@ export function useChatTerminalController({
       if (!activeThreadId) return;
       const isFinalTerminal = terminalState.terminalIds.length <= 1;
       disposeAndCloseTerminalSession({
-        api: readNativeApi(),
+        api: readLocalNativeApi(),
         threadId: activeThreadId,
         terminalId,
         clearHistoryBeforeClose: isFinalTerminal,

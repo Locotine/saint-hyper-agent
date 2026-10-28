@@ -69,7 +69,7 @@ import {
 import { extractTrailingBrowserAnnotations } from "../lib/browserAnnotations";
 import { isMacNavigatorPlatform } from "../lib/utils";
 import { STARRED_MODELS_STORAGE_KEY } from "../lib/starredModels";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { emitWsTransportState } from "../wsTransportEvents";
 import { dispatchKanbanDraftThread } from "../lib/kanbanDispatch";
 import {
@@ -1408,7 +1408,7 @@ function installDeterministicSendNativeApi(options?: {
   projectThreadCommands?: boolean;
 }): () => void {
   const previousNativeApi = window.nativeApi;
-  const wsNativeApi = readNativeApi();
+  const wsNativeApi = readLocalNativeApi();
   if (!wsNativeApi) {
     throw new Error("Expected browser native API fixture.");
   }
@@ -3011,7 +3011,7 @@ describe("ChatView transcript geometry (full app)", () => {
         snapshot: { ...snapshot, threads: [{ ...snapshot.threads[0]!, messages: [message] }] },
       });
       const previousNativeApi = window.nativeApi;
-      const api = readNativeApi()!;
+      const api = readLocalNativeApi()!;
       const repository = { nameWithOwner: "pull/123", url: "https://github.com/pull/123" };
       Object.defineProperty(window, "nativeApi", {
         configurable: true,
@@ -3126,7 +3126,7 @@ describe("ChatView transcript geometry (full app)", () => {
       useRightDockStore.getState().openPane(dockHostId, { kind: "sidechat", threadId: sidechatId });
       const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
       const previousNativeApi = window.nativeApi;
-      const api = readNativeApi()!;
+      const api = readLocalNativeApi()!;
       const repository = { nameWithOwner: "acme/widgets", url: "https://github.com/acme/widgets" };
       const openedExternally: string[] = [];
       Object.defineProperty(window, "nativeApi", {
@@ -3698,7 +3698,7 @@ describe("ChatView transcript geometry (full app)", () => {
     useRightDockStore.getState().setDockOpen(THREAD_ID, false);
     const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     const commands: Record<string, unknown>[] = [];
     let releaseFork!: () => void;
     const forkBarrier = new Promise<void>((resolve) => {
@@ -4201,7 +4201,7 @@ describe("ChatView transcript geometry (full app)", () => {
       snapshot: { ...snapshot, threads: [pendingThread] },
     });
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     const subscribeThread = vi.fn(api.orchestration.subscribeThread);
     const dispatchCommand = vi.fn(async () => {
       // Only the server fixture learns the winner. The client must fetch and
@@ -4306,7 +4306,7 @@ describe("ChatView transcript geometry (full app)", () => {
         snapshot: { ...snapshot, threads: [pendingThread] },
       });
       const previousNativeApi = window.nativeApi;
-      const api = readNativeApi()!;
+      const api = readLocalNativeApi()!;
       let expire = false;
       const dispatchCommand = vi.fn(async () => {
         if (!expire) throw new Error("Temporary connection failure");
@@ -4547,7 +4547,7 @@ describe("ChatView transcript geometry (full app)", () => {
       snapshot: { ...snapshot, threads: [pendingThread] },
     });
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     const subscribeThread = vi.fn(api.orchestration.subscribeThread);
     const dispatchCommand = vi.fn(
       async (command: Parameters<typeof api.orchestration.dispatchCommand>[0]) => {
@@ -4683,7 +4683,7 @@ describe("ChatView transcript geometry (full app)", () => {
         configureFixture: withClaudeReady,
       });
       const previousNativeApi = window.nativeApi;
-      const api = readNativeApi()!;
+      const api = readLocalNativeApi()!;
       const commands: Array<Parameters<typeof api.orchestration.dispatchCommand>[0]> = [];
       const dispatchCommand = vi.fn(
         async (command: Parameters<typeof api.orchestration.dispatchCommand>[0]) => {
@@ -5931,7 +5931,7 @@ describe("ChatView transcript geometry (full app)", () => {
                   : resolve({ relativePath: "file.ts", version: "sha256:saved" });
             }),
         );
-        const api = readNativeApi()!;
+        const api = readLocalNativeApi()!;
         Object.defineProperty(window, "nativeApi", {
           configurable: true,
           value: { ...api, projects: { ...api.projects, writeFile } },
@@ -8425,7 +8425,7 @@ describe("ChatView transcript geometry (full app)", () => {
       }),
     });
     const previousNativeApi = window.nativeApi;
-    const nativeApi = readNativeApi()!;
+    const nativeApi = readLocalNativeApi()!;
     const writes: Array<Parameters<typeof nativeApi.terminal.write>[0]> = [];
     Object.defineProperty(window, "nativeApi", {
       configurable: true,
@@ -12018,7 +12018,7 @@ describe("ChatView transcript geometry (full app)", () => {
       }),
     });
     const previousNativeApi = window.nativeApi;
-    const wsNativeApi = readNativeApi();
+    const wsNativeApi = readLocalNativeApi();
     expect(wsNativeApi).toBeDefined();
     const pickFolder = vi.fn(async () => "/repo/new-project");
     let createdProjectId: ProjectId | null = null;
@@ -12293,7 +12293,7 @@ describe("ChatView transcript geometry (full app)", () => {
     });
     const previousPath = mounted.router.state.location.pathname;
     const previousNativeApi = window.nativeApi;
-    const wsNativeApi = readNativeApi();
+    const wsNativeApi = readLocalNativeApi();
     expect(wsNativeApi).toBeDefined();
     Object.defineProperty(window, "nativeApi", {
       configurable: true,
@@ -12449,7 +12449,7 @@ describe("ChatView transcript geometry (full app)", () => {
       },
     });
     const previousNativeApi = window.nativeApi;
-    const wsNativeApi = readNativeApi();
+    const wsNativeApi = readLocalNativeApi();
     expect(wsNativeApi).toBeDefined();
     Object.defineProperty(window, "nativeApi", {
       configurable: true,
@@ -15116,7 +15116,7 @@ describe("ChatView transcript geometry (full app)", () => {
       },
     });
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     const confirm = vi.fn(async () => false);
     const close = vi.fn(async () => {});
     Object.defineProperty(window, "nativeApi", {
@@ -15180,7 +15180,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
   it("Cmd/Ctrl+W yields to the editor surface and keeps its commands working", async () => {
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     Object.defineProperty(window, "nativeApi", {
       configurable: true,
       value: {
@@ -15935,7 +15935,7 @@ describe("ChatView transcript geometry (full app)", () => {
         targetText: "goal retry",
       }),
     });
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     let rejectGoal = true;
     const goalCommands: unknown[] = [];
     Object.defineProperty(window, "nativeApi", {

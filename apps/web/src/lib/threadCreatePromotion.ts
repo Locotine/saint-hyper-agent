@@ -6,7 +6,7 @@
 import type { ClientOrchestrationCommand, NativeApi, ThreadId } from "@saint/contracts";
 import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { markPromotedDraftThreads } from "../composerDraftStore";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 
@@ -77,7 +77,7 @@ async function dispatchPromoteThreadCreate(
 
 export async function promoteThreadCreate(
   command: ThreadCreateCommand,
-  api: NativeApi | undefined = readNativeApi(),
+  api: NativeApi | undefined = readLocalNativeApi(),
   options: PromoteThreadCreateOptions = {},
 ): Promise<PromoteThreadCreateResult> {
   if (!api) {

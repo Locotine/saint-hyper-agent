@@ -30,7 +30,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
 }));
 vi.mock("~/nativeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("~/nativeApi")>()),
-  ensureNativeApi: () => ({
+  ensureLocalNativeApi: () => ({
     stats: { getRecap: fixture.getRecap },
     automation: { list: async () => ({ runs: [] }) },
     server: { listProviderUsage: async () => [] },

@@ -10,7 +10,7 @@ import { useComposerDraftStore } from "../composerDraftStore";
 import { reconcileDeletedThreadFromClient } from "../lib/deletedThreadClientReconciliation";
 import { resolveTemporaryThreadIdToDelete } from "../lib/temporaryThread";
 import { newCommandId } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useSplitViewStore } from "../splitViewStore";
 import { useStore } from "../store";
 import { useTemporaryThreadStore } from "../temporaryThreadStore";
@@ -92,7 +92,7 @@ async function disposeTemporaryThread(input: {
 }): Promise<void> {
   const { temporaryThreadId } = input;
   try {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const storeState = useStore.getState();
     const serverThread = getThreadFromState(storeState, temporaryThreadId) ?? null;
 

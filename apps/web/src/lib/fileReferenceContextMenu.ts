@@ -11,7 +11,7 @@ import { formatSelectionLabel, type ChatFileReference } from "~/lib/chatReferenc
 import { contextMenuGroup } from "~/lib/contextMenuGroup";
 import { copyTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { getNavigatorPlatform, isMacPlatform, isWindowsPlatform } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { toastManager } from "~/components/ui/toast";
 
 export function getRevealInFolderLabel(platform: string): string {
@@ -54,7 +54,7 @@ export async function showFileReferenceContextMenu(input: {
     readonly download?: { readonly label: string; readonly onDownload: () => void };
   };
 }): Promise<void> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return;
   }

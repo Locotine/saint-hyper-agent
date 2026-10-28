@@ -23,7 +23,7 @@ import {
   UsersIcon,
 } from "~/lib/icons";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { withStableCheckKeys } from "~/components/chat/environment/environmentPullRequest.logic";
 import { GitHubLabelChips } from "./GitHubLabelChips";
 import { PullRequestActorLabel } from "./PullRequestActorLabel";
@@ -89,7 +89,7 @@ function RequestChip({ url }: { url: string }) {
       variant="secondary"
       size="xs"
       className="h-6 gap-0.5 rounded-full pr-1.5 pl-2.5 font-normal"
-      onClick={() => void ensureNativeApi().shell.openExternal(url)}
+      onClick={() => void ensureLocalNativeApi().shell.openExternal(url)}
     >
       Request
       <ChevronRightIcon aria-hidden />
@@ -196,7 +196,7 @@ function CheckRows({ checks }: { checks: PullRequestDetail["checks"] }) {
           key={key}
           type="button"
           disabled={!check.url}
-          onClick={() => check.url && void ensureNativeApi().shell.openExternal(check.url)}
+          onClick={() => check.url && void ensureLocalNativeApi().shell.openExternal(check.url)}
           className="-mx-1.5 flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left hover:bg-muted/50 disabled:hover:bg-transparent"
         >
           <PullRequestCheckStatusIcon status={check.status} />

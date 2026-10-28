@@ -56,7 +56,7 @@ import {
   normalizeRailItemOrder,
   RAIL_ORDERABLE_ITEM_IDS,
 } from "./appRail.logic";
-import { ensureNativeApi } from "./nativeApi";
+import { ensureLocalNativeApi } from "./nativeApi";
 import { githubInboxQueryKeys } from "./lib/githubInboxQueryOptions";
 import { providerDiscoveryQueryKeys } from "./lib/providerDiscoveryReactQuery";
 import {
@@ -2768,7 +2768,7 @@ export function useAppSettings() {
 
     serverSettingsMigrationInFlight = true;
     void enqueueServerSettingsMutation(() =>
-      ensureNativeApi().server.updateSettings(migrationPatch),
+      ensureLocalNativeApi().server.updateSettings(migrationPatch),
     )
       .then((nextSettings) => {
         queryClient.setQueryData(serverQueryKeys.settings(), nextSettings);
@@ -2794,7 +2794,7 @@ export function useAppSettings() {
   ]);
 
   const refreshProvidersAfterEnablementChange = async () => {
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     await api.server
       .refreshProviders()
       .then((result) => reconcileServerProviderStatuses(queryClient, result.providers))
@@ -2820,7 +2820,7 @@ export function useAppSettings() {
         return;
       }
 
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       try {
         const nextSettings = await api.server.updateSettings(serverPatch);
         queryClient.setQueryData(serverQueryKeys.settings(), nextSettings);
@@ -2886,7 +2886,7 @@ export function useAppSettings() {
         return;
       }
       try {
-        const nextSettings = await ensureNativeApi().server.updateSettings(serverPatch);
+        const nextSettings = await ensureLocalNativeApi().server.updateSettings(serverPatch);
         queryClient.setQueryData(serverQueryKeys.settings(), nextSettings);
         if (providerSettingsChanged) {
           await refreshProvidersAfterEnablementChange();

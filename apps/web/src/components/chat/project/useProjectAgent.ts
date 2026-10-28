@@ -17,7 +17,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { mergeHubWorkItems } from "./hubWorkItems";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import {
   projectAgentOverviewWithConfig,
   projectAgentOverviewConfigured,
@@ -75,7 +75,7 @@ export function useProjectAgent(input: {
     projectIdRef.current === projectId && loadGeneration.current === generation;
 
   const load = useCallback(async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const projectId = projectIdRef.current;
     const generation = ++loadGeneration.current;
     if (!api?.projectAgent || !projectId) {
@@ -122,7 +122,7 @@ export function useProjectAgent(input: {
   // follow-up listing.
   const threadIndexRefreshRef = useRef({ inFlight: false, queued: false });
   const refreshThreadIndex = useCallback(() => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const projectId = projectIdRef.current;
     if (!api?.projectAgent || !projectId) return;
     const pending = threadIndexRefreshRef.current;
@@ -157,7 +157,7 @@ export function useProjectAgent(input: {
       return;
     }
     void load();
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const subscribedProjectId = input.projectId;
     if (!api?.projectAgent || !subscribedProjectId) return;
     void api.projectAgent.subscribe({ projectId: subscribedProjectId }).catch(() => undefined);
@@ -289,11 +289,11 @@ export function useProjectAgent(input: {
   const runMutation = useCallback(
     async (
       work: (
-        api: NonNullable<ReturnType<typeof readNativeApi>>["projectAgent"],
+        api: NonNullable<ReturnType<typeof readLocalNativeApi>>["projectAgent"],
         projectId: ProjectId,
       ) => Promise<void>,
     ) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const projectId = projectIdRef.current;
       if (!api?.projectAgent || !projectId) return false;
       setBusy(true);
@@ -404,10 +404,10 @@ export function useProjectAgent(input: {
     async (
       projectId: ProjectId,
       call: (
-        projectAgent: NonNullable<ReturnType<typeof readNativeApi>>["projectAgent"],
+        projectAgent: NonNullable<ReturnType<typeof readLocalNativeApi>>["projectAgent"],
       ) => Promise<ProjectAgentOverview>,
     ) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api?.projectAgent) return null;
       setBusy(true);
       try {
@@ -469,7 +469,7 @@ export function useProjectAgent(input: {
 
   const deleteGroup = useCallback(
     async (projectId: ProjectId, confirmName: string, options?: { requireEmpty?: boolean }) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api?.projectAgent) return null;
       setBusy(true);
       try {
@@ -603,7 +603,7 @@ export function useProjectAgent(input: {
   );
 
   const loadEvidence = useCallback(async (taskId: ProjectTask["id"]) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const projectId = projectIdRef.current;
     if (!api?.projectAgent || !projectId) return [] as ReadonlyArray<ProjectEvidence>;
     const listed = await api.projectAgent.listEvidence({ projectId, taskId });
@@ -611,7 +611,7 @@ export function useProjectAgent(input: {
   }, []);
 
   const loadMoreActivity = useCallback(async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const projectId = projectIdRef.current;
     if (!api?.projectAgent || !projectId || !activityCursor) return;
     const page = await api.projectAgent.listActivity({ projectId, cursor: activityCursor });
@@ -656,7 +656,7 @@ export function useProjectAgent(input: {
   );
 
   const readDocument = useCallback(async (logicalPath: string, revision?: number) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const projectId = projectIdRef.current;
     if (!api?.projectAgent || !projectId) return null;
     return api.projectAgent.readDocument({
@@ -673,7 +673,7 @@ export function useProjectAgent(input: {
       expectedRevision?: number;
       importExternal?: boolean;
     }) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const projectId = projectIdRef.current;
       if (!api?.projectAgent || !projectId) {
         throw new Error("Project coordinator is unavailable.");
@@ -694,7 +694,7 @@ export function useProjectAgent(input: {
 
   const exportDocuments = useCallback(
     async (logicalPaths: ReadonlyArray<string>, destinationDirectory: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const projectId = projectIdRef.current;
       if (!api?.projectAgent || !projectId) return;
       await api.projectAgent.exportDocuments({

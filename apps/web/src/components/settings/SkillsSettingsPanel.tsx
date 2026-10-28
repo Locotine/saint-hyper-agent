@@ -12,7 +12,7 @@ import { ProviderIcon } from "~/components/ProviderIcon";
 import { SettingsRow, SettingsSection } from "~/components/settings/SettingsPanelPrimitives";
 import { Switch } from "~/components/ui/switch";
 import { SkillCubeIcon } from "~/lib/icons";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import {
   providerDiscoveryQueryKeys,
   skillsCatalogQueryOptions,
@@ -86,7 +86,7 @@ export function SkillsSettingsPanel() {
         skills: { disabled },
       });
     }
-    void ensureNativeApi()
+    void ensureLocalNativeApi()
       .server.updateSettings({ skills: { disabled } })
       .then((nextSettings) => {
         queryClient.setQueryData(serverQueryKeys.settings(), nextSettings);

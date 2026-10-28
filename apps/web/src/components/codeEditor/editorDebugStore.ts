@@ -8,7 +8,7 @@ import type {
   EditorDebugSnapshot,
   EditorDebugStartInput,
 } from "@saint/contracts";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
 
 type Watch = { expression: string; value: string; variablesReference: number };
@@ -77,7 +77,7 @@ export class EditorDebugStore {
     this.update({ error: error instanceof Error ? error.message : "Debugger operation failed." });
   clearError = () => this.update({ error: null });
   private api() {
-    const api = ensureNativeApi().editor;
+    const api = ensureLocalNativeApi().editor;
     if (!api?.debugStart || !api.debugAction || !api.debugPoll)
       throw new Error(
         "This server does not support debugging. Update the server to use this feature.",

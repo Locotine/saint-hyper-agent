@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 
 const harness = vi.hoisted(() => ({ api: undefined as BrowserVaultMethods | undefined }));
-vi.mock("~/nativeApi", () => ({ readNativeApi: () => ({ browser: { vault: harness.api } }) }));
+vi.mock("~/nativeApi", () => ({ readLocalNativeApi: () => ({ browser: { vault: harness.api } }) }));
 import { BrowserVaultButton, BrowserVaultDialog } from "./BrowserVault";
 import { BrowserCookieImport } from "./BrowserCookieImport";
 import { SafariAccessOnboarding, SAFARI_ACCESS_STORAGE_KEY } from "./SafariAccessOnboarding";

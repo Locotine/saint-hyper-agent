@@ -11,7 +11,7 @@ import type {
 import { normalizeGitHubPullRequestUrl } from "@saint/shared/githubRepository";
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import {
   optimisticallyPatchPullRequestGitCaches,
   pullRequestGitQueryFilters,
@@ -149,7 +149,8 @@ export function pullRequestActionMutationOptions(queryClient: QueryClient) {
     // Manual refreshes share this scope, so their snapshot cannot race a PR state action.
     scope: { id: PULL_REQUEST_ACTION_REFRESH_SCOPE_ID },
     networkMode: "always",
-    mutationFn: (input: PullRequestActionInput) => ensureNativeApi().pullRequests.action(input),
+    mutationFn: (input: PullRequestActionInput) =>
+      ensureLocalNativeApi().pullRequests.action(input),
     onMutate: async (input): Promise<ActionMutationContext> => {
       const patch = optimisticPullRequestActionPatch(input.action) ?? {};
       const optimisticListPatch = {
@@ -303,7 +304,7 @@ export function pullRequestSetPinnedMutationOptions(queryClient: QueryClient) {
     networkMode: "always",
     mutationFn: (input: PullRequestSetPinnedInput) =>
       runPinMutationInIdentityOrder(queryClient, input, () =>
-        ensureNativeApi().pullRequests.setPinned(input),
+        ensureLocalNativeApi().pullRequests.setPinned(input),
       ),
     onMutate: async (input): Promise<PinMutationContext> => {
       const mutation = beginPinMutation(queryClient, input);
@@ -351,7 +352,8 @@ export function pullRequestCommentMutationOptions(queryClient: QueryClient) {
   return mutationOptions({
     mutationKey: pullRequestMutationKeys.comment,
     networkMode: "always",
-    mutationFn: (input: PullRequestCommentInput) => ensureNativeApi().pullRequests.comment(input),
+    mutationFn: (input: PullRequestCommentInput) =>
+      ensureLocalNativeApi().pullRequests.comment(input),
     onSettled: async (_result, _error, input) => {
       const detailKey = pullRequestQueryKeys.detail(input);
       const detailState = queryClient.getQueryData<{ state?: PullRequestState }>(detailKey)?.state;
@@ -380,7 +382,7 @@ export function pullRequestsForceRefreshMutationOptions(queryClient: QueryClient
     scope: { id: PULL_REQUEST_ACTION_REFRESH_SCOPE_ID },
     networkMode: "always",
     mutationFn: (input: { state: GitHubInboxState; sort?: GitHubInboxSort }) =>
-      ensureNativeApi().githubInbox.list({
+      ensureLocalNativeApi().githubInbox.list({
         state: input.state,
         sort: input.sort ?? "created",
         forceRefresh: true,
@@ -426,7 +428,7 @@ export function pullRequestsForceRefreshMutationOptions(queryClient: QueryClient
 export function pullRequestSetAutoFixMutationOptions(queryClient: QueryClient) {
   return mutationOptions({
     mutationFn: (input: PullRequestAutoFixSetInput) =>
-      ensureNativeApi().pullRequests.setAutoFix(input),
+      ensureLocalNativeApi().pullRequests.setAutoFix(input),
     // Swap this PR's entry in the chat's list so every row and the composer tip update at once.
     onSuccess: (result, input) => {
       queryClient.setQueryData<PullRequestAutoFixListResult>(

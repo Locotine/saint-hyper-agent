@@ -12,7 +12,7 @@ import { dockTerminalThreadId } from "~/lib/dockTerminalScope";
 import { decodeProjectScriptKeybindingRule } from "~/lib/projectScriptKeybindings";
 import { serverQueryKeys } from "~/lib/serverReactQuery";
 import { newCommandId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { scopeProjectKeyedRecord } from "~/persistedRecord";
 import {
   commandForProjectScript,
@@ -70,7 +70,7 @@ export function useChatProjectScripts({
       script: ProjectScript,
       options?: ProjectScriptRunOptions,
     ): Promise<ProjectScriptRunResult | null> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeThreadId || !activeProject || !activeThread) return null;
       if (options?.rememberAsLastInvoked !== false) {
         setLastInvokedScriptByProjectId((current) => {
@@ -206,7 +206,7 @@ export function useChatProjectScripts({
       keybinding?: string | null;
       keybindingCommand: KeybindingCommand;
     }) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
 
       await api.orchestration.dispatchCommand({

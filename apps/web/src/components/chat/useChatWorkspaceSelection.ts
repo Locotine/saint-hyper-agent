@@ -10,7 +10,7 @@ import { workspaceRootsEqual } from "@saint/shared/threadWorkspace";
 import type { RefObject } from "react";
 import { useCallback } from "react";
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { type DraftThreadEnvMode, useComposerDraftStore } from "../../composerDraftStore";
 import { ensureHomeChatProject } from "../../lib/chatProjects";
 import {
@@ -118,7 +118,7 @@ export function useChatWorkspaceSelection({
         });
       }
       if (isServerThread && activeThread && !hasNativeUserMessages && !activeThread.session) {
-        const api = readNativeApi();
+        const api = readLocalNativeApi();
         if (api) {
           void api.orchestration.dispatchCommand({
             type: "thread.meta.update",
@@ -190,7 +190,7 @@ export function useChatWorkspaceSelection({
           if (!homeProjectId) {
             throw new Error("Unable to prepare a normal chat.");
           }
-          const api = readNativeApi();
+          const api = readLocalNativeApi();
           if (!api) {
             throw new Error("App is still connecting. Try again in a moment.");
           }
@@ -226,7 +226,7 @@ export function useChatWorkspaceSelection({
         worktreePath: null,
         ...(isGroupContainer ? { workingDirectory: null } : {}),
       });
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (api && !hasNativeUserMessages && !activeThread.session) {
         void api.orchestration.dispatchCommand({
           type: "thread.meta.update",
@@ -276,7 +276,7 @@ export function useChatWorkspaceSelection({
             workingDirectory: workspaceRoot,
           });
           if (!hasNativeUserMessages && !activeThread.session) {
-            const api = readNativeApi();
+            const api = readLocalNativeApi();
             if (api) {
               void api.orchestration.dispatchCommand({
                 type: "thread.meta.update",
@@ -352,7 +352,7 @@ export function useChatWorkspaceSelection({
       if (!isLocalDraftThread) {
         return;
       }
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         throw new Error("App is still connecting. Try again in a moment.");
       }

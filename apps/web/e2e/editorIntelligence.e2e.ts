@@ -94,10 +94,10 @@ async function seed(page: Page) {
       () =>
         page.evaluate(async () => {
           const modulePath = "/src/nativeApi.ts";
-          const { ensureNativeApi, readNativeApiServerCapability } = await import(
+          const { ensureLocalNativeApi, readNativeApiServerCapability } = await import(
             /* @vite-ignore */ modulePath
           );
-          ensureNativeApi();
+          ensureLocalNativeApi();
           return readNativeApiServerCapability("rpc.typed-errors");
         }),
       { timeout: 20_000 },
@@ -117,8 +117,8 @@ async function seed(page: Page) {
   const seeded = await page.evaluate(
     async ({ cwd, existingProjectId }) => {
       const modulePath = "/src/nativeApi.ts";
-      const { ensureNativeApi } = await import(/* @vite-ignore */ modulePath);
-      const api = ensureNativeApi();
+      const { ensureLocalNativeApi } = await import(/* @vite-ignore */ modulePath);
+      const api = ensureLocalNativeApi();
       const now = new Date().toISOString();
       const projectId = existingProjectId ?? crypto.randomUUID();
       const threadId = crypto.randomUUID();
@@ -490,10 +490,10 @@ test("keeps the fallback draft open when saving before Retry fails", async ({ pa
   await beginEditing(page, fileName);
   await page.evaluate(async () => {
     const modulePath = "/src/nativeApi.ts";
-    const { ensureNativeApi } = (await import(
+    const { ensureLocalNativeApi } = (await import(
       /* @vite-ignore */ modulePath
     )) as typeof import("../src/nativeApi");
-    const api: NativeApi = ensureNativeApi();
+    const api: NativeApi = ensureLocalNativeApi();
     api.projects.writeFile = async () => {
       throw new Error("QA write blocked");
     };
@@ -538,7 +538,7 @@ test("retains a real debugger pause that arrives before the step acknowledgement
       const { getEditorDebugStore } = (await import(
         /* @vite-ignore */ stores
       )) as typeof import("../src/components/codeEditor/editorDebugStore");
-      const { ensureNativeApi } = (await import(
+      const { ensureLocalNativeApi } = (await import(
         /* @vite-ignore */ native
       )) as typeof import("../src/nativeApi");
       const model = monaco.editor
@@ -547,7 +547,7 @@ test("retains a real debugger pause that arrives before the step acknowledgement
         ?.getModel();
       const entry = model && editorEntry(model);
       if (!entry?.cwd) throw new Error("Missing workspace editor.");
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       const action = api.editor.debugAction;
       window.editorRaceProbe = {
         store: getEditorDebugStore(entry.client, entry.cwd),
@@ -593,10 +593,10 @@ test("does not retain a definition reveal after a blocked navigation", async ({ 
   await open(page, originFile);
   await page.evaluate(async (targetFile) => {
     const modulePath = "/src/nativeApi.ts";
-    const { ensureNativeApi } = (await import(
+    const { ensureLocalNativeApi } = (await import(
       /* @vite-ignore */ modulePath
     )) as typeof import("../src/nativeApi");
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     const write = api.projects.writeFile;
     const read = api.projects.readFile;
     window.editorNavigationProbe = {

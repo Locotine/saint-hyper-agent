@@ -4,7 +4,7 @@ const dispatchCommand = vi.fn<(command: unknown) => Promise<void>>();
 const regenerateThreadTitle = vi.fn<() => Promise<unknown>>();
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     orchestration: {
       dispatchCommand,
       regenerateThreadTitle,

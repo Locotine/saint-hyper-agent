@@ -25,7 +25,7 @@ import { Spinner } from "~/components/ui/spinner";
 import { readableBrandColor } from "~/lib/brandIcons";
 import { mcpConnectorsQueryOptions } from "~/lib/mcpConnectorsReactQuery";
 import { ArrowUpRightIcon } from "~/lib/icons";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 
 import { mcpConnectorArtwork } from "./McpConnectorGlyph";
 import { SettingsCard } from "./SettingsPanelPrimitives";
@@ -105,7 +105,7 @@ export function McpConnectorConnectDialog(props: {
 
   const setupQuery = useQuery({
     queryKey: ["server", "mcpConnectorSetup"],
-    queryFn: () => ensureNativeApi().server.getMcpConnectorSetup(),
+    queryFn: () => ensureLocalNativeApi().server.getMcpConnectorSetup(),
     enabled: needsOwnApp,
     staleTime: Infinity,
     retry: false,
@@ -119,7 +119,7 @@ export function McpConnectorConnectDialog(props: {
             ...(clientSecret.trim() ? { clientSecret: clientSecret.trim() } : {}),
           }
         : {};
-      return ensureNativeApi().server.connectMcpConnector(
+      return ensureLocalNativeApi().server.connectMcpConnector(
         input.presetId
           ? { presetId: input.presetId, ...ownApp }
           : { url: input.url, name: input.name, ...ownApp },
@@ -163,7 +163,7 @@ export function McpConnectorConnectDialog(props: {
       }
       if (result.authorizationUrl) {
         setWaitingSince(startedAt);
-        await ensureNativeApi().shell.openExternal(result.authorizationUrl);
+        await ensureLocalNativeApi().shell.openExternal(result.authorizationUrl);
       }
     } catch (cause) {
       setWaitingSince(null);
@@ -242,7 +242,7 @@ export function McpConnectorConnectDialog(props: {
                       className="rounded-sm text-foreground underline decoration-muted-foreground/40 underline-offset-[3px] hover:decoration-current focus-visible:outline-2 focus-visible:outline-ring"
                       onClick={() => {
                         const url = target.docsUrl;
-                        if (url) void ensureNativeApi().shell.openExternal(url);
+                        if (url) void ensureLocalNativeApi().shell.openExternal(url);
                       }}
                     >
                       Learn more
@@ -267,7 +267,7 @@ export function McpConnectorConnectDialog(props: {
                           className="rounded-sm text-foreground underline decoration-muted-foreground/40 underline-offset-[3px] hover:decoration-current focus-visible:outline-2 focus-visible:outline-ring"
                           onClick={() => {
                             const url = target.appSetupUrl;
-                            if (url) void ensureNativeApi().shell.openExternal(url);
+                            if (url) void ensureLocalNativeApi().shell.openExternal(url);
                           }}
                         >
                           Create an app

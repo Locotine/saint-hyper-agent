@@ -14,7 +14,7 @@ import {
   type ThreadId,
 } from "@saint/contracts";
 import { type DraftThreadEnvMode } from "../composerDraftStore";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import type { Thread } from "../types";
 import { promoteThreadCreate } from "./threadCreatePromotion";
 import { newCommandId } from "./utils";
@@ -67,7 +67,7 @@ export function buildDraftThreadRenameCreateInput(thread: DraftThreadRenameSourc
 export async function dispatchThreadTitleRegeneration(
   threadId: ThreadId,
 ): Promise<ThreadTitleRegenerationOutcome> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return { status: "unavailable", title: null };
   }
@@ -101,7 +101,7 @@ export async function dispatchThreadRename(input: {
     return "unchanged";
   }
 
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return "unavailable";
   }

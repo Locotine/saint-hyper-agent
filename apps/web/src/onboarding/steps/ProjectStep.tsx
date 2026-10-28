@@ -18,7 +18,7 @@ import { CheckIcon, FolderAddIcon, FolderIcon } from "~/lib/icons";
 import { createOrRecoverProjectFromPath } from "~/lib/projectCreation";
 import { expandProjectHomePath } from "~/lib/projectPaths";
 import { cn } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useStore } from "~/store";
 import { useWorkspacePathsStore } from "~/workspacePathsStore";
 
@@ -54,7 +54,7 @@ export function ProjectStep(props: {
   useEffect(() => () => onBusyChange(false), [onBusyChange]);
 
   const addProject = async (rawPath: string) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const workspaceRoot = expandProjectHomePath(rawPath.trim(), homeDir);
     if (!api || workspaceRoot.length === 0) return;
     setSubmitting(true);
@@ -85,7 +85,7 @@ export function ProjectStep(props: {
   };
 
   const browse = async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     setPicking(true);
     try {

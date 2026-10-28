@@ -10,7 +10,7 @@ import { addSelectionToSide, startSelectionChat } from "./selectionChat";
 
 const status = vi.fn();
 const openPane = vi.fn();
-vi.mock("../nativeApi", () => ({ ensureNativeApi: () => ({ git: { status } }) }));
+vi.mock("../nativeApi", () => ({ ensureLocalNativeApi: () => ({ git: { status } }) }));
 vi.mock("./sidechatCreation", () => ({ createSidechatThread: vi.fn() }));
 vi.mock("../rightDockStore", () => ({ useRightDockStore: { getState: () => ({ openPane }) } }));
 

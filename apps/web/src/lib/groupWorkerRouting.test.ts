@@ -25,7 +25,7 @@ const nativeApiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     projectAgent: {
       getOverview: nativeApiMocks.getOverview,
     },

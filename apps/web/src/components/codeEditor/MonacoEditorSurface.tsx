@@ -21,7 +21,7 @@ import { formatSelectionLabel } from "~/lib/chatReferences";
 import { contextMenuGroup } from "~/lib/contextMenuGroup";
 import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { useWorkspaceFileOpener } from "~/lib/workspaceFileOpener";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { RenameDialog } from "../RenameDialog";
 import { WorkspaceFileEditorNoticeBar } from "../chat/WorkspaceFileEditorChrome";
 import { Button } from "../ui/button";
@@ -476,7 +476,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
     ];
   }
   const showContextMenu = useEffectEvent((position: { x: number; y: number }) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const active = controllerRef.current;
     if (!api || !active) return;
     const rows = commands();

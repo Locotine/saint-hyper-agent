@@ -13,7 +13,7 @@ import { render } from "vitest-browser-react";
 const api = vi.hoisted(() => ({ loadProjectImportHistory: vi.fn() }));
 vi.mock("../../nativeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../nativeApi")>()),
-  ensureNativeApi: () => ({ orchestration: api }),
+  ensureLocalNativeApi: () => ({ orchestration: api }),
 }));
 import { ChatTranscriptPane } from "./ChatTranscriptPane";
 import { ImportedHistoryButton, useImportedHistory } from "~/projectImport/ImportedHistoryButton";

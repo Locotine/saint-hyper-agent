@@ -63,8 +63,8 @@ const api = vi.hoisted(() => {
 });
 
 vi.mock("~/nativeApi", () => ({
-  readNativeApi: () => api,
-  ensureNativeApi: () => api,
+  readLocalNativeApi: () => api,
+  ensureLocalNativeApi: () => api,
 }));
 
 vi.mock("~/components/PluginLibrary", () => ({

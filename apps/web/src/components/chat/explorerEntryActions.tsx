@@ -21,7 +21,7 @@ import { showFileReferenceContextMenu } from "~/lib/fileReferenceContextMenu";
 import { projectQueryKeys } from "~/lib/projectReactQuery";
 import { isMacPlatform, getNavigatorPlatform } from "~/lib/utils";
 import { canDownloadWorkspaceFiles, downloadWorkspaceFiles } from "~/lib/workspaceDownload";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { RenameDialog } from "../RenameDialog";
 import { toastManager } from "../ui/toast";
 import { explorerDropDirectoryFor, setExplorerEntriesDragData } from "./explorerFileDrop";
@@ -168,7 +168,7 @@ export function useExplorerEntryActions(input: {
 
   const deleteEntry = async (entry: Pick<ProjectFileSystemEntry, "path" | "kind">) => {
     if (!workspaceRoot) return;
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     const what = entry.kind === "directory" ? "folder and everything in it" : "file";
     const confirmed = await api.dialogs.confirm(
       `Delete ${entry.path}?\n\nThis ${what} is removed from disk and cannot be restored.`,
@@ -195,7 +195,7 @@ export function useExplorerEntryActions(input: {
     const [first] = entries;
     if (!workspaceRoot || !first) return;
     if (entries.length === 1) return deleteEntry(first);
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     const listed = entries
       .slice(0, DELETE_CONFIRM_LISTED_ENTRIES)
       .map((entry) => `${entry.path}${entry.kind === "directory" ? "/" : ""}`)
@@ -295,7 +295,7 @@ export function useExplorerEntryActions(input: {
   // `paths` are only those the drop changes (see explorerMovableEntries).
   const moveEntries = async (paths: string[], directory: string) => {
     if (!workspaceRoot) return;
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     const moved: string[] = [];
     const movedFrom: string[] = [];
     const changedDirectories = new Set([directory]);
@@ -375,7 +375,7 @@ export function useExplorerEntryActions(input: {
   // Empty space below the rows: only creation applies, in the workspace root.
   const openRootMenu = (position: { x: number; y: number }) => {
     if (!workspaceRoot) return;
-    void ensureNativeApi()
+    void ensureLocalNativeApi()
       .contextMenu.show(
         [
           { id: "new-file" as const, label: "New File…" },
@@ -398,7 +398,7 @@ export function useExplorerEntryActions(input: {
   ) => {
     const relativePath = request.directory ? `${request.directory}/${name}` : name;
     try {
-      const result = await ensureNativeApi().projects.createEntry({
+      const result = await ensureLocalNativeApi().projects.createEntry({
         cwd: root,
         relativePath,
         kind: request.kind,
@@ -419,7 +419,7 @@ export function useExplorerEntryActions(input: {
   const rename = async (entry: ExplorerSelectableEntry, root: string, name: string) => {
     if (name === fileNameOf(entry.path)) return;
     try {
-      const result = await ensureNativeApi().projects.renameEntry({
+      const result = await ensureLocalNativeApi().projects.renameEntry({
         cwd: root,
         relativePath: entry.path,
         newName: name,

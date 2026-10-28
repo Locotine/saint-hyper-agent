@@ -90,7 +90,7 @@ import {
   serverSettingsQueryOptions,
 } from "~/lib/serverReactQuery";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { isProviderKind, sameProviderOrder } from "~/providerOrdering";
 import {
   getVisibleProviderUpdateStatuses,
@@ -1095,7 +1095,7 @@ function ProviderAccountsControl(props: {
     return `${prefix}_${index}`;
   };
   const importInstance = async () => {
-    const selectedDirectory = await ensureNativeApi().dialogs.pickFolder();
+    const selectedDirectory = await ensureLocalNativeApi().dialogs.pickFolder();
     if (!selectedDirectory) return;
     // Derived accounts share this namespace with explicit entries. Reusing a
     // derived id would mutate that account instead of creating a new one.
@@ -2063,7 +2063,7 @@ export function ProvidersSettingsPanel({
       setUpdatingProviders((current) => new Set(current).add(targetId));
       await withProviderUpdateTimeout({
         provider,
-        request: ensureNativeApi().server.updateProvider({
+        request: ensureLocalNativeApi().server.updateProvider({
           provider,
           ...(instanceId ? { instanceId } : {}),
         }),

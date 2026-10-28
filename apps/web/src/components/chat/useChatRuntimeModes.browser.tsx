@@ -13,7 +13,7 @@ import { useChatRuntimeModes } from "./useChatRuntimeModes";
 const { dispatchCommand } = vi.hoisted(() => ({ dispatchCommand: vi.fn(async () => {}) }));
 vi.mock("../../nativeApi", async (original) => ({
   ...(await original<typeof import("../../nativeApi")>()),
-  readNativeApi: () => ({ orchestration: { dispatchCommand } }),
+  readLocalNativeApi: () => ({ orchestration: { dispatchCommand } }),
 }));
 
 afterEach(async () => {

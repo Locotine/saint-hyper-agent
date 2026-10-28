@@ -17,7 +17,10 @@ const api = vi.hoisted(() => ({
     write: vi.fn(async () => {}),
   },
 }));
-vi.mock("../../nativeApi", () => ({ readNativeApi: () => api, ensureNativeApi: () => api }));
+vi.mock("../../nativeApi", () => ({
+  readLocalNativeApi: () => api,
+  ensureLocalNativeApi: () => api,
+}));
 
 afterEach(() => {
   useTerminalStateStore.setState({ terminalStateByThreadId: {} });

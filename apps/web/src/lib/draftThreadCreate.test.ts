@@ -13,7 +13,7 @@ const nativeApiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     orchestration: {
       dispatchCommand: nativeApiMocks.dispatchCommand,
     },

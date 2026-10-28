@@ -120,7 +120,7 @@ vi.mock("../projectRunStore", () => {
 });
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     projects: {
       runDevServer: harness.runDevServer,
       stopDevServer: harness.stopDevServer,

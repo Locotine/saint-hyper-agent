@@ -1,6 +1,6 @@
 import type { ProjectResolveWorkspaceFileReferencesResult } from "@saint/contracts";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 
 const MAX_WORKSPACE_FILE_REFERENCE_BATCH_SIZE = 128;
 
@@ -17,7 +17,7 @@ async function requestWorkspaceFileReferenceChunks(
   cwd: string,
   uniquePaths: ReadonlyArray<string>,
 ): Promise<ReadonlyMap<string, string | null>> {
-  const api = ensureNativeApi();
+  const api = ensureLocalNativeApi();
   const resolvedByPath = new Map<string, string | null>();
   for (
     let offset = 0;

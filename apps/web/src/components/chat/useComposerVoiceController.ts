@@ -17,7 +17,7 @@ import {
   isVoiceRecordingCancelledError,
   useVoiceRecorder,
 } from "../../lib/voiceRecorder";
-import { readNativeApi } from "../../nativeApi";
+import { readLocalNativeApi } from "../../nativeApi";
 import type { RefreshProviderStatusesNow } from "../../hooks/useProviderStatusRefresh";
 import { toastManager, reportToastIssue } from "../ui/toast";
 import { diagnosticIssueReason } from "../../lib/rendererErrorDiagnostics";
@@ -237,7 +237,7 @@ export function useComposerVoiceController(
     try {
       await startVoiceRecording();
       voiceRecordingStartedAtRef.current = performance.now();
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       void api?.server
         .prewarmVoice?.({
           provider: "codex",
@@ -270,7 +270,7 @@ export function useComposerVoiceController(
       return Promise.resolve(false);
     }
 
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       toastManager.add({
         type: "error",

@@ -22,7 +22,7 @@ import {
 import * as nativeApi from "../nativeApi";
 
 function mockListModels(listModels: ReturnType<typeof vi.fn>) {
-  vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+  vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
     provider: { listModels },
   } as unknown as NativeApi);
   return listModels;
@@ -531,7 +531,7 @@ describe("providerAgentsQueryOptions", () => {
       cached: true,
     };
     const listAgents = vi.fn().mockResolvedValueOnce(pending).mockResolvedValue(ready);
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       provider: { listAgents },
     } as unknown as NativeApi);
     const client = new QueryClient();

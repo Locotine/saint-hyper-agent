@@ -13,7 +13,7 @@ import type { ThreadImportTarget } from "../lib/threadImport";
 const searchThreads = vi.hoisted(() => vi.fn());
 vi.mock("~/nativeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("~/nativeApi")>()),
-  readNativeApi: () => ({ orchestration: { searchThreads } }),
+  readLocalNativeApi: () => ({ orchestration: { searchThreads } }),
 }));
 
 const thread: SidebarSearchThread = {

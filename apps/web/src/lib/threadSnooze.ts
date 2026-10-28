@@ -8,7 +8,7 @@
 import type { ThreadId } from "@saint/contracts";
 
 import { toastManager } from "../components/ui/toast";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { newCommandId } from "./utils";
 
 export type SnoozeDuration = 30 | 60 | 120 | "tomorrow" | Date;
@@ -69,7 +69,7 @@ export function dispatchThreadSnoozedUntil(
   threadId: ThreadId,
   snoozedUntil: string | null,
 ): Promise<boolean> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     toastManager.add({ type: "error", title: "Unable to connect to the app server." });
     return Promise.resolve(false);

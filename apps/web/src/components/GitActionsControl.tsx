@@ -106,7 +106,7 @@ import {
 } from "~/lib/gitReactQuery";
 import { cn, newCommandId, randomUUID } from "~/lib/utils";
 import { resolvePathLinkTarget } from "~/terminal-links";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { createThreadGitActionsMetadataSelector } from "~/storeSelectors";
 import { useStore } from "~/store";
 
@@ -385,7 +385,7 @@ export default function GitActionsControl({
       if (!activeThreadId) {
         return;
       }
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         return;
       }
@@ -485,7 +485,7 @@ export default function GitActionsControl({
       })
     : null;
   useEffect(() => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       return;
     }
@@ -563,7 +563,7 @@ export default function GitActionsControl({
   }, [updateActiveProgressToast]);
 
   const openExistingPr = useCallback(async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       toastManager.add({
         type: "error",
@@ -639,7 +639,7 @@ export default function GitActionsControl({
 
   const openComparePage = useCallback(
     async (headBranch: string | null, baseBranch: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !gitCwd || !headBranch) {
         toastManager.add({
           type: "error",
@@ -915,7 +915,7 @@ export default function GitActionsControl({
                   actionProps: {
                     children: "View PR",
                     onClick: () => {
-                      const api = readNativeApi();
+                      const api = readLocalNativeApi();
                       if (!api) return;
                       closeResultToast();
                       void api.shell.openExternal(prUrl);
@@ -1200,7 +1200,7 @@ export default function GitActionsControl({
 
   const createAndCheckoutBranch = useCallback(
     async (branchName: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !gitCwd) return;
 
       const trimmedName = branchName.trim();
@@ -1458,7 +1458,7 @@ export default function GitActionsControl({
 
   const openChangedFileInEditor = useCallback(
     (filePath: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !gitCwd) {
         toastManager.add({
           type: "error",

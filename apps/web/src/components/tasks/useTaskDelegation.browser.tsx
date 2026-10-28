@@ -16,8 +16,8 @@ import { useTaskDelegation } from "./useTaskDelegation";
 const transport = vi.hoisted(() => ({ dispatch: vi.fn(), list: vi.fn() }));
 const notifications = vi.hoisted(() => ({ add: vi.fn() }));
 vi.mock("../../nativeApi", () => ({
-  ensureNativeApi: () => ({ todo: { list: transport.list } }),
-  readNativeApi: () => undefined,
+  ensureLocalNativeApi: () => ({ todo: { list: transport.list } }),
+  readLocalNativeApi: () => undefined,
   readNativeApiServerCapability: () => false,
   onNativeApiServerCapabilitiesChange: () => () => {},
 }));

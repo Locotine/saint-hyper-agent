@@ -31,7 +31,7 @@ describe("pullRequestsForceRefreshMutationOptions", () => {
       callOrder.push("refresh");
       return { viewer: "octocat", items: [], errors: [], repositoryBatches: [] };
     });
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       pullRequests: { action },
       githubInbox: { list },
     } as never);
@@ -83,7 +83,7 @@ describe("pullRequestsForceRefreshMutationOptions", () => {
     const actionGate = deferred<Record<string, never>>();
     const list = vi.fn(() => refreshGate.promise);
     const action = vi.fn(() => actionGate.promise);
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       pullRequests: { action },
       githubInbox: { list },
     } as never);

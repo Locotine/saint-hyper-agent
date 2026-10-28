@@ -37,7 +37,7 @@ import { isElectron, remoteWindowHost } from "~/env";
 import { basenameOfPath } from "~/file-icons";
 import type { RepoDiffTotals } from "~/hooks/useRepoDiffTotals";
 import { ChangesIcon, ExternalLinkIcon, GitHubIcon, SettingsIcon, FolderIcon } from "~/lib/icons";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { revealFolderInShell } from "~/lib/revealFolder";
 import { deleteActiveThreadFromClient } from "~/lib/activeThreadDelete";
 import { gitRemoveWorktreeMutationOptions } from "~/lib/gitReactQuery";
@@ -434,7 +434,7 @@ export function EnvironmentPanel({
                   `Delete side chat "${sidechat.title}"?`,
                   "This permanently clears conversation history for this side chat and its subagents.",
                 ].join("\n");
-                const api = readNativeApi();
+                const api = readLocalNativeApi();
                 const confirmed = api
                   ? await api.dialogs.confirm(confirmationMessage)
                   : await showConfirmDialogFallback(confirmationMessage);

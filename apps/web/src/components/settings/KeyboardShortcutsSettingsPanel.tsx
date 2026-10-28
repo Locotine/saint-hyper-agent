@@ -28,7 +28,7 @@ import {
 } from "~/keybindingEditor";
 import { CentralIcon } from "~/lib/central-icons";
 import { AddPlusIcon, PencilIcon, ResetIcon, TrashCanIcon } from "~/lib/icons";
-import { ensureNativeApi, readNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi, readLocalNativeApi } from "~/nativeApi";
 import { serverConfigQueryOptions, serverQueryKeys } from "~/lib/serverReactQuery";
 import { cn, getNavigatorPlatform } from "~/lib/utils";
 import {
@@ -55,7 +55,7 @@ function useShortcutEditor() {
   const applyEdits = async (edits: ServerKeybindingEdit[]): Promise<boolean> => {
     if (edits.length === 0) return true;
     try {
-      const result = await ensureNativeApi().server.editKeybindings({ edits });
+      const result = await ensureLocalNativeApi().server.editKeybindings({ edits });
       // Issues arrive with the config update that follows the write; the edit reply
       // does not carry them.
       queryClient.setQueryData(serverQueryKeys.config(), (current: ServerConfig | undefined) =>
@@ -94,7 +94,7 @@ export function KeyboardShortcutsResetButton() {
       "Reset all shortcuts to their defaults?",
       "Every shortcut you changed, added, or removed goes back to what Saint ships with. Project script shortcuts are kept.",
     ].join("\n");
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const confirmed = api
       ? await api.dialogs.confirm(message)
       : await showConfirmDialogFallback(message);

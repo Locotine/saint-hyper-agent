@@ -84,8 +84,8 @@ const harness = vi.hoisted(() => {
 });
 
 vi.mock("~/nativeApi", () => ({
-  readNativeApi: () => harness.api,
-  ensureNativeApi: () => harness.api,
+  readLocalNativeApi: () => harness.api,
+  ensureLocalNativeApi: () => harness.api,
 }));
 
 vi.mock("~/components/PluginLibrary", () => ({

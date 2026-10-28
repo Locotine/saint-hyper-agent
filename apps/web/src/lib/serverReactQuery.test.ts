@@ -19,7 +19,7 @@ import {
 
 const nativeApiMocks = vi.hoisted(() => ({ getConfig: vi.fn<() => Promise<ServerConfig>>() }));
 vi.mock("~/nativeApi", () => ({
-  ensureNativeApi: () => ({ server: { getConfig: nativeApiMocks.getConfig } }),
+  ensureLocalNativeApi: () => ({ server: { getConfig: nativeApiMocks.getConfig } }),
 }));
 
 const READY_CODEX_STATUS = {

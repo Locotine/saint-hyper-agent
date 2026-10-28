@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { type ThreadId } from "@saint/contracts";
 import { type TerminalActivityState, type TerminalCliKind } from "@saint/shared/terminalThreads";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useTerminalStateStore } from "~/terminalStateStore";
 import { disposeAndCloseTerminalSession } from "./terminal/terminalSession";
 import TerminalViewport from "./terminal/TerminalViewport";
@@ -39,7 +39,7 @@ export default function ThreadTerminalDrawer(props: ThreadTerminalDrawerProps) {
   );
   const forgetRetiredTerminal = useTerminalStateStore((state) => state.forgetRetiredTerminal);
   useEffect(() => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     for (const terminalId of retiredTerminalIds ?? []) {
       const key = `${threadId}::${terminalId}`;

@@ -8,7 +8,7 @@ import type { ThreadId } from "@saint/contracts";
 import { useCallback } from "react";
 
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useStore } from "../../store";
 import { getThreadFromState } from "../../threadDerivation";
 
@@ -22,7 +22,7 @@ type SubagentRunTarget = Pick<ComposerSubagentStripItem, "providerThreadId">;
 export function useSubagentRunControls(stripSourceThreadId: ThreadId | null) {
   const backgroundSubagent = useCallback(
     async (item: SubagentRunTarget) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       // The Task tool_use lives on the strip source thread (the parent while a
       // subagent thread is open), so route the command there.
       if (!api || !stripSourceThreadId) return;
@@ -53,7 +53,7 @@ export function useSubagentRunControls(stripSourceThreadId: ThreadId | null) {
   // resolution lags, which the server would reject as an unknown thread.
   const stopSubagent = useCallback(
     async (item: SubagentRunTarget) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !stripSourceThreadId) return;
       try {
         const snapshot = useStore.getState();

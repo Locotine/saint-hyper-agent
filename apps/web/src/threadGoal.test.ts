@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 const dispatchCommand = vi.fn<(command: unknown) => Promise<void>>();
 
 vi.mock("./nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     orchestration: {
       dispatchCommand,
     },

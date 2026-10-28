@@ -38,7 +38,7 @@ import { newCommandId } from "~/lib/utils";
 import { dispatchThreadGoal } from "~/threadGoal";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { useKanbanUiStore } from "../../kanbanUiStore";
-import { readNativeApi } from "../../nativeApi";
+import { readLocalNativeApi } from "../../nativeApi";
 import { useStore } from "../../store";
 import { useTerminalStateStore } from "../../terminalStateStore";
 import { getThreadFromState } from "../../threadDerivation";
@@ -84,7 +84,7 @@ async function archiveCardThread(
     "threadId" | "archiveSequence"
   >,
 ) {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) return;
   const thread = getThreadFromState(useStore.getState(), threadId);
   if (!thread) return;
@@ -107,7 +107,7 @@ async function archiveCardThread(
 }
 
 async function setThreadPinned(threadId: ThreadId, isPinned: boolean) {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) return;
   await api.orchestration.dispatchCommand({
     type: "thread.meta.update",
@@ -165,7 +165,7 @@ export function useKanbanCardContextMenu(): KanbanCardContextMenuController {
   ) => {
     event.preventDefault();
     event.stopPropagation();
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     const position = { x: event.clientX, y: event.clientY };
     const isDraftOnlyCard = isKanbanDraftOnlyCard(card);

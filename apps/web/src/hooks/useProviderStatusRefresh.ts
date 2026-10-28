@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import type { ServerProviderStatus } from "@saint/contracts";
 import { toastManager } from "../components/ui/toast";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { reconcileServerProviderStatuses } from "../lib/serverReactQuery";
 
 export type RefreshProviderStatusesOptions = {
@@ -33,7 +33,7 @@ function writeProviderStatusesToConfigCache(
 export function useRefreshProviderStatusesNow(): RefreshProviderStatusesNow {
   const queryClient = useQueryClient();
   return async (options?: RefreshProviderStatusesOptions) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return null;
     try {
       const result = await api.server.refreshProviders();
@@ -98,7 +98,7 @@ export function useProviderStatusRefresh(options: ProviderStatusRefreshOptions):
       ) {
         return Promise.resolve(false);
       }
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         return Promise.resolve(false);
       }

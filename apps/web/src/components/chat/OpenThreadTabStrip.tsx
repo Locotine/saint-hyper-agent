@@ -25,7 +25,7 @@ import { resolveShortcutCommand } from "~/keybindings";
 import { PlusSignIcon, TerminalIcon } from "~/lib/icons";
 import { isTerminalFocused } from "~/lib/terminalFocus";
 import { showThreadContextMenu } from "~/lib/threadContextMenu";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import {
   closeOpenThreadTab,
   closeOpenThreadTabs,
@@ -219,7 +219,7 @@ export function OpenThreadTabStrip(props: {
       return;
     }
     // A phone's closed sidebar sheet cannot show thread actions; keep the tab's close rows available.
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || closeItems.length === 0) return;
     void api.contextMenu.show(closeItems, position).then((itemId) => {
       if (itemId) onCloseAction(itemId);

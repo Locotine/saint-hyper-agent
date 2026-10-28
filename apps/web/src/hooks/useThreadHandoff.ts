@@ -28,7 +28,7 @@ import {
 } from "../lib/threadHandoff";
 import { resolveProviderSendAvailabilityWithRefresh } from "../lib/providerAvailability";
 import { newCommandId, newMessageId, newThreadId } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import { type Thread } from "../types";
@@ -82,7 +82,7 @@ export function useThreadHandoff() {
     // A transcript handoff may restart the same agent with a fresh context.
     options?: { readonly allowSameTarget?: boolean },
   ) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       throw new Error("Native API not found");
     }

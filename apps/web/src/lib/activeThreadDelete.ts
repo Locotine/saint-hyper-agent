@@ -8,7 +8,7 @@ import { terminalScopeIdsForThread } from "@saint/shared/terminalThreads";
 import { collectSubagentDescendants } from "@saint/shared/threadHierarchy";
 
 import { toastManager } from "../components/ui/toast";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { getThreadFromState, getThreadsFromState } from "../threadDerivation";
 import type { Thread } from "../types";
@@ -55,7 +55,7 @@ export async function deleteActiveThreadFromClient<TPrepared = undefined>(input:
   }) => Promise<unknown>;
   readonly unknownWorktreeErrorMessage?: string;
 }): Promise<void> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) return;
   const state = useStore.getState();
   const thread = getThreadFromState(state, input.threadId);

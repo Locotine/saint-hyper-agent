@@ -5,7 +5,7 @@ import type { ProjectId, ThreadEnvironmentMode, ThreadId } from "@saint/contract
 
 import { useComposerDraftStore, type QueuedComposerChatTurn } from "../composerDraftStore";
 import { requestComposerFocus } from "../composerFocusRequestStore";
-import { ensureNativeApi } from "../nativeApi";
+import { ensureLocalNativeApi } from "../nativeApi";
 import { useProjectEnvironmentStore } from "../projectEnvironmentStore";
 import { useRightDockStore } from "../rightDockStore";
 import { useStore } from "../store";
@@ -34,7 +34,7 @@ export async function addSelectionToSide(
     throw new Error("Open a main chat before starting Side.");
   }
   await createSidechatThread({
-    api: ensureNativeApi(),
+    api: ensureLocalNativeApi(),
     project: input.project,
     sourceThread: input.sourceThread,
     selectedModelSelection: input.selectedModelSelection,
@@ -73,7 +73,7 @@ export async function startSelectionChat(
 
   let branch: string | null = null;
   if (input.envMode === "worktree") {
-    const status = await ensureNativeApi().git.status({ cwd: input.projectCwd });
+    const status = await ensureLocalNativeApi().git.status({ cwd: input.projectCwd });
     branch = status.branch;
     if (!branch) throw new Error("Check out a branch before starting a new worktree.");
   }

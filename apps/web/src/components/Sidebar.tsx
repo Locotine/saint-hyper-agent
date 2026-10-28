@@ -51,7 +51,7 @@ import {
 import { PinStatusIcon, pinActionLabel } from "~/lib/pin";
 import { useTasksNeedingAttentionCount, useTodoEventSubscription } from "./tasks/useTodos";
 import { THREAD_CONTEXT_MENU_ICONS } from "~/lib/contextMenuIcons";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import {
   getActiveComposerSendThreadIds,
   subscribeComposerSends,
@@ -215,7 +215,7 @@ import {
 } from "../lib/serverReactQuery";
 import {
   onNativeApiServerCapabilitiesChange,
-  readNativeApi,
+  readLocalNativeApi,
   readNativeApiServerCapability,
 } from "../nativeApi";
 import { isHomeChatContainerProject, prewarmHomeChatProject } from "../lib/chatProjects";
@@ -1384,10 +1384,10 @@ export default function Sidebar() {
   // ["automations"] query cache with the Automations route (and its live stream updates).
   const automationListQuery = useQuery({
     queryKey: automationQueryKey,
-    queryFn: () => ensureNativeApi().automation.list({}),
+    queryFn: () => ensureLocalNativeApi().automation.list({}),
   });
   useEffect(() => {
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     return api.automation.onEvent((event) => {
       queryClient.setQueryData<AutomationListResult>(automationQueryKey, (prev) =>
         applyAutomationEvent(prev, event),
@@ -1490,7 +1490,7 @@ export default function Sidebar() {
   const splitViewsById = useSplitViewStore((store) => store.splitViewsById);
 
   useEffect(() => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !threadsHydrated || projects.length > 0) {
       return;
     }
@@ -2148,7 +2148,7 @@ export default function Sidebar() {
     event.preventDefault();
     event.stopPropagation();
 
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       toastManager.add({
         type: "error",
@@ -2197,7 +2197,7 @@ export default function Sidebar() {
   }, []);
   const dispatchProjectPinnedState = useCallback(
     async (projectId: ProjectId, isPinned: boolean) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       await api.orchestration.dispatchCommand({
         type: "project.meta.update",
@@ -2210,7 +2210,7 @@ export default function Sidebar() {
   );
   const setProjectPinned = useCallback(
     async (projectId: ProjectId, isPinned: boolean) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const project = projectByIdRef.current.get(projectId);
       if (!project || project.kind !== "project") {
@@ -2433,7 +2433,7 @@ export default function Sidebar() {
   // Poll the server read model briefly after project.create so we only recover from fresh state.
   const waitForProjectInSnapshot = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       projectId: ProjectId,
       workspaceRoot?: string,
     ): Promise<{
@@ -2455,7 +2455,7 @@ export default function Sidebar() {
   // observable before reporting the clone as cancelled.
   const waitForCancelledGitHubProjectInSnapshot = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       projectId: ProjectId,
       workspaceRoot?: string,
     ): Promise<{
@@ -2474,7 +2474,7 @@ export default function Sidebar() {
 
   const waitForProjectWorkspaceRootInSnapshot = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       workspaceRoot: string,
     ): Promise<{
       project: OrchestrationShellSnapshot["projects"][number] | null;
@@ -2492,7 +2492,7 @@ export default function Sidebar() {
   // Keep add-project recovery on the same fresh-snapshot path for create, duplicate, and existing-project flows.
   const recoverExistingProjectFromServer = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       projectId: ProjectId,
     ): Promise<boolean> => {
       const { project, snapshot } = await waitForProjectInSnapshot(api, projectId);
@@ -2510,7 +2510,7 @@ export default function Sidebar() {
 
   const recoverExistingProjectByWorkspaceRootFromServer = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       workspaceRoot: string,
     ): Promise<boolean> => {
       const { project, snapshot } = await waitForProjectWorkspaceRootInSnapshot(api, workspaceRoot);
@@ -2738,7 +2738,7 @@ export default function Sidebar() {
       if (!cwd) {
         throw new Error("Project folder path is empty.");
       }
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         throw new Error("The app server is unavailable.");
       }
@@ -2951,7 +2951,7 @@ export default function Sidebar() {
 
   const handleImportThread = useCallback(
     async (target: ThreadImportTarget, externalId: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         throw new Error("The app server is unavailable.");
       }
@@ -3221,7 +3221,7 @@ export default function Sidebar() {
 
   const forkThread = useCallback(
     async (thread: Thread, target: ForkThreadTarget) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const projectCwd = projectCwdById.get(thread.projectId) ?? null;
       // Only a thread without its own branch needs the root checkout's branch.
@@ -3274,7 +3274,7 @@ export default function Sidebar() {
   // when moving a thread into a configured group).
   const postGroupPickupMessage = useCallback(
     async (coordinatorThreadId: ThreadId, text: string): Promise<boolean> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return false;
       // Run the coordinator under its configured runtime mode — never a
       // blanket full-access turn.
@@ -3310,7 +3310,7 @@ export default function Sidebar() {
   );
 
   const continueThreadAsGroup = useCallback(async (thread: Thread) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api?.projectAgent) return;
     const groupId = await createGroupProject({ title: thread.title ?? "New hub" }).catch(
       () => null,
@@ -3346,7 +3346,7 @@ export default function Sidebar() {
   }, []);
   const moveThreadToGroup = useCallback(
     async (thread: Thread, targetGroupProjectId: ProjectId) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api?.projectAgent) return;
       const overview = await api.projectAgent
         .linkProject({
@@ -3383,7 +3383,7 @@ export default function Sidebar() {
       position: { x: number; y: number },
       options?: ThreadContextMenuOptions,
     ) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const thread = getThreadFromState(useStore.getState(), threadId);
       if (!thread) return;
@@ -3883,7 +3883,7 @@ export default function Sidebar() {
   useEffect(() => registerThreadContextMenu(handleThreadContextMenu), [handleThreadContextMenu]);
   const handleMultiSelectContextMenu = useCallback(
     async (position: { x: number; y: number }) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const ids = [...selectedThreadIds];
       if (ids.length === 0) return;
@@ -4130,7 +4130,7 @@ export default function Sidebar() {
         : value.spaceId;
       const runCreateProject = async () => {
         if (value.source === "github") {
-          const api = readNativeApi();
+          const api = readLocalNativeApi();
           if (!api) throw new Error("The app server is unavailable.");
           await runExclusiveProjectAddition(projectAdditionLockRef, async () => {
             const openProvisionedProject = async (
@@ -4243,7 +4243,7 @@ export default function Sidebar() {
   const handleProjectContextMenuAction = useCallback(
     async (projectId: ProjectId, clicked: ProjectContextMenuId) => {
       setProjectContextMenuState(null);
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const project = projectById.get(projectId);
       if (!project) return;
@@ -4401,7 +4401,7 @@ export default function Sidebar() {
 
   const handleProjectContextMenu = useCallback(
     (projectId: ProjectId, position: { x: number; y: number }) => {
-      if (!readNativeApi()) return;
+      if (!readLocalNativeApi()) return;
       if (!projectById.has(projectId)) return;
       setProjectContextMenuState({ projectId, position });
     },
@@ -4555,7 +4555,7 @@ export default function Sidebar() {
     ],
   );
   const handleNavContextMenu = useCallback((event: MouseEvent) => {
-    if (!readNativeApi()) return;
+    if (!readLocalNativeApi()) return;
     event.preventDefault();
     setNavCustomizeMenuPosition({ x: event.clientX, y: event.clientY });
   }, []);

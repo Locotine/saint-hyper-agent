@@ -10,7 +10,7 @@ import {
 } from "@saint/contracts";
 import { useCallback, useEffect, useRef } from "react";
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { providerSupportsAutoRuntimeMode } from "../../lib/runtimeMode";
 import { type Thread } from "../../types";
@@ -81,7 +81,7 @@ export function useChatRuntimeModes({
       }
       return queue.persist(mode, async (currentMode, nextMode) => {
         if (serverThread) {
-          const api = readNativeApi();
+          const api = readLocalNativeApi();
           if (!api) {
             toastManager.add({
               type: "error",
@@ -205,7 +205,7 @@ export function useChatRuntimeModes({
         setDraftThreadContext(scopeLocalThread(threadId), { interactionMode: mode });
       }
       if (serverThread) {
-        const api = readNativeApi();
+        const api = readLocalNativeApi();
         if (api) {
           void api.orchestration
             .dispatchCommand({
@@ -255,7 +255,7 @@ export function useChatRuntimeModes({
       if (!serverThread) {
         return;
       }
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         return;
       }

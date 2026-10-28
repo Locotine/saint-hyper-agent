@@ -9,7 +9,7 @@ import { create } from "zustand";
 
 import { subscribeToWindowReturn } from "~/hooks/useRefreshOnWindowReturn";
 import { startVisibleInterval } from "~/lib/visibleInterval";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { projectAgentOverviewConfigured } from "./projectAgentOverview.logic";
 
 type ProjectAgentSummariesState = {
@@ -309,7 +309,7 @@ function scheduleProjectAgentSummariesRefresh() {
 export async function loadProjectAgentSummaries(): Promise<void> {
   if (summariesLoadPromise) return summariesLoadPromise;
   summariesLoadPromise = (async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api?.projectAgent?.listSummaries) {
       useProjectAgentSummariesStore.getState().setSummaries([]);
       return;
@@ -338,7 +338,7 @@ export function useProjectAgentSummaries() {
   useEffect(() => {
     const releaseRefresh = retainSummariesRefresh();
     void loadProjectAgentSummaries();
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api?.projectAgent) return releaseRefresh;
     const unsubscribe = api.projectAgent.onEvent((event) => {
       applyEvent(event);

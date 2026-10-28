@@ -87,7 +87,7 @@ import { holdQueuedComposerTurnsForStop } from "~/lib/queuedComposerDrain";
 import { resolveAuxiliaryTextGenerationSelection } from "~/lib/textGenerationCapabilities";
 import { resolveInheritedThreadContext } from "~/lib/threadBootstrap";
 import { cn, isMacNavigatorPlatform, newCommandId, newThreadId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { dispatchThreadSnoozedUntil, resolveSnoozeDeadline } from "~/lib/threadSnooze";
 import {
   ChatLinkActionsContext,
@@ -1118,7 +1118,7 @@ export default function ChatView({
   );
   const deletePlaceholderTerminalThread = useCallback(
     async (terminalThreadId: ThreadId) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       // Body kept in a nested function: React Compiler's BuildHIR cannot lower a value block
       // (`?.`, `??`, ternary) that sits directly inside a `try`, and one of them makes the
@@ -2423,7 +2423,7 @@ export default function ChatView({
   );
   const onRespondToClaudeCacheReview = useCallback(
     async (review: PendingClaudeCacheReview, decision: ClaudeCacheReviewDecision) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) throw new Error("Reconnect before choosing how to resume.");
       await api.orchestration.dispatchCommand({
         type: "thread.claude-cache.respond",
@@ -2848,7 +2848,7 @@ export default function ChatView({
   }, [browserOpen, navigate, onToggleBrowserPanel, threadId]);
   const openBrowserUrl = useCallback(
     (url: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       void api?.browser.open({ threadId, initialUrl: url }).catch((error) => {
         toastManager.add({
           type: "error",
@@ -3411,7 +3411,7 @@ export default function ChatView({
     setThreadError,
   });
   const stopActiveThreadSession = useCallback(async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (
       !api ||
       !isServerThread ||
@@ -3879,7 +3879,7 @@ export default function ChatView({
   ]);
 
   const onInterrupt = useCallback(async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !activeThread) return;
     // A user Stop pauses the waiting queue instead of sending it after the turn.
     const releaseQueueHold = holdQueuedComposerTurnsForStop(activeThread.id);
@@ -3916,7 +3916,7 @@ export default function ChatView({
   // leaves the row running, so the failure is reported instead of swallowed.
   const onStopBackgroundTask = useCallback(
     (taskId: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeThread) return;
       void api.orchestration
         .dispatchCommand({
@@ -3938,7 +3938,7 @@ export default function ChatView({
   );
 
   const onStopWorkflowRun = useCallback(async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !activeThread || !workflowRunState) return;
     await api.orchestration.dispatchCommand({
       type: "thread.task.stop",
@@ -4336,7 +4336,7 @@ export default function ChatView({
 
   const onRevertToTurnCount = useCallback(
     async (turnCount: number) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeThread || isRevertingCheckpoint) return;
 
       if (hasLiveTurn || isSendBusy || isConnecting) {
@@ -4386,7 +4386,7 @@ export default function ChatView({
 
   const onUndoTurnFiles = useCallback(
     async (turnCounts: readonly number[]) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeThread || isRevertingCheckpoint || turnCounts.length === 0) return;
 
       if (hasLiveTurn || isSendBusy || isConnecting) {
@@ -7152,7 +7152,7 @@ export default function ChatView({
                       <GroupPausedBanner
                         projectId={activeThread!.projectId}
                         onResume={async () => {
-                          const api = readNativeApi();
+                          const api = readLocalNativeApi();
                           if (!api?.projectAgent || !activeThread) return;
                           const overview = await api.projectAgent
                             .resumeGroup({

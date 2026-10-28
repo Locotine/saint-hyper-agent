@@ -158,7 +158,7 @@ vi.mock("../threadSelectionStore", () => ({
     selector({ removeFromSelection: harness.removeFromSelection }),
 }));
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     orchestration: { dispatchCommand: harness.dispatchCommand },
     dialogs: { confirm: harness.confirm },
   }),

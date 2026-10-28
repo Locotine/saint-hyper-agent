@@ -1,7 +1,7 @@
 import type { ThreadId } from "@saint/contracts";
 import { useEffect } from "react";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { addWsTransportStateListener } from "~/wsTransportEvents";
 import { useComputerStateStore } from "../computerStateStore";
 
@@ -15,12 +15,12 @@ export function useThreadComputerStateSeed(threadId: ThreadId): void {
   useEffect(() => {
     // Desktop-bridge NativeApi implementations update out of band and may
     // predate the computer namespace.
-    if (!ensureNativeApi().computer) {
+    if (!ensureLocalNativeApi().computer) {
       return;
     }
     let cancelled = false;
     const seed = () => {
-      void ensureNativeApi()
+      void ensureLocalNativeApi()
         .computer.getThreadState({ threadId })
         .then((state) => {
           if (!cancelled) upsertThreadState(state);

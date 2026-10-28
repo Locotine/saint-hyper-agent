@@ -6,7 +6,7 @@ import {
 } from "@saint/shared/asyncUserInput";
 import { useCallback } from "react";
 import { newCommandId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useStore } from "../../store";
 import { getThreadFromState } from "../../threadDerivation";
 import {
@@ -17,7 +17,7 @@ import {
 export function useAsyncUserInputResponse(threadId: ThreadId) {
   return useCallback(
     async (messageId: MessageId, answers: readonly string[]) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const thread = getThreadFromState(useStore.getState(), threadId);
       const input = thread?.messages.find((message) => message.id === messageId)?.asyncUserInput;
       if (!api || !thread || !input)

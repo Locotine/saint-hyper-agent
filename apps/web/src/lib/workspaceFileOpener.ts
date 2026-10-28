@@ -21,7 +21,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { createContext, useContext } from "react";
 
 import { openInPreferredEditor } from "../editorPreferences";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { projectReadFileQueryOptions } from "./projectReactQuery";
 
 export interface WorkspaceFileOpener {
@@ -185,7 +185,7 @@ export function openWorkspaceFileReference(opener: WorkspaceFileOpener | null, p
   if (opener?.openFile(path)) {
     return;
   }
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (api) {
     void openInPreferredEditor(api, path).catch(() => undefined);
   } else {

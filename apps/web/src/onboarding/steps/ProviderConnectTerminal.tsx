@@ -11,7 +11,7 @@ import { useEffect, useRef } from "react";
 import ThreadTerminalDrawer from "~/components/ThreadTerminalDrawer";
 import { disposeAndCloseTerminalSession } from "~/components/terminal/terminalSession";
 import { useTerminalSurfaceController } from "~/hooks/useTerminalSurfaceController";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { runProjectCommandInTerminal } from "~/projectTerminalRunner";
 import { useTerminalStateStore } from "~/terminalStateStore";
 import { onboardingTerminalThreadId } from "../onboardingTerminalScope";
@@ -30,7 +30,7 @@ export function ProviderConnectTerminal(props: {
 
   useEffect(
     () => () => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       for (const terminalId of terminalIdsRef.current) {
         disposeAndCloseTerminalSession({ api, threadId: scopeId, terminalId });
       }
@@ -52,7 +52,7 @@ export function ProviderConnectTerminal(props: {
     if (commandStartedRef.current || !terminalState.terminalOpen || !activeTerminalId) {
       return;
     }
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || props.cwd.length === 0) {
       return;
     }

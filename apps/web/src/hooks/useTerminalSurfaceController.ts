@@ -11,7 +11,7 @@ import {
   shouldPromptForTerminalClose,
 } from "~/lib/terminalCloseConfirmation";
 import { dockTerminalThreadId } from "~/lib/dockTerminalScope";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { selectRightDockState, useRightDockStore } from "~/rightDockStore";
 import { selectThreadTerminalState, useTerminalStateStore } from "~/terminalStateStore";
 import { disposeAndCloseTerminalSession } from "~/components/terminal/terminalSession";
@@ -37,7 +37,7 @@ export function useTerminalSurfaceController(threadId: ThreadId) {
 
   const disposeExitedTerminal = (terminalId: string) => {
     disposeAndCloseTerminalSession({
-      api: readNativeApi(),
+      api: readLocalNativeApi(),
       threadId,
       terminalId,
       processAlreadyExited: true,
@@ -90,7 +90,7 @@ export async function closeTerminalSurface(
       ? terminalState.dockTerminalIdsByPaneId[paneId]
       : terminalState.activeTerminalId;
   if (!terminalId) return true;
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   const confirmed = await confirmTerminalTabClose({
     api,
     enabled: shouldPromptForTerminalClose({

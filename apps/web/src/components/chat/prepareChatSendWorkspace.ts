@@ -14,7 +14,7 @@ import { getDefaultModel } from "@saint/shared/model";
 import type { QueryClient } from "@tanstack/react-query";
 import { gitStatusQueryOptions } from "~/lib/gitReactQuery";
 import { newCommandId, newProjectId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { setupProjectScript } from "~/projectScripts";
 import {
   useComposerDraftStore,
@@ -64,7 +64,7 @@ interface Input {
   resolvedThreadWorkingDirectory: string | null;
   currentActiveGitBranch: string | null;
   isContainerLandingProject: boolean;
-  api: NonNullable<ReturnType<typeof readNativeApi>>;
+  api: NonNullable<ReturnType<typeof readLocalNativeApi>>;
   syncServerShellSnapshot: ReturnType<typeof useStore.getState>["syncServerShellSnapshot"];
   clearProjectDraftThreadId: ReturnType<
     typeof useComposerDraftStore.getState

@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 import * as nativeApi from "../nativeApi";
 import { providerModelsQueryOptions } from "./providerDiscoveryReactQuery";
 
-vi.mock("../nativeApi", () => ({ ensureNativeApi: vi.fn() }));
+vi.mock("../nativeApi", () => ({ ensureLocalNativeApi: vi.fn() }));
 
 it("coalesces observed capacity recovery while keeping the last catalog visible", async () => {
   const capacity = Object.assign(new Error("Capacity exhausted"), {
@@ -25,7 +25,7 @@ it("coalesces observed capacity recovery while keeping the last catalog visible"
   };
   const listModels = vi.fn().mockRejectedValueOnce(capacity).mockResolvedValue(recovered);
   const nativeSpy = vi
-    .mocked(nativeApi.ensureNativeApi)
+    .mocked(nativeApi.ensureLocalNativeApi)
     .mockReturnValue({ provider: { listModels } } as unknown as NativeApi);
   const client = new QueryClient();
   const options = {

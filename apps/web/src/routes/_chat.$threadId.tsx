@@ -18,7 +18,7 @@ import {
 } from "../chatRouteRecovery";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { isSplitRoute } from "../splitViewRoute";
 import { selectSplitView, useSplitViewStore } from "../splitViewStore";
 import { useStore } from "../store";
@@ -124,7 +124,7 @@ function ChatThreadRouteContent() {
           }
         }, 0);
         void Promise.all([
-          refreshEmptyRouteRestoreSnapshot(readNativeApi()).catch(() => false),
+          refreshEmptyRouteRestoreSnapshot(readLocalNativeApi()).catch(() => false),
           waitForEmptyRouteRestoreFallbackDelay(),
         ]).finally(() => {
           window.clearTimeout(pendingTimer);

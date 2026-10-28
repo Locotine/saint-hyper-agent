@@ -15,7 +15,7 @@ import {
 } from "../editorMetadata";
 import { usePreferredEditor } from "../editorPreferences";
 import { shortcutLabelForCommand } from "../keybindings";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 
 export interface EditorLaunchers {
   /** Installed editors for the current platform, in catalog order. */
@@ -64,7 +64,7 @@ export function useEditorLaunchers({
   };
 
   const openInEditor = (editorId: EditorId | null) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !openInTarget) return;
     const editor = editorId ?? effectivePreferred;
     if (!editor) return;

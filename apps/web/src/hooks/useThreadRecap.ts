@@ -15,7 +15,7 @@ import {
   upsertPersistedThreadRecap,
   type PersistedThreadRecap,
 } from "~/lib/threadRecap";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import type { Thread } from "~/types";
 
 interface ThreadRecapCacheEntry {
@@ -142,7 +142,7 @@ export function useThreadRecap(input: UseThreadRecapInput): UseThreadRecapResult
 
     const timeoutId = window.setTimeout(() => {
       const payload = sourcePayloadRef.current;
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         return;
       }

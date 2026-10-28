@@ -16,7 +16,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useAppSettings } from "~/appSettings";
 
 import { newCommandId, cn } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useProviderUsageSummary } from "../hooks/useProviderUsageSummary";
 import { resolveThreadEnvironmentPresentation } from "../lib/threadEnvironment";
@@ -344,7 +344,7 @@ export default function BranchToolbar({
           return;
         }
 
-        const api = readNativeApi();
+        const api = readLocalNativeApi();
         if (serverThreadSession && api) {
           void api.orchestration
             .dispatchCommand({
@@ -392,7 +392,7 @@ export default function BranchToolbar({
           ? { patchAssociatedWorktreeRef: patch.associatedWorktreeRef }
           : {}),
       });
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       // If the effective cwd is about to change, stop the running session so the
       // next message creates a new one with the correct cwd.
       if (serverThreadSession && worktreePath !== activeWorktreePath && api) {

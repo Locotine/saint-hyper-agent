@@ -15,7 +15,7 @@ import { isElectron, remoteWindowHost } from "../env";
 import { useWindowFolderDrop } from "../hooks/useWindowFolderDrop";
 import { VOID_SPACE_KEY, spaceKey, toSpaceIconName } from "../lib/spaceGrouping";
 import { createSpace } from "../lib/spaces";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { randomUUID } from "../lib/utils";
 import { joinProjectPath } from "../lib/projectPaths";
 import type { Space } from "../types";
@@ -175,7 +175,7 @@ export function CreateProjectDialog(props: {
 
   useEffect(() => {
     if (!props.open) return;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     return api.projects.onProvisionProgress((event: GitHubProjectProvisionProgressEvent) => {
       if (event.operationId !== activeOperationIdRef.current) return;
@@ -245,7 +245,7 @@ export function CreateProjectDialog(props: {
 
   const handleAddFolder = async () => {
     if (isPickingFolder || submitting) return;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       setFormError("The app server is unavailable.");
       return;
@@ -262,7 +262,7 @@ export function CreateProjectDialog(props: {
 
   const handleBrowse = async () => {
     if (isPickingFolder || submitting) return;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       setFormError("The app server is unavailable.");
       return;
@@ -398,7 +398,7 @@ export function CreateProjectDialog(props: {
   // The space is created right away (same command the sidebar uses) and picked
   // as the destination, so one Create click ships the project into it.
   const handleCreateSpace = async (value: SpaceEditorValue) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) throw new Error("The app server is unavailable.");
     const icon = toSpaceIconName(value.icon);
     const { spaceId } = await createSpace({ api, name: value.name, icon });

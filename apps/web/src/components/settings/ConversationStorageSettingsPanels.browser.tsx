@@ -52,7 +52,7 @@ vi.mock("~/store", () => ({
 
 vi.mock("~/nativeApi", () => {
   const api = { dialogs: { confirm: harness.confirm }, orchestration: {} };
-  return { readNativeApi: () => api, ensureNativeApi: () => api };
+  return { readLocalNativeApi: () => api, ensureLocalNativeApi: () => api };
 });
 
 vi.mock("~/lib/archivedThreadDelete", () => ({

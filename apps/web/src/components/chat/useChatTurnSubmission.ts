@@ -15,7 +15,7 @@ import {
 } from "~/lib/composerMentions";
 import { resolveProviderSendAvailabilityWithRefresh } from "~/lib/providerAvailability";
 import { newMessageId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { resolveFollowUpDispatchMode } from "../../appSettings";
 import { useComposerDraftStore, type QueuedComposerChatTurn } from "../../composerDraftStore";
 import { appendAssistantSelectionsToPrompt } from "../../lib/assistantSelections";
@@ -271,7 +271,7 @@ export function useChatTurnSubmission({
           hasLiveTurn,
         });
       e?.preventDefault();
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const lateSendHandlers = lateComposerSendHandlersRef.current;
       if (
         !api ||

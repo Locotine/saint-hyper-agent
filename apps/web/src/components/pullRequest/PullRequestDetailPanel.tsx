@@ -43,7 +43,7 @@ import {
   pullRequestQueryErrorState,
 } from "~/lib/pullRequestReactQuery";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { useStartGitHubItemThread } from "~/hooks/useStartGitHubItemThread";
 import {
   GitHubItemAgentActions,
@@ -611,7 +611,7 @@ export function PullRequestDetailPanel({
                 label="Open in external browser"
                 tooltip="Open in external browser"
                 className={DOCK_ICON_BUTTON_CLASS_NAME}
-                onClick={() => void ensureNativeApi().shell.openExternal(detail.url)}
+                onClick={() => void ensureLocalNativeApi().shell.openExternal(detail.url)}
               >
                 <ExternalLinkIcon />
               </IconButton>

@@ -27,7 +27,7 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { ChatBubbleIcon, ExternalLinkIcon, LinkIcon } from "~/lib/icons";
 import { PinStatusIcon, pinActionLabel } from "~/lib/pin";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { SendToAgentMenuItems, type GitHubItemSendTarget } from "./GitHubItemAgentActions";
 import { GitHubItemFloatingComposer } from "./GitHubItemFloatingComposer";
 import { GitHubItemBackButton } from "./GitHubItemHeader";
@@ -206,7 +206,7 @@ export function GitHubItemPageIconActions({
         label="Open on GitHub"
         tooltip="Open on GitHub"
         tooltipSide="bottom"
-        onClick={() => void ensureNativeApi().shell.openExternal(url)}
+        onClick={() => void ensureLocalNativeApi().shell.openExternal(url)}
       >
         <ExternalLinkIcon className="size-4" />
       </IconButton>

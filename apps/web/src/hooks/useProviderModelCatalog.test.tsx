@@ -202,7 +202,7 @@ describe("useProviderModelCatalog", () => {
       models: [{ slug: "gpt-6.1-sol", name: "GPT-6.1 Sol" }],
       source: "codex-app-server",
     });
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       provider: { listModels },
     } as unknown as NativeApi);
     const [first] = readCatalogRenders({
@@ -257,7 +257,7 @@ describe("useProviderModelCatalog", () => {
         models: [{ slug: "new-model", name: "New model" }],
         source: "codex-app-server",
       });
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       provider: { listModels },
     } as unknown as NativeApi);
     const queryClient = mocks.useQueryClient() as QueryClient;
@@ -295,7 +295,7 @@ describe("useProviderModelCatalog", () => {
         }
         return Promise.resolve(catalog);
       });
-      vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+      vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
         provider: { listModels },
       } as unknown as NativeApi);
       const client = mocks.useQueryClient() as QueryClient;
@@ -331,7 +331,7 @@ describe("useProviderModelCatalog", () => {
   );
 
   it("reports a degraded provider response as a failed refresh", async () => {
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       provider: {
         listModels: vi.fn().mockResolvedValue({
           models: [{ slug: "fallback", name: "Fallback" }],

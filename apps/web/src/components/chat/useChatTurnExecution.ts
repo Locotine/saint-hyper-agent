@@ -24,7 +24,7 @@ import { waitForDraftThreadDispatchToSettle } from "~/lib/draftThreadDispatch";
 import { runComposerSendOnce } from "~/lib/composerSendOwnership";
 import { ProviderHandoffBackgroundTasksError } from "~/lib/threadHandoff";
 import { newCommandId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { dispatchThreadNotes } from "~/pinnedMessages";
 import {
   mergeProjectInstructionsIntoThreadNotes,
@@ -70,7 +70,7 @@ interface PreparedChatTurn {
   nextAssociatedWorktreePath: string | null;
   nextAssociatedWorktreeBranch: string | null;
   nextAssociatedWorktreeRef: string | null;
-  api: NonNullable<ReturnType<typeof readNativeApi>>;
+  api: NonNullable<ReturnType<typeof readLocalNativeApi>>;
   targetProjectCwdForSend: string;
   threadIdForSend: ThreadId;
   worktreeSetupResolution: ReturnType<typeof createWorktreeSetupResolution> | null;

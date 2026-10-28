@@ -6,7 +6,7 @@ const { api, refreshGit } = vi.hoisted(() => ({
   api: { projects: { writeFile: vi.fn(), readFile: vi.fn() } },
   refreshGit: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("~/nativeApi", () => ({ ensureNativeApi: () => api }));
+vi.mock("~/nativeApi", () => ({ ensureLocalNativeApi: () => api }));
 vi.mock("./gitReactQuery", () => ({ refreshGitAfterFileWrite: refreshGit }));
 import {
   flushWorkspaceEditors,

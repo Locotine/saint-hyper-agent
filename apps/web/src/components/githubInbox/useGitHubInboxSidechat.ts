@@ -36,7 +36,7 @@ import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { createStandaloneSidechat, resolveSidechatRuntimeMode } from "~/lib/sidechatCreation";
 import { registerSidechatCreator } from "~/lib/sidechatCreatorRegistry";
 import { promoteThreadCreate } from "~/lib/threadCreatePromotion";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { selectRightDockState, useRightDockStore } from "~/rightDockStore";
 import { GITHUB_INBOX_DOCK_HOST_ID } from "~/rightDockStore.logic";
 import { useStore } from "~/store";
@@ -203,7 +203,7 @@ export function useGitHubInboxSidechat(selection: GitHubInboxSelection | null) {
       number: target.source.number,
     });
     if (creatingKeys.current.has(key)) return Promise.resolve();
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       toastManager.add({ type: "error", title: "Could not start a side chat" });
       return Promise.resolve();

@@ -11,7 +11,7 @@ import type { ProjectId, ThreadId } from "@saint/contracts";
 import { createGroupProject, findLegacyStudioContainerForAdoption } from "../lib/groupProjects";
 import { NewThreadIcon, SettingsIcon } from "../lib/icons";
 import { newCommandId } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { usePinnedProjectAgentsStore } from "../pinnedProjectAgentsStore";
 import { useStore } from "../store";
 import type { SidebarThreadSummary } from "../types";
@@ -168,7 +168,7 @@ export function SidebarGroupsSurface({
   );
 
   const unarchiveGroup = async (projectId: ProjectId) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api?.projectAgent) return;
     const overview = await api.projectAgent
       .unarchiveGroup({ requestId: crypto.randomUUID(), projectId })
@@ -200,7 +200,7 @@ export function SidebarGroupsSurface({
     ) {
       return;
     }
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       return;
     }

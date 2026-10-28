@@ -5,7 +5,7 @@ import { toastManager, reportToastIssue } from "../components/ui/toast";
 import { diagnosticIssueReason } from "../lib/rendererErrorDiagnostics";
 import { newCommandId, newMessageId } from "../lib/utils";
 import { useClaudeCompactionRequests } from "../lib/claudeCompactionRequests";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import {
@@ -67,7 +67,7 @@ export function useClaudeContextCompaction({
       useClaudeCompactionRequests.persist?.hasHydrated() === false
     )
       return false;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const thread = getThreadFromState(useStore.getState(), threadId);
     if (
       !api ||

@@ -1,6 +1,6 @@
 import type { TerminalEvent } from "@saint/contracts";
 
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 
 type TerminalEventListener = (event: TerminalEvent) => void;
 
@@ -35,7 +35,7 @@ class TerminalEventDispatcher {
 
   private ensureSharedListener(): void {
     if (this.unsubscribeSharedListener) return;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
 
     this.unsubscribeSharedListener = api.terminal.onEvent((event) => {

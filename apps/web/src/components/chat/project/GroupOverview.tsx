@@ -26,7 +26,7 @@ import { formatSchedule } from "~/lib/automationForm";
 import { formatRelativeTime } from "~/lib/relativeTime";
 import { archiveThreadFromClient, unarchiveThreadFromClient } from "~/lib/threadArchive";
 import { cn } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import type { useAutomations } from "~/routes/-automations.shared";
 
 import {
@@ -151,7 +151,7 @@ export function GroupThreadRow({
       });
       return;
     }
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     void archiveThreadFromClient(api.orchestration, row.thread.id).catch((cause: unknown) => {
       toastManager.add({
@@ -169,7 +169,7 @@ export function GroupThreadRow({
       });
       return;
     }
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     void unarchiveThreadFromClient(api.orchestration, row.thread.id).catch((cause: unknown) => {
       toastManager.add({
@@ -181,7 +181,7 @@ export function GroupThreadRow({
   };
 
   const showRowMenu = async (position: { x: number; y: number }) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     const clicked = await api.contextMenu.show(
       [
@@ -298,7 +298,7 @@ export function GroupPullRequestsSection({
               label={`Open #${row.pullRequest.number} on GitHub`}
               tooltip="Open on GitHub"
               onClick={() => {
-                void readNativeApi()?.shell.openExternal(row.pullRequest.url);
+                void readLocalNativeApi()?.shell.openExternal(row.pullRequest.url);
               }}
             >
               <GitHubIcon className="size-3.5" />

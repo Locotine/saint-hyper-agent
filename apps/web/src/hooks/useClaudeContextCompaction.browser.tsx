@@ -11,8 +11,8 @@ import { useClaudeContextCompaction } from "./useClaudeContextCompaction";
 
 const mocks = vi.hoisted(() => ({ dispatchCommand: vi.fn(), toast: vi.fn() }));
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({ orchestration: { dispatchCommand: mocks.dispatchCommand } }),
-  ensureNativeApi: () => ({ orchestration: { dispatchCommand: mocks.dispatchCommand } }),
+  readLocalNativeApi: () => ({ orchestration: { dispatchCommand: mocks.dispatchCommand } }),
+  ensureLocalNativeApi: () => ({ orchestration: { dispatchCommand: mocks.dispatchCommand } }),
 }));
 vi.mock("../components/ui/toast", () => ({
   toastManager: { add: mocks.toast },

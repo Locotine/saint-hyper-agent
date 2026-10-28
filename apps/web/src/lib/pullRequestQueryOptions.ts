@@ -1,7 +1,7 @@
 import type { PullRequestDetailInput, ThreadId } from "@saint/contracts";
 import { queryOptions } from "@tanstack/react-query";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import {
   GITHUB_ITEM_DETAIL_POLL_INTERVAL_MS,
   GITHUB_ITEM_DETAIL_STALE_TIME_MS,
@@ -50,7 +50,7 @@ export function pullRequestDetailQueryOptions(
     queryKey: pullRequestQueryKeys.detail(input),
     queryFn: () => {
       if (!input) throw new Error("Pull request detail is unavailable.");
-      return ensureNativeApi().pullRequests.detail(input);
+      return ensureLocalNativeApi().pullRequests.detail(input);
     },
     enabled: input !== null,
     staleTime: GITHUB_ITEM_DETAIL_STALE_TIME_MS,
@@ -66,7 +66,7 @@ export function pullRequestDiffQueryOptions(input: PullRequestDetailInput | null
     queryKey: pullRequestQueryKeys.diff(input),
     queryFn: () => {
       if (!input) throw new Error("Pull request diff is unavailable.");
-      return ensureNativeApi().pullRequests.diff(input);
+      return ensureLocalNativeApi().pullRequests.diff(input);
     },
     enabled: input !== null,
     staleTime: 30_000,
@@ -82,7 +82,7 @@ export function pullRequestAutoFixQueryOptions(threadId: ThreadId | null, enable
     queryKey: pullRequestQueryKeys.autoFix(threadId),
     queryFn: () => {
       if (!threadId) throw new Error("Auto-fix CI is unavailable.");
-      return ensureNativeApi().pullRequests.getAutoFix({ threadId });
+      return ensureLocalNativeApi().pullRequests.getAutoFix({ threadId });
     },
     enabled: enabled && threadId !== null,
     staleTime: 15_000,

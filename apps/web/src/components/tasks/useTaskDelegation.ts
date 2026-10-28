@@ -36,7 +36,7 @@ import {
   type ComposerThreadDraftState,
 } from "../../composerDraftDomain";
 import { providerInstanceModelSelectionKey, useComposerDraftStore } from "../../composerDraftStore";
-import { ensureNativeApi } from "../../nativeApi";
+import { ensureLocalNativeApi } from "../../nativeApi";
 import { buildModelSelection } from "../../providerModelOptions";
 import { DEFAULT_INTERACTION_MODE, type SidebarThreadSummary } from "../../types";
 import { useWorkspacePathsStore } from "../../workspacePathsStore";
@@ -161,7 +161,7 @@ export function useTaskDelegation(options: {
           return false;
         }
         try {
-          const { todos } = await ensureNativeApi().todo.list();
+          const { todos } = await ensureLocalNativeApi().todo.list();
           const linked =
             todos.find((stored) => stored.id === input.id)?.threadId === input.threadId;
           if (!linked) {

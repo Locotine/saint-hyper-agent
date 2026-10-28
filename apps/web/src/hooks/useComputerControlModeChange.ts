@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { ThreadId } from "@saint/contracts";
 import type { ComposerComputerControlMode } from "~/computerControlMode";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { toastManager } from "~/components/ui/toast";
 import {
   prepareComputerPermissionGuide,
@@ -31,7 +31,7 @@ export function useComputerControlModeChange({
   );
   const change = useCallback(
     (mode: ComposerComputerControlMode) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const request = ++sequence.current;
       const current = () => request === sequence.current;

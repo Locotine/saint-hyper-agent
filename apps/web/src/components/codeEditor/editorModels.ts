@@ -15,7 +15,7 @@ import type {
   EditorLocation,
 } from "@saint/contracts";
 import type { QueryClient } from "@tanstack/react-query";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import {
   getWorkspaceEditorSession,
   getUnsavedWorkspaceEditorDocuments,
@@ -390,7 +390,7 @@ export async function requestIntelligence(
   } = {},
 ): Promise<EditorIntelligenceResult | undefined> {
   if (!supportsProjectIntelligence(entry)) return undefined;
-  const api = ensureNativeApi().editor;
+  const api = ensureLocalNativeApi().editor;
   if (!api) {
     setEditorServiceStatus(
       entry,

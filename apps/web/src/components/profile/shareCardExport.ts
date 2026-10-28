@@ -6,7 +6,7 @@
 
 import { toBlob } from "html-to-image";
 import { copyPngBlobToDesktopClipboard } from "~/lib/desktopClipboard";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 
 export { downloadBlob } from "~/lib/browserDownload";
 
@@ -51,7 +51,7 @@ export async function copyImageToClipboard(blob: Blob): Promise<boolean> {
 
 // Opens an external URL via the desktop shell when available, else a new browser tab.
 export function openExternalUrl(url: string): void {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (api?.shell?.openExternal) {
     void api.shell.openExternal(url);
     return;

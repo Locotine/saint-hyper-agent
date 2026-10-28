@@ -48,7 +48,7 @@ import {
   stageDraftNavigation,
 } from "../lib/stagedDraftNavigation";
 import { newCommandId, newThreadId } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useFocusedChatContext } from "../focusedChatContext";
 import { useStore } from "../store";
 import { useProjectEnvironmentStore } from "../projectEnvironmentStore";
@@ -295,7 +295,7 @@ export function useHandleNewThread() {
       threadId: ThreadId,
       creationState: ReturnType<typeof resolveCreationState>,
     ): Promise<void> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         return;
       }

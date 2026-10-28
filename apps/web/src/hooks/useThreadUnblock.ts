@@ -12,7 +12,7 @@ import {
   resolveThreadUnblockTarget,
   unblockThreadFromClient,
 } from "../lib/threadUnblock";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 
 /**
  * Reconciles the blocking deliveries of `threadId` and reports the outcome.
@@ -48,7 +48,7 @@ export function useThreadUnblock(input: {
       setUnblockingThreadId(resolvedThreadId);
       void (async () => {
         try {
-          const api = readNativeApi();
+          const api = readLocalNativeApi();
           if (!api) throw new Error("Not connected to the Saint server.");
           const result = await unblockThreadFromClient(api.orchestration, resolvedThreadId);
           onUnblocked(resolvedThreadId);

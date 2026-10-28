@@ -44,7 +44,7 @@ import {
 
 import { isElectron } from "~/env";
 import { CentralIcon } from "~/lib/central-icons";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { BrowserVaultButton } from "./BrowserVault";
 import type { DockPaneRuntimeMode } from "~/lib/dockPaneActivation";
 import { readDesktopZoomFactor, subscribeDesktopZoomFactor } from "~/lib/desktopZoom";
@@ -583,7 +583,7 @@ export function BrowserPanel({
   // AssignmentPattern there and silently drops the whole component's memoization.
   const runtimeMode = runtimeModeProp ?? "live";
   const isFloatingMode = mode === "floating";
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   const isLiveRuntime = runtimeMode === "live";
   const threadBrowserState = useBrowserStateStore(selectThreadBrowserState(threadId));
   const recentHistory = useBrowserStateStore(selectThreadBrowserHistory(threadId));

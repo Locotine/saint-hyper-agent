@@ -26,7 +26,7 @@ function mockNativeApi(input: {
   getTurnDiff: ReturnType<typeof vi.fn>;
   getFullThreadDiff: ReturnType<typeof vi.fn>;
 }) {
-  vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+  vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
     orchestration: {
       getTurnDiff: input.getTurnDiff,
       getFullThreadDiff: input.getFullThreadDiff,

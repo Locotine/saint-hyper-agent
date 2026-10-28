@@ -23,7 +23,7 @@ import {
   waitForEmptyRouteRestoreFallbackDelay,
 } from "../chatRouteRecovery";
 import type { StartContainerChatResult } from "../lib/startContainerChat";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useSplitViewStore } from "../splitViewStore";
 import { EMPTY_THREAD_IDS, useStore } from "../store";
 
@@ -110,7 +110,7 @@ export function RestoreOrCreateChatRoute({
         const recoveryRun = (emptyRestoreRecoveryRunRef.current += 1);
         setEmptyRestoreRecoveryState("pending");
         await Promise.all([
-          refreshEmptyRouteRestoreSnapshot(readNativeApi()).catch(() => false),
+          refreshEmptyRouteRestoreSnapshot(readLocalNativeApi()).catch(() => false),
           waitForEmptyRouteRestoreFallbackDelay(),
         ]);
         if (mountedRef.current && emptyRestoreRecoveryRunRef.current === recoveryRun) {

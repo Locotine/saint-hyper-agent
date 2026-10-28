@@ -6,7 +6,7 @@ import { useComputerControlModeChange } from "./useComputerControlModeChange";
 
 const api = vi.hoisted(() => ({ computer: { setControlEnabled: vi.fn(), getStatus: vi.fn() } }));
 const toast = vi.hoisted(() => vi.fn());
-vi.mock("~/nativeApi", () => ({ readNativeApi: () => api }));
+vi.mock("~/nativeApi", () => ({ readLocalNativeApi: () => api }));
 vi.mock("~/components/ui/toast", () => ({ toastManager: { add: toast } }));
 afterEach(() => {
   vi.clearAllMocks();

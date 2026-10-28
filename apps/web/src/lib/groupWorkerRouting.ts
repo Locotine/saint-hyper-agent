@@ -11,7 +11,7 @@ import { scopeLocalThread } from "@saint/shared/hostId";
 import { type ProjectId, type ServerProviderStatus, type ThreadId } from "@saint/contracts";
 
 import { useComposerDraftStore } from "../composerDraftStore";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import type { ThreadPrimarySurface } from "../types";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
@@ -27,7 +27,7 @@ import type { ContainerThreadDefaults } from "./startContainerChat";
 export async function resolveGroupWorkerRoutingDefaults(input: {
   readonly groupProjectId: ProjectId;
 }): Promise<ContainerThreadDefaults | null> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return null;
   }

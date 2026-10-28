@@ -143,7 +143,7 @@ vi.mock("../../terminalStateStore", () => ({
 }));
 
 vi.mock("../../nativeApi", () => ({
-  readNativeApi: () => ({ dialogs: { confirm: nativeApi.confirm } }),
+  readLocalNativeApi: () => ({ dialogs: { confirm: nativeApi.confirm } }),
 }));
 
 vi.mock("../ui/toast", () => ({ toastManager: { add: vi.fn() } }));

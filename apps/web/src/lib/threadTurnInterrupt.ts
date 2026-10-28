@@ -12,12 +12,12 @@
 
 import type { ThreadId } from "@saint/contracts";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { holdQueuedComposerTurnsForStop } from "./queuedComposerDrain";
 import { newCommandId } from "./utils";
 
 export async function interruptThreadTurn(threadId: ThreadId): Promise<void> {
-  const api = ensureNativeApi();
+  const api = ensureLocalNativeApi();
   // A user Stop pauses the thread's waiting composer queue instead of sending it.
   const releaseQueueHold = holdQueuedComposerTurnsForStop(threadId);
   await api.orchestration

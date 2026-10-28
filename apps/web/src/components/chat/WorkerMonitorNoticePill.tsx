@@ -1,7 +1,7 @@
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { useState } from "react";
 import type { WorkLogEntry, WorkLogSaintWorkerNotice } from "../../workLog";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { cn } from "~/lib/utils";
 import { MUTED_LABEL_TEXT_CLASS_NAME } from "~/surfaceStyles";
 import { Button } from "../ui/button";
@@ -39,7 +39,7 @@ export function WorkerMonitorNoticePill({
   const projectId = needsYouThread?.projectId ?? null;
 
   const resolveWorker = (action: "retry" | "stop") => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !needsYouThread || !projectId || pendingAction !== null) return;
     setPendingAction(action);
     setError(null);

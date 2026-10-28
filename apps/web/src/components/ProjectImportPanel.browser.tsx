@@ -11,7 +11,7 @@ const api = vi.hoisted(() => ({
   getShellSnapshot: vi.fn(),
   syncSnapshot: vi.fn(),
 }));
-vi.mock("../nativeApi", () => ({ ensureNativeApi: () => ({ orchestration: api }) }));
+vi.mock("../nativeApi", () => ({ ensureLocalNativeApi: () => ({ orchestration: api }) }));
 vi.mock("../store", () => ({
   useStore: (select: (state: { syncServerShellSnapshot: typeof api.syncSnapshot }) => unknown) =>
     select({ syncServerShellSnapshot: api.syncSnapshot }),

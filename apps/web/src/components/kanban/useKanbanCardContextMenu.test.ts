@@ -83,7 +83,7 @@ vi.mock("../../kanbanUiStore", () => ({
   },
 }));
 vi.mock("../../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     contextMenu: { show: harness.showContextMenu },
     dialogs: { confirm: harness.confirm },
     orchestration: { dispatchCommand: harness.dispatchCommand },

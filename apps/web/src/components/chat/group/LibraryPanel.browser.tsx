@@ -54,8 +54,8 @@ const harness = vi.hoisted(() => ({
 
 vi.mock("~/nativeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("~/nativeApi")>()),
-  readNativeApi: () => harness.api,
-  ensureNativeApi: () => harness.api,
+  readLocalNativeApi: () => harness.api,
+  ensureLocalNativeApi: () => harness.api,
 }));
 
 import { LibraryPanel } from "./LibraryPanel";
