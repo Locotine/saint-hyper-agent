@@ -91,7 +91,7 @@ The remote server listens only on the remote loopback interface. The auth token 
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Disconnect           | Closes the tunnel; an app window on that host returns to this computer. The server and its agents keep running until the server is idle. |
 | Stop server          | Also stops the remote server. Installed files and data stay.                                                                             |
-| Quit Saint           | Closes tunnels only.                                                                                                                     |
+| Quit Saint           | Closes tunnels only. Chats running on a host keep running there.                                                                         |
 | Close the app window | Quits Saint like any other close. Tunnels close and remote servers keep running.                                                         |
 
 Remote layout, relative to the remote home (shared folder `.saint-remote`, `.saint-beta-remote` for Beta):

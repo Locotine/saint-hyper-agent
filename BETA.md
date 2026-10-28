@@ -348,8 +348,11 @@ The feature list holds one entry, `multi-host`; diagnostics retain their separat
 policy. Remote SSH hosts (`remote-ssh`) ship in Stable and run in the desktop main process.
 Multi-host changes how the app shows them: with it on, connected hosts' projects sit in the
 main Projects list and their chats open in the app window over the host's tunnel; off
-(Stable), hosts keep their own sidebar section and open by switching the window. It adds no
-IPC and no server API (it reads the existing `remoteSsh.wsUrl`), so the web flag is the gate;
+(Stable), hosts keep their own sidebar section and open by switching the window. With it on,
+search, Activity, task notifications and the quit dialog cover connected hosts' chats too (the
+dialog says they keep running on the host), and the window title no longer names a host. It adds
+no IPC and no server API (it reads the existing `remoteSsh.wsUrl`; desktop main reads the
+flag only for the title), so the web flag is the gate;
 remote client state it keys by host (drafts, terminal state) is never written on Stable. See
 [multi-host plan](docs/multi-host-plan.md).
 Inline visuals are available in Stable and Beta:
