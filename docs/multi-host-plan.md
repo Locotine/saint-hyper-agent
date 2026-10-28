@@ -107,7 +107,7 @@ Token không vào state persist; `wsUrl(host)` gọi mới mỗi epoch.
 
 **Tổng ~22–27 tuần-kỹ sư.**
 
-Trạng thái thực hiện từng phase: [multi-host-p0-inventory.md](multi-host-p0-inventory.md) (mục "P3 status", "P4–P5 status", "P6 status"). P6 còn mở: dọn legacy và promote cờ, chờ user quyết.
+Trạng thái thực hiện từng phase: [multi-host-p0-inventory.md](multi-host-p0-inventory.md) (mục "P3 status", "P4–P5 status", "P6 status"). P6 xong: cờ `multi-host` đã promote (user duyệt 2026-10-29), đường chuyển cửa sổ legacy đã gỡ.
 
 ## 4. UI (P5–P6) — cần user duyệt trước khi làm
 

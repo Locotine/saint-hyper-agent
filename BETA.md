@@ -344,16 +344,10 @@ HTTP-hosted clients retain native component visuals but never execute HTML. The 
 bootstrap removes WebRTC capabilities before page scripts and stops parsing if that boundary
 cannot be enforced. HTML messages cannot open external URLs through the host.
 
-The feature list holds one entry, `multi-host`; diagnostics retain their separate Beta-only
-policy. Remote SSH hosts (`remote-ssh`) ship in Stable and run in the desktop main process.
-Multi-host changes how the app shows them: with it on, connected hosts' projects sit in the
-main Projects list and their chats open in the app window over the host's tunnel; off
-(Stable), hosts keep their own sidebar section and open by switching the window. With it on,
-search, Activity, task notifications and the quit dialog cover connected hosts' chats too (the
-dialog says they keep running on the host), and the window title no longer names a host. It adds
-no IPC and no server API (it reads the existing `remoteSsh.wsUrl`; desktop main reads the
-flag only for the title), so the web flag is the gate;
-remote client state it keys by host (drafts, terminal state) is never written on Stable. See
+The feature list is empty again; diagnostics retain their separate Beta-only policy. Remote SSH
+hosts (`remote-ssh`) ship in Stable and run in the desktop main process. Multi-host, Beta-only
+while it was built, now ships in both apps: connected hosts' projects sit in the main Projects
+list and their chats open in the app window, and the old window switch is gone. See
 [multi-host plan](docs/multi-host-plan.md).
 Inline visuals are available in Stable and Beta:
 the `saint_show_visual` agent tool, its transcript rows, and the `orchestration.getInlineVisual`
