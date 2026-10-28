@@ -135,7 +135,9 @@ import {
 } from "../appRail.logic";
 import { useRailShellStore } from "../railShellStore";
 import { isElectron, remoteWindowHost } from "../env";
+import { useRemoteSshState } from "../hooks/useRemoteSshState";
 import { formatRelativeTime } from "../lib/relativeTime";
+import { RemoteHostsSidebarSection } from "./RemoteHostsSidebarSection";
 import {
   isMacNavigatorPlatform,
   newCommandId,
@@ -1290,6 +1292,11 @@ export default function Sidebar() {
   const [showDebugFeatureFlagsMenu, setShowDebugFeatureFlagsMenu] = useState(
     readDebugFeatureFlagsMenuVisibility,
   );
+  // Null on Stable, in browsers and in remote windows: the Remote hosts section stays hidden.
+  const remoteSshState = useRemoteSshState();
+  const hasRemoteHosts =
+    remoteSshState !== null &&
+    (remoteSshState.savedHosts.length > 0 || remoteSshState.hosts.length > 0);
   const projects = useStore((store) => store.projects);
   const spaces = useStore((store) => store.spaces);
   // Selection state only; the handlers and sync effects live in useSpacesController.
@@ -7456,7 +7463,8 @@ export default function Sidebar() {
                       />
                       {renderPinnedThreadsSection()}
                       {renderListSectionHeader(
-                        "Projects",
+                        // Remote hosts get their own section below, so say which side this is.
+                        hasRemoteHosts ? "Projects · Local" : "Projects",
                         <>
                           {standardProjects.length > 0 ? (
                             <SidebarIconButton
@@ -7573,6 +7581,14 @@ export default function Sidebar() {
                   onVisibleThreadIdsChange={setClassicSnoozedVisibleThreadIds}
                 />
               </SidebarGroup>
+            ) : null}
+            {!isOnSettings &&
+            !isOnGroups &&
+            !activityViewEnabled &&
+            !showRailSpacesPanel &&
+            !showRailAutomationsPanel &&
+            remoteSshState ? (
+              <RemoteHostsSidebarSection state={remoteSshState} />
             ) : null}
             {!isOnSettings &&
             !isOnGroups &&

@@ -1178,6 +1178,8 @@ export interface DesktopBridge {
     /** Stops the host's server (its windows close); installed files and data stay. */
     stopServer: (host: DesktopRemoteSshSavedHost) => Promise<void>;
     forget: (host: string) => Promise<void>;
+    /** The loopback WebSocket URL of a connected host's server, or null while it is down. */
+    wsUrl: (host: string) => Promise<string | null>;
     onState: (listener: (state: DesktopRemoteSshState) => void) => () => void;
   };
   /**

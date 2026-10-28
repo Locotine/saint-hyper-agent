@@ -113,6 +113,8 @@ export function registerRemoteSshIpc(
     options.closeHostWindows(input.host);
     await options.manager.stopServer(input);
   });
+  // Read-only catalog connections in the sidebar reach a connected host's server here.
+  handle(IPC.wsUrl, (payload) => options.manager.wsUrl(parseHost(payload)));
   handle(IPC.forget, (payload) => {
     const host = parseHost(payload);
     options.writeSavedHosts(options.readSavedHosts().filter((saved) => saved.host !== host));

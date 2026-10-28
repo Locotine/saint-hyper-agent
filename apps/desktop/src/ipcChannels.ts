@@ -44,6 +44,7 @@ export const DESKTOP_IPC_CHANNELS = {
     disconnect: "desktop:remote-ssh-disconnect",
     stopServer: "desktop:remote-ssh-stop-server",
     forget: "desktop:remote-ssh-forget",
+    wsUrl: "desktop:remote-ssh-ws-url",
     state: "desktop:remote-ssh-state",
     windowHost: "desktop:remote-ssh-window-host",
     openInEditor: "desktop:remote-ssh-open-in-editor",
