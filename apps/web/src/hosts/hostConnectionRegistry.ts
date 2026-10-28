@@ -60,6 +60,8 @@ export function createHostConnectionRegistry<T extends { dispose: () => Promise<
         },
       };
     },
+    /** The host's current transport while something holds it; never opens one. */
+    peek: (hostId: HostId): T | undefined => current.get(hostId)?.transport,
     /** Hosts that currently hold a transport. */
     size: () => current.size,
   };

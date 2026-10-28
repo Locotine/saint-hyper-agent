@@ -140,17 +140,61 @@ function subscribeWithReplay<T>(input: {
   return () => void unsubscribe();
 }
 
-const welcomeListeners = createListenerRegistry<WsWelcomePayload>();
-const serverConfigUpdatedListeners = createListenerRegistry<ServerConfigUpdatedPayload>();
-const serverProviderStatusesUpdatedListeners =
-  createListenerRegistry<ServerProviderStatusesUpdatedPayload>();
-const serverMaintenanceUpdatedListeners = createListenerRegistry<ServerLifecycleStreamEvent>();
-const serverSettingsUpdatedListeners = createListenerRegistry<ServerSettingsUpdatedPayload>();
-const serverKeepAwakeUpdatedListeners = createListenerRegistry<ServerKeepAwakeUpdatedPayload>();
-const gitActionProgressListeners = createListenerRegistry<GitActionProgressEvent>();
-const gitWorktreeSetupProgressListeners = createListenerRegistry<GitWorktreeSetupProgressEvent>();
-const projectProvisionProgressListeners =
-  createListenerRegistry<GitHubProjectProvisionProgressEvent>();
+// Push channels of one connection. This computer's live at module level (the exported `on*`
+// helpers read them); every other host's API gets its own set.
+function createChannels() {
+  return {
+    welcomeListeners: createListenerRegistry<WsWelcomePayload>(),
+    serverConfigUpdatedListeners: createListenerRegistry<ServerConfigUpdatedPayload>(),
+    serverProviderStatusesUpdatedListeners:
+      createListenerRegistry<ServerProviderStatusesUpdatedPayload>(),
+    serverMaintenanceUpdatedListeners: createListenerRegistry<ServerLifecycleStreamEvent>(),
+    serverSettingsUpdatedListeners: createListenerRegistry<ServerSettingsUpdatedPayload>(),
+    serverKeepAwakeUpdatedListeners: createListenerRegistry<ServerKeepAwakeUpdatedPayload>(),
+    gitActionProgressListeners: createListenerRegistry<GitActionProgressEvent>(),
+    gitWorktreeSetupProgressListeners: createListenerRegistry<GitWorktreeSetupProgressEvent>(),
+    projectProvisionProgressListeners:
+      createListenerRegistry<GitHubProjectProvisionProgressEvent>(),
+    terminalEventListeners: createListenerRegistry<TerminalEvent>(),
+    projectDevServerEventListeners: createListenerRegistry<ProjectDevServerEvent>(),
+    automationEventListeners: createListenerRegistry<AutomationStreamEvent>(),
+    todoEventListeners: createListenerRegistry<TodoStreamEvent>(),
+    deviceEventListeners: createListenerRegistry<DeviceEvent>(),
+    projectAgentEventListeners: createListenerRegistry<ProjectAgentStreamEvent>(),
+    computerEventListeners: createListenerRegistry<ComputerEvent>(),
+    orchestrationDomainEventListeners: createListenerRegistry<OrchestrationEvent>(),
+    orchestrationShellEventListeners: createListenerRegistry<OrchestrationShellStreamItem>(),
+    orchestrationThreadEventListeners: createListenerRegistry<OrchestrationThreadStreamItem>(),
+    shellStreamFailureListeners: createListenerRegistry<WsShellStreamFailure>(),
+    threadStreamFailureListeners: createListenerRegistry<WsThreadStreamFailure>(),
+  };
+}
+type Channels = ReturnType<typeof createChannels>;
+
+const localChannels = createChannels();
+const {
+  welcomeListeners,
+  serverConfigUpdatedListeners,
+  serverProviderStatusesUpdatedListeners,
+  serverMaintenanceUpdatedListeners,
+  serverSettingsUpdatedListeners,
+  serverKeepAwakeUpdatedListeners,
+  gitActionProgressListeners,
+  gitWorktreeSetupProgressListeners,
+  projectProvisionProgressListeners,
+  terminalEventListeners,
+  projectDevServerEventListeners,
+  automationEventListeners,
+  todoEventListeners,
+  deviceEventListeners,
+  projectAgentEventListeners,
+  computerEventListeners,
+  orchestrationDomainEventListeners,
+  orchestrationShellEventListeners,
+  orchestrationThreadEventListeners,
+  shellStreamFailureListeners,
+  threadStreamFailureListeners,
+} = localChannels;
 
 function omitNullUserInputAnswers(
   command: Parameters<NativeApi["orchestration"]["dispatchCommand"]>[0],
@@ -168,43 +212,11 @@ function omitNullUserInputAnswers(
     ),
   };
 }
-const terminalEventListeners = createListenerRegistry<TerminalEvent>();
-const projectDevServerEventListeners = createListenerRegistry<ProjectDevServerEvent>();
-const automationEventListeners = createListenerRegistry<AutomationStreamEvent>();
-const todoEventListeners = createListenerRegistry<TodoStreamEvent>();
-const deviceEventListeners = createListenerRegistry<DeviceEvent>();
-const projectAgentEventListeners = createListenerRegistry<ProjectAgentStreamEvent>();
-const computerEventListeners = createListenerRegistry<ComputerEvent>();
-const orchestrationDomainEventListeners = createListenerRegistry<OrchestrationEvent>();
-const orchestrationShellEventListeners = createListenerRegistry<OrchestrationShellStreamItem>();
-const orchestrationThreadEventListeners = createListenerRegistry<OrchestrationThreadStreamItem>();
-const shellStreamFailureListeners = createListenerRegistry<WsShellStreamFailure>();
-const threadStreamFailureListeners = createListenerRegistry<WsThreadStreamFailure>();
 const fallbackBrowserStateListeners = createListenerRegistry<ThreadBrowserState>();
 const fallbackBrowserStates = new Map<ThreadId, ThreadBrowserState>();
 
 function clearWsNativeApiListeners(): void {
-  welcomeListeners.clear();
-  serverConfigUpdatedListeners.clear();
-  serverProviderStatusesUpdatedListeners.clear();
-  serverMaintenanceUpdatedListeners.clear();
-  serverSettingsUpdatedListeners.clear();
-  serverKeepAwakeUpdatedListeners.clear();
-  gitActionProgressListeners.clear();
-  gitWorktreeSetupProgressListeners.clear();
-  projectProvisionProgressListeners.clear();
-  terminalEventListeners.clear();
-  projectDevServerEventListeners.clear();
-  automationEventListeners.clear();
-  todoEventListeners.clear();
-  deviceEventListeners.clear();
-  projectAgentEventListeners.clear();
-  computerEventListeners.clear();
-  orchestrationDomainEventListeners.clear();
-  orchestrationShellEventListeners.clear();
-  orchestrationThreadEventListeners.clear();
-  threadStreamFailureListeners.clear();
-  shellStreamFailureListeners.clear();
+  for (const registry of Object.values(localChannels)) registry.clear();
   fallbackBrowserStateListeners.clear();
 }
 
@@ -480,15 +492,56 @@ export function createWsNativeApi(): NativeApi {
   }
 
   const transport = new WsTransport();
+  transport.onStateChange((state) => emitWsTransportState(state));
+  transport.onCompatibilityIssue((issue) => emitWsCompatibilityIssue(issue), {
+    replayCurrent: true,
+  });
+  const api = buildNativeApi(transport, localChannels, { local: true });
+  instance = { api, transport };
+  return api;
+}
+
+/**
+ * The API of another host's server, over that host's transport. Streams that only this
+ * computer serves (automations, tasks, devices, computer use, project agents) stay closed.
+ */
+export function createHostNativeApi(transport: WsTransport): NativeApi {
+  return buildNativeApi(transport, createChannels(), { local: false });
+}
+
+function buildNativeApi(
+  transport: WsTransport,
+  channels: Channels,
+  options: { readonly local: boolean },
+): NativeApi {
+  const {
+    welcomeListeners,
+    serverConfigUpdatedListeners,
+    serverProviderStatusesUpdatedListeners,
+    serverMaintenanceUpdatedListeners,
+    serverSettingsUpdatedListeners,
+    serverKeepAwakeUpdatedListeners,
+    gitActionProgressListeners,
+    gitWorktreeSetupProgressListeners,
+    projectProvisionProgressListeners,
+    terminalEventListeners,
+    projectDevServerEventListeners,
+    automationEventListeners,
+    todoEventListeners,
+    deviceEventListeners,
+    projectAgentEventListeners,
+    computerEventListeners,
+    orchestrationDomainEventListeners,
+    orchestrationShellEventListeners,
+    orchestrationThreadEventListeners,
+    shellStreamFailureListeners,
+    threadStreamFailureListeners,
+  } = channels;
   let unsubscribeDomainEventTransport: (() => void) | null = null;
   // Multiple consumers (Group panel, settings dialog, future surfaces) subscribe to the
   // same project-agent event stream; the transport stream stays open until the last one
   // detaches, so a closed panel can never tear down a dialog's subscription.
   const projectAgentSubscribeCounts = new Map<string, number>();
-  transport.onStateChange((state) => emitWsTransportState(state));
-  transport.onCompatibilityIssue((issue) => emitWsCompatibilityIssue(issue), {
-    replayCurrent: true,
-  });
 
   transport.subscribe(WS_CHANNELS.serverWelcome, (message) => {
     welcomeListeners.emit(message.data);
@@ -523,24 +576,26 @@ export function createWsNativeApi(): NativeApi {
   transport.subscribe(WS_CHANNELS.projectDevServerEvent, (message) => {
     projectDevServerEventListeners.emit(message.data);
   });
-  transport.subscribe(WS_CHANNELS.automationEvent, (message) => {
-    automationEventListeners.emit(message.data);
-  });
-  // Do not open the Tasks stream when the connected server has refused it.
-  if (TASKS_OFFERED_BY_BUILD) {
-    transport.subscribe(WS_CHANNELS.todoEvent, (message) => {
-      todoEventListeners.emit(message.data);
+  if (options.local) {
+    transport.subscribe(WS_CHANNELS.automationEvent, (message) => {
+      automationEventListeners.emit(message.data);
+    });
+    // Do not open the Tasks stream when the connected server has refused it.
+    if (TASKS_OFFERED_BY_BUILD) {
+      transport.subscribe(WS_CHANNELS.todoEvent, (message) => {
+        todoEventListeners.emit(message.data);
+      });
+    }
+    transport.subscribe(DEVICE_WS_CHANNELS.event, (message) => {
+      deviceEventListeners.emit(message.data);
+    });
+    transport.subscribe(WS_CHANNELS.projectAgentEvent, (message) => {
+      projectAgentEventListeners.emit(message.data);
+    });
+    transport.subscribe(COMPUTER_WS_CHANNELS.event, (message) => {
+      computerEventListeners.emit(message.data);
     });
   }
-  transport.subscribe(DEVICE_WS_CHANNELS.event, (message) => {
-    deviceEventListeners.emit(message.data);
-  });
-  transport.subscribe(WS_CHANNELS.projectAgentEvent, (message) => {
-    projectAgentEventListeners.emit(message.data);
-  });
-  transport.subscribe(COMPUTER_WS_CHANNELS.event, (message) => {
-    computerEventListeners.emit(message.data);
-  });
   transport.subscribe(ORCHESTRATION_WS_CHANNELS.shellEvent, (message) => {
     orchestrationShellEventListeners.emit(message.data);
   });
@@ -1266,8 +1321,6 @@ export function createWsNativeApi(): NativeApi {
       },
     },
   };
-
-  instance = { api, transport };
   return api;
 }
 

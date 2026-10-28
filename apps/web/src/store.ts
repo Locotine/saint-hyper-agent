@@ -2,7 +2,14 @@
 // Purpose: Public Zustand facade for normalized orchestration state and local UI actions.
 // Exports: Stable store API plus pure transitions re-exported from focused modules.
 
-import { Fragment, type ReactNode, createElement, useEffect } from "react";
+import {
+  Fragment,
+  type ReactNode,
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+} from "react";
 import {
   type OrchestrationEvent,
   type OrchestrationReadModel,
@@ -418,7 +425,26 @@ export function createHostStore(hostId: HostId) {
   return store;
 }
 
-export const useStore = createHostStore(LOCAL_HOST_ID);
+const localStore = createHostStore(LOCAL_HOST_ID);
+const HostStoreContext = createContext<HostStore>(localStore);
+
+/** Renders its children against another host's store; see `HostScope` in hosts/hostScope.tsx. */
+export const HostStoreProvider = HostStoreContext.Provider;
+
+/** The store of the host the calling component renders for: this computer outside any `HostScope`. */
+export function useHostStore(): HostStore {
+  return useContext(HostStoreContext);
+}
+
+/**
+ * The hook form reads the enclosing host's store, so a thread view rendered for another host
+ * shows that host's data. `getState`/`setState`/`subscribe` are always this computer's store;
+ * code that acts for a scoped view takes the store from `useHostStore()` instead.
+ */
+export const useStore: HostStore = Object.assign(
+  ((...args: Parameters<HostStore>) => useContext(HostStoreContext)(...args)) as HostStore,
+  localStore,
+);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
