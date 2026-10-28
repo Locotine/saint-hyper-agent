@@ -361,6 +361,7 @@ import {
 import {
   AUDIO_TRAIL_BETA_FEATURE,
   isBetaFeatureEnabled,
+  MULTI_HOST_BETA_FEATURE,
   REMOTE_SSH_BETA_FEATURE,
 } from "@saint/shared/betaFeatures";
 import { hardenBrowserAnnotationWebviewPreferences } from "./browserAnnotations/webviewSecurity";
@@ -580,6 +581,8 @@ let mainWindow: BrowserWindow | null = null;
 // boots exactly like a remote host window and every per-window IPC follows it.
 let mainWindowHost: string | null = null;
 const REMOTE_SSH_ENABLED = isBetaFeatureEnabled(REMOTE_SSH_BETA_FEATURE, desktopFlavor);
+// Multi-host opens hosts' chats in place, so the window title no longer names a host.
+const MULTI_HOST_ENABLED = isBetaFeatureEnabled(MULTI_HOST_BETA_FEATURE, desktopFlavor);
 const REMOTE_SSH_HOSTS_PATH = Path.join(STATE_DIR, "remote-ssh-hosts.json");
 const REMOTE_SSH_CLIENT_ID_PATH = Path.join(STATE_DIR, "remote-ssh-client-id");
 // Shared by every desktop that reaches a host's account: holds installed versions.
@@ -5997,7 +6000,9 @@ function remoteWindowForSender(
 }
 
 function mainWindowTitle(): string {
-  return mainWindowHost ? `${APP_DISPLAY_NAME} — ${mainWindowHost}` : APP_DISPLAY_NAME;
+  return mainWindowHost && !MULTI_HOST_ENABLED
+    ? `${APP_DISPLAY_NAME} — ${mainWindowHost}`
+    : APP_DISPLAY_NAME;
 }
 
 /**
