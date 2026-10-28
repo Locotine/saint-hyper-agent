@@ -19,7 +19,7 @@ export interface ShellCatalogTransport {
     channel: typeof ORCHESTRATION_WS_CHANNELS.shellEvent,
     listener: (message: { readonly data: OrchestrationShellStreamItem }) => void,
   ) => () => void;
-  readonly request: <T>(method: string) => Promise<T>;
+  readonly request: <T>(method: string, params?: unknown) => Promise<T>;
   readonly onStateChange: (listener: (state: string) => void) => () => void;
 }
 
@@ -87,6 +87,11 @@ export function watchShellCatalog(
     if (state === "closed" || state === "incompatible") {
       if (!stopped) sink.error("The host's server is not reachable.");
     }
+  });
+  // Listening on the channel does not open the stream; only this request does. The
+  // transport restarts it itself on reconnect, and disposing the transport ends it.
+  transport.request(ORCHESTRATION_WS_METHODS.subscribeShell, {}).catch((error: unknown) => {
+    if (!stopped) sink.error(error instanceof Error ? error.message : String(error));
   });
 
   return () => {
