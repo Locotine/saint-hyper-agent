@@ -1,8 +1,9 @@
 // FILE: remoteHostsSettingsModel.ts
 // Purpose: Pure view model for Settings › Remote hosts: host rows and their status copy.
 // Layer: Settings UI support
-// Exports: remoteHostRows, remoteHostStatus, isRemoteHostBusy, RemoteHostRow
+// Exports: remoteHostRows, remoteHostStatus, remoteHostAlias, isRemoteHostBusy, RemoteHostRow
 
+import { sshHostId, type HostId } from "@saint/shared/hostId";
 import type {
   DesktopRemoteSshHostState,
   DesktopRemoteSshPhase,
@@ -53,6 +54,18 @@ export function remoteHostStatus(state: DesktopRemoteSshHostState | null): strin
     return `Connected · forwarded to 127.0.0.1:${state.localPort}`;
   }
   return PHASE_LABELS[state.phase];
+}
+
+/** The name the user gave the host (its ssh alias), or null when no saved or live host has that id. */
+export function remoteHostAlias(
+  state: DesktopRemoteSshState | null,
+  hostId: HostId,
+): string | null {
+  if (!state) return null;
+  const match = [...state.hosts, ...state.savedHosts].find(
+    (host) => host.hostKey && sshHostId(host.hostKey) === hostId,
+  );
+  return match?.host ?? null;
 }
 
 /** Saved hosts first (most recent first), then hosts with live state that were forgotten. */

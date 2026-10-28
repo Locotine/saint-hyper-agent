@@ -21,6 +21,7 @@ import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { commandDialogPopupClassName } from "~/components/ui/command";
 import {
+  localRunningChats,
   runningChatsQuitCopy,
   type RunningChatQuitSummary,
   type RunningChatsQuitCopy,
@@ -106,6 +107,8 @@ function RunningChatsQuitDialogContent({
   const { settings, updateSettings } = useAppSettings();
   const resume = settings.resumeChatsAfterQuit;
   const resumeCheckboxId = useId();
+  // Only this computer's chats stop, so only they can resume.
+  const canResume = localRunningChats(chats).length > 0;
 
   return (
     <>
@@ -129,13 +132,18 @@ function RunningChatsQuitDialogContent({
                 <span className={cn(uiFont, "truncate text-ui-lg font-normal leading-[18px]")}>
                   {chat.title}
                 </span>
+                {chat.host ? (
+                  <span className="ml-auto shrink-0 truncate text-ui-sm text-muted-foreground">
+                    {`Keeps running on ${chat.host}`}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
         ) : null}
       </div>
       <div className={FOOTER_CLASS}>
-        {chats.length > 0 ? (
+        {canResume ? (
           <label
             htmlFor={resumeCheckboxId}
             className={cn(
@@ -169,7 +177,7 @@ function RunningChatsQuitDialogContent({
             size="sm"
             className={cn(uiFont, "gap-1.5")}
             disabled={quitting}
-            onClick={() => onQuit({ resume: chats.length > 0 && resume })}
+            onClick={() => onQuit({ resume: canResume && resume })}
           >
             {copy.quitLabel}
             {chats.length > 0 ? (

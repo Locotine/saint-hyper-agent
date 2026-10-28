@@ -13,6 +13,8 @@ export interface RunningChatQuitCandidate {
 export interface RunningChatQuitSummary {
   readonly id: string;
   readonly title: string;
+  /** The remote host the chat runs on (multi-host); absent for this computer's chats. */
+  readonly host?: string;
 }
 
 export interface RunningChatsQuitCopy {
@@ -87,10 +89,33 @@ export function listRunningChatsFromDesktopStore(
   return listRunningChatsForQuit(candidates);
 }
 
+/** Only this computer's chats stop on quit: a remote host's server keeps its chats running. */
+export function localRunningChats(
+  chats: ReadonlyArray<RunningChatQuitSummary>,
+): ReadonlyArray<RunningChatQuitSummary> {
+  return chats.filter((chat) => chat.host === undefined);
+}
+
+const REMOTE_KEEP_RUNNING = "Chats on remote hosts keep running there.";
+
 export function runningChatsQuitCopy(
   chats: ReadonlyArray<RunningChatQuitSummary>,
   appName = "Saint",
 ): RunningChatsQuitCopy {
+  const local = localRunningChats(chats);
+  const remoteCount = chats.length - local.length;
+  if (remoteCount > 0) {
+    return {
+      title: chats.length === 1 ? "A chat is still running" : "Chats are still running",
+      description:
+        local.length === 0
+          ? `${REMOTE_KEEP_RUNNING} Closing ${appName} does not stop them.`
+          : `Work in progress on this computer will stop when ${appName} is closed. ${REMOTE_KEEP_RUNNING}`,
+      resumeLabel: local.length === 1 ? "Resume chat automatically" : "Resume chats automatically",
+      stayLabel: "Cancel",
+      quitLabel: "Quit",
+    };
+  }
   return {
     title:
       chats.length === 0

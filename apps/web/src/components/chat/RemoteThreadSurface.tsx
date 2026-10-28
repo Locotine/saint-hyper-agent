@@ -6,7 +6,7 @@
 // Exports: RemoteThreadSurface
 
 import type { ThreadId } from "@saint/contracts";
-import { sshHostId, type HostId } from "@saint/shared/hostId";
+import type { HostId } from "@saint/shared/hostId";
 import { useSyncExternalStore } from "react";
 
 import { useRemoteSshState } from "~/hooks/useRemoteSshState";
@@ -14,15 +14,14 @@ import { HostScope } from "~/hosts/hostScope";
 import { hostStores } from "~/hosts/hostStores";
 import { useHostThreadDetail } from "~/hosts/hostThreadDetail";
 import ChatView from "../ChatView";
+import { remoteHostAlias } from "../settings/remoteHostsSettingsModel";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
 
 const RECONNECT_HINT = "Reconnect it in Settings → Remote hosts.";
 
 function useHostAlias(hostId: HostId): string {
-  const state = useRemoteSshState();
-  const match = state?.hosts.find((host) => host.hostKey && sshHostId(host.hostKey) === hostId);
-  return match?.host ?? "This host";
+  return remoteHostAlias(useRemoteSshState(), hostId) ?? "This host";
 }
 
 export function RemoteThreadSurface(props: { hostId: HostId; threadId: ThreadId }) {
