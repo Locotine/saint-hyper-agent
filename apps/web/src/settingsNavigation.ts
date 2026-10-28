@@ -202,7 +202,7 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     id: "remote-hosts",
     group: "integrations",
     label: "Remote hosts",
-    description: "Run Saint on another machine over SSH and open it in its own window.",
+    description: "Run Saint on another machine over SSH and use it from the sidebar.",
     icon: "server",
     eyebrow: "SSH remotes",
   },

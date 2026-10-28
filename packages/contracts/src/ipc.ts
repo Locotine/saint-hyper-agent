@@ -1189,7 +1189,7 @@ export interface DesktopBridge {
     onState: (listener: (state: DesktopRemoteSshState) => void) => () => void;
   };
   /**
-   * Present only in a remote SSH host window. Paths there belong to the host,
+   * Present only while the app window runs on a remote SSH host. Paths there belong to the host,
    * so the renderer browses folders through the server, opens editors in their
    * Remote-SSH mode, and never resolves dropped local files to paths.
    */

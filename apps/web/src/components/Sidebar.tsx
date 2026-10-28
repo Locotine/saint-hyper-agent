@@ -1292,7 +1292,7 @@ export default function Sidebar() {
   const [showDebugFeatureFlagsMenu, setShowDebugFeatureFlagsMenu] = useState(
     readDebugFeatureFlagsMenuVisibility,
   );
-  // Null on Stable, in browsers and in remote windows: the Remote hosts section stays hidden.
+  // Null on Stable and in browsers: the Remote hosts section stays hidden.
   const remoteSshState = useRemoteSshState();
   const hasRemoteHosts =
     remoteSshState !== null &&

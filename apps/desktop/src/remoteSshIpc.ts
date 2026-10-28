@@ -1,5 +1,5 @@
 // FILE: remoteSshIpc.ts
-// Purpose: Registers the remote SSH host IPC surface used by Settings › Remote hosts.
+// Purpose: Registers the remote SSH host IPC surface used by Settings › Remote hosts and the sidebar.
 // Layer: Desktop IPC (Electron main)
 // Exports: registerRemoteSshIpc, RemoteSshIpcOptions
 
@@ -23,15 +23,15 @@ export interface RemoteSshIpcOptions {
   readonly enabled: boolean;
   readonly manager: RemoteSshManager;
   readonly defaultRemoteRoot: string;
-  /** Only the local app window may drive remote hosts; remote windows may not. */
+  /** Only the app window may drive remote hosts. */
   readonly isControlRenderer: (event: IpcMainEvent | IpcMainInvokeEvent) => boolean;
   readonly readSshConfig: () => string | null;
   readonly readSavedHosts: () => SavedRemoteSshHost[];
   readonly writeSavedHosts: (hosts: readonly SavedRemoteSshHost[]) => void;
-  readonly openHostWindow: (host: string) => void;
   /** Points the main window at a connected host (or null: this computer) and reloads it. */
   readonly activateMainWindowHost: (host: string | null) => void;
-  readonly closeHostWindows: (host: string) => void;
+  /** A host's tunnel is closing or its server stopping: the app window, if on it, goes home. */
+  readonly leaveHost: (host: string) => void;
   readonly broadcast: (state: DesktopRemoteSshState) => void;
 }
 
@@ -101,18 +101,16 @@ export function registerRemoteSshIpc(
     const saved: DesktopRemoteSshSavedHost = { host: input.host, remoteRoot: input.remoteRoot };
     options.writeSavedHosts(rememberRemoteSshHost(options.readSavedHosts(), input));
     publishState();
-    const state = await options.manager.connect(saved);
-    options.openHostWindow(input.host);
-    return state;
+    return options.manager.connect(saved);
   });
   handle(IPC.disconnect, (payload) => {
     const host = parseHost(payload);
-    options.closeHostWindows(host);
+    options.leaveHost(host);
     options.manager.disconnect(host);
   });
   handle(IPC.stopServer, async (payload) => {
     const input = parseSavedHostInput(payload);
-    options.closeHostWindows(input.host);
+    options.leaveHost(input.host);
     await options.manager.stopServer(input);
   });
   // Read-only catalog connections in the sidebar reach a connected host's server here.

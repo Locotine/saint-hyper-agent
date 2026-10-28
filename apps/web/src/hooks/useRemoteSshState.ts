@@ -6,7 +6,7 @@
 import type { DesktopRemoteSshState } from "@saint/contracts";
 import { useEffect, useState } from "react";
 
-/** Null until the first state arrives, and always null without the bridge (Stable, browsers, remote windows). */
+/** Null until the first state arrives, and always null without the bridge (Stable, browsers). */
 export function useRemoteSshState(
   active = true,
   onError?: (error: unknown) => void,

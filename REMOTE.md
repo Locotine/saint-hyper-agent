@@ -66,14 +66,14 @@ You can also bind `--host 0.0.0.0` and connect through the Tailnet IP, but bindi
 
 ## 3) Remote SSH hosts
 
-Saint (Stable and Beta) can run a server on another machine and open it in its own desktop window, similar to Emdash's remote workspaces. Agents, git, and terminals then run on that machine.
+Saint (Stable and Beta) can run a server on another machine and use it from the app window, similar to Orca's remote hosts. Agents, git, and terminals then run on that machine.
 
 Open **Settings → Remote hosts**, enter an alias from `~/.ssh/config` (or `user@host`), and select **Connect**. The desktop app:
 
 1. Opens one shared SSH connection (`ControlMaster`, kept 120 s after its last use; not on Windows) and runs a probe over it with `ssh -o BatchMode=yes` in your login shell to check Node.js, `tar`, and any server already running.
 2. If this build is missing, uploads the remote server bundle the app ships (`apps/server/dist/remote`, with every pure-JavaScript dependency inlined, plus the web client). The packages that must stay on disk (`node-pty`, `typescript`, the Claude Agent SDK, `open`, `@xterm/headless`) come from a dependency pack committed in the repository (`apps/server/remote-deps/deps.tar.gz`, about 13 MB): their exact workspace versions with the repository's patches already applied, node-pty from `@lydell/node-pty`, whose prebuilt N-API binaries cover macOS and Linux on arm64 and x64, and without the Claude Code binary bundled with the Agent SDK. The host unpacks it with `tar` once per pack, platform, and Node.js ABI into `deps/` and keeps only its own node-pty binary. No host and no desktop runs npm, `patch`, or a compiler; later builds with the same pack upload and unpack no dependencies at all.
 3. Starts `node --max-old-space-size=1024 --max-semi-space-size=8 dist/index.mjs --mode web --host 127.0.0.1 --port <free port>` in the tmux session `<folder name>` (falls back to `nohup` without tmux), with `SAINT_PROVIDERS=codex,claudeAgent`. It also removes installed versions that no server runs (checked with `pgrep`) and dependency folders no remaining version uses.
-4. Forwards a local loopback port with `ssh -N -L` (its own connection) and opens a window whose backend is that port.
+4. Forwards a local loopback port with `ssh -N -L` (its own connection) and lists the host under **Remote hosts** in the left sidebar. Choosing one of its projects or threads switches the app window onto that host (the window reloads and the title shows the host); **This computer** switches back.
 
 Each step is written to `desktop-main.log` (`[remote-ssh] <host> <phase> +<ms>`). **Disconnect** during a step stops its ssh at once, and a timed-out step reports the last stage it reached (for example `Unpacking the dependencies Saint uploaded.`). Killing ssh sends the remote shell no signal, so the next install first stops an earlier install of the same folder that is still running.
 
@@ -87,12 +87,12 @@ To keep a host that many people share light, the remote server releases what it 
 
 The remote server listens only on the remote loopback interface. The auth token is generated per start, sent over stdin, and stored in `<folder>/run/token` with mode 0600. It never appears in an ssh or process argument list.
 
-| Action                 | Effect                                                                                                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Disconnect             | Closes the tunnel and the host's windows. The server and its agents keep running until the server is idle.    |
-| Stop server            | Also stops the remote server. Installed files and data stay.                                                  |
-| Quit Saint             | Closes tunnels only.                                                                                          |
-| Close the local window | Remote windows stay open. Launching Saint again reopens the local window; the app quits with its last window. |
+| Action               | Effect                                                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Disconnect           | Closes the tunnel; an app window on that host returns to this computer. The server and its agents keep running until the server is idle. |
+| Stop server          | Also stops the remote server. Installed files and data stay.                                                                             |
+| Quit Saint           | Closes tunnels only.                                                                                                                     |
+| Close the app window | Quits Saint like any other close. Tunnels close and remote servers keep running.                                                         |
 
 Remote layout, relative to the remote home (shared folder `.saint-remote`, `.saint-beta-remote` for Beta):
 
@@ -112,15 +112,15 @@ An administrator can install a build once for every account of a host. Copy a co
 
 **Remote folder** in Settings overrides the client folder with one of your own (for example `squad/saint-remote`), for instance to reach the same server from two desktops. A folder used before client folders existed (data directly in `.saint-remote/home`) is left in place; set **Remote folder** to `.saint-remote` to reach it again, or stop its server there once nobody needs it.
 
-The remote server runs only Codex and Claude, through the `codex` and `claude` CLIs on the host's `PATH` (or the binary paths set in **Settings → Providers**). Other providers are hidden in remote windows, and the server refuses them.
+The remote server runs only Codex and Claude, through the `codex` and `claude` CLIs on the host's `PATH` (or the binary paths set in **Settings → Providers**). Other providers are hidden while the app window is on a host, and the server refuses them.
 
 Host requirements: key-based SSH (no password prompts), Node.js 22.16+ (23.11+ on the 23 line, or 24+) and `tar` on the login shell's `PATH`, and tmux (recommended). npm, `patch`, a compiler and registry access are not needed. Install and sign in to `codex` and/or `claude` on the host itself. Windows hosts are not supported yet: the install and start scripts are POSIX `sh`.
 
 The dependency pack changes only when a remote dependency, its patch, or its locked version changes. After such a change, run `bun run remote:deps-pack` on a machine with npm and commit `apps/server/remote-deps/`; `scripts/remote-deps-pack.test.ts` and the desktop artifact build fail while the committed pack is stale (`bun run remote:deps-pack -- --check` reports why).
 
-In a remote window, paths belong to the host:
+While the app window is on a host, paths belong to that host:
 
-| Action                          | Behavior in a remote window                                                                                                                                                     |
+| Action                          | Behavior on a remote host                                                                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Browse for a folder             | Opens an in-app picker that lists the host's folders through the server and marks git repositories.                                                                             |
 | Open in editor                  | Opens the folder in the local VS Code, VS Code Insiders, Cursor, Windsurf, or VSCodium through `vscode-remote://ssh-remote+<host>`. The editor needs its Remote-SSH extension.  |
@@ -135,5 +135,5 @@ In a remote window, paths belong to the host:
 
 These remain limits:
 
-- The browser panel, AppSnap, and computer use stay with the local app window.
+- The browser panel, AppSnap, and computer use stay on this computer; switch back with **This computer** to use them.
 - Remote windows share the local window's browser storage, such as UI preferences.

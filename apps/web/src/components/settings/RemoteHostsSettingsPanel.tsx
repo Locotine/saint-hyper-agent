@@ -101,7 +101,7 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
         />
         <SettingsRow
           title="Connect"
-          description="Installs this Saint version on the host when needed, starts its server in tmux, and opens it in a new window through an SSH tunnel."
+          description="Installs this Saint version on the host when needed, starts its server in tmux, and connects through an SSH tunnel. The host then appears under Remote hosts in the sidebar."
           control={
             <Button
               size="sm"
@@ -122,7 +122,11 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
             <RemoteHostListRow
               key={row.host}
               row={row}
-              onConnect={() => connect({ host: row.host, remoteRoot: row.savedRemoteRoot })}
+              onConnect={() =>
+                row.state?.phase === "connected"
+                  ? run(() => bridge.activate(row.host), `Could not open ${row.host}`)
+                  : connect({ host: row.host, remoteRoot: row.savedRemoteRoot })
+              }
               onDisconnect={() =>
                 run(() => bridge.disconnect(row.host), `Could not disconnect ${row.host}`)
               }
@@ -194,7 +198,7 @@ function RemoteHostListRow(props: {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <Button size="xs" variant="outline" disabled={busy} onClick={props.onConnect}>
-            {connected ? "Open window" : failed ? "Retry" : "Connect"}
+            {connected ? "Open" : failed ? "Retry" : "Connect"}
           </Button>
           {connected || busy ? (
             <Button size="xs" variant="ghost" onClick={props.onDisconnect}>
