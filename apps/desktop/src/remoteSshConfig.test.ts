@@ -93,6 +93,24 @@ describe("saved remote hosts", () => {
     expect(parseSavedRemoteSshHosts(serializeSavedRemoteSshHosts(updated))).toEqual(updated);
   });
 
+  it("keeps a valid host key across reads and re-remembering, and ignores a bad one", () => {
+    const saved = parseSavedRemoteSshHosts(
+      JSON.stringify({
+        version: 1,
+        hosts: [
+          { host: "devbox", remoteRoot: null, hostKey: "a1b2c3d4" },
+          { host: "k6", remoteRoot: null, hostKey: "not-a-key" },
+        ],
+      }),
+    );
+    expect(saved).toEqual([
+      { host: "devbox", remoteRoot: null, hostKey: "a1b2c3d4" },
+      { host: "k6", remoteRoot: null },
+    ]);
+    const updated = rememberRemoteSshHost(saved, { host: "devbox", remoteRoot: "squad/saint" });
+    expect(updated[0]).toEqual({ host: "devbox", remoteRoot: "squad/saint", hostKey: "a1b2c3d4" });
+  });
+
   it("treats unreadable files as empty", () => {
     expect(parseSavedRemoteSshHosts("not json")).toEqual([]);
     expect(parseSavedRemoteSshHosts("null")).toEqual([]);

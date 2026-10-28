@@ -59,6 +59,9 @@ const state = (
   hosts: [
     {
       host: "devbox",
+      // No key: the sidebar keeps polling, which is what this suite's fake transport answers.
+      hostKey: null,
+      epoch: 0,
       remoteRoot: "squad/saint",
       phase: hostPhase,
       message: null,

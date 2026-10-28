@@ -78,7 +78,11 @@ function RemoteHostGroup(props: {
   const [expanded, setExpanded] = useState(true);
   const status = remoteHostSidebarStatus(hostState);
   const connected = status === "connected" && !isActive;
-  const catalog = useRemoteHostCatalog(host, connected ? (hostState?.localPort ?? null) : null);
+  const catalog = useRemoteHostCatalog(
+    host,
+    connected ? (hostState?.localPort ?? null) : null,
+    hostState ? { hostKey: hostState.hostKey, epoch: hostState.epoch } : undefined,
+  );
   const statusLabel = isActive ? "Active in this window" : remoteHostStatus(hostState);
 
   return (

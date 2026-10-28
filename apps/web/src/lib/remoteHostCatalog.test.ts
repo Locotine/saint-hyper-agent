@@ -84,6 +84,8 @@ describe("buildRemoteCatalogProjects", () => {
 describe("remoteHostSidebarStatus", () => {
   const state = (phase: DesktopRemoteSshHostState["phase"]): DesktopRemoteSshHostState => ({
     host: "devbox",
+    hostKey: null,
+    epoch: 0,
     remoteRoot: ".saint-beta-remote",
     phase,
     message: null,
@@ -94,6 +96,7 @@ describe("remoteHostSidebarStatus", () => {
     expect(remoteHostSidebarStatus(null)).toBe("offline");
     expect(remoteHostSidebarStatus(state("idle"))).toBe("offline");
     expect(remoteHostSidebarStatus(state("tunneling"))).toBe("connecting");
+    expect(remoteHostSidebarStatus(state("reconnecting"))).toBe("connecting");
     expect(remoteHostSidebarStatus(state("connected"))).toBe("connected");
     expect(remoteHostSidebarStatus(state("error"))).toBe("error");
   });

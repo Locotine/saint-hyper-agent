@@ -1006,6 +1006,8 @@ export type DesktopRemoteSshPhase =
   | "starting"
   | "tunneling"
   | "connected"
+  /** The tunnel dropped; the desktop is re-opening it (same port and token when it can). */
+  | "reconnecting"
   | "stopping"
   | "error";
 
@@ -1013,10 +1015,16 @@ export type DesktopRemoteSshPhase =
 export interface DesktopRemoteSshSavedHost {
   readonly host: string;
   readonly remoteRoot?: string | null;
+  /** Stable 8-hex identity (see `@saint/shared/hostId`); survives renaming the SSH alias. */
+  readonly hostKey?: string | null;
 }
 
 export interface DesktopRemoteSshHostState {
   readonly host: string;
+  /** Null until the host was connected from a saved entry that carries a key. */
+  readonly hostKey: string | null;
+  /** Bumps whenever the tunnel's token changes; clients build a fresh transport per epoch. */
+  readonly epoch: number;
   readonly remoteRoot: string;
   readonly phase: DesktopRemoteSshPhase;
   /** Failure detail for `error`; null otherwise. */

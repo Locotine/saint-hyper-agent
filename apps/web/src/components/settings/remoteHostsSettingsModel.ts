@@ -27,6 +27,8 @@ const PHASE_LABELS: Record<DesktopRemoteSshPhase, string> = {
   starting: "Starting the server…",
   tunneling: "Opening the SSH tunnel…",
   connected: "Connected",
+  // Reuses the tunnel copy: no new visible text until the multi-host UI is approved.
+  reconnecting: "Opening the SSH tunnel…",
   stopping: "Stopping the server…",
   error: "Connection failed",
 };
@@ -37,6 +39,7 @@ const BUSY_PHASES: ReadonlySet<DesktopRemoteSshPhase> = new Set([
   "installing",
   "starting",
   "tunneling",
+  "reconnecting",
   "stopping",
 ]);
 

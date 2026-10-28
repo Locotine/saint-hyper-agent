@@ -4,6 +4,7 @@
 // Exports: registerRemoteSshIpc, RemoteSshIpcOptions
 
 import type { DesktopRemoteSshSavedHost, DesktopRemoteSshState } from "@saint/contracts";
+import { generateHostKey } from "@saint/shared/hostId";
 import type { IpcMain, IpcMainEvent, IpcMainInvokeEvent } from "electron";
 
 import { DESKTOP_IPC_CHANNELS } from "./ipcChannels";
@@ -98,8 +99,15 @@ export function registerRemoteSshIpc(
   handle(IPC.getState, () => snapshot());
   handle(IPC.connect, async (payload) => {
     const input = parseSavedHostInput(payload);
-    const saved: DesktopRemoteSshSavedHost = { host: input.host, remoteRoot: input.remoteRoot };
-    options.writeSavedHosts(rememberRemoteSshHost(options.readSavedHosts(), input));
+    const [latest, ...older] = rememberRemoteSshHost(options.readSavedHosts(), input);
+    // First connect of a host mints its stable key; later connects keep the saved one.
+    const hostKey = latest?.hostKey ?? generateHostKey();
+    const saved: DesktopRemoteSshSavedHost = {
+      host: input.host,
+      remoteRoot: input.remoteRoot,
+      hostKey,
+    };
+    options.writeSavedHosts([{ ...input, hostKey }, ...older]);
     publishState();
     return options.manager.connect(saved);
   });

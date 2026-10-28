@@ -66,6 +66,29 @@ export interface RemoteSshManagerDependencies {
    * own connection (Windows OpenSSH has no ControlMaster).
    */
   readonly sshControlDir?: string | null;
+  /** Waits `ms`, rejecting when `signal` aborts; replaceable so tests skip the backoff. */
+  readonly sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
+}
+
+/** Waits between tries to bring a dropped tunnel back; the schedule ends in an error. */
+const RECONNECT_BACKOFF_MS = [1_000, 2_000, 5_000, 15_000, 30_000];
+
+function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new RemoteSshError("Connection cancelled."));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new RemoteSshError("Connection cancelled."));
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 export interface RemoteInstallIdentity {
@@ -124,6 +147,11 @@ interface HostRecord {
   token: string | null;
   /** Kept across reconnects so open windows reconnect to the same URL. */
   localPort: number | null;
+  /** Port of the remote server the tunnel forwards to; lets a dropped tunnel re-open cheaply. */
+  remotePort: number | null;
+  hostKey: string | null;
+  /** Counts token changes; a client builds a new transport per epoch. */
+  epoch: number;
   connecting: Promise<DesktopRemoteSshHostState> | null;
   abort: AbortController | null;
 }
@@ -193,6 +221,7 @@ export class RemoteSshManager {
       );
     }
     const record = this.record(host, remoteRoot);
+    if (input.hostKey) record.hostKey = input.hostKey;
     if (record.connecting) return record.connecting;
     const abort = new AbortController();
     record.abort = abort;
@@ -272,6 +301,8 @@ export class RemoteSshManager {
       record = {
         state: {
           host,
+          hostKey: null,
+          epoch: 0,
           remoteRoot,
           phase: "idle",
           message: null,
@@ -281,6 +312,9 @@ export class RemoteSshManager {
         tunnel: null,
         token: null,
         localPort: null,
+        remotePort: null,
+        hostKey: null,
+        epoch: 0,
         connecting: null,
         abort: null,
       };
@@ -302,6 +336,8 @@ export class RemoteSshManager {
   private update(record: HostRecord, phase: DesktopRemoteSshPhase, message: string | null): void {
     record.state = {
       host: record.state.host,
+      hostKey: record.hostKey,
+      epoch: record.epoch,
       remoteRoot: record.remoteRoot,
       phase,
       message,
@@ -310,9 +346,14 @@ export class RemoteSshManager {
     this.deps.onStateChange(record.state);
   }
 
+  /**
+   * `reconnecting` keeps that phase through the retry instead of flashing the connect
+   * phases, and leaves a failure to the caller's backoff loop.
+   */
   private async runConnect(
     record: HostRecord,
     signal: AbortSignal,
+    reconnecting = false,
   ): Promise<DesktopRemoteSshHostState> {
     const host = record.state.host;
     const target = this.target(record);
@@ -320,7 +361,7 @@ export class RemoteSshManager {
     const step = (phase: DesktopRemoteSshPhase, message: string | null = null) => {
       if (signal.aborted) throw new RemoteSshError("Connection cancelled.");
       this.deps.log(`[remote-ssh] ${host} ${phase} +${Date.now() - startedAt}ms`);
-      this.update(record, phase, message);
+      if (!reconnecting || phase === "connected") this.update(record, phase, message);
     };
     try {
       this.closeTunnel(record);
@@ -397,7 +438,9 @@ export class RemoteSshManager {
 
       step("tunneling");
       record.localPort ??= await this.deps.reserveLocalPort();
+      if (record.token !== token) record.epoch += 1;
       record.token = token;
+      record.remotePort = port;
       try {
         await this.openTunnel(record, port, signal);
       } catch (error) {
@@ -413,9 +456,63 @@ export class RemoteSshManager {
       this.closeTunnel(record);
       const message = error instanceof Error ? error.message : String(error);
       this.deps.log(`[remote-ssh] ${host} failed +${Date.now() - startedAt}ms: ${message}`);
-      if (!signal.aborted) this.update(record, "error", message);
+      if (!signal.aborted && !reconnecting) this.update(record, "error", message);
       throw error instanceof RemoteSshError ? error : new RemoteSshError(message);
     }
+  }
+
+  /** A connected host's tunnel dropped: retry in the background; connect() joins this run. */
+  private startReconnect(record: HostRecord): void {
+    if (record.connecting) return;
+    const abort = new AbortController();
+    record.abort = abort;
+    this.update(record, "reconnecting", null);
+    const run = this.runReconnect(record, abort.signal).finally(() => {
+      if (record.connecting === run) record.connecting = null;
+      if (record.abort === abort) record.abort = null;
+    });
+    record.connecting = run;
+    // Nobody may be awaiting the background run; the error phase carries the failure.
+    run.catch(() => undefined);
+  }
+
+  /**
+   * First try re-opens the tunnel to the same remote port with the same token, which
+   * keeps the client URL and epoch. Later tries run a full connect: it reuses a live
+   * server (same token) or restarts one (new token, new epoch).
+   */
+  private async runReconnect(
+    record: HostRecord,
+    signal: AbortSignal,
+  ): Promise<DesktopRemoteSshHostState> {
+    const host = record.state.host;
+    const sleep = this.deps.sleep ?? abortableSleep;
+    let lastMessage = "";
+    for (const [attempt, delayMs] of RECONNECT_BACKOFF_MS.entries()) {
+      try {
+        await sleep(delayMs, signal);
+      } catch {
+        return record.state;
+      }
+      if (signal.aborted) return record.state;
+      try {
+        if (attempt === 0 && record.remotePort && record.token) {
+          this.closeTunnel(record);
+          await this.openTunnel(record, record.remotePort, signal);
+          this.update(record, "connected", null);
+          return record.state;
+        }
+        return await this.runConnect(record, signal, true);
+      } catch (error) {
+        this.closeTunnel(record);
+        if (signal.aborted) return record.state;
+        lastMessage = error instanceof Error ? error.message : String(error);
+        this.deps.log(`[remote-ssh] ${host} reconnect ${attempt + 1} failed: ${lastMessage}`);
+      }
+    }
+    const message = `Lost the SSH tunnel to ${host}: ${lastMessage}`;
+    this.update(record, "error", message);
+    throw new RemoteSshError(message);
   }
 
   private async openTunnel(record: HostRecord, remotePort: number, signal: AbortSignal) {
@@ -466,11 +563,10 @@ export class RemoteSshManager {
         if (record.tunnel === tunnel) {
           record.tunnel = null;
           if (record.state.phase === "connected") {
-            this.update(
-              record,
-              "error",
-              `SSH tunnel to ${host} closed${stderr ? `: ${tail(stderr)}` : "."}`,
+            this.deps.log(
+              `[remote-ssh] ${host} tunnel closed${stderr ? `: ${tail(stderr)}` : "."} reconnecting`,
             );
+            this.startReconnect(record);
           }
         }
         reject(
