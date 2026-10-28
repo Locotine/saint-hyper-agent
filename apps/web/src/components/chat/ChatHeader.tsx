@@ -105,6 +105,8 @@ interface ChatHeaderProps {
   // scripts, git/open-in) — the chat hasn't started yet — keeping only the sidebar
   // cluster plus the Environment and right-panel toggles.
   minimalChrome?: boolean;
+  /** Hides "Open in" (a connected host's chat: this computer's editors cannot open its files). */
+  hideOpenIn?: boolean;
   isGitRepo: boolean;
   openInTarget: string | null;
   activeProjectScripts: ProjectScript[] | undefined;
@@ -442,6 +444,7 @@ export function ChatHeader({
   hideSidebarControls: hideSidebarControlsProp,
   hideHandoffControls: hideHandoffControlsProp,
   minimalChrome: minimalChromeProp,
+  hideOpenIn = false,
   isGitRepo,
   openInTarget,
   activeProjectScripts,
@@ -880,7 +883,7 @@ export function ChatHeader({
           <>
             {/* Open in editor: dedicated split-button with an editor switcher; the project
                 action control sits beside it as its own project command surface. */}
-            {!minimalChrome && activeProjectName ? (
+            {!minimalChrome && !hideOpenIn && activeProjectName ? (
               <OpenInPicker
                 keybindings={keybindings}
                 availableEditors={availableEditors}

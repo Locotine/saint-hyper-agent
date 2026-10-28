@@ -8,7 +8,9 @@ import type {
   NativeApi,
   ProviderStartOptions,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
+import { apiFor } from "../hosts/hostScope";
 import { ensureLocalNativeApi } from "../nativeApi";
 import { createActivityRefreshThrottle } from "./activityRefreshThrottle";
 import { EXPENSIVE_READ_RETRY_OPTIONS, isRpcCapacityExceededError } from "./expensiveReadRetry";
@@ -474,12 +476,32 @@ export function refreshGitQueriesScoped(
   return scoped.then(() => undefined);
 }
 
-export function gitStatusQueryOptions(cwd: string | null, enabled = true) {
+/**
+ * Reads for a connected host's chat (multi-host) go to that host and key by it after the
+ * usual key, so a host path never shares a cache entry with the same path here and the
+ * existing prefix invalidations still reach it. This computer's keys are unchanged.
+ */
+function hostKeyPart(hostId: HostId): readonly HostId[] {
+  return hostId === LOCAL_HOST_ID ? [] : [hostId];
+}
+
+function gitApiFor(hostId: HostId) {
+  if (hostId === LOCAL_HOST_ID) return ensureLocalNativeApi();
+  const api = apiFor(hostId);
+  if (!api) throw new Error("This host is not connected.");
+  return api;
+}
+
+export function gitStatusQueryOptions(
+  cwd: string | null,
+  enabled = true,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   return queryOptions({
-    queryKey: gitQueryKeys.status(cwd),
+    queryKey: [...gitQueryKeys.status(cwd), ...hostKeyPart(hostId)],
     queryFn: async ({ client }) => {
       const readFence = capturePullRequestActionReadFence(client);
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(hostId);
       if (!cwd) throw new Error("Git status is unavailable.");
       return preserveActivePullRequestActionGitFields(
         client,
@@ -496,11 +518,15 @@ export function gitStatusQueryOptions(cwd: string | null, enabled = true) {
   });
 }
 
-export function gitGithubRepositoryQueryOptions(cwd: string | null, enabled = true) {
+export function gitGithubRepositoryQueryOptions(
+  cwd: string | null,
+  enabled = true,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   return queryOptions({
-    queryKey: gitQueryKeys.githubRepository(cwd),
+    queryKey: [...gitQueryKeys.githubRepository(cwd), ...hostKeyPart(hostId)],
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(hostId);
       if (!cwd) throw new Error("GitHub repository is unavailable.");
       return api.git.githubRepository({ cwd });
     },
@@ -542,11 +568,11 @@ export function gitRecentCommitsQueryOptions(input: {
   });
 }
 
-export function gitBranchesQueryOptions(cwd: string | null) {
+export function gitBranchesQueryOptions(cwd: string | null, hostId: HostId = LOCAL_HOST_ID) {
   return queryOptions({
-    queryKey: gitQueryKeys.branches(cwd),
+    queryKey: [...gitQueryKeys.branches(cwd), ...hostKeyPart(hostId)],
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(hostId);
       if (!cwd) throw new Error("Git branches are unavailable.");
       return api.git.listBranches({ cwd });
     },

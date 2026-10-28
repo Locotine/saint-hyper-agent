@@ -634,6 +634,9 @@ export default function ChatView({
   onCloseThreadPane,
 }: ChatViewProps) {
   const chatHost = useHostHandle();
+  // A connected host's chat (multi-host): this computer's editors, servers, panels, git and
+  // project scripts would act on the wrong machine, so their controls stay hidden.
+  const isRemoteHost = chatHost.hostId !== LOCAL_HOST_ID;
   // Prop defaults are resolved here instead of in the destructuring pattern: an
   // AssignmentPattern in the parameter list makes React Compiler bail out (silently —
   // `panicThreshold` is unset) on this entire component, the hottest one in the app.
@@ -2358,8 +2361,8 @@ export default function ChatView({
         })
       : null;
 
-  const branchesQuery = useQuery(gitBranchesQueryOptions(gitBranchSourceCwd));
-  const gitStatusQuery = useQuery(gitStatusQueryOptions(gitBranchSourceCwd));
+  const branchesQuery = useQuery(gitBranchesQueryOptions(gitBranchSourceCwd, chatHost.hostId));
+  const gitStatusQuery = useQuery(gitStatusQueryOptions(gitBranchSourceCwd, true, chatHost.hostId));
   const localFolderBrowseRootPath = getLocalFolderBrowseRootPath(
     serverConfigQuery.data?.homeDir ?? null,
     isMacNavigatorPlatform(),
@@ -2902,7 +2905,12 @@ export default function ChatView({
       return;
     }
     const { kind, repository, number } = item;
-    void queryClient.fetchQuery(gitGithubRepositoryQueryOptions(gitBranchSourceCwd)).then(
+    const repositoryQuery = gitGithubRepositoryQueryOptions(
+      gitBranchSourceCwd,
+      true,
+      chatHost.hostId,
+    );
+    void queryClient.fetchQuery(repositoryQuery).then(
       (result) => {
         const belongsToProject = result.repositories.some(
           (candidate) => candidate.nameWithOwner.toLowerCase() === repository.toLowerCase(),
@@ -3269,7 +3277,7 @@ export default function ChatView({
   // Temporary threads are visually identical to regular chats — they use the same
   // Environment panel + header controls. "Temporary" is purely a sidebar badge +
   // auto-delete-on-leave concern, never a stripped-down chat UI.
-  const environmentEnabled = !isEditorRail && !hideHeader;
+  const environmentEnabled = !isEditorRail && !hideHeader && !isRemoteHost;
   const environmentUsesFloatingOverlay =
     isTerminalEnvironmentContext || isMobileViewport || rightDockOpen || surfaceMode === "split";
   const environmentDefaultOpen = resolveDefaultEnvironmentPanelOpen({
@@ -3360,7 +3368,7 @@ export default function ChatView({
     [chooseAuxiliarySurface, closeEnvironmentPanelAfterAction],
   );
   const githubRepositoryQuery = useQuery(
-    gitGithubRepositoryQueryOptions(gitBranchSourceCwd, environmentPanelVisible),
+    gitGithubRepositoryQueryOptions(gitBranchSourceCwd, environmentPanelVisible, chatHost.hostId),
   );
   const threadRecap = useThreadRecap({
     thread: activeThread,
@@ -5947,9 +5955,14 @@ export default function ChatView({
       ? { onCheckoutPullRequestRequest: openPullRequestDialog }
       : {}),
   };
-  const showTrailingBranchToolbar = !activeThreadIsSidechat && isGitRepo && !environmentEnabled;
+  // A host's branch actions would run here, so its chat shows no branch toolbar (U6).
+  const showTrailingBranchToolbar =
+    !activeThreadIsSidechat && isGitRepo && !environmentEnabled && !isRemoteHost;
   const showEmptyLandingBranchToolbar =
-    isCenteredEmptyLanding && activeProject?.kind === "project" && !isHomeChatContainer;
+    isCenteredEmptyLanding &&
+    activeProject?.kind === "project" &&
+    !isHomeChatContainer &&
+    !isRemoteHost;
   // Temporary is chosen while starting a chat. Draft metadata covers local reloads;
   // the in-memory marker keeps the badge + auto-delete alive through promotion.
   const isThreadTemporary = draftThread?.isTemporary === true || hasTemporaryThreadMarker;
@@ -6813,7 +6826,8 @@ export default function ChatView({
                     closeActiveTabRef={closeActiveThreadTabRef}
                     onRenameActiveThread={() => setRenameDialogOpen(true)}
                     onNewThread={
-                      activeProjectScripts !== undefined && !isCenteredEmptyLanding
+                      // A host's new thread starts from its project row, not a local draft.
+                      activeProjectScripts !== undefined && !isCenteredEmptyLanding && !isRemoteHost
                         ? onNewThreadFromHeader
                         : null
                     }
@@ -6823,11 +6837,12 @@ export default function ChatView({
             : {})}
           isSidechat={isSidechatThread(activeThread)}
           hideSidebarControls={isEditorRail}
-          hideHandoffControls={terminalWorkspaceTerminalTabActive || isEditorRail}
+          hideHandoffControls={terminalWorkspaceTerminalTabActive || isEditorRail || isRemoteHost}
+          hideOpenIn={isRemoteHost}
           minimalChrome={isCenteredEmptyLanding}
           isGitRepo={isGitRepo}
           openInTarget={threadWorkspaceCwd}
-          activeProjectScripts={isEditorRail ? undefined : activeProjectScripts}
+          activeProjectScripts={isEditorRail || isRemoteHost ? undefined : activeProjectScripts}
           preferredScriptId={
             activeProject
               ? (lastInvokedScriptByProjectId[scopeProject(chatHost.hostId, activeProject.id)] ??
@@ -6846,15 +6861,15 @@ export default function ChatView({
           showHeaderActions={settings.showHeaderActions}
           gitCwd={threadWorkspaceCwd}
           diffTotals={repoDiffTotals}
-          showGitActions={showGitActions && !isEditorRail}
-          showDiffToggle={!isEditorRail}
+          showGitActions={showGitActions && !isEditorRail && !isRemoteHost}
+          showDiffToggle={!isEditorRail && !isRemoteHost}
           diffOpen={resolvedDiffOpen}
           diffDisabledReason={diffDisabledReason}
           rightDockOpen={rightDockOpen}
           {...(onToggleRightDock ? { onToggleRightDock } : {})}
-          environment={isEditorRail ? null : environmentHeaderState}
-          projectPanel={isEditorRail ? null : projectHeaderState}
-          libraryPanel={isEditorRail ? null : libraryHeaderState}
+          environment={isEditorRail || isRemoteHost ? null : environmentHeaderState}
+          projectPanel={isEditorRail || isRemoteHost ? null : projectHeaderState}
+          libraryPanel={isEditorRail || isRemoteHost ? null : libraryHeaderState}
           surfaceMode={surfaceMode}
           editorChatControls={
             isEditorRail && activeProject
