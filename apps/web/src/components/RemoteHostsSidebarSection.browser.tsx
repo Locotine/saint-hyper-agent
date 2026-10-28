@@ -68,20 +68,21 @@ const state = (
   ...extra,
 });
 
-const connect = vi.fn(async () => ({}));
+const activate = vi.fn(async (_host: string | null) => undefined);
 
 beforeEach(() => {
   harness.request.mockReset();
   harness.request.mockResolvedValue(snapshot);
   harness.dispose.mockClear();
   harness.urls.length = 0;
-  connect.mockClear();
+  activate.mockClear();
+  localStorage.removeItem("saint:pending-remote-thread");
   Object.defineProperty(window, "desktopBridge", {
     configurable: true,
     value: {
       remoteSsh: {
         wsUrl: async (host: string) => `ws://127.0.0.1:45000/?token=${host}`,
-        connect,
+        activate,
         getState: async () => state("connected"),
         onState: () => () => undefined,
       },
@@ -94,10 +95,10 @@ afterEach(() => {
   Reflect.deleteProperty(window, "desktopBridge");
 });
 
-function mountSection(next: DesktopRemoteSshState) {
+function mountSection(next: DesktopRemoteSshState, activeHost: string | null = null) {
   return render(
     <SidebarProvider>
-      <RemoteHostsSidebarSection state={next} />
+      <RemoteHostsSidebarSection state={next} activeHost={activeHost} />
     </SidebarProvider>,
   );
 }
@@ -117,10 +118,25 @@ describe("RemoteHostsSidebarSection", () => {
     expect(harness.urls).toEqual(["ws://127.0.0.1:45000/?token=devbox"]);
   });
 
-  it("opens the host window with the saved folder when a remote thread is chosen", async () => {
+  it("switches this window onto the host and remembers the chosen thread", async () => {
     await mountSection(state("connected"));
     await page.getByText("Fix the login race").click();
-    expect(connect).toHaveBeenCalledWith({ host: "devbox", remoteRoot: "squad/saint" });
+    expect(activate).toHaveBeenCalledWith("devbox");
+    expect(JSON.parse(localStorage.getItem("saint:pending-remote-thread") ?? "{}")).toMatchObject({
+      host: "devbox",
+      threadId: "t1",
+    });
+  });
+
+  it("marks the active host, hides its duplicate catalog, and offers a way back", async () => {
+    await mountSection(state("connected"), "devbox");
+    await expect.element(page.getByText("Active")).toBeVisible();
+    await expect.element(page.getByText("This computer")).toBeVisible();
+    // The active host's projects are the main sidebar list, not repeated here.
+    expect(harness.urls).toEqual([]);
+    expect(document.body.textContent).not.toContain("api-server");
+    await page.getByText("This computer").click();
+    expect(activate).toHaveBeenCalledWith(null);
   });
 
   it("opens no catalog connection while the host is not connected", async () => {

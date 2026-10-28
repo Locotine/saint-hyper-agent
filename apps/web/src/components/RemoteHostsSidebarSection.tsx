@@ -1,13 +1,16 @@
 // FILE: RemoteHostsSidebarSection.tsx
-// Purpose: Left-nav section listing remote SSH hosts with their projects and threads (read-only).
+// Purpose: Left-nav section listing remote SSH hosts with their projects and threads; choosing
+//          one switches this window onto that host, and "This computer" switches back.
 // Layer: Sidebar UI (desktop Beta; renders only while the remote SSH bridge reports hosts)
 // Exports: RemoteHostsSidebarSection
 
 import type { DesktopRemoteSshHostState, DesktopRemoteSshState } from "@saint/contracts";
 import { useState } from "react";
 
+import { toastManager } from "~/components/ui/toast";
 import { useRemoteHostCatalog } from "~/hooks/useRemoteHostCatalog";
-import { FolderIcon, ServerIcon } from "~/lib/icons";
+import { FolderIcon, MonitorIcon, ServerIcon } from "~/lib/icons";
+import { rememberPendingRemoteThread } from "~/lib/pendingRemoteThread";
 import { cn } from "~/lib/utils";
 import {
   remoteHostSidebarStatus,
@@ -50,25 +53,33 @@ function StatusDot(props: { className: string }) {
   return <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", props.className)} />;
 }
 
-/** Opens the host's window, the only place a remote thread runs until it can open here. */
-function openHostWindow(state: DesktopRemoteSshState, host: string): void {
-  const saved = state.savedHosts.find((entry) => entry.host === host);
-  void window.desktopBridge?.remoteSsh
-    ?.connect({ host, remoteRoot: saved?.remoteRoot ?? null })
-    .catch(() => undefined);
+/**
+ * Switches this window to a host (or back to this computer with null). The window
+ * reloads onto that backend; a chosen thread opens once it is up.
+ */
+function switchBackend(host: string | null, threadId?: string): void {
+  if (host !== null && threadId) rememberPendingRemoteThread(host, threadId);
+  void window.desktopBridge?.remoteSsh?.activate(host).catch((error: unknown) => {
+    toastManager.add({
+      type: "error",
+      title: host === null ? "Could not switch to this computer" : `Could not open ${host}`,
+      description: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 function RemoteHostGroup(props: {
-  state: DesktopRemoteSshState;
   host: string;
   hostState: DesktopRemoteSshHostState | null;
+  /** This window already runs on the host: its projects are the main list. */
+  isActive: boolean;
 }) {
-  const { state, host, hostState } = props;
+  const { host, hostState, isActive } = props;
   const [expanded, setExpanded] = useState(true);
   const status = remoteHostSidebarStatus(hostState);
-  const connected = status === "connected";
+  const connected = status === "connected" && !isActive;
   const catalog = useRemoteHostCatalog(host, connected ? (hostState?.localPort ?? null) : null);
-  const statusLabel = remoteHostStatus(hostState);
+  const statusLabel = isActive ? "Active in this window" : remoteHostStatus(hostState);
 
   return (
     <SidebarMenuItem className="rounded-md">
@@ -89,6 +100,7 @@ function RemoteHostGroup(props: {
         >
           <ServerIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
           <span className="min-w-0 flex-1 truncate">{host}</span>
+          {isActive ? <span className="text-ui-xs text-muted-foreground/79">Active</span> : null}
           <StatusDot className={STATUS_DOT_CLASS_NAME[status]} />
           {connected ? <DisclosureChevron open={expanded} /> : null}
         </TooltipTrigger>
@@ -130,7 +142,7 @@ function RemoteHostGroup(props: {
                             SIDEBAR_ROW_LABEL_TEXT_CLASS_NAME,
                             SIDEBAR_ROW_HOVER_CLASS_NAME,
                           )}
-                          onClick={() => openHostWindow(state, host)}
+                          onClick={() => switchBackend(host)}
                         />
                       }
                     >
@@ -152,7 +164,7 @@ function RemoteHostGroup(props: {
                         SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
                         SIDEBAR_ROW_HOVER_CLASS_NAME,
                       )}
-                      onClick={() => openHostWindow(state, host)}
+                      onClick={() => switchBackend(host, thread.id)}
                     >
                       <span className="min-w-0 flex-1 truncate">{thread.title}</span>
                       <StatusDot className={THREAD_DOT_CLASS_NAME[thread.state]} />
@@ -173,7 +185,11 @@ function RemoteHostGroup(props: {
   );
 }
 
-export function RemoteHostsSidebarSection(props: { state: DesktopRemoteSshState }) {
+/** `activeHost` is the host this window already runs on, null when it runs on this computer. */
+export function RemoteHostsSidebarSection(props: {
+  state: DesktopRemoteSshState;
+  activeHost: string | null;
+}) {
   const rows = remoteHostRows(props.state);
   if (rows.length === 0) return null;
   return (
@@ -182,12 +198,29 @@ export function RemoteHostsSidebarSection(props: { state: DesktopRemoteSshState 
         <span className={cn("truncate", SIDEBAR_SECTION_LABEL_CLASS_NAME)}>Remote hosts</span>
       </div>
       <SidebarMenu className="gap-1">
+        {props.activeHost ? (
+          <SidebarMenuItem className="rounded-md">
+            <SidebarMenuButton
+              size="sm"
+              className={cn(
+                SIDEBAR_HEADER_ROW_CLASS_NAME,
+                SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
+                SIDEBAR_ROW_HOVER_CLASS_NAME,
+              )}
+              onClick={() => switchBackend(null)}
+            >
+              <MonitorIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
+              <span className="min-w-0 flex-1 truncate">This computer</span>
+              <span className="text-ui-xs text-muted-foreground/79">Local</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ) : null}
         {rows.map((row) => (
           <RemoteHostGroup
             key={row.host}
-            state={props.state}
             host={row.host}
             hostState={row.state}
+            isActive={row.host === props.activeHost}
           />
         ))}
       </SidebarMenu>

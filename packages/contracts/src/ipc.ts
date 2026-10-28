@@ -1165,9 +1165,10 @@ export interface DesktopBridge {
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
   /**
-   * Remote SSH hosts: run a Saint server on another machine and open it in
-   * its own desktop window through an SSH tunnel. Beta only; absent on Stable
-   * and in remote windows, and the main process refuses it there.
+   * Remote SSH hosts: run a Saint server on another machine and use it through
+   * an SSH tunnel, in its own window or by switching the app window onto it.
+   * Beta only; absent on Stable and in host popup windows, and the main process
+   * refuses it there. The app window keeps it while it runs on a host.
    */
   remoteSsh?: {
     getState: () => Promise<DesktopRemoteSshState>;
@@ -1180,6 +1181,11 @@ export interface DesktopBridge {
     forget: (host: string) => Promise<void>;
     /** The loopback WebSocket URL of a connected host's server, or null while it is down. */
     wsUrl: (host: string) => Promise<string | null>;
+    /**
+     * Switches the app window's backend to a connected host, or back to this
+     * computer with null, and reloads the window. No client state carries over.
+     */
+    activate: (host: string | null) => Promise<void>;
     onState: (listener: (state: DesktopRemoteSshState) => void) => () => void;
   };
   /**

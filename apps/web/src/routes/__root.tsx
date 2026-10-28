@@ -106,6 +106,7 @@ import {
 import { useProjectRunStore } from "../projectRunStore";
 import { dockTerminalThreadId } from "../lib/dockTerminalScope";
 import { TaskCompletionNotifications } from "../notifications/taskCompletion";
+import { PendingRemoteThreadOpener } from "../components/PendingRemoteThreadOpener";
 import { RemoteFolderPickerDialog } from "../components/RemoteFolderPickerDialog";
 import { remoteWindowHost } from "../env";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
@@ -386,6 +387,7 @@ function RootRouteView() {
           {remoteWindowHost ? <RemoteFolderPickerDialog /> : null}
           <AppSnapCoordinator />
           <DesktopProjectBootstrap />
+          {remoteWindowHost ? <PendingRemoteThreadOpener /> : null}
           <Outlet />
         </AnchoredToastProvider>
       </ToastProvider>

@@ -29,6 +29,8 @@ export interface RemoteSshIpcOptions {
   readonly readSavedHosts: () => SavedRemoteSshHost[];
   readonly writeSavedHosts: (hosts: readonly SavedRemoteSshHost[]) => void;
   readonly openHostWindow: (host: string) => void;
+  /** Points the main window at a connected host (or null: this computer) and reloads it. */
+  readonly activateMainWindowHost: (host: string | null) => void;
   readonly closeHostWindows: (host: string) => void;
   readonly broadcast: (state: DesktopRemoteSshState) => void;
 }
@@ -115,6 +117,9 @@ export function registerRemoteSshIpc(
   });
   // Read-only catalog connections in the sidebar reach a connected host's server here.
   handle(IPC.wsUrl, (payload) => options.manager.wsUrl(parseHost(payload)));
+  handle(IPC.activate, (payload) =>
+    options.activateMainWindowHost(payload === null ? null : parseHost(payload)),
+  );
   handle(IPC.forget, (payload) => {
     const host = parseHost(payload);
     options.writeSavedHosts(options.readSavedHosts().filter((saved) => saved.host !== host));

@@ -7464,7 +7464,11 @@ export default function Sidebar() {
                       {renderPinnedThreadsSection()}
                       {renderListSectionHeader(
                         // Remote hosts get their own section below, so say which side this is.
-                        hasRemoteHosts ? "Projects · Local" : "Projects",
+                        remoteWindowHost
+                          ? `Projects · ${remoteWindowHost}`
+                          : hasRemoteHosts
+                            ? "Projects · Local"
+                            : "Projects",
                         <>
                           {standardProjects.length > 0 ? (
                             <SidebarIconButton
@@ -7588,7 +7592,7 @@ export default function Sidebar() {
             !showRailSpacesPanel &&
             !showRailAutomationsPanel &&
             remoteSshState ? (
-              <RemoteHostsSidebarSection state={remoteSshState} />
+              <RemoteHostsSidebarSection state={remoteSshState} activeHost={remoteWindowHost} />
             ) : null}
             {!isOnSettings &&
             !isOnGroups &&
