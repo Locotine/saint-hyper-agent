@@ -386,13 +386,12 @@ Notes:
 
 ## 3) Azure Trusted Signing setup (Windows)
 
-The current Windows release policy publishes x64 installers unsigned under an
-explicit version-scoped exception. Before pushing the release tag, set the
-repository Actions variable `SAINT_ALLOW_UNSIGNED_WINDOWS_RELEASE` to the exact
-version without the `v` prefix (for example, `0.8.4`). The workflow checks equality
-with the resolved release version before packaging; do not use a permanent broad
-opt-out. Packaging, source provenance, startup smoke, and artifact upload must
-still pass. Missing Azure credentials are expected for this unsigned path.
+Without signing secrets, macOS and Windows artifacts publish unsigned under the
+explicit unsigned release exception (provenance status `unsigned-explicit-release`).
+Set the repository Actions variable `SAINT_REQUIRE_SIGNED_RELEASE` to `1` to refuse
+unsigned publication instead. Packaging, source provenance, startup smoke, and
+artifact upload must still pass. Missing Apple or Azure credentials are expected
+for this unsigned path.
 
 Before startup smoke and artifact upload, the Windows job scans each final
 installer with Microsoft Defender. The guard enables protection and removes
@@ -562,7 +561,7 @@ sharing it.
 - macOS build unsigned when expected signed:
   - Check all Apple secrets are populated and non-empty.
 - Published Windows build rejected before packaging:
-  - For the unsigned release policy, check that `SAINT_ALLOW_UNSIGNED_WINDOWS_RELEASE` matches the exact version without `v`.
+  - For the unsigned release policy, check that the repository variable `SAINT_REQUIRE_SIGNED_RELEASE` is not `1`.
   - For a signed release, check all eight Azure ATS, identity, and auth secrets are populated and non-empty.
 - Build fails with signing error:
   - Re-check certificate/profile names and tenant/client credentials.

@@ -62,7 +62,7 @@ function checkpoint(
     sourceTag: `v${version}`,
     lockfileSha256: "b".repeat(64),
     publication: true,
-    allowUnsignedWindowsPublication: platform === "win",
+    allowUnsignedPublication: platform === "win",
     expectedMacTeamId: "EXPECTEDTEAM",
   };
   const manifest: ReleaseArtifactProvenanceManifest = {
@@ -121,7 +121,7 @@ function signedWindowsCheckpoint() {
     ...fixture,
     input: {
       ...fixture.input,
-      allowUnsignedWindowsPublication: false,
+      allowUnsignedPublication: false,
       expectedWindowsPublisher: "Acme",
       expectedWindowsSubjectDn: "CN=Acme, O=Acme Software, C=IT",
     },
@@ -230,7 +230,7 @@ describe("same-run release artifact checkpoint", () => {
   it("requires the current version-scoped Windows exception on every qualification", async () => {
     const { input } = checkpoint("win");
     await expect(
-      verifyReleaseArtifactCheckpoint({ ...input, allowUnsignedWindowsPublication: false }),
+      verifyReleaseArtifactCheckpoint({ ...input, allowUnsignedPublication: false }),
     ).rejects.toThrow("requires verified signing");
   });
 

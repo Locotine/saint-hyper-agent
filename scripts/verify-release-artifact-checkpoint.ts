@@ -14,7 +14,7 @@ const known = new Set([
   "--source-tag",
   "--lockfile-sha256",
   "--publication",
-  "--allow-unsigned-windows-publication",
+  "--allow-unsigned-publication",
   "--expected-mac-team-id",
   "--expected-windows-publisher",
   "--expected-windows-subject-dn",
@@ -57,7 +57,7 @@ await verifyReleaseArtifactCheckpoint({
   sourceTag: values.get("--source-tag") || null,
   lockfileSha256: required("--lockfile-sha256"),
   publication: boolean("--publication"),
-  allowUnsignedWindowsPublication: boolean("--allow-unsigned-windows-publication"),
+  allowUnsignedPublication: boolean("--allow-unsigned-publication"),
   ...(values.get("--expected-mac-team-id")
     ? { expectedMacTeamId: values.get("--expected-mac-team-id")! }
     : {}),

@@ -25,7 +25,7 @@ export interface ReleaseArtifactCheckpointInput extends Pick<
   | "sourceTag"
   | "lockfileSha256"
   | "publication"
-  | "allowUnsignedWindowsPublication"
+  | "allowUnsignedPublication"
   | "expectedMacTeamId"
   | "expectedWindowsPublisher"
   | "expectedWindowsSubjectDn"
@@ -110,10 +110,7 @@ function verifySigning(
     return;
   }
   const expectedStatus = input.publication ? "unsigned-explicit-release" : "unsigned-build-only";
-  if (
-    input.publication &&
-    !(input.platform === "win" && input.allowUnsignedWindowsPublication === true)
-  ) {
+  if (input.publication && input.allowUnsignedPublication !== true) {
     throw new Error("Checkpoint publication requires verified signing.");
   }
   equal("unsigned signing status", signing.status, expectedStatus);

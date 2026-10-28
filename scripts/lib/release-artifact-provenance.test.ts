@@ -31,6 +31,15 @@ function createWindowsAssets(): string {
   return root;
 }
 
+function createMacAssets(): string {
+  const root = mkdtempSync(join(tmpdir(), "saint-mac-provenance-test-"));
+  temporaryRoots.push(root);
+  writeFileSync(join(root, "Saint-1.2.3-arm64.dmg"), "unsigned-mac-dmg-bytes");
+  writeFileSync(join(root, "Saint-1.2.3-arm64.zip"), "unsigned-mac-zip-bytes");
+  writeFileSync(join(root, "latest-mac.yml"), "version: 1.2.3\n");
+  return root;
+}
+
 describe("release artifact provenance", () => {
   it("hashes the exact collected Linux assets into a deterministic manifest", async () => {
     const assetsDirectory = createAssets();
@@ -83,7 +92,7 @@ describe("release artifact provenance", () => {
     ).rejects.toThrow("requires an exact source tag");
   });
 
-  it("records an explicit version-scoped unsigned Windows publication", async () => {
+  it("records an explicit unsigned Windows publication", async () => {
     const result = await writeReleaseArtifactProvenance({
       assetsDirectory: createWindowsAssets(),
       platform: "win",
@@ -95,15 +104,55 @@ describe("release artifact provenance", () => {
       lockfileSha256: "b".repeat(64),
       publication: true,
       signed: false,
-      allowUnsignedWindowsPublication: true,
+      allowUnsignedPublication: true,
     });
 
     expect(result.manifest.signing).toEqual({
       status: "unsigned-explicit-release",
       scheme: "none",
       identity: null,
-      checks: ["explicit version-scoped Windows release exception"],
+      checks: ["explicit unsigned release exception"],
     });
+  });
+
+  it("records an explicit unsigned macOS publication", async () => {
+    const result = await writeReleaseArtifactProvenance({
+      assetsDirectory: createMacAssets(),
+      platform: "mac",
+      arch: "arm64",
+      target: "dmg",
+      version: "1.2.3",
+      sourceCommit: "a".repeat(40),
+      sourceTag: "v1.2.3",
+      lockfileSha256: "b".repeat(64),
+      publication: true,
+      signed: false,
+      allowUnsignedPublication: true,
+    });
+
+    expect(result.manifest.signing).toEqual({
+      status: "unsigned-explicit-release",
+      scheme: "none",
+      identity: null,
+      checks: ["explicit unsigned release exception"],
+    });
+  });
+
+  it("still rejects unsigned macOS publication without the explicit exception", async () => {
+    await expect(
+      writeReleaseArtifactProvenance({
+        assetsDirectory: createMacAssets(),
+        platform: "mac",
+        arch: "arm64",
+        target: "dmg",
+        version: "1.2.3",
+        sourceCommit: "a".repeat(40),
+        sourceTag: "v1.2.3",
+        lockfileSha256: "b".repeat(64),
+        publication: true,
+        signed: false,
+      }),
+    ).rejects.toThrow("requires verified signing");
   });
 
   it("still rejects unsigned Windows publication without the explicit exception", async () => {

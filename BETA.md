@@ -33,11 +33,11 @@ shares stable's data directory or update feed.
 ### Release order
 
 1. Merge the PRs for the release into `main`.
-2. If Windows is shipping unsigned, set the repo variable
-   `SAINT_ALLOW_UNSIGNED_WINDOWS_RELEASE` to the Stable version (for example
-   `0.9.2`), then tag and publish `v0.9.2`.
-3. Set the variable to the Beta version (`0.9.3-beta.1`), prepare its version
-   commit on top of the Stable commit, then tag and publish `v0.9.3-beta.1`.
+2. Tag and publish the Stable version (for example `v0.9.2`). Without signing
+   secrets, macOS and Windows publish unsigned unless the repo variable
+   `SAINT_REQUIRE_SIGNED_RELEASE` is `1`.
+3. Prepare the Beta version commit (`0.9.3-beta.1`) on top of the Stable commit,
+   then tag and publish `v0.9.3-beta.1`.
    With `SAINT_AUTO_BETA=1` this version commit and tag are created automatically
    after the Stable publish. Do not push Beta package versions onto `main`.
 4. More Betas (`beta.2`, `beta.3`, …) can follow from newer `main` commits at any
@@ -159,12 +159,11 @@ beta channel and the beta desktop flavor; every other suffix keeps today's behav
 
 ### Signing
 
-Beta builds use the same signing setup as stable. Publishing requires the macOS
-signing/notarization secrets, and Windows uses Azure Trusted Signing or the same
-version-scoped unsigned exception (`SAINT_ALLOW_UNSIGNED_WINDOWS_RELEASE` set to the
-exact `X.Y.Z-beta.N` version without the `v`). The exception matches one exact
-version, so the automatic post-stable beta needs Azure signing or the variable
-set to that beta version, otherwise its Windows build blocks publication.
+Beta builds use the same signing setup as stable. macOS signs and notarizes when
+every Apple secret is set, and Windows signs with Azure Trusted Signing when every
+Azure secret is set. Otherwise both publish unsigned under the explicit unsigned
+release exception, which the repo variable `SAINT_REQUIRE_SIGNED_RELEASE=1` turns
+off.
 
 ## Building a beta artifact locally
 

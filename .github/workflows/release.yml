@@ -402,7 +402,9 @@ jobs:
       source_commit: ${{ needs.preflight.outputs.source_commit }}
       source_tag: ${{ needs.preflight.outputs.source_tag }}
       lockfile_sha256: ${{ needs.preflight.outputs.lockfile_sha256 }}
-      allow_unsigned_windows_publication: ${{ vars.SAINT_ALLOW_UNSIGNED_WINDOWS_RELEASE == needs.preflight.outputs.version }}
+      # Unsigned macOS and Windows artifacts may publish unless the repository
+      # sets SAINT_REQUIRE_SIGNED_RELEASE=1; configured signing secrets still sign.
+      allow_unsigned_publication: ${{ vars.SAINT_REQUIRE_SIGNED_RELEASE != '1' }}
     secrets: inherit
 
   publish_cli:

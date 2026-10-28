@@ -33,7 +33,7 @@ on:
       lockfile_sha256:
         required: true
         type: string
-      allow_unsigned_windows_publication:
+      allow_unsigned_publication:
         required: true
         type: boolean
 
@@ -104,7 +104,7 @@ jobs:
           SOURCE_TAG: ${{ inputs.source_tag }}
           LOCKFILE_SHA256: ${{ inputs.lockfile_sha256 }}
           PUBLISH_RELEASE: ${{ inputs.publish_release }}
-          ALLOW_UNSIGNED_WINDOWS_PUBLICATION: ${{ inputs.allow_unsigned_windows_publication }}
+          ALLOW_UNSIGNED_PUBLICATION: ${{ inputs.allow_unsigned_publication }}
           EXPECTED_MAC_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           EXPECTED_WINDOWS_PUBLISHER: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
           EXPECTED_WINDOWS_SUBJECT_DN: ${{ secrets.AZURE_TRUSTED_SIGNING_SUBJECT_DN }}
@@ -120,7 +120,7 @@ jobs:
             --source-tag "$SOURCE_TAG" \
             --lockfile-sha256 "$LOCKFILE_SHA256" \
             --publication "$PUBLISH_RELEASE" \
-            --allow-unsigned-windows-publication "$ALLOW_UNSIGNED_WINDOWS_PUBLICATION" \
+            --allow-unsigned-publication "$ALLOW_UNSIGNED_PUBLICATION" \
             --expected-mac-team-id "$EXPECTED_MAC_TEAM_ID" \
             --expected-windows-publisher "$EXPECTED_WINDOWS_PUBLISHER" \
             --expected-windows-subject-dn "$EXPECTED_WINDOWS_SUBJECT_DN"
@@ -197,7 +197,7 @@ jobs:
           AZURE_TRUSTED_SIGNING_PUBLISHER_NAME: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
           AZURE_TRUSTED_SIGNING_SUBJECT_DN: ${{ secrets.AZURE_TRUSTED_SIGNING_SUBJECT_DN }}
           SAINT_PUBLISH_RELEASE: ${{ inputs.publish_release }}
-          ALLOW_UNSIGNED_WINDOWS_PUBLICATION: ${{ inputs.allow_unsigned_windows_publication }}
+          ALLOW_UNSIGNED_PUBLICATION: ${{ inputs.allow_unsigned_publication }}
           SOURCE_COMMIT: ${{ inputs.source_commit }}
           SOURCE_TAG: ${{ inputs.source_tag }}
           LOCKFILE_SHA256: ${{ inputs.lockfile_sha256 }}
@@ -244,11 +244,11 @@ jobs:
               echo "macOS signing enabled."
               signed=true
               args+=(--signed)
-            elif [[ "$SAINT_PUBLISH_RELEASE" == "true" ]]; then
+            elif [[ "$SAINT_PUBLISH_RELEASE" == "true" && "$ALLOW_UNSIGNED_PUBLICATION" != "true" ]]; then
               echo "Publishing macOS artifacts requires every signing and notarization secret."
               exit 1
             else
-              echo "Build-only macOS artifact will be unsigned because publication is disabled."
+              echo "macOS artifact will be unsigned (build-only, or the explicit unsigned release exception)."
             fi
           elif [[ "${{ inputs.platform }}" == "win" ]]; then
             if has_all \
@@ -263,11 +263,11 @@ jobs:
               echo "Windows signing enabled (Azure Trusted Signing)."
               signed=true
               args+=(--signed)
-            elif [[ "$SAINT_PUBLISH_RELEASE" == "true" && "$ALLOW_UNSIGNED_WINDOWS_PUBLICATION" != "true" ]]; then
+            elif [[ "$SAINT_PUBLISH_RELEASE" == "true" && "$ALLOW_UNSIGNED_PUBLICATION" != "true" ]]; then
               echo "Publishing Windows artifacts requires every Azure Trusted Signing secret."
               exit 1
             else
-              echo "Windows artifact will be unsigned under the explicit version-scoped release exception."
+              echo "Windows artifact will be unsigned (build-only, or the explicit unsigned release exception)."
             fi
           else
             echo "Signing disabled for ${{ inputs.platform }}."
@@ -317,7 +317,7 @@ jobs:
           LOCKFILE_SHA256: ${{ inputs.lockfile_sha256 }}
           PUBLISH_RELEASE: ${{ inputs.publish_release }}
           SIGNED_ARTIFACT: ${{ steps.build_artifact.outputs.signed }}
-          ALLOW_UNSIGNED_WINDOWS_PUBLICATION: ${{ inputs.allow_unsigned_windows_publication }}
+          ALLOW_UNSIGNED_PUBLICATION: ${{ inputs.allow_unsigned_publication }}
         run: |
           node scripts/write-release-artifact-provenance.ts \
             --assets-dir release-publish \
@@ -330,7 +330,7 @@ jobs:
             --lockfile-sha256 "$LOCKFILE_SHA256" \
             --publication "$PUBLISH_RELEASE" \
             --signed "$SIGNED_ARTIFACT" \
-            --allow-unsigned-windows-publication "$ALLOW_UNSIGNED_WINDOWS_PUBLICATION" \
+            --allow-unsigned-publication "$ALLOW_UNSIGNED_PUBLICATION" \
             --expected-mac-team-id "$EXPECTED_MAC_TEAM_ID" \
             --expected-windows-publisher "$EXPECTED_WINDOWS_PUBLISHER" \
             --expected-windows-subject-dn "$EXPECTED_WINDOWS_SUBJECT_DN"
@@ -386,7 +386,7 @@ jobs:
           SOURCE_TAG: ${{ inputs.source_tag }}
           LOCKFILE_SHA256: ${{ inputs.lockfile_sha256 }}
           PUBLISH_RELEASE: ${{ inputs.publish_release }}
-          ALLOW_UNSIGNED_WINDOWS_PUBLICATION: ${{ inputs.allow_unsigned_windows_publication }}
+          ALLOW_UNSIGNED_PUBLICATION: ${{ inputs.allow_unsigned_publication }}
           EXPECTED_MAC_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           EXPECTED_WINDOWS_PUBLISHER: ${{ secrets.AZURE_TRUSTED_SIGNING_PUBLISHER_NAME }}
           EXPECTED_WINDOWS_SUBJECT_DN: ${{ secrets.AZURE_TRUSTED_SIGNING_SUBJECT_DN }}
@@ -402,7 +402,7 @@ jobs:
             --source-tag "$SOURCE_TAG" \
             --lockfile-sha256 "$LOCKFILE_SHA256" \
             --publication "$PUBLISH_RELEASE" \
-            --allow-unsigned-windows-publication "$ALLOW_UNSIGNED_WINDOWS_PUBLICATION" \
+            --allow-unsigned-publication "$ALLOW_UNSIGNED_PUBLICATION" \
             --expected-mac-team-id "$EXPECTED_MAC_TEAM_ID" \
             --expected-windows-publisher "$EXPECTED_WINDOWS_PUBLISHER" \
             --expected-windows-subject-dn "$EXPECTED_WINDOWS_SUBJECT_DN"
