@@ -293,6 +293,7 @@ import {
   collectRemoteInstallEntries,
   createTarGzStream,
   REMOTE_DEPS_PACK_FILE,
+  remoteDepsDescriptorPath,
   remoteDepsPackPath,
   remoteInstallDepsHash,
   remoteInstallVersion,
@@ -5936,10 +5937,11 @@ function registerRemoteSshHandlers(): void {
     spawn: (command, args, options) =>
       spawnProcess(command, args, { ...options, env: process.env }),
     installIdentity: () => {
-      const entries = collectRemoteInstallEntries(resolveAppRoot());
+      const appRoot = resolveAppRoot();
+      const entries = collectRemoteInstallEntries(appRoot);
       return {
         version: remoteInstallVersion(app.getVersion(), entries),
-        depsHash: remoteInstallDepsHash(entries),
+        depsHash: remoteInstallDepsHash(FS.readFileSync(remoteDepsDescriptorPath(appRoot), "utf8")),
       };
     },
     defaultRemoteRoot: remoteSshDefaultRoot,

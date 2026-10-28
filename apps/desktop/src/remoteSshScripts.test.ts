@@ -47,6 +47,17 @@ describe("remote script builders", () => {
     ).toThrow();
   });
 
+  it("never runs npm or patch on the host", () => {
+    for (const script of [
+      buildRemoteProbeScript(target),
+      buildRemoteInstallScript(target),
+      buildRemoteStartScript(target, { token: "abc123" }),
+    ]) {
+      expect(script).not.toMatch(/\bnpm\b/u);
+      expect(script).not.toContain("patch -p1");
+    }
+  });
+
   it.runIf(process.platform !== "win32")("produces syntactically valid sh", () => {
     for (const script of [
       buildRemoteProbeScript(target),
@@ -65,11 +76,11 @@ describe("report parsers", () => {
   it("reads the probe report past login banners", () => {
     const stdout = [
       "Welcome to devbox",
-      'SAINT_REMOTE {"kind":"probe","node":"v24.17.0","npm":true,"installed":false,"server":{"info":{"port":4100,"version":"1.2.3"},"token":"abc"}}',
+      'SAINT_REMOTE {"kind":"probe","node":"v24.17.0","tar":true,"installed":false,"server":{"info":{"port":4100,"version":"1.2.3"},"token":"abc"}}',
     ].join("\n");
     expect(parseRemoteProbeReport(stdout)).toEqual({
       nodeVersion: "v24.17.0",
-      npm: true,
+      tar: true,
       installed: false,
       depsInstalled: false,
       server: { port: 4100, version: "1.2.3", token: "abc" },
@@ -79,11 +90,11 @@ describe("report parsers", () => {
   it("treats a missing node and a malformed server as absent", () => {
     expect(
       parseRemoteProbeReport(
-        'SAINT_REMOTE {"kind":"probe","node":"","npm":false,"installed":true,"server":{"info":{"port":"x"}}}',
+        'SAINT_REMOTE {"kind":"probe","node":"","tar":false,"installed":true,"server":{"info":{"port":"x"}}}',
       ),
     ).toEqual({
       nodeVersion: null,
-      npm: false,
+      tar: false,
       installed: true,
       depsInstalled: false,
       server: null,
@@ -116,8 +127,9 @@ describe("report parsers", () => {
   });
 });
 
-// Runs the real scripts with `sh` against a throwaway HOME. npm and tmux are
-// stubs; node is the test runner's own binary, serving a fake server bundle.
+// Runs the real scripts with `sh` against a throwaway HOME. tmux is a stub, npm
+// a trap that records any call (none may happen); node is the test runner's own
+// binary, serving a fake server bundle.
 describe.runIf(process.platform !== "win32")("remote scripts end to end", () => {
   let home: string;
   let bin: string;
@@ -137,16 +149,7 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     FS.symlinkSync(process.execPath, Path.join(bin, "node"));
     FS.writeFileSync(
       Path.join(bin, "npm"),
-      [
-        "#!/bin/sh",
-        'echo "$*" >>"$HOME/npm-runs"',
-        "mkdir -p node_modules/@pierre/diffs node_modules/@anthropic-ai/claude-agent-sdk-linux-x64",
-        'printf "old\\n" >node_modules/@pierre/diffs/index.js',
-        ": >node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude",
-        "here=$(node -p 'process.platform + \"-\" + process.arch')",
-        'mkdir -p "node_modules/node-pty/prebuilds/$here" node_modules/node-pty/prebuilds/win32-x64',
-        "",
-      ].join("\n"),
+      ["#!/bin/sh", 'echo "$*" >>"$HOME/npm-runs"', "exit 1", ""].join("\n"),
       { mode: 0o755 },
     );
     FS.writeFileSync(
@@ -165,9 +168,38 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     FS.rmSync(home, { recursive: true, force: true });
   });
 
-  it("uploads, installs with patches, starts, reuses, and stops a server", async () => {
+  const bundle = async (entries: Array<{ path: string; contents: string | Buffer }>) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of createTarGzStream(
+      entries.map((entry) => ({ path: entry.path, contents: Buffer.from(entry.contents) })),
+    )) {
+      chunks.push(chunk as Buffer);
+    }
+    return Buffer.concat(chunks);
+  };
+  const hostPty = `@lydell/node-pty-${process.platform}-${process.arch}`;
+  // A miniature dependency pack: node-pty aliased to the prebuilt package, this
+  // host's binary and another host's, which the install drops.
+  const depsPack = () =>
+    bundle([
+      { path: "node_modules/node-pty/package.json", contents: '{"name":"@lydell/node-pty"}' },
+      { path: `node_modules/${hostPty}/package.json`, contents: "{}" },
+      { path: "node_modules/@lydell/node-pty-sunos-sparc/package.json", contents: "{}" },
+      { path: "node_modules/open/index.js", contents: "patched\n" },
+    ]);
+  const npmRuns = () =>
+    FS.existsSync(Path.join(home, "npm-runs"))
+      ? FS.readFileSync(Path.join(home, "npm-runs"), "utf8").trim().split("\n").length
+      : 0;
+
+  it("uploads, unpacks the dependency pack, starts, reuses, and stops a server", async () => {
     const probe = parseRemoteProbeReport(run(buildRemoteProbeScript(target)).stdout);
-    expect(probe).toMatchObject({ npm: true, installed: false, server: null });
+    expect(probe).toMatchObject({
+      tar: true,
+      installed: false,
+      depsInstalled: false,
+      server: null,
+    });
     expect(probe?.nodeVersion).toMatch(/^v\d+\./);
 
     const server = [
@@ -176,24 +208,20 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
       "const token = process.env.SAINT_AUTH_TOKEN;",
       'createServer((req, res) => { res.end(req.url === "/health" ? token : "x"); }).listen(port, "127.0.0.1");',
     ].join("\n");
-    const patch = ["--- a/index.js", "+++ b/index.js", "@@ -1 +1 @@", "-old", "+patched", ""].join(
-      "\n",
+    const upload = run(
+      buildRemoteUploadCommand(target),
+      await bundle([
+        { path: "dist/index.mjs", contents: server },
+        { path: "package.json", contents: "{}" },
+        { path: "deps.tar.gz", contents: await depsPack() },
+      ]),
     );
-    const chunks: Buffer[] = [];
-    for await (const chunk of createTarGzStream([
-      { path: "dist/index.mjs", contents: Buffer.from(server) },
-      { path: "package.json", contents: Buffer.from("{}") },
-      { path: "patches/index.tsv", contents: Buffer.from("@pierre/diffs\tdiffs.patch\n") },
-      { path: "patches/diffs.patch", contents: Buffer.from(patch) },
-    ])) {
-      chunks.push(chunk as Buffer);
-    }
-    const upload = run(buildRemoteUploadCommand(target), Buffer.concat(chunks));
     expect(upload.stderr).toBe("");
     expect(upload.status).toBe(0);
 
     const install = run(buildRemoteInstallScript(target));
     expect(install.status).toBe(0);
+    expect(install.stderr).toContain("Unpacking the dependencies Saint uploaded.");
     expect(hasRemoteReport(install.stdout, "installed")).toBe(true);
     const installDir = Path.join(home, target.storeRoot, "versions", target.version);
     // node_modules links to the shared dependency folder for this ABI.
@@ -201,19 +229,16 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     expect(link).toMatch(
       new RegExp(`^\\.\\./\\.\\./deps/${target.depsHash}-[a-z]+-[^/]+-node\\d+/node_modules$`, "u"),
     );
-    expect(
-      FS.readFileSync(Path.join(installDir, "node_modules/@pierre/diffs/index.js"), "utf8"),
-    ).toBe("patched\n");
-    expect(FS.readFileSync(Path.join(home, "npm-runs"), "utf8")).toContain("--omit=optional");
-    // Only this platform's node-pty prebuilds stay.
-    expect(FS.readdirSync(Path.join(installDir, "node_modules/node-pty/prebuilds"))).toEqual([
-      `${process.platform}-${process.arch}`,
+    // The pack arrives patched; the host runs neither npm nor patch.
+    expect(FS.readFileSync(Path.join(installDir, "node_modules/open/index.js"), "utf8")).toBe(
+      "patched\n",
+    );
+    expect(npmRuns()).toBe(0);
+    // Only this host's node-pty binary stays.
+    expect(FS.readdirSync(Path.join(installDir, "node_modules/@lydell"))).toEqual([
+      hostPty.slice("@lydell/".length),
     ]);
-    // The host's `claude` runs agents, so the SDK's bundled binary is dropped.
-    expect(FS.existsSync(Path.join(installDir, "node_modules/@anthropic-ai"))).toBe(true);
-    expect(
-      FS.existsSync(Path.join(installDir, "node_modules/@anthropic-ai/claude-agent-sdk-linux-x64")),
-    ).toBe(false);
+    expect(FS.existsSync(Path.join(installDir, "deps.tar.gz"))).toBe(false);
     expect(FS.existsSync(Path.join(home, target.remoteRoot, "staging"))).toBe(false);
 
     const start = run(buildRemoteStartScript(target, { token: "tok123" }));
@@ -242,25 +267,36 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     expect(parseRemoteProbeReport(run(buildRemoteProbeScript(target)).stdout)?.server).toBeNull();
   }, 90_000);
 
-  it("fails the install when a patch no longer applies", async () => {
-    const chunks: Buffer[] = [];
-    for await (const chunk of createTarGzStream([
-      { path: "package.json", contents: Buffer.from("{}") },
-      { path: "patches/index.tsv", contents: Buffer.from("@pierre/diffs\tdiffs.patch\n") },
-      {
-        path: "patches/diffs.patch",
-        contents: Buffer.from("--- a/index.js\n+++ b/index.js\n@@ -1 +1 @@\n-other\n+patched\n"),
-      },
-    ])) {
-      chunks.push(chunk as Buffer);
-    }
-    expect(run(buildRemoteUploadCommand(target), Buffer.concat(chunks)).status).toBe(0);
+  it("fails the install when the dependency pack was not uploaded", async () => {
+    const upload = run(
+      buildRemoteUploadCommand(target),
+      await bundle([{ path: "package.json", contents: "{}" }]),
+    );
+    expect(upload.status).toBe(0);
     const install = run(buildRemoteInstallScript(target));
     expect(install.status).not.toBe(0);
-    expect(install.stderr).toContain("Could not apply diffs.patch");
+    expect(install.stderr).toContain("did not upload its dependency pack");
+    expect(npmRuns()).toBe(0);
     expect(
       FS.existsSync(Path.join(home, target.storeRoot, "versions", target.version, ".installed")),
     ).toBe(false);
+  });
+
+  it("fails the install when the pack has no node-pty binary for this host", async () => {
+    const pack = await bundle([
+      { path: "node_modules/@lydell/node-pty-sunos-sparc/package.json", contents: "{}" },
+    ]);
+    const upload = run(
+      buildRemoteUploadCommand(target),
+      await bundle([
+        { path: "package.json", contents: "{}" },
+        { path: "deps.tar.gz", contents: pack },
+      ]),
+    );
+    expect(upload.status).toBe(0);
+    const install = run(buildRemoteInstallScript(target));
+    expect(install.status).not.toBe(0);
+    expect(install.stderr).toContain("no terminal (node-pty) binary");
   });
 
   it("shares one install across folders and keeps only versions a server runs", async () => {
@@ -269,14 +305,15 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
       'const port = Number(process.argv[process.argv.indexOf("--port") + 1]);',
       'createServer((req, res) => res.end("ok")).listen(port, "127.0.0.1");',
     ].join("\n");
-    const chunks: Buffer[] = [];
-    for await (const chunk of createTarGzStream([
-      { path: "dist/index.mjs", contents: Buffer.from(server) },
-      { path: "package.json", contents: Buffer.from("{}") },
-    ])) {
-      chunks.push(chunk as Buffer);
-    }
-    expect(run(buildRemoteUploadCommand(target), Buffer.concat(chunks)).status).toBe(0);
+    const upload = run(
+      buildRemoteUploadCommand(target),
+      await bundle([
+        { path: "dist/index.mjs", contents: server },
+        { path: "package.json", contents: "{}" },
+        { path: "deps.tar.gz", contents: await depsPack() },
+      ]),
+    );
+    expect(upload.status).toBe(0);
     expect(hasRemoteReport(run(buildRemoteInstallScript(target)).stdout, "installed")).toBe(true);
 
     // A second folder finds the version already installed in the shared store.
@@ -308,64 +345,29 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     run(buildRemoteStopScript(other));
   }, 90_000);
 
-  const bundle = async (entries: Array<{ path: string; contents: string | Buffer }>) => {
-    const chunks: Buffer[] = [];
-    for await (const chunk of createTarGzStream(
-      entries.map((entry) => ({ path: entry.path, contents: Buffer.from(entry.contents) })),
-    )) {
-      chunks.push(chunk as Buffer);
-    }
-    return Buffer.concat(chunks);
-  };
   const okServer = [
     'import { createServer } from "node:http";',
     'const port = Number(process.argv[process.argv.indexOf("--port") + 1]);',
     'createServer((req, res) => res.end("ok")).listen(port, "127.0.0.1");',
   ].join("\n");
+  let unpacks = 0;
   const install = async (scriptTarget: typeof target, server = okServer) => {
     const upload = run(
       buildRemoteUploadCommand(scriptTarget),
       await bundle([
         { path: "dist/index.mjs", contents: server },
         { path: "package.json", contents: "{}" },
+        { path: "deps.tar.gz", contents: await depsPack() },
       ]),
     );
     expect(upload.status).toBe(0);
     const result = run(buildRemoteInstallScript(scriptTarget));
     expect(result.status).toBe(0);
     expect(hasRemoteReport(result.stdout, "installed")).toBe(true);
+    if (result.stderr.includes("Unpacking the dependencies")) unpacks += 1;
   };
-  const npmRuns = () =>
-    FS.existsSync(Path.join(home, "npm-runs"))
-      ? FS.readFileSync(Path.join(home, "npm-runs"), "utf8").trim().split("\n").length
-      : 0;
-
-  it("installs from the uploaded dependency pack on a host without npm", async () => {
-    FS.rmSync(Path.join(bin, "npm"));
-    const pack = await bundle([
-      { path: "node_modules/node-pty/package.json", contents: '{"name":"@lydell/node-pty"}' },
-      { path: "node_modules/@lydell/node-pty-linux-x64/package.json", contents: "{}" },
-      { path: "node_modules/@lydell/node-pty-sunos-sparc/package.json", contents: "{}" },
-    ]);
-    const upload = run(
-      buildRemoteUploadCommand(target),
-      await bundle([
-        { path: "dist/index.mjs", contents: okServer },
-        { path: "package.json", contents: "{}" },
-        { path: "deps.tar.gz", contents: pack },
-      ]),
-    );
-    expect(upload.status).toBe(0);
-    const result = run(buildRemoteInstallScript(target));
-    expect(result.stderr).toContain("No npm on this host");
-    expect(hasRemoteReport(result.stdout, "installed")).toBe(true);
-    expect(npmRuns()).toBe(0);
-    const modules = Path.join(home, target.storeRoot, "versions", target.version, "node_modules");
-    expect(FS.existsSync(Path.join(modules, "node-pty/package.json"))).toBe(true);
-    expect(FS.existsSync(Path.join(modules, "@lydell/node-pty-sunos-sparc"))).toBe(false);
-    expect(
-      FS.existsSync(Path.join(home, target.storeRoot, "versions", target.version, "deps.tar.gz")),
-    ).toBe(false);
+  beforeEach(() => {
+    unpacks = 0;
   });
 
   it("stops an earlier install of the folder that is still running", async () => {
@@ -386,16 +388,16 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
 
   it("reuses installed dependencies for a new version and moves links on a new hash", async () => {
     await install(target);
-    expect(npmRuns()).toBe(1);
+    expect(unpacks).toBe(1);
 
-    // A rebuild with the same npm manifest installs no dependencies again.
+    // A rebuild with the same dependency pack unpacks nothing again.
     const next = { ...target, version: "1.2.4" };
     expect(parseRemoteProbeReport(run(buildRemoteProbeScript(next)).stdout)).toMatchObject({
       installed: false,
       depsInstalled: true,
     });
     await install(next);
-    expect(npmRuns()).toBe(1);
+    expect(unpacks).toBe(1);
 
     // New dependencies for an installed version relink it in place.
     const relinked = { ...target, depsHash: "fedcba987654" };
@@ -404,7 +406,8 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
       depsInstalled: false,
     });
     await install(relinked);
-    expect(npmRuns()).toBe(2);
+    expect(unpacks).toBe(2);
+    expect(npmRuns()).toBe(0);
     const versionDir = Path.join(home, target.storeRoot, "versions", target.version);
     expect(FS.readlinkSync(Path.join(versionDir, "node_modules"))).toContain("/fedcba987654-");
     expect(parseRemoteProbeReport(run(buildRemoteProbeScript(relinked)).stdout)?.installed).toBe(

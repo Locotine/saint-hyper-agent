@@ -70,12 +70,12 @@ Saint (Stable and Beta) can run a server on another machine and open it in its o
 
 Open **Settings → Remote hosts**, enter an alias from `~/.ssh/config` (or `user@host`), and select **Connect**. The desktop app:
 
-1. Opens one shared SSH connection (`ControlMaster`, kept 120 s after its last use; not on Windows) and runs a probe over it with `ssh -o BatchMode=yes` in your login shell to check Node.js, npm, and any server already running.
-2. If this build is missing, uploads the remote server bundle the app ships (`apps/server/dist/remote`, with every pure-JavaScript dependency inlined, plus the web client). Only the packages that must stay on disk (`node-pty`, `typescript`, the Claude Agent SDK, `open`, `@xterm/headless`) are installed with `npm install --omit=dev --omit=optional`, once per dependency set, platform, and Node.js ABI, into `deps/`. Later builds with the same dependencies reuse that folder and run no npm at all. A host without npm (no sudo, no registry access) gets the dependencies from the app instead: every desktop build packs them once (`apps/server/remote-install/deps.tar.gz`, about 13 MB, with node-pty from `@lydell/node-pty`, whose prebuilt binaries cover macOS and Linux on arm64 and x64), and the host only unpacks them with `tar`. The install applies the repository's patches for those packages with `patch` and fails if one no longer applies; patched packages that are inlined are checked when the bundle is built. It leaves out the Claude Code binary bundled with the Agent SDK and keeps only the host's own `node-pty` prebuilds.
+1. Opens one shared SSH connection (`ControlMaster`, kept 120 s after its last use; not on Windows) and runs a probe over it with `ssh -o BatchMode=yes` in your login shell to check Node.js, `tar`, and any server already running.
+2. If this build is missing, uploads the remote server bundle the app ships (`apps/server/dist/remote`, with every pure-JavaScript dependency inlined, plus the web client). The packages that must stay on disk (`node-pty`, `typescript`, the Claude Agent SDK, `open`, `@xterm/headless`) come from a dependency pack committed in the repository (`apps/server/remote-deps/deps.tar.gz`, about 13 MB): their exact workspace versions with the repository's patches already applied, node-pty from `@lydell/node-pty`, whose prebuilt N-API binaries cover macOS and Linux on arm64 and x64, and without the Claude Code binary bundled with the Agent SDK. The host unpacks it with `tar` once per pack, platform, and Node.js ABI into `deps/` and keeps only its own node-pty binary. No host and no desktop runs npm, `patch`, or a compiler; later builds with the same pack upload and unpack no dependencies at all.
 3. Starts `node --max-old-space-size=1024 --max-semi-space-size=8 dist/index.mjs --mode web --host 127.0.0.1 --port <free port>` in the tmux session `<folder name>` (falls back to `nohup` without tmux), with `SAINT_PROVIDERS=codex,claudeAgent`. It also removes installed versions that no server runs (checked with `pgrep`) and dependency folders no remaining version uses.
 4. Forwards a local loopback port with `ssh -N -L` (its own connection) and opens a window whose backend is that port.
 
-Each step is written to `desktop-main.log` (`[remote-ssh] <host> <phase> +<ms>`). **Disconnect** during a step stops its ssh at once, and a timed-out step reports the last stage it reached (for example `Running npm install in …`). Killing ssh sends the remote shell no signal, so the next install first stops an earlier install of the same folder that is still running.
+Each step is written to `desktop-main.log` (`[remote-ssh] <host> <phase> +<ms>`). **Disconnect** during a step stops its ssh at once, and a timed-out step reports the last stage it reached (for example `Unpacking the dependencies Saint uploaded.`). Killing ssh sends the remote shell no signal, so the next install first stops an earlier install of the same folder that is still running.
 
 To keep a host that many people share light, the remote server releases what it does not use:
 
@@ -96,15 +96,15 @@ The remote server listens only on the remote loopback interface. The auth token 
 
 Remote layout, relative to the remote home (shared folder `.saint-remote`, `.saint-beta-remote` for Beta):
 
-| Path                                 | Contents                                                                                          |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `versions/<build>/`                  | Server bundle, shared by every desktop and remote folder; `node_modules` links into `deps/`       |
-| `deps/<hash>-<os>-<arch>-node<abi>/` | npm install of the bundle's external packages, shared by every version with the same dependencies |
-| `clients/<client-id>/home/`          | `SAINT_HOME` of this desktop's remote server (database, settings, threads)                        |
-| `clients/<client-id>/run/`           | `server.sh`, `server.pid`, `server.json`, `token`, `server.log`                                   |
-| `clients/<client-id>/staging/`       | Upload and `npm install` in progress; removed when the version is published to `versions/`        |
+| Path                                 | Contents                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `versions/<build>/`                  | Server bundle, shared by every desktop and remote folder; `node_modules` links into `deps/` |
+| `deps/<hash>-<os>-<arch>-node<abi>/` | Unpacked dependency pack, shared by every version built with the same pack                  |
+| `clients/<client-id>/home/`          | `SAINT_HOME` of this desktop's remote server (database, settings, threads)                  |
+| `clients/<client-id>/run/`           | `server.sh`, `server.pid`, `server.json`, `token`, `server.log`                             |
+| `clients/<client-id>/staging/`       | Upload and unpack in progress; removed when the version is published to `versions/`         |
 
-`<build>` is the app version plus the first 12 hex digits of a SHA-256 of the server bundle (for example `1.0.12-3f2a9c1b7d4e`). A rebuild that keeps the version number therefore installs and starts its own server instead of reusing an older one, and the older install is removed once no server runs it. `<hash>` covers the npm manifest and its patches only, and `<abi>` is `process.versions.modules` of the host's `node`, so upgrading Node.js on the host installs matching native modules on the next connect.
+`<build>` is the app version plus the first 12 hex digits of a SHA-256 of the server bundle (for example `1.0.12-3f2a9c1b7d4e`). A rebuild that keeps the version number therefore installs and starts its own server instead of reusing an older one, and the older install is removed once no server runs it. `<hash>` is the first 12 hex digits of the dependency pack's SHA-256 (recorded in `apps/server/remote-deps/deps.json`), and `<abi>` is `process.versions.modules` of the host's `node`, so upgrading Node.js on the host unpacks the pack again on the next connect.
 
 An administrator can install a build once for every account of a host. Copy a connected account's `versions/<build>` and the `deps/` folder it links to into one read-only folder (for example `cp -R ~/.saint-beta-remote/versions ~/.saint-beta-remote/deps <shared>/`, which keeps the relative links), and set `SAINT_REMOTE_SHARED_STORE=<shared>` (an absolute path) in the environment of every user's login shell. A desktop whose build and Node.js ABI match a version there runs it in place and uploads and installs nothing; otherwise it installs into its own account as usual. Clients never write to or remove from the shared folder, so the administrator removes old builds. Make it writable only by the administrator: every account runs its code.
 
@@ -114,7 +114,9 @@ An administrator can install a build once for every account of a host. Copy a co
 
 The remote server runs only Codex and Claude, through the `codex` and `claude` CLIs on the host's `PATH` (or the binary paths set in **Settings → Providers**). Other providers are hidden in remote windows, and the server refuses them.
 
-Host requirements: key-based SSH (no password prompts), Node.js 22.16+ (23.11+ on the 23 line, or 24+) and `tar` on the login shell's `PATH`, and tmux (recommended). With npm on the host, the first install of a dependency set also needs `patch`, and on Linux a C/C++ toolchain and Python for `node-pty`; without npm, the bundled dependencies need none of these. Install and sign in to `codex` and/or `claude` on the host itself.
+Host requirements: key-based SSH (no password prompts), Node.js 22.16+ (23.11+ on the 23 line, or 24+) and `tar` on the login shell's `PATH`, and tmux (recommended). npm, `patch`, a compiler and registry access are not needed. Install and sign in to `codex` and/or `claude` on the host itself. Windows hosts are not supported yet: the install and start scripts are POSIX `sh`.
+
+The dependency pack changes only when a remote dependency, its patch, or its locked version changes. After such a change, run `bun run remote:deps-pack` on a machine with npm and commit `apps/server/remote-deps/`; `scripts/remote-deps-pack.test.ts` and the desktop artifact build fail while the committed pack is stale (`bun run remote:deps-pack -- --check` reports why).
 
 In a remote window, paths belong to the host:
 

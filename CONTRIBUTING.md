@@ -108,6 +108,12 @@ Electron or Undici, run `apps/desktop/src/httpRuntime.test.ts` under both Node a
 Electron with `ELECTRON_RUN_AS_NODE=1`. The test performs real loopback HTTP
 requests while injecting the socket error and also checks ordinary request failures.
 
+Remote SSH hosts install the server's external dependencies from the pack committed
+in `apps/server/remote-deps/`, never with npm. After changing `node-pty`,
+`typescript`, the Claude Agent SDK, `open` or `@xterm/headless` (their version,
+lockfile entry or patch), run `bun run remote:deps-pack` on a machine with npm and
+commit the folder; `scripts/remote-deps-pack.test.ts` fails until you do.
+
 Desktop stdio MCP proxies reuse Electron's executable and must explicitly set
 `ELECTRON_RUN_AS_NODE=1` in their launch configuration. Provider child environments
 strip that inherited flag, so relying on inheritance can launch the desktop GUI

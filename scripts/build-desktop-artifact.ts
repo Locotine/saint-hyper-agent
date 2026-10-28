@@ -38,10 +38,15 @@ import {
 import {
   createRemoteServerInstallManifest,
   parsePatchAddedLines,
-  remoteServerPatchIndex,
 } from "@saint/shared/remoteServerInstall";
 import { createDesktopArtifactIdentity } from "./lib/desktop-artifact-identity.ts";
-import { buildRemoteDepsPack } from "./lib/remote-deps-pack.ts";
+import {
+  checkRemoteDepsPack,
+  REMOTE_DEPS_DESCRIPTOR_FILE,
+  REMOTE_DEPS_DIR,
+  REMOTE_DEPS_PACK_FILE,
+  REMOTE_DEPS_REBUILD_HINT,
+} from "./lib/remote-deps-pack.ts";
 import { parseBooleanEnvValue } from "./lib/env-bool.ts";
 import { finalizeSignedMacDmg, rebuildUnsignedMacDmg } from "./lib/mac-dmg-finalize.ts";
 import { finalizeMacUpdateZip } from "./lib/mac-update-zip-finalize.ts";
@@ -834,8 +839,8 @@ const verifyStagedPatchedDependencies = Effect.fn("verifyStagedPatchedDependenci
   }
 });
 
-// Remote SSH hosts install the server with npm from the bundle the app ships, so
-// the app carries the npm manifest and the Bun patches npm would otherwise skip.
+// Remote SSH hosts unpack the dependency pack committed in apps/server/remote-deps
+// (no npm anywhere), next to the manifest the version folder keeps.
 // Read by apps/desktop/src/remoteSshBundle.ts (REMOTE_INSTALL_STAGE_DIR).
 const stageRemoteServerInstall = Effect.fn("stageRemoteServerInstall")(function* (
   repoRoot: string,
@@ -858,34 +863,25 @@ const stageRemoteServerInstall = Effect.fn("stageRemoteServerInstall")(function*
         cause,
       }),
   });
+  const problems = yield* Effect.try({
+    try: () => checkRemoteDepsPack(repoRoot),
+    catch: (cause) =>
+      new BuildScriptError({ message: "Could not check the remote dependency pack.", cause }),
+  });
+  if (problems.length > 0) {
+    return yield* new BuildScriptError({
+      message: `The committed remote dependency pack is stale. ${problems.join(" ")} ${REMOTE_DEPS_REBUILD_HINT}`,
+    });
+  }
   const stageDir = path.join(stageAppDir, "apps/server/remote-install");
-  yield* fs.makeDirectory(path.join(stageDir, "patches"), { recursive: true });
+  yield* fs.makeDirectory(stageDir, { recursive: true });
   yield* fs.writeFileString(
     path.join(stageDir, "package.json"),
     `${JSON.stringify(manifest.packageJson, null, 2)}\n`,
   );
-  for (const patch of manifest.patches) {
-    yield* fs.copyFile(
-      path.join(repoRoot, patch.patchPath),
-      path.join(stageDir, "patches", patch.fileName),
-    );
+  for (const file of [REMOTE_DEPS_PACK_FILE, REMOTE_DEPS_DESCRIPTOR_FILE]) {
+    yield* fs.copyFile(path.join(repoRoot, REMOTE_DEPS_DIR, file), path.join(stageDir, file));
   }
-  yield* fs.writeFileString(
-    path.join(stageDir, "patches/index.tsv"),
-    remoteServerPatchIndex(manifest.patches),
-  ); // Hosts without npm unpack this instead of installing (REMOTE_DEPS_PACK_FILE).
-  yield* Effect.try({
-    try: () =>
-      buildRemoteDepsPack(
-        `${JSON.stringify(manifest.packageJson, null, 2)}\n`,
-        path.join(stageDir, "deps.tar.gz"),
-      ),
-    catch: (cause) =>
-      new BuildScriptError({
-        message: "Could not pack the remote server dependencies (needs npm and the registry).",
-        cause,
-      }),
-  });
 });
 
 const installFrozenStageDependencies = Effect.fn("installFrozenStageDependencies")(function* (

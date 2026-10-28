@@ -1,0 +1,37 @@
+{
+  "sha256": "7947d66a86437764e4288e4b24803fff224b2c24df1e73192b22e5eda9bbc9f7",
+  "dependencies": {
+    "node-pty": "npm:@lydell/node-pty@1.2.0-beta.18",
+    "typescript": "5.9.3",
+    "@anthropic-ai/claude-agent-sdk": "0.3.296",
+    "open": "10.2.0",
+    "@xterm/headless": "6.0.0"
+  },
+  "overrides": {
+    "effect": "https://pkg.pr.new/Effect-TS/effect-smol/effect@8881a9b",
+    "axios": "^1.16.0",
+    "defu": "^6.1.5",
+    "fast-uri": "^3.1.2",
+    "follow-redirects": "^1.16.0",
+    "form-data": "^4.0.6",
+    "hono": "^4.12.25",
+    "ip-address": "^10.2.0",
+    "joi": "^18.2.1",
+    "lodash": "^4.18.1",
+    "postcss": "^8.5.10",
+    "protobufjs": "^7.6.3",
+    "qs": "^6.15.2",
+    "smol-toml": "^1.6.1",
+    "uuid": "^13.0.1",
+    "vite": "^8.1.4",
+    "ws": "^8.21.0",
+    "yaml": "^2.8.3"
+  },
+  "patches": {},
+  "nodePtyHosts": [
+    "darwin-arm64",
+    "darwin-x64",
+    "linux-arm64",
+    "linux-x64"
+  ]
+}

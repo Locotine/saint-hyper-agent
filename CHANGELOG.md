@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Remote SSH hosts never run npm. The server's external dependencies ship as a pack committed in `apps/server/remote-deps/` (exact workspace versions, patches applied, node-pty binaries for macOS and Linux on arm64 and x64), and every install unpacks it with `tar`, even on a host that has npm. Hosts need only Node.js 22.16+, `tar` and tmux (recommended); desktop builds no longer need npm or the registry for it. An `npm install` could hang forever on hosts whose `npm` shims call each other.
+- After changing a remote dependency, its lockfile version or its patch, run `bun run remote:deps-pack` and commit the folder; the desktop artifact build and `scripts/remote-deps-pack.test.ts` fail while the pack is stale.
+
 ## 1.0.14 — 2026-10-28
 
 **Remote SSH hosts without npm.**

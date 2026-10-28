@@ -71,7 +71,7 @@ function fakeSpawn(
 }
 
 const PROBE_FRESH =
-  'SAINT_REMOTE {"kind":"probe","node":"v24.13.1","npm":true,"installed":false,"server":null}';
+  'SAINT_REMOTE {"kind":"probe","node":"v24.13.1","tar":true,"installed":false,"server":null}';
 
 function makeManager(
   spawn: RemoteSshManagerDependencies["spawn"],
@@ -84,6 +84,7 @@ function makeManager(
     defaultRemoteRoot: ".saint-remote",
     storeRoot: ".saint-remote",
     createInstallBundle: () => Readable.from([Buffer.from("bundle")]),
+    hasDepsPack: () => true,
     reserveLocalPort: async () => 45_000,
     waitForHttpReady: async () => undefined,
     createToken: () => "tok",
@@ -96,7 +97,7 @@ function makeManager(
 
 function scriptKind(stdin: string): string {
   if (stdin.includes('report "{\\"kind\\":\\"probe')) return "probe";
-  if (stdin.includes("npm install")) return "install";
+  if (stdin.includes("Unpacking the dependencies")) return "install";
   if (stdin.includes("tmux new-session")) return "start";
   if (stdin.includes(`report '{"kind":"stopped"}'`)) return "stop";
   return stdin === "bundle" ? "upload" : "unknown";
@@ -157,7 +158,7 @@ describe("RemoteSshManager", () => {
       seen.push(scriptKind(stdin));
       return {
         stdout:
-          'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+          'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","tar":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
       };
     });
     const { manager } = makeManager(spawn);
@@ -188,7 +189,7 @@ describe("RemoteSshManager", () => {
   it("refuses hosts whose Node.js lacks the node:sqlite APIs", async () => {
     const { spawn } = fakeSpawn(() => ({
       stdout:
-        'SAINT_REMOTE {"kind":"probe","node":"v22.15.0","npm":true,"installed":false,"server":null}',
+        'SAINT_REMOTE {"kind":"probe","node":"v22.15.0","tar":true,"installed":false,"server":null}',
     }));
     const { manager, states } = makeManager(spawn);
     await expect(manager.connect({ host: "devbox" })).rejects.toThrow(
@@ -224,7 +225,7 @@ describe("RemoteSshManager", () => {
       return scriptKind(stdin) === "probe"
         ? {
             stdout:
-              'SAINT_REMOTE {"kind":"probe","node":"v22.23.2","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+              'SAINT_REMOTE {"kind":"probe","node":"v22.23.2","tar":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
           }
         : {};
     });
@@ -265,7 +266,7 @@ describe("RemoteSshManager", () => {
       return scriptKind(stdin) === "probe"
         ? {
             stdout:
-              'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+              'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","tar":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
           }
         : {};
     });
@@ -290,7 +291,7 @@ describe("RemoteSshManager", () => {
       return scriptKind(stdin) === "probe"
         ? {
             stdout:
-              'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+              'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","tar":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
           }
         : {};
     });
@@ -313,7 +314,7 @@ describe("RemoteSshManager", () => {
       if (kind === "stop") return { stdout: 'SAINT_REMOTE {"kind":"stopped"}' };
       return {
         stdout:
-          'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","npm":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+          'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","tar":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
       };
     });
     const { manager, states } = makeManager(spawn);
@@ -344,51 +345,62 @@ describe("RemoteSshManager", () => {
     expect(install?.child.kill).toHaveBeenCalled();
   });
 
-  it("installs without npm when this build's dependencies are already on the host", async () => {
+  it("uploads no dependency pack when this build's dependencies are already on the host", async () => {
     const seen: string[] = [];
     const { spawn } = fakeSpawn((args, stdin) => {
       if (args.includes("-N")) return "tunnel";
       const kind = scriptKind(stdin);
       seen.push(kind);
       if (kind === "probe") {
-        return { stdout: PROBE_FRESH.replace('"npm":true', '"npm":false,"deps":true') };
-      }
-      if (kind === "install") return { stdout: 'SAINT_REMOTE {"kind":"installed"}' };
-      if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
-      return {};
-    });
-    const { manager } = makeManager(spawn);
-    await expect(manager.connect({ host: "devbox" })).resolves.toMatchObject({
-      phase: "connected",
-    });
-    expect(seen).toEqual(["probe", "upload", "install", "start"]);
-  });
-
-  it("still requires npm when the dependencies are missing and no pack ships", async () => {
-    const { spawn } = fakeSpawn(() => ({
-      stdout: PROBE_FRESH.replace('"npm":true', '"npm":false,"deps":false'),
-    }));
-    const { manager } = makeManager(spawn);
-    await expect(manager.connect({ host: "devbox" })).rejects.toThrow(/npm is required/);
-  });
-
-  it("uploads the offline dependency pack to a host without npm", async () => {
-    const { spawn } = fakeSpawn((args, stdin) => {
-      if (args.includes("-N")) return "tunnel";
-      const kind = scriptKind(stdin);
-      if (kind === "probe") {
-        return { stdout: PROBE_FRESH.replace('"npm":true', '"npm":false,"deps":false') };
+        return { stdout: PROBE_FRESH.replace('"tar":true', '"tar":true,"deps":true') };
       }
       if (kind === "install") return { stdout: 'SAINT_REMOTE {"kind":"installed"}' };
       if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
       return {};
     });
     const createInstallBundle = vi.fn(() => Readable.from([Buffer.from("bundle")]));
-    const { manager } = makeManager(spawn, { createInstallBundle, hasDepsPack: () => true });
+    const { manager } = makeManager(spawn, { createInstallBundle });
+    await expect(manager.connect({ host: "devbox" })).resolves.toMatchObject({
+      phase: "connected",
+    });
+    expect(seen).toEqual(["probe", "upload", "install", "start"]);
+    expect(createInstallBundle).toHaveBeenCalledWith(false);
+  });
+
+  it("uploads the dependency pack even when the host has npm", async () => {
+    const { spawn } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      const kind = scriptKind(stdin);
+      if (kind === "probe") {
+        // An older probe field is ignored: npm never decides how a host installs.
+        return { stdout: PROBE_FRESH.replace('"tar":true', '"tar":true,"npm":true,"deps":false') };
+      }
+      if (kind === "install") return { stdout: 'SAINT_REMOTE {"kind":"installed"}' };
+      if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
+      return {};
+    });
+    const createInstallBundle = vi.fn(() => Readable.from([Buffer.from("bundle")]));
+    const { manager } = makeManager(spawn, { createInstallBundle });
     await expect(manager.connect({ host: "devbox" })).resolves.toMatchObject({
       phase: "connected",
     });
     expect(createInstallBundle).toHaveBeenCalledWith(true);
+  });
+
+  it("refuses to install when this build ships no dependency pack", async () => {
+    const { spawn } = fakeSpawn(() => ({ stdout: PROBE_FRESH }));
+    const { manager } = makeManager(spawn, { hasDepsPack: () => false });
+    await expect(manager.connect({ host: "devbox" })).rejects.toThrow(
+      /ships no remote dependency pack/u,
+    );
+  });
+
+  it("refuses to install on a host without tar", async () => {
+    const { spawn } = fakeSpawn(() => ({
+      stdout: PROBE_FRESH.replace('"tar":true', '"tar":false'),
+    }));
+    const { manager } = makeManager(spawn);
+    await expect(manager.connect({ host: "devbox" })).rejects.toThrow(/tar is required on devbox/u);
   });
 
   it("reconnects a connected host whose server no longer answers", async () => {

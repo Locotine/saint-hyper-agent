@@ -1,9 +1,9 @@
 // FILE: remoteSshBundle.ts
-// Purpose: Packs the server bundle the desktop already ships, plus an npm manifest and the
-//          dependency patches, into a gzipped tar stream for upload to a remote SSH host.
+// Purpose: Packs the server bundle the desktop already ships, plus its manifest and the
+//          committed dependency pack, into a gzipped tar stream for upload to a remote SSH host.
 // Layer: Desktop remote SSH utility
-// Exports: loadRemoteInstallManifest, collectRemoteInstallEntries, remoteInstallVersion,
-//          remoteInstallDepsHash, createTarGzStream
+// Exports: loadRemoteInstallPackageJson, collectRemoteInstallEntries, remoteInstallVersion,
+//          remoteDepsPackPath, remoteInstallDepsHash, createTarGzStream
 
 import * as Crypto from "node:crypto";
 import * as FS from "node:fs";
@@ -11,29 +11,41 @@ import * as Path from "node:path";
 import { Readable } from "node:stream";
 import * as Zlib from "node:zlib";
 
-import {
-  createRemoteServerInstallManifest,
-  remoteServerPatchIndex,
-  type RemoteServerPatch,
-} from "@saint/shared/remoteServerInstall";
+import { createRemoteServerInstallManifest } from "@saint/shared/remoteServerInstall";
 
 /**
  * Folder the desktop artifact build stages next to `apps/server/dist` with the
- * resolved `package.json` and `patches/` of the dependencies the remote
- * bundle keeps external. Source checkouts have no such folder
- * and derive the same content from the workspace manifests instead.
+ * resolved `package.json` and a copy of the committed dependency pack. Source
+ * checkouts have no such folder and read the same files from the repository.
  */
 export const REMOTE_INSTALL_STAGE_DIR = "apps/server/remote-install";
 
+/** The dependency pack committed in the repository (scripts/lib/remote-deps-pack.ts). */
+export const REMOTE_DEPS_REPO_DIR = "apps/server/remote-deps";
+
 /**
- * Gzipped `node_modules` of the remote dependencies, with node-pty binaries for
- * macOS and Linux on arm64 and x64, that the desktop build stages next to the
- * manifest (scripts/lib/remote-deps-pack.ts). Hosts without npm unpack it instead.
+ * Gzipped `node_modules` of the remote dependencies, patched, with node-pty
+ * binaries for macOS and Linux on arm64 and x64. Every host unpacks it with
+ * `tar`; no host or client runs npm.
  */
 export const REMOTE_DEPS_PACK_FILE = "deps.tar.gz";
+/** What the pack was built from, with its sha256 (`RemoteDepsLock`). */
+export const REMOTE_DEPS_DESCRIPTOR_FILE = "deps.json";
+
+/** The staged pack in a packaged app, otherwise the one committed in the checkout. */
+function remoteDepsDir(appRoot: string): string {
+  const staged = Path.join(appRoot, REMOTE_INSTALL_STAGE_DIR);
+  return FS.existsSync(Path.join(staged, REMOTE_DEPS_PACK_FILE))
+    ? staged
+    : Path.join(appRoot, REMOTE_DEPS_REPO_DIR);
+}
 
 export function remoteDepsPackPath(appRoot: string): string {
-  return Path.join(appRoot, REMOTE_INSTALL_STAGE_DIR, REMOTE_DEPS_PACK_FILE);
+  return Path.join(remoteDepsDir(appRoot), REMOTE_DEPS_PACK_FILE);
+}
+
+export function remoteDepsDescriptorPath(appRoot: string): string {
+  return Path.join(remoteDepsDir(appRoot), REMOTE_DEPS_DESCRIPTOR_FILE);
 }
 
 export interface RemoteInstallEntry {
@@ -42,38 +54,14 @@ export interface RemoteInstallEntry {
   readonly contents: Buffer;
 }
 
-interface RemoteInstallManifestFiles {
-  readonly packageJson: string;
-  readonly patches: ReadonlyArray<{ readonly fileName: string; readonly contents: Buffer }>;
-  readonly patchIndex: string;
-}
-
 function readJson(path: string): Record<string, unknown> {
   return JSON.parse(FS.readFileSync(path, "utf8")) as Record<string, unknown>;
 }
 
-/** The npm manifest and patches for this build, staged (packaged app) or derived (checkout). */
-export function loadRemoteInstallManifest(appRoot: string): RemoteInstallManifestFiles {
-  const stagedDir = Path.join(appRoot, REMOTE_INSTALL_STAGE_DIR);
-  if (FS.existsSync(Path.join(stagedDir, "package.json"))) {
-    const patchesDir = Path.join(stagedDir, "patches");
-    const patchIndex = FS.existsSync(Path.join(patchesDir, "index.tsv"))
-      ? FS.readFileSync(Path.join(patchesDir, "index.tsv"), "utf8")
-      : "";
-    const patches = patchIndex
-      .split("\n")
-      .map((line) => line.split("\t")[1]?.trim())
-      .filter((fileName): fileName is string => Boolean(fileName))
-      .map((fileName) => ({
-        fileName,
-        contents: FS.readFileSync(Path.join(patchesDir, fileName)),
-      }));
-    return {
-      packageJson: FS.readFileSync(Path.join(stagedDir, "package.json"), "utf8"),
-      patches,
-      patchIndex,
-    };
-  }
+/** The manifest the version folder keeps for this build, staged (packaged app) or derived (checkout). */
+export function loadRemoteInstallPackageJson(appRoot: string): string {
+  const staged = Path.join(appRoot, REMOTE_INSTALL_STAGE_DIR, "package.json");
+  if (FS.existsSync(staged)) return FS.readFileSync(staged, "utf8");
 
   const rootPackageJson = readJson(Path.join(appRoot, "package.json")) as {
     workspaces?: { catalog?: Record<string, unknown> };
@@ -92,14 +80,7 @@ export function loadRemoteInstallManifest(appRoot: string): RemoteInstallManifes
       ? { patchedDependencies: rootPackageJson.patchedDependencies }
       : {}),
   });
-  return {
-    packageJson: `${JSON.stringify(manifest.packageJson, null, 2)}\n`,
-    patches: manifest.patches.map((patch: RemoteServerPatch) => ({
-      fileName: patch.fileName,
-      contents: FS.readFileSync(Path.join(appRoot, patch.patchPath)),
-    })),
-    patchIndex: remoteServerPatchIndex(manifest.patches),
-  };
+  return `${JSON.stringify(manifest.packageJson, null, 2)}\n`;
 }
 
 function collectDirectory(root: string, prefix: string, entries: RemoteInstallEntry[]): void {
@@ -120,10 +101,10 @@ function collectDirectory(root: string, prefix: string, entries: RemoteInstallEn
 const REMOTE_DIST_ASSET_DIRS = ["client", "device-helper"];
 
 /**
- * Everything the remote needs to install and run the server: the remote bundle
- * (`apps/server/dist/remote`, every pure-JavaScript dependency inlined) as
- * `dist/`, the bundled web client and other runtime assets, and the npm
- * manifest and `patches/` for the few dependencies it keeps external. Reads go
+ * Everything the remote needs to run the server besides its dependency pack:
+ * the remote bundle (`apps/server/dist/remote`, every pure-JavaScript
+ * dependency inlined) as `dist/`, the bundled web client and other runtime
+ * assets, and the manifest of the few dependencies it keeps external. Reads go
  * through Electron's asar-aware fs, so this works from a packaged app.
  */
 export function collectRemoteInstallEntries(appRoot: string): RemoteInstallEntry[] {
@@ -134,18 +115,16 @@ export function collectRemoteInstallEntries(appRoot: string): RemoteInstallEntry
       `The Saint remote server bundle is missing at ${remoteDir}. Build apps/server first.`,
     );
   }
-  const manifest = loadRemoteInstallManifest(appRoot);
   const entries: RemoteInstallEntry[] = [];
   collectDirectory(remoteDir, "dist", entries);
   for (const assetDir of REMOTE_DIST_ASSET_DIRS) {
     const absolute = Path.join(distDir, assetDir);
     if (FS.existsSync(absolute)) collectDirectory(absolute, `dist/${assetDir}`, entries);
   }
-  entries.push({ path: "package.json", contents: Buffer.from(manifest.packageJson) });
-  entries.push({ path: "patches/index.tsv", contents: Buffer.from(manifest.patchIndex) });
-  for (const patch of manifest.patches) {
-    entries.push({ path: `patches/${patch.fileName}`, contents: patch.contents });
-  }
+  entries.push({
+    path: "package.json",
+    contents: Buffer.from(loadRemoteInstallPackageJson(appRoot)),
+  });
   return entries;
 }
 
@@ -171,14 +150,16 @@ export function remoteInstallVersion(
 }
 
 /**
- * Hash of what the host installs with npm (the manifest and its patches). Builds
- * that change only the bundle keep it, so their versions reuse one `deps/`
- * install instead of running npm again.
+ * Names the host's `deps/` folder after the committed pack (the sha256 in its
+ * `deps.json`). Builds that change only the bundle keep it, so their versions
+ * reuse one unpacked copy.
  */
-export function remoteInstallDepsHash(entries: readonly RemoteInstallEntry[]): string {
-  return hashEntries(
-    entries.filter((entry) => entry.path === "package.json" || entry.path.startsWith("patches/")),
-  );
+export function remoteInstallDepsHash(descriptorJson: string): string {
+  const descriptor = JSON.parse(descriptorJson) as { sha256?: unknown };
+  if (typeof descriptor.sha256 !== "string" || !/^[0-9a-f]{64}$/u.test(descriptor.sha256)) {
+    throw new Error("The remote dependency pack descriptor has no sha256.");
+  }
+  return descriptor.sha256.slice(0, 12);
 }
 
 const TAR_BLOCK = 512;

@@ -29,17 +29,18 @@ export interface RemoteSshScriptTarget {
   readonly storeRoot: string;
   readonly version: string;
   /**
-   * Hash of the npm manifest and patches (see `remoteInstallDepsHash`). With the
-   * host's platform and Node ABI it names the `deps/` install versions share.
+   * Hash of the dependency pack (see `remoteInstallDepsHash`). With the host's
+   * platform and Node ABI it names the `deps/` folder versions share.
    */
   readonly depsHash: string;
 }
 
 export interface RemoteSshProbeReport {
   readonly nodeVersion: string | null;
-  readonly npm: boolean;
+  /** `tar` is on the login shell's PATH; installing unpacks with it. */
+  readonly tar: boolean;
   readonly installed: boolean;
-  /** The npm dependencies of this build are installed for the host's Node ABI. */
+  /** This build's dependency pack is unpacked for the host's platform and Node ABI. */
   readonly depsInstalled: boolean;
   /** Present when a server from this install folder is alive on the remote. */
   readonly server: {
@@ -141,13 +142,13 @@ const SERVER_ALIVE_FUNCTION = `server_alive() {
   return 1
 }`;
 
-/** Reports node/npm availability, whether this version is installed, and any live server. */
+/** Reports node/tar availability, whether this version is installed, and any live server. */
 export function buildRemoteProbeScript(target: RemoteSshScriptTarget): string {
   return `${preamble(target)}
 ${SERVER_ALIVE_FUNCTION}
 node_version=$(node --version 2>/dev/null || true)
-npm_ok=false
-if command -v npm >/dev/null 2>&1; then npm_ok=true; fi
+tar_ok=false
+if command -v tar >/dev/null 2>&1; then tar_ok=true; fi
 installed=false
 if [ "$install_dir" != "$store/$version" ] || version_ready "$store_root"; then installed=true; fi
 deps=false
@@ -156,7 +157,7 @@ server=null
 if server_alive && [ -f "$run_dir/server.json" ] && [ -f "$run_dir/token" ]; then
   server="{\\"info\\":$(cat "$run_dir/server.json"),\\"token\\":\\"$(cat "$run_dir/token")\\"}"
 fi
-report "{\\"kind\\":\\"probe\\",\\"node\\":\\"$node_version\\",\\"npm\\":$npm_ok,\\"installed\\":$installed,\\"deps\\":$deps,\\"server\\":$server}"
+report "{\\"kind\\":\\"probe\\",\\"node\\":\\"$node_version\\",\\"tar\\":$tar_ok,\\"installed\\":$installed,\\"deps\\":$deps,\\"server\\":$server}"
 `;
 }
 
@@ -200,22 +201,19 @@ try {
 }`;
 
 /**
- * Installs the bundle's few external dependencies with npm into `deps/`, once
- * per dependency hash, platform and Node ABI (versions with the same manifest
- * reuse it, as Orca's relay reuses its native folder). It applies the Bun
- * patches listed in `patches/index.tsv` (npm never reads
- * `patchedDependencies`), skips optional packages (the Agent SDK's bundled
- * Claude Code binary; the server runs the host's `claude`), and keeps only this
- * platform's node-pty prebuilds. The version folder then links its
- * `node_modules` there and is published with one atomic rename. A patch that no
- * longer applies fails the install rather than shipping an unpatched runtime.
+ * Unpacks the dependency pack the app uploaded (patched, with node-pty
+ * binaries for every supported host) into `deps/`, once per pack, platform and
+ * Node ABI, so versions with the same pack reuse it, as Orca's relay reuses its
+ * native folder. No host runs npm, patch or a compiler. It keeps only this
+ * host's node-pty binary; the version folder then links its `node_modules`
+ * there and is published with one atomic rename.
  */
 export function buildRemoteInstallScript(target: RemoteSshScriptTarget): string {
   return `${preamble(target)}
 ${PUBLISH_FUNCTION}
 mkdir -p "$store" "$deps_store" "$root/staging"
 # Killing the local ssh (timeout, Cancel) sends the remote shell no signal, so an
-# earlier install of this folder can still be running npm in the staging below.
+# earlier install of this folder can still be running in the staging below.
 pid_file="$root/staging/install.pid"
 old_pid=$(cat "$pid_file" 2>/dev/null || true)
 if [ -n "$old_pid" ] && [ "$old_pid" != "$$" ] && kill -0 "$old_pid" 2>/dev/null; then
@@ -230,46 +228,21 @@ if [ -n "$old_pid" ] && [ "$old_pid" != "$$" ] && kill -0 "$old_pid" 2>/dev/null
 fi
 echo "$$" >"$pid_file"
 if [ ! -f "$deps_store/$deps_key/.installed" ]; then
+  if [ ! -f "$staging/deps.tar.gz" ]; then
+    echo "Saint did not upload its dependency pack; connect again to upload it." >&2
+    exit 1
+  fi
   deps_staging="$root/staging/deps-$deps_key"
   rm -rf "$deps_staging"
   mkdir -p "$deps_staging"
-  cp "$staging/package.json" "$deps_staging/package.json"
-  if [ -d "$staging/patches" ]; then cp -R "$staging/patches" "$deps_staging/patches"; fi
   cd "$deps_staging"
-  if [ -f "$staging/deps.tar.gz" ]; then
-    # Hosts without npm (no sudo, no registry) unpack the dependencies the app ships.
-    echo "No npm on this host; unpacking the dependencies Saint uploaded." >&2
-    tar -xzf "$staging/deps.tar.gz"
-  else
-    echo "Running npm install in $deps_staging (log: npm-install.log)." >&2
-    if ! npm install --omit=dev --omit=optional --no-audit --no-fund --loglevel=error >npm-install.log 2>&1; then
-      tail -n 40 npm-install.log >&2
-      exit 1
-    fi
-  fi
-  echo "Dependencies ready; applying dependency patches." >&2
-  if [ -f patches/index.tsv ]; then
-    tab=$(printf '\\t')
-    while IFS="$tab" read -r package file; do
-      [ -n "$package" ] || continue
-      [ -d "node_modules/$package" ] || continue
-      if ! command -v patch >/dev/null 2>&1; then
-        echo "The 'patch' command is required to install Saint on this host." >&2
-        exit 1
-      fi
-      if ! patch -p1 --forward --batch --silent -d "node_modules/$package" <"patches/$file" >&2; then
-        echo "Could not apply $file to $package." >&2
-        exit 1
-      fi
-    done <patches/index.tsv
-  fi
-  rm -rf node_modules/@anthropic-ai/claude-agent-sdk-*
+  echo "Unpacking the dependencies Saint uploaded." >&2
+  tar -xzf "$staging/deps.tar.gz"
   prebuild=$(node -p 'process.platform + "-" + process.arch')
-  for platform_dir in node_modules/node-pty/prebuilds/*; do
-    [ -e "$platform_dir" ] || continue
-    [ "\${platform_dir##*/}" = "$prebuild" ] || rm -rf "$platform_dir"
-  done
-  # The uploaded pack carries @lydell/node-pty binaries for every supported host.
+  if [ ! -d "node_modules/@lydell/node-pty-$prebuild" ]; then
+    echo "Saint ships no terminal (node-pty) binary for $prebuild." >&2
+    exit 1
+  fi
   for platform_dir in node_modules/@lydell/node-pty-*; do
     [ -e "$platform_dir" ] || continue
     [ "\${platform_dir##*/node-pty-}" = "$prebuild" ] || rm -rf "$platform_dir"
@@ -279,7 +252,7 @@ if [ ! -f "$deps_store/$deps_key/.installed" ]; then
   publish "$deps_staging" "$deps_store/$deps_key"
 fi
 cd "$staging"
-rm -rf node_modules patches deps.tar.gz
+rm -rf node_modules deps.tar.gz
 ln -s "$deps_link" node_modules
 : >.installed
 cd "$HOME"
@@ -449,7 +422,7 @@ export function parseRemoteProbeReport(stdout: string): RemoteSshProbeReport | n
   }
   return {
     nodeVersion: node,
-    npm: report.npm === true,
+    tar: report.tar === true,
     installed: report.installed === true,
     depsInstalled: report.deps === true,
     server,

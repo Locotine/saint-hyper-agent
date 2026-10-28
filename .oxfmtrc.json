@@ -6,6 +6,7 @@
     "dist-electron",
     "node_modules",
     "bun.lock",
+    "apps/server/remote-deps",
     "*.tsbuildinfo",
     "**/routeTree.gen.ts",
     "apps/web/public/mockServiceWorker.js"

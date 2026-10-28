@@ -40,7 +40,7 @@ export interface RemoteSshManagerDependencies {
   ) => ChildProcess;
   /**
    * Install folder name of this build's server (see `remoteInstallVersion`) and
-   * the hash of its npm dependencies (see `remoteInstallDepsHash`); called once.
+   * the hash of its dependency pack (see `remoteInstallDepsHash`); called once.
    */
   readonly installIdentity: () => RemoteInstallIdentity;
   /** Install folder of hosts with none of their own; this client's folder (see `clientRemoteRoot`). */
@@ -49,11 +49,12 @@ export interface RemoteSshManagerDependencies {
   readonly storeRoot: string;
   /**
    * Gzipped tar of the install bundle; called only when the remote lacks this
-   * version. With `withDepsPack` it also carries the offline dependency pack.
+   * version. With `withDepsPack` it also carries the dependency pack, which the
+   * host unpacks instead of installing anything.
    */
   readonly createInstallBundle: (withDepsPack: boolean) => Readable;
-  /** Whether this build ships the offline dependency pack for hosts without npm. */
-  readonly hasDepsPack?: () => boolean;
+  /** Whether this build ships the dependency pack (`apps/server/remote-deps`). */
+  readonly hasDepsPack: () => boolean;
   readonly reserveLocalPort: () => Promise<number>;
   readonly waitForHttpReady: (baseUrl: string, signal: AbortSignal) => Promise<void>;
   readonly createToken: () => string;
@@ -348,15 +349,17 @@ export class RemoteSshManager {
         token = probe.server.token;
       } else {
         if (!probe.installed) {
-          // Without npm the host unpacks the dependencies this build ships instead.
-          const withDepsPack = !probe.depsInstalled && !probe.npm;
-          if (withDepsPack && !this.deps.hasDepsPack?.()) {
+          // Hosts never run npm: they unpack the dependency pack this build ships.
+          if (!probe.tar) {
+            throw new RemoteSshError(`tar is required on ${host} to install Saint.`);
+          }
+          const withDepsPack = !probe.depsInstalled;
+          if (withDepsPack && !this.deps.hasDepsPack()) {
             throw new RemoteSshError(
-              `npm is required on ${host} to install Saint, and this build ships no offline dependencies.`,
+              "This Saint build ships no remote dependency pack (apps/server/remote-deps/deps.tar.gz).",
             );
           }
-          if (withDepsPack)
-            this.deps.log(`[remote-ssh] ${host} has no npm; uploading dependencies`);
+          if (withDepsPack) this.deps.log(`[remote-ssh] ${host} uploading the dependency pack`);
           step("uploading");
           const upload = await this.runSsh(
             host,
