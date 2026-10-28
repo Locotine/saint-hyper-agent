@@ -164,7 +164,14 @@ it.each(
         expect(tooltip()).toBe(original);
         const bounds = original.getBoundingClientRect();
         const target = button.getBoundingClientRect();
-        expect(bounds.bottom <= target.top || bounds.top >= target.bottom).toBe(true);
+        const rect = (r: DOMRect) =>
+          `top=${r.top} bottom=${r.bottom} left=${r.left} right=${r.right}`;
+        expect(
+          bounds.bottom <= target.top || bounds.top >= target.bottom,
+          `tooltip ${rect(bounds)} [${original.className}] overlaps ${name} ${rect(target)}; ` +
+            `viewport ${window.innerWidth}x${window.innerHeight}, scrollY=${window.scrollY}, ` +
+            `tooltipText=${JSON.stringify(original.textContent)}`,
+        ).toBe(true);
         // A DOM-visible tooltip can still be clipped by the editor or covered by its header.
         for (const [x, y] of [
           [bounds.left + 8, bounds.top + bounds.height / 2],
