@@ -67,6 +67,26 @@ Pattern for every migrated store: ids in the store are `ScopedThreadId`/`ScopedP
 | Route `/$threadId`                                                                                                                      | Parses and stringifies host-qualified ids (a local scoped id is shortened to the bare id); consumers still address local threads                                                |
 | React Query keys                                                                                                                        | Deferred to P4: every query function still calls the local API, so a host in the key would not match the data it caches. Add the host with `useHostApi`                         |
 
+## P4–P5 status
+
+Decisions (asked 2026-10-29): D1 flat list with a host label, D2 offline hosts dimmed and read-only, D3 remote projects in every Space, D5 no cross-host split.
+
+| Item                                                      | State                                                                                                                                     |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `readNativeApi` → `readLocalNativeApi`                    | Done (mechanical rename, 218 files)                                                                                                       |
+| Per-host API                                              | Done: `createHostNativeApi(transport)`, `apiFor(hostId)`, `hostHandle`/`useHostHandle` (`hosts/hostScope.tsx`)                            |
+| Host-scoped store reads                                   | Done: `useStore`'s hook form reads the enclosing `HostScope`; `useStore.getState()` stays local                                           |
+| Lint rule against bare local API in thread code           | Not done; the chat hooks use `useHostHandle`                                                                                              |
+| `remoteWindowHost`, per-host `betaFeatures` providers     | Not done; legacy window-switch path, removed with it in P6                                                                                |
+| React Query keys with host                                | Not done: remote explorer/diff queries still key by cwd only                                                                              |
+| Flag `multi-host` (Beta only)                             | Done                                                                                                                                      |
+| Sidebar rows, host label, status, offline dim (U1–U3, U5) | Done (`RemoteHostProjects`); local rows carry no "Local" label                                                                            |
+| Remote chat in the window                                 | Done: read, send, stream, approvals/user input through the host API; offline read-only                                                    |
+| New thread on a host (U7)                                 | Done from the project row; Add project on a host not done                                                                                 |
+| Settings: no "Open" for connected hosts (U10)             | Done                                                                                                                                      |
+| Disabled state for local-only panels (U6)                 | Partial: the remote surface leaves out the right dock; ChatView's own environment card still shows this computer's servers/editor actions |
+| Dev loopback host                                         | Done: `lib/devLoopbackHosts.ts`                                                                                                           |
+
 ## Not verified here
 
 - Per-store keying column above is inferred from the key name; confirm when each store is migrated.
