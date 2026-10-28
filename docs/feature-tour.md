@@ -2,7 +2,7 @@
 
 The post-startup tour introduces the largest user-facing changes merged after
 `v0.9.2`. It is separate from the versioned release history, which lives in
-[CHANGELOG.md](../CHANGELOG.md) (current release: 1.0.13).
+[CHANGELOG.md](../CHANGELOG.md) (current release: 1.0.14).
 
 ## Curated highlights
 

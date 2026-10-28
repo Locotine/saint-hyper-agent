@@ -26,6 +26,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    version: "1.0.14",
+    date: "Oct 28",
+    features: [
+      {
+        id: "remote-ssh-no-npm",
+        title: "Remote SSH hosts without npm",
+        description:
+          "The app ships the remote server's dependencies, so a host without npm, sudo or registry access only needs Node.js and tar to run Saint.",
+        details:
+          "Hosts with npm still install dependencies once per dependency set; without npm, the bundled pack needs no compiler, Python or patch.",
+      },
+    ],
+  },
+  {
     version: "1.0.13",
     date: "Oct 28",
     features: [

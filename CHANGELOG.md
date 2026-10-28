@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.14 — 2026-10-28
+
+**Remote SSH hosts without npm.**
+
+This Stable release covers the commit after `v1.0.13`: `61a9b3fec` (remote server dependencies). It is published on [GitLab Releases](https://gitlab.com/locotine/saint-releases/-/releases/v1.0.14) for macOS Apple Silicon, Windows x64 and Linux x86_64.
+
+### Added
+
+- Every desktop build packs the remote server's dependencies once (`apps/server/remote-install/deps.tar.gz`, about 13 MB, with node-pty from `@lydell/node-pty`, whose prebuilt binaries cover macOS and Linux on arm64 and x64). A host without npm (no sudo, no registry access) unpacks them with `tar` instead of running `npm install`.
+
+### Changed
+
+- Remote host requirements: Node.js and `tar` on the login shell's `PATH`, plus tmux (recommended). npm, `patch` and, on Linux, a C/C++ toolchain and Python are needed only when the host installs dependencies with npm.
+
+See [Remote access](REMOTE.md#3-remote-ssh-hosts) for the full flow and remote layout.
+
 ## 1.0.13 — 2026-10-28
 
 **Unsigned macOS builds open from Privacy & Security, and Remote SSH steps you can cancel and trace.**
