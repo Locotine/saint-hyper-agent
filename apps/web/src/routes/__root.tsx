@@ -5,7 +5,6 @@ import {
   ThreadId,
   type OrchestrationEvent,
   type OrchestrationShellSnapshot,
-  type OrchestrationShellStreamEvent,
   type OrchestrationThread,
   type ServerConfig,
   type ServerProviderStatus,
@@ -60,6 +59,7 @@ import { useGitProgressToastPreview } from "../components/useGitProgressToastPre
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { useFeatureFlags } from "../featureFlags";
 import { useFocusedChatContext } from "../focusedChatContext";
+import { createShellFence } from "../hosts/shellFence";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
   invalidateProviderUsageQueries,
@@ -234,7 +234,6 @@ const THREAD_DETAIL_REPLAY_MAX_NOOP_STREAK = 2;
 // accumulated delays cannot postpone that resync beyond 72s.
 const THREAD_DETAIL_PROJECTION_RECONCILE_MAX_NOOP_STREAK = 4;
 const THREAD_DETAIL_PROJECTION_RECONCILE_MAX_INTERVAL_MS = 72_000;
-const PENDING_SHELL_EVENT_BUFFER_LIMIT = 1_024;
 const PENDING_THREAD_EVENT_BUFFER_LIMIT = 512;
 const IMMEDIATE_ASSISTANT_FLUSH_ID_LIMIT = 512;
 const seenProviderUpdateNotificationKeys = new Set<string>();
@@ -1036,14 +1035,6 @@ function errorDetails(error: unknown): string {
   }
 }
 
-function appendBounded<T>(items: T[], item: T, limit: number): void {
-  const normalizedLimit = Math.max(1, Math.floor(limit));
-  if (items.length >= normalizedLimit) {
-    items.splice(0, items.length - normalizedLimit + 1);
-  }
-  items.push(item);
-}
-
 function addBoundedSetValue<T>(set: Set<T>, value: T, limit: number): void {
   const normalizedLimit = Math.max(1, Math.floor(limit));
   if (set.has(value)) {
@@ -1330,10 +1321,10 @@ function EventRouter() {
     // with one synchronous flush, so no event inside it may flush on its own.
     let queueingThreadReplayBatch = false;
     let providerDiscoveryInvalidationFingerprint: string | null = null;
-    let shellSnapshotSequence = -1;
+    // The snapshot fence is shared with every remote host's pump (hosts/shellFence.ts).
+    const shellFence = createShellFence({ syncServerShellSnapshot, applyShellEvent });
     let shellSubscriptionGeneration = 0;
     let shellSnapshotReceivedGeneration = -1;
-    let pendingShellEvents: OrchestrationShellStreamEvent[] = [];
     const subscribedThreadIds = new Set<ThreadId>();
     const threadSnapshotSequenceById = new Map<ThreadId, number>();
     const pendingThreadEventsById = new Map<
@@ -1569,17 +1560,6 @@ function EventRouter() {
       }
     };
 
-    const flushShellBuffer = (snapshotSequence: number) => {
-      const nextPending = pendingShellEvents
-        .filter((event) => event.sequence > snapshotSequence)
-        .toSorted((left, right) => left.sequence - right.sequence);
-      pendingShellEvents = [];
-      for (const event of nextPending) {
-        shellSnapshotSequence = Math.max(shellSnapshotSequence, event.sequence);
-        applyShellEvent(event);
-      }
-    };
-
     const reconcileThreadSubscriptions = async (threadIds: readonly ThreadId[]) => {
       const nextThreadIds = new Set(threadIds);
       const removals = [...subscribedThreadIds].filter((threadId) => !nextThreadIds.has(threadId));
@@ -1741,14 +1721,11 @@ function EventRouter() {
       if (disposed) return false;
       // A query can resolve after the live shell stream has already moved
       // forward. Never roll the store back behind the EventRouter fence.
-      if (shellSnapshotSequence >= 0 && snapshot.snapshotSequence < shellSnapshotSequence) {
-        return false;
-      }
       const promotedDraftThreadIds = collectSubscribedDraftsInShell(snapshot.threads);
-      shellSnapshotSequence = snapshot.snapshotSequence;
-      syncServerShellSnapshot(snapshot);
-      reconcilePromotedDraftsFromShellThreads(snapshot.threads);
-      flushShellBuffer(snapshot.snapshotSequence);
+      const applied = shellFence.applySnapshot(snapshot, {
+        afterSync: () => reconcilePromotedDraftsFromShellThreads(snapshot.threads),
+      });
+      if (!applied) return false;
       removeOrphanedTerminalsForCurrentState();
       reconcileMissingSubscribedThreadProjections(promotedDraftThreadIds);
       return true;
@@ -1804,10 +1781,10 @@ function EventRouter() {
 
     const unregisterShellSnapshotRefresh = registerShellSnapshotRefresh(async (minSequence) => {
       if (disposed) return false;
-      if (shellSnapshotSequence >= minSequence) return true;
+      if (shellFence.sequence >= minSequence) return true;
       const snapshot = await api.orchestration.getShellSnapshot();
       applyAuthoritativeShellSnapshot(snapshot);
-      return !disposed && shellSnapshotSequence >= minSequence;
+      return !disposed && shellFence.sequence >= minSequence;
     });
     const unregisterEmptyRouteRestoreRefresh = registerEmptyRouteRestoreRefresh(() =>
       runEmptyRouteRestoreRefresh({
@@ -1850,8 +1827,7 @@ function EventRouter() {
       }
       scheduleShellSnapshotFallback(generation);
       const refresh = (async () => {
-        shellSnapshotSequence = -1;
-        pendingShellEvents = [];
+        shellFence.reset();
         await api.orchestration
           .subscribeShell()
           .catch(() => loadBootstrapShellSnapshotIfMissing(generation));
@@ -2275,25 +2251,20 @@ function EventRouter() {
         toastManager.close("stream-overflow:shell");
         shellSnapshotReceivedGeneration = shellSubscriptionGeneration;
         const promotedDraftThreadIds = collectSubscribedDraftsInShell(item.snapshot.threads);
-        shellSnapshotSequence = item.snapshot.snapshotSequence;
-        syncServerShellSnapshot(item.snapshot);
-        reconcilePromotedDraftsFromShellThreads(item.snapshot.threads);
-        flushShellBuffer(item.snapshot.snapshotSequence);
+        shellFence.applySnapshot(item.snapshot, {
+          force: true,
+          afterSync: () => reconcilePromotedDraftsFromShellThreads(item.snapshot.threads),
+        });
         removeOrphanedTerminalsForCurrentState();
         reconcileMissingSubscribedThreadProjections(promotedDraftThreadIds);
         return;
       }
 
-      if (shellSnapshotSequence < 0) {
-        appendBounded(pendingShellEvents, item, PENDING_SHELL_EVENT_BUFFER_LIMIT);
+      if (
+        !shellFence.applyEvent(item, { onApply: () => toastManager.close("stream-overflow:shell") })
+      ) {
         return;
       }
-      if (item.sequence <= shellSnapshotSequence) {
-        return;
-      }
-      shellSnapshotSequence = item.sequence;
-      toastManager.close("stream-overflow:shell");
-      applyShellEvent(item);
       if (item.kind === "thread-upserted") {
         reconcilePromotedDraftsFromShellThreads([item.thread]);
       }
@@ -2488,8 +2459,7 @@ function EventRouter() {
             if (disposed) return;
             // Reset only the shell snapshot fence. Thread subscriptions and
             // their applied cursors stay on the existing connection.
-            shellSnapshotSequence = -1;
-            pendingShellEvents = [];
+            shellFence.reset();
             const generation = shellSubscriptionGeneration;
             void api.orchestration.subscribeShell().catch(() => {
               if (disposed || shellSubscriptionGeneration !== generation) return;

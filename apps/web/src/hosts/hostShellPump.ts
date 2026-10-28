@@ -1,19 +1,18 @@
 // FILE: hostShellPump.ts
-// Purpose: Feeds one host's store from that host's shell stream, with the same snapshot fence
-//          as this computer's EventRouter: events before the snapshot wait for it, events the
-//          snapshot already covers are dropped. A pump that stops leaves the store as it was,
-//          so a host that goes offline keeps its last known projects and threads.
+// Purpose: Feeds one host's store from that host's shell stream through the same snapshot fence
+//          as this computer's EventRouter (see shellFence.ts). A pump that stops leaves the store
+//          as it was, so a host that goes offline keeps its last known projects and threads.
 // Layer: Web host connections
 // Exports: createHostShellPump, HostShellStatus, HostShellTransport
 
 import {
   ORCHESTRATION_WS_CHANNELS,
   ORCHESTRATION_WS_METHODS,
-  type OrchestrationShellStreamEvent,
   type OrchestrationShellStreamItem,
 } from "@saint/contracts";
 
 import type { HostStore } from "../store";
+import { createShellFence } from "./shellFence";
 
 /** `connecting` until the first snapshot lands, `live` after it, `stale` once the host is out of reach. */
 export type HostShellStatus = "connecting" | "live" | "stale";
@@ -27,9 +26,6 @@ export interface HostShellTransport {
   readonly onStateChange: (listener: (state: string) => void) => () => void;
 }
 
-/** Events that may arrive ahead of the snapshot; the oldest are dropped past this. */
-const PENDING_EVENT_LIMIT = 512;
-
 /** Returns a stop function. */
 export function createHostShellPump(input: {
   readonly store: Pick<HostStore, "getState">;
@@ -38,17 +34,13 @@ export function createHostShellPump(input: {
 }): () => void {
   const { store, transport, onStatus } = input;
   let stopped = false;
-  let fence = -1;
-  let pending: OrchestrationShellStreamEvent[] = [];
+  const fence = createShellFence({
+    syncServerShellSnapshot: (snapshot) => store.getState().syncServerShellSnapshot(snapshot),
+    applyShellEvent: (event) => store.getState().applyShellEvent(event),
+  });
 
   const status = (next: HostShellStatus, message?: string) => {
     if (!stopped) onStatus?.(next, message);
-  };
-
-  const applyEvent = (event: OrchestrationShellStreamEvent) => {
-    if (event.sequence <= fence) return;
-    fence = event.sequence;
-    store.getState().applyShellEvent(event);
   };
 
   const unsubscribe = transport.subscribe(ORCHESTRATION_WS_CHANNELS.shellEvent, (message) => {
@@ -57,25 +49,16 @@ export function createHostShellPump(input: {
     if (item.kind === "snapshot") {
       // Authoritative: prunes what the host no longer has. Only a live pump gets here, so an
       // offline host is never pruned by silence.
-      fence = item.snapshot.snapshotSequence;
-      store.getState().syncServerShellSnapshot(item.snapshot);
-      const buffered = pending;
-      pending = [];
-      for (const event of buffered) applyEvent(event);
+      fence.applySnapshot(item.snapshot, { force: true });
       status("live");
       return;
     }
-    if (fence < 0) {
-      pending.push(item);
-      if (pending.length > PENDING_EVENT_LIMIT) pending.shift();
-      return;
-    }
-    applyEvent(item);
+    fence.applyEvent(item);
   });
   const unwatchState = transport.onStateChange((state) => {
     if (state === "closed" || state === "incompatible") {
       // The transport restarts the stream and sends a new snapshot, which re-bases the fence.
-      fence = -1;
+      fence.reset();
       status("stale");
     }
   });
@@ -91,7 +74,7 @@ export function createHostShellPump(input: {
     if (stopped) return;
     status("stale");
     stopped = true;
-    pending = [];
+    fence.reset();
     unsubscribe();
     unwatchState();
   };
