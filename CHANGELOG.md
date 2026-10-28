@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.13 — 2026-10-28
+
+**Unsigned macOS builds open from Privacy & Security, and Remote SSH steps you can cancel and trace.**
+
+This Stable release covers the commit after `v1.0.12`: `9e4b78b59` (macOS remote fix). It is published on [GitLab Releases](https://gitlab.com/locotine/saint-releases/-/releases/v1.0.13) for macOS Apple Silicon, Windows x64 and Linux x86_64.
+
+### Fixed
+
+- Unsigned macOS releases are sealed ad hoc. The first launch shows **“Saint” Not Opened** instead of **is damaged**, so **System Settings → Privacy & Security → Open Anyway** opens it without `xattr`.
+- **Disconnect** during a Remote SSH probe, upload, install or start stops that step's ssh at once instead of waiting for its timeout.
+- A new remote install first stops an earlier install of the same folder that is still running, because killing the local ssh sends the remote shell no signal.
+
+### Added
+
+- Each Remote SSH step is written to `desktop-main.log` as `[remote-ssh] <host> <phase> +<ms>`, and a timed-out install reports the last stage it reached (for example `Running npm install in …`).
+
 ## 1.0.12 — 2026-10-27
 
 **Lighter, faster Remote SSH hosts.**

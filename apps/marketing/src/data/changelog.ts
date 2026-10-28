@@ -26,6 +26,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    version: "1.0.13",
+    date: "Oct 28",
+    features: [
+      {
+        id: "mac-open-anyway",
+        title: "Unsigned macOS builds open with Open Anyway",
+        description:
+          "Unsigned macOS releases are sealed ad hoc, so the first launch says “Saint” Not Opened instead of “damaged”, and Privacy & Security → Open Anyway lets it start.",
+      },
+      {
+        id: "remote-ssh-cancel",
+        title: "Remote SSH steps you can cancel and trace",
+        description:
+          "Disconnect stops the running SSH step at once, a new install stops an earlier one still running on the host, and every step is logged with its elapsed time.",
+      },
+    ],
+  },
+  {
     version: "1.0.12",
     date: "Oct 27",
     features: [

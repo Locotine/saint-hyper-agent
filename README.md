@@ -125,7 +125,7 @@ Configure the shell to match the way you work with light and dark themes, typogr
 
 ### Desktop application
 
-The current release is **1.0.12**. Download it from [GitLab Releases](https://gitlab.com/locotine/saint-releases/-/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
+The current release is **1.0.13**. Download it from [GitLab Releases](https://gitlab.com/locotine/saint-releases/-/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
 
 | Platform              | Artifact                          | Install                                                                                                                                  |
 | --------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -173,9 +173,9 @@ the root `typecheck` command also ensures that patch is applied before checking.
 ```console
 bun install --frozen-lockfile
 bun run build:desktop
-bun run dist:desktop:linux -- --flavor production --build-version 1.0.12
-bun run dist:desktop:win -- --flavor production --build-version 1.0.12
-bun run dist:desktop:dmg:arm64 -- --flavor production --build-version 1.0.12   # macOS only
+bun run dist:desktop:linux -- --flavor production --build-version 1.0.13
+bun run dist:desktop:win -- --flavor production --build-version 1.0.13
+bun run dist:desktop:dmg:arm64 -- --flavor production --build-version 1.0.13   # macOS only
 ```
 
 `--build-version` defaults to the package version. Set `SAINT_DESKTOP_UPDATE_GITLAB_PROJECT` (and optionally `SAINT_DESKTOP_UPDATE_FEED_URL`) at build time so installed apps update from your GitLab releases project, then publish with `bun run release:gitlab`; see [Updates from a GitLab Releases feed](./BETA.md#updates-from-a-gitlab-releases-feed).
