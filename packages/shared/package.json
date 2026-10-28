@@ -12,6 +12,10 @@
       "types": "./src/diagnosticIssue.ts",
       "import": "./src/diagnosticIssue.ts"
     },
+    "./hostId": {
+      "types": "./src/hostId.ts",
+      "import": "./src/hostId.ts"
+    },
     "./betaFeatures": {
       "types": "./src/betaFeatures.ts",
       "import": "./src/betaFeatures.ts"
