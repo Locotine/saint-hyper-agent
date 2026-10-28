@@ -12,7 +12,6 @@ import { createHostShellPump } from "../hosts/hostShellPump";
 import { forgetHostClientState } from "../hosts/forgetHostClientState";
 import { createHostStoreSync } from "../hosts/hostStoreSync";
 import { hostStores } from "../hosts/hostStores";
-import { LIVE_CATALOG_ENABLED } from "./useRemoteHostCatalog";
 import { remoteSshBridge } from "../lib/devLoopbackHosts";
 
 export function useRemoteHostStoreSync(state: DesktopRemoteSshState): void {
@@ -20,7 +19,7 @@ export function useRemoteHostStoreSync(state: DesktopRemoteSshState): void {
 
   useEffect(() => {
     const bridge = remoteSshBridge();
-    if (!bridge || !LIVE_CATALOG_ENABLED) return;
+    if (!bridge) return;
     const sync = createHostStoreSync({
       wsUrl: bridge.wsUrl,
       acquire: hostConnections.acquire,

@@ -145,7 +145,7 @@ import {
   toggleRailShortcutKey,
 } from "../appRail.logic";
 import { useRailShellStore } from "../railShellStore";
-import { isElectron, remoteWindowHost } from "../env";
+import { isElectron } from "../env";
 import { useRemoteSshState } from "../hooks/useRemoteSshState";
 import { useHostSearchThreads } from "../hosts/hostSearchThreads";
 import { remoteHostAlias } from "./settings/remoteHostsSettingsModel";
@@ -155,7 +155,6 @@ import {
   AddProjectOnHostButton,
   RemoteHostActivity,
   RemoteHostProjects,
-  RemoteHostsSidebarSection,
   useRemoteChatNeedsAnswer,
 } from "./RemoteHostsSidebarSection";
 import {
@@ -336,7 +335,7 @@ import { RenameThreadDialog } from "./RenameThreadDialog";
 import { SnoozeUntilDialog } from "./SnoozeUntilDialog";
 import { SNOOZE_PRESETS } from "../lib/threadSnooze";
 import ReleaseHistoryDialog from "./ReleaseHistoryDialog";
-import { GROUPS_ON, INBOX_ON, isBetaFeatureOn, MULTI_HOST_ON } from "../betaFeatures";
+import { GROUPS_ON, INBOX_ON, isBetaFeatureOn } from "../betaFeatures";
 import { WHATS_NEW_ENTRIES } from "../whatsNew/entries";
 import { sortEntriesByVersionDesc } from "../whatsNew/logic";
 import { SidebarSearchPalette, type SidebarSearchPaletteMode } from "./SidebarSearchPalette";
@@ -1312,15 +1311,9 @@ export default function Sidebar() {
   const [showDebugFeatureFlagsMenu, setShowDebugFeatureFlagsMenu] = useState(
     readDebugFeatureFlagsMenuVisibility,
   );
-  // Null on Stable and in browsers: the Remote hosts section stays hidden.
+  // Null without the desktop's remote SSH bridge: no remote hosts to list.
   const remoteSshState = useRemoteSshState();
-  // Multi-host lists hosts' projects with this computer's; a window running on a host keeps
-  // the separate section.
-  const multiHostRows = MULTI_HOST_ON && !remoteWindowHost;
   const remoteChatNeedsAnswer = useRemoteChatNeedsAnswer();
-  const hasRemoteHosts =
-    remoteSshState !== null &&
-    (remoteSshState.savedHosts.length > 0 || remoteSshState.hosts.length > 0);
   const projects = useStore((store) => store.projects);
   const spaces = useStore((store) => store.spaces);
   // Selection state only; the handlers and sync effects live in useSpacesController.
@@ -4813,7 +4806,7 @@ export default function Sidebar() {
     [allHostProjects],
   );
   const projectEmptyState = resolveProjectEmptyState({
-    projectCount: standardProjects.length + (multiHostRows ? remoteHostProjectCount : 0),
+    projectCount: standardProjects.length + remoteHostProjectCount,
     shouldShowProjectPathEntry: createProjectDialogOpen,
     threadsHydrated,
   });
@@ -7396,9 +7389,7 @@ export default function Sidebar() {
                     {!isOnGroups ? (
                       <SidebarActivityBellButton
                         active={activityViewEnabled}
-                        showUnreadDot={
-                          hasUnreadActivity || (multiHostRows && remoteChatNeedsAnswer)
-                        }
+                        showUnreadDot={hasUnreadActivity || remoteChatNeedsAnswer}
                         shortcutLabel={activityShortcutLabel}
                         onClick={() => setActivityViewEnabledSmoothly(!activityViewEnabled)}
                       />
@@ -7494,7 +7485,7 @@ export default function Sidebar() {
                         onCreateChat={handlePrimaryNewThread}
                         onAddProject={handleStartAddProject}
                       />
-                      {multiHostRows && remoteSshState ? (
+                      {remoteSshState ? (
                         <SidebarMenu className="mt-3 gap-1">
                           <RemoteHostActivity state={remoteSshState} />
                         </SidebarMenu>
@@ -7525,13 +7516,7 @@ export default function Sidebar() {
                       />
                       {renderPinnedThreadsSection()}
                       {renderListSectionHeader(
-                        // Remote hosts get their own section below (or, with multi-host, label
-                        // their own rows), so say which side this is.
-                        remoteWindowHost
-                          ? `Projects · ${remoteWindowHost}`
-                          : hasRemoteHosts && !multiHostRows
-                            ? "Projects · Local"
-                            : "Projects",
+                        "Projects",
                         <>
                           {standardProjects.length > 0 ? (
                             <SidebarIconButton
@@ -7562,20 +7547,10 @@ export default function Sidebar() {
                             }}
                             {...threadSortMenuProps}
                           />
-                          {multiHostRows ? (
-                            <AddProjectOnHostButton
-                              state={remoteSshState}
-                              onAddLocal={handleStartAddProject}
-                            />
-                          ) : (
-                            <SidebarIconButton
-                              icon={AddPlusIcon}
-                              label="Add project"
-                              onClick={handleStartAddProject}
-                              tooltip="Add project"
-                              tooltipSide="right"
-                            />
-                          )}
+                          <AddProjectOnHostButton
+                            state={remoteSshState}
+                            onAddLocal={handleStartAddProject}
+                          />
                         </>,
                       )}
 
@@ -7611,7 +7586,7 @@ export default function Sidebar() {
                         </SidebarMenu>
                       )}
 
-                      {multiHostRows && remoteSshState ? (
+                      {remoteSshState ? (
                         <SidebarMenu className="mt-3 gap-3">
                           <RemoteHostProjects state={remoteSshState} />
                         </SidebarMenu>
@@ -7661,15 +7636,6 @@ export default function Sidebar() {
                   onVisibleThreadIdsChange={setClassicSnoozedVisibleThreadIds}
                 />
               </SidebarGroup>
-            ) : null}
-            {!isOnSettings &&
-            !isOnGroups &&
-            !activityViewEnabled &&
-            !showRailSpacesPanel &&
-            !showRailAutomationsPanel &&
-            remoteSshState &&
-            !multiHostRows ? (
-              <RemoteHostsSidebarSection state={remoteSshState} activeHost={remoteWindowHost} />
             ) : null}
             {!isOnSettings &&
             !isOnGroups &&
@@ -7863,21 +7829,18 @@ export default function Sidebar() {
             className={PROJECT_CONTEXT_MENU_PANEL_CLASS_NAME}
           >
             <MenuGroup>
-              {/* A remote host's folders are not on this computer. */}
-              {remoteWindowHost ? null : (
-                <MenuItem
-                  className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                  onClick={() =>
-                    void handleProjectContextMenuAction(
-                      projectContextMenuState.projectId,
-                      "open-in-finder",
-                    )
-                  }
-                >
-                  <ProjectContextMenuIcon icon={FolderOpenIcon} />
-                  <span>Open in Finder</span>
-                </MenuItem>
-              )}
+              <MenuItem
+                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
+                onClick={() =>
+                  void handleProjectContextMenuAction(
+                    projectContextMenuState.projectId,
+                    "open-in-finder",
+                  )
+                }
+              >
+                <ProjectContextMenuIcon icon={FolderOpenIcon} />
+                <span>Open in Finder</span>
+              </MenuItem>
               <MenuItem
                 className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
                 onClick={() =>
@@ -8475,7 +8438,7 @@ function SidebarSearchPaletteController(props: {
   // Multi-host: connected hosts' threads are searchable next to this computer's.
   const searchPaletteThreads = useMemo(
     () =>
-      MULTI_HOST_ON && hostSearchThreads.length > 0
+      hostSearchThreads.length > 0
         ? [...localSearchPaletteThreads, ...hostSearchThreads]
         : localSearchPaletteThreads,
     [hostSearchThreads, localSearchPaletteThreads],

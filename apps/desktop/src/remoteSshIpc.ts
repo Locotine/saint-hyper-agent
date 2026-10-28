@@ -29,10 +29,6 @@ export interface RemoteSshIpcOptions {
   readonly readSshConfig: () => string | null;
   readonly readSavedHosts: () => SavedRemoteSshHost[];
   readonly writeSavedHosts: (hosts: readonly SavedRemoteSshHost[]) => void;
-  /** Points the main window at a connected host (or null: this computer) and reloads it. */
-  readonly activateMainWindowHost: (host: string | null) => void;
-  /** A host's tunnel is closing or its server stopping: the app window, if on it, goes home. */
-  readonly leaveHost: (host: string) => void;
   readonly broadcast: (state: DesktopRemoteSshState) => void;
 }
 
@@ -112,20 +108,13 @@ export function registerRemoteSshIpc(
     return options.manager.connect(saved);
   });
   handle(IPC.disconnect, (payload) => {
-    const host = parseHost(payload);
-    options.leaveHost(host);
-    options.manager.disconnect(host);
+    options.manager.disconnect(parseHost(payload));
   });
   handle(IPC.stopServer, async (payload) => {
-    const input = parseSavedHostInput(payload);
-    options.leaveHost(input.host);
-    await options.manager.stopServer(input);
+    await options.manager.stopServer(parseSavedHostInput(payload));
   });
-  // Read-only catalog connections in the sidebar reach a connected host's server here.
+  // The renderer's per-host connections reach a connected host's server here.
   handle(IPC.wsUrl, (payload) => options.manager.wsUrl(parseHost(payload)));
-  handle(IPC.activate, (payload) =>
-    options.activateMainWindowHost(payload === null ? null : parseHost(payload)),
-  );
   handle(IPC.forget, (payload) => {
     const host = parseHost(payload);
     options.writeSavedHosts(options.readSavedHosts().filter((saved) => saved.host !== host));

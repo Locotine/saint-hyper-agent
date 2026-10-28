@@ -7,7 +7,6 @@ import { ThreadId } from "@saint/contracts";
 import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { MULTI_HOST_ON } from "~/betaFeatures";
 import { APP_DISPLAY_NAME } from "~/branding";
 import { useRemoteSshState } from "~/hooks/useRemoteSshState";
 import { hostStores } from "~/hosts/hostStores";
@@ -31,7 +30,7 @@ export function RunningChatsQuitCoordinator() {
   // user does not see a bare window for the bounded wait before the desktop hides it.
   const [quitting, setQuitting] = useState(false);
   const pendingRequestIdRef = useRef<string | null>(null);
-  const remoteSshState = useRemoteSshState(MULTI_HOST_ON);
+  const remoteSshState = useRemoteSshState();
   const remoteSshStateRef = useRef(remoteSshState);
   remoteSshStateRef.current = remoteSshState;
 
@@ -122,7 +121,7 @@ export function RunningChatsQuitCoordinator() {
     return subscribe((request) => {
       const running = [
         ...listRunningChatsFromDesktopStore(useStore.getState()),
-        ...(MULTI_HOST_ON ? listRemoteRunningChats(remoteSshStateRef.current) : []),
+        ...listRemoteRunningChats(remoteSshStateRef.current),
       ];
       reply({
         requestId: request.requestId,

@@ -18,7 +18,6 @@ import {
 } from "./remoteHostsSettingsModel";
 import { SettingsListRow, SettingsRow, SettingsSection } from "./SettingsPanelPrimitives";
 import { remoteSshBridge } from "../../lib/devLoopbackHosts";
-import { MULTI_HOST_ON } from "../../betaFeatures";
 
 function showError(title: string, error: unknown): void {
   toastManager.add({
@@ -99,11 +98,7 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
         />
         <SettingsRow
           title="Connect"
-          description={`Installs this Saint version on the host when needed, starts its server in tmux, and connects through an SSH tunnel. ${
-            MULTI_HOST_ON
-              ? "Its projects then appear in the sidebar's Projects list."
-              : "The host then appears under Remote hosts in the sidebar."
-          }`}
+          description={`Installs this Saint version on the host when needed, starts its server in tmux, and connects through an SSH tunnel. Its projects then appear in the sidebar's Projects list.`}
           control={
             <Button
               size="sm"
@@ -124,11 +119,7 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
             <RemoteHostListRow
               key={row.host}
               row={row}
-              onConnect={() =>
-                row.state?.phase === "connected"
-                  ? run(() => bridge.activate(row.host), `Could not open ${row.host}`)
-                  : connect({ host: row.host, remoteRoot: row.savedRemoteRoot })
-              }
+              onConnect={() => connect({ host: row.host, remoteRoot: row.savedRemoteRoot })}
               onDisconnect={() =>
                 run(() => bridge.disconnect(row.host), `Could not disconnect ${row.host}`)
               }
@@ -199,10 +190,10 @@ function RemoteHostListRow(props: {
       }
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          {/* Multi-host opens a host's chats from the sidebar, so there is no window to switch. */}
-          {connected && MULTI_HOST_ON ? null : (
+          {/* A connected host's chats open from the sidebar, so it needs no button here. */}
+          {connected ? null : (
             <Button size="xs" variant="outline" disabled={busy} onClick={props.onConnect}>
-              {connected ? "Open" : failed ? "Retry" : "Connect"}
+              {failed ? "Retry" : "Connect"}
             </Button>
           )}
           {connected || busy ? (

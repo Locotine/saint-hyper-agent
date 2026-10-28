@@ -50,10 +50,7 @@ export function GroupEnvironmentSection(props: {
 
   const revealLabel = getRevealInFolderLabel(getNavigatorPlatform());
   const canReveal =
-    typeof window !== "undefined" &&
-    Boolean(window.desktopBridge) &&
-    !window.desktopBridge?.remoteWindow &&
-    props.workspacePath;
+    typeof window !== "undefined" && Boolean(window.desktopBridge) && props.workspacePath;
   const canPickFolder = typeof window !== "undefined" && Boolean(window.desktopBridge?.pickFolder);
 
   const revealGroupFolder = () => {

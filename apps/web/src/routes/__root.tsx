@@ -36,7 +36,7 @@ import { QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Throttler } from "@tanstack/react-pacer";
 
 import { APP_DISPLAY_NAME, APP_VERSION } from "../branding";
-import { isBetaFeatureOn, MULTI_HOST_ON } from "../betaFeatures";
+import { isBetaFeatureOn } from "../betaFeatures";
 import { DesktopWindowControls } from "../components/DesktopWindowControls";
 import { RunningChatsQuitCoordinator } from "../components/RunningChatsQuitCoordinator";
 import { AppSnapCoordinator } from "../components/AppSnapCoordinator";
@@ -110,10 +110,8 @@ import {
   RemoteHostTaskCompletionNotifications,
   TaskCompletionNotifications,
 } from "../notifications/taskCompletion";
-import { PendingRemoteThreadOpener } from "../components/PendingRemoteThreadOpener";
 import { RemoteFolderPickerDialog } from "../components/RemoteFolderPickerDialog";
 import { RemoteHostStoreSync } from "../components/RemoteHostsSidebarSection";
-import { remoteWindowHost } from "../env";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
 import {
   isThreadDetailRetained,
@@ -378,12 +376,8 @@ function RootRouteView() {
           <BrowserVaultDialog />
           <GlobalWhatsNewSurface />
           <TaskCompletionNotifications />
-          {MULTI_HOST_ON && !remoteWindowHost ? (
-            <>
-              <RemoteHostStoreSync />
-              <RemoteHostTaskCompletionNotifications />
-            </>
-          ) : null}
+          <RemoteHostStoreSync />
+          <RemoteHostTaskCompletionNotifications />
           <QueuedComposerDrainCoordinator />
           {/* Beta welcome must resolve the first-run gate even while Safari is queued. */}
           <BetaWelcomeDialog />
@@ -395,10 +389,9 @@ function RootRouteView() {
           <GlobalOnboardingDialog />
           <ProjectImportAnnouncementDialog />
           <GlobalProjectImportDialog />
-          {remoteWindowHost || MULTI_HOST_ON ? <RemoteFolderPickerDialog /> : null}
+          <RemoteFolderPickerDialog />
           <AppSnapCoordinator />
           <DesktopProjectBootstrap />
-          {remoteWindowHost ? <PendingRemoteThreadOpener /> : null}
           <Outlet />
         </AnchoredToastProvider>
       </ToastProvider>

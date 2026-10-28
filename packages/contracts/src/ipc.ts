@@ -1189,33 +1189,7 @@ export interface DesktopBridge {
     forget: (host: string) => Promise<void>;
     /** The loopback WebSocket URL of a connected host's server, or null while it is down. */
     wsUrl: (host: string) => Promise<string | null>;
-    /**
-     * Switches the app window's backend to a connected host, or back to this
-     * computer with null, and reloads the window. No client state carries over.
-     */
-    activate: (host: string | null) => Promise<void>;
     onState: (listener: (state: DesktopRemoteSshState) => void) => () => void;
-  };
-  /**
-   * Present only while the app window runs on a remote SSH host. Paths there belong to the host,
-   * so the renderer browses folders through the server, opens editors in their
-   * Remote-SSH mode, and never resolves dropped local files to paths.
-   */
-  remoteWindow?: {
-    readonly host: string;
-    /** Local editors that can open the host's folders over Remote-SSH. */
-    readonly editors: readonly EditorId[];
-    /** Providers the host's server runs; the rest are not installed there. */
-    readonly providers: readonly ProviderKind[];
-    openInEditor: (target: string, editor: EditorId) => Promise<void>;
-    /**
-     * Saves host workspace files on this computer: a Save dialog for one file,
-     * a folder dialog for several (a taken name there gets " (1)", never replaced).
-     * Absent on desktop builds without Explorer downloads.
-     */
-    downloadFiles?: (input: {
-      readonly items: ReadonlyArray<DesktopWorkspaceDownloadItem>;
-    }) => Promise<DesktopWorkspaceDownloadResult>;
   };
   /** Stable→Beta opt-in surface. Absent on builds that do not ship it. */
   beta?: {

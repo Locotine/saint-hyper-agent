@@ -10,8 +10,6 @@ import type {
 } from "@saint/contracts";
 import { normalizeDesktopWsUrl, resolveDesktopWsUrlFromEnv } from "./desktopWsBridge";
 import { DESKTOP_IPC_CHANNELS } from "./ipcChannels";
-import { REMOTE_SERVER_PROVIDERS } from "@saint/shared/serverProviders";
-import { REMOTE_SSH_EDITOR_IDS } from "./remoteSshEditors";
 import {
   parseQuitConfirmationRequest,
   parseQuitConfirmationResponse,
@@ -67,7 +65,6 @@ function getRemoteSshBridge(): DesktopBridge["remoteSsh"] {
       stopServer: (host) => ipcRenderer.invoke(IPC.remoteSsh.stopServer, host),
       forget: (host) => ipcRenderer.invoke(IPC.remoteSsh.forget, host),
       wsUrl: (host) => ipcRenderer.invoke(IPC.remoteSsh.wsUrl, host),
-      activate: (host) => ipcRenderer.invoke(IPC.remoteSsh.activate, host),
       onState: (listener) => {
         const wrappedListener = (_event: Electron.IpcRendererEvent, state: unknown) => {
           if (typeof state !== "object" || state === null) return;
@@ -78,23 +75,6 @@ function getRemoteSshBridge(): DesktopBridge["remoteSsh"] {
           ipcRenderer.removeListener(IPC.remoteSsh.state, wrappedListener);
         };
       },
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-function getRemoteWindowBridge(): DesktopBridge["remoteWindow"] {
-  try {
-    const host: unknown = ipcRenderer.sendSync(IPC.remoteSsh.windowHost);
-    if (typeof host !== "string" || host.length === 0) return undefined;
-    return {
-      host,
-      editors: REMOTE_SSH_EDITOR_IDS,
-      providers: REMOTE_SERVER_PROVIDERS,
-      openInEditor: (target, editor) =>
-        ipcRenderer.invoke(IPC.remoteSsh.openInEditor, { target, editor }),
-      downloadFiles: (input) => ipcRenderer.invoke(IPC.remoteSsh.downloadFiles, input),
     };
   } catch {
     return undefined;
@@ -174,7 +154,6 @@ function parseBrowserAnnotationEvent(payload: unknown): BrowserAnnotationEvent |
 
 const betaDiagnosticsBridge = getBetaDiagnosticsBridge();
 const remoteSshBridge = getRemoteSshBridge();
-const remoteWindowBridge = getRemoteWindowBridge();
 let lastBrowserResize = -Infinity;
 function recordBrowserActivity(activity: DesktopDiagnosticActivity): void {
   try {
@@ -193,23 +172,16 @@ function recordBrowserActivity(activity: DesktopDiagnosticActivity): void {
 contextBridge.exposeInMainWorld("desktopBridge", {
   ...(betaDiagnosticsBridge ? { betaDiagnostics: betaDiagnosticsBridge } : {}),
   ...(remoteSshBridge ? { remoteSsh: remoteSshBridge } : {}),
-  ...(remoteWindowBridge ? { remoteWindow: remoteWindowBridge } : {}),
   getWsUrl: getDesktopWsUrl,
   // Absolute path for OS-dropped File objects (folders with spaces/parens, etc.).
-  // Remote windows leave it out: a local path means nothing on the host, so
-  // dropped files are uploaded as attachments instead.
-  ...(remoteWindowBridge
-    ? {}
-    : {
-        getPathForFile: (file: File) => {
-          try {
-            const path = webUtils.getPathForFile(file);
-            return typeof path === "string" && path.trim().length > 0 ? path : null;
-          } catch {
-            return null;
-          }
-        },
-      }),
+  getPathForFile: (file: File) => {
+    try {
+      const path = webUtils.getPathForFile(file);
+      return typeof path === "string" && path.trim().length > 0 ? path : null;
+    } catch {
+      return null;
+    }
+  },
   pickFolder: () => ipcRenderer.invoke(IPC.pickFolder),
   saveFile: (input) => ipcRenderer.invoke(IPC.saveFile, input),
   confirm: (message) => ipcRenderer.invoke(IPC.confirm, message),

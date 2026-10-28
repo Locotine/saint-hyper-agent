@@ -308,46 +308,6 @@ it("moves dragged rows into the folder they are dropped on", async () => {
   expect(moveEntry).toHaveBeenCalledTimes(2);
 });
 
-it("downloads the selected files from a remote window, skipping folders", async () => {
-  const downloadFiles = vi.fn().mockResolvedValue({ canceled: true, saved: [], failures: [] });
-  const contextMenu = vi.fn().mockResolvedValue(null);
-  const previousBridge = Object.getOwnPropertyDescriptor(window, "desktopBridge");
-  Object.defineProperty(window, "desktopBridge", {
-    configurable: true,
-    value: { remoteWindow: { host: "devbox", editors: [], providers: [], downloadFiles } },
-  });
-  try {
-    await renderExplorer("/repo/app", flatWorkspace(), undefined, threadId, {
-      contextMenu: { show: contextMenu },
-    });
-    const button = page.getByRole("button", { name: "Select files to download" });
-    await expect.element(button).toHaveAttribute("aria-disabled", "true");
-
-    for (const title of ["a.txt", "b.txt", "docs"]) {
-      await page.getByTitle(title, { exact: true }).click({ modifiers: [toggleModifier] });
-    }
-    await page.getByTitle("a.txt", { exact: true }).click({ button: "right" });
-    await expect.poll(() => contextMenu.mock.calls.length).toBe(1);
-    const items = contextMenu.mock.calls[0]?.[0] as Array<{ id: string; label: string }>;
-    expect(items.find((item) => item.id === "download")?.label).toBe("Download 2 files");
-
-    await page.getByRole("button", { name: "Download 2 selected files" }).click();
-    await expect.poll(() => downloadFiles.mock.calls.length).toBe(1);
-    const [request] = downloadFiles.mock.calls[0] as [
-      { items: Array<{ url: string; fileName: string }> },
-    ];
-    const downloads = request.items;
-    expect(downloads.map((item) => item.fileName)).toEqual(["a.txt", "b.txt"]);
-    const url = new URL(downloads[0]!.url);
-    expect(url.pathname).toBe("/api/workspace/download");
-    expect(url.searchParams.get("cwd")).toBe("/repo/app");
-    expect(url.searchParams.get("path")).toBe("a.txt");
-  } finally {
-    if (previousBridge) Object.defineProperty(window, "desktopBridge", previousBridge);
-    else Reflect.deleteProperty(window, "desktopBridge");
-  }
-});
-
 it("selects a plain-clicked folder and deletes the selection with the platform key", async () => {
   const confirm = vi.fn().mockResolvedValue(true);
   const deleteEntry = vi

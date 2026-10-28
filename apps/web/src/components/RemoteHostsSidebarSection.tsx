@@ -1,9 +1,10 @@
 // FILE: RemoteHostsSidebarSection.tsx
-// Purpose: Left-nav section listing remote SSH hosts with their projects and threads; choosing
-//          one switches this window onto that host, and "This computer" switches back.
-// Layer: Sidebar UI (desktop Beta; renders only while the remote SSH bridge reports hosts)
-// Exports: RemoteHostsSidebarSection, RemoteHostProjects, RemoteHostActivity, RemoteHostStoreSync,
-//          AddProjectOnHostButton, useRemoteChatNeedsAnswer
+// Purpose: Connected SSH hosts in the sidebar: their projects and threads in the Projects list,
+//          their running chats under Activity, and Add project on a host. A host's chats open in
+//          this window by host-qualified route id.
+// Layer: Sidebar UI (renders only while the remote SSH bridge reports hosts)
+// Exports: RemoteHostProjects, RemoteHostActivity, RemoteHostStoreSync, AddProjectOnHostButton,
+//          useRemoteChatNeedsAnswer
 
 import {
   ProjectId,
@@ -13,7 +14,7 @@ import {
 } from "@saint/contracts";
 import { scopeThread, sshHostId, type HostId } from "@saint/shared/hostId";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 import { toastManager } from "~/components/ui/toast";
 import { useRemoteHostCatalog } from "~/hooks/useRemoteHostCatalog";
@@ -22,7 +23,6 @@ import { useRemoteSshState } from "~/hooks/useRemoteSshState";
 import { hostStores } from "~/hosts/hostStores";
 import { addHostProject, createHostThread } from "~/hosts/hostThreadCreate";
 import { AddPlusIcon, FolderIcon, MonitorIcon, NewThreadIcon, ServerIcon } from "~/lib/icons";
-import { rememberPendingRemoteThread } from "~/lib/pendingRemoteThread";
 import { cn } from "~/lib/utils";
 import {
   remoteHostSidebarStatus,
@@ -32,17 +32,10 @@ import {
   type RemoteHostSidebarStatus,
 } from "~/lib/remoteHostCatalog";
 import {
-  DISCLOSURE_INNER_CLASS,
-  disclosureContentClassName,
-  disclosureShellClassName,
-} from "~/lib/disclosureMotion";
-import {
   SIDEBAR_HEADER_ROW_CLASS_NAME,
   SIDEBAR_NESTED_LIST_GAP_CLASS_NAME,
   SIDEBAR_ROW_HOVER_CLASS_NAME,
   SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
-  SIDEBAR_ROW_LABEL_TEXT_CLASS_NAME,
-  SIDEBAR_SECTION_LABEL_CLASS_NAME,
   SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
 } from "~/sidebarRowStyles";
 import { remoteHostRows, remoteHostStatus } from "./settings/remoteHostsSettingsModel";
@@ -50,8 +43,7 @@ import { ComposerPickerMenuPopup } from "./chat/ComposerPickerMenuPopup";
 import { SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME } from "./sidebarContextMenuStyles";
 import { SidebarIconButton } from "./SidebarIconButton";
 import { Menu, MenuItem, MenuTrigger } from "./ui/menu";
-import { DisclosureChevron } from "./ui/DisclosureChevron";
-import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
 const STATUS_DOT_CLASS_NAME: Record<RemoteHostSidebarStatus, string> = {
@@ -69,186 +61,6 @@ const THREAD_DOT_CLASS_NAME: Record<RemoteCatalogThreadState, string> = {
 
 function StatusDot(props: { className: string }) {
   return <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", props.className)} />;
-}
-
-/**
- * Switches this window to a host (or back to this computer with null). The window
- * reloads onto that backend; a chosen thread opens once it is up.
- */
-function switchBackend(host: string | null, threadId?: string): void {
-  if (host !== null && threadId) rememberPendingRemoteThread(host, threadId);
-  void window.desktopBridge?.remoteSsh?.activate(host).catch((error: unknown) => {
-    toastManager.add({
-      type: "error",
-      title: host === null ? "Could not switch to this computer" : `Could not open ${host}`,
-      description: error instanceof Error ? error.message : String(error),
-    });
-  });
-}
-
-function RemoteHostGroup(props: {
-  host: string;
-  hostState: DesktopRemoteSshHostState | null;
-  /** This window already runs on the host: its projects are the main list. */
-  isActive: boolean;
-}) {
-  const { host, hostState, isActive } = props;
-  const [expanded, setExpanded] = useState(true);
-  const status = remoteHostSidebarStatus(hostState);
-  const connected = status === "connected" && !isActive;
-  const catalog = useRemoteHostCatalog(
-    host,
-    connected ? (hostState?.localPort ?? null) : null,
-    hostState ? { hostKey: hostState.hostKey, epoch: hostState.epoch } : undefined,
-  );
-  const statusLabel = isActive ? "Active in this window" : remoteHostStatus(hostState);
-
-  return (
-    <SidebarMenuItem className="rounded-md">
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <SidebarMenuButton
-              size="sm"
-              aria-expanded={connected ? expanded : undefined}
-              className={cn(
-                SIDEBAR_HEADER_ROW_CLASS_NAME,
-                SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
-                SIDEBAR_ROW_HOVER_CLASS_NAME,
-              )}
-              onClick={() => connected && setExpanded((current) => !current)}
-            />
-          }
-        >
-          <ServerIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
-          <span className="min-w-0 flex-1 truncate">{host}</span>
-          {isActive ? <span className="text-ui-xs text-muted-foreground/79">Active</span> : null}
-          <StatusDot className={STATUS_DOT_CLASS_NAME[status]} />
-          {connected ? <DisclosureChevron open={expanded} /> : null}
-        </TooltipTrigger>
-        <TooltipPopup side="right">{`Remote host ${host} · ${statusLabel}`}</TooltipPopup>
-      </Tooltip>
-
-      {connected ? (
-        <div className={cn(disclosureShellClassName(expanded), "pt-0.5")}>
-          <div className={DISCLOSURE_INNER_CLASS}>
-            <SidebarMenu
-              className={cn(
-                SIDEBAR_NESTED_LIST_GAP_CLASS_NAME,
-                disclosureContentClassName(expanded),
-              )}
-            >
-              {catalog.status === "loading" ? (
-                <div className="px-2 py-1 pl-8 text-ui-sm text-muted-foreground/58">Loading…</div>
-              ) : null}
-              {catalog.status === "error" && catalog.projects.length === 0 ? (
-                <div className="px-2 py-1 pl-8 text-ui-sm text-destructive">
-                  {catalog.message ?? "Could not read this host."}
-                </div>
-              ) : null}
-              {catalog.status === "ready" && catalog.projects.length === 0 ? (
-                <div className="px-2 py-1 pl-8 text-ui-sm text-muted-foreground/58">
-                  No projects on this host
-                </div>
-              ) : null}
-              {catalog.projects.map((project) => (
-                <SidebarMenuItem key={project.id}>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <SidebarMenuButton
-                          size="sm"
-                          className={cn(
-                            SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
-                            "gap-1.5 pl-5",
-                            SIDEBAR_ROW_LABEL_TEXT_CLASS_NAME,
-                            SIDEBAR_ROW_HOVER_CLASS_NAME,
-                          )}
-                          onClick={() => switchBackend(host)}
-                        />
-                      }
-                    >
-                      <FolderIcon
-                        aria-hidden
-                        className="size-3.5 shrink-0 text-muted-foreground/79"
-                      />
-                      <span className="min-w-0 flex-1 truncate">{project.title}</span>
-                    </TooltipTrigger>
-                    <TooltipPopup side="right">{`${host}:${project.workspaceRoot}`}</TooltipPopup>
-                  </Tooltip>
-                  {project.threads.map((thread) => (
-                    <SidebarMenuButton
-                      key={thread.id}
-                      size="sm"
-                      className={cn(
-                        SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
-                        "gap-1.5 pl-9",
-                        SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
-                        SIDEBAR_ROW_HOVER_CLASS_NAME,
-                      )}
-                      onClick={() => switchBackend(host, thread.id)}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{thread.title}</span>
-                      <StatusDot className={THREAD_DOT_CLASS_NAME[thread.state]} />
-                    </SidebarMenuButton>
-                  ))}
-                  {project.hiddenThreadCount > 0 ? (
-                    <div className="px-2 py-1 pl-9 text-ui-sm text-muted-foreground/58">
-                      {`+${project.hiddenThreadCount} more on ${host}`}
-                    </div>
-                  ) : null}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </div>
-        </div>
-      ) : null}
-    </SidebarMenuItem>
-  );
-}
-
-/** `activeHost` is the host this window already runs on, null when it runs on this computer. */
-export function RemoteHostsSidebarSection(props: {
-  state: DesktopRemoteSshState;
-  activeHost: string | null;
-}) {
-  useRemoteHostStoreSync(props.state);
-  const rows = remoteHostRows(props.state);
-  if (rows.length === 0) return null;
-  return (
-    <SidebarGroup className="px-1.5 pt-1 pb-2">
-      <div className="my-1 flex h-7 items-center px-2 py-0.5">
-        <span className={cn("truncate", SIDEBAR_SECTION_LABEL_CLASS_NAME)}>Remote hosts</span>
-      </div>
-      <SidebarMenu className="gap-1">
-        {props.activeHost ? (
-          <SidebarMenuItem className="rounded-md">
-            <SidebarMenuButton
-              size="sm"
-              className={cn(
-                SIDEBAR_HEADER_ROW_CLASS_NAME,
-                SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
-                SIDEBAR_ROW_HOVER_CLASS_NAME,
-              )}
-              onClick={() => switchBackend(null)}
-            >
-              <MonitorIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
-              <span className="min-w-0 flex-1 truncate">This computer</span>
-              <span className="text-ui-xs text-muted-foreground/79">Local</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ) : null}
-        {rows.map((row) => (
-          <RemoteHostGroup
-            key={row.host}
-            host={row.host}
-            hostState={row.state}
-            isActive={row.host === props.activeHost}
-          />
-        ))}
-      </SidebarMenu>
-    </SidebarGroup>
-  );
 }
 
 /** A host's thread; it opens in this window by its host-qualified route id. */
@@ -301,11 +113,7 @@ function RemoteHostProjectRows(props: {
   const navigate = useNavigate();
   const hostId = sshHostId(hostKey);
   const status = remoteHostSidebarStatus(hostState);
-  const catalog = useRemoteHostCatalog(
-    host,
-    status === "connected" ? (hostState?.localPort ?? null) : null,
-    { hostKey, epoch: hostState?.epoch ?? 0 },
-  );
+  const catalog = useRemoteHostCatalog(hostKey);
   // Offline hosts keep their last known rows, dimmed; their chats open read-only.
   const offline = status !== "connected" || catalog.status === "error";
   const label = `${host} · ${remoteHostStatus(hostState)}`;
@@ -395,9 +203,8 @@ function useActiveThreadParam(): string | null {
 }
 
 /**
- * Multi-host: keeps every connected host's store fed for the app's lifetime, so a host's open
- * chat, its notifications and the quit check stay live whichever sidebar view is showing. The
- * separate "Remote hosts" section does this itself when multi-host is off.
+ * Keeps every connected host's store fed for the app's lifetime, so a host's open chat, its
+ * notifications and the quit check stay live whichever sidebar view is showing.
  */
 export function RemoteHostStoreSync() {
   const state = useRemoteSshState();
@@ -409,7 +216,7 @@ function RemoteHostStoreSyncFor(props: { state: DesktopRemoteSshState }) {
   return null;
 }
 
-/** Multi-host: every host's projects in the main Projects list, after this computer's. */
+/** Every host's projects in the main Projects list, after this computer's. */
 export function RemoteHostProjects(props: { state: DesktopRemoteSshState }) {
   const activeThreadParam = useActiveThreadParam();
   return remoteHostRows(props.state).map((row) => {
@@ -469,10 +276,7 @@ function RemoteHostActivityRows(props: {
 }) {
   const { host, hostKey, hostState, activeThreadParam } = props;
   const connected = remoteHostSidebarStatus(hostState) === "connected";
-  const catalog = useRemoteHostCatalog(host, connected ? (hostState?.localPort ?? null) : null, {
-    hostKey,
-    epoch: hostState?.epoch ?? 0,
-  });
+  const catalog = useRemoteHostCatalog(hostKey);
   if (!connected) return null;
   const hostId = sshHostId(hostKey);
   const threads = catalog.projects
@@ -494,7 +298,7 @@ function RemoteHostActivityRows(props: {
   ));
 }
 
-/** Multi-host: connected hosts' running and waiting chats, under this computer's Activity view. */
+/** Connected hosts' running and waiting chats, under this computer's Activity view. */
 export function RemoteHostActivity(props: { state: DesktopRemoteSshState }) {
   const activeThreadParam = useActiveThreadParam();
   return remoteHostRows(props.state).map((row) =>

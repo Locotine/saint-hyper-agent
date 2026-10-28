@@ -27,7 +27,6 @@ import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch"
 import { readLocalNativeApi } from "../nativeApi";
 import { isSplitRoute } from "../splitViewRoute";
 import { selectSplitView, useSplitViewStore } from "../splitViewStore";
-import { MULTI_HOST_ON } from "../betaFeatures";
 import { useStore } from "../store";
 import { createThreadExistsSelector, createThreadProjectIdSelector } from "../storeSelectors";
 import { ChatPaneKeepAliveProvider } from "../components/chat/ChatPaneKeepAlive";
@@ -52,9 +51,8 @@ function ChatThreadRouteView() {
   );
 }
 
-/** Another host's thread, when multi-host is on; otherwise the param is treated as this computer's. */
+/** Another host's thread, or null for this computer's. */
 function remoteThreadRef(param: string) {
-  if (!MULTI_HOST_ON) return null;
   const scoped = parseScopedThreadId(param);
   if (!scoped) return null;
   const ref = unscopeThread(scoped);

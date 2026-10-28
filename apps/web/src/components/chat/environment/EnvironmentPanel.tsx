@@ -33,7 +33,7 @@ import GitActionsControl from "~/components/GitActionsControl";
 import { DiffStat } from "~/components/ui/diff-stat";
 import { IconButton } from "~/components/ui/icon-button";
 import { toastManager } from "~/components/ui/toast";
-import { isElectron, remoteWindowHost } from "~/env";
+import { isElectron } from "~/env";
 import { basenameOfPath } from "~/file-icons";
 import type { RepoDiffTotals } from "~/hooks/useRepoDiffTotals";
 import { ChangesIcon, ExternalLinkIcon, GitHubIcon, SettingsIcon, FolderIcon } from "~/lib/icons";
@@ -300,8 +300,7 @@ export function EnvironmentPanel({
   const showGroupFolderRow = shouldShowGroupFolderRow({
     isGroupChat,
     groupFolderPath,
-    // A remote host's folder cannot be revealed on this computer.
-    nativeShellAvailable: isElectron && !remoteWindowHost,
+    nativeShellAvailable: isElectron,
   });
 
   const content = (

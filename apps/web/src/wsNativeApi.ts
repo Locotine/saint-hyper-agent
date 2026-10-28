@@ -16,7 +16,6 @@ import {
   type AuthRevokePairingLinkInput,
   type AuthSessionState,
   type AuthWebSocketTokenResult,
-  type ServerConfig,
   type ExternalMcpCreateIntegrationInput,
   type ExternalMcpCreateIntegrationResult,
   type ExternalMcpIntegration,
@@ -62,7 +61,6 @@ import { VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH } from "@saint/shared/binaryTrans
 import { Schema } from "effect";
 
 import { showConfirmDialogFallback } from "./confirmDialogFallback";
-import { pickRemoteFolder } from "./remoteFolderPickerStore";
 import { TASKS_OFFERED_BY_BUILD } from "./tasksSurface";
 import { showContextMenuFallback } from "./contextMenuFallback";
 import { requireHttpExternalUrl } from "./lib/externalUrl";
@@ -612,8 +610,6 @@ function buildNativeApi(
     dialogs: {
       pickFolder: async () => {
         if (!window.desktopBridge) return null;
-        // The native dialog only shows this computer; remote windows browse the host.
-        if (window.desktopBridge.remoteWindow) return pickRemoteFolder();
         return window.desktopBridge.pickFolder();
       },
       saveFile: async (input) => {
@@ -703,12 +699,8 @@ function buildNativeApi(
       listThreadOutputs: (input) => transport.request(WS_METHODS.studioListThreadOutputs, input),
     },
     shell: {
-      openInEditor: (cwd, editor) => {
-        // The server would launch the editor on the host; open it locally over SSH instead.
-        const remoteWindow = window.desktopBridge?.remoteWindow;
-        if (remoteWindow) return remoteWindow.openInEditor(cwd, editor);
-        return transport.request(WS_METHODS.shellOpenInEditor, { cwd, editor });
-      },
+      openInEditor: (cwd, editor) =>
+        transport.request(WS_METHODS.shellOpenInEditor, { cwd, editor }),
       openExternal: async (url) => {
         const externalUrl = requireHttpExternalUrl(url);
         if (window.desktopBridge) {
@@ -802,13 +794,7 @@ function buildNativeApi(
       },
     },
     server: {
-      getConfig: async () => {
-        const config: ServerConfig = await transport.request(WS_METHODS.serverGetConfig);
-        // Editors installed on the host cannot open in this window; offer the
-        // local editors that open host folders over Remote-SSH.
-        const remoteWindow = window.desktopBridge?.remoteWindow;
-        return remoteWindow ? { ...config, availableEditors: [...remoteWindow.editors] } : config;
-      },
+      getConfig: () => transport.request(WS_METHODS.serverGetConfig),
       getEnvironment: () => transport.request(WS_METHODS.serverGetEnvironment),
       getSettings: () => transport.request(WS_METHODS.serverGetSettings),
       updateSettings: (input) => transport.request(WS_METHODS.serverUpdateSettings, input),

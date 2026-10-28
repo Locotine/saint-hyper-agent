@@ -10,7 +10,6 @@ import type { HostId } from "@saint/shared/hostId";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { remoteWindowHost } from "../env";
 import { apiFor } from "../hosts/hostScope";
 import { useRemoteFolderPickerStore } from "../remoteFolderPickerStore";
 import { ArrowUpIcon, EyeIcon, FolderIcon, GitBranchIcon, HomeIcon } from "~/lib/icons";
@@ -103,8 +102,7 @@ function RemoteFolderPickerContent(props: {
         <DialogHeader className="px-5 pt-5">
           <DialogTitle>Choose a folder</DialogTitle>
           <DialogDescription>
-            Folders on {props.hostName ?? remoteWindowHost ?? "the server"}. Agents, git and
-            terminals run there.
+            Folders on {props.hostName ?? "the server"}. Agents, git and terminals run there.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel className="space-y-3 px-5" scrollFade={false}>

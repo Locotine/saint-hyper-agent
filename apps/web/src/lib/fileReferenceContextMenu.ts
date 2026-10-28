@@ -37,7 +37,7 @@ export async function showFileReferenceContextMenu(input: {
   selection?: Omit<ChatFileReference, "path"> | null;
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
   onAskWhyInChat?: ((reference: ChatFileReference) => void) | undefined;
-  /** Root `path` is relative to; adds "Copy path › Full path" (the host's path in a remote window). */
+  /** Root `path` is relative to; adds "Copy path › Full path". */
   workspaceRoot?: string | null;
   /**
    * File-tree actions; each receives nothing and acts on the clicked entry or
@@ -59,10 +59,7 @@ export async function showFileReferenceContextMenu(input: {
     return;
   }
   const revealPath =
-    input.revealPath &&
-    typeof window !== "undefined" &&
-    window.desktopBridge &&
-    !window.desktopBridge.remoteWindow
+    input.revealPath && typeof window !== "undefined" && window.desktopBridge
       ? input.revealPath
       : undefined;
   const reference: ChatFileReference = {

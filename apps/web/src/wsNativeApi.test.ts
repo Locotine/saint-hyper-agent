@@ -821,37 +821,6 @@ describe("wsNativeApi", () => {
     expect(nextState.tabs[0]?.url).toBe("about:blank");
   });
 
-  it("keeps folders, editors and editor lists on the host in a remote SSH window", async () => {
-    const pickFolder = vi.fn().mockResolvedValue("/Users/local/project");
-    const openInEditor = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(getWindowForTest(), "desktopBridge", {
-      configurable: true,
-      writable: true,
-      value: {
-        pickFolder,
-        remoteWindow: { host: "devbox", editors: ["vscode", "cursor"], openInEditor },
-      },
-    });
-    requestMock.mockResolvedValue({ availableEditors: ["zed"], keybindings: [] });
-    const { createWsNativeApi } = await import("./wsNativeApi");
-    const { useRemoteFolderPickerStore } = await import("./remoteFolderPickerStore");
-    const api = createWsNativeApi();
-
-    const picked = api.dialogs.pickFolder();
-    expect(useRemoteFolderPickerStore.getState().resolve).not.toBeNull();
-    useRemoteFolderPickerStore.getState().settle("/home/pt/app");
-    await expect(picked).resolves.toBe("/home/pt/app");
-    expect(pickFolder).not.toHaveBeenCalled();
-
-    await api.shell.openInEditor("/home/pt/app", "cursor");
-    expect(openInEditor).toHaveBeenCalledWith("/home/pt/app", "cursor");
-    expect(requestMock).not.toHaveBeenCalledWith(WS_METHODS.shellOpenInEditor, expect.anything());
-
-    await expect(api.server.getConfig()).resolves.toMatchObject({
-      availableEditors: ["vscode", "cursor"],
-    });
-  });
-
   it("forwards context menu metadata to desktop bridge", async () => {
     vi.stubGlobal("navigator", { platform: "Win32" });
     const showContextMenu = vi.fn().mockResolvedValue("delete");

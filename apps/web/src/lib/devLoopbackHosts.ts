@@ -96,9 +96,6 @@ function loopbackBridge(): RemoteSshBridge | undefined {
       hosts.some((state) => state.host === host && state.phase === "connected")
         ? (urls.get(host) ?? null)
         : null,
-    activate: async () => {
-      throw new Error("Loopback hosts cannot take over the window.");
-    },
     onState: (listener) => {
       listeners.add(listener);
       return () => {
