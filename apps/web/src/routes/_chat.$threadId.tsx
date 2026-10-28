@@ -2,7 +2,13 @@
 // Purpose: Resolve the active thread route into either a single chat surface or a persisted split view.
 // Layer: Route container
 
-import { bareLocalThreadParam, scopeLocalThread } from "@saint/shared/hostId";
+import {
+  bareLocalThreadParam,
+  LOCAL_HOST_ID,
+  parseScopedThreadId,
+  scopeLocalThread,
+  unscopeThread,
+} from "@saint/shared/hostId";
 import { type ProjectId, ThreadId } from "@saint/contracts";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -21,9 +27,11 @@ import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch"
 import { readLocalNativeApi } from "../nativeApi";
 import { isSplitRoute } from "../splitViewRoute";
 import { selectSplitView, useSplitViewStore } from "../splitViewStore";
+import { MULTI_HOST_ON } from "../betaFeatures";
 import { useStore } from "../store";
 import { createThreadExistsSelector, createThreadProjectIdSelector } from "../storeSelectors";
 import { ChatPaneKeepAliveProvider } from "../components/chat/ChatPaneKeepAlive";
+import { RemoteThreadSurface } from "../components/chat/RemoteThreadSurface";
 import { SingleChatSurface } from "../components/chat/SingleChatSurface";
 import { SplitChatSurface } from "../components/chat/SplitChatSurface";
 import { resolveSingleProjectId } from "./-chatThreadRoute.logic";
@@ -31,11 +39,26 @@ import { resolveSingleProjectId } from "./-chatThreadRoute.logic";
 // The single and split surfaces swap below this provider, which keeps the chat they both
 // show mounted across the swap.
 function ChatThreadRouteView() {
+  const param = Route.useParams({ select: (params) => params.threadId });
+  const remote = useMemo(() => remoteThreadRef(param), [param]);
   return (
     <ChatPaneKeepAliveProvider>
-      <ChatThreadRouteContent />
+      {remote ? (
+        <RemoteThreadSurface hostId={remote.hostId} threadId={remote.threadId} />
+      ) : (
+        <ChatThreadRouteContent />
+      )}
     </ChatPaneKeepAliveProvider>
   );
+}
+
+/** Another host's thread, when multi-host is on; otherwise the param is treated as this computer's. */
+function remoteThreadRef(param: string) {
+  if (!MULTI_HOST_ON) return null;
+  const scoped = parseScopedThreadId(param);
+  if (!scoped) return null;
+  const ref = unscopeThread(scoped);
+  return ref.hostId === LOCAL_HOST_ID ? null : ref;
 }
 
 function ChatThreadRouteContent() {

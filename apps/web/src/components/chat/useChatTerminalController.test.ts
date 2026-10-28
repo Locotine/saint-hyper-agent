@@ -131,6 +131,9 @@ const terminalSession = vi.hoisted(() => ({ disposeAndClose: vi.fn() }));
 const terminalLogic = vi.hoisted(() => ({ shouldAutoDelete: vi.fn() }));
 
 vi.mock("react", () => ({
+  // Host scoping reads a context; outside any provider it is always the default value.
+  createContext: (value: unknown) => ({ Provider: () => null, defaultValue: value }),
+  useContext: (context: { defaultValue: unknown }) => context.defaultValue,
   useCallback: reactHarness.useCallback,
   useEffect: reactHarness.useEffect,
   useState: reactHarness.useState,
@@ -145,6 +148,11 @@ vi.mock("../../terminalStateStore", () => ({
 vi.mock("../../nativeApi", () => ({
   readLocalNativeApi: () => ({ dialogs: { confirm: nativeApi.confirm } }),
 }));
+
+vi.mock("~/hosts/hostScope", () => {
+  const api = () => ({ dialogs: { confirm: nativeApi.confirm } });
+  return { useHostHandle: () => ({ hostId: "local", api, requireApi: api }) };
+});
 
 vi.mock("../ui/toast", () => ({ toastManager: { add: vi.fn() } }));
 

@@ -2,14 +2,14 @@
 // Purpose: Which host a piece of UI acts for, and that host's API. This computer answers on the
 //          app's own connection; another host on the transport its shell pump holds open.
 // Layer: Web host connections
-// Exports: apiFor, HostScope, useHostId
+// Exports: apiFor, hostHandle, HostScope, useHostHandle, useHostId
 
 import type { NativeApi } from "@saint/contracts";
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { createContext, createElement, type ReactNode, useContext } from "react";
 
 import { readLocalNativeApi } from "../nativeApi";
-import { HostStoreProvider } from "../store";
+import { HostStoreProvider, type HostStore } from "../store";
 import { createHostNativeApi } from "../wsNativeApi";
 import type { WsTransport } from "../wsTransport";
 import { hostConnections } from "./hostConnectionRegistry";
@@ -33,7 +33,43 @@ export function apiFor(hostId: HostId): NativeApi | undefined {
   return api;
 }
 
+/** A host's store and API together, for code that acts on one thread or project. */
+export interface HostHandle {
+  readonly hostId: HostId;
+  readonly store: HostStore;
+  /** Read at call time, like `apiFor`. */
+  readonly api: () => NativeApi | undefined;
+  readonly requireApi: () => NativeApi;
+}
+
+const handles = new Map<HostId, HostHandle>();
+
+/** Stable per host, so it is safe in hook dependency lists. */
+export function hostHandle(hostId: HostId): HostHandle {
+  let handle = handles.get(hostId);
+  if (!handle) {
+    const api = () => apiFor(hostId);
+    handle = {
+      hostId,
+      store: hostStores.get(hostId),
+      api,
+      requireApi: () => {
+        const resolved = api();
+        if (!resolved) throw new Error("This host is not connected.");
+        return resolved;
+      },
+    };
+    handles.set(hostId, handle);
+  }
+  return handle;
+}
+
 const HostIdContext = createContext<HostId>(LOCAL_HOST_ID);
+
+/** The handle of the host the calling component renders for. */
+export function useHostHandle(): HostHandle {
+  return hostHandle(useContext(HostIdContext));
+}
 
 /** The host the calling component renders for: this computer outside any `HostScope`. */
 export function useHostId(): HostId {

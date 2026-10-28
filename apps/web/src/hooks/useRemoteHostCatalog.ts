@@ -14,6 +14,7 @@ import {
   type RemoteCatalogProject,
 } from "../lib/remoteHostCatalog";
 import { WsTransport } from "../wsTransport";
+import { remoteSshBridge } from "../lib/devLoopbackHosts";
 
 export const REMOTE_CATALOG_REFRESH_MS = 15_000;
 
@@ -124,7 +125,7 @@ function usePolledRemoteHostCatalog(host: string, localPort: number | null): Rem
   const [catalog, setCatalog] = useState<RemoteHostCatalog>(LOADING);
 
   useEffect(() => {
-    const bridge = window.desktopBridge?.remoteSsh;
+    const bridge = remoteSshBridge();
     if (!bridge || localPort === null) return;
     let current = true;
     let transport: WsTransport | null = null;

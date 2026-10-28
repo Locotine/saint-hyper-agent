@@ -5,6 +5,7 @@
 
 import type { DesktopRemoteSshState } from "@saint/contracts";
 import { useEffect, useState } from "react";
+import { remoteSshBridge } from "../lib/devLoopbackHosts";
 
 /** Null until the first state arrives, and always null without the bridge (Stable, browsers). */
 export function useRemoteSshState(
@@ -14,7 +15,7 @@ export function useRemoteSshState(
   const [state, setState] = useState<DesktopRemoteSshState | null>(null);
 
   useEffect(() => {
-    const bridge = typeof window === "undefined" ? undefined : window.desktopBridge?.remoteSsh;
+    const bridge = remoteSshBridge();
     if (!active || !bridge) return;
     let cancelled = false;
     void bridge.getState().then((next) => {

@@ -1,4 +1,5 @@
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import {
   PROVIDER_DISPLAY_NAMES,
   ProviderInteractionMode,
@@ -10,7 +11,6 @@ import {
 } from "@saint/contracts";
 import { useCallback, useEffect, useRef } from "react";
 import { newCommandId } from "~/lib/utils";
-import { readLocalNativeApi } from "~/nativeApi";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { providerSupportsAutoRuntimeMode } from "../../lib/runtimeMode";
 import { type Thread } from "../../types";
@@ -52,6 +52,7 @@ export function useChatRuntimeModes({
   activeProviderStatus,
   scheduleComposerFocus,
 }: ChatRuntimeModesInput) {
+  const chatHost = useHostHandle();
   const setComposerDraftRuntimeMode = useComposerDraftStore((state) => state.setRuntimeMode);
   const setDraftThreadContext = useComposerDraftStore((state) => state.setDraftThreadContext);
   const setComposerDraftInteractionMode = useComposerDraftStore(
@@ -81,7 +82,7 @@ export function useChatRuntimeModes({
       }
       return queue.persist(mode, async (currentMode, nextMode) => {
         if (serverThread) {
-          const api = readLocalNativeApi();
+          const api = chatHost.api();
           if (!api) {
             toastManager.add({
               type: "error",
@@ -147,16 +148,17 @@ export function useChatRuntimeModes({
         if (serverThread) {
           onRuntimeModePersisted(nextMode);
         } else {
-          setComposerDraftRuntimeMode(scopeLocalThread(threadId), nextMode);
+          setComposerDraftRuntimeMode(scopeThread(chatHost.hostId, threadId), nextMode);
         }
         if (isLocalDraftThread) {
-          setDraftThreadContext(scopeLocalThread(threadId), { runtimeMode: nextMode });
+          setDraftThreadContext(scopeThread(chatHost.hostId, threadId), { runtimeMode: nextMode });
         }
         scheduleComposerFocus();
         return true;
       });
     },
     [
+      chatHost,
       isLocalDraftThread,
       onRuntimeModePersisted,
       runtimeMode,
@@ -200,12 +202,12 @@ export function useChatRuntimeModes({
   const handleInteractionModeChange = useCallback(
     (mode: ProviderInteractionMode) => {
       if (mode === interactionMode) return;
-      setComposerDraftInteractionMode(scopeLocalThread(threadId), mode);
+      setComposerDraftInteractionMode(scopeThread(chatHost.hostId, threadId), mode);
       if (isLocalDraftThread) {
-        setDraftThreadContext(scopeLocalThread(threadId), { interactionMode: mode });
+        setDraftThreadContext(scopeThread(chatHost.hostId, threadId), { interactionMode: mode });
       }
       if (serverThread) {
-        const api = readLocalNativeApi();
+        const api = chatHost.api();
         if (api) {
           void api.orchestration
             .dispatchCommand({
@@ -228,6 +230,7 @@ export function useChatRuntimeModes({
       scheduleComposerFocus();
     },
     [
+      chatHost,
       interactionMode,
       isLocalDraftThread,
       scheduleComposerFocus,
@@ -255,7 +258,7 @@ export function useChatRuntimeModes({
       if (!serverThread) {
         return;
       }
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       if (!api) {
         return;
       }
@@ -292,7 +295,7 @@ export function useChatRuntimeModes({
         });
       }
     },
-    [serverThread],
+    [chatHost, serverThread],
   );
   return {
     persistRuntimeModeChange,

@@ -33,7 +33,7 @@ describe("HostScope", () => {
       return null;
     }
     renderToString(createElement(Probe));
-    renderToString(createElement(HostScope, { hostId: hostA }, createElement(Probe)));
+    renderToString(createElement(HostScope, { hostId: hostA, children: createElement(Probe) }));
 
     // This computer's state leaves `hostId` unset.
     expect(seen[0]).toMatchObject({ hostId: LOCAL_HOST_ID, stateHostId: undefined });
@@ -49,7 +49,7 @@ describe("HostScope", () => {
   });
 
   it("builds one API per host transport and leaves this computer's streams closed", async () => {
-    vi.stubGlobal("window", makeFakeWindow());
+    vi.stubGlobal("window", makeFakeWindow(new Map()));
     const { apiFor } = await load();
     const { hostConnections } = await import("./hostConnectionRegistry");
     const transport = {

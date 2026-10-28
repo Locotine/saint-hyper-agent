@@ -2,15 +2,23 @@
 // Purpose: Left-nav section listing remote SSH hosts with their projects and threads; choosing
 //          one switches this window onto that host, and "This computer" switches back.
 // Layer: Sidebar UI (desktop Beta; renders only while the remote SSH bridge reports hosts)
-// Exports: RemoteHostsSidebarSection
+// Exports: RemoteHostsSidebarSection, RemoteHostProjects
 
-import type { DesktopRemoteSshHostState, DesktopRemoteSshState } from "@saint/contracts";
+import {
+  ProjectId,
+  ThreadId,
+  type DesktopRemoteSshHostState,
+  type DesktopRemoteSshState,
+} from "@saint/contracts";
+import { scopeThread, sshHostId } from "@saint/shared/hostId";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { toastManager } from "~/components/ui/toast";
 import { useRemoteHostCatalog } from "~/hooks/useRemoteHostCatalog";
 import { useRemoteHostStoreSync } from "~/hooks/useRemoteHostStoreSync";
-import { FolderIcon, MonitorIcon, ServerIcon } from "~/lib/icons";
+import { createHostThread } from "~/hosts/hostThreadCreate";
+import { FolderIcon, MonitorIcon, NewThreadIcon, ServerIcon } from "~/lib/icons";
 import { rememberPendingRemoteThread } from "~/lib/pendingRemoteThread";
 import { cn } from "~/lib/utils";
 import {
@@ -33,6 +41,7 @@ import {
   SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
 } from "~/sidebarRowStyles";
 import { remoteHostRows, remoteHostStatus } from "./settings/remoteHostsSettingsModel";
+import { SidebarIconButton } from "./SidebarIconButton";
 import { DisclosureChevron } from "./ui/DisclosureChevron";
 import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
@@ -232,4 +241,144 @@ export function RemoteHostsSidebarSection(props: {
       </SidebarMenu>
     </SidebarGroup>
   );
+}
+
+/** A host's projects as rows of the main Projects list, each labeled with the host. */
+function RemoteHostProjectRows(props: {
+  host: string;
+  hostKey: string;
+  hostState: DesktopRemoteSshHostState | null;
+  activeThreadParam: string | null;
+}) {
+  const { host, hostKey, hostState, activeThreadParam } = props;
+  const navigate = useNavigate();
+  const hostId = sshHostId(hostKey);
+  const status = remoteHostSidebarStatus(hostState);
+  const catalog = useRemoteHostCatalog(
+    host,
+    status === "connected" ? (hostState?.localPort ?? null) : null,
+    { hostKey, epoch: hostState?.epoch ?? 0 },
+  );
+  // Offline hosts keep their last known rows, dimmed; their chats open read-only.
+  const offline = status !== "connected" || catalog.status === "error";
+  const label = `${host} · ${remoteHostStatus(hostState)}`;
+  const startThread = async (projectId: ProjectId) => {
+    try {
+      const threadId = await createHostThread(hostId, projectId);
+      await navigate({ to: "/$threadId", params: { threadId: scopeThread(hostId, threadId) } });
+    } catch (error) {
+      toastManager.add({
+        type: "error",
+        title: `Could not start a thread on ${host}`,
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  return catalog.projects.map((project) => (
+    <SidebarMenuItem
+      key={`${hostKey}:${project.id}`}
+      className={cn("rounded-md", offline && "opacity-60")}
+    >
+      <div className="flex items-center gap-0.5">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <SidebarMenuButton
+                size="sm"
+                className={cn(
+                  SIDEBAR_HEADER_ROW_CLASS_NAME,
+                  SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
+                  SIDEBAR_ROW_HOVER_CLASS_NAME,
+                  "min-w-0 flex-1 cursor-default",
+                )}
+              />
+            }
+          >
+            <FolderIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
+            <span className="min-w-0 flex-1 truncate">{project.title}</span>
+            <span className="flex min-w-0 shrink items-center gap-1 text-ui-xs text-muted-foreground/79">
+              <ServerIcon aria-hidden className="size-3 shrink-0" />
+              <span className="truncate">{host}</span>
+            </span>
+            <StatusDot
+              className={
+                STATUS_DOT_CLASS_NAME[
+                  status === "connected" && catalog.status === "error" ? "error" : status
+                ]
+              }
+            />
+          </TooltipTrigger>
+          <TooltipPopup side="right">
+            <div>{`${host}:${project.workspaceRoot}`}</div>
+            <div className="text-muted-foreground">{catalog.message ?? label}</div>
+          </TooltipPopup>
+        </Tooltip>
+        {offline ? null : (
+          <SidebarIconButton
+            icon={NewThreadIcon}
+            label={`New thread in ${project.title} on ${host}`}
+            tooltip={`New thread on ${host}`}
+            tooltipSide="right"
+            onClick={() => void startThread(ProjectId.makeUnsafe(project.id))}
+          />
+        )}
+      </div>
+      <SidebarMenu className={cn(SIDEBAR_NESTED_LIST_GAP_CLASS_NAME, "pt-0.5")}>
+        {project.threads.map((thread) => {
+          const param = scopeThread(hostId, ThreadId.makeUnsafe(thread.id));
+          return (
+            <SidebarMenuButton
+              key={thread.id}
+              size="sm"
+              isActive={param === activeThreadParam}
+              className={cn(
+                SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
+                "gap-1.5 pl-5",
+                SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
+                SIDEBAR_ROW_HOVER_CLASS_NAME,
+              )}
+              onClick={() => void navigate({ to: "/$threadId", params: { threadId: param } })}
+            >
+              <span className="min-w-0 flex-1 truncate">{thread.title}</span>
+              <StatusDot className={THREAD_DOT_CLASS_NAME[thread.state]} />
+            </SidebarMenuButton>
+          );
+        })}
+        {project.hiddenThreadCount > 0 ? (
+          <div className="px-2 py-1 pl-5 text-ui-sm text-muted-foreground/58">
+            {`+${project.hiddenThreadCount} more on ${host}`}
+          </div>
+        ) : null}
+      </SidebarMenu>
+    </SidebarMenuItem>
+  ));
+}
+
+/**
+ * Multi-host: every host's projects in the main Projects list, after this computer's. Keeps
+ * the hosts' stores fed, which the separate "Remote hosts" section does when multi-host is off.
+ */
+export function RemoteHostProjects(props: { state: DesktopRemoteSshState }) {
+  useRemoteHostStoreSync(props.state);
+  const activeThreadParam = useParams({
+    strict: false,
+    select: (params) => (params as { threadId?: string }).threadId ?? null,
+  });
+  return remoteHostRows(props.state).map((row) => {
+    const hostKey =
+      row.state?.hostKey ??
+      props.state.savedHosts.find((saved) => saved.host === row.host)?.hostKey ??
+      null;
+    if (!hostKey) return null;
+    return (
+      <RemoteHostProjectRows
+        key={row.host}
+        host={row.host}
+        hostKey={hostKey}
+        hostState={row.state}
+        activeThreadParam={activeThreadParam}
+      />
+    );
+  });
 }

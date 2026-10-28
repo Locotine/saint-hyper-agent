@@ -10,6 +10,7 @@ import {
   INLINE_VISUALS_BETA_FEATURE,
   isBetaFeatureEnabled,
   MCP_CONNECTORS_BETA_FEATURE,
+  MULTI_HOST_BETA_FEATURE,
   NATIVE_EDITOR_BETA_FEATURE,
   PULL_REQUEST_AUTO_FIX_BETA_FEATURE,
 } from "@saint/shared/betaFeatures";
@@ -67,6 +68,9 @@ export const INLINE_VISUALS_ON = isBetaFeatureOn(INLINE_VISUALS_BETA_FEATURE);
  * mentions for provider sessions that support them.
  */
 export const MCP_CONNECTORS_ON = isBetaFeatureOn(MCP_CONNECTORS_BETA_FEATURE);
+
+/** Connected hosts' chats in the main sidebar and window (Beta only). */
+export const MULTI_HOST_ON = isBetaFeatureOn(MULTI_HOST_BETA_FEATURE);
 
 /** The native Code OSS engine is enabled in Stable and Beta; Pierre remains the gated alternative. */
 export type CodeEditorEngine = "native" | "pierre";

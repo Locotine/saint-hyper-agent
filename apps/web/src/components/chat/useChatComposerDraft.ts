@@ -1,4 +1,5 @@
-import { scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
+import { type ScopedThreadId, scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import { ThreadId, type ProjectId } from "@saint/contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -45,15 +46,17 @@ interface ChatComposerDraftInput {
 function useLocalThreadAction<Args extends unknown[], Result>(
   select: (store: ComposerDraftStoreState) => (threadId: ScopedThreadId, ...args: Args) => Result,
 ) {
+  const chatHost = useHostHandle();
   const action = useComposerDraftStore(select);
   return useCallback(
-    (threadId: ThreadId, ...args: Args) => action(scopeLocalThread(threadId), ...args),
-    [action],
+    (threadId: ThreadId, ...args: Args) => action(scopeThread(chatHost.hostId, threadId), ...args),
+    [chatHost, action],
   );
 }
 
 export function useChatComposerDraft({ threadId }: ChatComposerDraftInput) {
-  const composerDraft = useComposerThreadDraft(scopeLocalThread(threadId));
+  const chatHost = useHostHandle();
+  const composerDraft = useComposerThreadDraft(scopeThread(chatHost.hostId, threadId));
   const prompt = composerDraft.prompt;
   const composerPromptHistorySavedDraft = composerDraft.promptHistorySavedDraft;
   const composerPromptHistorySavedDraftImages = composerPromptHistorySavedDraft?.images ?? null;
@@ -175,8 +178,8 @@ export function useChatComposerDraft({ threadId }: ChatComposerDraftInput) {
   );
   const setProjectDraftThreadId = useCallback(
     (projectId: ProjectId, threadId: ThreadId, options?: DraftThreadMutationOptions) =>
-      setScopedProjectDraftThreadId(projectId, scopeLocalThread(threadId), options),
-    [setScopedProjectDraftThreadId],
+      setScopedProjectDraftThreadId(projectId, scopeThread(chatHost.hostId, threadId), options),
+    [chatHost, setScopedProjectDraftThreadId],
   );
   const clearProjectDraftThreadId = useComposerDraftStore(
     (store) => store.clearProjectDraftThreadId,

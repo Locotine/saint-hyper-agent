@@ -7,6 +7,7 @@ import { MCP_CONNECTORS_BETA_FEATURE, REMOTE_SSH_BETA_FEATURE } from "@saint/sha
 
 import { isBetaFeatureOn } from "~/betaFeatures";
 import { KEYBINDINGS_ICON_NAME } from "~/lib/icons";
+import { remoteSshBridge } from "./lib/devLoopbackHosts";
 
 export const SETTINGS_SECTION_IDS = [
   "general",
@@ -82,7 +83,7 @@ const SETTINGS_SECTION_BETA_FEATURES: Partial<Record<SettingsSectionId, string>>
  * in the local app window of a build that ships them.
  */
 function hasRemoteSshBridge(): boolean {
-  return typeof window !== "undefined" && Boolean(window.desktopBridge?.remoteSsh);
+  return Boolean(remoteSshBridge());
 }
 
 /** The app updater lives in the desktop main process; browsers have no bridge for it. */

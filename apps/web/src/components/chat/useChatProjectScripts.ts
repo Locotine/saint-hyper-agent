@@ -1,4 +1,5 @@
-import { scopeLocalProject, scopeLocalThread } from "@saint/shared/hostId";
+import { scopeThread, scopeProject } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import {
   ThreadId,
   type KeybindingCommand,
@@ -12,7 +13,6 @@ import { dockTerminalThreadId } from "~/lib/dockTerminalScope";
 import { decodeProjectScriptKeybindingRule } from "~/lib/projectScriptKeybindings";
 import { serverQueryKeys } from "~/lib/serverReactQuery";
 import { newCommandId, randomUUID } from "~/lib/utils";
-import { readLocalNativeApi } from "~/nativeApi";
 import { scopeProjectKeyedRecord } from "~/persistedRecord";
 import {
   commandForProjectScript,
@@ -51,6 +51,7 @@ export function useChatProjectScripts({
   isGroupContainer,
   setThreadError,
 }: ChatProjectScriptsInput) {
+  const chatHost = useHostHandle();
   const queryClient = useQueryClient();
   const pendingScriptThreads = useRef(new Set<ThreadId>());
   const storeEnsureDockTerminal = useTerminalStateStore((state) => state.ensureDockTerminal);
@@ -70,11 +71,11 @@ export function useChatProjectScripts({
       script: ProjectScript,
       options?: ProjectScriptRunOptions,
     ): Promise<ProjectScriptRunResult | null> => {
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       if (!api || !activeThreadId || !activeProject || !activeThread) return null;
       if (options?.rememberAsLastInvoked !== false) {
         setLastInvokedScriptByProjectId((current) => {
-          const projectId = scopeLocalProject(activeProject.id);
+          const projectId = scopeProject(chatHost.hostId, activeProject.id);
           if (current[projectId] === script.id) return current;
           // Rows written before host scoping hold raw ids; this write upgrades them.
           return { ...scopeProjectKeyedRecord(current), [projectId]: script.id };
@@ -84,7 +85,7 @@ export function useChatProjectScripts({
       const terminalThreadId = dockTerminalThreadId(activeThreadId);
       const terminalState =
         useTerminalStateStore.getState().terminalStateByThreadId[
-          scopeLocalThread(terminalThreadId)
+          scopeThread(chatHost.hostId, terminalThreadId)
         ];
       const dock = selectRightDockState(activeThreadId)(useRightDockStore.getState());
       const terminalPane =
@@ -128,7 +129,7 @@ export function useChatProjectScripts({
             // Attach only after the requested cwd/env are set, but before writing
             // so the session stays accessible if command delivery fails.
             storeEnsureDockTerminal(
-              scopeLocalThread(terminalThreadId),
+              scopeThread(chatHost.hostId, terminalThreadId),
               targetPaneId,
               targetTerminalId,
             );
@@ -146,10 +147,14 @@ export function useChatProjectScripts({
           },
         });
         if (metadata) {
-          storeSetTerminalMetadata(scopeLocalThread(terminalThreadId), targetTerminalId, {
-            cliKind: metadata.cliKind,
-            label: metadata.label,
-          });
+          storeSetTerminalMetadata(
+            scopeThread(chatHost.hostId, terminalThreadId),
+            targetTerminalId,
+            {
+              cliKind: metadata.cliKind,
+              label: metadata.label,
+            },
+          );
         }
       };
 
@@ -167,7 +172,7 @@ export function useChatProjectScripts({
           });
           useTerminalStateStore
             .getState()
-            .closeTerminal(scopeLocalThread(terminalThreadId), baseTerminalId);
+            .closeTerminal(scopeThread(chatHost.hostId, terminalThreadId), baseTerminalId);
         }
         await runScriptInTargetTerminal();
         pendingScriptThreads.current.delete(activeThreadId);
@@ -187,6 +192,7 @@ export function useChatProjectScripts({
       }
     },
     [
+      chatHost,
       activeProject,
       activeThread,
       activeThreadId,
@@ -206,7 +212,7 @@ export function useChatProjectScripts({
       keybinding?: string | null;
       keybindingCommand: KeybindingCommand;
     }) => {
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       if (!api) return;
 
       await api.orchestration.dispatchCommand({
@@ -226,7 +232,7 @@ export function useChatProjectScripts({
         await queryClient.invalidateQueries({ queryKey: serverQueryKeys.all });
       }
     },
-    [queryClient],
+    [chatHost, queryClient],
   );
   const saveProjectScript = useCallback(
     async (input: NewProjectScriptInput) => {

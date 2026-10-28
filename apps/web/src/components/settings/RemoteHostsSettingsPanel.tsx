@@ -17,10 +17,8 @@ import {
   type RemoteHostRow,
 } from "./remoteHostsSettingsModel";
 import { SettingsListRow, SettingsRow, SettingsSection } from "./SettingsPanelPrimitives";
-
-function remoteSshBridge() {
-  return typeof window === "undefined" ? undefined : window.desktopBridge?.remoteSsh;
-}
+import { remoteSshBridge } from "../../lib/devLoopbackHosts";
+import { MULTI_HOST_ON } from "../../betaFeatures";
 
 function showError(title: string, error: unknown): void {
   toastManager.add({
@@ -101,7 +99,11 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
         />
         <SettingsRow
           title="Connect"
-          description="Installs this Saint version on the host when needed, starts its server in tmux, and connects through an SSH tunnel. The host then appears under Remote hosts in the sidebar."
+          description={`Installs this Saint version on the host when needed, starts its server in tmux, and connects through an SSH tunnel. ${
+            MULTI_HOST_ON
+              ? "Its projects then appear in the sidebar's Projects list."
+              : "The host then appears under Remote hosts in the sidebar."
+          }`}
           control={
             <Button
               size="sm"
@@ -197,9 +199,12 @@ function RemoteHostListRow(props: {
       }
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="xs" variant="outline" disabled={busy} onClick={props.onConnect}>
-            {connected ? "Open" : failed ? "Retry" : "Connect"}
-          </Button>
+          {/* Multi-host opens a host's chats from the sidebar, so there is no window to switch. */}
+          {connected && MULTI_HOST_ON ? null : (
+            <Button size="xs" variant="outline" disabled={busy} onClick={props.onConnect}>
+              {connected ? "Open" : failed ? "Retry" : "Connect"}
+            </Button>
+          )}
           {connected || busy ? (
             <Button size="xs" variant="ghost" onClick={props.onDisconnect}>
               {busy ? "Cancel" : "Disconnect"}

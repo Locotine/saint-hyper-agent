@@ -145,7 +145,8 @@ import { useRailShellStore } from "../railShellStore";
 import { isElectron, remoteWindowHost } from "../env";
 import { useRemoteSshState } from "../hooks/useRemoteSshState";
 import { formatRelativeTime } from "../lib/relativeTime";
-import { RemoteHostsSidebarSection } from "./RemoteHostsSidebarSection";
+import { useAllHostProjects } from "../hosts/hostStores";
+import { RemoteHostProjects, RemoteHostsSidebarSection } from "./RemoteHostsSidebarSection";
 import {
   isMacNavigatorPlatform,
   newCommandId,
@@ -324,7 +325,7 @@ import { RenameThreadDialog } from "./RenameThreadDialog";
 import { SnoozeUntilDialog } from "./SnoozeUntilDialog";
 import { SNOOZE_PRESETS } from "../lib/threadSnooze";
 import ReleaseHistoryDialog from "./ReleaseHistoryDialog";
-import { GROUPS_ON, INBOX_ON, isBetaFeatureOn } from "../betaFeatures";
+import { GROUPS_ON, INBOX_ON, isBetaFeatureOn, MULTI_HOST_ON } from "../betaFeatures";
 import { WHATS_NEW_ENTRIES } from "../whatsNew/entries";
 import { sortEntriesByVersionDesc } from "../whatsNew/logic";
 import { SidebarSearchPalette, type SidebarSearchPaletteMode } from "./SidebarSearchPalette";
@@ -1302,6 +1303,9 @@ export default function Sidebar() {
   );
   // Null on Stable and in browsers: the Remote hosts section stays hidden.
   const remoteSshState = useRemoteSshState();
+  // Multi-host lists hosts' projects with this computer's; a window running on a host keeps
+  // the separate section.
+  const multiHostRows = MULTI_HOST_ON && !remoteWindowHost;
   const hasRemoteHosts =
     remoteSshState !== null &&
     (remoteSshState.savedHosts.length > 0 || remoteSshState.hosts.length > 0);
@@ -4787,8 +4791,17 @@ export default function Sidebar() {
     () => orderPinnedProjectsForSidebar(standardProjectsBase, pinnedProjectIds),
     [pinnedProjectIds, standardProjectsBase],
   );
+  // Hosts' projects fill the list too, so this computer having none is not an empty list.
+  const allHostProjects = useAllHostProjects();
+  const remoteHostProjectCount = useMemo(
+    () =>
+      allHostProjects.filter(
+        (row) => row.hostId !== LOCAL_HOST_ID && row.project.kind === "project",
+      ).length,
+    [allHostProjects],
+  );
   const projectEmptyState = resolveProjectEmptyState({
-    projectCount: standardProjects.length,
+    projectCount: standardProjects.length + (multiHostRows ? remoteHostProjectCount : 0),
     shouldShowProjectPathEntry: createProjectDialogOpen,
     threadsHydrated,
   });
@@ -7493,10 +7506,11 @@ export default function Sidebar() {
                       />
                       {renderPinnedThreadsSection()}
                       {renderListSectionHeader(
-                        // Remote hosts get their own section below, so say which side this is.
+                        // Remote hosts get their own section below (or, with multi-host, label
+                        // their own rows), so say which side this is.
                         remoteWindowHost
                           ? `Projects · ${remoteWindowHost}`
-                          : hasRemoteHosts
+                          : hasRemoteHosts && !multiHostRows
                             ? "Projects · Local"
                             : "Projects",
                         <>
@@ -7571,6 +7585,12 @@ export default function Sidebar() {
                         </SidebarMenu>
                       )}
 
+                      {multiHostRows && remoteSshState ? (
+                        <SidebarMenu className="mt-3 gap-3">
+                          <RemoteHostProjects state={remoteSshState} />
+                        </SidebarMenu>
+                      ) : null}
+
                       {projectEmptyState === "loading" && (
                         <div
                           className="space-y-2 px-2 pt-4"
@@ -7621,7 +7641,8 @@ export default function Sidebar() {
             !activityViewEnabled &&
             !showRailSpacesPanel &&
             !showRailAutomationsPanel &&
-            remoteSshState ? (
+            remoteSshState &&
+            !multiHostRows ? (
               <RemoteHostsSidebarSection state={remoteSshState} activeHost={remoteWindowHost} />
             ) : null}
             {!isOnSettings &&

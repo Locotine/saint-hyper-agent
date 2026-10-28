@@ -1,4 +1,5 @@
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import type { ThreadId } from "@saint/contracts";
 import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
 import { resolveComputerInvocationMode } from "@saint/shared/computerInvocation";
@@ -15,7 +16,6 @@ import {
 } from "~/lib/composerMentions";
 import { resolveProviderSendAvailabilityWithRefresh } from "~/lib/providerAvailability";
 import { newMessageId, randomUUID } from "~/lib/utils";
-import { readLocalNativeApi } from "~/nativeApi";
 import { resolveFollowUpDispatchMode } from "../../appSettings";
 import { useComposerDraftStore, type QueuedComposerChatTurn } from "../../composerDraftStore";
 import { appendAssistantSelectionsToPrompt } from "../../lib/assistantSelections";
@@ -61,7 +61,6 @@ import {
 } from "./queuedComposerPreview";
 import { resolveChatPromptCaptures } from "./resolveChatPromptCaptures";
 import { useChatTurnExecution } from "./useChatTurnExecution";
-import { useStore } from "../../store";
 import { getThreadFromState } from "../../threadDerivation";
 
 // One toast per chat: pressing Send again refreshes it instead of stacking copies.
@@ -208,6 +207,7 @@ export function useChatTurnSubmission({
   runProjectScript,
   persistThreadSettingsForNextTurn,
 }: ChatTurnSubmissionInput) {
+  const chatHost = useHostHandle();
   const anchorSentMessagesToTopRef = useRef(settings.anchorSentMessagesToTop);
   useLayoutEffect(() => {
     anchorSentMessagesToTopRef.current = settings.anchorSentMessagesToTop;
@@ -271,7 +271,7 @@ export function useChatTurnSubmission({
           hasLiveTurn,
         });
       e?.preventDefault();
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       const lateSendHandlers = lateComposerSendHandlersRef.current;
       if (
         !api ||
@@ -305,7 +305,7 @@ export function useChatTurnSubmission({
         return false;
       }
       const hasPendingCacheReview = () =>
-        getThreadFromState(useStore.getState(), activeThread.id)?.claudeCacheReview != null;
+        getThreadFromState(chatHost.store.getState(), activeThread.id)?.claudeCacheReview != null;
       if (hasPendingCacheReview()) return false;
       const resumeQueueAfterSend =
         !queuedTurn || dispatchMode === "steer"
@@ -401,8 +401,9 @@ export function useChatTurnSubmission({
       }
       let composerImagesForSend =
         queuedChatTurn?.images ??
-        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(activeThread.id)]
-          ?.images ??
+        useComposerDraftStore.getState().draftsByThreadId[
+          scopeThread(chatHost.hostId, activeThread.id)
+        ]?.images ??
         composerImages;
       // AppSnap captures persist as IndexedDB blobs and hydrate into `images`
       // asynchronously (see AppSnapCoordinator). Right after a reload the user can
@@ -413,8 +414,9 @@ export function useChatTurnSubmission({
       if (queuedChatTurn === null) {
         const pendingBlobAttachments = findPendingBlobComposerAttachments({
           persistedAttachments:
-            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(activeThread.id)]
-              ?.persistedAttachments ?? [],
+            useComposerDraftStore.getState().draftsByThreadId[
+              scopeThread(chatHost.hostId, activeThread.id)
+            ]?.persistedAttachments ?? [],
           images: composerImagesForSend,
         });
         if (pendingBlobAttachments.length > 0) {
@@ -735,6 +737,7 @@ export function useChatTurnSubmission({
         return true;
       }
       const workspace = await prepareChatSendWorkspace({
+        store: chatHost.store,
         activeThread,
         isServerThread,
         hasNativeUserMessages,
@@ -1021,6 +1024,7 @@ export function useChatTurnSubmission({
       return sent;
     },
     [
+      chatHost,
       threadId,
       hasLiveTurn,
       lateComposerSendHandlersRef,

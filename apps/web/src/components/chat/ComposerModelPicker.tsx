@@ -5,7 +5,8 @@
 // Depends on: the picker's tabs/row/trait-row pieces, composer trait helpers, starred
 //   model storage, and shared menu primitives.
 
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import {
   type ModelSlug,
   type ProviderAgentDescriptor,
@@ -180,6 +181,7 @@ function groupRowElements(
 }
 
 export function ComposerModelPicker(props: ComposerModelPickerProps) {
+  const chatHost = useHostHandle();
   const { onOpenChange, open, lockedProvider, threadId } = props;
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const isMenuOpen = open ?? uncontrolledOpen;
@@ -263,7 +265,8 @@ export function ComposerModelPicker(props: ComposerModelPickerProps) {
   // Options a provider's models would run with: the composer's own for the selected
   // provider, otherwise that provider's draft / sticky selection.
   const draftSelectionByProvider = useComposerDraftStore(
-    (store) => store.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider,
+    (store) =>
+      store.draftsByThreadId[scopeThread(chatHost.hostId, threadId)]?.modelSelectionByProvider,
   );
   const stickySelectionByProvider = useComposerDraftStore(
     (store) => store.stickyModelSelectionByProvider,

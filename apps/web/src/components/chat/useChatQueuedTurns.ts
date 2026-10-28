@@ -1,4 +1,5 @@
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import { ThreadId } from "@saint/contracts";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -21,7 +22,6 @@ import {
 } from "../../lib/queuedComposerDrain";
 import { deriveQueuedComposerPause } from "../../lib/queuedComposerPause";
 import { derivePhase } from "../../session-logic";
-import { useStore } from "../../store";
 import { getThreadFromState } from "../../threadDerivation";
 import { type ChatMessage, type Thread } from "../../types";
 import {
@@ -150,13 +150,16 @@ export function useChatQueuedTurns({
   sendInFlightRef,
   sendPreflightInFlightRef,
 }: ChatQueuedTurnsInput) {
+  const chatHost = useHostHandle();
   const hasPendingCacheReview =
     hasPendingCacheReviewInput === true || activeThread?.claudeCacheReview != null;
   const queueResumedTurnId = useComposerDraftStore(
-    (store) => store.draftsByThreadId[scopeLocalThread(threadId)]?.queueResumedTurnId ?? null,
+    (store) =>
+      store.draftsByThreadId[scopeThread(chatHost.hostId, threadId)]?.queueResumedTurnId ?? null,
   );
   const queueStoppedTurnId = useComposerDraftStore(
-    (store) => store.draftsByThreadId[scopeLocalThread(threadId)]?.queueStoppedTurnId ?? null,
+    (store) =>
+      store.draftsByThreadId[scopeThread(chatHost.hostId, threadId)]?.queueStoppedTurnId ?? null,
   );
   // A stop, failure, or usage limit pauses the queue until Resume or a new turn ends normally.
   const queuePause = useMemo(
@@ -324,7 +327,7 @@ export function useChatQueuedTurns({
 
   const dispatchQueuedComposerTurn = useCallback(
     async (queued: QueuedComposerTurn, dispatchMode: "queue" | "steer"): Promise<boolean> => {
-      const thread = getThreadFromState(useStore.getState(), threadId);
+      const thread = getThreadFromState(chatHost.store.getState(), threadId);
       if (hasPendingCacheReview || thread?.claudeCacheReview != null) {
         return false;
       }
@@ -343,20 +346,20 @@ export function useChatQueuedTurns({
         queuedTurn,
       });
     },
-    [hasPendingCacheReview, lateComposerSendHandlersRef, threadId],
+    [chatHost, hasPendingCacheReview, lateComposerSendHandlersRef, threadId],
   );
 
   const onSteerQueuedComposerTurn = useCallback(
     async (queuedTurn: QueuedComposerTurn) => {
       if (
         hasPendingCacheReview ||
-        getThreadFromState(useStore.getState(), threadId)?.claudeCacheReview != null
+        getThreadFromState(chatHost.store.getState(), threadId)?.claudeCacheReview != null
       ) {
         return;
       }
       const queuedTurnForSend = useComposerDraftStore
         .getState()
-        .draftsByThreadId[scopeLocalThread(threadId)]?.queuedTurns.find(
+        .draftsByThreadId[scopeThread(chatHost.hostId, threadId)]?.queuedTurns.find(
           (entry) => entry.id === queuedTurn.id,
         );
       if (!queuedTurnForSend || !tryBeginQueuedComposerAutoDispatch(threadId)) {
@@ -371,7 +374,7 @@ export function useChatQueuedTurns({
             removeQueuedComposerTurnFromDraft(threadId, queuedTurnForSend.id);
             return;
           }
-          if (getThreadFromState(useStore.getState(), threadId)?.claudeCacheReview == null) {
+          if (getThreadFromState(chatHost.store.getState(), threadId)?.claudeCacheReview == null) {
             recordQueuedComposerAutoDispatchFailure(threadId, queuedTurnForSend.id);
           }
           setQueuedAutoDispatchTick((tick) => tick + 1);
@@ -379,6 +382,7 @@ export function useChatQueuedTurns({
       });
     },
     [
+      chatHost,
       setQueuedAutoDispatchTick,
       dispatchQueuedComposerTurn,
       hasPendingCacheReview,
@@ -401,8 +405,8 @@ export function useChatQueuedTurns({
     }
     useComposerDraftStore
       .getState()
-      .resumeQueuedTurns(scopeLocalThread(threadId), queuePause.turnId);
-  }, [queuePause, threadId]);
+      .resumeQueuedTurns(scopeThread(chatHost.hostId, threadId), queuePause.turnId);
+  }, [chatHost, queuePause, threadId]);
 
   // Edit on the paused notice takes the next queued message back into the composer;
   // the rest stays paused until that message is sent and its turn ends normally.
@@ -541,7 +545,7 @@ export function useChatQueuedTurns({
           removeQueuedComposerTurnFromDraft(threadId, nextQueuedTurn.id);
           return;
         }
-        if (getThreadFromState(useStore.getState(), threadId)?.claudeCacheReview == null) {
+        if (getThreadFromState(chatHost.store.getState(), threadId)?.claudeCacheReview == null) {
           recordQueuedComposerAutoDispatchFailure(threadId, nextQueuedTurn.id);
         }
         setQueuedAutoDispatchTick((tick) => tick + 1);
@@ -551,6 +555,7 @@ export function useChatQueuedTurns({
       },
     });
   }, [
+    chatHost,
     autoDispatchingQueuedTurnRef,
     setQueuedAutoDispatchTick,
     sendInFlightRef,

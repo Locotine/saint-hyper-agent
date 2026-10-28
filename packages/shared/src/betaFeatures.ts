@@ -58,8 +58,14 @@ export const NATIVE_EDITOR_BETA_FEATURE = "native-editor";
  */
 export const REMOTE_SSH_BETA_FEATURE = "remote-ssh";
 
-// Empty: every feature ships in Stable. Add a key to hold one back again.
-export const BETA_ONLY_FEATURES: readonly BetaOnlyFeature[] = [];
+/**
+ * Multi-host (Beta only): connected SSH hosts' projects and threads sit in the main sidebar
+ * next to this computer's, and their chats open in the app window without switching it over.
+ * Off, remote hosts keep their own sidebar section and open by switching the window.
+ */
+export const MULTI_HOST_BETA_FEATURE = "multi-host";
+
+export const BETA_ONLY_FEATURES: readonly BetaOnlyFeature[] = [MULTI_HOST_BETA_FEATURE];
 
 /**
  * Whether a Beta-only feature is on for this host. Only the Stable

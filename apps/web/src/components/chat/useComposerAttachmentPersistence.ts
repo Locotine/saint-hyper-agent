@@ -1,4 +1,5 @@
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import { ThreadId } from "@saint/contracts";
 import { useEffect } from "react";
 import {
@@ -82,6 +83,7 @@ export function useComposerAttachmentPersistence({
   composerImages,
   composerPromptHistorySavedDraftImages,
 }: ComposerAttachmentPersistenceInput) {
+  const chatHost = useHostHandle();
   const clearComposerDraftPersistedAttachments = useComposerDraftStore(
     (store) => store.clearPersistedAttachments,
   );
@@ -98,32 +100,33 @@ export function useComposerAttachmentPersistence({
         const hasDeferredBlobAttachment =
           useComposerDraftStore
             .getState()
-            .draftsByThreadId[scopeLocalThread(threadId)]?.persistedAttachments.some(
+            .draftsByThreadId[scopeThread(chatHost.hostId, threadId)]?.persistedAttachments.some(
               (attachment) => attachment.blobKey,
             ) ?? false;
         if (hasDeferredBlobAttachment) {
           return;
         }
-        clearComposerDraftPersistedAttachments(scopeLocalThread(threadId));
+        clearComposerDraftPersistedAttachments(scopeThread(chatHost.hostId, threadId));
         return;
       }
       const staged = await stagePersistedComposerImageAttachments({
         threadId,
         images: composerImages,
         getPersistedAttachments: () =>
-          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+          useComposerDraftStore.getState().draftsByThreadId[scopeThread(chatHost.hostId, threadId)]
             ?.persistedAttachments ?? [],
       });
       if (cancelled) {
         return;
       }
       // Stage attachments in persisted draft state first so persist middleware can write them.
-      void syncComposerDraftPersistedAttachments(scopeLocalThread(threadId), staged);
+      void syncComposerDraftPersistedAttachments(scopeThread(chatHost.hostId, threadId), staged);
     })();
     return () => {
       cancelled = true;
     };
   }, [
+    chatHost,
     clearComposerDraftPersistedAttachments,
     composerImages,
     syncComposerDraftPersistedAttachments,
@@ -143,14 +146,14 @@ export function useComposerAttachmentPersistence({
         threadId,
         images: composerPromptHistorySavedDraftImages,
         getPersistedAttachments: () =>
-          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+          useComposerDraftStore.getState().draftsByThreadId[scopeThread(chatHost.hostId, threadId)]
             ?.promptHistorySavedDraft?.persistedAttachments ?? [],
       });
       if (cancelled) {
         return;
       }
       void syncComposerDraftPromptHistorySavedDraftPersistedAttachments(
-        scopeLocalThread(threadId),
+        scopeThread(chatHost.hostId, threadId),
         staged,
       );
     })();
@@ -158,6 +161,7 @@ export function useComposerAttachmentPersistence({
       cancelled = true;
     };
   }, [
+    chatHost,
     composerPromptHistorySavedDraftImages,
     syncComposerDraftPromptHistorySavedDraftPersistedAttachments,
     threadId,

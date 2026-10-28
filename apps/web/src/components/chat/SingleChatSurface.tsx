@@ -1,4 +1,5 @@
-import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 import { isWorkspaceRelativePathSafe } from "@saint/shared/path";
 import type { ProjectId, ResolvedKeybindingsConfig, ThreadId, TurnId } from "@saint/contracts";
@@ -190,6 +191,7 @@ export function SingleChatSurface(props: {
   search: DiffRouteSearch;
   projectId: ProjectId | null;
 }) {
+  const chatHost = useHostHandle();
   const navigate = useNavigate();
   const createSplitView = useSplitViewStore((store) => store.createFromThread);
   const createSplitViewFromDrop = useSplitViewStore((store) => store.createFromDrop);
@@ -210,7 +212,7 @@ export function SingleChatSurface(props: {
     useMemo(() => createThreadWorkspaceMetadataSelector(props.threadId), [props.threadId]),
   );
   const draftThread = useComposerDraftStore(
-    (store) => store.draftThreadsByThreadId[scopeLocalThread(props.threadId)] ?? null,
+    (store) => store.draftThreadsByThreadId[scopeThread(chatHost.hostId, props.threadId)] ?? null,
   );
   // Defer a draft on the first mount so the shell can paint. Once mounted,
   // DeferredChatView keeps the view alive when navigating between tabs.

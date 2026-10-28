@@ -1,4 +1,5 @@
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import { type ThreadId } from "@saint/contracts";
 import { useCallback, useEffect, useState } from "react";
 
@@ -9,7 +10,6 @@ import {
   resolveTerminalCloseTitle,
   shouldPromptForTerminalClose,
 } from "../../lib/terminalCloseConfirmation";
-import { readLocalNativeApi } from "../../nativeApi";
 import { shouldAutoDeleteTerminalThreadOnLastClose } from "../ChatView.logic";
 import { toastManager } from "../ui/toast";
 import { disposeAndCloseTerminalSession } from "../terminal/terminalSession";
@@ -40,8 +40,12 @@ export function useChatTerminalController({
   confirmTerminalClose,
   onDeletePlaceholderThread,
 }: UseChatTerminalControllerInput) {
+  const chatHost = useHostHandle();
   const terminalState = useTerminalStateStore((state) =>
-    selectThreadTerminalState(state.terminalStateByThreadId, scopeLocalThread(threadId)),
+    selectThreadTerminalState(
+      state.terminalStateByThreadId,
+      scopeThread(chatHost.hostId, threadId),
+    ),
   );
   const setTerminalOpenInStore = useTerminalStateStore((state) => state.setTerminalOpen);
   const setPresentationModeInStore = useTerminalStateStore(
@@ -81,27 +85,30 @@ export function useChatTerminalController({
 
   const setTerminalOpen = useCallback(
     (open: boolean) => {
-      if (activeThreadId) setTerminalOpenInStore(scopeLocalThread(activeThreadId), open);
+      if (activeThreadId)
+        setTerminalOpenInStore(scopeThread(chatHost.hostId, activeThreadId), open);
     },
-    [activeThreadId, setTerminalOpenInStore],
+    [chatHost, activeThreadId, setTerminalOpenInStore],
   );
   const setTerminalPresentationMode = useCallback(
     (mode: "drawer" | "workspace") => {
-      if (activeThreadId) setPresentationModeInStore(scopeLocalThread(activeThreadId), mode);
+      if (activeThreadId)
+        setPresentationModeInStore(scopeThread(chatHost.hostId, activeThreadId), mode);
     },
-    [activeThreadId, setPresentationModeInStore],
+    [chatHost, activeThreadId, setPresentationModeInStore],
   );
   const setTerminalWorkspaceLayout = useCallback(
     (layout: "both" | "terminal-only") => {
-      if (activeThreadId) setWorkspaceLayoutInStore(scopeLocalThread(activeThreadId), layout);
+      if (activeThreadId)
+        setWorkspaceLayoutInStore(scopeThread(chatHost.hostId, activeThreadId), layout);
     },
-    [activeThreadId, setWorkspaceLayoutInStore],
+    [chatHost, activeThreadId, setWorkspaceLayoutInStore],
   );
   const setTerminalWorkspaceTab = useCallback(
     (tab: "terminal" | "chat") => {
-      if (activeThreadId) setWorkspaceTabInStore(scopeLocalThread(activeThreadId), tab);
+      if (activeThreadId) setWorkspaceTabInStore(scopeThread(chatHost.hostId, activeThreadId), tab);
     },
-    [activeThreadId, setWorkspaceTabInStore],
+    [chatHost, activeThreadId, setWorkspaceTabInStore],
   );
   const toggleTerminalVisibility = useCallback(() => {
     if (!activeThreadId) return;
@@ -123,9 +130,15 @@ export function useChatTerminalController({
   ]);
   const openNewFullWidthTerminal = useCallback(() => {
     if (!activeThreadId || !activeProjectPresent) return;
-    openFullWidthTerminalInStore(scopeLocalThread(activeThreadId));
+    openFullWidthTerminalInStore(scopeThread(chatHost.hostId, activeThreadId));
     requestTerminalFocus();
-  }, [activeProjectPresent, activeThreadId, openFullWidthTerminalInStore, requestTerminalFocus]);
+  }, [
+    chatHost,
+    activeProjectPresent,
+    activeThreadId,
+    openFullWidthTerminalInStore,
+    requestTerminalFocus,
+  ]);
 
   useEffect(() => {
     const onMenuAction = window.desktopBridge?.onMenuAction;
@@ -138,14 +151,14 @@ export function useChatTerminalController({
   const activateTerminal = useCallback(
     (terminalId: string) => {
       if (!activeThreadId) return;
-      setActiveTerminalInStore(scopeLocalThread(activeThreadId), terminalId);
+      setActiveTerminalInStore(scopeThread(chatHost.hostId, activeThreadId), terminalId);
       requestTerminalFocus();
     },
-    [activeThreadId, requestTerminalFocus, setActiveTerminalInStore],
+    [chatHost, activeThreadId, requestTerminalFocus, setActiveTerminalInStore],
   );
   const closeTerminal = useCallback(
     async (terminalId: string) => {
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       if (!activeThreadId || !api) return;
       const isFinalTerminal = terminalState.terminalIds.length <= 1;
       const shouldDeletePlaceholderThread = shouldAutoDeleteTerminalThreadOnLastClose({
@@ -185,13 +198,14 @@ export function useChatTerminalController({
         });
         return;
       }
-      closeTerminalInStore(scopeLocalThread(activeThreadId), terminalId);
+      closeTerminalInStore(scopeThread(chatHost.hostId, activeThreadId), terminalId);
       requestTerminalFocus();
       if (shouldDeletePlaceholderThread) {
         void onDeletePlaceholderThread(activeThreadId);
       }
     },
     [
+      chatHost,
       activeThread,
       activeThreadId,
       closeTerminalInStore,
@@ -212,16 +226,22 @@ export function useChatTerminalController({
       if (!activeThreadId) return;
       const isFinalTerminal = terminalState.terminalIds.length <= 1;
       disposeAndCloseTerminalSession({
-        api: readLocalNativeApi(),
+        api: chatHost.api(),
         threadId: activeThreadId,
         terminalId,
         clearHistoryBeforeClose: isFinalTerminal,
         processAlreadyExited: true,
       });
-      closeTerminalInStore(scopeLocalThread(activeThreadId), terminalId);
+      closeTerminalInStore(scopeThread(chatHost.hostId, activeThreadId), terminalId);
       requestTerminalFocus();
     },
-    [activeThreadId, closeTerminalInStore, requestTerminalFocus, terminalState.terminalIds.length],
+    [
+      chatHost,
+      activeThreadId,
+      closeTerminalInStore,
+      requestTerminalFocus,
+      terminalState.terminalIds.length,
+    ],
   );
   const closeActiveWorkspaceView = useCallback(() => {
     if (!activeThreadId || !terminalWorkspaceOpen) return;
@@ -229,12 +249,13 @@ export function useChatTerminalController({
       if (terminalState.entryPoint === "chat") {
         setTerminalOpen(false);
       } else {
-        closeWorkspaceChatInStore(scopeLocalThread(activeThreadId));
+        closeWorkspaceChatInStore(scopeThread(chatHost.hostId, activeThreadId));
       }
       return;
     }
     void closeTerminal(terminalState.activeTerminalId);
   }, [
+    chatHost,
     activeThreadId,
     closeTerminal,
     closeWorkspaceChatInStore,

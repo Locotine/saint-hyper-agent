@@ -1,4 +1,5 @@
-import { scopeLocalProject } from "@saint/shared/hostId";
+import { scopeProject } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import {
   EventId,
   ProviderInteractionMode,
@@ -127,6 +128,7 @@ export function useChatAutomationCreation({
   automationDraftWarnings,
   acknowledgedAutomationWarnings,
 }: ChatAutomationCreationInput) {
+  const chatHost = useHostHandle();
   const createAutomationFromForm = useCallback(
     async (input: {
       readonly form: AutomationFormState;
@@ -298,7 +300,7 @@ export function useChatAutomationCreation({
 
         const inheritedProjectInstructions =
           useProjectInstructionsStore.getState().instructionsByProjectId[
-            scopeLocalProject(activeProject.id)
+            scopeProject(chatHost.hostId, activeProject.id)
           ] ?? "";
         const inheritedThreadNotes = mergeProjectInstructionsIntoThreadNotes({
           threadNotes,
@@ -325,7 +327,14 @@ export function useChatAutomationCreation({
         return null;
       }
     },
-    [activeProject, activeThread, activeThreadAssociatedWorktree, isServerThread, threadNotes],
+    [
+      chatHost,
+      activeProject,
+      activeThread,
+      activeThreadAssociatedWorktree,
+      isServerThread,
+      threadNotes,
+    ],
   );
 
   const prepareAutomationFormForCreate = useCallback(

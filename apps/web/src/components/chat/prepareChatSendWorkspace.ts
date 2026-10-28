@@ -36,7 +36,7 @@ import {
 import { formatTerminalContextLabel, type TerminalContextDraft } from "../../lib/terminalContext";
 import { buildModelSelection } from "../../providerModelOptions";
 import { readActiveSpaceId } from "../../spacesUiStore";
-import { useStore } from "../../store";
+import type { HostStore } from "../../store";
 import type { Project } from "../../types";
 import { type Thread } from "../../types";
 import { formatPastedTextTitleSeed } from "./queuedComposerPreview";
@@ -65,7 +65,9 @@ interface Input {
   currentActiveGitBranch: string | null;
   isContainerLandingProject: boolean;
   api: NonNullable<ReturnType<typeof readLocalNativeApi>>;
-  syncServerShellSnapshot: ReturnType<typeof useStore.getState>["syncServerShellSnapshot"];
+  /** The thread's host store. */
+  store: Pick<HostStore, "getState">;
+  syncServerShellSnapshot: ReturnType<HostStore["getState"]>["syncServerShellSnapshot"];
   clearProjectDraftThreadId: ReturnType<
     typeof useComposerDraftStore.getState
   >["clearProjectDraftThreadId"];
@@ -80,6 +82,7 @@ interface Input {
 }
 
 export async function prepareChatSendWorkspace({
+  store,
   activeThread,
   isServerThread,
   hasNativeUserMessages,
@@ -142,7 +145,7 @@ export async function prepareChatSendWorkspace({
   }
   // Keep the optimistic label short while the server asks Codex for a better summary.
   const title = buildPromptThreadTitleFallback(titleSeed);
-  const currentStoreState = useStore.getState();
+  const currentStoreState = store.getState();
   // Keep an optimistically selected Space across the command/snapshot race. The server
   // validates this best-effort target and degrades genuinely stale/deleted ids to Void.
   const activeSpaceIdForSend = readActiveSpaceId();

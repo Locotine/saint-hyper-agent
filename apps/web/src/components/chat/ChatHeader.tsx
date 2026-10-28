@@ -13,7 +13,8 @@ import {
   type ThreadId,
 } from "@saint/contracts";
 import { isGenericChatThreadTitle } from "@saint/shared/chatThreads";
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
+import { scopeThread } from "@saint/shared/hostId";
 import React, { useEffect, useRef, useState } from "react";
 import type { ThreadPrimarySurface } from "../../types";
 import GitActionsControl from "../GitActionsControl";
@@ -250,6 +251,7 @@ function EditorRailTabs(props: {
   onOpenTerminal: () => void;
   onCloseTerminal: () => void;
 }) {
+  const chatHost = useHostHandle();
   // The rail's chat tabs are this project's slice of the app-wide open threads, so a chat
   // opened or closed here is opened or closed in the chat header strip too.
   useRecordOpenThreadTab(props.activeSurface === "chat" ? props.activeThreadId : null);
@@ -316,7 +318,7 @@ function EditorRailTabs(props: {
         tabs: chatTabs.filter((tab) => openThreadIds.includes(tab.threadId)),
         closedThreadId: threadId,
         activeThreadId: props.activeSurface === "chat" ? readRouteThreadId() : null,
-        closeTab: (closedThreadId) => closeThreadTab(scopeLocalThread(closedThreadId)),
+        closeTab: (closedThreadId) => closeThreadTab(scopeThread(chatHost.hostId, closedThreadId)),
         openTab: props.onOpenChat,
         // The last chat tab gives way to the terminal tab, which keeps the thread's route.
         replaceLastTab: terminalTabVisible
@@ -481,6 +483,7 @@ export function ChatHeader({
   onRenameThread,
   onCloseThreadPane,
 }: ChatHeaderProps) {
+  const chatHost = useHostHandle();
   const hideSidebarControls = hideSidebarControlsProp ?? false;
   const hideHandoffControls = hideHandoffControlsProp ?? false;
   const showHandoffAction = showHandoffActionProp ?? true;
@@ -598,7 +601,7 @@ export function ChatHeader({
   // "Parent /" and once as the tab), so the inline lineage keeps only the closed ones.
   const openTabThreadIds = useOpenThreadTabsStore((state) => state.threadIds);
   const inlineThreadBreadcrumbs = threadBreadcrumbs.filter(
-    (breadcrumb) => !openTabThreadIds.includes(scopeLocalThread(breadcrumb.threadId)),
+    (breadcrumb) => !openTabThreadIds.includes(scopeThread(chatHost.hostId, breadcrumb.threadId)),
   );
   const renderBreadcrumbLinks = (breadcrumbs: typeof threadBreadcrumbs) =>
     breadcrumbs.map((breadcrumb, index) => (

@@ -1,4 +1,5 @@
 import { collectErrorMessages } from "@saint/shared/errorMessages";
+import { useHostHandle } from "~/hosts/hostScope";
 import { MessageId, type ThreadId } from "@saint/contracts";
 import {
   ASYNC_USER_INPUT_ALREADY_ANSWERED,
@@ -6,8 +7,6 @@ import {
 } from "@saint/shared/asyncUserInput";
 import { useCallback } from "react";
 import { newCommandId, randomUUID } from "~/lib/utils";
-import { readLocalNativeApi } from "~/nativeApi";
-import { useStore } from "../../store";
 import { getThreadFromState } from "../../threadDerivation";
 import {
   buildThreadSubscribeInput,
@@ -15,10 +14,11 @@ import {
 } from "../../threadDetailResumeCursors";
 
 export function useAsyncUserInputResponse(threadId: ThreadId) {
+  const chatHost = useHostHandle();
   return useCallback(
     async (messageId: MessageId, answers: readonly string[]) => {
-      const api = readLocalNativeApi();
-      const thread = getThreadFromState(useStore.getState(), threadId);
+      const api = chatHost.api();
+      const thread = getThreadFromState(chatHost.store.getState(), threadId);
       const input = thread?.messages.find((message) => message.id === messageId)?.asyncUserInput;
       if (!api || !thread || !input)
         throw new Error("This question is no longer available. Refresh the conversation.");
@@ -56,6 +56,6 @@ export function useAsyncUserInputResponse(threadId: ThreadId) {
       clearThreadDetailResumeCursor(threadId);
       void api.orchestration.subscribeThread(buildThreadSubscribeInput(threadId)).catch(() => {});
     },
-    [threadId],
+    [chatHost, threadId],
   );
 }

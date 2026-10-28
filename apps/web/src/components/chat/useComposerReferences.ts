@@ -1,4 +1,5 @@
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import {
   type ProviderKind,
   type ProviderMentionReference,
@@ -29,6 +30,7 @@ export function useComposerReferences({
   composerSkills,
   composerMentions,
 }: ComposerReferencesInput) {
+  const chatHost = useHostHandle();
   const setComposerDraftSkills = useComposerDraftStore((store) => store.setSkills);
   const setComposerDraftMentions = useComposerDraftStore((store) => store.setMentions);
   const [selectedComposerSkills, setSelectedComposerSkills] = useState<ProviderSkillReference[]>(
@@ -57,9 +59,9 @@ export function useComposerReferences({
       const resolved = typeof next === "function" ? next(existing) : next;
       selectedComposerSkillsRef.current = resolved;
       setSelectedComposerSkills(resolved);
-      setComposerDraftSkills(scopeLocalThread(threadId), resolved);
+      setComposerDraftSkills(scopeThread(chatHost.hostId, threadId), resolved);
     },
-    [setComposerDraftSkills, threadId],
+    [chatHost, setComposerDraftSkills, threadId],
   );
   const updateSelectedComposerMentions = useCallback(
     (
@@ -71,9 +73,9 @@ export function useComposerReferences({
       const resolved = typeof next === "function" ? next(existing) : next;
       selectedComposerMentionsRef.current = resolved;
       setSelectedComposerMentions(resolved);
-      setComposerDraftMentions(scopeLocalThread(threadId), resolved);
+      setComposerDraftMentions(scopeThread(chatHost.hostId, threadId), resolved);
     },
-    [setComposerDraftMentions, threadId],
+    [chatHost, setComposerDraftMentions, threadId],
   );
 
   const previousSelectedProviderRef = useRef<{

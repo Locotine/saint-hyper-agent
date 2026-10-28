@@ -13,12 +13,13 @@ import { forgetHostClientState } from "../hosts/forgetHostClientState";
 import { createHostStoreSync } from "../hosts/hostStoreSync";
 import { hostStores } from "../hosts/hostStores";
 import { LIVE_CATALOG_ENABLED } from "./useRemoteHostCatalog";
+import { remoteSshBridge } from "../lib/devLoopbackHosts";
 
 export function useRemoteHostStoreSync(state: DesktopRemoteSshState): void {
   const syncRef = useRef<ReturnType<typeof createHostStoreSync> | null>(null);
 
   useEffect(() => {
-    const bridge = window.desktopBridge?.remoteSsh;
+    const bridge = remoteSshBridge();
     if (!bridge || !LIVE_CATALOG_ENABLED) return;
     const sync = createHostStoreSync({
       wsUrl: bridge.wsUrl,
