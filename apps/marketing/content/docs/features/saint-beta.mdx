@@ -3,6 +3,15 @@ title: Saint Beta
 description: Install the separate Beta app, copy Stable data when you choose, and understand how the two apps differ.
 ---
 
+<Callout type="warn" title="Saint Beta is retired">
+  From Stable 1.0.11, every feature ships in Saint and Stable no longer offers to install or copy
+  data into Beta. An installed Beta keeps its status card with the way back to Saint. To move Beta
+  data into Saint once, quit both apps and run `copy-saint-beta-data.sh` (macOS and Linux) or
+  `copy-saint-beta-data.ps1` (Windows) from the [latest release
+  assets](https://gitlab.com/locotine/saint-releases/-/releases). The Saint data it replaces is kept
+  as a backup. The rest of this page describes Stable 1.0.10 and earlier.
+</Callout>
+
 Saint Beta is a separate desktop app for trying upcoming features. It installs beside Stable Saint, uses its own data folder and update feed, and receives prerelease updates. A Stable release does not turn your Stable app into Beta.
 
 ## Join from Stable
@@ -19,7 +28,7 @@ Use **Open Beta** in Stable settings to reopen an installed Beta without copying
 
 ## Diagnostics and feature availability
 
-Beta shares crash reports and anonymous usage statistics to help find prerelease failures. Its settings explain what is shared. Stable does not send Beta diagnostics. Avoid putting credentials or private material into bug reports you submit yourself.
+Beta sends crash reports and anonymous usage statistics only when its operator configured a diagnostics endpoint; this fork ships none. Its settings explain what is shared. Stable does not send Beta diagnostics. Avoid putting credentials or private material into bug reports you submit yourself.
 
 Supported provider accounts, models, and permissions depend on their installed runtimes. [Oh My Pi](/docs/providers/omp) is available in both Stable 1.0.0 and Beta.
 
@@ -31,6 +40,6 @@ Source evidence: Saint release head `BETA.md`, `packages/shared/src/betaFeatures
 
 ## Shared feature availability
 
-[Connectors](/docs/features/connectors) and [native editor intelligence and JavaScript debugging](/docs/features/workspace-editor#native-editor-and-javascript-debugger) are enabled for Stable 1.0.9 and later, with the same functionality already available in Beta. Existing installed Stable builds need an update; this promotion does not import Beta credentials or data.
+[Connectors](/docs/features/connectors) and [native editor intelligence and JavaScript debugging](/docs/features/workspace-editor#native-editor-and-javascript-debugger) are enabled for Stable 1.0.9 and later, and [Remote hosts](https://gitlab.com/locotine/saint-hyper-agent/-/blob/main/REMOTE.md#3-remote-ssh-hosts) for Stable 1.0.10 and later, with the same functionality already available in Beta. Existing installed Stable builds need an update; this promotion does not import Beta credentials or data.
 
 [Hubs and Library](/docs/features/hubs) are available in Stable 1.0.2 and later; [inline visuals](/docs/features/inline-visuals) are available in Stable 1.0.5 and Beta. Tasks, Inbox, Auto-fix CI, Oh My Pi, the rail workspace and message trail sound are also available in both apps. Beta keeps its independent update feed, data home and diagnostics policy. Stable never sends Beta diagnostics.

@@ -26,6 +26,78 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    version: "1.0.12",
+    date: "Oct 27",
+    features: [
+      {
+        id: "remote-ssh-lighter",
+        title: "Lighter, faster Remote SSH hosts",
+        description:
+          "Remote hosts share one SSH connection, install a bundled server that skips npm after the first install, and stop idle agents and servers on their own.",
+        details:
+          "Provider processes stop 3 minutes after their last turn and the server exits after 10 idle minutes; the next Connect starts it again with its data. An administrator can install a build once for every account of a host.",
+      },
+    ],
+  },
+  {
+    version: "1.0.11",
+    date: "Oct 27",
+    features: [
+      {
+        id: "remote-hosts-stable",
+        title: "Remote hosts without the Beta badge",
+        description:
+          "Settings → Remote hosts is a regular Stable feature. Saint Beta is retired, so Stable no longer shows the Saint Beta card.",
+        details:
+          "To move Beta data into Saint once, quit both apps and run copy-saint-beta-data.sh or copy-saint-beta-data.ps1 from the release assets. The Stable data it replaces is kept as a backup.",
+      },
+      {
+        id: "update-checks",
+        title: "Update checks that survive rate limits",
+        description:
+          "Update checks read a static feed instead of the rate-limited GitLab API. A rate-limited check shows when the next one runs instead of an error.",
+      },
+      {
+        id: "favicon-freeze",
+        title: "No more freezes from large project icons",
+        description:
+          "Project icon lookup reads at most 512 KB of each source in linear time, so a very large index.html no longer stalls the server, the Explorer or remote tunnels.",
+      },
+    ],
+  },
+  {
+    version: "1.0.10",
+    date: "Oct 27",
+    features: [
+      {
+        id: "remote-ssh",
+        title: "Run Saint on another machine over SSH",
+        description:
+          "Settings → Remote hosts installs a Saint server on a host, starts it in tmux and opens it in its own window, so agents, Git, terminals and files run there.",
+        details:
+          "Remote servers run Codex and Claude with the CLIs installed on the host. The server listens only on the host's loopback interface; its token never appears in a process argument list.",
+      },
+      {
+        id: "explorer-files",
+        title: "Manage files from the Explorer",
+        description:
+          "Select several rows, create, rename, move and delete files, drop files from your desktop to upload them, and download files to this computer, locally or on a remote host.",
+      },
+      {
+        id: "updates-page",
+        title: "Updates settings and Linux installer",
+        description:
+          "Settings → Updates shows the updater on its own page. Linux releases include install-saint.sh, which adds a menu entry and lets the updater replace the AppImage.",
+      },
+      {
+        id: "claude-stop",
+        title: "Claude threads recover through Stop",
+        description:
+          "An explicit Stop recovers blocked Claude threads and stays fenced to the runtime and turn it targeted. SDK error results now fail the turn.",
+      },
+    ],
+  },
+  {
     version: "1.0.9",
     date: "Oct 25",
     features: [

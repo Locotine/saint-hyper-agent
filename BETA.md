@@ -4,6 +4,9 @@ Saint Beta is a packaged prerelease flavor of the desktop app. It is a separate
 application that installs and updates side-by-side with stable Saint, and it never
 shares stable's data directory or update feed.
 
+> [!NOTE]
+> Saint Beta is retired from Stable 1.0.11 (current release: 1.0.12). `BETA_ONLY_FEATURES` is empty, Stable no longer offers to install Beta or copy data into it, and the GitLab releases project publishes Stable only. To move Beta data into Stable once, quit both apps and run `scripts/copy-saint-beta-data.sh` or `scripts/copy-saint-beta-data.ps1` (shipped with each release); the Stable data it replaces is kept as a backup. The rest of this file stays as the reference for the Beta flavor, which can still be built with `--flavor beta`.
+
 ## The short version
 
 - **One branch.** Every PR merges into `main` as usual. There is no Beta branch.
@@ -229,7 +232,7 @@ Stable builds from 1.0.11 no longer show this card: Saint Beta is retired, and o
   sha512, unpacks it with `ditto`, checks the bundle id is
   `com.locotine.saint.beta`, and verifies the code signature is valid
   and signed by the same team id as the running app (`codesign --verify
---deep --strict` plus a `TeamIdentifier` match; skipped when the running
+  --deep --strict` plus a `TeamIdentifier` match; skipped when the running
   build is itself unsigned). Only then is `Saint Beta.app` moved into
   `/Applications` — then opened. On other platforms the card opens the public
   download page instead.

@@ -87,13 +87,15 @@ Managed worktrees provide a boundary for parallel changes. Handoffs preserve pro
 
 Start a transcript handoff from the thread header's handoff menu (**Fresh session from transcript**) or from the sidebar's **Handoff** submenu (**<Provider>, fresh from transcript**).
 
-### 6. Remote SSH hosts (Beta)
+### 6. Remote SSH hosts
 
 Open a project that lives on another machine in its own window. Saint installs its server on the host over SSH, starts it in tmux, and tunnels the window to it, so agents, Git, terminals, and files run on the host. Remote servers run Codex and Claude with the CLIs installed on the host.
 
 - Connect from **Settings → Remote hosts** with an alias from `~/.ssh/config`
 - Browse the host's folders, preview its HTML files, and upload dropped files as attachments
-- Several users of one account can keep separate servers and data that share a single install
+- Create, rename, move, delete, upload, and download files on the host from the Explorer
+- Several users of one account can keep separate servers and data that share a single install; an administrator can install a build once for every account
+- One shared SSH connection, a bundled server that skips npm after the first install, and idle shutdown keep a shared host light
 - A new build installs its own server automatically, even when the version number is unchanged
 
 See [Remote access](./REMOTE.md) for requirements, the remote layout, and what stays local.
@@ -123,13 +125,15 @@ Configure the shell to match the way you work with light and dark themes, typogr
 
 ### Desktop application
 
-Build the installer for your platform from source (see [Build installers](#build-installers)).
+The current release is **1.0.12**. Download it from [GitLab Releases](https://gitlab.com/locotine/saint-releases/-/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
 
-| Platform                     | Artifact                         | Install                                                             |
-| ---------------------------- | -------------------------------- | ------------------------------------------------------------------- |
-| Linux x64                    | `Saint-Beta-<version>-amd64.deb` | `sudo apt install ./Saint-Beta-<version>-amd64.deb`                 |
-| Windows x64                  | `Saint-Beta-<version>-x64.exe`   | Run the NSIS installer. Unsigned builds show a SmartScreen warning. |
-| macOS (Apple Silicon, Intel) | `.dmg`                           | Built on macOS only.                                                |
+| Platform              | Artifact                          | Install                                                                                                                                  |
+| --------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux x86_64          | `Saint-<version>-x86_64.AppImage` | `bash install-saint.sh` (from the same release) installs it with a menu entry and lets the updater replace it; `--uninstall` removes it. |
+| Windows x64           | `Saint-<version>-x64.exe`         | Run the NSIS installer. Unsigned builds show a SmartScreen warning.                                                                      |
+| macOS (Apple Silicon) | `Saint-<version>-arm64.dmg`       | Open the disk image and drag Saint to Applications. Requires macOS 13 or later. Intel builds are not published; build them on macOS.     |
+
+Saint Beta is retired. To move Beta data into Saint once, quit both apps and run `copy-saint-beta-data.sh` (macOS/Linux) or `copy-saint-beta-data.ps1` (Windows) from the release assets. The Stable data it replaces is kept as a backup. See [CHANGELOG](./CHANGELOG.md) for release notes.
 
 Workspace Git features require [Git 2.29 or newer](https://github.com/git/git/blob/v2.29.0/Documentation/RelNotes/2.29.0.txt). Background refreshes preserve the FETCH_HEAD used by explicit fetch workflows. Ahead/behind counts use local refs and can update on the next status poll, up to 60 seconds after a successful background refresh; status reads do not wait for the remote.
 
@@ -167,9 +171,12 @@ the root `typecheck` command also ensures that patch is applied before checking.
 ```console
 bun install --frozen-lockfile
 bun run build:desktop
-node scripts/build-desktop-artifact.ts --platform linux --target deb --arch x64 --flavor beta
-node scripts/build-desktop-artifact.ts --platform win --target nsis --arch x64 --flavor beta
+bun run dist:desktop:linux -- --flavor production --build-version 1.0.12
+bun run dist:desktop:win -- --flavor production --build-version 1.0.12
+bun run dist:desktop:dmg:arm64 -- --flavor production --build-version 1.0.12   # macOS only
 ```
+
+`--build-version` defaults to the package version. Set `SAINT_DESKTOP_UPDATE_GITLAB_PROJECT` (and optionally `SAINT_DESKTOP_UPDATE_FEED_URL`) at build time so installed apps update from your GitLab releases project, then publish with `bun run release:gitlab`; see [Updates from a GitLab Releases feed](./BETA.md#updates-from-a-gitlab-releases-feed).
 
 Artifacts land in `release/` (or `SAINT_DESKTOP_OUTPUT_DIR`). The Linux package must be built on Linux x64, because it compiles `node-pty`. The Windows installer builds on Windows or cross-builds on Linux: the cross-build installs the win32 optional packages, uses the prebuilt native bindings instead of compiling them, and needs Wine with 32-bit support (`wine`, `wine64`, `wine32:i386`) for the executable resources and the NSIS uninstaller. See the [release guide](./docs/release.md#building-installers-on-linux).
 

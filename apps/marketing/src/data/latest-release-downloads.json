@@ -1,12 +1,12 @@
 {
-  "version": "v1.0.9",
-  "releasesUrl": "https://gitlab.com/locotine/saint-releases/-/releases/v1.0.9",
+  "version": "v1.0.12",
+  "releasesUrl": "https://gitlab.com/locotine/saint-releases/-/releases/v1.0.12",
   "mac": {
-    "arm64": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.9/Saint-1.0.9-arm64.dmg",
-    "x64": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.9/Saint-1.0.9-x64.dmg"
+    "arm64": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.12/Saint-1.0.12-arm64.dmg",
+    "x64": "https://gitlab.com/locotine/saint-releases/-/releases/v1.0.12"
   },
-  "windows": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.9/Saint-1.0.9-x64.exe",
-  "linux": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.9/Saint-1.0.9-x86_64.AppImage",
-  "updatedAt": "2026-10-25T14:57:59.844Z",
+  "windows": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.12/Saint-1.0.12-x64.exe",
+  "linux": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.12/Saint-1.0.12-x86_64.AppImage",
+  "updatedAt": "2026-10-28T00:00:00.000Z",
   "source": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/releases/permalink/latest"
 }

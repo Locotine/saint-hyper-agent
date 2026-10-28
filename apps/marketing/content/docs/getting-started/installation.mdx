@@ -9,12 +9,12 @@ Saint is a desktop workspace for coding agents. Installing Saint gives you the w
 
 Download the latest stable build from the [Saint download page](/install). If the automatic download is unavailable, open [GitLab Releases](https://gitlab.com/locotine/saint-releases/-/releases) and select the asset for your system.
 
-| Platform               | Download             |
-| ---------------------- | -------------------- |
-| macOS on Apple Silicon | Arm64 `.dmg`         |
-| macOS on Intel         | x64 `.dmg`           |
-| Windows                | x64 `.exe` installer |
-| Linux                  | x86_64 `.AppImage`   |
+| Platform               | Download                                           |
+| ---------------------- | -------------------------------------------------- |
+| macOS on Apple Silicon | Arm64 `.dmg`                                       |
+| macOS on Intel         | Not published for 1.0.12; check the release assets |
+| Windows                | x64 `.exe` installer                               |
+| Linux                  | x86_64 `.AppImage`                                 |
 
 <Callout type="info" title="Saint does not include a model subscription">
   Saint uses provider runtimes installed on your machine. Install and authenticate at least one
@@ -43,6 +43,8 @@ On Linux, your desktop environment may require making the AppImage executable be
 ```bash
 chmod +x Saint*.AppImage
 ```
+
+To add Saint to the application menu and let the in-app updater replace the AppImage, run `install-saint.sh` from the same release: `bash install-saint.sh` installs the newest `Saint-*.AppImage` in `~/Downloads` as `~/Applications/saint.AppImage`; `bash install-saint.sh --uninstall` removes it and keeps your data in `~/.saint`.
 
 </Step>
 <Step>

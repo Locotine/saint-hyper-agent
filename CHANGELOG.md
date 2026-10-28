@@ -1,5 +1,69 @@
 # Changelog
 
+## 1.0.12 — 2026-10-27
+
+**Lighter, faster Remote SSH hosts.**
+
+This Stable release covers the one commit after `v1.0.11`: `ab9c2a2f2` (new method for SSH connections). It is published on [GitLab Releases](https://gitlab.com/locotine/saint-releases/-/releases/v1.0.12) for macOS Apple Silicon, Windows x64 and Linux x86_64.
+
+### Changed
+
+- Remote SSH hosts open one shared SSH connection (`ControlMaster`, kept 120 s after its last use; not on Windows) for the probe and install steps. The port forward keeps its own connection.
+- The remote server ships as its own bundle (`apps/server/dist/remote`) with every pure-JavaScript dependency inlined. Only `node-pty`, `typescript`, the Claude Agent SDK, `open` and `@xterm/headless` are installed with npm, once per dependency set, platform and Node.js ABI, into a shared `deps/` folder. Later builds with the same dependencies run no npm at all, and unused dependency folders are removed.
+- npm, `patch` and a C/C++ toolchain are needed on the host only for the first install of a dependency set.
+- An administrator can install a build once for every account of a host with `SAINT_REMOTE_SHARED_STORE`; clients never write to that folder.
+
+### Added
+
+- Remote servers release idle resources: provider processes stop 3 minutes after their last turn (`SAINT_PROVIDER_RUNTIME_IDLE_STOP_MS`), and the server exits after 10 minutes with no window, turn, busy terminal or scheduled automation (`SAINT_IDLE_EXIT_MS`). The next **Connect** starts it again with its data. The JavaScript heap is capped at 1 GB.
+
+See [Remote access](REMOTE.md#3-remote-ssh-hosts) for the full flow and remote layout.
+
+## 1.0.11 — 2026-10-27
+
+**Reliable update checks from GitLab, Remote hosts in Stable, and no more event-loop freezes from large project icons.**
+
+This Stable release covers the one commit after `v1.0.10`: `c526ad14e`.
+
+### Changed
+
+- **Settings → Remote hosts** loses its Beta badge.
+- Saint Beta is retired: Stable no longer shows the Saint Beta card (install / copy data). The Beta app keeps its own status card with the way back to Saint. To move Beta data into Stable once, quit both apps and run `copy-saint-beta-data.sh` (macOS/Linux) or `copy-saint-beta-data.ps1` (Windows) from the release assets; the Stable data it replaces is kept as a backup.
+- Builds made with `SAINT_DESKTOP_UPDATE_FEED_URL` check a static `provider: generic` feed on the releases project's GitLab Pages site instead of the rate-limited GitLab API. `bun run release:gitlab` commits `saint*.yml`/`beta*.yml` there. GitLab-hosted feeds download whole installers instead of per-range differential requests. See [BETA.md](BETA.md#checking-from-gitlab-pages-instead-of-the-api).
+
+### Fixed
+
+- Project favicon lookup reads at most the first 512 KB of each icon source and scans it in linear time. The old lookahead regex was quadratic: an 11 MB `index.html` froze the event loop, breaking the SSH tunnel health check, the Explorer tree and other expensive reads.
+- An update feed `429` shows when the next check runs, holds automatic checks until then and retries once with jitter, instead of showing the raw error.
+
+## 1.0.10 — 2026-10-27
+
+**First Saint release from the GitLab fork: Remote SSH hosts, Explorer file management and a dedicated Updates page.**
+
+This Stable release covers all commits after `v1.0.9` through `e33553d56`: the upstream Claude Stop/recovery fixes (#2004, #2006), the rename to Saint, Remote SSH hosts and the GitLab release pipeline. Releases are published on [gitlab.com/locotine/saint-releases](https://gitlab.com/locotine/saint-releases/-/releases).
+
+### Added
+
+- **Remote SSH hosts.** **Settings → Remote hosts** installs a Saint server on another machine over SSH, starts it in tmux, and opens it in its own window through a loopback tunnel. Codex and Claude run with the host's own CLIs. See [Remote access](REMOTE.md#3-remote-ssh-hosts).
+- **Explorer file management.** Multi-select rows; **New File…**, **New Folder…**, **Rename…** and **Delete…** from the context menu; drag rows onto a folder to move them; drop files from the desktop to upload them (up to 256 MB each, never replacing a name); **Download** selected files to this computer. All of it works in remote windows against the host.
+- **Settings → Updates** shows the desktop updater state on its own page.
+- Linux releases ship `install-saint.sh`, which installs the AppImage as `~/Applications/saint.AppImage` with a menu entry, icon and `saint://` handler, so the in-app updater can replace it.
+- Desktop builds can update from a public GitLab Releases feed (`SAINT_DESKTOP_UPDATE_GITLAB_PROJECT`, published with `bun run release:gitlab`).
+
+### Changed
+
+- The app, data homes (`~/.saint`, `~/.saint-beta`), URL schemes, bundle ids and environment variables use the Saint name. Release and download links point to GitLab.
+- Beta diagnostics are off unless an operator sets `SAINT_BETA_DIAGNOSTICS_URL`; this fork ships no diagnostics endpoint. Stable still sends nothing. See [diagnostics](docs/diagnostics.md).
+- Every desktop flavor uses its own app icon; the app-icon picker is gone.
+
+### Removed
+
+- The Feedback dialog and `/feedback` command, the sponsor landing banner, and the provider **Setup guide** buttons.
+
+### Fixed
+
+- Claude: an explicit Stop recovers blocked or quarantined threads, is fenced to the runtime and turn it targeted, and reports an interrupt failure only after confirming the runtime was retired. Results carrying the SDK error flag fail the turn, and rejected steers stay with their original turn.
+
 ## 1.0.9 — 2026-10-25
 
 **Native editing and MCP Connectors in Stable, safer Stop retries and compressed recovery backups.**
