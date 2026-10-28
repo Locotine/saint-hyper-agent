@@ -278,7 +278,7 @@ jobs:
       - name: Report runner capacity
         run: node scripts/report-build-runner.ts
       - name: Install frozen dependencies
-        run: bun install --frozen-lockfile --ignore-scripts --filter '!@saint/marketing'
+        run: bun install --frozen-lockfile --ignore-scripts
       - name: Build portable outputs
         run: bun run build:desktop
       - name: Record portable output provenance

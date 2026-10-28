@@ -470,9 +470,7 @@ full subject distinguished name.
    Keep these CI results pending until the exact candidate SHA passes; a previous
    `main` commit, another release SHA or focused rerun is not equivalent proof.
    Full local tests/builds remain useful for diagnosis, unavailable CI or an
-   explicitly requested local check. When marketing or its build inputs change,
-   verify `bun run build:marketing` separately unless equivalent successful CI
-   proof exists for that exact candidate; it is not part of the desktop payload.
+   explicitly requested local check.
    Retain commands, candidate SHA and results; do not restart completed checks
    merely to resume the release conversation. Packaging can overlap these CI
    checks; a failed quality gate or server shard blocks both GitHub and npm

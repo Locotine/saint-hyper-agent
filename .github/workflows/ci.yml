@@ -51,9 +51,8 @@ jobs:
           predicate-quantifier: "every"
           filters: |
             code:
-              # Directory exclusions stay scoped to code-free trees: marketing
-              # src ships .tsx under docs/ dirs and web ships a .ts module
-              # under assets/, so '**/docs/**' / '**/assets/**' would let real
+              # Directory exclusions stay scoped to code-free trees: web ships
+              # a .ts module under assets/, so '**/docs/**' / '**/assets/**' would let real
               # code skip the gate. Every image under .github/ is code-free
               # (PR evidence screenshots, docs assets). Runtime images stay on
               # the code path: browser tests validate app icon transparency
@@ -62,7 +61,6 @@ jobs:
               - '!**/*.md'
               - '!docs/**'
               - '!**/*.mdx'
-              - '!apps/marketing/content/**'
               - '!.github/**/*.{png,jpg,jpeg,gif,svg,webp,ico}'
 
   # Root + scripts dependencies suffice for every static check and release smoke.

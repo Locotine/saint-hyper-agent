@@ -134,8 +134,8 @@ jobs:
       - name: Install dependencies
         if: steps.restore_checkpoint.outcome != 'success'
         # Preflight validates the entire workspace. Native artifacts retain all
-        # runtime/build dependencies but do not install the unrelated marketing site.
-        run: bun install --frozen-lockfile --ignore-scripts --filter '!@saint/marketing'
+        # runtime/build dependencies.
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Download macOS icon catalog
         if: inputs.platform == 'mac' && steps.restore_checkpoint.outcome != 'success'

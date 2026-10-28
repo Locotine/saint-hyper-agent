@@ -1,11 +1,21 @@
 # Changelog
 
-## Unreleased
+## 1.0.15 — 2026-10-28
+
+**Remote SSH hosts never run npm, and releases move to GitHub.**
+
+This Stable release covers the commits after `v1.0.14`: `91ab81457` (committed remote dependency pack), `1d75b5e16` (GitLab to GitHub) and the removal of the marketing site. It is the first release published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.0.15).
 
 ### Changed
 
+- Releases, update checks and links move from GitLab to GitHub (`Locotine/saint-hyper-agent`). Builds update from GitHub Releases; the GitLab update provider, `bun run release:gitlab` and `scripts/publish-gitlab-release.ts` are gone. Apps installed from 1.0.10 to 1.0.14 read the retired GitLab feed and will not see this release: install 1.0.15 once by hand.
+- Each GitHub release also carries `install-saint.sh` and the Beta → Stable data copy scripts.
 - Remote SSH hosts never run npm. The server's external dependencies ship as a pack committed in `apps/server/remote-deps/` (exact workspace versions, patches applied, node-pty binaries for macOS and Linux on arm64 and x64), and every install unpacks it with `tar`, even on a host that has npm. Hosts need only Node.js 22.16+, `tar` and tmux (recommended); desktop builds no longer need npm or the registry for it. An `npm install` could hang forever on hosts whose `npm` shims call each other.
 - After changing a remote dependency, its lockfile version or its patch, run `bun run remote:deps-pack` and commit the folder; the desktop artifact build and `scripts/remote-deps-pack.test.ts` fail while the pack is stale.
+
+### Removed
+
+- The marketing site (`apps/marketing`) and its `Validate marketing site` workflow. CI installs every remaining workspace.
 
 ## 1.0.14 — 2026-10-28
 

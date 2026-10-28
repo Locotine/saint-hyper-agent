@@ -68,7 +68,7 @@ test("filtered scopes preserve lifecycle scripts and the scripts workspace links
   assert.ok(
     setup.includes("static) bun install --frozen-lockfile --filter './' --filter '@saint/scripts'"),
   );
-  assert.ok(setup.includes("runtime) bun install --frozen-lockfile --filter '!@saint/marketing'"));
+  assert.ok(setup.includes("runtime) bun install --frozen-lockfile --concurrent-scripts=1"));
   assert.ok(!setup.includes("--ignore-scripts"));
   assert.ok(setup.includes("runner.os != 'Windows' && inputs.scope == 'full'"));
   assert.ok(setup.includes("steps.modules.outputs.cache-hit != 'true'"));
@@ -111,9 +111,7 @@ test("Windows install uses the runner-volume cache without changing other platfo
       platform === "Windows" ? "/runner temp/bun-install-cache" : "/existing-cache";
     assert.ok(result.stdout.includes(`cache=${expectedCache}\n`), platform);
     assert.ok(
-      result.stdout.includes(
-        "arg=install\narg=--frozen-lockfile\narg=--filter\narg=!@saint/marketing\n",
-      ),
+      result.stdout.includes("arg=install\narg=--frozen-lockfile\narg=--concurrent-scripts=1\n"),
       platform,
     );
   }

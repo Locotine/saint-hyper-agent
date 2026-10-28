@@ -233,7 +233,9 @@ describe("startIdleExit", () => {
     await runHarness({}, ({ state, advance, publish }) =>
       Effect.gen(function* () {
         yield* advance(45_000);
-        yield* publish({ ...sessionSetEvent({ threadId: "t3", activeTurnId: null, sequence: 1 }) });
+        yield* publish({
+          ...sessionSetEvent({ threadId: "t-3", activeTurnId: null, sequence: 1 }),
+        });
         yield* advance(30_000);
         expect(state.stopRequests).toBe(0);
         yield* advance(IDLE_EXIT_MS);
