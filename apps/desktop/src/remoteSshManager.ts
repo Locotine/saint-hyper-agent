@@ -47,8 +47,13 @@ export interface RemoteSshManagerDependencies {
   readonly defaultRemoteRoot: string;
   /** Folder whose `versions/` every install folder on a host shares. */
   readonly storeRoot: string;
-  /** Gzipped tar of the install bundle; called only when the remote lacks this version. */
-  readonly createInstallBundle: () => Readable;
+  /**
+   * Gzipped tar of the install bundle; called only when the remote lacks this
+   * version. With `withDepsPack` it also carries the offline dependency pack.
+   */
+  readonly createInstallBundle: (withDepsPack: boolean) => Readable;
+  /** Whether this build ships the offline dependency pack for hosts without npm. */
+  readonly hasDepsPack?: () => boolean;
   readonly reserveLocalPort: () => Promise<number>;
   readonly waitForHttpReady: (baseUrl: string, signal: AbortSignal) => Promise<void>;
   readonly createToken: () => string;
@@ -343,14 +348,20 @@ export class RemoteSshManager {
         token = probe.server.token;
       } else {
         if (!probe.installed) {
-          if (!probe.depsInstalled && !probe.npm) {
-            throw new RemoteSshError(`npm is required on ${host} to install Saint.`);
+          // Without npm the host unpacks the dependencies this build ships instead.
+          const withDepsPack = !probe.depsInstalled && !probe.npm;
+          if (withDepsPack && !this.deps.hasDepsPack?.()) {
+            throw new RemoteSshError(
+              `npm is required on ${host} to install Saint, and this build ships no offline dependencies.`,
+            );
           }
+          if (withDepsPack)
+            this.deps.log(`[remote-ssh] ${host} has no npm; uploading dependencies`);
           step("uploading");
           const upload = await this.runSsh(
             host,
             buildRemoteUploadCommand(target),
-            this.deps.createInstallBundle(),
+            this.deps.createInstallBundle(withDepsPack),
             UPLOAD_TIMEOUT_MS,
             signal,
           );

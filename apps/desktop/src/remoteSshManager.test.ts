@@ -364,12 +364,31 @@ describe("RemoteSshManager", () => {
     expect(seen).toEqual(["probe", "upload", "install", "start"]);
   });
 
-  it("still requires npm when the dependencies are missing", async () => {
+  it("still requires npm when the dependencies are missing and no pack ships", async () => {
     const { spawn } = fakeSpawn(() => ({
       stdout: PROBE_FRESH.replace('"npm":true', '"npm":false,"deps":false'),
     }));
     const { manager } = makeManager(spawn);
     await expect(manager.connect({ host: "devbox" })).rejects.toThrow(/npm is required/);
+  });
+
+  it("uploads the offline dependency pack to a host without npm", async () => {
+    const { spawn } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      const kind = scriptKind(stdin);
+      if (kind === "probe") {
+        return { stdout: PROBE_FRESH.replace('"npm":true', '"npm":false,"deps":false') };
+      }
+      if (kind === "install") return { stdout: 'SAINT_REMOTE {"kind":"installed"}' };
+      if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
+      return {};
+    });
+    const createInstallBundle = vi.fn(() => Readable.from([Buffer.from("bundle")]));
+    const { manager } = makeManager(spawn, { createInstallBundle, hasDepsPack: () => true });
+    await expect(manager.connect({ host: "devbox" })).resolves.toMatchObject({
+      phase: "connected",
+    });
+    expect(createInstallBundle).toHaveBeenCalledWith(true);
   });
 
   it("reconnects a connected host whose server no longer answers", async () => {

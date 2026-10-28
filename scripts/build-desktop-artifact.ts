@@ -41,6 +41,7 @@ import {
   remoteServerPatchIndex,
 } from "@saint/shared/remoteServerInstall";
 import { createDesktopArtifactIdentity } from "./lib/desktop-artifact-identity.ts";
+import { buildRemoteDepsPack } from "./lib/remote-deps-pack.ts";
 import { parseBooleanEnvValue } from "./lib/env-bool.ts";
 import { finalizeSignedMacDmg, rebuildUnsignedMacDmg } from "./lib/mac-dmg-finalize.ts";
 import { finalizeMacUpdateZip } from "./lib/mac-update-zip-finalize.ts";
@@ -872,7 +873,19 @@ const stageRemoteServerInstall = Effect.fn("stageRemoteServerInstall")(function*
   yield* fs.writeFileString(
     path.join(stageDir, "patches/index.tsv"),
     remoteServerPatchIndex(manifest.patches),
-  );
+  ); // Hosts without npm unpack this instead of installing (REMOTE_DEPS_PACK_FILE).
+  yield* Effect.try({
+    try: () =>
+      buildRemoteDepsPack(
+        `${JSON.stringify(manifest.packageJson, null, 2)}\n`,
+        path.join(stageDir, "deps.tar.gz"),
+      ),
+    catch: (cause) =>
+      new BuildScriptError({
+        message: "Could not pack the remote server dependencies (needs npm and the registry).",
+        cause,
+      }),
+  });
 });
 
 const installFrozenStageDependencies = Effect.fn("installFrozenStageDependencies")(function* (

@@ -292,6 +292,8 @@ import { registerSafariAccessIpc } from "./safariAccessIpc";
 import {
   collectRemoteInstallEntries,
   createTarGzStream,
+  REMOTE_DEPS_PACK_FILE,
+  remoteDepsPackPath,
   remoteInstallDepsHash,
   remoteInstallVersion,
 } from "./remoteSshBundle";
@@ -5942,7 +5944,18 @@ function registerRemoteSshHandlers(): void {
     },
     defaultRemoteRoot: remoteSshDefaultRoot,
     storeRoot: REMOTE_SSH_STORE_ROOT,
-    createInstallBundle: () => createTarGzStream(collectRemoteInstallEntries(resolveAppRoot())),
+    createInstallBundle: (withDepsPack) => {
+      const appRoot = resolveAppRoot();
+      const entries = collectRemoteInstallEntries(appRoot);
+      if (withDepsPack) {
+        entries.push({
+          path: REMOTE_DEPS_PACK_FILE,
+          contents: FS.readFileSync(remoteDepsPackPath(appRoot)),
+        });
+      }
+      return createTarGzStream(entries);
+    },
+    hasDepsPack: () => FS.existsSync(remoteDepsPackPath(resolveAppRoot())),
     reserveLocalPort: () =>
       Effect.service(NetService).pipe(
         Effect.flatMap((net) => net.reserveLoopbackPort()),

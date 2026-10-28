@@ -308,7 +308,7 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     run(buildRemoteStopScript(other));
   }, 90_000);
 
-  const bundle = async (entries: Array<{ path: string; contents: string }>) => {
+  const bundle = async (entries: Array<{ path: string; contents: string | Buffer }>) => {
     const chunks: Buffer[] = [];
     for await (const chunk of createTarGzStream(
       entries.map((entry) => ({ path: entry.path, contents: Buffer.from(entry.contents) })),
@@ -339,6 +339,34 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     FS.existsSync(Path.join(home, "npm-runs"))
       ? FS.readFileSync(Path.join(home, "npm-runs"), "utf8").trim().split("\n").length
       : 0;
+
+  it("installs from the uploaded dependency pack on a host without npm", async () => {
+    FS.rmSync(Path.join(bin, "npm"));
+    const pack = await bundle([
+      { path: "node_modules/node-pty/package.json", contents: '{"name":"@lydell/node-pty"}' },
+      { path: "node_modules/@lydell/node-pty-linux-x64/package.json", contents: "{}" },
+      { path: "node_modules/@lydell/node-pty-sunos-sparc/package.json", contents: "{}" },
+    ]);
+    const upload = run(
+      buildRemoteUploadCommand(target),
+      await bundle([
+        { path: "dist/index.mjs", contents: okServer },
+        { path: "package.json", contents: "{}" },
+        { path: "deps.tar.gz", contents: pack },
+      ]),
+    );
+    expect(upload.status).toBe(0);
+    const result = run(buildRemoteInstallScript(target));
+    expect(result.stderr).toContain("No npm on this host");
+    expect(hasRemoteReport(result.stdout, "installed")).toBe(true);
+    expect(npmRuns()).toBe(0);
+    const modules = Path.join(home, target.storeRoot, "versions", target.version, "node_modules");
+    expect(FS.existsSync(Path.join(modules, "node-pty/package.json"))).toBe(true);
+    expect(FS.existsSync(Path.join(modules, "@lydell/node-pty-sunos-sparc"))).toBe(false);
+    expect(
+      FS.existsSync(Path.join(home, target.storeRoot, "versions", target.version, "deps.tar.gz")),
+    ).toBe(false);
+  });
 
   it("stops an earlier install of the folder that is still running", async () => {
     const staging = Path.join(home, target.remoteRoot, "staging");

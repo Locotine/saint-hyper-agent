@@ -236,12 +236,18 @@ if [ ! -f "$deps_store/$deps_key/.installed" ]; then
   cp "$staging/package.json" "$deps_staging/package.json"
   if [ -d "$staging/patches" ]; then cp -R "$staging/patches" "$deps_staging/patches"; fi
   cd "$deps_staging"
-  echo "Running npm install in $deps_staging (log: npm-install.log)." >&2
-  if ! npm install --omit=dev --omit=optional --no-audit --no-fund --loglevel=error >npm-install.log 2>&1; then
-    tail -n 40 npm-install.log >&2
-    exit 1
+  if [ -f "$staging/deps.tar.gz" ]; then
+    # Hosts without npm (no sudo, no registry) unpack the dependencies the app ships.
+    echo "No npm on this host; unpacking the dependencies Saint uploaded." >&2
+    tar -xzf "$staging/deps.tar.gz"
+  else
+    echo "Running npm install in $deps_staging (log: npm-install.log)." >&2
+    if ! npm install --omit=dev --omit=optional --no-audit --no-fund --loglevel=error >npm-install.log 2>&1; then
+      tail -n 40 npm-install.log >&2
+      exit 1
+    fi
   fi
-  echo "npm install finished; applying dependency patches." >&2
+  echo "Dependencies ready; applying dependency patches." >&2
   if [ -f patches/index.tsv ]; then
     tab=$(printf '\\t')
     while IFS="$tab" read -r package file; do
@@ -263,12 +269,17 @@ if [ ! -f "$deps_store/$deps_key/.installed" ]; then
     [ -e "$platform_dir" ] || continue
     [ "\${platform_dir##*/}" = "$prebuild" ] || rm -rf "$platform_dir"
   done
+  # The uploaded pack carries @lydell/node-pty binaries for every supported host.
+  for platform_dir in node_modules/@lydell/node-pty-*; do
+    [ -e "$platform_dir" ] || continue
+    [ "\${platform_dir##*/node-pty-}" = "$prebuild" ] || rm -rf "$platform_dir"
+  done
   : >.installed
   cd "$HOME"
   publish "$deps_staging" "$deps_store/$deps_key"
 fi
 cd "$staging"
-rm -rf node_modules patches
+rm -rf node_modules patches deps.tar.gz
 ln -s "$deps_link" node_modules
 : >.installed
 cd "$HOME"

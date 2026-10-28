@@ -25,6 +25,17 @@ import {
  */
 export const REMOTE_INSTALL_STAGE_DIR = "apps/server/remote-install";
 
+/**
+ * Gzipped `node_modules` of the remote dependencies, with node-pty binaries for
+ * macOS and Linux on arm64 and x64, that the desktop build stages next to the
+ * manifest (scripts/lib/remote-deps-pack.ts). Hosts without npm unpack it instead.
+ */
+export const REMOTE_DEPS_PACK_FILE = "deps.tar.gz";
+
+export function remoteDepsPackPath(appRoot: string): string {
+  return Path.join(appRoot, REMOTE_INSTALL_STAGE_DIR, REMOTE_DEPS_PACK_FILE);
+}
+
 export interface RemoteInstallEntry {
   /** Path inside the archive, `/`-separated. */
   readonly path: string;
