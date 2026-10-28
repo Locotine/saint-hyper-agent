@@ -742,38 +742,9 @@ function resolveGitHubPublishConfig():
 }
 
 /**
- * GitLab Releases feed for forks hosted on GitLab, from
- * `SAINT_DESKTOP_UPDATE_GITLAB_PROJECT` (`namespace/project`) and optionally
- * `SAINT_DESKTOP_UPDATE_GITLAB_HOST`. The project must be public: the updater
- * reads it without a token. `scripts/publish-gitlab-release.ts` uploads the
- * assets as generic packages and links them from the release.
- */
-function resolveGitLabPublishConfig():
-  | {
-      readonly provider: "gitlab";
-      readonly projectId: string;
-      readonly host?: string;
-      readonly uploadTarget: "generic_package";
-    }
-  | undefined {
-  const projectId = process.env.SAINT_DESKTOP_UPDATE_GITLAB_PROJECT?.trim() || "";
-  if (!/^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+$/u.test(projectId)) return undefined;
-  const host = process.env.SAINT_DESKTOP_UPDATE_GITLAB_HOST?.trim() || "";
-  return {
-    provider: "gitlab",
-    // electron-updater splices projectId into the API path as is, so a
-    // `namespace/project` path must arrive URL-encoded or GitLab answers 404.
-    projectId: encodeURIComponent(projectId),
-    ...(host ? { host } : {}),
-    uploadTarget: "generic_package",
-  };
-}
-
-/**
  * Static update feed from `SAINT_DESKTOP_UPDATE_FEED_URL` (an https base URL
- * serving `<channel>*.yml`), such as the GitLab Pages site that
- * `scripts/publish-gitlab-release.ts --feed-url` fills. Checking it costs no
- * GitLab API requests, which are rate-limited per IP for anonymous clients.
+ * serving `<channel>*.yml`). Checking it costs no release-host API requests,
+ * which are rate-limited per IP for anonymous clients.
  */
 function resolveStaticFeedPublishConfig():
   | { readonly provider: "generic"; readonly url: string }
@@ -982,10 +953,7 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     },
     forceCodeSigning: signed,
   };
-  const publishConfig =
-    resolveStaticFeedPublishConfig() ??
-    resolveGitLabPublishConfig() ??
-    resolveGitHubPublishConfig();
+  const publishConfig = resolveStaticFeedPublishConfig() ?? resolveGitHubPublishConfig();
   if (artifactIdentity.identity.usesScriptedUpdates) {
     // Experimental bundles must never contain a Stable updater feed, even
     // when built from a shell used by the release workflow.

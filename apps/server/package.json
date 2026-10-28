@@ -5,7 +5,7 @@
   "author": "Locotine",
   "repository": {
     "type": "git",
-    "url": "git+https://gitlab.com/locotine/saint-hyper-agent.git",
+    "url": "git+https://github.com/Locotine/saint-hyper-agent.git",
     "directory": "apps/server"
   },
   "bin": {

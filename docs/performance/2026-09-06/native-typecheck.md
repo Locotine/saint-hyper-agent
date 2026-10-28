@@ -187,5 +187,5 @@ tooling is not migrated by this change.
 
 References: [TypeScript 7 side-by-side installation](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/),
 [Effect native checker](https://github.com/Effect-TS/tsgo). This is a first step
-toward [#1002](https://gitlab.com/locotine/saint-hyper-agent/-/issues/1002), not completion
+toward [#1002](https://github.com/Locotine/saint-hyper-agent/issues/1002), not completion
 of the compiler migration.

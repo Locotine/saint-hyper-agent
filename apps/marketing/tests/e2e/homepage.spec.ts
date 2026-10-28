@@ -15,10 +15,10 @@ test.describe("homepage functional flow", () => {
     const download = actions.getByRole("link", {
       name: /Download for|Download Saint/,
     });
-    const github = actions.getByRole("link", { name: "Star on GitLab" });
+    const github = actions.getByRole("link", { name: "Star on GitHub" });
 
     await expect(download).toHaveAttribute("href", "/install");
-    await expect(github).toHaveAttribute("href", /gitlab\.com/);
+    await expect(github).toHaveAttribute("href", /github\.com/);
 
     const [downloadBox, githubBox] = await Promise.all([
       download.boundingBox(),

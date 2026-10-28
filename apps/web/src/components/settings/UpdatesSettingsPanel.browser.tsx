@@ -33,7 +33,7 @@ vi.mock("~/components/ui/toast", () => ({
 
 import { BetaChannelSettingsPanel, UpdatesSettingsPanel } from "./DesktopSettingsPanels";
 
-const RELEASES_URL = "https://gitlab.com/locotine/saint-releases/-/releases";
+const RELEASES_URL = "https://github.com/Locotine/saint-hyper-agent/releases";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 

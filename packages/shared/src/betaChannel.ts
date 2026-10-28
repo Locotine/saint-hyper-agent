@@ -16,7 +16,7 @@ export const BETA_IMPORT_RESULT_FILE_NAME = "import-result.json";
 export const SAINT_BETA_WINDOWS_INSTALLER_GUID = "e5cb6c41-44ef-4989-a949-8b42c1d9b788";
 
 /** Public release listing for every Saint build this fork publishes. */
-export const SAINT_RELEASES_URL = "https://gitlab.com/locotine/saint-releases/-/releases";
+export const SAINT_RELEASES_URL = "https://github.com/Locotine/saint-hyper-agent/releases";
 
 /** Download page handed to the user when beta is not installed. */
 export const SAINT_BETA_RELEASES_URL = SAINT_RELEASES_URL;

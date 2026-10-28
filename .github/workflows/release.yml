@@ -522,6 +522,13 @@ jobs:
           name: server-tarball
           path: release-assets
 
+      - name: Add install helper scripts
+        run: |
+          cp scripts/linux/install-saint.sh \
+            scripts/copy-saint-beta-data.sh \
+            scripts/copy-saint-beta-data.ps1 \
+            release-assets/
+
       - name: Merge macOS updater manifests
         run: |
           node scripts/merge-mac-update-manifests.ts \
@@ -628,6 +635,8 @@ jobs:
             release-assets/*.yml
             release-assets/*.provenance.json
             release-assets/*.tar.gz
+            release-assets/*.sh
+            release-assets/*.ps1
           fail_on_unmatched_files: true
 
       - name: Mirror Saint artifacts onto the pinned updater feed

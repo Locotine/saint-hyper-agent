@@ -5,7 +5,7 @@ application that installs and updates side-by-side with stable Saint, and it nev
 shares stable's data directory or update feed.
 
 > [!NOTE]
-> Saint Beta is retired from Stable 1.0.11 (current release: 1.0.14). `BETA_ONLY_FEATURES` is empty, Stable no longer offers to install Beta or copy data into it, and the GitLab releases project publishes Stable only. To move Beta data into Stable once, quit both apps and run `scripts/copy-saint-beta-data.sh` or `scripts/copy-saint-beta-data.ps1` (shipped with each release); the Stable data it replaces is kept as a backup. The rest of this file stays as the reference for the Beta flavor, which can still be built with `--flavor beta`.
+> Saint Beta is retired from Stable 1.0.11 (current release: 1.0.14). `BETA_ONLY_FEATURES` is empty, Stable no longer offers to install Beta or copy data into it, and GitHub Releases publishes Stable only. To move Beta data into Stable once, quit both apps and run `scripts/copy-saint-beta-data.sh` or `scripts/copy-saint-beta-data.ps1` (shipped with each release); the Stable data it replaces is kept as a backup. The rest of this file stays as the reference for the Beta flavor, which can still be built with `--flavor beta`.
 
 ## The short version
 
@@ -177,49 +177,28 @@ bun run dist:desktop:artifact -- --platform mac --target dmg --arch arm64 --flav
 resolved flavor (`saintDesktopFlavor`), so a packaged build cannot silently lose its
 identity at runtime; on packaged builds the embedded value wins over the env var.
 
-### Updates from a GitLab Releases feed
+### Updates from GitHub Releases
 
-A fork hosted on GitLab can ship updates from a **public** GitLab project, without CI. The updater reads the project anonymously, so keep the source in a private project and use a separate public one only for releases. Its package registry must allow anonymous downloads (the default for public projects), and it needs one commit on `main` to tag releases from.
+Releases are built and published by the `Release Desktop` workflow (`.github/workflows/release.yml`) on GitHub. The updater reads the repository anonymously, so it must stay public.
 
-1. On every build machine, build with the feed configured. The build embeds it in `app-update.yml`:
+1. Push a tag `vX.Y.Z` (Stable) or `vX.Y.Z-beta.N` (Beta) to `main`. The workflow builds macOS (arm64 and x64), Windows (NSIS) and Linux (AppImage), then publishes the release with the installers, `latest*.yml` and `saint*.yml` manifests, the server tarball, and the helper scripts below. Run it by hand with `workflow_dispatch` and `publish_release: false` to build without publishing.
+
+2. Local builds embed the same feed when `SAINT_DESKTOP_UPDATE_REPOSITORY=Locotine/saint-hyper-agent` (or `GITHUB_REPOSITORY`) is set at build time:
 
    ```bash
-   export SAINT_DESKTOP_UPDATE_GITLAB_PROJECT=<namespace>/<releases-project>
-   # SAINT_DESKTOP_UPDATE_GITLAB_HOST=git.example.com for self-managed GitLab
-   # --flavor production builds Saint (Stable); --flavor beta builds Saint Beta.
+   export SAINT_DESKTOP_UPDATE_REPOSITORY=Locotine/saint-hyper-agent
    bun run dist:desktop:win -- --flavor production        # Windows: NSIS installer
    bun run dist:desktop:linux -- --flavor production      # Ubuntu: AppImage
    bun run dist:desktop:dmg:arm64 -- --flavor production  # macOS
    ```
 
-2. On each machine, upload its output folder. Every run adds its files to the release `v<version>`, which it creates on first use:
+   Every release also carries `scripts/linux/install-saint.sh` and the one-time Beta → Stable copy scripts `scripts/copy-saint-beta-data.sh` (macOS/Linux) and `scripts/copy-saint-beta-data.ps1` (Windows). Users run `bash install-saint.sh` after downloading the Stable AppImage: it copies it to `~/Applications/saint.AppImage` (a name without a version, so updates overwrite it in place), adds the menu entry, icon and `saint://` handler, offers to install `libfuse2` and to remove an older `.deb` (including packages from older builds), and `--uninstall` removes it again. The copy scripts move `~/.saint-beta/userdata` into `~/.saint/userdata` with both apps quit, skip runtime entries the same way the in-app Stable → Beta copy does, and keep the replaced Stable data as a backup.
 
-   ```bash
-   GITLAB_TOKEN=<token with api scope> bun run release:gitlab -- release
-   ```
+3. Installed apps check the newest release and update in place on Windows (NSIS) and Linux (AppImage only; a `.deb` never updates). macOS installs only builds signed and notarized with a Developer ID. An unsigned Mac sees the update, fails to install it, and after two failures offers the GitHub release page for a manual download.
 
-   Uploads are generic packages (`saint-desktop/<version>/<file>`), linked from the release by file name. They are the names `latest.yml`, `latest-linux.yml` and `latest-mac.yml` that the updater looks up. Merge the two macOS manifests first with `scripts/merge-mac-update-manifests.ts` when you ship both architectures.
+Builds that read the retired GitLab feed (1.0.10 to 1.0.14) never see GitHub releases. Install a GitHub-fed build once by hand. Each flavor only takes its own lane (see [Update channel isolation](#update-channel-isolation)): Saint takes `vX.Y.Z` releases and Saint Beta takes `-beta.N` releases.
 
-   Every release also carries `scripts/linux/install-saint.sh` and the one-time Beta → Stable copy scripts `scripts/copy-saint-beta-data.sh` (macOS/Linux) and `scripts/copy-saint-beta-data.ps1` (Windows); the upload picks them up from the folder. Users run `bash install-saint.sh` after downloading the Stable AppImage: it copies it to `~/Applications/saint.AppImage` (a name without a version, so updates overwrite it in place), adds the menu entry, icon and `saint://` handler, offers to install `libfuse2` and to remove an older `.deb` (including packages from older builds), and `--uninstall` removes it again. The copy scripts move `~/.saint-beta/userdata` into `~/.saint/userdata` with both apps quit, skip runtime entries the same way the in-app Stable → Beta copy does, and keep the replaced Stable data as a backup.
-
-3. Installed apps check the newest release and update in place on Windows (NSIS) and Linux (AppImage only; a `.deb` never updates). macOS installs only builds signed and notarized with a Developer ID. An unsigned Mac sees the update, fails to install it, and after two failures offers the GitLab release page for a manual download.
-
-Builds made before the feed was configured have no `app-update.yml` and never update. Install a feed-enabled build once by hand. Each flavor only takes its own lane (see [Update channel isolation](#update-channel-isolation)): Saint takes `vX.Y.Z` releases and Saint Beta takes `-beta.N` releases, and the updater reads only the newest release of the project, so keep one lane per releases project.
-
-#### Checking from GitLab Pages instead of the API
-
-GitLab rate-limits anonymous API requests per IP address, so every Saint behind one office network shares that budget, and an update check that only asks the API answers `429` once anything else has used it up. Build with a static feed and publish to it so checks never touch the API:
-
-```bash
-export SAINT_DESKTOP_UPDATE_FEED_URL=https://<pages-site-of-the-releases-project>/
-export SAINT_DESKTOP_UPDATE_GITLAB_PROJECT=<namespace>/<releases-project>   # the publish script still uploads here
-bun run dist:desktop:linux -- --flavor production
-GITLAB_TOKEN=<token with api scope> bun run release:gitlab -- release
-```
-
-With the feed URL set, the build embeds `provider: generic` and the publish run also commits its manifests to `public/` of the releases project as `saint*.yml` (Stable) or `beta*.yml` (Beta), with file URLs pointing at the uploaded packages, adds the `pages` CI job on first use, and waits until the site serves them. The project's Pages visibility must be public. Installers still download from the package registry, in one request per update: differential downloads are off for GitLab-hosted feeds because each block range would cost another API request. A `429` that still happens shows the time of the next check instead of the raw error, and automatic checks wait until then.
-
-The release keeps its `latest*.yml` links, so builds made with the plain GitLab feed still find newer versions there.
+`SAINT_DESKTOP_UPDATE_FEED_URL` still switches a build to a static `provider: generic` feed (an https base URL serving `<channel>*.yml`), for hosts that rate-limit anonymous API requests. Differential downloads are off for such feeds, and a `429` shows the time of the next check instead of the raw error.
 
 ## Joining beta from stable
 

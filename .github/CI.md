@@ -75,12 +75,12 @@ source provenance, publication and production dependency staging are unchanged.
 ## Cross-platform setup measurements: September 14, 2026
 
 Application baseline: `70f5ed0e4757c0f69891b258171da80d324f0e18`. The successful
-[baseline main CI](https://gitlab.com/locotine/saint-hyper-agent)
+[baseline main CI](https://github.com/Locotine/saint-hyper-agent)
 took 323 seconds and 2,158 raw runner-seconds across 16 jobs. These are observed
 samples, not a promise for every hosted runner. No percentage below describes an
 entire signed release.
 
-The [cross-platform install experiment](https://gitlab.com/locotine/saint-hyper-agent)
+The [cross-platform install experiment](https://github.com/Locotine/saint-hyper-agent)
 used three observations per variant on each runner, fresh worktrees and dedicated
 empty `BUN_INSTALL_CACHE_DIR` directories. Variant order reversed on the middle
 repetition. Linux/Windows included lifecycle scripts; both macOS variants used
@@ -97,13 +97,13 @@ macOS Intel device dependencies               61.12 s       7.02 s        88.5%
 ```
 
 The corrected static scope was measured in a
-[separate same-source Ubuntu job](https://gitlab.com/locotine/saint-hyper-agent):
+[separate same-source Ubuntu job](https://github.com/Locotine/saint-hyper-agent):
 7.55 / 7.47 / 7.68 seconds. Intel release measurements were noisy: full
 61.12 / 269.19 / 54.96 seconds, scoped 29.68 / 42.69 / 106.97 seconds. Its median
 improved but not every pair did. Linux runtime filtering measured 27.85 to 24.08
 seconds, but full Linux jobs retain their healthy warm modules cache.
 
-[Native artifact validation](https://gitlab.com/locotine/saint-hyper-agent)
+[Native artifact validation](https://github.com/Locotine/saint-hyper-agent)
 passed Linux AppImage, Windows NSIS, macOS ARM64 DMG and Intel DMG builds plus
 packaged-startup smoke with filtered installs. Both macOS native device probes
 also passed. These were **unsigned build-only checks**, not signed publication or
@@ -112,7 +112,7 @@ all Xcode/simulator combinations.
 ## Critical-path attack
 
 The previous warm confirmation
-[run 34829293225](https://gitlab.com/locotine/saint-hyper-agent)
+[run 34829293225](https://github.com/Locotine/saint-hyper-agent)
 completed in 308 seconds and 1,943 raw runner-seconds (32.38 minutes). The browser
 `chat-workflows` job was the critical lane, followed by server and component
 partitions. The experiments below target those measured paths rather than adding
@@ -120,7 +120,7 @@ generic concurrency.
 
 ### Stable browser runtime preparation
 
-The [runtime benchmark](https://gitlab.com/locotine/saint-hyper-agent)
+The [runtime benchmark](https://github.com/Locotine/saint-hyper-agent)
 ran three repetitions of Playwright `install --with-deps chromium` and `install
 chromium` after the same browser-cache restore. Every browser-only repetition then
 launched Chromium, created a page and verified DOM content.
@@ -159,7 +159,7 @@ used, while test bodies, assertions, timeouts and quarantine semantics stay inta
 
 ### Server native three-way sharding
 
-The [server benchmark](https://gitlab.com/locotine/saint-hyper-agent)
+The [server benchmark](https://github.com/Locotine/saint-hyper-agent)
 compared Vitest's existing native two-way shard assignment with native three-way
 assignment. Each repetition ran both variants on the same runner and reversed
 order in the middle repetition. Exact JSON inventories matched at 5,030 assertion
@@ -179,7 +179,7 @@ custom timing-aware sequencer below.
 
 ### Component native three-way sharding
 
-The [component benchmark](https://gitlab.com/locotine/saint-hyper-agent)
+The [component benchmark](https://github.com/Locotine/saint-hyper-agent)
 compared the existing two native file shards with three native file shards. All
 three repetitions preserved exactly 411 assertion results (408 distinct inventory
 keys), including repeated-title multiplicities, with no overlap or omission and
@@ -198,12 +198,12 @@ is acceptable.
 ## Rejected experiments and external-service limits
 
 Intra-runner component `fileParallelism` with four workers failed in all three
-repetitions of [run 34832610297](https://gitlab.com/locotine/saint-hyper-agent).
+repetitions of [run 34832610297](https://github.com/Locotine/saint-hyper-agent).
 The candidate was also slower than the individual baseline shards in the completed
 sample. It is not enabled. Native file sharding above keeps each browser process
 serial instead.
 
-An earlier [timing-aware server sequencer](https://gitlab.com/locotine/saint-hyper-agent)
+An earlier [timing-aware server sequencer](https://github.com/Locotine/saint-hyper-agent)
 was also rejected. It preserved the then-collected suite but worsened slower-shard
 time 9.9% and combined time 2.1%. The prototype/timing hints remain removed. The
 accepted server change uses Vitest's native shard assignment instead.
@@ -245,10 +245,10 @@ check identity, signing policy or publication.
 ### Earlier cross-platform candidate evidence
 
 The first complete PR run
-[34828358809](https://gitlab.com/locotine/saint-hyper-agent)
+[34828358809](https://github.com/Locotine/saint-hyper-agent)
 passed all 15 then-current jobs but initialized new caches: 325 seconds and 2,422
 runner-seconds. The warm confirmation
-[34829293225](https://gitlab.com/locotine/saint-hyper-agent)
+[34829293225](https://github.com/Locotine/saint-hyper-agent)
 passed all 15 jobs in 308 seconds and 1,943 runner-seconds, versus main's 323
 seconds / 2,158 runner-seconds. The final critical-path graph is measured again
 from scratch in the PR verification record; those earlier numbers are retained so
@@ -261,9 +261,9 @@ the same branch reopened as #1202. Both completed successfully:
 
 | Run                                                                          | Workflow elapsed | Raw runner minutes |
 | ---------------------------------------------------------------------------- | ---------------: | -----------------: |
-| [Reference main](https://gitlab.com/locotine/saint-hyper-agent)              |            5m23s |              35.97 |
-| [First final-candidate run](https://gitlab.com/locotine/saint-hyper-agent)   |            4m17s |              33.40 |
-| [Reopened PR, same candidate](https://gitlab.com/locotine/saint-hyper-agent) |            6m45s |              38.67 |
+| [Reference main](https://github.com/Locotine/saint-hyper-agent)              |            5m23s |              35.97 |
+| [First final-candidate run](https://github.com/Locotine/saint-hyper-agent)   |            4m17s |              33.40 |
+| [Reopened PR, same candidate](https://github.com/Locotine/saint-hyper-agent) |            6m45s |              38.67 |
 
 The first candidate run was 20.4% faster than the reference and used 7.1% fewer
 raw runner minutes. The second was 25.4% slower and used 7.5% more. Raw runner
@@ -285,7 +285,7 @@ with Bun installed under the runner's `C:` home, without overriding its default
 cache location. That topology differed from the benchmark. Bun normally hardlinks
 packages from its cache on Windows, and its isolated installer falls back to
 copying when the cache and destination are on different volumes. See the
-[benchmark setup](https://gitlab.com/locotine/saint-hyper-agent)
+[benchmark setup](https://github.com/Locotine/saint-hyper-agent)
 and [Bun installer](https://github.com/oven-sh/bun/blob/744846f844374847c902b5e7fd59b4342a51ef99/src/install/isolated_install/Installer.rs#L1339-L1410).
 
 Windows installation now selects and logs `RUNNER_TEMP/bun-install-cache`, matching

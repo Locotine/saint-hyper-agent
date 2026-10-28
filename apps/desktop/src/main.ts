@@ -276,11 +276,7 @@ import {
   verifyUpdateArtifactIdentity,
   type UpdateArtifactIdentity,
 } from "./updateArtifactIdentity";
-import {
-  buildGitHubReleasesPageUrl,
-  resolveGitHubUpdateSource,
-  resolveGitLabReleasesPageUrl,
-} from "./githubUpdateFeed";
+import { buildGitHubReleasesPageUrl, resolveGitHubUpdateSource } from "./githubUpdateFeed";
 import { isArm64HostRunningIntelBuild, resolveDesktopRuntimeInfo } from "./runtimeArch";
 import { BROWSER_SESSION_PARTITION, DesktopBrowserManager } from "./browserManager";
 import { BrowserSessionRestore } from "./browserAutomation/browserSessionRestore";
@@ -3822,8 +3818,9 @@ function configureAutoUpdater(): void {
   const githubUpdateSource = resolveGitHubUpdateSource(appUpdateYml);
   const releaseUrl =
     githubUpdateSource === null
-      ? (resolveGitLabReleasesPageUrl(appUpdateYml) ??
-        (isStaticReleaseFeed(appUpdateYml) ? SAINT_RELEASES_URL : null))
+      ? isStaticReleaseFeed(appUpdateYml)
+        ? SAINT_RELEASES_URL
+        : null
       : buildGitHubReleasesPageUrl(githubUpdateSource);
   const enabled = shouldEnableAutoUpdates();
   setUpdateState({
@@ -3856,17 +3853,16 @@ function configureAutoUpdater(): void {
   autoUpdater.channel = desktopUpdateChannel(desktopFlavor);
   autoUpdater.allowPrerelease = DESKTOP_UPDATE_ALLOW_PRERELEASE;
   autoUpdater.allowDowngrade = false;
-  // The packaged app-update.yml owns the production feed: GitHub, GitLab, or a
-  // static https feed (GitLab Pages); a localhost generic feed is mock-only.
+  // The packaged app-update.yml owns the production feed: GitHub Releases or a
+  // static https feed; a localhost generic feed is mock-only.
   // macOS release builds repack and validate the Squirrel update zip, then omit
   // the stale zip blockmap so ShipIt always installs the exact signed payload.
-  // Installers on GitLab come from its package API, which limits anonymous
-  // requests per IP; differential download spends one request per block range,
-  // so those feeds always download the whole installer in one request.
+  // A static feed may sit behind a host that limits anonymous requests per IP;
+  // differential download spends one request per block range, so those feeds
+  // always download the whole installer in one request.
   autoUpdater.disableDifferentialDownload =
     process.platform === "darwin" ||
     isArm64HostRunningIntelBuild(desktopRuntimeInfo) ||
-    appUpdateYml?.provider === "gitlab" ||
     isStaticReleaseFeed(appUpdateYml);
   // electron-updater has no working idle timeout on macOS (its socket timeout is
   // wired to a `socket` event Electron's net.request never emits) and never

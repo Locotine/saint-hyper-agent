@@ -1,7 +1,7 @@
 // FILE: githubUpdateFeed.ts
-// Purpose: Derives human-facing GitHub and GitLab release URLs from electron-updater config.
+// Purpose: Derives human-facing GitHub release URLs from electron-updater config.
 // Layer: Desktop update utility
-// Exports: resolveGitHubUpdateSource, buildGitHubReleasesPageUrl, resolveGitLabReleasesPageUrl
+// Exports: resolveGitHubUpdateSource, buildGitHubReleasesPageUrl
 
 type GitHubUpdateSource = {
   readonly owner: string;
@@ -42,27 +42,4 @@ export function buildGitHubReleasesPageUrl(source: GitHubUpdateSource, tag?: str
       ? `/${source.owner}/${source.repo}/releases/tag/${tag.trim()}`
       : `/${source.owner}/${source.repo}/releases/latest`;
   return new URL(path, `${source.protocol}://${source.host}`).toString();
-}
-
-// GitLab's latest-release page for a `namespace/project` feed. A numeric
-// project id has no web path, so it gets no page.
-export function resolveGitLabReleasesPageUrl(
-  rawConfig: Record<string, string> | null,
-): string | null {
-  if (rawConfig?.provider !== "gitlab") {
-    return null;
-  }
-  const rawProject = rawConfig.projectId?.trim().replace(/^["']|["']$/gu, "") ?? "";
-  // Builds store the path URL-encoded (`namespace%2Fproject`) for the API.
-  let project: string;
-  try {
-    project = decodeURIComponent(rawProject);
-  } catch {
-    return null;
-  }
-  if (!project || !project.includes("/")) {
-    return null;
-  }
-  const host = rawConfig.host?.trim() || "gitlab.com";
-  return new URL(`/${project}/-/releases/permalink/latest`, `https://${host}`).toString();
 }

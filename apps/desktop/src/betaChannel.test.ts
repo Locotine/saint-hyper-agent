@@ -115,7 +115,7 @@ describe("DesktopBetaChannel", () => {
     expect(state.lastImportAt).toBeNull();
     expect(state.canInstall).toBe(false);
     expect(state.install).toBeNull();
-    expect(state.downloadUrl).toBe("https://gitlab.com/locotine/saint-releases/-/releases");
+    expect(state.downloadUrl).toBe("https://github.com/Locotine/saint-hyper-agent/releases");
   });
 
   it("refuses the import when beta is missing", async () => {
@@ -443,7 +443,7 @@ describe("switching back to stable", () => {
     const state = channel.getState();
     expect(state.stableInstalled).toBe(true);
     expect(state.canMoveBetaToTrash).toBe(true);
-    expect(state.stableDownloadUrl).toBe("https://gitlab.com/locotine/saint-releases/-/releases");
+    expect(state.stableDownloadUrl).toBe("https://github.com/Locotine/saint-hyper-agent/releases");
 
     expect(await channel.leave()).toEqual({ ok: true });
     const last = spawnCalls.at(-1);

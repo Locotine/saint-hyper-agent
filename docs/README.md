@@ -1,7 +1,7 @@
 # Saint documentation
 
 This folder keeps the focused guides that stay in sync with the repository
-([gitlab.com/locotine/saint-hyper-agent](https://gitlab.com/locotine/saint-hyper-agent)).
+([github.com/Locotine/saint-hyper-agent](https://github.com/Locotine/saint-hyper-agent)).
 
 - [Quickstart](./quickstart.md) — from installation to your first reviewed change in about five minutes.
 - [Core concepts](./core-concepts.md) — projects, tasks, environments, provider sessions, and Git ownership.

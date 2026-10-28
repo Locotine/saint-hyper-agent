@@ -2,8 +2,8 @@
 // Purpose: Serves the stored installer download total.
 // Layer: Server utility
 // Depends on: src/data/installer-downloads.json
-// Note: GitLab release asset links carry no download counts, so there is no live
-//       source; the total stays at the snapshot carried over from GitHub Releases.
+// Note: There is no live source; the total stays at the snapshot carried over
+//       from earlier release hosts.
 
 import "server-only";
 

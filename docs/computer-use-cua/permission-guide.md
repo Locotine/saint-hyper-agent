@@ -8,7 +8,7 @@
 
 The earlier permission service fix provided fresh native checks, but the setup UI still depended mainly on returning to Saint. It did not provide a floating guide or a desktop-owned loop that could advance while System Settings was foreground. The reporter's screenshot also contains two differently named app entries; it does not establish that the running build has a valid grant.
 
-[PR #913](https://gitlab.com/locotine/saint-hyper-agent/-/merge_requests/913), head `fc77265cd26f5e11197fe72dfbbc26163ef0f38a`, was reviewed as a design reference. This change adopts the floating app-drag guide idea. It does not import that PR's picker, global Escape hook, repeated window-follow scans or same-process permission polling.
+[PR #913](https://github.com/Locotine/saint-hyper-agent/pull/913), head `fc77265cd26f5e11197fe72dfbbc26163ef0f38a`, was reviewed as a design reference. This change adopts the floating app-drag guide idea. It does not import that PR's picker, global Escape hook, repeated window-follow scans or same-process permission polling.
 
 ## Resulting flow
 

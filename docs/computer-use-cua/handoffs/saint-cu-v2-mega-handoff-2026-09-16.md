@@ -136,7 +136,7 @@ From the conversation with Kartik:
 ### 2.2 GitHub surface
 
 - Fork: `github.com/kartikkabadi/saint` (origin of the clone).
-- Upstream: `gitlab.com/locotine/saint-hyper-agent` (public; MIT; PRs live here).
+- Upstream: `github.com/Locotine/saint-hyper-agent` (public; MIT; PRs live here).
 - **PR #1227**: "Ambient in-chat computer preview plus foreground focus restore" (draft; head `agent/computer-use-preview` @ kartikkabadi; base `main`; 92 commits per GitHub; updated 2026-09-16). Branch is 125 commits ahead of main, 652 files changed, +104,356 / -4,110 vs main.
 - PR #1090: earlier native macOS computer-use port (`agent/cua-port-1090`).
 - Branch `upstream/codex/computer-use-nativo-macos-con` on the upstream repo: older CU work that flows into #1227.
@@ -596,7 +596,7 @@ Call these via the Skill tool as you work (account skills live in `/Users/user/.
 
 ### 9.2 URLs
 
-- Saint PR #1227: `https://gitlab.com/locotine/saint-hyper-agent/-/merge_requests/1227` (head `kartikkabadi/saint:agent/computer-use-preview`).
+- Saint PR #1227: `https://github.com/Locotine/saint-hyper-agent/pull/1227` (head `kartikkabadi/saint:agent/computer-use-preview`).
 - Saint PR #1090: earlier native CU port.
 - OpenAI Codex CU: `https://openai.com/index/codex-for-almost-everything`, `https://developers.openai.com/codex/app/computer-use`, `https://openai.com/index/introducing-the-codex-app`.
 - Codex CU issues: `openai/codex` #25321 (composer focus), #26293 (orphans), #28479 (CODEX_HOME), #18755 (macOS 14 crash), #32210 (Swift symbol crash), #35234 (sender auth).

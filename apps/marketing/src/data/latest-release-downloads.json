@@ -1,12 +1,12 @@
 {
   "version": "v1.0.14",
-  "releasesUrl": "https://gitlab.com/locotine/saint-releases/-/releases/v1.0.14",
+  "releasesUrl": "https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.0.14",
   "mac": {
-    "arm64": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.14/Saint-1.0.14-arm64.dmg",
-    "x64": "https://gitlab.com/locotine/saint-releases/-/releases/v1.0.14"
+    "arm64": "https://github.com/Locotine/saint-hyper-agent/releases/download/v1.0.14/Saint-1.0.14-arm64.dmg",
+    "x64": "https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.0.14"
   },
-  "windows": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.14/Saint-1.0.14-x64.exe",
-  "linux": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/1.0.14/Saint-1.0.14-x86_64.AppImage",
+  "windows": "https://github.com/Locotine/saint-hyper-agent/releases/download/v1.0.14/Saint-1.0.14-x64.exe",
+  "linux": "https://github.com/Locotine/saint-hyper-agent/releases/download/v1.0.14/Saint-1.0.14-x86_64.AppImage",
   "updatedAt": "2026-10-28T00:00:00.000Z",
-  "source": "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/releases/permalink/latest"
+  "source": "https://api.github.com/repos/Locotine/saint-hyper-agent/releases/latest"
 }

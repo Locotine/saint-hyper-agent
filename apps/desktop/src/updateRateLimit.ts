@@ -4,7 +4,7 @@
 // Layer: Desktop update runtime
 // Exports: parseUpdateRateLimit, describeUpdateRateLimit
 //
-// GitLab limits anonymous API traffic per IP address, so every Saint behind one
+// Release hosts limit anonymous API traffic per IP address, so every Saint behind one
 // office NAT shares a budget. electron-updater wraps the HttpError into a plain
 // message that also dumps every response header; the status and the retry hints
 // are only recoverable from that text.

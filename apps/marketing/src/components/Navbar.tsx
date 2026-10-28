@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { FaGitlab } from "react-icons/fa";
+import { FaGithub } from "react-icons/fa";
 import { formatStars, getStars } from "@/lib/githubStars";
 import { GITHUB_REPO_URL } from "@/lib/seo";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -58,10 +58,10 @@ export default async function Navbar() {
               href={GITHUB_REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={`GitLab stars: ${formatStars(stars)}`}
+              aria-label={`GitHub stars: ${formatStars(stars)}`}
               className="flex items-center gap-1 text-[12.5px] text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-link)] sm:gap-1.5 sm:text-[13px]"
             >
-              <FaGitlab className="size-4 text-[var(--text-primary)]" />
+              <FaGithub className="size-4 text-[var(--text-primary)]" />
               {formatStars(stars)}
             </a>
           ) : null}

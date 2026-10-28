@@ -3,7 +3,7 @@
   <p><strong>A focused workspace for coding agents.</strong><br>
   Projects, provider sessions, execution surfaces, and review tools in one local-first desktop application.</p>
   <p>
-    <a href="https://gitlab.com/locotine/saint-hyper-agent">Source</a>
+    <a href="https://github.com/Locotine/saint-hyper-agent">Source</a>
     &nbsp;·&nbsp;
     <a href="./docs/README.md">Documentation</a>
     &nbsp;·&nbsp;
@@ -11,7 +11,7 @@
     &nbsp;·&nbsp;
     <a href="./docs/external-mcp.md">MCP integration</a>
     &nbsp;·&nbsp;
-    <a href="https://gitlab.com/locotine/saint-hyper-agent/-/issues">Report an issue</a>
+    <a href="https://github.com/Locotine/saint-hyper-agent/issues">Report an issue</a>
   </p>
 </div>
 
@@ -125,7 +125,7 @@ Configure the shell to match the way you work with light and dark themes, typogr
 
 ### Desktop application
 
-The current release is **1.0.14**. Download it from [GitLab Releases](https://gitlab.com/locotine/saint-releases/-/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
+The current release is **1.0.14**. Download it from [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
 
 | Platform              | Artifact                          | Install                                                                                                                                  |
 | --------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -148,7 +148,7 @@ Saint uses the provider installations and subscriptions already configured on th
 The development checkout uses [Bun 1.4.4](https://bun.sh/) and [Node.js 24.13.1](https://nodejs.org/).
 
 ```console
-git clone https://gitlab.com/locotine/saint-hyper-agent.git
+git clone https://github.com/Locotine/saint-hyper-agent.git
 cd saint-hyper-agent
 bun install
 bun run dev
@@ -178,7 +178,7 @@ bun run dist:desktop:win -- --flavor production --build-version 1.0.14
 bun run dist:desktop:dmg:arm64 -- --flavor production --build-version 1.0.14   # macOS only
 ```
 
-`--build-version` defaults to the package version. Set `SAINT_DESKTOP_UPDATE_GITLAB_PROJECT` (and optionally `SAINT_DESKTOP_UPDATE_FEED_URL`) at build time so installed apps update from your GitLab releases project, then publish with `bun run release:gitlab`; see [Updates from a GitLab Releases feed](./BETA.md#updates-from-a-gitlab-releases-feed).
+`--build-version` defaults to the package version. Releases are published by the `Release Desktop` GitHub Actions workflow when a `vX.Y.Z` tag is pushed; set `SAINT_DESKTOP_UPDATE_REPOSITORY=Locotine/saint-hyper-agent` for a local build that should update from GitHub Releases. See [Updates from GitHub Releases](./BETA.md#updates-from-github-releases).
 
 Artifacts land in `release/` (or `SAINT_DESKTOP_OUTPUT_DIR`). The Linux package must be built on Linux x64, because it compiles `node-pty`. The Windows installer builds on Windows or cross-builds on Linux: the cross-build installs the win32 optional packages, uses the prebuilt native bindings instead of compiling them, and needs Wine with 32-bit support (`wine`, `wine64`, `wine32:i386`) for the executable resources and the NSIS uninstaller. See the [release guide](./docs/release.md#building-installers-on-linux).
 
@@ -186,11 +186,11 @@ Artifacts land in `release/` (or `SAINT_DESKTOP_OUTPUT_DIR`). The Linux package 
 
 Bug fixes, reliability improvements, performance work, documentation, and maintenance changes are welcome.
 
-Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a merge request. For a reproducible problem, [open an issue](https://gitlab.com/locotine/saint-hyper-agent/-/issues) with the Saint version, operating system, runtime, and relevant logs.
+Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request. For a reproducible problem, [open an issue](https://github.com/Locotine/saint-hyper-agent/issues) with the Saint version, operating system, runtime, and relevant logs.
 
 ## Maintainer
 
-Saint is maintained by Locotine at [gitlab.com/locotine/saint-hyper-agent](https://gitlab.com/locotine/saint-hyper-agent). Third-party notices are kept in [NOTICE](./NOTICE).
+Saint is maintained by Locotine at [github.com/Locotine/saint-hyper-agent](https://github.com/Locotine/saint-hyper-agent). Third-party notices are kept in [NOTICE](./NOTICE).
 
 ## License
 

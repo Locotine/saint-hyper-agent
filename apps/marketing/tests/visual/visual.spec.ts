@@ -112,7 +112,7 @@ test.describe("visual regression @visual", () => {
     expect(version).toMatch(/^v\d+\.\d+\.\d+$/);
     const releaseCaption = page.getByText(/^Latest release /);
     await expect(releaseCaption).toContainText(`Latest release ${version}.`);
-    const assetRoot = `https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/packages/generic/saint-desktop/${version.slice(1)}/Saint-${version.slice(1)}`;
+    const assetRoot = `https://github.com/Locotine/saint-hyper-agent/releases/download/${version}/Saint-${version.slice(1)}`;
     for (const [platform, suffix] of [
       ["macOS", "arm64.dmg"],
       ["Windows", "x64.exe"],
@@ -135,7 +135,10 @@ test.describe("visual regression @visual", () => {
     await page.mouse.move(0, 0);
     await expect(
       page.getByRole("link", { name: "Browse all releases", exact: true }),
-    ).toHaveAttribute("href", `https://gitlab.com/locotine/saint-releases/-/releases/${version}`);
+    ).toHaveAttribute(
+      "href",
+      `https://github.com/Locotine/saint-hyper-agent/releases/tag/${version}`,
+    );
 
     // Assert the live fixture's metadata and links before freezing only the changing label.
     // Keep the existing visual fixture version so later releases need no golden refresh.

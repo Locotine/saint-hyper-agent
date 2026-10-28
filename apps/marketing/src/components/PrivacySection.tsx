@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   LuArrowRight,
   LuEyeOff,
-  LuGitlab,
+  LuGithub,
   LuHardDrive,
   LuPlug,
   LuShieldCheck,
@@ -87,12 +87,12 @@ export default function PrivacySection() {
             <LuArrowRight className="size-4" aria-hidden="true" />
           </Link>
           <a
-            href="https://gitlab.com/locotine/saint-hyper-agent"
+            href="https://github.com/Locotine/saint-hyper-agent"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-link)]"
           >
-            <LuGitlab className="size-4" aria-hidden="true" />
+            <LuGithub className="size-4" aria-hidden="true" />
             Inspect the source
           </a>
         </div>

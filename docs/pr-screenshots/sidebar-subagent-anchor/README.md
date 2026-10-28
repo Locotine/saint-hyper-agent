@@ -1,6 +1,6 @@
 # Sidebar subagent navigation anchor
 
-Evidence for [issue #1875](https://gitlab.com/locotine/saint-hyper-agent/-/issues/1875).
+Evidence for [issue #1875](https://github.com/Locotine/saint-hyper-agent/issues/1875).
 Captured with the full application browser fixture and production CSS in Chromium,
 at 960 × 700 on macOS, using isolated mocked server data. No live provider or
 packaged desktop validation is claimed.

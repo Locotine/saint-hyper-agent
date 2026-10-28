@@ -4,7 +4,7 @@
 #          ~/.saint-beta/userdata (threads, projects, settings, provider sign-ins)
 #          into ~/.saint/userdata. The Stable data it replaces is kept as a backup.
 #          Mirrors what the in-app Stable → Beta copy takes (apps/server/src/betaImport.ts),
-#          in the other direction. Shipped with the GitLab release; not app code.
+#          in the other direction. Shipped with the GitHub release; not app code.
 # Usage: quit Saint Beta and Saint, then: bash copy-saint-beta-data.sh
 
 set -euo pipefail

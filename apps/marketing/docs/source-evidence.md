@@ -116,11 +116,11 @@ setup docs.
 **Primary source:** Local checkout `/tmp/saint` (checked 2026-08-07): `docs/canary.md`
 (Canary isolation, app name `Saint Canary`, bundle ID `com.locotine.saint.canary`,
 data dir `~/.saint-canary`) and `README.md` (MCP-native agent harness description).
-Live GitHub URLs `https://gitlab.com/locotine/saint-hyper-agent` verified HTTP 200 on 2026-08-07.
+Live GitHub URLs `https://github.com/Locotine/saint-hyper-agent` verified HTTP 200 on 2026-08-07.
 
 ## Site metadata (src/lib/seo.ts)
 
-**Claims:** `https://gitlab.com/locotine/saint-releases` (canonical site URL), `https://schema.org`
+**Claims:** `https://github.com/Locotine/saint-hyper-agent` (canonical site URL), `https://schema.org`
 (schema vocabulary), `https://opensource.org/licenses/MIT` (MIT license).
 
 **Primary sources:** All verified HTTP 200 on 2026-08-07. `opensource.org/licenses/MIT`
@@ -418,7 +418,7 @@ Audited application source: `f9ba953a6a26769bf73c78c2bae673e5a09ba62f`, all 32 c
 
 Updated existing guides and their navigation dependencies for editor/debugger limits, live diffs, handoffs, Hubs, subagents, navigation/focus, actions, terminal reuse, Safari access, simulator ownership and conservative storage maintenance. Native editor and connectors remain Beta-only; Stable retains its editor. Publication and deployed-site verification are recorded separately after the exact release candidates pass.
 
-Publication verified: [Stable v1.0.8](https://gitlab.com/locotine/saint-releases/-/releases/v1.0.8), source `d7542782fd52a1dedf9634e1765ab62fa60e259f`, passed [workflow 39971610367](https://gitlab.com/locotine/saint-hyper-agent). [Beta v1.0.9-beta.1](https://gitlab.com/locotine/saint-releases/-/releases/v1.0.9-beta.1), source `143913ce19b343167072437c3871ec2ed1cd1160`, passed [workflow 39974728669](https://gitlab.com/locotine/saint-hyper-agent). Both exact-tag runs passed complete quality/server tests, four native packages, provenance, macOS signing/notarization and Intel startup, plus Windows Defender/startup under their exact version-scoped unsigned exceptions. Each public release has 18 assets; source and lockfile identities, public URLs and byte-identical channel aliases were verified. Stable remains Latest, Beta remains a prerelease, and the historical compatibility feed is unchanged. Download snapshots follow Stable 1.0.8. Manual installed-app upgrades, live provider/microphone behavior and browser-download reputation remain separately unqualified.
+Publication verified: [Stable v1.0.8](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.0.8), source `d7542782fd52a1dedf9634e1765ab62fa60e259f`, passed [workflow 39971610367](https://github.com/Locotine/saint-hyper-agent). [Beta v1.0.9-beta.1](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.0.9-beta.1), source `143913ce19b343167072437c3871ec2ed1cd1160`, passed [workflow 39974728669](https://github.com/Locotine/saint-hyper-agent). Both exact-tag runs passed complete quality/server tests, four native packages, provenance, macOS signing/notarization and Intel startup, plus Windows Defender/startup under their exact version-scoped unsigned exceptions. Each public release has 18 assets; source and lockfile identities, public URLs and byte-identical channel aliases were verified. Stable remains Latest, Beta remains a prerelease, and the historical compatibility feed is unchanged. Download snapshots follow Stable 1.0.8. Manual installed-app upgrades, live provider/microphone behavior and browser-download reputation remain separately unqualified.
 
 ## Saint Stable 1.0.9
 

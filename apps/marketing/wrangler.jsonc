@@ -57,5 +57,5 @@
     },
   ],
   // Secrets (wrangler secret put): RESEND_API_KEY, RESEND_INBOUND_API_KEY,
-  // RESEND_WEBHOOK_SECRET, SAINT_FEEDBACK_* addresses, GITLAB_TOKEN.
+  // RESEND_WEBHOOK_SECRET, SAINT_FEEDBACK_* addresses, GITHUB_TOKEN.
 }

@@ -672,7 +672,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: "updates",
     title: "Release notes",
     keywords:
-      "See what changed in each Saint release, or download an installer. changelog all releases gitlab download page",
+      "See what changed in each Saint release, or download an installer. changelog all releases github download page",
     applies: () => isSettingsSectionAvailable("updates"),
   },
   {

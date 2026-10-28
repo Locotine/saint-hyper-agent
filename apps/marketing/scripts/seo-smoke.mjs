@@ -87,7 +87,7 @@ try {
   for (const marker of [
     "Run every coding agent in one workspace",
     "The local-first workspace and control plane for coding agents.",
-    "Star on GitLab",
+    "Star on GitHub",
     "Free and open source",
     "One workspace. Separate tasks. Shared control.",
     "Keep execution and verification in the same loop.",
@@ -115,7 +115,7 @@ try {
   );
   assert.match(
     homepage,
-    /<link rel="canonical" href="https:\/\/gitlab\.com\/locotine\/saint-releases"\/>/,
+    /<link rel="canonical" href="https:\/\/github\.com\/Locotine\/saint-hyper-agent"\/>/,
     "homepage must emit the exact canonical production origin",
   );
   assert.ok(homepage.includes('"@type":"SoftwareApplication"'));
@@ -129,7 +129,7 @@ try {
   const docs = await readRoute("/docs", /text\/html/i);
   assert.match(
     docs,
-    /<link rel="canonical" href="https:\/\/gitlab\.com\/locotine\/saint-releases\/docs"/,
+    /<link rel="canonical" href="https:\/\/github\.com\/Locotine\/saint-hyper-agent\/docs"/,
     "docs page is missing its absolute self-canonical",
   );
   assert.match(docs, /property="og:type" content="website"/);
@@ -149,11 +149,11 @@ try {
   assert.equal(docsMarkdownResponse.headers.get("x-robots-tag"), "noindex, follow");
   assert.equal(
     docsMarkdownResponse.headers.get("link"),
-    '<https://gitlab.com/locotine/saint-releases/docs/providers/claude-code>; rel="canonical"',
+    '<https://github.com/Locotine/saint-hyper-agent/docs/providers/claude-code>; rel="canonical"',
   );
   for (const marker of [
     "# Claude Code",
-    "Canonical URL: https://gitlab.com/locotine/saint-releases/docs/providers/claude-code",
+    "Canonical URL: https://github.com/Locotine/saint-hyper-agent/docs/providers/claude-code",
     "## Install",
     "claude --version",
   ]) {
@@ -180,7 +180,7 @@ try {
     "User-Agent: PerplexityBot",
     "User-Agent: GPTBot",
     "Disallow: /api/",
-    "Sitemap: https://gitlab.com/locotine/saint-releases/sitemap-index.xml",
+    "Sitemap: https://github.com/Locotine/saint-hyper-agent/sitemap-index.xml",
   ]) {
     assert.ok(robots.includes(marker), `robots.txt is missing ${marker}`);
   }
@@ -191,9 +191,9 @@ try {
     2,
     "sitemap index must contain the main and changelog sitemaps",
   );
-  assert.ok(sitemapIndex.includes("https://gitlab.com/locotine/saint-releases/sitemap.xml"));
+  assert.ok(sitemapIndex.includes("https://github.com/Locotine/saint-hyper-agent/sitemap.xml"));
   assert.ok(
-    sitemapIndex.includes("https://gitlab.com/locotine/saint-releases/changelog/sitemap.xml"),
+    sitemapIndex.includes("https://github.com/Locotine/saint-hyper-agent/changelog/sitemap.xml"),
   );
 
   const sitemap = await readRoute("/sitemap.xml", /application\/xml/i);
@@ -204,13 +204,13 @@ try {
     "/docs/troubleshooting/report-a-problem",
   ]) {
     assert.ok(
-      sitemap.includes(`https://gitlab.com/locotine/saint-releases${route}`),
+      sitemap.includes(`https://github.com/Locotine/saint-hyper-agent${route}`),
       `sitemap.xml is missing ${route}`,
     );
   }
   for (const utilityPath of ["/llms.txt", "/llms-full.txt", "/ai.txt"]) {
     assert.equal(
-      sitemap.includes(`https://gitlab.com/locotine/saint-releases${utilityPath}`),
+      sitemap.includes(`https://github.com/Locotine/saint-hyper-agent${utilityPath}`),
       false,
       `sitemap.xml should not advertise ${utilityPath} as a search-result page`,
     );
@@ -222,9 +222,9 @@ try {
     "## Product model",
     "One task owns one line of work",
     "## Documentation index",
-    "https://gitlab.com/locotine/saint-releases/docs/providers.md",
-    "https://gitlab.com/locotine/saint-releases/docs/workflows.md",
-    "https://gitlab.com/locotine/saint-releases/docs/troubleshooting.md",
+    "https://github.com/Locotine/saint-hyper-agent/docs/providers.md",
+    "https://github.com/Locotine/saint-hyper-agent/docs/workflows.md",
+    "https://github.com/Locotine/saint-hyper-agent/docs/troubleshooting.md",
     "robots.txt and page-level indexing directives remain authoritative",
   ]) {
     assert.ok(llms.includes(marker), `llms.txt is missing ${marker}`);
@@ -235,7 +235,7 @@ try {
   assert.ok(llmsFull.includes("# Report a problem"));
   assert.ok(
     llmsFull.includes(
-      "Canonical URL: https://gitlab.com/locotine/saint-releases/docs/troubleshooting/report-a-problem",
+      "Canonical URL: https://github.com/Locotine/saint-hyper-agent/docs/troubleshooting/report-a-problem",
     ),
   );
   assert.ok(llmsFull.includes("claude --version"));
@@ -245,7 +245,7 @@ try {
   assert.ok(ai.includes("Model-development controls, separate from search visibility:"));
   assert.ok(ai.includes("Supported runtimes: Claude Code, Codex, OpenCode"));
   assert.ok(
-    ai.includes("Markdown documentation: https://gitlab.com/locotine/saint-releases/docs.md"),
+    ai.includes("Markdown documentation: https://github.com/Locotine/saint-hyper-agent/docs.md"),
   );
   assert.ok(
     ai.includes("This file is informational and does not grant or revoke crawler permission."),

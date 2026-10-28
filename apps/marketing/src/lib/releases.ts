@@ -1,17 +1,17 @@
 // FILE: releases.ts
-// Purpose: Fetches the latest GitLab release and maps its asset links to a per-platform
+// Purpose: Fetches the latest GitHub release and maps its assets to a per-platform
 //          download map (macOS arm64/x64, Windows, Linux) for the /install page.
 // Layer: Server utility
-// Depends on: GitLab Releases API, optional GITLAB_TOKEN
+// Depends on: GitHub Releases API, optional GITHUB_TOKEN
 
 import "server-only";
 
 import storedLatestReleaseDownloads from "@/data/latest-release-downloads.json";
 
-const RELEASES_API_URL = "https://gitlab.com/api/v4/projects/locotine%2Fsaint-releases/releases";
-const LATEST_RELEASE_API_URL = `${RELEASES_API_URL}/permalink/latest`;
+const REPO = "Locotine/saint-hyper-agent";
+const LATEST_RELEASE_API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 
-export const RELEASES_URL = "https://gitlab.com/locotine/saint-releases/-/releases";
+export const RELEASES_URL = `https://github.com/${REPO}/releases`;
 
 export type ReleaseDownloads = {
   // Tag for the latest release (e.g. "v0.1.0"), or null when unknown.
@@ -23,15 +23,15 @@ export type ReleaseDownloads = {
   linux: string;
 };
 
-type GitLabReleaseLink = {
+type GitHubReleaseAsset = {
   name?: string;
-  url?: string;
+  browser_download_url?: string;
 };
 
-type GitLabRelease = {
+type GitHubRelease = {
   tag_name?: string;
-  _links?: { self?: string };
-  assets?: { links?: GitLabReleaseLink[] };
+  html_url?: string;
+  assets?: GitHubReleaseAsset[];
 };
 
 type StoredReleaseDownloads = ReleaseDownloads & {
@@ -51,7 +51,7 @@ const FALLBACK: ReleaseDownloads = {
 };
 
 // Uses the checked-in snapshot before the generic releases page so installer
-// links remain direct even when GitLab's API blocks the production server.
+// links remain direct even when GitHub's API blocks the production server.
 function getFallbackDownloads(): ReleaseDownloads {
   return STORED_FALLBACK.version &&
     STORED_FALLBACK.mac?.arm64 &&
@@ -72,9 +72,12 @@ export async function getReleaseDownloads(): Promise<ReleaseDownloads> {
   if (process.env.VISUAL_TEST === "1") return getFallbackDownloads();
 
   try {
-    const headers: HeadersInit = { Accept: "application/json" };
-    if (process.env.GITLAB_TOKEN) {
-      headers["PRIVATE-TOKEN"] = process.env.GITLAB_TOKEN;
+    const headers: HeadersInit = {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    if (process.env.GITHUB_TOKEN) {
+      headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
     }
 
     const response = await fetch(LATEST_RELEASE_API_URL, {
@@ -85,13 +88,14 @@ export async function getReleaseDownloads(): Promise<ReleaseDownloads> {
 
     if (!response.ok) return getFallbackDownloads();
 
-    const release = (await response.json()) as GitLabRelease;
-    const assets = release.assets?.links ?? [];
-    const releasesUrl = release._links?.self ?? RELEASES_URL;
+    const release = (await response.json()) as GitHubRelease;
+    const assets = release.assets ?? [];
+    const releasesUrl = release.html_url ?? RELEASES_URL;
 
     // First asset whose name matches wins; fall back to the listing page.
     const urlFor = (pattern: RegExp): string =>
-      assets.find((asset) => asset.name && pattern.test(asset.name))?.url ?? releasesUrl;
+      assets.find((asset) => asset.name && pattern.test(asset.name))?.browser_download_url ??
+      releasesUrl;
 
     return {
       version: release.tag_name ?? null,

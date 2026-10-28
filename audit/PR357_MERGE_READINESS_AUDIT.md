@@ -1,7 +1,7 @@
 # Saint PR #357 — Final code-quality, ACP, and provider audit
 
 **Audit date:** 2026-07-15
-**PR:** [#357 — Audit and harden code quality across desktop and server paths](https://gitlab.com/locotine/saint-hyper-agent/-/merge_requests/357)
+**PR:** [#357 — Audit and harden code quality across desktop and server paths](https://github.com/Locotine/saint-hyper-agent/pull/357)
 **Remote head reconciled before closeout:** `e864533a3400a3cdcfb4102ff356088a1c48fdd7`
 **Base:** `main`
 **Status:** the verified closeout was published in `b92f585f4`. The PR becomes merge-ready when

@@ -155,12 +155,12 @@ export default function PrivacyPage() {
             Saint is open source under the MIT license. If a sentence on this page isn&apos;t
             enough, you can verify every claim yourself —{" "}
             <a
-              href="https://gitlab.com/locotine/saint-hyper-agent"
+              href="https://github.com/Locotine/saint-hyper-agent"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[var(--accent-link)] transition-colors hover:text-[var(--accent-link-hover)]"
             >
-              read the code on GitLab
+              read the code on GitHub
             </a>
             .
           </p>

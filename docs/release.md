@@ -58,7 +58,7 @@ version, release notes and lockfile are final.
   - Background checks run on startup delay + interval.
   - New updates are prepared/downloaded in the background after detection; install/restart stays manual.
   - The desktop UI shows a rocket update button while preparing and switches to an install action once the update is ready.
-- Provider: GitHub Releases (`provider: github`) configured at build time. `SAINT_DESKTOP_UPDATE_GITLAB_PROJECT` switches it to a public GitLab Releases feed (`provider: gitlab`) published with `bun run release:gitlab`; see [Updates from a GitLab Releases feed](../BETA.md#updates-from-a-gitlab-releases-feed); `SAINT_DESKTOP_UPDATE_FEED_URL` moves update checks to a static `provider: generic` feed on GitLab Pages ([Checking from GitLab Pages instead of the API](../BETA.md#checking-from-gitlab-pages-instead-of-the-api)).
+- Provider: GitHub Releases (`provider: github`) configured at build time; see [Updates from GitHub Releases](../BETA.md#updates-from-github-releases). `SAINT_DESKTOP_UPDATE_FEED_URL` moves update checks to a static `provider: generic` feed.
 - Repository visibility: public. The authenticated private-repository provider does not honor custom channel filenames.
 - Runtime channel: `saint` for stable builds, `beta` for beta builds (resolved by `desktopUpdateChannel` in `packages/shared/src/desktopIdentity.ts`). Stable clean-lane releases publish both `latest` and `saint` metadata; beta releases publish `beta` channel aliases of the same default `latest` manifests, and beta builds run with `allowPrerelease=true` so they follow their own prerelease feed.
 - Repository slug source:

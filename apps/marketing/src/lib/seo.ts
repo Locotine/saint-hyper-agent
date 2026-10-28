@@ -17,13 +17,13 @@ import {
 import { releaseDateIso } from "@/lib/releaseDates";
 
 /** Canonical production base URL; keep aligned with CANONICAL_HOST in next.config.ts. */
-export const SITE_URL = "https://gitlab.com/locotine/saint-releases";
+export const SITE_URL = "https://github.com/Locotine/saint-hyper-agent";
 
 export const SITE_NAME = PRODUCT_NAME;
 
 export const CREATOR_NAME = "Locotine";
-export const GITHUB_REPO_URL = "https://gitlab.com/locotine/saint-hyper-agent";
-export const GITHUB_RELEASES_URL = "https://gitlab.com/locotine/saint-releases/-/releases";
+export const GITHUB_REPO_URL = "https://github.com/Locotine/saint-hyper-agent";
+export const GITHUB_RELEASES_URL = "https://github.com/Locotine/saint-hyper-agent/releases";
 
 /**
  * Search/share title — brand first, then the high-intent provider keywords.

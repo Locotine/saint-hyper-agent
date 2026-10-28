@@ -2,7 +2,7 @@
 # FILE: install-saint.sh
 # Purpose: Installs a Saint AppImage as a desktop app on Ubuntu/Debian: a fixed
 #          ~/Applications/saint.AppImage that the in-app updater overwrites, plus the
-#          menu entry, icon, and saint:// link handler. Shipped with every GitLab release.
+#          menu entry, icon, and saint:// link handler. Shipped with every GitHub release.
 # Usage: bash install-saint.sh [path/to/Saint-*.AppImage]   (default: newest in ~/Downloads)
 #        bash install-saint.sh --uninstall                 (data in ~/.saint stays)
 
