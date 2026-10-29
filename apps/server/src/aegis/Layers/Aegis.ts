@@ -111,7 +111,8 @@ const PROTECTED_SCAN_SKIP = new Set([".git", "node_modules"]);
 
 /** Provider state dirs (relative to HOME) a sandboxed session keeps writing to. */
 const PROVIDER_STATE_DIRS: Record<ProviderChildKind, ReadonlyArray<string>> = {
-  acp: [],
+  // ACP carries Cursor, Droid, Grok, Devin and OMP.
+  acp: [".cursor", ".config/cursor", ".factory", ".grok", ".devin", ".codeium", ".omp"],
   antigravity: [".gemini", ".antigravity"],
   claude: [".claude", ".claude.json", ".config/claude"],
   codex: [".codex"],
@@ -275,14 +276,13 @@ const make = Effect.gen(function* () {
   const principalFor = (threadId: string) =>
     resolvePrincipal(threadId).pipe(
       Effect.orElseSucceed(() => null),
-      Effect.map(
-        (step): { principal: PolicyPrincipal; step: AegisFlowPrincipal | null } =>
-          step
-            ? {
-                principal: { kind: "node", flowId: step.flowId, nodeId: step.nodeId, threadId },
-                step,
-              }
-            : { principal: { kind: "thread", threadId }, step: null },
+      Effect.map((step): { principal: PolicyPrincipal; step: AegisFlowPrincipal | null } =>
+        step
+          ? {
+              principal: { kind: "node", flowId: step.flowId, nodeId: step.nodeId, threadId },
+              step,
+            }
+          : { principal: { kind: "thread", threadId }, step: null },
       ),
     );
 
@@ -316,8 +316,8 @@ const make = Effect.gen(function* () {
     return found
       .filter(
         (file) =>
-          evaluateCedar(value.policy.cedar, principal, { action: "write", path: file })
-            .decision !== "permit",
+          evaluateCedar(value.policy.cedar, principal, { action: "write", path: file }).decision !==
+          "permit",
       )
       .map((file) => path.join(cwd, file));
   };
@@ -335,10 +335,9 @@ const make = Effect.gen(function* () {
     session.refs -= 1;
     if (session.refs > 0) return;
     sessions.delete(session.key);
-    void Promise.all([
-      session.proxy?.close(),
-      ...session.servers.map(closeServer),
-    ]).finally(() => rmSync(session.dir, { recursive: true, force: true }));
+    void Promise.all([session.proxy?.close(), ...session.servers.map(closeServer)]).finally(() =>
+      rmSync(session.dir, { recursive: true, force: true }),
+    );
   };
 
   /** One proxy port and one scratch dir per provider process; the port identifies the principal. */
@@ -353,7 +352,8 @@ const make = Effect.gen(function* () {
     mkdirSync(path.join(dir, "r"), { recursive: true });
     const proxy = withProxy
       ? await startEgressProxy({
-          decide: (host) => egressVerdict((cached ?? DEFAULT_AEGIS_SETTINGS).policy, host, principal),
+          decide: (host) =>
+            egressVerdict((cached ?? DEFAULT_AEGIS_SETTINGS).policy, host, principal),
           onUnknown: (host) =>
             Effect.runFork(
               raise({
@@ -448,6 +448,7 @@ const make = Effect.gen(function* () {
         HOME_OVERRIDE_KEY.test(key) && dir && path.isAbsolute(dir) && dir !== home ? [dir] : [],
       ),
       ...(gitCommonDir(input.cwd) ? [gitCommonDir(input.cwd)!] : []),
+      ...(input.writable ?? []),
     ];
     const outbound = [session.proxy?.port, gatewayPort()].filter(
       (port): port is number => typeof port === "number",
@@ -554,7 +555,10 @@ const make = Effect.gen(function* () {
   const update: AegisShape["update"] = (input, by) =>
     Effect.gen(function* () {
       const current = yield* settings();
-      const policy: PolicyV1 = { ...current.policy, ...input.policy, version: 1 };
+      const patch = Object.fromEntries(
+        Object.entries(input.policy ?? {}).filter(([, value]) => value !== undefined),
+      ) as Partial<PolicyV1>;
+      const policy: PolicyV1 = { ...current.policy, ...patch, version: 1 };
       const cedarErrors = validateCedarPolicies(policy.cedar);
       if (cedarErrors.length > 0) {
         return yield* new AegisError({
@@ -678,8 +682,8 @@ const make = Effect.gen(function* () {
       const { principal } = yield* principalFor(threadId);
       return paths.filter(
         (file) =>
-          evaluateCedar(value.policy.cedar, principal, { action: "write", path: file })
-            .decision !== "permit",
+          evaluateCedar(value.policy.cedar, principal, { action: "write", path: file }).decision !==
+          "permit",
       );
     });
 
@@ -732,7 +736,8 @@ const make = Effect.gen(function* () {
       if (frozenNow.length > 0) yield* saveFrozen([...frozen, ...frozenNow]);
       yield* Effect.forEach(
         input.threadIds,
-        (threadId) => Effect.forEach(killHandlers, (handler) => handler(threadId), { discard: true }),
+        (threadId) =>
+          Effect.forEach(killHandlers, (handler) => handler(threadId), { discard: true }),
         { discard: true },
       );
       const totalMs = performance.now() - startedAt;
@@ -750,7 +755,12 @@ const make = Effect.gen(function* () {
             kind: "aegis.kill",
             actor: input.by,
             flowId: input.flowId ?? null,
-            payload: { reason: input.reason, threadIds: input.threadIds, survivors: trees.survivors, ...report },
+            payload: {
+              reason: input.reason,
+              threadIds: input.threadIds,
+              survivors: trees.survivors,
+              ...report,
+            },
           })
           .pipe(Effect.ignore);
       }

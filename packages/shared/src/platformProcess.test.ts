@@ -381,3 +381,14 @@ describe("prepareProcess", () => {
     });
   });
 });
+
+describe("sandbox launcher", () => {
+  it("runs the planned POSIX command as the launcher's last argv and ignores it on Windows", () => {
+    const sandbox = { command: "bwrap", args: ["--unshare-net", "--"] };
+    const posix = prepareProcess("/bin/echo", ["hi"], { platform: "linux", sandbox });
+    expect(posix.command).toBe("bwrap");
+    expect(posix.args).toEqual(["--unshare-net", "--", "/bin/echo", "hi"]);
+    const windows = prepareProcess("cmd.exe", ["/c", "echo"], { platform: "win32", sandbox });
+    expect(windows.command).not.toBe("bwrap");
+  });
+});

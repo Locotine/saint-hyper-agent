@@ -40,6 +40,8 @@ export interface GateSandbox {
   readonly file: string;
   readonly args: ReadonlyArray<string>;
   readonly env: Record<string, string>;
+  /** Report the spawned gate process so its session resources are released on exit. */
+  readonly attach: (child: import("../providerLaunch.ts").LaunchedChild) => void;
 }
 
 export interface AegisKillInput {

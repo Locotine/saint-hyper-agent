@@ -32,6 +32,9 @@ export function createDesktopBundleFilePatterns(
   if (platform !== "mac") files.push("!node_modules/node-pty/prebuilds/darwin-*/**");
   if (platform !== "win") files.push("!node_modules/node-pty/prebuilds/win32-*/**");
   files.push("!node_modules/node-pty/lib/*.test.js");
+  // The server loads Cedar's Node build only; its browser and bundler builds each carry
+  // another copy of the 4 MB WASM.
+  files.push("!node_modules/@cedar-policy/cedar-wasm/{esm,web}/**");
   // MSVC leaves incremental-link inputs and build logs next to the rebuilt
   // addon. These are build products, not DLLs, executables, or native addons.
   files.push(

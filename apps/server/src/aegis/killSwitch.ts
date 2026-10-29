@@ -36,9 +36,7 @@ export async function killProcessTrees(
 ): Promise<KillTreesResult> {
   if (rootPids.length === 0) return { roots: 0, forced: 0, survivors: [] };
   const trees = new Map<number, CapturedProcessTree>();
-  await Promise.all(
-    rootPids.map(async (pid) => trees.set(pid, await captureProcessTree(pid))),
-  );
+  await Promise.all(rootPids.map(async (pid) => trees.set(pid, await captureProcessTree(pid))));
   const everyPid = [
     ...new Set([
       ...rootPids,

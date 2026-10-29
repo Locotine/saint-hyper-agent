@@ -1,5 +1,6 @@
 import { providerProcessPriorityEnabled } from "../../providerProcessPriority";
 import { recordAgentProcess } from "../../economy/agentProcesses.ts";
+import { planProviderLaunch, type ProviderLaunch } from "../../aegis/providerLaunch.ts";
 import { claudeTurnResultUsage, type ClaudeResultUsageBaseline } from "../claudeResultUsage.ts";
 import { restoreClaudeImportedCopyDates } from "../claudeImportedCopyDates.ts";
 /**
@@ -691,9 +692,11 @@ interface ClaudeProcessOwner {
 function spawnOwnedClaudeCodeProcess(
   options: ClaudeSpawnOptions,
   lowerPriority: boolean,
+  launch?: ProviderLaunch,
 ): ClaudeOwnedProcess {
   return spawnProcess(options.command, options.args, {
     lowerPriority,
+    ...(launch?.sandbox ? { sandbox: launch.sandbox } : {}),
     requireExecutable: true,
     ...(options.cwd ? { cwd: options.cwd } : {}),
     env: options.env,
@@ -2547,11 +2550,24 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
       );
 
     const bindClaudeProcessOwner =
-      (owner: ClaudeProcessOwner, lowerPriority: boolean, threadId?: ThreadId) =>
+      (
+        owner: ClaudeProcessOwner,
+        lowerPriority: boolean,
+        threadId?: ThreadId,
+        // Planned before the query: the SDK's spawn callback is synchronous.
+        launch?: ProviderLaunch,
+      ) =>
       (spawnOptions: ClaudeSpawnOptions): ClaudeSpawnedProcess => {
         const process = options?.spawnClaudeCodeProcess
           ? options.spawnClaudeCodeProcess(spawnOptions)
-          : spawnOwnedClaudeCodeProcess(spawnOptions, lowerPriority);
+          : spawnOwnedClaudeCodeProcess(
+              launch
+                ? { ...spawnOptions, env: { ...spawnOptions.env, ...launch.env } }
+                : spawnOptions,
+              lowerPriority,
+              launch,
+            );
+        launch?.attach(process);
         if (threadId) recordAgentProcess(threadId, process.pid);
         owner.process = process;
         return process;
@@ -7431,6 +7447,14 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
             processOwner,
             yield* providerProcessPriorityEnabled,
             input.threadId,
+            yield* Effect.promise(() =>
+              planProviderLaunch({
+                threadId: input.threadId,
+                provider: "claude",
+                cwd: input.cwd,
+                env: claudeSdkEnv,
+              }),
+            ),
           ),
           ...(input.cwd || input.additionalDirectories?.length
             ? {

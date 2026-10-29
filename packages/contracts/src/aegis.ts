@@ -137,6 +137,8 @@ export const AegisUpdateInput = Schema.Struct({
     }),
   ),
   /** "Run without sandbox" for one thread; takes effect on its next provider session. */
-  runWithoutSandbox: Schema.optional(Schema.Struct({ threadId: ThreadId, enabled: Schema.Boolean })),
+  runWithoutSandbox: Schema.optional(
+    Schema.Struct({ threadId: ThreadId, enabled: Schema.Boolean }),
+  ),
 });
 export const AegisUnfreezeInput = Schema.Struct({ id: TrimmedNonEmptyString });

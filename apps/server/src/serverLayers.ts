@@ -253,15 +253,23 @@ export function makeServerRuntimeServicesLayer(
     Layer.provideMerge(ServerSecretStoreLive),
     Layer.provideMerge(agentGatewayCredentialsLayer),
   );
+  const ledgerLayer = LedgerLive.pipe(Layer.provide(ServerSecretStoreLive));
   // SAP rides on the flow service: it messages between the nodes of a flow.
   const flowServiceLayer = SapBusLive.pipe(
     Layer.provideMerge(
       FlowServiceLive.pipe(
         Layer.provideMerge(FlowRepositoryLive),
         Layer.provideMerge(agentGatewayCredentialsLayer),
-        Layer.provideMerge(LedgerLive.pipe(Layer.provide(ServerSecretStoreLive))),
+        Layer.provideMerge(ledgerLayer),
         Layer.provideMerge(ForkContinueLive),
-        Layer.provideMerge(AegisLive.pipe(Layer.provideMerge(agentGatewayCredentialsLayer))),
+        // Aegis records kills in the same ledger instance the flow service writes to.
+        Layer.provideMerge(
+          AegisLive.pipe(
+            Layer.provideMerge(agentGatewayCredentialsLayer),
+            Layer.provideMerge(ledgerLayer),
+          ),
+        ),
+        Layer.provideMerge(GitCoreLive),
         Layer.provideMerge(runtimeServicesLayer),
       ),
     ),

@@ -120,6 +120,14 @@ export function makeAgentGatewayMcpTransport(input: {
    */
   readonly isComputerToolName?: (toolName: string) => boolean;
   readonly computerControlCapability?: AgentGatewayCapability;
+  /**
+   * Policy check (Aegis/Cedar) after the capability check and before the handler runs.
+   * A refusal comes back to the agent as `capability_denied` with the reason.
+   */
+  readonly authorizeToolCall?: (call: {
+    readonly toolName: string;
+    readonly callerThreadId: string;
+  }) => Effect.Effect<{ readonly allowed: boolean; readonly reason: string }>;
 }): AgentGatewayShape["handleMcpPost"] {
   const toolsByName = new Map(input.tools.map((tool) => [tool.definition.name, tool]));
   // The catalog is immutable after construction, so the sanitized `tools/list`
@@ -243,6 +251,20 @@ export function makeAgentGatewayMcpTransport(input: {
               });
             }
             return capabilityDeniedResult(requiredCapability);
+          }
+          if (input.authorizeToolCall) {
+            const verdict = yield* input.authorizeToolCall({
+              toolName,
+              callerThreadId: context.callerThreadId,
+            });
+            if (!verdict.allowed) {
+              return jsonRpcResult(
+                request.id,
+                gatewayToolErrorResult(
+                  new GatewayToolError("capability_denied", verdict.reason, { policy: "aegis" }),
+                ),
+              );
+            }
           }
           const invocationContext: ToolContext = {
             ...context,

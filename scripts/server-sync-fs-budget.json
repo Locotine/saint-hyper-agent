@@ -1,4 +1,27 @@
 {
+  "apps/server/src/aegis/Layers/Aegis.ts": {
+    "reason": "Aegis startup (relay script, decoys), per-launch session dirs, a bounded protected-zone scan (5000 files, skips .git and node_modules) and a worktree existence check per kill; off the streaming path.",
+    "references": {
+      "readdirSync": 1,
+      "existsSync": 1,
+      "mkdirSync": 4,
+      "rmSync": 2,
+      "writeFileSync": 1
+    }
+  },
+  "apps/server/src/aegis/sandbox.ts": {
+    "reason": "Aegis launch planning: builds the bwrap/sandbox-exec argv and decoy HOME once per provider process launch, off the streaming path; HOME is walked one level deep.",
+    "references": {
+      "mkdirSync": 4,
+      "writeFileSync": 2,
+      "lstatSync": 2,
+      "readFileSync": 2,
+      "readdirSync": 2,
+      "readlinkSync": 1,
+      "existsSync": 5,
+      "symlinkSync": 1
+    }
+  },
   "apps/server/src/agentGateway/creationCoordinator.ts": {
     "reason": "Existing unprofiled boundary; frozen reference budget, no new sync operations.",
     "references": {
@@ -94,6 +117,13 @@
       "existsSync": 1
     }
   },
+  "apps/server/src/economy/hostMetrics.ts": {
+    "reason": "procfs/PSI reads in the host-metrics sampler, once every 60 s; small virtual files.",
+    "references": {
+      "readdirSync": 1,
+      "readFileSync": 3
+    }
+  },
   "apps/server/src/editorAppDiscovery.ts": {
     "reason": "Existing unprofiled boundary; frozen reference budget, no new sync operations.",
     "references": {
@@ -117,6 +147,12 @@
       "unlinkSync": 1,
       "readdirSync": 1,
       "rmSync": 1
+    }
+  },
+  "apps/server/src/flow/Layers/FlowService.ts": {
+    "reason": "Existence check of a flow's Saint-managed worktree when a step starts, a kill runs or Aegis resolves a step; once per event, not per stream chunk.",
+    "references": {
+      "existsSync": 3
     }
   },
   "apps/server/src/git/Layers/GitManager.ts": {

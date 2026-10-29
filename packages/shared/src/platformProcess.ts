@@ -237,9 +237,7 @@ export function prepareProcess(
       : [...args];
     return {
       command: input.sandbox ? input.sandbox.command : plannedCommand,
-      args: input.sandbox
-        ? [...input.sandbox.args, plannedCommand, ...plannedArgs]
-        : plannedArgs,
+      args: input.sandbox ? [...input.sandbox.args, plannedCommand, ...plannedArgs] : plannedArgs,
       shell: false,
       requestedCommand: command,
       resolvedCommand,

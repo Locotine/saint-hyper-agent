@@ -3,6 +3,7 @@
 // Layer: Provider runtime utility
 // Exports: OpenCodeRuntime, OpenCodeRuntimeLive, model/auth parsers, SDK helpers
 
+import { planProviderLaunch } from "../aegis/providerLaunch.ts";
 import { createHash } from "node:crypto";
 import { resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -46,6 +47,7 @@ import * as Semaphore from "effect/Semaphore";
 import { ChildProcessSpawner } from "effect/unstable/process";
 import {
   makeEffectProcessCommand,
+  effectLaunchedChild,
   spawnProviderProcess,
 } from "../platform/effectProcessRuntime.ts";
 
@@ -216,6 +218,8 @@ export interface OpenCodePathInfo {
 
 export interface OpenCodeRuntimeShape {
   readonly startOpenCodeServerProcess: (input: {
+    /** The Saint thread a private server serves; Aegis sandboxes it for that thread. */
+    readonly ownerThreadId?: string;
     readonly binaryPath: string;
     readonly cliSpec?: OpenCodeCompatibleCliSpec;
     readonly cwd?: string;
@@ -247,6 +251,8 @@ export interface OpenCodeRuntimeShape {
      * credentials into process-scoped configuration.
      */
     readonly poolIsolationKey?: string;
+    /** The Saint thread a private server serves; Aegis sandboxes it for that thread. */
+    readonly ownerThreadId?: string;
   }) => Effect.Effect<OpenCodeServerConnection, OpenCodeRuntimeError, Scope.Scope>;
   readonly runOpenCodeCommand: (input: {
     readonly binaryPath: string;
@@ -1055,6 +1061,19 @@ const makeOpenCodeRuntime = (options?: OpenCodeRuntimeLiveOptions) =>
         // V2 gives this name precedence over the legacy variable, including an
         // inherited value from another OpenCode instance.
         childEnv.OPENCODE_PASSWORD = serverPassword;
+        const ownerThreadId = input.ownerThreadId;
+        const launch = ownerThreadId
+          ? yield* Effect.promise(() =>
+              planProviderLaunch({
+                threadId: ownerThreadId,
+                provider: "opencode",
+                cwd: input.cwd ? expandHomePath(input.cwd) : undefined,
+                env: childEnv,
+                inboundPorts: [port],
+              }),
+            )
+          : null;
+        if (launch) Object.assign(childEnv, launch.env);
         const preparationStartedAt = yield* Clock.currentTimeMillis;
         const preparedTeardown = yield* Effect.acquireRelease(
           Effect.sync(() => prepareProviderProcessTeardown(options, timeoutMs)),
@@ -1114,6 +1133,7 @@ const makeOpenCodeRuntime = (options?: OpenCodeRuntimeLiveOptions) =>
           {
             env: childEnv,
             ...(input.cwd ? { cwd: expandHomePath(input.cwd) } : {}),
+            ...(launch?.sandbox ? { sandbox: launch.sandbox } : {}),
             detached: false,
             killSignal: "SIGKILL",
             forceKillAfter: "1500 millis",
@@ -1144,6 +1164,7 @@ const makeOpenCodeRuntime = (options?: OpenCodeRuntimeLiveOptions) =>
             }),
           );
 
+        launch?.attach(effectLaunchedChild(child));
         const stdoutFiber = yield* child.stdout.pipe(
           Stream.decodeText(),
           Stream.runForEach(setReadyFromStdoutChunk),
@@ -1410,6 +1431,7 @@ const makeOpenCodeRuntime = (options?: OpenCodeRuntimeLiveOptions) =>
       readonly timeoutMs?: number;
       readonly experimentalWebSockets?: boolean;
       readonly poolIsolationKey?: string;
+      readonly ownerThreadId?: string;
       readonly environment?: Readonly<Record<string, string>>;
       readonly instanceId?: string;
       readonly homeDir?: string;
@@ -1524,6 +1546,9 @@ const makeOpenCodeRuntime = (options?: OpenCodeRuntimeLiveOptions) =>
           ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}),
           ...(input.experimentalWebSockets !== undefined
             ? { experimentalWebSockets: input.experimentalWebSockets }
+            : {}),
+          ...(input.poolIsolationKey !== undefined && input.ownerThreadId !== undefined
+            ? { ownerThreadId: input.ownerThreadId }
             : {}),
           ...(input.poolIsolationKey !== undefined
             ? { poolIsolationKey: input.poolIsolationKey }

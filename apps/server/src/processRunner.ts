@@ -16,6 +16,8 @@ export interface ProcessRunOptions {
   outputMode?: "error" | "truncate" | undefined;
   onStdoutChunk?: ((chunk: string) => void) | undefined;
   onStderrChunk?: ((chunk: string) => void) | undefined;
+  /** Sees the spawned child, e.g. so Aegis can track its pid for the kill switch. */
+  onSpawn?: ((child: import("node:child_process").ChildProcess) => void) | undefined;
 }
 
 export interface ProcessRunResult {
@@ -138,6 +140,7 @@ export async function runProcess(
       stdio: "pipe",
       requireExecutable: true,
     });
+    options.onSpawn?.(child);
 
     let stdout = "";
     let stderr = "";

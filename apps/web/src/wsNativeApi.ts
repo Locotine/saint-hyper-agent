@@ -789,6 +789,7 @@ function buildNativeApi(
       alerts: (input) => transport.request(WS_METHODS.aegisAlerts, input),
       resolve: (input) => transport.request(WS_METHODS.aegisResolve, input),
       update: (input) => transport.request(WS_METHODS.aegisUpdate, input),
+      unfreeze: (input) => transport.request(WS_METHODS.aegisUnfreeze, input),
     },
     economy: {
       status: (input) => transport.request(WS_METHODS.economyStatus, input),

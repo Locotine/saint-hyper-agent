@@ -14,6 +14,8 @@ export interface ProviderLaunchInput {
   readonly cwd: string | undefined;
   /** The child environment; provider home overrides in it stay writable in the sandbox. */
   readonly env: NodeJS.ProcessEnv;
+  /** Extra folders Saint gave this process to write (run logs, event files). */
+  readonly writable?: ReadonlyArray<string>;
   /** Loopback ports the provider serves on (e.g. `opencode serve`), reached from Saint. */
   readonly inboundPorts?: ReadonlyArray<number>;
 }
@@ -65,6 +67,8 @@ export async function planProviderLaunch(input: ProviderLaunchInput): Promise<Pr
     sandbox: launch?.sandbox,
     env: launch?.env ?? {},
     attach: (child) => {
+      // Injected test doubles and SDK handles may not be event emitters; nothing to track then.
+      if (typeof child.once !== "function") return;
       trackProviderProcess(input.threadId, child);
       launch?.attach(child);
     },

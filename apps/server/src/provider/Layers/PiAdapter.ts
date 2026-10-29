@@ -1,4 +1,5 @@
 import { providerProcessPriorityEnabled } from "../../providerProcessPriority";
+import { planProviderLaunch } from "../../aegis/providerLaunch.ts";
 import { refreshPiOpenCodeCatalog } from "../piOpenCodeCatalog";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -228,6 +229,8 @@ export interface PiBashProcessSupervisor {
 }
 
 export interface PiBashProcessSupervisorOptions {
+  /** The thread whose commands these are; Aegis plans their sandbox and egress port. */
+  readonly threadId?: string;
   readonly lowerPriority?: boolean;
   readonly getShellConfig: (shellPath?: string) => PiShellConfig;
   readonly environment?: Readonly<Record<string, string>>;
@@ -288,28 +291,40 @@ export function makePiBashProcessSupervisor(
       }
       const shell = options.getShellConfig(configuredShellPath);
       const commandFromStdin = shell.commandTransport === "stdin";
+      const commandEnv = buildProviderChildEnvironment({
+        provider: "pi",
+        baseEnv: buildProviderProcessEnv({
+          driver: PROVIDER,
+          env: execution.env ?? process.env,
+          ...(options.environment !== undefined ? { environment: options.environment } : {}),
+          ...(options.instanceId !== undefined ? { instanceId: options.instanceId } : {}),
+          ...(options.homeDir !== undefined ? { homeDir: options.homeDir } : {}),
+          ...(options.isolationRootDir !== undefined
+            ? { isolationRootDir: options.isolationRootDir }
+            : {}),
+        }),
+      });
+      // Pi runs its model in Saint's process; the commands it runs are what Aegis sandboxes.
+      const launch = options.threadId
+        ? await planProviderLaunch({
+            threadId: options.threadId,
+            provider: "pi",
+            cwd,
+            env: commandEnv,
+          })
+        : null;
       const child = spawnProcess(
         shell.shell,
         commandFromStdin ? shell.args : [...shell.args, command],
         {
           cwd,
           lowerPriority: options.lowerPriority ?? true,
-          env: buildProviderChildEnvironment({
-            provider: "pi",
-            baseEnv: buildProviderProcessEnv({
-              driver: PROVIDER,
-              env: execution.env ?? process.env,
-              ...(options.environment !== undefined ? { environment: options.environment } : {}),
-              ...(options.instanceId !== undefined ? { instanceId: options.instanceId } : {}),
-              ...(options.homeDir !== undefined ? { homeDir: options.homeDir } : {}),
-              ...(options.isolationRootDir !== undefined
-                ? { isolationRootDir: options.isolationRootDir }
-                : {}),
-            }),
-          }),
+          env: launch ? { ...commandEnv, ...launch.env } : commandEnv,
+          ...(launch?.sandbox ? { sandbox: launch.sandbox } : {}),
           stdio: [commandFromStdin ? "pipe" : "ignore", "pipe", "pipe"],
         },
       );
+      launch?.attach(child);
       const active: PiActiveProcess = {
         child,
         teardown: undefined,
@@ -3319,6 +3334,7 @@ const makePiAdapter = (options?: PiAdapterLiveOptions) =>
         }
         const piSdk = yield* loadPiSdk("session/start");
         const processSupervisor = makePiBashProcessSupervisor({
+          threadId: input.threadId,
           lowerPriority: yield* providerProcessPriorityEnabled,
           getShellConfig: () => piSdk.getShellConfig(),
           ...(piEnvironment !== undefined ? { environment: piEnvironment } : {}),

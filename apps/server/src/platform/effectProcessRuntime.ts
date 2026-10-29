@@ -121,3 +121,15 @@ function prepareEffectProcessCommand(
     priorityBeforeExec: plan.priorityBeforeExec === true,
   };
 }
+
+/** Adapts an Effect child handle to the `once("exit")` shape Aegis launch tracking expects. */
+export function effectLaunchedChild(child: {
+  readonly pid: number;
+  readonly exitCode: Effect.Effect<unknown, unknown>;
+}) {
+  return {
+    pid: Number(child.pid),
+    once: (_event: "exit", listener: () => void) =>
+      Effect.runFork(child.exitCode.pipe(Effect.ignore, Effect.ensuring(Effect.sync(listener)))),
+  };
+}
