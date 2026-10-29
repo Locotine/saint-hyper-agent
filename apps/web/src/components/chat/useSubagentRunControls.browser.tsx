@@ -12,7 +12,11 @@ const state = vi.hoisted(() => ({
 vi.mock("../../nativeApi", () => ({
   readLocalNativeApi: () => ({ orchestration: { dispatchCommand: state.dispatch } }),
 }));
-vi.mock("../../store", () => ({ useStore: { getState: () => ({}) } }));
+vi.mock("../../store", () => ({
+  createHostStore: vi.fn(),
+  HostStoreProvider: ({ children }: { children: unknown }) => children,
+  useStore: { getState: () => ({}), subscribe: () => () => {} },
+}));
 vi.mock("../../threadDerivation", () => ({
   getThreadFromState: (_snapshot: unknown, id: string) =>
     id === "outer-child"
