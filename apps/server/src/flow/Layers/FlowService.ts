@@ -10,7 +10,11 @@ import {
   type FlowNodeSpec,
   type FlowRun,
   type OrchestrationEvent,
+  type ProjectId,
 } from "@saint/contracts";
+import * as NodeFs from "node:fs/promises";
+import * as NodePath from "node:path";
+
 import { makeDrainableWorker, startDrainableWorkerProducers } from "@saint/shared/DrainableWorker";
 import { Cause, Duration, Effect, Layer, Option, Schema, Stream } from "effect";
 import * as Semaphore from "effect/Semaphore";
@@ -42,7 +46,7 @@ import {
 } from "../flowPrompt.ts";
 import { decideQuota, isQuotaError } from "../quotaFailover.ts";
 import { captureGateBaseline, runFlowGate, type FlowGateResult } from "../gateRunner.ts";
-import { decodeFlowSpec, flowNodeDepths, parseFlowSpecYaml } from "../flowSpec.ts";
+import { decodeFlowSpec, flowNodeDepths, parseFlowSpecYaml } from "@saint/shared/flowSpec";
 import {
   FlowService,
   FlowServiceError,
@@ -60,6 +64,7 @@ const RECONCILE_EVENT_TYPES: ReadonlySet<OrchestrationEvent["type"]> = new Set([
 const isoNow = () => new Date().toISOString();
 const toError = (message: string) => (cause: unknown) =>
   cause instanceof FlowServiceError ? cause : new FlowServiceError({ message, cause });
+const FLOW_SPECS_DIR = "flows";
 const decodeModelSelection = Schema.decodeUnknownEffect(ModelSelection);
 
 export const flowNodeThreadId = (flowId: string, nodeId: string, attempt: number) =>
@@ -960,6 +965,71 @@ const make = Effect.gen(function* () {
       return runs.length;
     });
 
+  const projectRoot = (projectId: ProjectId) =>
+    snapshotQuery.getProjectShellById(projectId).pipe(
+      Effect.mapError(toError("Could not read the project.")),
+      Effect.flatMap((shell) => {
+        const root = Option.getOrNull(shell)?.workspaceRoot;
+        return root
+          ? Effect.succeed(root)
+          : Effect.fail(new FlowServiceError({ message: "The project has no folder." }));
+      }),
+    );
+
+  const saveSpec: FlowServiceShape["saveSpec"] = ({ projectId, yaml, by }) =>
+    Effect.gen(function* () {
+      const parsed = parseFlowSpecYaml(yaml);
+      if (parsed._tag === "invalid") {
+        return yield* Effect.fail(new FlowServiceError({ message: parsed.errors.join("\n") }));
+      }
+      const slug =
+        parsed.spec.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 64) || "flow";
+      const path = `${FLOW_SPECS_DIR}/${slug}.yaml`;
+      const root = yield* projectRoot(projectId);
+      yield* Effect.tryPromise({
+        try: async () => {
+          await NodeFs.mkdir(NodePath.join(root, FLOW_SPECS_DIR), { recursive: true });
+          await NodeFs.writeFile(
+            NodePath.join(root, path),
+            yaml.endsWith("\n") ? yaml : `${yaml}\n`,
+          );
+        },
+        catch: toError(`Could not write ${path}.`),
+      });
+      yield* ledger
+        .append({
+          kind: "flow.spec_saved",
+          actor: by,
+          flowId: null,
+          nodeId: null,
+          payload: { path },
+        })
+        .pipe(Effect.mapError(toError("Could not write the flow ledger.")));
+      return { path };
+    });
+
+  const listSpecs: FlowServiceShape["listSpecs"] = (projectId) =>
+    Effect.gen(function* () {
+      const dir = NodePath.join(yield* projectRoot(projectId), FLOW_SPECS_DIR);
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const names = await NodeFs.readdir(dir).catch(() => [] as string[]);
+          const yamlNames = names.filter((name) => /\.ya?ml$/.test(name)).toSorted();
+          return Promise.all(
+            yamlNames.map(async (name) => ({
+              path: `${FLOW_SPECS_DIR}/${name}`,
+              yaml: await NodeFs.readFile(NodePath.join(dir, name), "utf8"),
+            })),
+          );
+        },
+        catch: toError("Could not read the project's flows."),
+      });
+    });
+
   const recover = Effect.gen(function* () {
     const runs = yield* list({ statuses: ["running"] });
     for (const run of runs) {
@@ -1059,6 +1129,8 @@ const make = Effect.gen(function* () {
     retryNode,
     rerunGate,
     killAll,
+    saveSpec,
+    listSpecs,
     submitHandoff,
     nodeForThread,
     reconcileThread,

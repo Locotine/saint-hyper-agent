@@ -292,6 +292,17 @@ export const FlowTemplateSummary = Schema.Struct({
 export const FlowTemplatesInput = Schema.Struct({});
 export const FlowTemplatesResult = Schema.Struct({ templates: Schema.Array(FlowTemplateSummary) });
 
+/** Saves Canvas/YAML edits to `flows/<name>.yaml` in the project; agents may not edit that folder. */
+export const FlowSaveSpecInput = Schema.Struct({
+  projectId: ProjectId,
+  yaml: TrimmedNonEmptyString.check(Schema.isMaxLength(100_000)),
+});
+export const FlowSaveSpecResult = Schema.Struct({ path: Schema.String });
+export const FlowSpecsInput = Schema.Struct({ projectId: ProjectId });
+export const FlowSavedSpec = Schema.Struct({ path: Schema.String, yaml: Schema.String });
+export type FlowSavedSpec = typeof FlowSavedSpec.Type;
+export const FlowSpecsResult = Schema.Struct({ specs: Schema.Array(FlowSavedSpec) });
+
 export const LedgerListInput = Schema.Struct({
   flowId: FlowRunId,
   afterSeq: Schema.optional(NonNegativeInt),

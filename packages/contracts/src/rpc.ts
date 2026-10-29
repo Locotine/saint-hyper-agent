@@ -10,6 +10,10 @@ import {
   FlowRunView,
   FlowStartRpcInput,
   FlowTemplatesInput,
+  FlowSaveSpecInput,
+  FlowSaveSpecResult,
+  FlowSpecsInput,
+  FlowSpecsResult,
   FlowTemplatesResult,
   LedgerExportInput,
   LedgerExportResult,
@@ -1348,6 +1352,18 @@ export const WsFlowTemplatesRpc = Rpc.make(WS_METHODS.flowTemplates, {
   error: WsRpcError,
 });
 
+export const WsFlowSaveSpecRpc = Rpc.make(WS_METHODS.flowSaveSpec, {
+  payload: FlowSaveSpecInput,
+  success: FlowSaveSpecResult,
+  error: WsRpcError,
+});
+
+export const WsFlowSpecsRpc = Rpc.make(WS_METHODS.flowSpecs, {
+  payload: FlowSpecsInput,
+  success: FlowSpecsResult,
+  error: WsRpcError,
+});
+
 export const WsLedgerListRpc = Rpc.make(WS_METHODS.ledgerList, {
   payload: LedgerListInput,
   success: LedgerListResult,
@@ -2246,6 +2262,8 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsFlowActionRpc,
   WsFlowKillAllRpc,
   WsFlowTemplatesRpc,
+  WsFlowSaveSpecRpc,
+  WsFlowSpecsRpc,
   WsLedgerListRpc,
   WsLedgerVerifyRpc,
   WsLedgerExportRpc,

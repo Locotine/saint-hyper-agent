@@ -5,7 +5,7 @@ import {
   flowNodeDepths,
   parseFlowSpecYaml,
   stringifyFlowSpecYaml,
-} from "./flowSpec";
+} from "@saint/shared/flowSpec";
 import { FLOW_TEMPLATES } from "./flowTemplates";
 
 const diamond = `
