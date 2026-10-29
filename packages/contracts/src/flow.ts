@@ -14,7 +14,7 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
 } from "./baseSchemas";
-import { ProviderKind } from "./orchestration";
+import { ModelSelection, ProviderKind, RuntimeMode } from "./orchestration";
 
 export const FLOW_SPEC_VERSION = "flow-v1";
 export const FLOW_NODE_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
@@ -134,6 +134,12 @@ export const FlowRun = Schema.Struct({
   projectId: ProjectId,
   spec: FlowSpec,
   status: FlowRunStatus,
+  statusReason: Schema.NullOr(Schema.String.check(Schema.isMaxLength(2_000))),
+  /** Applied to every node thread unless the node names its own provider/model. */
+  modelSelection: ModelSelection,
+  runtimeMode: RuntimeMode,
+  /** Node failures since the last node settled; trips the circuit breaker. */
+  consecutiveFailures: NonNegativeInt,
   startedBy: TrimmedNonEmptyString,
   revision: NonNegativeInt,
   createdAt: IsoDateTime,

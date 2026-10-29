@@ -10,6 +10,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { agentGatewayRouteLayer } from "./agentGateway/httpRoute";
 import { AgentGatewayCredentials } from "./agentGateway/Services/AgentGatewayCredentials";
 import { AutomationRunReactor } from "./automation/Services/AutomationRunReactor";
+import { FlowService } from "./flow/Services/FlowService";
 import { AutomationScheduler } from "./automation/Services/AutomationScheduler";
 import { AutomationService } from "./automation/Services/AutomationService";
 import { TodoService } from "./todo/Services/TodoService";
@@ -86,6 +87,7 @@ export interface ServerShape {
     | KeepAwakeService
     | ManagedAttachmentCleanup
     | AutomationRunReactor
+    | FlowService
     | AutomationScheduler
     | AutomationService
     | AutomationRepository
@@ -189,6 +191,7 @@ export const createEffectServer = Effect.fn(function* (
   }
   const agentGatewayCredentials = yield* AgentGatewayCredentials;
   const automationRunReactor = yield* AutomationRunReactor;
+  const flowService = yield* FlowService;
   const automationScheduler = yield* AutomationScheduler;
   const keybindings = yield* Keybindings;
   const managedAttachmentCleanup = yield* ManagedAttachmentCleanup;
@@ -305,6 +308,7 @@ export const createEffectServer = Effect.fn(function* (
     reactors: [
       automationScheduler,
       automationRunReactor,
+      { start: () => flowService.startReactor() },
       threadDeletionReactor,
       threadSnoozeReactor,
       providerSessionReaper,

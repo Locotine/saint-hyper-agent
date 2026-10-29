@@ -72,6 +72,9 @@ import { ThreadDiagnosticsQueryLive } from "./diagnostics/Layers/ThreadDiagnosti
 import { ManagedAttachmentCleanupLive } from "./managedAttachmentCleanup";
 import { PullRequestServiceLive } from "./pullRequests/Layers/PullRequestService";
 import { PullRequestAutoFixRepositoryLive } from "./persistence/Layers/PullRequestAutoFixRepository";
+import { FlowRepositoryLive } from "./persistence/Layers/FlowRepository";
+import { FlowServiceLive } from "./flow/Layers/FlowService";
+import { LedgerLive } from "./ledger/Layers/Ledger";
 import { PullRequestAutoFixServiceLive } from "./pullRequestAutoFix/Layers/PullRequestAutoFixService";
 import { GitHubInboxServiceLive } from "./githubInbox/Layers/GitHubInboxService";
 import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
@@ -294,6 +297,11 @@ export function makeServerRuntimeServicesLayer(
     Layer.provideMerge(GitLayerLive),
     Layer.provideMerge(runtimeServicesLayer),
   );
+  const flowServiceLayer = FlowServiceLive.pipe(
+    Layer.provideMerge(FlowRepositoryLive),
+    Layer.provideMerge(LedgerLive.pipe(Layer.provide(ServerSecretStoreLive))),
+    Layer.provideMerge(runtimeServicesLayer),
+  );
   const keepAwakeLayer = KeepAwakeLive.pipe(
     Layer.provideMerge(runtimeServicesLayer),
     Layer.provideMerge(ServerSettingsLive),
@@ -321,6 +329,7 @@ export function makeServerRuntimeServicesLayer(
     ProjectPullRequestPinsLive,
     pullRequestServiceLayer,
     pullRequestAutoFixLayer,
+    flowServiceLayer,
     orchestrationReactorLayer,
     providerCommandReactorLayer,
     sidechatExpiryReactorLayer,
