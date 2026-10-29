@@ -1,7 +1,7 @@
 import type { FlowNodeStatus, FlowSpec } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
-import { decideFlow, flowEdgeKey, type FlowSnapshot } from "./flowDecision";
+import { decideFlow, decideNodeAfterTurn, flowEdgeKey, type FlowSnapshot } from "./flowDecision";
 
 const node = (id: string) => ({ id, role: id, prompt: `do ${id}` });
 const spec: FlowSpec = {
@@ -72,5 +72,51 @@ describe("decideFlow", () => {
 
   it("does nothing unless the flow is running", () => {
     expect(decideFlow(snapshot({}, { status: "paused" }))).toEqual([]);
+  });
+});
+
+describe("decideNodeAfterTurn", () => {
+  const gate = (passed: boolean, protectedEdits: string[] = []) =>
+    ({ kind: "gate", passed, protectedEdits, summary: "1 failing" }) as const;
+  const decide = (
+    mode: "manual" | "gate_hold" | "auto_refix" | "autopilot",
+    attempts: number,
+    outcome: Parameters<typeof decideNodeAfterTurn>[0]["outcome"],
+  ) => decideNodeAfterTurn({ mode, attempts, maxRefix: 2, outcome }).type;
+
+  it.each([
+    ["manual", 1, gate(true), "settle"],
+    ["manual", 1, gate(false), "needs_you"],
+    ["manual", 1, { kind: "turn_failed", reason: "x" }, "fail"],
+    ["manual", 1, { kind: "completed" }, "settle"],
+    ["gate_hold", 1, gate(true), "needs_you"],
+    ["gate_hold", 1, { kind: "completed" }, "needs_you"],
+    ["auto_refix", 1, gate(false), "refix"],
+    ["auto_refix", 3, gate(false), "needs_you"],
+    ["auto_refix", 2, { kind: "turn_failed", reason: "x" }, "refix"],
+    ["autopilot", 3, { kind: "turn_failed", reason: "x" }, "needs_you"],
+    ["auto_refix", 1, gate(true, ["test/a.ts"]), "needs_you"],
+    ["manual", 1, gate(false, ["flows/a.yaml"]), "needs_you"],
+  ] as const)("%s attempt %i → %s", (mode, attempts, outcome, expected) => {
+    expect(decide(mode, attempts, outcome)).toBe(expected);
+  });
+
+  it("does not count a protected edit or a review hold as a failure", () => {
+    expect(
+      decideNodeAfterTurn({
+        mode: "auto_refix",
+        attempts: 1,
+        maxRefix: 2,
+        outcome: gate(true, ["t"]),
+      }),
+    ).toMatchObject({ countsAsFailure: false });
+  });
+});
+
+describe("decideFlow time budget", () => {
+  it("fails once the wall-clock budget is spent", () => {
+    const timed = { ...spec, budget: { wallMs: 60_000 } };
+    expect(decideFlow({ ...snapshot({}), spec: timed, elapsedMs: 61_000 })[0]?.type).toBe("fail");
+    expect(decideFlow({ ...snapshot({}), spec: timed, elapsedMs: 1_000 })[0]?.type).toBe("promote");
   });
 });

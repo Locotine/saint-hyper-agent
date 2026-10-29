@@ -147,20 +147,6 @@ export const FlowRun = Schema.Struct({
 });
 export type FlowRun = typeof FlowRun.Type;
 
-export const FlowNodeRun = Schema.Struct({
-  flowId: FlowRunId,
-  nodeId: FlowNodeKey,
-  status: FlowNodeStatus,
-  threadId: Schema.NullOr(ThreadId),
-  attempts: NonNegativeInt,
-  depth: NonNegativeInt,
-  statusReason: Schema.NullOr(Schema.String.check(Schema.isMaxLength(2_000))),
-  handoff: Schema.NullOr(FlowHandoffV1),
-  revision: NonNegativeInt,
-  updatedAt: IsoDateTime,
-});
-export type FlowNodeRun = typeof FlowNodeRun.Type;
-
 // ── Ledger ────────────────────────────────────────────────────────────────
 
 /** 12 hex chars of a content hash, prefixed by its kind: `ev:b3f1c9a07e21`. */
@@ -192,3 +178,35 @@ export const LedgerVerifyResult = Schema.Struct({
   brokenAtSeq: Schema.NullOr(PositiveInt),
 });
 export type LedgerVerifyResult = typeof LedgerVerifyResult.Type;
+
+export const FlowGateOutcome = Schema.Struct({
+  gateId: TrimmedNonEmptyString,
+  passed: Schema.Boolean,
+  exitCode: Schema.NullOr(Schema.Int),
+  timedOut: Schema.Boolean,
+  durationMs: NonNegativeInt,
+  /** Full gate output, read with `saint_get`. */
+  evidence: LedgerHandle,
+  protectedEdits: Schema.Array(Schema.String),
+  finishedAt: IsoDateTime,
+});
+export type FlowGateOutcome = typeof FlowGateOutcome.Type;
+
+export const FlowNodeRun = Schema.Struct({
+  flowId: FlowRunId,
+  nodeId: FlowNodeKey,
+  status: FlowNodeStatus,
+  threadId: Schema.NullOr(ThreadId),
+  attempts: NonNegativeInt,
+  depth: NonNegativeInt,
+  statusReason: Schema.NullOr(Schema.String.check(Schema.isMaxLength(2_000))),
+  handoff: Schema.NullOr(FlowHandoffV1),
+  /** Working-tree snapshot taken when the node started; protected-path edits count from here. */
+  baselineRef: Schema.optional(Schema.NullOr(Schema.String)),
+  lastGate: Schema.optional(Schema.NullOr(FlowGateOutcome)),
+  /** The node thread's turn Saint last acted on, so a stale turn is never handled twice. */
+  lastTurnId: Schema.optional(Schema.NullOr(Schema.String)),
+  revision: NonNegativeInt,
+  updatedAt: IsoDateTime,
+});
+export type FlowNodeRun = typeof FlowNodeRun.Type;

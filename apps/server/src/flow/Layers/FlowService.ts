@@ -1,16 +1,18 @@
 import {
   CommandId,
+  FLOW_DEFAULT_MAX_REFIX,
   FlowRunId,
   MessageId,
   ModelSelection,
   ThreadId,
+  type FlowGateOutcome,
   type FlowNodeRun,
   type FlowNodeSpec,
   type FlowRun,
   type OrchestrationEvent,
 } from "@saint/contracts";
 import { makeDrainableWorker, startDrainableWorkerProducers } from "@saint/shared/DrainableWorker";
-import { Cause, Effect, Layer, Option, Schema, Stream } from "effect";
+import { Cause, Duration, Effect, Layer, Option, Schema, Stream } from "effect";
 import * as Semaphore from "effect/Semaphore";
 
 import { stableGatewayDigest } from "../../agentGateway/creationUtils.ts";
@@ -18,8 +20,18 @@ import { Ledger } from "../../ledger/Services/Ledger.ts";
 import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { FlowRepository, type FlowRunState } from "../../persistence/Services/FlowRepository.ts";
-import { decideFlow, flowEdgeKey } from "../flowDecision.ts";
-import { renderFlowNodePrompt } from "../flowPrompt.ts";
+import {
+  decideFlow,
+  decideNodeAfterTurn,
+  flowEdgeKey,
+  type NodeDecision,
+} from "../flowDecision.ts";
+import {
+  renderFlowNodePrompt,
+  renderFlowRefixMessage,
+  summarizeGateFailure,
+} from "../flowPrompt.ts";
+import { captureGateBaseline, runFlowGate, type FlowGateResult } from "../gateRunner.ts";
 import { decodeFlowSpec, flowNodeDepths, parseFlowSpecYaml } from "../flowSpec.ts";
 import {
   FlowService,
@@ -96,6 +108,15 @@ const make = Effect.gen(function* () {
         }).pipe(Effect.mapError(toError(`Node "${spec.id}" names an unknown provider or model.`)))
       : Effect.succeed(run.modelSelection);
 
+  const projectCwd = (run: FlowRun) =>
+    snapshotQuery.getProjectShellById(run.projectId).pipe(
+      Effect.map((shell) => Option.getOrNull(shell)?.workspaceRoot ?? null),
+      Effect.mapError(toError("Could not read the flow's project.")),
+    );
+
+  const nodeSpecOf = (run: FlowRun, nodeId: string) =>
+    run.spec.nodes.find((entry) => entry.id === nodeId)!;
+
   const spawnNode = (state: FlowRunState, node: FlowNodeRun, failure?: string) =>
     Effect.gen(function* () {
       const { run } = state;
@@ -110,12 +131,18 @@ const make = Effect.gen(function* () {
           from: edge.from,
           handoff: state.nodes.find((entry) => entry.nodeId === edge.from)?.handoff ?? null,
         }));
+      const cwd = spec.gate ? yield* projectCwd(run) : null;
+      const baselineRef = cwd
+        ? yield* Effect.promise(() => captureGateBaseline(cwd).catch(() => null))
+        : null;
       // Claim the node before dispatching so a concurrent tick cannot start it twice.
       const claimed = yield* saveNode(node, {
         status: "running",
         threadId,
         attempts: attempt,
         statusReason: null,
+        baselineRef,
+        lastTurnId: null,
       });
       if (!claimed) return;
       const now = isoNow();
@@ -172,6 +199,7 @@ const make = Effect.gen(function* () {
         nodes: state.nodes,
         approvedEdges: state.approvedEdges,
         consecutiveFailures: state.run.consecutiveFailures,
+        elapsedMs: Date.now() - Date.parse(state.run.createdAt),
       });
       let changed = false;
       for (const action of actions) {
@@ -342,46 +370,284 @@ const make = Effect.gen(function* () {
       }),
     );
 
+  /** Carries out what `decideNodeAfterTurn` chose. Callers hold `mutations`. */
+  const applyNodeDecision = (
+    flowId: FlowRunId,
+    nodeId: string,
+    decision: NodeDecision,
+    extra: Partial<FlowNodeRun>,
+  ) =>
+    Effect.gen(function* () {
+      const { run, nodes } = yield* load(flowId);
+      const node = nodes.find((entry) => entry.nodeId === nodeId)!;
+      const spec = nodeSpecOf(run, nodeId);
+      const failures = (counts: boolean) =>
+        counts ? run.consecutiveFailures + 1 : run.consecutiveFailures;
+      switch (decision.type) {
+        case "settle":
+          yield* saveNode(node, { ...extra, status: "settled", statusReason: null });
+          yield* saveRun(run, { consecutiveFailures: 0 });
+          yield* record(run, "node.settled", "saint", null, nodeId);
+          break;
+        case "refix": {
+          const attempt = node.attempts + 1;
+          const commandKey = `flow:${flowId}:${nodeId}:${attempt}:refix`;
+          yield* saveNode(node, {
+            ...extra,
+            status: "running",
+            attempts: attempt,
+            statusReason: `Refix ${attempt - 1}.`,
+          });
+          yield* saveRun(run, { consecutiveFailures: failures(decision.countsAsFailure) });
+          const modelSelection = yield* nodeModelSelection(run, spec);
+          yield* orchestrationEngine
+            .dispatch({
+              type: "thread.turn.start",
+              commandId: CommandId.makeUnsafe(`${commandKey}:turn-start`),
+              threadId: node.threadId!,
+              message: {
+                messageId: MessageId.makeUnsafe(`${commandKey}:message`),
+                role: "user",
+                text: renderFlowRefixMessage({
+                  attempt: attempt - 1,
+                  maxAttempts: spec.maxRefix ?? FLOW_DEFAULT_MAX_REFIX,
+                  failure: decision.failure,
+                }),
+                attachments: [],
+              },
+              modelSelection,
+              dispatchMode: "queue",
+              runtimeMode: run.runtimeMode,
+              interactionMode: "default",
+              createdAt: isoNow(),
+            })
+            .pipe(Effect.mapError(toError(`Could not send the refix to "${nodeId}".`)));
+          yield* record(run, "node.refix", "saint", { attempt }, nodeId);
+          break;
+        }
+        case "needs_you":
+          yield* saveNode(node, { ...extra, status: "needs_you", statusReason: decision.reason });
+          yield* saveRun(run, { consecutiveFailures: failures(decision.countsAsFailure) });
+          yield* record(run, "node.needs_you", "saint", { reason: decision.reason }, nodeId);
+          break;
+        case "fail":
+          yield* saveNode(node, { ...extra, status: "failed", statusReason: decision.reason });
+          yield* saveRun(run, { consecutiveFailures: run.consecutiveFailures + 1 });
+          yield* record(run, "node.failed", "saint", { reason: decision.reason }, nodeId);
+          break;
+      }
+      yield* tick(flowId);
+    });
+
+  const gatesInFlight = new Set<string>();
+
+  /** Runs a `gating` node's gate outside the lock (it can take minutes), then applies it. */
+  const runGateFor = (flowId: FlowRunId, nodeId: string) =>
+    Effect.gen(function* () {
+      const key = `${flowId}:${nodeId}`;
+      if (gatesInFlight.has(key)) return;
+      gatesInFlight.add(key);
+      yield* Effect.gen(function* () {
+        const { run, nodes } = yield* load(flowId);
+        const node = nodes.find((entry) => entry.nodeId === nodeId)!;
+        const gate = nodeSpecOf(run, nodeId).gate!;
+        const cwd = yield* projectCwd(run);
+        const failed = (output: string): FlowGateResult => ({
+          passed: false,
+          exitCode: null,
+          timedOut: false,
+          durationMs: 0,
+          output,
+          protectedEdits: [],
+        });
+        const result: FlowGateResult = cwd
+          ? yield* Effect.tryPromise(() =>
+              runFlowGate({ gate, cwd, baseline: node.baselineRef ?? null }),
+            ).pipe(
+              Effect.catch((error) =>
+                Effect.succeed(failed(`Saint could not run the gate: ${String(error)}`)),
+              ),
+            )
+          : failed("Saint could not find the project folder to run the gate in.");
+        const evidence = yield* ledger
+          .putHandle({
+            kind: "ev",
+            content: result.output || "(no output)",
+            mime: "text/plain",
+            provenance: `gate:${gate.id}`,
+            taint: "internal",
+            createdBy: "saint",
+          })
+          .pipe(Effect.mapError(toError("Could not store the gate evidence.")));
+        const outcome: FlowGateOutcome = {
+          gateId: gate.id,
+          passed: result.passed,
+          exitCode: result.exitCode,
+          timedOut: result.timedOut,
+          durationMs: result.durationMs,
+          evidence,
+          protectedEdits: [...result.protectedEdits],
+          finishedAt: isoNow(),
+        };
+        yield* locked(
+          Effect.gen(function* () {
+            const fresh = yield* load(flowId);
+            const current = fresh.nodes.find((entry) => entry.nodeId === nodeId)!;
+            // Cancelled or approved while the gate ran: keep the evidence, change nothing.
+            if (current.status !== "gating") return;
+            yield* record(fresh.run, "gate.finished", "saint", outcome, nodeId);
+            const spec = nodeSpecOf(fresh.run, nodeId);
+            const decision = decideNodeAfterTurn({
+              mode: spec.mode,
+              attempts: current.attempts,
+              maxRefix: spec.maxRefix,
+              outcome: {
+                kind: "gate",
+                passed: result.passed,
+                protectedEdits: result.protectedEdits,
+                summary: summarizeGateFailure({
+                  cmd: gate.cmd,
+                  exitCode: result.exitCode,
+                  timedOut: result.timedOut,
+                  output: result.output,
+                  evidence,
+                }),
+              },
+            });
+            yield* applyNodeDecision(flowId, nodeId, decision, { lastGate: outcome });
+          }),
+        );
+      }).pipe(Effect.ensuring(Effect.sync(() => gatesInFlight.delete(key))));
+    });
+
   const reconcileThread: FlowServiceShape["reconcileThread"] = (threadId) =>
+    Effect.gen(function* () {
+      const gateTarget = yield* locked(
+        Effect.gen(function* () {
+          const node = yield* repository
+            .findNodeByThread(threadId)
+            .pipe(Effect.mapError(toError("Could not find the flow node.")));
+          if (!node) return null;
+          // A gate interrupted by a restart runs again.
+          if (node.status === "gating") return node;
+          if (node.status !== "running") return null;
+          const shell = yield* snapshotQuery
+            .getThreadShellById(threadId)
+            .pipe(Effect.mapError(toError("Could not read the node thread.")));
+          const turn = Option.getOrNull(shell)?.latestTurn ?? null;
+          if (!turn || turn.state === "running" || turn.turnId === node.lastTurnId) return null;
+          const { run } = yield* load(node.flowId);
+          const spec = nodeSpecOf(run, node.nodeId);
+          if (turn.state === "completed" && spec.gate) {
+            const claimed = yield* saveNode(node, { status: "gating", lastTurnId: turn.turnId });
+            if (claimed) yield* record(run, "gate.started", "saint", null, node.nodeId);
+            return claimed ? node : null;
+          }
+          const decision = decideNodeAfterTurn({
+            mode: spec.mode,
+            attempts: node.attempts,
+            maxRefix: spec.maxRefix,
+            outcome:
+              turn.state === "completed"
+                ? { kind: "completed" }
+                : {
+                    kind: "turn_failed",
+                    reason:
+                      turn.state === "interrupted"
+                        ? "The turn was interrupted."
+                        : "The turn failed.",
+                  },
+          });
+          yield* applyNodeDecision(node.flowId, node.nodeId, decision, {
+            lastTurnId: turn.turnId,
+          });
+          return null;
+        }),
+      );
+      if (gateTarget) yield* runGateFor(gateTarget.flowId, gateTarget.nodeId);
+    });
+
+  const requireNode = (state: FlowRunState, nodeId: string) => {
+    const node = state.nodes.find((entry) => entry.nodeId === nodeId);
+    return node
+      ? Effect.succeed(node)
+      : Effect.fail(new FlowServiceError({ message: `No node "${nodeId}" in this flow.` }));
+  };
+
+  const approveNode: FlowServiceShape["approveNode"] = ({ flowId, nodeId, by }) =>
     locked(
       Effect.gen(function* () {
-        const node = yield* repository
-          .findNodeByThread(threadId)
-          .pipe(Effect.mapError(toError("Could not find the flow node.")));
-        if (!node || node.status !== "running") return;
-        const shell = yield* snapshotQuery
-          .getThreadShellById(threadId)
-          .pipe(Effect.mapError(toError("Could not read the node thread.")));
-        const turn = Option.getOrNull(shell)?.latestTurn ?? null;
-        if (!turn || turn.state === "running") return;
-        const state = yield* load(node.flowId);
-        if (turn.state === "completed") {
-          yield* saveNode(node, { status: "settled", statusReason: null });
-          yield* saveRun(state.run, { consecutiveFailures: 0 });
-          yield* record(state.run, "node.settled", "saint", { turnId: turn.turnId }, node.nodeId);
-        } else {
-          const reason =
-            turn.state === "interrupted" ? "The turn was interrupted." : "The turn failed.";
-          yield* saveNode(node, { status: "failed", statusReason: reason });
-          yield* saveRun(state.run, { consecutiveFailures: state.run.consecutiveFailures + 1 });
-          yield* record(
-            state.run,
-            "node.failed",
-            "saint",
-            { reason, turnId: turn.turnId },
-            node.nodeId,
-          );
+        const state = yield* load(flowId);
+        const node = yield* requireNode(state, nodeId);
+        if (node.status !== "needs_you") {
+          return yield* new FlowServiceError({ message: `"${nodeId}" is not waiting for review.` });
         }
-        yield* tick(node.flowId);
+        yield* record(state.run, "node.approved", by, null, nodeId);
+        yield* applyNodeDecision(flowId, nodeId, { type: "settle" }, {});
       }),
     );
+
+  const retryNode: FlowServiceShape["retryNode"] = ({ flowId, nodeId, by }) =>
+    locked(
+      Effect.gen(function* () {
+        let state = yield* load(flowId);
+        const node = yield* requireNode(state, nodeId);
+        if (node.status !== "failed" && node.status !== "needs_you") {
+          return yield* new FlowServiceError({ message: `"${nodeId}" has not failed.` });
+        }
+        if (state.run.status === "failed") {
+          yield* saveRun(state.run, {
+            status: "running",
+            statusReason: null,
+            consecutiveFailures: 0,
+          });
+          state = yield* load(flowId);
+        }
+        if (state.run.status !== "running") {
+          return yield* new FlowServiceError({ message: `The flow is ${state.run.status}.` });
+        }
+        yield* record(state.run, "node.retried", by, null, nodeId);
+        yield* spawnNode(state, yield* requireNode(state, nodeId));
+        yield* tick(flowId);
+      }),
+    );
+
+  const rerunGate: FlowServiceShape["rerunGate"] = ({ flowId, nodeId, by }) =>
+    Effect.gen(function* () {
+      const claimed = yield* locked(
+        Effect.gen(function* () {
+          const state = yield* load(flowId);
+          const node = yield* requireNode(state, nodeId);
+          if (!nodeSpecOf(state.run, nodeId).gate) {
+            return yield* new FlowServiceError({ message: `"${nodeId}" has no gate.` });
+          }
+          if (node.status !== "needs_you") {
+            return yield* new FlowServiceError({
+              message: `"${nodeId}" is not waiting for review.`,
+            });
+          }
+          yield* record(state.run, "gate.rerun", by, null, nodeId);
+          return yield* saveNode(node, { status: "gating" });
+        }),
+      );
+      if (claimed) yield* runGateFor(flowId, nodeId);
+    });
+
+  const killAll: FlowServiceShape["killAll"] = (by) =>
+    Effect.gen(function* () {
+      const runs = yield* list({ statuses: ["running", "paused"] });
+      yield* Effect.forEach(runs, (run) => cancel(run.id, by), { discard: true });
+      return runs.length;
+    });
 
   const recover = Effect.gen(function* () {
     const runs = yield* list({ statuses: ["running"] });
     for (const run of runs) {
       const state = yield* load(run.id);
       for (const node of state.nodes) {
-        if (node.status === "running" && node.threadId) yield* reconcileThread(node.threadId);
+        if ((node.status === "running" || node.status === "gating") && node.threadId) {
+          yield* reconcileThread(node.threadId);
+        }
       }
       yield* locked(tick(run.id));
     }
@@ -409,6 +675,24 @@ const make = Effect.gen(function* () {
           Effect.logWarning("flow recovery failed", { cause: Cause.pretty(cause) }),
         ),
       );
+      // Budgets with a wall-clock limit need a clock even when no event arrives.
+      yield* Effect.forkScoped(
+        Effect.forever(
+          Effect.sleep(Duration.minutes(1)).pipe(
+            Effect.andThen(list({ statuses: ["running"] })),
+            Effect.flatMap((runs) =>
+              Effect.forEach(
+                runs.filter((run) => run.spec.budget?.wallMs !== undefined),
+                (run) => locked(tick(run.id)),
+                { discard: true },
+              ),
+            ),
+            Effect.catchCause((cause) =>
+              Effect.logWarning("flow budget check failed", { cause: Cause.pretty(cause) }),
+            ),
+          ),
+        ),
+      );
       yield* startDrainableWorkerProducers(
         worker,
         Effect.forkScoped(
@@ -433,6 +717,10 @@ const make = Effect.gen(function* () {
     pause: (flowId, by) => setRunStatus(flowId, "paused", by, "flow.paused").pipe(Effect.asVoid),
     resume: (flowId, by) => setRunStatus(flowId, "running", by, "flow.resumed").pipe(Effect.asVoid),
     approveEdge,
+    approveNode,
+    retryNode,
+    rerunGate,
+    killAll,
     reconcileThread,
     startReactor,
   } satisfies FlowServiceShape;

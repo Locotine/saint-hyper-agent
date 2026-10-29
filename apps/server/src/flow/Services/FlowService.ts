@@ -53,6 +53,26 @@ export interface FlowServiceShape {
     readonly to: string;
     readonly by: string;
   }) => Effect.Effect<void, FlowServiceError>;
+  /** Settles a node held for review (gate_hold, protected edit, exhausted refixes). */
+  readonly approveNode: (input: {
+    readonly flowId: FlowRunId;
+    readonly nodeId: string;
+    readonly by: string;
+  }) => Effect.Effect<void, FlowServiceError>;
+  /** Starts a failed or held node again in a fresh thread; reopens a failed flow. */
+  readonly retryNode: (input: {
+    readonly flowId: FlowRunId;
+    readonly nodeId: string;
+    readonly by: string;
+  }) => Effect.Effect<void, FlowServiceError>;
+  /** Runs a held node's gate again, e.g. after the person fixed something by hand. */
+  readonly rerunGate: (input: {
+    readonly flowId: FlowRunId;
+    readonly nodeId: string;
+    readonly by: string;
+  }) => Effect.Effect<void, FlowServiceError>;
+  /** Cancels every running or paused flow and interrupts their nodes. Returns how many. */
+  readonly killAll: (by: string) => Effect.Effect<number, FlowServiceError>;
   /** Re-reads a node thread's latest turn and settles or fails its node. Idempotent. */
   readonly reconcileThread: (threadId: ThreadId) => Effect.Effect<void, FlowServiceError>;
   /** Recovers interrupted runs, then follows orchestration events. Call once at startup. */

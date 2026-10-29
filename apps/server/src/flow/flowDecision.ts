@@ -7,6 +7,8 @@
 import {
   FLOW_DEFAULT_BREAKER_FAILURES,
   FLOW_DEFAULT_MAX_PARALLEL,
+  FLOW_DEFAULT_MAX_REFIX,
+  type FlowNodeMode,
   type FlowNodeRun,
   type FlowRunStatus,
   type FlowSpec,
@@ -20,6 +22,8 @@ export interface FlowSnapshot {
   readonly approvedEdges: ReadonlySet<string>;
   /** Node failures since the last node settled; trips the circuit breaker. */
   readonly consecutiveFailures: number;
+  /** Time since the run started, checked against `budget.wallMs`. */
+  readonly elapsedMs?: number;
 }
 
 export type FlowAction =
@@ -43,6 +47,13 @@ export function decideFlow(snapshot: FlowSnapshot): ReadonlyArray<FlowAction> {
         type: "fail",
         reason: `Circuit breaker: ${snapshot.consecutiveFailures} failures in a row.`,
       },
+    ];
+  }
+
+  const wallMs = snapshot.spec.budget?.wallMs;
+  if (wallMs !== undefined && (snapshot.elapsedMs ?? 0) > wallMs) {
+    return [
+      { type: "fail", reason: `Time budget of ${Math.round(wallMs / 60_000)} min exceeded.` },
     ];
   }
 
@@ -89,4 +100,69 @@ export function decideFlow(snapshot: FlowSnapshot): ReadonlyArray<FlowAction> {
     !snapshot.spec.nodes.some((node) => WAITING_ON_PERSON.has(statusOf(node.id)));
   if (stuck) return [{ type: "fail", reason: "No node can run: an upstream node failed." }];
   return actions;
+}
+
+// ── One node, after its turn ends ─────────────────────────────────────────
+
+export type NodeTurnOutcome =
+  | { readonly kind: "turn_failed"; readonly reason: string }
+  | { readonly kind: "completed" }
+  | {
+      readonly kind: "gate";
+      readonly passed: boolean;
+      readonly protectedEdits: ReadonlyArray<string>;
+      readonly summary: string;
+    };
+
+export type NodeDecision =
+  | { readonly type: "settle" }
+  | { readonly type: "refix"; readonly failure: string; readonly countsAsFailure: boolean }
+  | { readonly type: "needs_you"; readonly reason: string; readonly countsAsFailure: boolean }
+  | { readonly type: "fail"; readonly reason: string };
+
+/**
+ * manual: a failure goes to the person · gate_hold: every result waits for review ·
+ * auto_refix / autopilot: the failure goes back to the agent until `maxRefix` refixes are used.
+ * Editing a protected path always holds the node, whatever the mode.
+ */
+export function decideNodeAfterTurn(input: {
+  readonly mode: FlowNodeMode | undefined;
+  /** Turns the node has had so far, including the first. */
+  readonly attempts: number;
+  readonly maxRefix: number | undefined;
+  readonly outcome: NodeTurnOutcome;
+}): NodeDecision {
+  const mode = input.mode ?? "manual";
+  const automatic = mode === "auto_refix" || mode === "autopilot";
+  const canRefix = automatic && input.attempts <= (input.maxRefix ?? FLOW_DEFAULT_MAX_REFIX);
+  const { outcome } = input;
+
+  if (outcome.kind === "turn_failed") {
+    if (canRefix) return { type: "refix", failure: outcome.reason, countsAsFailure: true };
+    if (mode === "manual") return { type: "fail", reason: outcome.reason };
+    return { type: "needs_you", reason: outcome.reason, countsAsFailure: true };
+  }
+  if (outcome.kind === "gate" && outcome.protectedEdits.length > 0) {
+    return {
+      type: "needs_you",
+      reason: `Edited protected files: ${outcome.protectedEdits.join(", ")}. Review the test diff.`,
+      countsAsFailure: false,
+    };
+  }
+  if (outcome.kind === "completed" || outcome.passed) {
+    return mode === "gate_hold"
+      ? {
+          type: "needs_you",
+          reason:
+            outcome.kind === "gate" ? "Gate passed; waiting for review." : "Waiting for review.",
+          countsAsFailure: false,
+        }
+      : { type: "settle" };
+  }
+  if (canRefix) return { type: "refix", failure: outcome.summary, countsAsFailure: true };
+  return {
+    type: "needs_you",
+    reason: automatic ? `Gate still failing after ${input.attempts} attempts.` : "Gate failed.",
+    countsAsFailure: true,
+  };
 }

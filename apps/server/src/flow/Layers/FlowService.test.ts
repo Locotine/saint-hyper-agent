@@ -5,7 +5,13 @@ import {
   type OrchestrationLatestTurn,
   type ThreadId,
 } from "@saint/contracts";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
 import { assert, it } from "@effect/vitest";
+import { afterAll } from "vitest";
 import { Effect, Layer, Option } from "effect";
 
 import { ServerSecretStore } from "../../auth/Services/ServerSecretStore.ts";
@@ -26,6 +32,23 @@ import { FlowServiceLive } from "./FlowService.ts";
 
 const dispatched: OrchestrationCommand[] = [];
 const turns = new Map<string, OrchestrationLatestTurn["state"]>();
+const turnSeq = new Map<string, number>();
+const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "saint-flow-gate-"));
+execFileSync("git", ["init", "-q"], { cwd: projectDir });
+fs.mkdirSync(path.join(projectDir, "test"));
+fs.writeFileSync(path.join(projectDir, "test", "a.spec.ts"), "expect(1)\n");
+for (const args of [
+  ["add", "."],
+  ["-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-qm", "init"],
+]) {
+  execFileSync("git", args, { cwd: projectDir });
+}
+afterAll(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+/** A new turn on the thread finished in `state`. */
+const finishTurn = (threadId: string, state: OrchestrationLatestTurn["state"]) => {
+  turnSeq.set(threadId, (turnSeq.get(threadId) ?? 0) + 1);
+  turns.set(threadId, state);
+};
 
 const engine = {
   dispatch: (command: OrchestrationCommand) =>
@@ -41,7 +64,7 @@ const snapshotQuery = {
       turns.has(threadId)
         ? Option.some({
             latestTurn: {
-              turnId: TurnId.makeUnsafe(`turn-${threadId}`),
+              turnId: TurnId.makeUnsafe(`turn-${threadId}-${turnSeq.get(threadId) ?? 0}`),
               state: turns.get(threadId)!,
               requestedAt: "2026-10-29T10:00:00.000Z",
               startedAt: null,
@@ -51,6 +74,7 @@ const snapshotQuery = {
           })
         : Option.none(),
     ),
+  getProjectShellById: () => Effect.succeed(Option.some({ workspaceRoot: projectDir })),
 } as unknown as ProjectionSnapshotQueryShape;
 
 const seed = Uint8Array.from({ length: 32 }, (_, index) => index);
@@ -192,6 +216,108 @@ layer("FlowService", (it) => {
         })
         .pipe(Effect.flip);
       assert.include(result.message, "itself");
+    }),
+  );
+
+  it.effect("gates a node: refix on the same thread, then settle, with evidence", () =>
+    Effect.gen(function* () {
+      const flows = yield* FlowService;
+      const ledger = yield* Ledger;
+      dispatched.length = 0;
+      fs.rmSync(path.join(projectDir, "ok.txt"), { force: true });
+      const { run } = yield* flows.start({
+        projectId: ProjectId.makeUnsafe("project-1"),
+        spec: `
+version: flow-v1
+name: gated
+nodes:
+  - id: coder
+    role: Coder
+    prompt: Build it
+    mode: auto_refix
+    maxRefix: 1
+    gate: { id: g1, cmd: "test -f ok.txt" }
+edges: []
+`,
+        modelSelection: { provider: "codex", model: "gpt-5-codex" },
+        runtimeMode: "full-access",
+        startedBy: "user",
+      });
+      const thread = startedThreads()[0]!;
+      const node = () => flows.get(run.id).pipe(Effect.map((view) => view!.nodes[0]!));
+
+      finishTurn(thread, "completed");
+      yield* flows.reconcileThread(thread);
+      assert.strictEqual((yield* node()).status, "running", "refix keeps the node running");
+      assert.strictEqual((yield* node()).attempts, 2);
+      assert.strictEqual(startedThreads().length, 1, "refix reuses the thread");
+      const refix = dispatched.at(-1);
+      assert.include(refix?.type === "thread.turn.start" ? refix.message.text : "", "refix 1/1");
+      const evidence = (yield* node()).lastGate!.evidence;
+      assert.isFalse((yield* node()).lastGate!.passed);
+      assert.isNotNull(yield* ledger.getHandle(evidence));
+
+      // The same stale turn is ignored; the next turn passes once the file exists.
+      yield* flows.reconcileThread(thread);
+      assert.strictEqual((yield* node()).attempts, 2);
+      fs.writeFileSync(path.join(projectDir, "ok.txt"), "ok");
+      finishTurn(thread, "completed");
+      yield* flows.reconcileThread(thread);
+      assert.strictEqual((yield* node()).status, "settled");
+      assert.strictEqual((yield* flows.get(run.id))!.run.status, "completed");
+      const kinds = (yield* ledger.listByFlow(run.id)).map((event) => event.kind);
+      assert.includeMembers(kinds, ["gate.started", "gate.finished", "node.refix", "node.settled"]);
+    }),
+  );
+
+  it.effect("holds a protected test edit for review, then approve, retry and killAll", () =>
+    Effect.gen(function* () {
+      const flows = yield* FlowService;
+      dispatched.length = 0;
+      const { run } = yield* flows.start({
+        projectId: ProjectId.makeUnsafe("project-1"),
+        spec: `
+version: flow-v1
+name: protected
+nodes:
+  - id: coder
+    role: Coder
+    prompt: Build it
+    mode: auto_refix
+    gate: { id: g1, cmd: "true", protectedPaths: ["test/**"] }
+  - { id: docs, role: Docs, prompt: Write docs }
+edges: [{ from: coder, to: docs }]
+`,
+        modelSelection: { provider: "codex", model: "gpt-5-codex" },
+        runtimeMode: "full-access",
+        startedBy: "user",
+      });
+      const thread = startedThreads()[0]!;
+      fs.writeFileSync(path.join(projectDir, "test", "a.spec.ts"), "// skipped\n");
+      finishTurn(thread, "completed");
+      yield* flows.reconcileThread(thread);
+      const held = (yield* flows.get(run.id))!.nodes.find((n) => n.nodeId === "coder")!;
+      assert.strictEqual(held.status, "needs_you");
+      assert.include(held.statusReason ?? "", "test/a.spec.ts");
+
+      yield* flows.approveNode({ flowId: run.id, nodeId: "coder", by: "user" });
+      const after = (yield* flows.get(run.id))!;
+      assert.strictEqual(after.nodes.find((n) => n.nodeId === "coder")!.status, "settled");
+      assert.strictEqual(after.nodes.find((n) => n.nodeId === "docs")!.status, "running");
+
+      // A manual node whose turn fails can be retried in a fresh thread.
+      const docsThread = startedThreads().at(-1)!;
+      finishTurn(docsThread, "error");
+      yield* flows.reconcileThread(docsThread);
+      assert.strictEqual((yield* flows.get(run.id))!.run.status, "failed");
+      yield* flows.retryNode({ flowId: run.id, nodeId: "docs", by: "user" });
+      const retried = (yield* flows.get(run.id))!;
+      assert.strictEqual(retried.run.status, "running");
+      assert.notStrictEqual(retried.nodes.find((n) => n.nodeId === "docs")!.threadId, docsThread);
+
+      assert.isAtLeast(yield* flows.killAll("user"), 1);
+      assert.strictEqual((yield* flows.get(run.id))!.run.status, "cancelled");
+      assert.isEmpty(yield* flows.list({ statuses: ["running", "paused"] }));
     }),
   );
 });

@@ -54,3 +54,37 @@ export function renderFlowNodePrompt(input: {
     "When you are done, call `saint_flow_done` with a handoff for the next step (target, change, constraints, ownership, acceptance, refs, open questions).",
   ].join("\n");
 }
+
+/** Sent on the node's own thread when its gate fails and the mode allows another attempt. */
+export function renderFlowRefixMessage(input: {
+  readonly attempt: number;
+  readonly maxAttempts: number;
+  readonly failure: string;
+}): string {
+  return [
+    `⟦saint refix ${input.attempt}/${input.maxAttempts}⟧ Your step did not pass. Fix the cause, not the check.`,
+    "",
+    input.failure,
+    "",
+    "Do not edit the gate or its tests to make it pass; Saint flags edits to protected paths.",
+  ].join("\n");
+}
+
+/** The tail of a gate log plus a pointer to the full evidence. */
+export function summarizeGateFailure(input: {
+  readonly cmd: string;
+  readonly exitCode: number | null;
+  readonly timedOut: boolean;
+  readonly output: string;
+  readonly evidence: string;
+}): string {
+  const lines = input.output.trimEnd().split("\n");
+  const tail = lines.slice(-60).join("\n");
+  const status = input.timedOut ? "timed out" : `exited ${input.exitCode ?? "without a code"}`;
+  return [
+    `Gate \`${input.cmd}\` ${status}. Last ${Math.min(60, lines.length)} of ${lines.length} lines (full log: ${input.evidence}):`,
+    "```",
+    tail,
+    "```",
+  ].join("\n");
+}
