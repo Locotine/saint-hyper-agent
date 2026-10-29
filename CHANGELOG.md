@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.0.16 — 2026-10-29
+
+**Remote SSH hosts open in the app window.**
+
+This Stable release covers the commits after `v1.0.15`: `e6684f12e` (multi-host, #1) and `4a4842613` (Find tooltip geometry test). It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.0.16).
 
 ### Changed
 
