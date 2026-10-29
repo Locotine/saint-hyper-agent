@@ -30,6 +30,9 @@ export default mergeConfig(
       // so one spec cannot steal another spec's WebSocket/native-API events.
       fileParallelism: false,
       maxWorkers: 1,
+      // `[geometry:linux]` specs pin Linux font metrics (they fail by tens of pixels on
+      // Windows/macOS), so only Linux runs them here. The geometry config overrides this.
+      ...(process.platform === "linux" ? {} : { testNamePattern: /^(?!.*\[geometry:linux\])/ }),
       browser: {
         enabled: true,
         provider: playwright(),
