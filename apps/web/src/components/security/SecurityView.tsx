@@ -1,10 +1,12 @@
 // FILE: SecurityView.tsx
 // Purpose: S7 Security: the alert feed with batch decisions and the "why" chain of each alert,
-//          the L0–L4 autonomy ladder, live protection layers, and the ledger audit chain.
+//          the L0–L4 autonomy ladder, live protection layers, the Cedar policy with protected
+//          zones and egress lists, frozen worktrees with Unfreeze, chats running without the
+//          sandbox, and the ledger audit chain.
 // Layer: Web security view
 // Exports: SecurityView
 
-import type { AegisAlert, AegisStatus, AutonomyLevel } from "@saint/contracts";
+import type { AegisAlert, AegisStatus, AutonomyLevel, ThreadId } from "@saint/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -18,6 +20,7 @@ import { DisclosureRegion } from "~/components/ui/DisclosureRegion";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "~/components/ui/empty";
 import { StatusChip, StatusDot } from "~/components/ui/status-chip";
 import { Switch } from "~/components/ui/switch";
+import { Textarea } from "~/components/ui/textarea";
 import { toastManager } from "~/components/ui/toast";
 import { downloadBlob } from "~/lib/browserDownload";
 import {
@@ -29,6 +32,7 @@ import {
 import { formatRelativeTime } from "~/lib/relativeTime";
 import { cn } from "~/lib/utils";
 import { ensureLocalNativeApi } from "~/nativeApi";
+import { useStore } from "~/store";
 import { AUTONOMY_LEVELS, SEVERITY_TONE, sortAlertsByRisk } from "./security.logic";
 
 const LAYER_LABEL: Record<AegisStatus["layers"][number]["id"], string> = {
@@ -46,6 +50,47 @@ const failure = (title: string) => (error: unknown) =>
     title,
     description: error instanceof Error ? error.message : "Try again.",
   });
+
+type AegisUpdate = Parameters<ReturnType<typeof ensureLocalNativeApi>["aegis"]["update"]>[0];
+
+function useAegisUpdate(errorTitle: string, onSaved?: () => void) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AegisUpdate) => ensureLocalNativeApi().aegis.update(input),
+    onSuccess: (next) => {
+      queryClient.setQueryData(flowQueryKeys.aegisStatus, next);
+      onSaved?.();
+    },
+    onError: failure(errorTitle),
+  });
+}
+
+const lines = (text: string) =>
+  text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+function RunWithoutSandboxButton({ threadId }: { threadId: ThreadId }) {
+  const update = useAegisUpdate("Could not change the sandbox");
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-warning/40 p-2">
+      <p className="text-ui-sm text-warning">
+        Without the sandbox this chat's agent can read your credentials and reach any host. Use it
+        only when the sandbox stops work you trust.
+      </p>
+      <Button
+        size="xs"
+        variant="destructive-outline"
+        className="self-start"
+        disabled={update.isPending}
+        onClick={() => update.mutate({ runWithoutSandbox: { threadId, enabled: true } })}
+      >
+        Run this chat without sandbox
+      </Button>
+    </div>
+  );
+}
 
 function AlertRow({
   alert,
@@ -94,6 +139,9 @@ function AlertRow({
               </li>
             ))}
           </ol>
+          {open && alert.threadId && alert.state === "open" ? (
+            <RunWithoutSandboxButton threadId={alert.threadId} />
+          ) : null}
         </div>
       </DisclosureRegion>
     </div>
@@ -181,13 +229,7 @@ function AlertFeed() {
 }
 
 function AutonomyLadder({ status }: { status: AegisStatus }) {
-  const queryClient = useQueryClient();
-  const update = useMutation({
-    mutationFn: (input: { autonomy?: AutonomyLevel; signOffUnattended?: boolean }) =>
-      ensureLocalNativeApi().aegis.update(input),
-    onSuccess: (next) => queryClient.setQueryData(flowQueryKeys.aegisStatus, next),
-    onError: failure("Could not change the autonomy level"),
-  });
+  const update = useAegisUpdate("Could not change the autonomy level");
   const current = status.settings.autonomy;
   const currentDetail = AUTONOMY_LEVELS.find((entry) => entry.level === current)?.detail;
   return (
@@ -247,6 +289,149 @@ function ProtectionLayers({ status }: { status: AegisStatus }) {
               {layer.detail}
             </span>
           </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PolicyEditor({ status }: { status: AegisStatus }) {
+  const { policy } = status.settings;
+  const initial = {
+    cedar: policy.cedar,
+    protectedZones: policy.protectedZones.join("\n"),
+    egressAllowlist: policy.egressAllowlist.join("\n"),
+    egressDenylist: policy.egressDenylist.join("\n"),
+  };
+  const [draft, setDraft] = useState<typeof initial | null>(null);
+  const shown = draft ?? initial;
+  const save = useAegisUpdate("Could not save the policy", () => setDraft(null));
+  const field = (key: keyof typeof initial, label: string, rows: number, hint: string) => (
+    <label className="flex flex-col gap-1">
+      <span className="text-ui-sm text-muted-foreground">{label}</span>
+      <Textarea
+        aria-label={label}
+        value={shown[key]}
+        spellCheck={false}
+        rows={rows}
+        placeholder={hint}
+        onChange={(event) => setDraft({ ...shown, [key]: event.target.value })}
+        className="font-mono text-ui-sm"
+      />
+    </label>
+  );
+  return (
+    <section aria-label="Policy" className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <h2 className="flex-1 text-ui-lg font-medium">Policy</h2>
+        {draft ? (
+          <>
+            <Button size="xs" variant="ghost" onClick={() => setDraft(null)}>
+              Discard
+            </Button>
+            <Button
+              size="xs"
+              disabled={save.isPending}
+              onClick={() =>
+                save.mutate({
+                  policy: {
+                    cedar: draft.cedar,
+                    protectedZones: lines(draft.protectedZones),
+                    egressAllowlist: lines(draft.egressAllowlist),
+                    egressDenylist: lines(draft.egressDenylist),
+                  },
+                })
+              }
+            >
+              Save policy
+            </Button>
+          </>
+        ) : null}
+      </div>
+      {field(
+        "cedar",
+        "Cedar policies",
+        8,
+        'forbid (principal, action == Saint::Action::"egress", resource == Saint::Host::"example.com");',
+      )}
+      {field("protectedZones", "Protected zones (one glob per line)", 3, "tests/**")}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {field("egressAllowlist", "Allowed hosts (one per line)", 3, "api.github.com")}
+        {field("egressDenylist", "Denied hosts (one per line)", 3, "*.pastebin.com")}
+      </div>
+    </section>
+  );
+}
+
+function FrozenWorktrees({ status }: { status: AegisStatus }) {
+  const queryClient = useQueryClient();
+  const unfreeze = useMutation({
+    mutationFn: (id: string) => ensureLocalNativeApi().aegis.unfreeze({ id }),
+    onSuccess: (next) => queryClient.setQueryData(flowQueryKeys.aegisStatus, next),
+    onError: failure("Could not unfreeze the worktree"),
+  });
+  if (status.frozen.length === 0) return null;
+  return (
+    <section aria-label="Frozen worktrees" className="flex flex-col gap-1">
+      <h2 className="text-ui-lg font-medium">Frozen worktrees</h2>
+      <p className="text-ui-sm text-muted-foreground">
+        The kill switch made these read-only. Unfreeze once you have checked what the agent did.
+      </p>
+      <div role="list" className="flex flex-col gap-0.5">
+        {status.frozen.map((worktree) => (
+          <div
+            key={worktree.id}
+            role="listitem"
+            className="flex min-w-0 items-center gap-3 px-2 py-1"
+          >
+            <span className="min-w-0 flex-1 truncate font-mono text-ui-sm" title={worktree.path}>
+              {worktree.path}
+            </span>
+            <span className="shrink-0 text-ui-sm text-muted-foreground">
+              {worktree.files} files · {formatRelativeTime(worktree.frozenAt)}
+            </span>
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={unfreeze.isPending}
+              onClick={() => unfreeze.mutate(worktree.id)}
+            >
+              Unfreeze
+            </Button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function UnsandboxedChats({ status }: { status: AegisStatus }) {
+  const titles = useStore((state) => state.sidebarThreadSummaryById);
+  const update = useAegisUpdate("Could not change the sandbox");
+  if (status.settings.unsandboxedThreads.length === 0) return null;
+  return (
+    <section aria-label="Chats without sandbox" className="flex flex-col gap-1">
+      <h2 className="text-ui-lg font-medium text-warning">Running without sandbox</h2>
+      <div role="list" className="flex flex-col gap-0.5">
+        {status.settings.unsandboxedThreads.map((threadId) => (
+          <label
+            key={threadId}
+            role="listitem"
+            className="flex min-w-0 items-center gap-3 px-2 py-1"
+          >
+            <span className="min-w-0 flex-1 truncate text-ui">
+              {titles[threadId]?.title ?? threadId}
+            </span>
+            <span className="text-ui-sm text-muted-foreground">Sandbox</span>
+            <Switch
+              checked={false}
+              disabled={update.isPending}
+              aria-label="Turn the sandbox back on"
+              onCheckedChange={() =>
+                update.mutate({ runWithoutSandbox: { threadId, enabled: false } })
+              }
+            />
+          </label>
         ))}
       </div>
     </section>
@@ -320,6 +505,9 @@ export function SecurityView() {
               <>
                 <AutonomyLadder status={status.data} />
                 <ProtectionLayers status={status.data} />
+                <FrozenWorktrees status={status.data} />
+                <UnsandboxedChats status={status.data} />
+                <PolicyEditor status={status.data} />
               </>
             ) : null}
             <AuditChain />

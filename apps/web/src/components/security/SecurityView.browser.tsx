@@ -5,7 +5,12 @@ import { render } from "vitest-browser-react";
 
 import "../../index.css";
 
-const fixture = vi.hoisted(() => ({ resolve: vi.fn(), update: vi.fn(), exportLedger: vi.fn() }));
+const fixture = vi.hoisted(() => ({
+  resolve: vi.fn(),
+  update: vi.fn(),
+  unfreeze: vi.fn(),
+  exportLedger: vi.fn(),
+}));
 vi.mock("../RouteInsetSurface", () => ({
   RouteInsetSurface: ({ children }: { children: import("react").ReactNode }) => (
     <div>{children}</div>
@@ -34,7 +39,28 @@ const alert = (id: string, severity: AegisAlert["severity"], title: string): Aeg
 });
 
 const status = {
-  settings: { autonomy: "L1", unattendedSignedOffBy: null },
+  settings: {
+    autonomy: "L1",
+    unattendedSignedOffBy: null,
+    policy: {
+      version: 1,
+      cedar: "",
+      egressAllowlist: ["api.github.com"],
+      egressDenylist: [],
+      protectedZones: ["tests/**"],
+    },
+    unsandboxedThreads: ["thread-raw"],
+  },
+  frozen: [
+    {
+      id: "fz-1",
+      path: "/work/flow-1",
+      threadId: null,
+      flowId: null,
+      files: 12,
+      frozenAt: "2026-10-29T01:00:00.000Z",
+    },
+  ],
   layers: [
     { id: "sandbox", enabled: false, available: true, detail: "bwrap wraps flow gates from L2." },
     { id: "ledger", enabled: true, available: true, detail: "Hash-chained, signed flow ledger." },
@@ -53,6 +79,7 @@ vi.mock("~/nativeApi", async (importOriginal) => ({
       }),
       resolve: fixture.resolve,
       update: fixture.update,
+      unfreeze: fixture.unfreeze,
     },
     ledger: {
       verify: async () => ({ intact: true, count: 42, brokenAtSeq: null }),
@@ -92,5 +119,39 @@ it("lists alerts riskiest first, decides them in a batch, and shows the ladder a
   expect(fixture.update).toHaveBeenCalledWith({ autonomy: "L2" });
   await expect.element(view.getByText("intact · 42 events")).toBeVisible();
   await expect.element(view.getByText(/Off · bwrap/)).toBeVisible();
+  view.unmount();
+});
+
+it("saves the Cedar policy and zones, unfreezes a worktree and turns the sandbox back on", async () => {
+  fixture.update.mockResolvedValue(status);
+  fixture.unfreeze.mockResolvedValue(status);
+  const view = await render(
+    <QueryClientProvider client={new QueryClient()}>
+      <SecurityView />
+    </QueryClientProvider>,
+  );
+  await view.getByRole("button", { name: "Unfreeze" }).click();
+  expect(fixture.unfreeze).toHaveBeenCalledWith({ id: "fz-1" });
+
+  await view.getByRole("switch", { name: "Turn the sandbox back on" }).click();
+  expect(fixture.update).toHaveBeenCalledWith({
+    runWithoutSandbox: { threadId: "thread-raw", enabled: false },
+  });
+
+  await view
+    .getByRole("textbox", { name: "Cedar policies" })
+    .fill("forbid (principal, action, resource);");
+  await view
+    .getByRole("textbox", { name: "Protected zones (one glob per line)" })
+    .fill("tests/**\nflows/**");
+  await view.getByRole("button", { name: "Save policy" }).click();
+  expect(fixture.update).toHaveBeenCalledWith({
+    policy: {
+      cedar: "forbid (principal, action, resource);",
+      protectedZones: ["tests/**", "flows/**"],
+      egressAllowlist: ["api.github.com"],
+      egressDenylist: [],
+    },
+  });
   view.unmount();
 });
