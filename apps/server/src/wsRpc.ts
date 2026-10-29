@@ -249,6 +249,7 @@ import { PullRequestAutoFixService } from "./pullRequestAutoFix/Services/PullReq
 import { handleFlowRpc } from "./flow/flowRpc";
 import { FlowService } from "./flow/Services/FlowService";
 import { Ledger } from "./ledger/Services/Ledger";
+import { SapBus } from "./sap/Services/SapBus";
 import {
   GitHubInboxRateLimitedError,
   GitHubInboxService,
@@ -553,6 +554,7 @@ const makeWsRpcHandlersLayer = () =>
       const pullRequests = yield* PullRequestService;
       const pullRequestAutoFix = yield* PullRequestAutoFixService;
       const flowRpc = handleFlowRpc({ flows: yield* FlowService, ledger: yield* Ledger });
+      const sapBus = yield* SapBus;
       const githubInbox = yield* GitHubInboxService;
       const profileStatsQuery = yield* ProfileStatsQuery;
       const recapStatsQuery = yield* RecapStatsQuery;
@@ -2232,6 +2234,8 @@ const makeWsRpcHandlersLayer = () =>
           rpcEffect(flowRpc.ledgerExport(), "Failed to export the ledger"),
         [WS_METHODS.ledgerHandle]: (input) =>
           rpcEffect(flowRpc.ledgerHandle(input), "Failed to read the handle"),
+        [WS_METHODS.sapList]: (input) =>
+          rpcEffect(sapBus.list(input.flowId), "Failed to read the flow's messages"),
         [WS_METHODS.gitListBranches]: (input) =>
           rpcEffect(git.listBranches(input), "Failed to list branches"),
         [WS_METHODS.gitListRecentCommits]: (input) =>

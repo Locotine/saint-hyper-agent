@@ -153,6 +153,7 @@ import Migration0134 from "./Migrations/134_ProjectionThreadsForkSourceMessage.t
 import Migration0135 from "./Migrations/135_ProjectionMessageTurnActivityIndex.ts";
 import Migration0136 from "./Migrations/136_Ledger.ts";
 import Migration0137 from "./Migrations/137_FlowRuns.ts";
+import Migration0138 from "./Migrations/138_SapMessages.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -306,6 +307,7 @@ export const migrationEntries = [
   [135, "ProjectionMessageTurnActivityIndex", Migration0135],
   [136, "Ledger", Migration0136],
   [137, "FlowRuns", Migration0137],
+  [138, "SapMessages", Migration0138],
 ] as const;
 
 export const makeMigrationLoader = (throughId?: number) =>

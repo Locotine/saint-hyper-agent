@@ -74,6 +74,7 @@ import { PullRequestServiceLive } from "./pullRequests/Layers/PullRequestService
 import { PullRequestAutoFixRepositoryLive } from "./persistence/Layers/PullRequestAutoFixRepository";
 import { FlowRepositoryLive } from "./persistence/Layers/FlowRepository";
 import { FlowServiceLive } from "./flow/Layers/FlowService";
+import { SapBusLive } from "./sap/Layers/SapBus";
 import { LedgerLive } from "./ledger/Layers/Ledger";
 import { PullRequestAutoFixServiceLive } from "./pullRequestAutoFix/Layers/PullRequestAutoFixService";
 import { GitHubInboxServiceLive } from "./githubInbox/Layers/GitHubInboxService";
@@ -250,11 +251,16 @@ export function makeServerRuntimeServicesLayer(
     Layer.provideMerge(ServerSecretStoreLive),
     Layer.provideMerge(agentGatewayCredentialsLayer),
   );
-  const flowServiceLayer = FlowServiceLive.pipe(
-    Layer.provideMerge(FlowRepositoryLive),
-    Layer.provideMerge(agentGatewayCredentialsLayer),
-    Layer.provideMerge(LedgerLive.pipe(Layer.provide(ServerSecretStoreLive))),
-    Layer.provideMerge(runtimeServicesLayer),
+  // SAP rides on the flow service: it messages between the nodes of a flow.
+  const flowServiceLayer = SapBusLive.pipe(
+    Layer.provideMerge(
+      FlowServiceLive.pipe(
+        Layer.provideMerge(FlowRepositoryLive),
+        Layer.provideMerge(agentGatewayCredentialsLayer),
+        Layer.provideMerge(LedgerLive.pipe(Layer.provide(ServerSecretStoreLive))),
+        Layer.provideMerge(runtimeServicesLayer),
+      ),
+    ),
   );
   const agentGatewayLayer = AgentGatewayLive.pipe(
     Layer.provideMerge(

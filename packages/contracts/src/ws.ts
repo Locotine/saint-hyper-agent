@@ -10,6 +10,7 @@ import {
   LedgerListInput,
   LedgerVerifyInput,
 } from "./flow";
+import { SapListInput } from "./sap";
 import { EditorDebugStartInput, EditorDebugActionInput, EditorDebugPollInput } from "./editorDebug";
 import { Schema, Struct } from "effect";
 import { EditorIntelligenceInput } from "./editorIntelligence";
@@ -335,6 +336,7 @@ export const WS_METHODS = {
   ledgerVerify: "ledger.verify",
   ledgerExport: "ledger.export",
   ledgerHandle: "ledger.handle",
+  sapList: "sap.list",
 
   // Terminal methods
   terminalOpen: "terminal.open",
@@ -642,6 +644,7 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.ledgerVerify, LedgerVerifyInput),
   tagRequestBody(WS_METHODS.ledgerExport, LedgerExportInput),
   tagRequestBody(WS_METHODS.ledgerHandle, LedgerHandleInput),
+  tagRequestBody(WS_METHODS.sapList, SapListInput),
 
   // GitHub inbox (pull requests and issues)
   tagRequestBody(WS_METHODS.githubInboxList, GitHubInboxListInput),

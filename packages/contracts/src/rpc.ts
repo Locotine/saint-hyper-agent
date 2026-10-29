@@ -20,6 +20,7 @@ import {
   LedgerVerifyInput,
   LedgerVerifyResult,
 } from "./flow";
+import { SapListInput, SapListResult } from "./sap";
 import {
   EditorDebugStartInput,
   EditorDebugStartResult,
@@ -1357,6 +1358,12 @@ export const WsLedgerHandleRpc = Rpc.make(WS_METHODS.ledgerHandle, {
   error: WsRpcError,
 });
 
+export const WsSapListRpc = Rpc.make(WS_METHODS.sapList, {
+  payload: SapListInput,
+  success: SapListResult,
+  error: WsRpcError,
+});
+
 export const WsGitListBranchesRpc = Rpc.make(WS_METHODS.gitListBranches, {
   payload: GitListBranchesInput,
   success: GitListBranchesResult,
@@ -2192,6 +2199,7 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsLedgerVerifyRpc,
   WsLedgerExportRpc,
   WsLedgerHandleRpc,
+  WsSapListRpc,
   WsGitListBranchesRpc,
   WsGitListRecentCommitsRpc,
   WsGitCreateWorktreeRpc,

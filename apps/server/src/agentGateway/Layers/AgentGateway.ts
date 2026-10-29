@@ -128,6 +128,9 @@ import { makeAgentGatewayKanbanTools } from "../kanbanTools.ts";
 import { makeAgentGatewayTodoTools } from "../todoTools.ts";
 import { makeAgentGatewayFlowTools } from "../flowTools.ts";
 import { FlowService } from "../../flow/Services/FlowService.ts";
+import { Ledger } from "../../ledger/Services/Ledger.ts";
+import { SapBus } from "../../sap/Services/SapBus.ts";
+import { makeAgentGatewaySapTools } from "../sapTools.ts";
 import { makeAgentGatewayInlineVisualTools } from "../inlineVisualTools.ts";
 import { TodoService } from "../../todo/Services/TodoService.ts";
 import { isServerBetaFeatureEnabled } from "../../betaFeatureGate.ts";
@@ -202,6 +205,8 @@ export const makeAgentGateway = Effect.gen(function* () {
   const projectAgentService = yield* ProjectAgentService;
   const todoService = yield* TodoService;
   const flowService = Option.getOrUndefined(yield* Effect.serviceOption(FlowService));
+  const sapBus = Option.getOrUndefined(yield* Effect.serviceOption(SapBus));
+  const ledger = Option.getOrUndefined(yield* Effect.serviceOption(Ledger));
   const git = yield* GitCore;
   const gitManager = yield* GitManager;
   const providerDiscovery = yield* ProviderDiscoveryService;
@@ -1682,6 +1687,7 @@ export const makeAgentGateway = Effect.gen(function* () {
     setThreadGoal,
     ...automationTools,
     ...(flowService ? makeAgentGatewayFlowTools({ flows: flowService, requireThreadShell }) : []),
+    ...(sapBus && ledger ? makeAgentGatewaySapTools({ sap: sapBus, ledger }) : []),
     ...browserTools,
     ...kanbanTools,
     // Same switch as the todo.* RPCs: a build without Tasks offers agents no to-do tools.
