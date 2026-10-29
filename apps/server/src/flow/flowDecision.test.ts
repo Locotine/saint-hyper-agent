@@ -75,9 +75,10 @@ describe("decideFlow", () => {
   });
 });
 
+const gate = (passed: boolean, protectedEdits: string[] = []) =>
+  ({ kind: "gate", passed, protectedEdits, summary: "1 failing" }) as const;
+
 describe("decideNodeAfterTurn", () => {
-  const gate = (passed: boolean, protectedEdits: string[] = []) =>
-    ({ kind: "gate", passed, protectedEdits, summary: "1 failing" }) as const;
   const decide = (
     mode: "manual" | "gate_hold" | "auto_refix" | "autopilot",
     attempts: number,

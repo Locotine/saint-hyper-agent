@@ -55,6 +55,18 @@ const decodeModelSelection = Schema.decodeUnknownEffect(ModelSelection);
 export const flowNodeThreadId = (flowId: string, nodeId: string, attempt: number) =>
   ThreadId.makeUnsafe(`flow-${stableGatewayDigest({ flowId, nodeId, attempt }, 32)}`);
 
+const nodeSpecOf = (run: FlowRun, nodeId: string) =>
+  run.spec.nodes.find((entry) => entry.id === nodeId)!;
+
+const failedGate = (output: string): FlowGateResult => ({
+  passed: false,
+  exitCode: null,
+  timedOut: false,
+  durationMs: 0,
+  output,
+  protectedEdits: [],
+});
+
 const view = (state: FlowRunState): FlowRunView => ({
   run: state.run,
   nodes: state.nodes,
@@ -113,9 +125,6 @@ const make = Effect.gen(function* () {
       Effect.map((shell) => Option.getOrNull(shell)?.workspaceRoot ?? null),
       Effect.mapError(toError("Could not read the flow's project.")),
     );
-
-  const nodeSpecOf = (run: FlowRun, nodeId: string) =>
-    run.spec.nodes.find((entry) => entry.id === nodeId)!;
 
   const spawnNode = (state: FlowRunState, node: FlowNodeRun, failure?: string) =>
     Effect.gen(function* () {
@@ -452,23 +461,15 @@ const make = Effect.gen(function* () {
         const node = nodes.find((entry) => entry.nodeId === nodeId)!;
         const gate = nodeSpecOf(run, nodeId).gate!;
         const cwd = yield* projectCwd(run);
-        const failed = (output: string): FlowGateResult => ({
-          passed: false,
-          exitCode: null,
-          timedOut: false,
-          durationMs: 0,
-          output,
-          protectedEdits: [],
-        });
         const result: FlowGateResult = cwd
           ? yield* Effect.tryPromise(() =>
               runFlowGate({ gate, cwd, baseline: node.baselineRef ?? null }),
             ).pipe(
               Effect.catch((error) =>
-                Effect.succeed(failed(`Saint could not run the gate: ${String(error)}`)),
+                Effect.succeed(failedGate(`Saint could not run the gate: ${String(error)}`)),
               ),
             )
-          : failed("Saint could not find the project folder to run the gate in.");
+          : failedGate("Saint could not find the project folder to run the gate in.");
         const evidence = yield* ledger
           .putHandle({
             kind: "ev",
