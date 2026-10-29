@@ -78,6 +78,8 @@ const RIGHT_DOCK_LAUNCHER_ORDER: readonly RightDockPaneKind[] = [
   "git",
 ];
 
+const REMOTE_HOST_LAUNCHER_KINDS: ReadonlySet<RightDockPaneKind> = new Set(["browser", "explorer"]);
+
 const RIGHT_DOCK_LAUNCHER_LABELS: Partial<Record<RightDockPaneKind, string>> = {
   diff: "Review",
   explorer: "Files",
@@ -95,8 +97,17 @@ export function resolveRightDockLauncherItems(input: {
    * from this machine to make it work.
    */
   hasDeviceSupport?: boolean;
+  /**
+   * A connected host's chat: only tools that act on that host (its files) or on nothing
+   * machine-bound (the browser). Terminal, review, Git, simulators and side chats would run
+   * on this computer.
+   */
+  onRemoteHost?: boolean;
 }): readonly RightDockLauncherItem[] {
   return RIGHT_DOCK_LAUNCHER_ORDER.flatMap((kind) => {
+    if (input.onRemoteHost && !REMOTE_HOST_LAUNCHER_KINDS.has(kind)) {
+      return [];
+    }
     if (kind === "diff" && !input.hasReview) {
       return [];
     }

@@ -22,7 +22,9 @@ import type { FileCommentSelection } from "~/lib/fileComments";
 import { projectListDirectoriesQueryOptions } from "~/lib/projectReactQuery";
 import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
 import { WorkspaceFilePreview } from "../WorkspaceFilePreview";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
+import { useHostId } from "~/hosts/hostScope";
 import { XIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
 import {
@@ -123,6 +125,8 @@ export const DockExplorerPane = function DockExplorerPane(props: {
   onCommentInChat?: ((comment: FileCommentSelection) => void) | undefined;
 }) {
   const queryClient = useQueryClient();
+  // A connected host's chat browses that host's files, read-only: edits would be saved here.
+  const hostId = useHostId();
   // Browse state lives in the per-thread store, not component state: the pane
   // unmounts on a thread switch and remounts on return, so useState here would
   // reset the selected file, expanded directories, and search query every time.
@@ -162,7 +166,11 @@ export const DockExplorerPane = function DockExplorerPane(props: {
       const paths: string[] = [];
       for (const segment of revealRequest.path.split("/").filter(Boolean)) {
         const listing = await queryClient.fetchQuery(
-          projectListDirectoriesQueryOptions({ cwd: workspaceRoot, relativePath: parentPath }),
+          projectListDirectoriesQueryOptions({
+            cwd: workspaceRoot,
+            relativePath: parentPath,
+            hostId,
+          }),
         );
         if (cancelled) return;
         const entry = listing.entries.find(
@@ -182,7 +190,7 @@ export const DockExplorerPane = function DockExplorerPane(props: {
     return () => {
       cancelled = true;
     };
-  }, [revealRequest, props.workspaceRoot, props.threadId, queryClient]);
+  }, [revealRequest, props.workspaceRoot, props.threadId, queryClient, hostId]);
 
   const selectionRequestRef = useRef(0);
   const handleSelectFile = (path: string) => {

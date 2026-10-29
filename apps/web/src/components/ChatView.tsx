@@ -373,6 +373,8 @@ import {
 } from "./chat/MessagesTimeline.logic";
 import { ProjectPicker } from "./chat/ProjectPicker";
 import { useHostThreadActions } from "../hooks/useHostThreadActions";
+import { useRemoteSshState } from "../hooks/useRemoteSshState";
+import { remoteHostAlias } from "./settings/remoteHostsSettingsModel";
 import { ProviderHealthBanner } from "./chat/ProviderHealthBanner";
 import { resolveProviderModelLabel } from "./chat/ProviderModelPicker";
 import {
@@ -672,6 +674,7 @@ export default function ChatView({
   const navigate = useNavigate();
   const { startThread: startHostThread, startThreadInNewProject: startHostThreadInNewProject } =
     useHostThreadActions();
+  const chatHostAlias = remoteHostAlias(useRemoteSshState(), chatHost.hostId) ?? "the host";
   const hostThreadPicker = useMemo(
     () => ({ start: startHostThread, startInNewProject: startHostThreadInNewProject }),
     [startHostThread, startHostThreadInNewProject],
@@ -6835,10 +6838,20 @@ export default function ChatView({
                     closeActiveTabRef={closeActiveThreadTabRef}
                     onRenameActiveThread={() => setRenameDialogOpen(true)}
                     onNewThread={
-                      // A host's new thread starts from its project row, not a local draft.
-                      activeProjectScripts !== undefined && !isCenteredEmptyLanding && !isRemoteHost
-                        ? onNewThreadFromHeader
-                        : null
+                      isCenteredEmptyLanding
+                        ? null
+                        : isRemoteHost
+                          ? activeProject
+                            ? () =>
+                                void startHostThread(
+                                  chatHost.hostId,
+                                  chatHostAlias,
+                                  activeProject.id,
+                                )
+                            : null
+                          : activeProjectScripts !== undefined
+                            ? onNewThreadFromHeader
+                            : null
                     }
                   />
                 ),

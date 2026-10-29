@@ -69,6 +69,8 @@ import {
 import { cn } from "~/lib/utils";
 import { resolveWorkspaceFileEditorReadOnlyReason } from "~/lib/workspaceFileEditor";
 import { readLocalNativeApi } from "~/nativeApi";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
+import { useHostId } from "~/hosts/hostScope";
 import ChatMarkdown from "./ChatMarkdown";
 import { DiffTruncationWarning } from "./DiffTruncationWarning";
 import { FileLineCommentBox } from "./chat/FileLineCommentBox";
@@ -517,6 +519,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
   const [markdownPreviewOverrides, setMarkdownPreviewOverrides] = useState<
     ReadonlyMap<string, boolean>
   >(() => new Map());
+  const hostId = useHostId();
   const markdownPreviewKey = `${workspaceRoot ?? ""}\0${filePath ?? ""}`;
   const markdownPreviewEnabled =
     props.markdownPreviewEnabled ??
@@ -538,6 +541,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
   const binaryPreviewKey = `${props.workspaceRoot ?? ""}\0${filePath ?? ""}\0${localPreviewGrant ?? ""}\0${binaryPreviewRevision}`;
   const fileQuery = useQuery(
     projectReadFileQueryOptions({
+      hostId,
       cwd: props.workspaceRoot,
       relativePath: filePath,
       previewGrant: localPreviewGrant,
@@ -802,7 +806,8 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
   // disk: optimistic cache update first, ordered write-through after, refetch
   // on failure so the preview never drifts from the file.
   const handleTaskToggle = ({ sourceLine, checked }: { sourceLine: number; checked: boolean }) => {
-    if (!workspaceRoot || !filePath) {
+    // A connected host's file is read-only here: the write would land on this computer.
+    if (!workspaceRoot || !filePath || hostId !== LOCAL_HOST_ID) {
       return;
     }
     const options = projectReadFileQueryOptions({ cwd: workspaceRoot, relativePath: filePath });

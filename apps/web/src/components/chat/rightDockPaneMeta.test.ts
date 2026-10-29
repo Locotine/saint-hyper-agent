@@ -35,6 +35,18 @@ describe("resolveRightDockLauncherItems", () => {
     ).toEqual(["diff", "terminal", "browser", "explorer", "sidechat", "git"]);
   });
 
+  it("offers only the browser and the host's files on a connected host", () => {
+    expect(
+      resolveRightDockLauncherItems({
+        hasWorkspace: true,
+        hasGitRepository: true,
+        hasReview: true,
+        hasDeviceSupport: true,
+        onRemoteHost: true,
+      }).map(({ kind }) => kind),
+    ).toEqual(["browser", "explorer"]);
+  });
+
   it("hides workspace-backed tools while no workspace is ready", () => {
     expect(
       resolveRightDockLauncherItems({

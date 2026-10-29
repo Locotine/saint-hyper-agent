@@ -12,7 +12,9 @@ import type {
 import { PROJECT_SEARCH_CONTENT_MIN_QUERY_LENGTH } from "@saint/contracts";
 import { isLocalAbsolutePath } from "@saint/shared/path";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { ensureLocalNativeApi } from "~/nativeApi";
+import { apiFor } from "../hosts/hostScope";
 import {
   EXPENSIVE_READ_RETRY_OPTIONS,
   expensiveReadErrorRefetchInterval,
@@ -44,6 +46,22 @@ export const projectQueryKeys = {
   searchContent: (cwd: string | null, query: string, limit: number) =>
     ["projects", "search-content", cwd, query, limit] as const,
 };
+
+/**
+ * Reads for a connected host's chat (multi-host) go to that host and key by it after the usual
+ * key, so a host path never shares a cache entry with the same path here and prefix
+ * invalidations still reach it. This computer's keys are unchanged.
+ */
+function withHostKey<const Key extends readonly unknown[]>(key: Key, hostId: HostId) {
+  return hostId === LOCAL_HOST_ID ? key : ([...key, hostId] as const);
+}
+
+function projectApiFor(hostId: HostId) {
+  if (hostId === LOCAL_HOST_ID) return ensureLocalNativeApi();
+  const api = apiFor(hostId);
+  if (!api) throw new Error("This host is not connected.");
+  return api;
+}
 
 interface ActiveProjectFileRefresh {
   requestedGeneration: number;
@@ -241,13 +259,18 @@ export function projectListDirectoriesQueryOptions(input: {
   includeFiles?: boolean;
   enabled?: boolean;
   staleTime?: number;
+  hostId?: HostId;
 }) {
   const relativePath = input.relativePath?.trim() || null;
   const includeFiles = input.includeFiles ?? true;
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions<ProjectListDirectoriesResult>({
-    queryKey: projectQueryKeys.listDirectories(input.cwd, relativePath, includeFiles),
+    queryKey: withHostKey(
+      projectQueryKeys.listDirectories(input.cwd, relativePath, includeFiles),
+      hostId,
+    ),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!input.cwd) {
         throw new Error("Workspace directory listing is unavailable.");
       }
@@ -269,16 +292,18 @@ export function projectReadFileQueryOptions(input: {
   previewGrant?: string | null | undefined;
   enabled?: boolean;
   staleTime?: number;
+  hostId?: HostId;
 }) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   const effectiveCwd =
     input.cwd ??
     (input.relativePath !== null && isLocalAbsolutePath(input.relativePath)
       ? ABSOLUTE_LOCAL_READ_CWD
       : null);
   return queryOptions<ProjectReadFileResult>({
-    queryKey: projectQueryKeys.readFile(input.cwd, input.relativePath),
+    queryKey: withHostKey(projectQueryKeys.readFile(input.cwd, input.relativePath), hostId),
     queryFn: async ({ signal }) => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!effectiveCwd || !input.relativePath) {
         throw new Error("Workspace file read is unavailable.");
       }
@@ -408,12 +433,17 @@ export function projectSearchEntriesQueryOptions(input: {
   kind?: ProjectEntry["kind"];
   limit?: number;
   staleTime?: number;
+  hostId?: HostId;
 }) {
   const limit = input.limit ?? DEFAULT_SEARCH_ENTRIES_LIMIT;
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: projectQueryKeys.searchEntries(input.cwd, input.query, limit, input.kind ?? null),
+    queryKey: withHostKey(
+      projectQueryKeys.searchEntries(input.cwd, input.query, limit, input.kind ?? null),
+      hostId,
+    ),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!input.cwd) {
         throw new Error("Workspace entry search is unavailable.");
       }
