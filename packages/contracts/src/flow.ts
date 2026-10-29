@@ -82,6 +82,10 @@ export const FlowBudget = Schema.Struct({
 });
 export type FlowBudget = typeof FlowBudget.Type;
 
+/** Best first: zero_retention > no_training > standard. */
+export const FlowDataTerms = Schema.Literals(["zero_retention", "no_training", "standard"]);
+export type FlowDataTerms = typeof FlowDataTerms.Type;
+
 export const FlowSpec = Schema.Struct({
   version: Schema.Literal(FLOW_SPEC_VERSION),
   name: TrimmedNonEmptyString.check(Schema.isMaxLength(120)),
@@ -92,6 +96,9 @@ export const FlowSpec = Schema.Struct({
   edges: Schema.Array(FlowEdgeSpec).check(Schema.isMaxLength(FLOW_MAX_NODES * 4)),
   budget: Schema.optional(FlowBudget),
   allowedProviders: Schema.optional(Schema.Array(ProviderKind)),
+  /** How each provider treats your data; quota failover never moves to a lower tier. Unlisted
+   *  providers count as `standard`. */
+  dataTerms: Schema.optional(Schema.Record(ProviderKind, FlowDataTerms)),
 });
 export type FlowSpec = typeof FlowSpec.Type;
 
@@ -210,6 +217,10 @@ export const FlowNodeRun = Schema.Struct({
   /** Working-tree snapshot taken when the node started; protected-path edits count from here. */
   baselineRef: Schema.optional(Schema.NullOr(Schema.String)),
   lastGate: Schema.optional(Schema.NullOr(FlowGateOutcome)),
+  /** Set by quota failover: the provider/model this step runs on instead of the spec's. */
+  modelOverride: Schema.optional(Schema.NullOr(ModelSelection)),
+  /** Providers this step already ran out of quota on. */
+  quotaExhausted: Schema.optional(Schema.Array(ProviderKind)),
   /** The node thread's turn Saint last acted on, so a stale turn is never handled twice. */
   lastTurnId: Schema.optional(Schema.NullOr(Schema.String)),
   revision: NonNegativeInt,

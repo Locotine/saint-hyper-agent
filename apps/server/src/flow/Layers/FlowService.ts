@@ -38,6 +38,7 @@ import {
   renderFlowRefixMessage,
   summarizeGateFailure,
 } from "../flowPrompt.ts";
+import { decideQuota, isQuotaError } from "../quotaFailover.ts";
 import { captureGateBaseline, runFlowGate, type FlowGateResult } from "../gateRunner.ts";
 import { decodeFlowSpec, flowNodeDepths, parseFlowSpecYaml } from "../flowSpec.ts";
 import {
@@ -123,13 +124,15 @@ const make = Effect.gen(function* () {
       .saveRun({ ...run, ...patch, revision: run.revision + 1, updatedAt: isoNow() })
       .pipe(Effect.mapError(toError("Could not save the flow.")));
 
-  const nodeModelSelection = (run: FlowRun, spec: FlowNodeSpec) =>
-    spec.provider || spec.model
-      ? decodeModelSelection({
-          provider: spec.provider ?? run.modelSelection.provider,
-          model: spec.model ?? (spec.provider ? undefined : run.modelSelection.model),
-        }).pipe(Effect.mapError(toError(`Node "${spec.id}" names an unknown provider or model.`)))
-      : Effect.succeed(run.modelSelection);
+  const nodeModelSelection = (run: FlowRun, spec: FlowNodeSpec, node: FlowNodeRun) =>
+    node.modelOverride
+      ? Effect.succeed(node.modelOverride)
+      : spec.provider || spec.model
+        ? decodeModelSelection({
+            provider: spec.provider ?? run.modelSelection.provider,
+            model: spec.model ?? (spec.provider ? undefined : run.modelSelection.model),
+          }).pipe(Effect.mapError(toError(`Node "${spec.id}" names an unknown provider or model.`)))
+        : Effect.succeed(run.modelSelection);
 
   const projectCwd = (run: FlowRun) =>
     snapshotQuery.getProjectShellById(run.projectId).pipe(
@@ -144,7 +147,7 @@ const make = Effect.gen(function* () {
       const attempt = node.attempts + 1;
       const threadId = flowNodeThreadId(run.id, node.nodeId, attempt);
       const commandKey = `flow:${run.id}:${node.nodeId}:${attempt}`;
-      const modelSelection = yield* nodeModelSelection(run, spec);
+      const modelSelection = yield* nodeModelSelection(run, spec, node);
       const incoming = run.spec.edges
         .filter((edge) => edge.to === node.nodeId)
         .map((edge) => ({
@@ -451,7 +454,7 @@ const make = Effect.gen(function* () {
             statusReason: `Refix ${attempt - 1}.`,
           });
           yield* saveRun(run, { consecutiveFailures: failures(decision.countsAsFailure) });
-          const modelSelection = yield* nodeModelSelection(run, spec);
+          const modelSelection = yield* nodeModelSelection(run, spec, node);
           yield* orchestrationEngine
             .dispatch({
               type: "thread.turn.start",
@@ -587,6 +590,13 @@ const make = Effect.gen(function* () {
             if (claimed) yield* record(run, "gate.started", "saint", null, node.nodeId);
             return claimed ? node : null;
           }
+          if (
+            turn.state !== "completed" &&
+            isQuotaError(Option.getOrNull(shell)?.session?.lastError)
+          ) {
+            yield* applyQuota(run, node, spec, turn.turnId);
+            return null;
+          }
           const decision = decideNodeAfterTurn({
             mode: spec.mode,
             attempts: node.attempts,
@@ -715,6 +725,76 @@ const make = Effect.gen(function* () {
         return (yield* load(run.id)).nodes.find((entry) => entry.nodeId === node.nodeId)!;
       }),
     );
+
+  /** A step's provider ran out of quota: switch, ask or wait per its `onQuota`. Holds `mutations`. */
+  const applyQuota = (run: FlowRun, node: FlowNodeRun, spec: FlowNodeSpec, turnId: string) =>
+    Effect.gen(function* () {
+      const current = (yield* nodeModelSelection(run, spec, node)).provider;
+      const exhausted = [...new Set([...(node.quotaExhausted ?? []), current])];
+      const decision = decideQuota({ spec: run.spec, node: spec, current, exhausted });
+      const later = (effect: Effect.Effect<void, FlowServiceError>) =>
+        Effect.forkDetach(
+          effect.pipe(
+            Effect.catchCause((cause) =>
+              Effect.logWarning("flow quota failover failed", { cause: Cause.pretty(cause) }),
+            ),
+          ),
+        );
+      switch (decision.type) {
+        case "switch": {
+          const modelOverride = yield* decodeModelSelection({ provider: decision.provider }).pipe(
+            Effect.mapError(toError(`Unknown provider "${decision.provider}".`)),
+          );
+          yield* saveNode(node, { lastTurnId: turnId, quotaExhausted: exhausted, modelOverride });
+          yield* record(
+            run,
+            "node.quota_switch",
+            "saint",
+            { from: current, to: decision.provider },
+            node.nodeId,
+          );
+          yield* later(
+            continueNode({
+              flowId: run.id,
+              nodeId: node.nodeId,
+              by: "saint",
+              reason: `${current} ran out of quota; continuing on ${decision.provider}`,
+            }),
+          );
+          return;
+        }
+        case "ask":
+        case "wait":
+          yield* saveNode(node, {
+            lastTurnId: turnId,
+            quotaExhausted: exhausted,
+            status: "needs_you",
+            statusReason: decision.reason,
+          });
+          yield* record(
+            run,
+            `node.quota_${decision.type}`,
+            "saint",
+            { provider: current },
+            node.nodeId,
+          );
+          if (decision.type === "wait") {
+            // ponytail: an in-memory timer; a restart leaves the step waiting for a person.
+            yield* later(
+              Effect.sleep(decision.delayMs).pipe(
+                Effect.andThen(
+                  continueNode({
+                    flowId: run.id,
+                    nodeId: node.nodeId,
+                    by: "saint",
+                    reason: `retrying after ${current} quota wait`,
+                  }),
+                ),
+              ),
+            );
+          }
+      }
+    });
 
   const continueNode: FlowServiceShape["continueNode"] = ({ flowId, nodeId, by, reason, note }) =>
     Effect.gen(function* () {
