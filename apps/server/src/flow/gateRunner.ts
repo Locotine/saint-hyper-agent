@@ -99,6 +99,8 @@ export async function runFlowGate(input: {
     readonly env: Record<string, string>;
     readonly attach?: (child: import("node:child_process").ChildProcess) => void;
   } | null;
+  /** Sees the gate process (sandboxed or not), so a kill can stop it. */
+  readonly onSpawn?: (child: import("node:child_process").ChildProcess) => void;
 }): Promise<FlowGateResult> {
   const shell =
     process.platform === "win32"
@@ -111,7 +113,10 @@ export async function runFlowGate(input: {
   const result = await runProcess(sandbox?.file ?? shell, sandbox ? [...sandbox.args] : args, {
     cwd: input.cwd,
     ...(sandbox ? { env: { ...process.env, ...sandbox.env } } : {}),
-    ...(sandbox?.attach ? { onSpawn: sandbox.attach } : {}),
+    onSpawn: (child) => {
+      sandbox?.attach?.(child);
+      input.onSpawn?.(child);
+    },
     timeoutMs: input.gate.timeoutMs ?? FLOW_GATE_DEFAULT_TIMEOUT_MS,
     allowNonZeroExit: true,
     outputMode: "truncate",

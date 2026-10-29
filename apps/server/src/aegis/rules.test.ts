@@ -81,3 +81,22 @@ describe("untrusted sources", () => {
     expect(untrustedSourceIn(text)).toBe(source);
   });
 });
+
+describe("egress proxy shutdown", () => {
+  it("closes at once while a CONNECT tunnel is still open", async () => {
+    const upstream = net.createServer((socket) => socket.on("data", () => undefined));
+    await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+    const port = (upstream.address() as net.AddressInfo).port;
+    const proxy = await startEgressProxy({ decide: () => "allow", onUnknown: () => undefined });
+    const client = net.connect(proxy.port, "127.0.0.1");
+    await new Promise<void>((resolve) => {
+      client.once("connect", () => client.write(`CONNECT 127.0.0.1:${port} HTTP/1.1\r\n\r\n`));
+      client.once("data", () => resolve());
+    });
+    const startedAt = Date.now();
+    await proxy.close();
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    client.destroy();
+    upstream.close();
+  });
+});

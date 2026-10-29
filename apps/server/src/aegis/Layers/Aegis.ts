@@ -15,6 +15,7 @@ import {
   type PolicyV1,
 } from "@saint/contracts";
 import { Cause, Effect, Layer, Option, Schema, Stream } from "effect";
+import * as Semaphore from "effect/Semaphore";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { AgentGatewayCredentials } from "../../agentGateway/Services/AgentGatewayCredentials.ts";
@@ -150,8 +151,23 @@ const SESSION_LINGER_MS = 30_000;
 /** Protected files found for a shared session are reused this long. */
 const READ_ONLY_SCAN_TTL_MS = 30_000;
 
+// Relay servers keep the sockets they bridge; closing them first lets close() finish at once
+// instead of waiting on a provider's keep-alive connection.
+const relaySockets = new WeakMap<net.Server, Set<net.Socket>>();
+const trackSockets = (server: net.Server) => {
+  const sockets = new Set<net.Socket>();
+  relaySockets.set(server, sockets);
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
+  return server;
+};
 const closeServer = (server: net.Server) =>
-  new Promise<void>((resolve) => server.close(() => resolve()));
+  new Promise<void>((resolve) => {
+    for (const socket of relaySockets.get(server) ?? []) socket.destroy();
+    server.close(() => resolve());
+  });
 
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -177,6 +193,7 @@ const make = Effect.gen(function* () {
       return { files: [], canaries: [] };
     }
   });
+  const raiseLock = yield* Semaphore.make(1);
   const killHandlers: Array<(threadId: ThreadId) => Effect.Effect<void>> = [];
   let resolvePrincipal: AegisPrincipalResolver = () => Effect.succeed(null);
   const sessions = new Map<string, EgressSession>();
@@ -252,16 +269,19 @@ const make = Effect.gen(function* () {
       Effect.mapError(toError("Could not read the alerts.")),
     );
 
+  // Serialized: two agents asking for one domain at once still make one alert.
   const raise: AegisShape["raise"] = (input) =>
     Effect.gen(function* () {
       // One open alert per question: a domain asked for twice is still one decision.
       const open = yield* alerts(false);
+      // A new domain is one decision whichever agent asked for it.
       const same = open.find(
         (alert) =>
           alert.kind === input.kind &&
           alert.domain === (input.domain ?? null) &&
-          alert.threadId === (input.threadId ?? null) &&
-          alert.nodeId === (input.nodeId ?? null),
+          (input.kind === "new_domain" ||
+            (alert.threadId === (input.threadId ?? null) &&
+              alert.nodeId === (input.nodeId ?? null))),
       );
       if (same) return same;
       const now = new Date().toISOString();
@@ -281,7 +301,7 @@ const make = Effect.gen(function* () {
         createdAt: now,
         updatedAt: now,
       });
-    });
+    }).pipe(raiseLock.withPermit);
 
   const egressOn = (value: AegisSettings) => autonomyAtLeast(value.autonomy, "L2");
 
@@ -436,7 +456,9 @@ const make = Effect.gen(function* () {
     const ports: RelayedPort[] = [];
     for (const port of outbound) {
       const socketPath = path.join(session.dir, "r", `o${port}.sock`);
-      const server = net.createServer((client) => pipe(client, net.connect(port, "127.0.0.1")));
+      const server = trackSockets(
+        net.createServer((client) => pipe(client, net.connect(port, "127.0.0.1"))),
+      );
       await new Promise<void>((resolve, reject) =>
         server.once("error", reject).listen(socketPath, resolve),
       );
@@ -445,7 +467,9 @@ const make = Effect.gen(function* () {
     }
     for (const port of inbound) {
       const socketPath = path.join(session.dir, "r", `i${port}.sock`);
-      const server = net.createServer((client) => pipe(client, net.connect(socketPath)));
+      const server = trackSockets(
+        net.createServer((client) => pipe(client, net.connect(socketPath))),
+      );
       await new Promise<void>((resolve, reject) =>
         server.once("error", reject).listen(port, "127.0.0.1", resolve),
       );
@@ -850,6 +874,8 @@ const make = Effect.gen(function* () {
 
   const trip = (threadId: ThreadId, text: string) =>
     Effect.gen(function* () {
+      // A killed thread can still emit the activity of its last tool call; it trips once.
+      if (revoked.includes(threadId)) return;
       const hit = scanForTripwire(text.slice(0, TRIPWIRE_SCAN_CHARS), decoys.canaries);
       if (!hit) return;
       const { step } = yield* principalFor(threadId);
@@ -864,7 +890,7 @@ const make = Effect.gen(function* () {
         kind: "tripwire",
         severity: "critical",
         title: hit.kind === "canary" ? "Decoy credential used" : "Credential path touched",
-        detail: `An agent touched ${hit.match}. ${report ? `Its processes were killed in ${report.stopMs} ms, its Saint tools revoked, ${report.frozen.length > 0 ? "its worktree frozen read-only" : "its folder left writable (not a Saint worktree)"}, and its flow cancelled.` : "The kill switch failed; stop the agent by hand."}`,
+        detail: `An agent touched ${hit.match}. ${report ? `Its processes were killed in ${report.stopMs} ms, its Saint tools revoked, ${report.frozen.length > 0 || frozen.some((entry) => entry.path === step?.worktree) ? "its worktree frozen read-only" : "its folder left writable (not a Saint worktree)"}, and its flow cancelled.` : "The kill switch failed; stop the agent by hand."}`,
         why: [
           `thread ${threadId}`,
           hit.kind === "canary"

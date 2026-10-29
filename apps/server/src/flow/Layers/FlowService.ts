@@ -31,6 +31,7 @@ import {
 import { ForkContinue } from "../../orchestration/Services/ForkContinue.ts";
 import { Aegis } from "../../aegis/Services/Aegis.ts";
 import { untrustedSourceIn } from "../../aegis/rules.ts";
+import { trackProviderProcess } from "../../aegis/providerLaunch.ts";
 import { ServerConfig } from "../../config.ts";
 import { GitCore } from "../../git/Services/GitCore.ts";
 import { currentFlowAdmission } from "../../economy/Services/Economy.ts";
@@ -728,6 +729,10 @@ const make = Effect.gen(function* () {
         const { run, nodes } = yield* load(flowId);
         const node = nodes.find((entry) => entry.nodeId === nodeId)!;
         const gate = nodeSpecOf(run, nodeId).gate!;
+        // A cancel or kill stops the gate with the step's other processes.
+        const trackGate = (child: import("node:child_process").ChildProcess) => {
+          if (node.threadId && child.pid !== undefined) trackProviderProcess(node.threadId, child);
+        };
         const cwd = yield* projectCwd(run);
         const sandbox =
           cwd && aegis
@@ -737,7 +742,13 @@ const make = Effect.gen(function* () {
             : null;
         const gateRun: FlowGateResult = cwd
           ? yield* Effect.tryPromise(() =>
-              runFlowGate({ gate, cwd, baseline: node.baselineRef ?? null, sandbox }),
+              runFlowGate({
+                gate,
+                cwd,
+                baseline: node.baselineRef ?? null,
+                sandbox,
+                onSpawn: trackGate,
+              }),
             ).pipe(
               Effect.catch((error) =>
                 Effect.succeed(failedGate(`Saint could not run the gate: ${String(error)}`)),
@@ -758,6 +769,7 @@ const make = Effect.gen(function* () {
               cwd,
               baseline: node.baselineRef ?? null,
               sandbox: resampleSandbox,
+              onSpawn: trackGate,
             }),
           ).pipe(
             Effect.catch((error) =>

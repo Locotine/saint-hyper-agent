@@ -82,6 +82,12 @@ export function startEgressProxy(options: EgressProxyOptions): Promise<EgressPro
     client.on("error", () => upstream.destroy());
   });
 
+  const sockets = new Set<net.Socket>();
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
+
   return new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
@@ -92,6 +98,9 @@ export function startEgressProxy(options: EgressProxyOptions): Promise<EgressPro
         url: `http://127.0.0.1:${port}`,
         close: () =>
           new Promise((done) => {
+            // CONNECT tunnels are raw sockets that closeAllConnections does not reach; without
+            // destroying them server.close would wait forever (and hang shutdown).
+            for (const socket of sockets) socket.destroy();
             server.closeAllConnections();
             server.close(() => done());
           }),
