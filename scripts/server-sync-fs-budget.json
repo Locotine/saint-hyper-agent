@@ -1,8 +1,7 @@
 {
   "apps/server/src/aegis/Layers/Aegis.ts": {
-    "reason": "Aegis startup (relay script, decoys), per-launch session dirs, a bounded protected-zone scan (5000 files, skips .git and node_modules) and a worktree existence check per kill; off the streaming path.",
+    "reason": "Aegis startup (relay script, decoys), per-launch session dirs and a worktree existence check per kill; off the streaming path. The protected-zone scan is async.",
     "references": {
-      "readdirSync": 1,
       "existsSync": 1,
       "mkdirSync": 4,
       "rmSync": 2,

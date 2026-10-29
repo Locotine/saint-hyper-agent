@@ -51,6 +51,11 @@ export interface AegisKillInput {
   readonly by: string;
   /** Worktrees Saint created for the killed work; frozen read-only (never a user's checkout). */
   readonly worktrees?: ReadonlyArray<string>;
+  /**
+   * False for a person stopping work (cancelling a flow): processes are killed, but the
+   * threads keep their Saint tools. Security kills (tripwire, Kill all) revoke them.
+   */
+  readonly revoke?: boolean;
 }
 
 export interface AegisKillReport {

@@ -121,3 +121,18 @@ describe("decideFlow time budget", () => {
     expect(decideFlow({ ...snapshot({}), spec: timed, elapsedMs: 1_000 })[0]?.type).toBe("promote");
   });
 });
+
+describe("decideFlow spend budgets", () => {
+  it("fails on the token, tool-call or sub-agent cap", () => {
+    const capped = { ...spec, budget: { maxTokens: 1_000, maxToolCalls: 10, maxSubAgents: 2 } };
+    const run = (usage: FlowSnapshot["usage"]) =>
+      decideFlow({ ...snapshot({}), spec: capped, ...(usage ? { usage } : {}) })[0];
+    expect(run({ tokens: 1_001, toolCalls: 0, subAgents: 0 })).toMatchObject({
+      type: "fail",
+      reason: expect.stringContaining("Token budget"),
+    });
+    expect(run({ tokens: 0, toolCalls: 11, subAgents: 0 })?.type).toBe("fail");
+    expect(run({ tokens: 0, toolCalls: 0, subAgents: 3 })?.type).toBe("fail");
+    expect(run({ tokens: 1_000, toolCalls: 10, subAgents: 2 })?.type).toBe("promote");
+  });
+});

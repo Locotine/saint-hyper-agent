@@ -24,6 +24,30 @@ export interface FlowSnapshot {
   readonly consecutiveFailures: number;
   /** Time since the run started, checked against `budget.wallMs`. */
   readonly elapsedMs?: number;
+  /** Spend so far, checked against the token, tool-call and sub-agent budgets. */
+  readonly usage?: {
+    readonly tokens: number;
+    readonly toolCalls: number;
+    readonly subAgents: number;
+  };
+}
+
+/** Why the run is over its token, tool-call or sub-agent budget, or null. */
+export function budgetOverrun(
+  budget: FlowSpec["budget"],
+  usage: FlowSnapshot["usage"],
+): string | null {
+  if (!budget || !usage) return null;
+  if (budget.maxTokens !== undefined && usage.tokens > budget.maxTokens) {
+    return `Token budget of ${budget.maxTokens.toLocaleString("en-US")} exceeded (${usage.tokens.toLocaleString("en-US")}).`;
+  }
+  if (budget.maxToolCalls !== undefined && usage.toolCalls > budget.maxToolCalls) {
+    return `Tool-call budget of ${budget.maxToolCalls} exceeded (${usage.toolCalls}).`;
+  }
+  if (budget.maxSubAgents !== undefined && usage.subAgents > budget.maxSubAgents) {
+    return `Sub-agent budget of ${budget.maxSubAgents} exceeded (${usage.subAgents}).`;
+  }
+  return null;
 }
 
 export type FlowAction =
@@ -56,6 +80,9 @@ export function decideFlow(snapshot: FlowSnapshot): ReadonlyArray<FlowAction> {
       { type: "fail", reason: `Time budget of ${Math.round(wallMs / 60_000)} min exceeded.` },
     ];
   }
+
+  const overrun = budgetOverrun(snapshot.spec.budget, snapshot.usage);
+  if (overrun) return [{ type: "fail", reason: overrun }];
 
   const status = new Map(snapshot.nodes.map((node) => [node.nodeId, node.status]));
   const statusOf = (id: string) => status.get(id) ?? "pending";

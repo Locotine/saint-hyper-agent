@@ -1,7 +1,7 @@
 import type { FlowNodeSpec, FlowSpec } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
-import { decideQuota, isQuotaError } from "./quotaFailover";
+import { decideQuota, isQuotaError, nextAllowedProvider } from "./quotaFailover";
 
 const spec = (extra: Partial<FlowSpec> = {}): FlowSpec => ({
   version: "flow-v1",
@@ -73,4 +73,15 @@ it.each([
   [null, false],
 ])("isQuotaError(%j) = %s", (text, expected) => {
   expect(isQuotaError(text)).toBe(expected);
+});
+
+describe("nextAllowedProvider", () => {
+  it("skips tried providers and never weakens data terms", () => {
+    const terms = spec({
+      dataTerms: { codex: "zero_retention", claudeAgent: "standard", opencode: "zero_retention" },
+    } as Partial<FlowSpec>);
+    expect(nextAllowedProvider(terms, "codex", [])).toBe("opencode");
+    expect(nextAllowedProvider(terms, "codex", ["opencode"])).toBeNull();
+    expect(nextAllowedProvider(spec(), "codex", ["claudeAgent"])).toBe("opencode");
+  });
 });

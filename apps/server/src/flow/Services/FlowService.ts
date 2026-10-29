@@ -101,6 +101,8 @@ export interface FlowServiceShape {
     readonly threadId: ThreadId;
     readonly handoff: FlowHandoffV1;
   }) => Effect.Effect<FlowNodeRun, FlowServiceError>;
+  /** Called after a step's thread starts its first turn (e.g. to deliver mail waiting for it). */
+  readonly onNodeStarted: (handler: (run: FlowRun, nodeId: string) => Effect.Effect<void>) => void;
   /** The flow node a thread runs, if any. */
   readonly nodeForThread: (
     threadId: ThreadId,

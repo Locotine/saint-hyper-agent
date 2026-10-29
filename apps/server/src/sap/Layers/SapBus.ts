@@ -139,6 +139,10 @@ const make = Effect.gen(function* () {
       });
     });
 
+  // Mail sent to a step before its thread existed goes out as soon as the step starts, queued
+  // behind its first prompt.
+  flows.onNodeStarted((run, nodeId) => deliver(run, nodeId).pipe(Effect.ignore));
+
   const post = (
     run: FlowRun,
     draft: Omit<

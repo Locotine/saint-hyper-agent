@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { readdir } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 
@@ -137,7 +138,17 @@ interface EgressSession {
   readonly proxy: EgressProxy | null;
   readonly servers: Array<net.Server>;
   refs: number;
+  /** Set for sessions shared by a thread's short-lived processes (Pi runs one per command). */
+  reuseKey?: string;
+  ports?: ReadonlyArray<RelayedPort>;
+  readOnly?: { readonly files: ReadonlyArray<string>; readonly at: number };
+  linger?: ReturnType<typeof setTimeout>;
 }
+
+/** A shared session outlives its last process this long, for the thread's next command. */
+const SESSION_LINGER_MS = 30_000;
+/** Protected files found for a shared session are reused this long. */
+const READ_ONLY_SCAN_TTL_MS = 30_000;
 
 const closeServer = (server: net.Server) =>
   new Promise<void>((resolve) => server.close(() => resolve()));
@@ -169,6 +180,7 @@ const make = Effect.gen(function* () {
   const killHandlers: Array<(threadId: ThreadId) => Effect.Effect<void>> = [];
   let resolvePrincipal: AegisPrincipalResolver = () => Effect.succeed(null);
   const sessions = new Map<string, EgressSession>();
+  const reusableSessions = new Map<string, EgressSession>();
   // Settings change rarely and the proxy decides on every connection, so keep them in memory.
   let cached: AegisSettings | null = null;
   let revoked: ReadonlyArray<ThreadId> = [];
@@ -273,9 +285,25 @@ const make = Effect.gen(function* () {
 
   const egressOn = (value: AegisSettings) => autonomyAtLeast(value.autonomy, "L2");
 
-  const principalFor = (threadId: string) =>
-    resolvePrincipal(threadId).pipe(
+  // A thread's flow step never changes; cache it briefly so a busy agent's tool calls and
+  // connections do not each read the flow tables.
+  const principalCache = new Map<string, { step: AegisFlowPrincipal | null; at: number }>();
+  const PRINCIPAL_CACHE_MS = 30_000;
+  const resolveCached = (threadId: string) => {
+    const hit = principalCache.get(threadId);
+    if (hit && Date.now() - hit.at < PRINCIPAL_CACHE_MS) return Effect.succeed(hit.step);
+    return resolvePrincipal(threadId).pipe(
       Effect.orElseSucceed(() => null),
+      Effect.tap((step) =>
+        Effect.sync(() => {
+          if (principalCache.size >= 2_000) principalCache.clear();
+          principalCache.set(threadId, { step, at: Date.now() });
+        }),
+      ),
+    );
+  };
+  const principalFor = (threadId: string) =>
+    resolveCached(threadId).pipe(
       Effect.map((step): { principal: PolicyPrincipal; step: AegisFlowPrincipal | null } =>
         step
           ? {
@@ -290,29 +318,30 @@ const make = Effect.gen(function* () {
     principal.kind === "node" ? (principal.flowId as AegisAlert["flowId"]) : null;
 
   /** Absolute protected files in a workspace this principal may not write (read-only mounts). */
-  const readOnlyFiles = (value: AegisSettings, cwd: string, principal: PolicyPrincipal) => {
+  /** Async, so a large workspace never stalls the server while a sandboxed process starts. */
+  const readOnlyFiles = async (value: AegisSettings, cwd: string, principal: PolicyPrincipal) => {
     const patterns = [...FLOW_ALWAYS_PROTECTED, ...value.policy.protectedZones].map(
       protectedPathPattern,
     );
     const found: string[] = [];
-    const walk = (relative: string) => {
+    const walk = async (relative: string): Promise<void> => {
       if (found.length >= PROTECTED_SCAN_LIMIT) return;
       let entries: Array<{ name: string; isDirectory(): boolean }>;
       try {
-        entries = readdirSync(path.join(cwd, relative), { withFileTypes: true });
+        entries = await readdir(path.join(cwd, relative), { withFileTypes: true });
       } catch {
         return;
       }
       for (const entry of entries) {
         const child = relative ? `${relative}/${entry.name}` : entry.name;
         if (entry.isDirectory()) {
-          if (!PROTECTED_SCAN_SKIP.has(entry.name)) walk(child);
+          if (!PROTECTED_SCAN_SKIP.has(entry.name)) await walk(child);
         } else if (patterns.some((pattern) => pattern.test(child))) {
           found.push(child);
         }
       }
     };
-    walk("");
+    await walk("");
     return found
       .filter(
         (file) =>
@@ -331,13 +360,23 @@ const make = Effect.gen(function* () {
     }
   };
 
-  const releaseSession = (session: EgressSession) => {
-    session.refs -= 1;
-    if (session.refs > 0) return;
+  const closeSession = (session: EgressSession) => {
     sessions.delete(session.key);
+    if (session.reuseKey) reusableSessions.delete(session.reuseKey);
     void Promise.all([session.proxy?.close(), ...session.servers.map(closeServer)]).finally(() =>
       rmSync(session.dir, { recursive: true, force: true }),
     );
+  };
+
+  const releaseSession = (session: EgressSession) => {
+    session.refs -= 1;
+    if (session.refs > 0) return;
+    if (!session.reuseKey) return closeSession(session);
+    clearTimeout(session.linger);
+    session.linger = setTimeout(() => {
+      if (session.refs === 0) closeSession(session);
+    }, SESSION_LINGER_MS);
+    session.linger.unref();
   };
 
   /** One proxy port and one scratch dir per provider process; the port identifies the principal. */
@@ -426,7 +465,19 @@ const make = Effect.gen(function* () {
       !value.unsandboxedThreads.includes(input.threadId as ThreadId);
     const withProxy = egressOn(value);
     if (!sandboxed && !withProxy) return { sandbox: undefined, env: {}, attach: () => undefined };
-    const session = await openSession(input.threadId, principal, withProxy);
+    // Processes that serve no port of their own share one session per thread, workspace and
+    // provider, so a command-per-process provider does not open a proxy and relay each time.
+    const reuseKey =
+      (input.inboundPorts ?? []).length === 0
+        ? `${input.threadId}\0${input.cwd ?? ""}\0${input.provider}\0${withProxy}`
+        : null;
+    const reusable = reuseKey ? reusableSessions.get(reuseKey) : undefined;
+    const session = reusable ?? (await openSession(input.threadId, principal, withProxy));
+    if (reuseKey && !reusable) {
+      session.reuseKey = reuseKey;
+      reusableSessions.set(reuseKey, session);
+    }
+    clearTimeout(session.linger);
     session.refs += 1;
     let attached = false;
     const attach: ProviderLaunch["attach"] = (child) => {
@@ -455,12 +506,19 @@ const make = Effect.gen(function* () {
     );
     const inbound = input.inboundPorts ?? [];
     const ports =
-      sandboxKind === "bwrap"
+      session.ports ??
+      (sandboxKind === "bwrap"
         ? await bridgePorts(session, outbound, inbound)
         : [
             ...outbound.map((port) => ({ port, socketPath: "", direction: "out" as const })),
             ...inbound.map((port) => ({ port, socketPath: "", direction: "in" as const })),
-          ];
+          ]);
+    if (session.reuseKey) session.ports = ports;
+    const readOnly =
+      session.readOnly && Date.now() - session.readOnly.at < READ_ONLY_SCAN_TTL_MS
+        ? session.readOnly.files
+        : await readOnlyFiles(value, input.cwd, principal);
+    if (session.reuseKey) session.readOnly = { files: readOnly, at: Date.now() };
     const decoyHome = path.join(session.dir, "home");
     if (sandboxKind === "sandbox-exec") prepareDecoyHome(home, decoyHome, decoys.files);
     const sandbox = sandboxLauncher({
@@ -469,7 +527,7 @@ const make = Effect.gen(function* () {
       cwd: input.cwd,
       sessionDir: session.dir,
       writable,
-      readOnly: readOnlyFiles(value, input.cwd, principal),
+      readOnly,
       decoys: decoys.files,
       ports,
       relay: { command: process.execPath, args: [relayScript] },
@@ -692,8 +750,10 @@ const make = Effect.gen(function* () {
       const startedAt = performance.now();
       const now = new Date().toISOString();
       // Capabilities first: a process still alive for a few hundred ms can no longer act.
-      for (const threadId of input.threadIds) credentials?.setCapabilityCeiling?.(threadId, []);
-      yield* saveRevoked([...new Set([...revoked, ...input.threadIds])]);
+      if (input.revoke !== false) {
+        for (const threadId of input.threadIds) credentials?.setCapabilityCeiling?.(threadId, []);
+        yield* saveRevoked([...new Set([...revoked, ...input.threadIds])]);
+      }
       const pids = input.threadIds.flatMap((threadId) => providerProcessIds(threadId));
       const [trees] = yield* Effect.all(
         [

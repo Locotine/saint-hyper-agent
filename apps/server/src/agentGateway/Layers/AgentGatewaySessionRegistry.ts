@@ -18,6 +18,7 @@ const PROVIDER_SESSION_CAPABILITIES = [
   "browser:control",
   "device:control",
   "flow:write",
+  "sap:send",
 ] as const;
 
 export function makeAgentGatewaySessionRegistry(options?: {

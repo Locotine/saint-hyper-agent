@@ -30,6 +30,7 @@ import {
 } from "../../orchestration/forkContinue.ts";
 import { ForkContinue } from "../../orchestration/Services/ForkContinue.ts";
 import { Aegis } from "../../aegis/Services/Aegis.ts";
+import { untrustedSourceIn } from "../../aegis/rules.ts";
 import { ServerConfig } from "../../config.ts";
 import { GitCore } from "../../git/Services/GitCore.ts";
 import { currentFlowAdmission } from "../../economy/Services/Economy.ts";
@@ -47,8 +48,13 @@ import {
   renderFlowRefixMessage,
   summarizeGateFailure,
 } from "../flowPrompt.ts";
-import { decideQuota, isQuotaError } from "../quotaFailover.ts";
-import { captureGateBaseline, runFlowGate, type FlowGateResult } from "../gateRunner.ts";
+import { decideQuota, isQuotaError, nextAllowedProvider } from "../quotaFailover.ts";
+import {
+  captureGateBaseline,
+  runFlowGate,
+  shouldResampleGate,
+  type FlowGateResult,
+} from "../gateRunner.ts";
 import { decodeFlowSpec, flowNodeDepths, parseFlowSpecYaml } from "@saint/shared/flowSpec";
 import {
   FlowService,
@@ -76,9 +82,18 @@ export const flowNodeThreadId = (flowId: string, nodeId: string, attempt: number
 const nodeSpecOf = (run: FlowRun, nodeId: string) =>
   run.spec.nodes.find((entry) => entry.id === nodeId)!;
 
-/** Steps that read untrusted input, and every step downstream of one. */
-export function taintedNodes(spec: FlowRun["spec"]): Set<string> {
-  const tainted = new Set(spec.nodes.filter((node) => node.untrusted).map((node) => node.id));
+/**
+ * Steps that read untrusted input, and every step downstream of one: marked in the spec, or seen
+ * reading the web, the browser or GitHub while they ran.
+ */
+export function taintedNodes(
+  spec: FlowRun["spec"],
+  nodes: ReadonlyArray<Pick<FlowNodeRun, "nodeId" | "taint">> = [],
+): Set<string> {
+  const tainted = new Set([
+    ...spec.nodes.filter((node) => node.untrusted).map((node) => node.id),
+    ...nodes.filter((node) => node.taint === "untrusted").map((node) => node.nodeId),
+  ]);
   let grew = true;
   while (grew) {
     grew = false;
@@ -93,8 +108,11 @@ export function taintedNodes(spec: FlowRun["spec"]): Set<string> {
 }
 
 /** Rule of Two: a tainted step never acts outward without approval. */
-const stepRuntimeMode = (run: FlowRun, nodeId: string) =>
-  taintedNodes(run.spec).has(nodeId) ? "approval-required" : run.runtimeMode;
+const stepRuntimeMode = (
+  run: FlowRun,
+  nodeId: string,
+  nodes: ReadonlyArray<Pick<FlowNodeRun, "nodeId" | "taint">> = [],
+) => (taintedNodes(run.spec, nodes).has(nodeId) ? "approval-required" : run.runtimeMode);
 
 const failedGate = (output: string): FlowGateResult => ({
   passed: false,
@@ -119,6 +137,7 @@ const make = Effect.gen(function* () {
   const credentials = Option.getOrUndefined(yield* Effect.serviceOption(AgentGatewayCredentials));
   const forkContinue = Option.getOrUndefined(yield* Effect.serviceOption(ForkContinue));
   const aegis = Option.getOrUndefined(yield* Effect.serviceOption(Aegis));
+  const nodeStartedHandlers: Array<(run: FlowRun, nodeId: string) => Effect.Effect<void>> = [];
   const git = Option.getOrUndefined(yield* Effect.serviceOption(GitCore));
   const worktreesDir = Option.getOrUndefined(
     yield* Effect.serviceOption(ServerConfig),
@@ -235,10 +254,17 @@ const make = Effect.gen(function* () {
         ? yield* Effect.promise(() => captureGateBaseline(cwd).catch(() => null))
         : null;
       // Claim the node before dispatching so a concurrent tick cannot start it twice.
+      // A Fork & Continue session is the same try in a clean context, not a refix; an autopilot
+      // switch hands the step to a new agent with its own refixes.
+      const refixBase = node.freshRefixes
+        ? attempt - 1
+        : (node.refixBase ?? 0) + (continuation ? 1 : 0);
       const claimed = yield* saveNode(node, {
         status: "running",
         threadId,
         attempts: attempt,
+        refixBase,
+        freshRefixes: false,
         statusReason: null,
         baselineRef,
         lastTurnId: null,
@@ -260,7 +286,7 @@ const make = Effect.gen(function* () {
           title: `${run.spec.name} · ${spec.role}`,
           creationSource: "flow_node",
           modelSelection,
-          runtimeMode: stepRuntimeMode(run, node.nodeId),
+          runtimeMode: stepRuntimeMode(run, node.nodeId, state.nodes),
           interactionMode: "default",
           envMode: ownWorktree ? "worktree" : "local",
           branch: ownWorktree ? `saint/flow-${run.id}` : null,
@@ -286,13 +312,16 @@ const make = Effect.gen(function* () {
           },
           modelSelection,
           dispatchMode: "queue",
-          runtimeMode: stepRuntimeMode(run, node.nodeId),
+          runtimeMode: stepRuntimeMode(run, node.nodeId, state.nodes),
           interactionMode: "default",
           createdAt: now,
         })
         .pipe(Effect.mapError(toError(`Could not start "${spec.id}".`)));
       yield* record(run, "node.started", "saint", { attempt, threadId }, node.nodeId);
-      if (stepRuntimeMode(run, node.nodeId) !== run.runtimeMode) {
+      yield* Effect.forEach(nodeStartedHandlers, (handler) => handler(run, node.nodeId), {
+        discard: true,
+      });
+      if (stepRuntimeMode(run, node.nodeId, state.nodes) !== run.runtimeMode) {
         yield* alert({
           kind: "rule_of_two",
           severity: "low",
@@ -311,6 +340,15 @@ const make = Effect.gen(function* () {
       }
     });
 
+  const usageTotals = (usage: FlowRun["usage"]) =>
+    usage
+      ? {
+          tokens: Object.values(usage.tokensByThread).reduce((sum, value) => sum + value, 0),
+          toolCalls: usage.toolCalls,
+          subAgents: usage.subAgents,
+        }
+      : undefined;
+
   /** Applies scheduler decisions until nothing changes. Callers hold `mutations`. */
   const tick = (flowId: FlowRunId): Effect.Effect<void, FlowServiceError> =>
     Effect.gen(function* () {
@@ -322,6 +360,7 @@ const make = Effect.gen(function* () {
         approvedEdges: state.approvedEdges,
         consecutiveFailures: state.run.consecutiveFailures,
         elapsedMs: Date.now() - Date.parse(state.run.createdAt),
+        ...(state.run.usage ? { usage: usageTotals(state.run.usage)! } : {}),
       });
       let changed = false;
       for (const action of actions) {
@@ -363,6 +402,8 @@ const make = Effect.gen(function* () {
           case "fail":
             yield* saveRun(state.run, { status: "failed", statusReason: action.reason });
             yield* record(state.run, "flow.failed", "saint", { reason: action.reason });
+            // A failed flow (breaker, time, token, tool-call or sub-agent budget) keeps nothing running.
+            yield* stopRunningNodes(state, "failed", action.reason, "saint");
             yield* alert({
               kind: "breaker",
               severity: "medium",
@@ -476,21 +517,21 @@ const make = Effect.gen(function* () {
       }),
     );
 
-  const cancel: FlowServiceShape["cancel"] = (flowId, by) =>
+  /** Interrupts every running step's turn and kills its provider process tree. */
+  const stopRunningNodes = (state: FlowRunState, label: string, reason: string, by: string) =>
     Effect.gen(function* () {
-      const state = yield* setRunStatus(flowId, "cancelled", by, "flow.cancelled");
-      if (!state) return;
+      const running = state.nodes.filter(
+        (node) => node.threadId && (node.status === "running" || node.status === "gating"),
+      );
       const now = isoNow();
       yield* Effect.forEach(
-        state.nodes.filter(
-          (node) => node.threadId && (node.status === "running" || node.status === "gating"),
-        ),
+        running,
         (node) =>
           orchestrationEngine
             .dispatch({
               type: "thread.turn.interrupt",
               commandId: CommandId.makeUnsafe(
-                `flow:${flowId}:${node.nodeId}:${node.attempts}:cancel`,
+                `flow:${state.run.id}:${node.nodeId}:${node.attempts}:${label}`,
               ),
               threadId: node.threadId!,
               requestedBy: "system",
@@ -499,6 +540,24 @@ const make = Effect.gen(function* () {
             .pipe(Effect.ignore),
         { discard: true },
       );
+      if (aegis && running.length > 0) {
+        yield* aegis
+          .kill({
+            threadIds: running.map((node) => node.threadId!),
+            flowId: state.run.id,
+            reason,
+            by,
+            revoke: false,
+          })
+          .pipe(Effect.ignore);
+      }
+    });
+
+  const cancel: FlowServiceShape["cancel"] = (flowId, by) =>
+    Effect.gen(function* () {
+      const state = yield* setRunStatus(flowId, "cancelled", by, "flow.cancelled");
+      if (!state) return;
+      yield* stopRunningNodes(state, "cancel", "flow cancelled", by);
     });
 
   const approveEdge: FlowServiceShape["approveEdge"] = ({ flowId, from, to, by }) =>
@@ -570,12 +629,13 @@ const make = Effect.gen(function* () {
             break;
           }
           const attempt = node.attempts + 1;
+          const refixNumber = attempt - 1 - (node.refixBase ?? 0);
           const commandKey = `flow:${flowId}:${nodeId}:${attempt}:refix`;
           yield* saveNode(node, {
             ...extra,
             status: "running",
             attempts: attempt,
-            statusReason: `Refix ${attempt - 1}.`,
+            statusReason: `Refix ${refixNumber}.`,
           });
           yield* saveRun(run, { consecutiveFailures: failures(decision.countsAsFailure) });
           const modelSelection = yield* nodeModelSelection(run, spec, node);
@@ -588,7 +648,7 @@ const make = Effect.gen(function* () {
                 messageId: MessageId.makeUnsafe(`${commandKey}:message`),
                 role: "user",
                 text: renderFlowRefixMessage({
-                  attempt: attempt - 1,
+                  attempt: refixNumber,
                   maxAttempts: spec.maxRefix ?? FLOW_DEFAULT_MAX_REFIX,
                   failure: decision.failure,
                 }),
@@ -596,7 +656,7 @@ const make = Effect.gen(function* () {
               },
               modelSelection,
               dispatchMode: "queue",
-              runtimeMode: stepRuntimeMode(run, nodeId),
+              runtimeMode: stepRuntimeMode(run, nodeId, nodes),
               interactionMode: "default",
               createdAt: isoNow(),
             })
@@ -604,11 +664,49 @@ const make = Effect.gen(function* () {
           yield* record(run, "node.refix", "saint", { attempt }, nodeId);
           break;
         }
-        case "needs_you":
+        case "needs_you": {
+          // Autopilot out of refixes: another agent gets the step before a person is asked.
+          if (spec.mode === "autopilot" && decision.countsAsFailure) {
+            const current = (yield* nodeModelSelection(run, spec, node)).provider;
+            const tried = [...new Set([...(node.refixExhausted ?? []), current])];
+            const next = nextAllowedProvider(run.spec, current, [
+              ...tried,
+              ...(node.quotaExhausted ?? []),
+            ]);
+            if (next) {
+              const modelOverride = yield* decodeModelSelection({ provider: next }).pipe(
+                Effect.mapError(toError(`Unknown provider "${next}".`)),
+              );
+              yield* saveNode(node, {
+                ...extra,
+                refixExhausted: tried,
+                modelOverride,
+                freshRefixes: true,
+                statusReason: `Refixes used up on ${current}; continuing on ${next}.`,
+              });
+              yield* record(
+                run,
+                "node.autopilot_switch",
+                "saint",
+                { from: current, to: next },
+                nodeId,
+              );
+              yield* Effect.forkDetach(
+                continueNode({
+                  flowId,
+                  nodeId,
+                  by: "saint",
+                  reason: `${current} used up its refixes; continuing on ${next}`,
+                }).pipe(Effect.ignore),
+              );
+              break;
+            }
+          }
           yield* saveNode(node, { ...extra, status: "needs_you", statusReason: decision.reason });
           yield* saveRun(run, { consecutiveFailures: failures(decision.countsAsFailure) });
           yield* record(run, "node.needs_you", "saint", { reason: decision.reason }, nodeId);
           break;
+        }
         case "fail":
           yield* saveNode(node, { ...extra, status: "failed", statusReason: decision.reason });
           yield* saveRun(run, { consecutiveFailures: run.consecutiveFailures + 1 });
@@ -646,17 +744,67 @@ const make = Effect.gen(function* () {
               ),
             )
           : failedGate("Saint could not find the project folder to run the gate in.");
+        // Saint re-runs a share of passes: a pass that does not repeat is not trusted.
+        let checkedRun = gateRun;
+        if (cwd && shouldResampleGate(gate, gateRun.passed)) {
+          const resampleSandbox = aegis
+            ? yield* aegis
+                .gateSandbox({ cwd, command: gate.cmd, threadId: node.threadId })
+                .pipe(Effect.orElseSucceed(() => null))
+            : null;
+          const resample = yield* Effect.tryPromise(() =>
+            runFlowGate({
+              gate,
+              cwd,
+              baseline: node.baselineRef ?? null,
+              sandbox: resampleSandbox,
+            }),
+          ).pipe(
+            Effect.catch((error) =>
+              Effect.succeed(failedGate(`Saint could not re-run the gate: ${String(error)}`)),
+            ),
+          );
+          yield* record(
+            run,
+            "gate.resampled",
+            "saint",
+            { gate: gate.id, passed: resample.passed, exitCode: resample.exitCode },
+            nodeId,
+          );
+          if (!resample.passed) {
+            checkedRun = {
+              ...resample,
+              protectedEdits: gateRun.protectedEdits,
+              output: `The gate passed, then failed when Saint ran it again (flaky or gamed):\n${resample.output}`,
+            };
+            yield* alert({
+              kind: "claim_unverified",
+              severity: "high",
+              title: `Gate pass did not repeat: ${nodeId}`,
+              detail: `Gate ${gate.id} passed once and failed on Saint's re-run, so the step does not settle.`,
+              why: [
+                `flow ${run.spec.name}`,
+                `step ${nodeId} gate ${gate.id}`,
+                "random re-run failed",
+              ],
+              flowId,
+              nodeId,
+              threadId: node.threadId,
+              decidable: false,
+            });
+          }
+        }
         // A protected-zone edit the Cedar policy permits for this step is not held.
         const result: FlowGateResult =
-          aegis && node.threadId && gateRun.protectedEdits.length > 0
+          aegis && node.threadId && checkedRun.protectedEdits.length > 0
             ? {
-                ...gateRun,
+                ...checkedRun,
                 protectedEdits: yield* aegis.unpermittedWrites({
                   threadId: node.threadId,
-                  paths: gateRun.protectedEdits,
+                  paths: checkedRun.protectedEdits,
                 }),
               }
-            : gateRun;
+            : checkedRun;
         const evidence = yield* ledger
           .putHandle({
             kind: "ev",
@@ -703,7 +851,7 @@ const make = Effect.gen(function* () {
             const spec = nodeSpecOf(fresh.run, nodeId);
             const decision = decideNodeAfterTurn({
               mode: spec.mode,
-              attempts: current.attempts,
+              attempts: current.attempts - (current.refixBase ?? 0),
               maxRefix: spec.maxRefix,
               outcome: {
                 kind: "gate",
@@ -756,7 +904,7 @@ const make = Effect.gen(function* () {
           }
           const decision = decideNodeAfterTurn({
             mode: spec.mode,
-            attempts: node.attempts,
+            attempts: node.attempts - (node.refixBase ?? 0),
             maxRefix: spec.maxRefix,
             outcome:
               turn.state === "completed"
@@ -873,7 +1021,8 @@ const make = Effect.gen(function* () {
             content: JSON.stringify(handoff, null, 2),
             mime: "application/json",
             provenance: `node:${node.nodeId}`,
-            taint: "internal",
+            // A tainted step's handoff carries the label to whoever reads it.
+            taint: node.taint === "untrusted" ? "untrusted" : "internal",
             createdBy: threadId,
           })
           .pipe(Effect.mapError(toError("Could not store the handoff.")));
@@ -927,6 +1076,10 @@ const make = Effect.gen(function* () {
             quotaExhausted: exhausted,
             status: "needs_you",
             statusReason: decision.reason,
+            quotaRetryAt:
+              decision.type === "wait"
+                ? new Date(Date.now() + decision.delayMs).toISOString()
+                : null,
           });
           yield* record(
             run,
@@ -936,22 +1089,30 @@ const make = Effect.gen(function* () {
             node.nodeId,
           );
           if (decision.type === "wait") {
-            // ponytail: an in-memory timer; a restart leaves the step waiting for a person.
+            // The retry time is saved on the step; the minute clock picks it up after a restart.
             yield* later(
               Effect.sleep(decision.delayMs).pipe(
-                Effect.andThen(
-                  continueNode({
-                    flowId: run.id,
-                    nodeId: node.nodeId,
-                    by: "saint",
-                    reason: `retrying after ${current} quota wait`,
-                  }),
-                ),
+                Effect.andThen(retryQuotaWait(run.id, node.nodeId)),
               ),
             );
           }
       }
     });
+
+  /** Retries a step whose quota wait is over, once: the saved retry time is cleared first. */
+  const retryQuotaWait = (flowId: FlowRunId, nodeId: string) =>
+    Effect.gen(function* () {
+      const due = yield* locked(
+        Effect.gen(function* () {
+          const node = (yield* load(flowId)).nodes.find((entry) => entry.nodeId === nodeId);
+          if (!node?.quotaRetryAt || node.status !== "needs_you") return false;
+          yield* saveNode(node, { quotaRetryAt: null });
+          return true;
+        }),
+      );
+      if (!due) return;
+      yield* continueNode({ flowId, nodeId, by: "saint", reason: "retrying after a quota wait" });
+    }).pipe(Effect.ignore);
 
   const continueNode: FlowServiceShape["continueNode"] = ({ flowId, nodeId, by, reason, note }) =>
     Effect.gen(function* () {
@@ -993,6 +1154,90 @@ const make = Effect.gen(function* () {
         }),
       );
     });
+
+  // Spend is buffered and written every few seconds, so a chatty agent's tool calls do not each
+  // rewrite the run.
+  const pendingUsage = new Map<
+    string,
+    { tokens: Map<string, number>; toolCalls: number; subAgents: number }
+  >();
+  const noteUsage = (
+    threadId: string,
+    patch: { tokens?: number; toolCalls?: number; subAgents?: number },
+  ) => {
+    const entry = pendingUsage.get(threadId) ?? { tokens: new Map(), toolCalls: 0, subAgents: 0 };
+    if (patch.tokens !== undefined) {
+      entry.tokens.set(threadId, Math.max(entry.tokens.get(threadId) ?? 0, patch.tokens));
+    }
+    entry.toolCalls += patch.toolCalls ?? 0;
+    entry.subAgents += patch.subAgents ?? 0;
+    pendingUsage.set(threadId, entry);
+  };
+  const flushUsage = Effect.gen(function* () {
+    const batch = [...pendingUsage];
+    pendingUsage.clear();
+    const byFlow = new Map<FlowRunId, typeof batch>();
+    for (const item of batch) {
+      const found = yield* nodeForThread(ThreadId.makeUnsafe(item[0])).pipe(
+        Effect.orElseSucceed(() => null),
+      );
+      if (!found) continue;
+      byFlow.set(found.run.id, [...(byFlow.get(found.run.id) ?? []), item]);
+    }
+    yield* Effect.forEach(
+      byFlow,
+      ([flowId, items]) =>
+        locked(
+          Effect.gen(function* () {
+            const { run } = yield* load(flowId);
+            const usage = {
+              tokensByThread: { ...run.usage?.tokensByThread },
+              toolCalls: run.usage?.toolCalls ?? 0,
+              subAgents: run.usage?.subAgents ?? 0,
+            };
+            for (const [, entry] of items) {
+              for (const [threadId, tokens] of entry.tokens) {
+                usage.tokensByThread[threadId] = Math.max(
+                  usage.tokensByThread[threadId] ?? 0,
+                  tokens,
+                );
+              }
+              usage.toolCalls += entry.toolCalls;
+              usage.subAgents += entry.subAgents;
+            }
+            yield* saveRun(run, { usage });
+            if (run.status === "running") yield* tick(flowId);
+          }),
+        ).pipe(Effect.ignore),
+      { discard: true },
+    );
+  });
+
+  /** A step read untrusted input: label it, so it and every later step need approval to act out. */
+  const markTainted = (threadId: ThreadId, source: string) =>
+    locked(
+      Effect.gen(function* () {
+        const found = yield* nodeForThread(threadId);
+        if (!found || found.node.taint === "untrusted") return;
+        const { run, node } = found;
+        yield* saveNode(node, { taint: "untrusted", taintSource: source });
+        yield* record(run, "node.tainted", "saint", { source }, node.nodeId);
+        const downstream = [
+          ...taintedNodes(run.spec, [{ nodeId: node.nodeId, taint: "untrusted" }]),
+        ].filter((id) => id !== node.nodeId);
+        yield* alert({
+          kind: "rule_of_two",
+          severity: "medium",
+          title: `${node.nodeId} read untrusted input`,
+          detail: `Step ${node.nodeId} read from ${source}. ${downstream.length > 0 ? `Later steps (${downstream.join(", ")}) run with approvals on.` : "No later step depends on it."}`,
+          why: [`flow ${run.spec.name}`, `step ${node.nodeId} used ${source}`, "Rule of Two"],
+          flowId: run.id,
+          nodeId: node.nodeId,
+          threadId,
+          decidable: false,
+        });
+      }),
+    ).pipe(Effect.ignore);
 
   const continueForContext = (threadId: string, payload: unknown) =>
     Effect.gen(function* () {
@@ -1109,6 +1354,20 @@ const make = Effect.gen(function* () {
     });
 
   const recover = Effect.gen(function* () {
+    // Capability ceilings live in the credential registry's memory; the run keeps the ceiling,
+    // so a restart puts it back on every step thread before any of them can call a tool.
+    const live = yield* list({ statuses: ["running", "paused"] });
+    for (const run of live) {
+      if (!run.capabilityCeiling) continue;
+      const state = yield* load(run.id);
+      for (const node of state.nodes) {
+        if (!node.threadId) continue;
+        credentials?.setCapabilityCeiling?.(
+          node.threadId,
+          run.capabilityCeiling as ReadonlyArray<AgentGatewayCapability>,
+        );
+      }
+    }
     const runs = yield* list({ statuses: ["running"] });
     for (const run of runs) {
       const state = yield* load(run.id);
@@ -1171,6 +1430,16 @@ const make = Effect.gen(function* () {
           Effect.logWarning("flow recovery failed", { cause: Cause.pretty(cause) }),
         ),
       );
+      yield* Effect.forkScoped(
+        Effect.forever(
+          Effect.sleep(Duration.seconds(3)).pipe(
+            Effect.andThen(flushUsage),
+            Effect.catchCause((cause) =>
+              Effect.logWarning("flow usage flush failed", { cause: Cause.pretty(cause) }),
+            ),
+          ),
+        ),
+      );
       // Budgets with a wall-clock limit, and steps held back by admission, need a clock even
       // when no event arrives.
       yield* Effect.forkScoped(
@@ -1181,7 +1450,20 @@ const make = Effect.gen(function* () {
               Effect.forEach(
                 // ponytail: ticks every running flow each minute; filter by held steps if many.
                 runs,
-                (run) => locked(tick(run.id)),
+                (run) =>
+                  Effect.gen(function* () {
+                    yield* locked(tick(run.id));
+                    const now = Date.now();
+                    const due = (yield* load(run.id)).nodes.filter(
+                      (node) =>
+                        node.status === "needs_you" &&
+                        node.quotaRetryAt &&
+                        Date.parse(node.quotaRetryAt) <= now,
+                    );
+                    yield* Effect.forEach(due, (node) => retryQuotaWait(run.id, node.nodeId), {
+                      discard: true,
+                    });
+                  }),
                 { discard: true },
               ),
             ),
@@ -1195,6 +1477,30 @@ const make = Effect.gen(function* () {
         worker,
         Effect.forkScoped(
           Stream.runForEach(orchestrationEngine.streamDomainEvents, (event) => {
+            if (event.type === "thread.created") {
+              const source = event.payload.sourceThreadId ?? event.payload.parentThreadId ?? null;
+              if (source?.startsWith("flow-")) noteUsage(source, { subAgents: 1 });
+            }
+            if (
+              event.type === "thread.activity-appended" &&
+              event.payload.threadId.startsWith("flow-")
+            ) {
+              const { kind, payload } = event.payload.activity;
+              if (kind === "tool.started") noteUsage(event.payload.threadId, { toolCalls: 1 });
+              if (kind === "tool.started" || kind === "tool.completed") {
+                const source = untrustedSourceIn(JSON.stringify(payload ?? null).slice(0, 8_000));
+                if (source) {
+                  return Effect.forkDetach(markTainted(event.payload.threadId, source)).pipe(
+                    Effect.asVoid,
+                  );
+                }
+              }
+              if (kind === "context-window.updated") {
+                const usage = payload as { totalProcessedTokens?: number; usedTokens?: number };
+                const tokens = usage?.totalProcessedTokens ?? usage?.usedTokens;
+                if (typeof tokens === "number") noteUsage(event.payload.threadId, { tokens });
+              }
+            }
             if (
               event.type === "thread.activity-appended" &&
               event.payload.activity.kind === "context-window.updated" &&
@@ -1232,6 +1538,9 @@ const make = Effect.gen(function* () {
     listSpecs,
     submitHandoff,
     nodeForThread,
+    onNodeStarted: (handler) => {
+      nodeStartedHandlers.push(handler);
+    },
     reconcileThread,
     continueNode,
     startReactor,

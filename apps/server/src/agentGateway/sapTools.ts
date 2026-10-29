@@ -78,7 +78,7 @@ export function makeAgentGatewaySapTools(input: SapToolsInput): ReadonlyArray<To
     description: string,
     extra: Record<string, unknown> = {},
   ): ToolEntry => ({
-    requiredCapability: "thread:write",
+    requiredCapability: "sap:send",
     definition: {
       name,
       description,
@@ -153,7 +153,7 @@ export function makeAgentGatewaySapTools(input: SapToolsInput): ReadonlyArray<To
   );
 
   const replyTool: ToolEntry = {
-    requiredCapability: "thread:write",
+    requiredCapability: "sap:send",
     definition: {
       name: "saint_reply",
       description: "Reply to a SAP message you received, by its id (#m-…).",

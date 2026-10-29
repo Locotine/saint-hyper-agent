@@ -9,7 +9,8 @@ export type AgentGatewayCapability =
   | "browser:control"
   | "device:control"
   | "computer:control"
-  | "flow:write";
+  | "flow:write"
+  | "sap:send";
 
 export interface AgentGatewaySessionIdentity {
   readonly sessionKey: string;

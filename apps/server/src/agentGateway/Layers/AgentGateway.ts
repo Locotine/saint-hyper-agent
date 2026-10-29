@@ -165,20 +165,6 @@ const providerInstanceAvailability = (
 const AGENT_GATEWAY_INSTRUCTIONS =
   "Saint tools are thread-scoped. Use browser_* only for Saint's shared in-app browser runtime; follow the provider-delivered <saint_host_context> for full policy.";
 
-/** Thread ids a successful `saint_create_threads` result reports; empty for errors. */
-function createdThreadIds(result: McpToolCallResult): ReadonlyArray<string> {
-  if (result.isError) return [];
-  const text = result.content.find((entry) => entry.type === "text");
-  try {
-    const parsed = JSON.parse(text?.type === "text" ? text.text : "{}") as { threadIds?: unknown };
-    return Array.isArray(parsed.threadIds)
-      ? parsed.threadIds.filter((id): id is string => typeof id === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
 function readThreadGoalArg(args: Record<string, unknown>): string {
   if (!("goal" in args)) {
     throw new ToolInputError(`Missing required argument "goal".`);
@@ -480,12 +466,11 @@ export const makeAgentGateway = Effect.gen(function* () {
         callerThreadId: context.callerThreadId,
         callerTurnId: context.callerTurnId,
         assertAuthority: context.assertCallerTurnActive,
+        // A child never holds more than the agent that created it: the ceiling is set before
+        // its thread exists, so no credential is ever issued wider.
+        beforeCreateThread: (threadId) =>
+          credentials.setCapabilityCeiling?.(threadId, context.callerCapabilities),
       });
-      // A child never holds more than the agent that created it. Its credential is issued
-      // when its first turn starts, so a live one is narrowed on its next request.
-      for (const threadId of createdThreadIds(result)) {
-        credentials.setCapabilityCeiling?.(threadId, context.callerCapabilities);
-      }
       return result;
     });
   const contextMessageIdsSchema = {

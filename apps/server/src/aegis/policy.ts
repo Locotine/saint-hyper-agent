@@ -3,6 +3,7 @@
 //          protected zones. Policies are Cedar text kept in `PolicyV1`.
 // Layer: Server Aegis domain (pure, WASM)
 
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 
 import type { PolicyV1 } from "@saint/contracts";
@@ -49,6 +50,23 @@ export function validateCedarPolicies(text: string): ReadonlyArray<string> {
   return answer.type === "success" ? [] : answer.errors.map((error) => error.message);
 }
 
+// The policy text changes only when settings are saved; parse it once per distinct text instead
+// of on every tool call and egress connection.
+const preparsed = new Map<string, string | null>();
+const PREPARSED_LIMIT = 16;
+
+function preparsedPolicySetId(text: string): string | null {
+  const known = preparsed.get(text);
+  if (known !== undefined) return known;
+  const id = `p${createHash("sha256").update(text).digest("hex").slice(0, 16)}`;
+  const result = cedar().preparsePolicySet(id, { staticPolicies: text });
+  // Unparseable text falls back to `isAuthorized`, which reports the errors (and denies).
+  const value = result.type === "success" ? id : null;
+  if (preparsed.size >= PREPARSED_LIMIT) preparsed.delete(preparsed.keys().next().value!);
+  preparsed.set(text, value);
+  return value;
+}
+
 export function principalEntityUid(principal: PolicyPrincipal) {
   return principal.kind === "node"
     ? uid("Node", `${principal.flowId}/${principal.nodeId}`)
@@ -79,14 +97,24 @@ export function evaluateCedar(
       : request.action === "egress"
         ? ["egress", uid("Host", request.host.toLowerCase()), { host: request.host.toLowerCase() }]
         : ["write", uid("Path", request.path), { path: request.path }];
-  const answer = cedar().isAuthorized({
-    principal: principalUid,
-    action: uid("Action", actionId),
-    resource,
-    context,
-    policies: { staticPolicies: policyText },
-    entities,
-  });
+  const policySetId = preparsedPolicySetId(policyText);
+  const answer = policySetId
+    ? cedar().statefulIsAuthorized({
+        principal: principalUid,
+        action: uid("Action", actionId),
+        resource,
+        context,
+        preparsedPolicySetId: policySetId,
+        entities,
+      })
+    : cedar().isAuthorized({
+        principal: principalUid,
+        action: uid("Action", actionId),
+        resource,
+        context,
+        policies: { staticPolicies: policyText },
+        entities,
+      });
   if (answer.type === "failure") {
     // Unparseable policy text never grants anything.
     return {

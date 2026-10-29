@@ -84,3 +84,27 @@ export function scanForTripwire(text: string, canaries: ReadonlyArray<string>): 
   }
   return null;
 }
+
+/**
+ * Tool activity that brings in text from outside the user's control: web pages and searches,
+ * Saint's browser, and GitHub issues, pull requests and comments. A flow step that does any of
+ * this is tainted, and so is everything downstream of it (Rule of Two).
+ */
+export const UNTRUSTED_SOURCE_PATTERNS: ReadonlyArray<{
+  readonly source: string;
+  readonly pattern: RegExp;
+}> = [
+  { source: "web fetch", pattern: /\b(web_?fetch|WebFetch|fetch_url|read_url)\b/i },
+  { source: "web search", pattern: /\b(web_?search|WebSearch|search_web)\b/i },
+  { source: "browser", pattern: /\b(browser_[a-z_]+|mcp__saint__browser|computer_browser)/i },
+  {
+    source: "GitHub",
+    pattern: /\bgh (issue|pr|api|search|repo view)\b|\bsaint_github|github_inbox/i,
+  },
+  { source: "download", pattern: /\b(curl|wget)\s+[^|;\n]*https?:\/\//i },
+];
+
+/** The untrusted source a piece of tool activity reads from, or null. */
+export function untrustedSourceIn(text: string): string | null {
+  return UNTRUSTED_SOURCE_PATTERNS.find((entry) => entry.pattern.test(text))?.source ?? null;
+}

@@ -10,6 +10,18 @@ import { runProcess } from "../processRunner.ts";
 
 export const FLOW_GATE_DEFAULT_TIMEOUT_MS = 20 * 60_000;
 const GATE_OUTPUT_LIMIT_BYTES = 4 * 1024 * 1024;
+/** Share of passing gate runs re-run at once to catch flaky or gamed passes. */
+export const FLOW_GATE_DEFAULT_RESAMPLE_RATE = 0.1;
+
+/** Whether this pass is re-run; `random` is injectable for tests. */
+export function shouldResampleGate(
+  gate: Pick<FlowGateSpec, "resampleRate">,
+  passed: boolean,
+  random: () => number = Math.random,
+): boolean {
+  return passed && random() < (gate.resampleRate ?? FLOW_GATE_DEFAULT_RESAMPLE_RATE);
+}
+
 /** Always protected: the flow definitions that decide what a gate is. */
 export const FLOW_ALWAYS_PROTECTED = ["flows/**"];
 

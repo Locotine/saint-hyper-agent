@@ -15,6 +15,7 @@ import {
 } from "../terminal/processTreeKiller.ts";
 
 const KILL_GRACE_MS = 700;
+const FREEZE_SKIP_CONTENTS = new Set(["node_modules", ".git"]);
 const KILL_POLL_MS = 25;
 
 export interface KillTreesResult {
@@ -88,6 +89,9 @@ export async function freezeWorktree(
     if (stat.isSymbolicLink()) return;
     entries.push([relative, stat.mode & 0o7777]);
     if (!stat.isDirectory()) return;
+    // Dependency and git object trees are huge and not the agent's work: the folder itself is
+    // frozen (nothing can be added or removed there), its contents are left as they are.
+    if (FREEZE_SKIP_CONTENTS.has(path.basename(relative))) return;
     const children = await readdir(absolute);
     await Promise.all(children.map((child) => walk(path.join(relative, child))));
   };

@@ -1,3 +1,4 @@
+import type { LedgerVerifyResult } from "@saint/contracts";
 import {
   createHash,
   createPrivateKey,
@@ -142,23 +143,47 @@ const makeLedger = Effect.gen(function* () {
     );
 
   // ponytail: verifies the whole chain in memory; page through by seq once ledgers reach millions.
+  const LEDGER_VERIFY_PAGE = 1_000;
+
+  const selectEventsAfter = (seq: number) => sql<EventRow>`
+    SELECT seq, ts, kind, actor, flow_id AS "flowId", node_id AS "nodeId",
+      payload_json AS "payloadJson", prev_hash AS "prevHash", hash, sig
+    FROM ledger_events
+    WHERE seq > ${seq}
+    ORDER BY seq ASC
+    LIMIT ${LEDGER_VERIFY_PAGE}
+  `;
+
+  /** Re-checks the whole chain page by page, so memory stays flat as the ledger grows. */
   const verifyChain: LedgerShape["verify"] = () =>
-    selectAllEvents.pipe(
-      Effect.map((rows) => {
-        let prevHash = LEDGER_GENESIS_HASH;
+    Effect.gen(function* () {
+      const [head] = yield* sql<{ total: number }>`SELECT COUNT(*) AS total FROM ledger_events`;
+      let seq = 0;
+      let prevHash = LEDGER_GENESIS_HASH;
+      let count = 0;
+      let result: LedgerVerifyResult | null = null;
+      while (result === null) {
+        const rows = yield* selectEventsAfter(seq);
         for (const row of rows) {
           const event = toEvent(row);
           const intact =
             row.prevHash === prevHash &&
             ledgerEventHash(prevHash, event) === row.hash &&
             verify(null, Buffer.from(row.hash, "hex"), publicKey, Buffer.from(row.sig, "base64"));
-          if (!intact) return { intact: false, count: rows.length, brokenAtSeq: row.seq };
+          count += 1;
+          if (!intact) {
+            result = { intact: false, count: Number(head?.total ?? count), brokenAtSeq: row.seq };
+            break;
+          }
           prevHash = row.hash;
+          seq = row.seq;
         }
-        return { intact: true, count: rows.length, brokenAtSeq: null };
-      }),
-      Effect.mapError(fail("Ledger.verify")),
-    );
+        if (result === null && rows.length < LEDGER_VERIFY_PAGE) {
+          result = { intact: true, count, brokenAtSeq: null };
+        }
+      }
+      return result;
+    }).pipe(Effect.mapError(fail("Ledger.verify")));
 
   const exportJsonl: LedgerShape["exportJsonl"] = () =>
     selectAllEvents.pipe(

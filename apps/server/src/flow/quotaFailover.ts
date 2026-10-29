@@ -23,6 +23,21 @@ export type QuotaDecision =
   | { readonly type: "ask"; readonly reason: string }
   | { readonly type: "wait"; readonly reason: string; readonly delayMs: number };
 
+/** The next allowed provider with data terms at least as good as `current`'s, or null. */
+export function nextAllowedProvider(
+  spec: FlowSpec,
+  current: ProviderKind,
+  skip: ReadonlyArray<ProviderKind>,
+): ProviderKind | null {
+  const floor = dataTermsRank(spec, current);
+  return (
+    (spec.allowedProviders ?? []).find(
+      (provider) =>
+        provider !== current && !skip.includes(provider) && dataTermsRank(spec, provider) >= floor,
+    ) ?? null
+  );
+}
+
 export function decideQuota(input: {
   readonly spec: FlowSpec;
   readonly node: FlowNodeSpec;
@@ -40,13 +55,7 @@ export function decideQuota(input: {
     };
   }
   if (policy === "switch") {
-    const floor = dataTermsRank(spec, current);
-    const next = (spec.allowedProviders ?? []).find(
-      (provider) =>
-        provider !== current &&
-        !input.exhausted.includes(provider) &&
-        dataTermsRank(spec, provider) >= floor,
-    );
+    const next = nextAllowedProvider(spec, current, input.exhausted);
     if (next) return { type: "switch", provider: next };
   }
   return {

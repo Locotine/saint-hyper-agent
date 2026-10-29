@@ -73,6 +73,7 @@ const nodes = [
 
 const dispatched: OrchestrationCommand[] = [];
 const flows = {
+  onNodeStarted: () => undefined,
   nodeForThread: (threadId: ThreadId) =>
     Effect.succeed(
       nodes.find((entry) => entry.threadId === threadId)

@@ -50,6 +50,11 @@ export const FlowGateSpec = Schema.Struct({
   protectedPaths: Schema.optional(
     Schema.Array(TrimmedNonEmptyString).check(Schema.isMaxLength(64)),
   ),
+  /**
+   * Share of passing runs Saint runs again at once (default 0.1). A pass that fails on the
+   * second run is flaky or gamed, and the step does not settle on it.
+   */
+  resampleRate: Schema.optional(Schema.Number.check(Schema.isBetween({ minimum: 0, maximum: 1 }))),
 });
 export type FlowGateSpec = typeof FlowGateSpec.Type;
 
@@ -82,6 +87,12 @@ export const FlowBudget = Schema.Struct({
   maxDepth: Schema.optional(PositiveInt),
   breakerFailures: Schema.optional(PositiveInt),
   wallMs: Schema.optional(PositiveInt),
+  /** Tokens processed by every step's agent, summed over the run. */
+  maxTokens: Schema.optional(PositiveInt),
+  /** Tool calls by every step's agent. */
+  maxToolCalls: Schema.optional(PositiveInt),
+  /** Agents the steps start themselves (sub-agents and `saint_create_threads` children). */
+  maxSubAgents: Schema.optional(PositiveInt),
 });
 export type FlowBudget = typeof FlowBudget.Type;
 
@@ -141,6 +152,13 @@ export const FlowRunStatus = Schema.Literals([
 ]);
 export type FlowRunStatus = typeof FlowRunStatus.Type;
 
+export const FlowUsage = Schema.Struct({
+  tokensByThread: Schema.Record(Schema.String, NonNegativeInt),
+  toolCalls: NonNegativeInt,
+  subAgents: NonNegativeInt,
+});
+export type FlowUsage = typeof FlowUsage.Type;
+
 export const FlowRun = Schema.Struct({
   id: FlowRunId,
   projectId: ProjectId,
@@ -157,6 +175,8 @@ export const FlowRun = Schema.Struct({
   capabilityCeiling: Schema.optional(Schema.Array(Schema.String)),
   /** 0 for a flow a person started; a flow started from a flow node is one deeper. */
   nestingDepth: Schema.optional(NonNegativeInt),
+  /** What the run has spent, checked against the budget. Tokens are kept per step thread. */
+  usage: Schema.optional(FlowUsage),
   revision: NonNegativeInt,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
@@ -224,8 +244,23 @@ export const FlowNodeRun = Schema.Struct({
   modelOverride: Schema.optional(Schema.NullOr(ModelSelection)),
   /** Providers this step already ran out of quota on. */
   quotaExhausted: Schema.optional(Schema.Array(ProviderKind)),
+  /**
+   * Attempts that do not count against `maxRefix`: Fork & Continue sessions, and every attempt
+   * before an autopilot switch to another agent (which starts with fresh refixes).
+   */
+  refixBase: Schema.optional(NonNegativeInt),
+  /** Set by an autopilot switch: the next session starts with fresh refixes. */
+  freshRefixes: Schema.optional(Schema.Boolean),
+  /** Providers an autopilot step already used up its refixes on. */
+  refixExhausted: Schema.optional(Schema.Array(ProviderKind)),
   /** The node thread's turn Saint last acted on, so a stale turn is never handled twice. */
   lastTurnId: Schema.optional(Schema.NullOr(Schema.String)),
+  /** A quota `wait`: when Saint retries the step on its own (kept across restarts). */
+  quotaRetryAt: Schema.optional(Schema.NullOr(IsoDateTime)),
+  /** Set when the step's agent read untrusted input (web, browser, GitHub); spreads downstream. */
+  taint: Schema.optional(Schema.NullOr(Schema.Literal("untrusted"))),
+  /** What it read: "web fetch", "browser", "GitHub", … */
+  taintSource: Schema.optional(Schema.NullOr(Schema.String)),
   revision: NonNegativeInt,
   updatedAt: IsoDateTime,
 });

@@ -6,6 +6,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  shouldResampleGate,
   captureGateBaseline,
   matchProtectedPaths,
   protectedPathPattern,
@@ -80,5 +81,15 @@ describe("runFlowGate", () => {
     expect((await runFlowGate({ gate, cwd, baseline })).protectedEdits).toEqual([
       "test/auth.spec.ts",
     ]);
+  });
+});
+
+describe("gate resampling", () => {
+  it("re-runs about one pass in ten, never a failure, and honours the rate", () => {
+    expect(shouldResampleGate({}, true, () => 0.05)).toBe(true);
+    expect(shouldResampleGate({}, true, () => 0.5)).toBe(false);
+    expect(shouldResampleGate({}, false, () => 0)).toBe(false);
+    expect(shouldResampleGate({ resampleRate: 0 }, true, () => 0)).toBe(false);
+    expect(shouldResampleGate({ resampleRate: 1 }, true, () => 0.99)).toBe(true);
   });
 });

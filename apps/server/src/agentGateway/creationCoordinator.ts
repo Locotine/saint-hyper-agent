@@ -131,6 +131,8 @@ export type GatewayCreationContext =
       readonly callerThreadId: string;
       readonly callerTurnId: string | null;
       readonly assertAuthority: () => Effect.Effect<void, GatewayToolError>;
+      /** Runs before each child's thread exists, so its capability ceiling is in place first. */
+      readonly beforeCreateThread?: (threadId: ThreadId) => void;
     }
   | {
       readonly kind: "hub-work";
@@ -1181,6 +1183,9 @@ export const makeCreateThreadsHandler = Effect.fn(function* (
                       callerThreadId: context.callerThreadId,
                       targetProjectId: entry.projectId,
                     });
+                  }
+                  if (context.kind === "provider-session") {
+                    context.beforeCreateThread?.(entry.ids.threadId);
                   }
                   yield* orchestrationEngine
                     .dispatch({
