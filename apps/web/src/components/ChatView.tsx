@@ -637,8 +637,8 @@ export default function ChatView({
   onCloseThreadPane,
 }: ChatViewProps) {
   const chatHost = useHostHandle();
-  // A connected host's chat (multi-host): this computer's editors, servers, panels, git and
-  // project scripts would act on the wrong machine, so their controls stay hidden.
+  // A connected host's chat (multi-host): git, terminal, review, scripts and handoff run on the
+  // host. Open in (this computer's editors) and the project hub panels stay hidden.
   const isRemoteHost = chatHost.hostId !== LOCAL_HOST_ID;
   // Prop defaults are resolved here instead of in the destructuring pattern: an
   // AssignmentPattern in the parameter list makes React Compiler bail out (silently —
@@ -691,7 +691,7 @@ export default function ChatView({
   const { resolvedTheme } = useTheme();
   const queryClient = useQueryClient();
   const createWorktreeMutation = useMutation(
-    gitCreateDetachedWorktreeMutationOptions({ queryClient }),
+    gitCreateDetachedWorktreeMutationOptions({ queryClient, hostId: chatHost.hostId }),
   );
   const isEditorRail = presentationMode === "editor";
   const isInactiveSplitPane = surfaceMode === "split" && !isFocusedPane;
@@ -3287,7 +3287,7 @@ export default function ChatView({
   // Temporary threads are visually identical to regular chats — they use the same
   // Environment panel + header controls. "Temporary" is purely a sidebar badge +
   // auto-delete-on-leave concern, never a stripped-down chat UI.
-  const environmentEnabled = !isEditorRail && !hideHeader && !isRemoteHost;
+  const environmentEnabled = !isEditorRail && !hideHeader;
   const environmentUsesFloatingOverlay =
     isTerminalEnvironmentContext || isMobileViewport || rightDockOpen || surfaceMode === "split";
   const environmentDefaultOpen = resolveDefaultEnvironmentPanelOpen({
@@ -5965,14 +5965,9 @@ export default function ChatView({
       ? { onCheckoutPullRequestRequest: openPullRequestDialog }
       : {}),
   };
-  // A host's branch actions would run here, so its chat shows no branch toolbar (U6).
-  const showTrailingBranchToolbar =
-    !activeThreadIsSidechat && isGitRepo && !environmentEnabled && !isRemoteHost;
+  const showTrailingBranchToolbar = !activeThreadIsSidechat && isGitRepo && !environmentEnabled;
   const showEmptyLandingBranchToolbar =
-    isCenteredEmptyLanding &&
-    activeProject?.kind === "project" &&
-    !isHomeChatContainer &&
-    !isRemoteHost;
+    isCenteredEmptyLanding && activeProject?.kind === "project" && !isHomeChatContainer;
   // Temporary is chosen while starting a chat. Draft metadata covers local reloads;
   // the in-memory marker keeps the badge + auto-delete alive through promotion.
   const isThreadTemporary = draftThread?.isTemporary === true || hasTemporaryThreadMarker;
@@ -6859,12 +6854,12 @@ export default function ChatView({
             : {})}
           isSidechat={isSidechatThread(activeThread)}
           hideSidebarControls={isEditorRail}
-          hideHandoffControls={terminalWorkspaceTerminalTabActive || isEditorRail || isRemoteHost}
+          hideHandoffControls={terminalWorkspaceTerminalTabActive || isEditorRail}
           hideOpenIn={isRemoteHost}
           minimalChrome={isCenteredEmptyLanding}
           isGitRepo={isGitRepo}
           openInTarget={threadWorkspaceCwd}
-          activeProjectScripts={isEditorRail || isRemoteHost ? undefined : activeProjectScripts}
+          activeProjectScripts={isEditorRail ? undefined : activeProjectScripts}
           preferredScriptId={
             activeProject
               ? (lastInvokedScriptByProjectId[scopeProject(chatHost.hostId, activeProject.id)] ??
@@ -6883,13 +6878,13 @@ export default function ChatView({
           showHeaderActions={settings.showHeaderActions}
           gitCwd={threadWorkspaceCwd}
           diffTotals={repoDiffTotals}
-          showGitActions={showGitActions && !isEditorRail && !isRemoteHost}
-          showDiffToggle={!isEditorRail && !isRemoteHost}
+          showGitActions={showGitActions && !isEditorRail}
+          showDiffToggle={!isEditorRail}
           diffOpen={resolvedDiffOpen}
           diffDisabledReason={diffDisabledReason}
           rightDockOpen={rightDockOpen}
           {...(onToggleRightDock ? { onToggleRightDock } : {})}
-          environment={isEditorRail || isRemoteHost ? null : environmentHeaderState}
+          environment={isEditorRail ? null : environmentHeaderState}
           projectPanel={isEditorRail || isRemoteHost ? null : projectHeaderState}
           libraryPanel={isEditorRail || isRemoteHost ? null : libraryHeaderState}
           surfaceMode={surfaceMode}

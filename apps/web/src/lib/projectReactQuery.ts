@@ -14,7 +14,7 @@ import { isLocalAbsolutePath } from "@saint/shared/path";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { ensureLocalNativeApi } from "~/nativeApi";
-import { apiFor } from "../hosts/hostScope";
+import { apiFor } from "../hosts/hostApi";
 import {
   EXPENSIVE_READ_RETRY_OPTIONS,
   expensiveReadErrorRefetchInterval,

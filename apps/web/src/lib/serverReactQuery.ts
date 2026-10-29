@@ -9,6 +9,8 @@ import type {
   StatsGetRecapInput,
   ThreadId,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { apiFor } from "../hosts/hostApi";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { ensureLocalNativeApi } from "~/nativeApi";
 import { EXPENSIVE_READ_RETRY_OPTIONS } from "./expensiveReadRetry";
@@ -293,11 +295,16 @@ export function serverAuthSessionQueryOptions() {
  * a server process, so it caches indefinitely; a restart drops the socket and
  * remounts the app, which refetches.
  */
-export function serverEnvironmentQueryOptions() {
+/** A connected host's environment (its OS) when `hostId` names one; this computer's otherwise. */
+export function serverEnvironmentQueryOptions(hostId: HostId = LOCAL_HOST_ID) {
   return queryOptions({
-    queryKey: serverQueryKeys.environment(),
+    queryKey:
+      hostId === LOCAL_HOST_ID
+        ? serverQueryKeys.environment()
+        : ([...serverQueryKeys.environment(), hostId] as const),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = hostId === LOCAL_HOST_ID ? ensureLocalNativeApi() : apiFor(hostId);
+      if (!api) throw new Error("This host is not connected.");
       return api.server.getEnvironment();
     },
     staleTime: Infinity,

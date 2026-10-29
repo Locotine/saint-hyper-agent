@@ -11,6 +11,7 @@ import { type TerminalActivityState, type TerminalCliKind } from "@saint/shared/
 import { Terminal } from "@xterm/xterm";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
+import { useHostId } from "~/hosts/hostScope";
 import { readLocalNativeApi } from "~/nativeApi";
 import { cn } from "~/lib/utils";
 import {
@@ -145,11 +146,12 @@ export default function TerminalViewport({
   const [searchAddonInstance, setSearchAddonInstance] = useState<SearchAddon | null>(null);
   const [runtimeStatus, setRuntimeStatus] = useState<TerminalRuntimeStatus>("connecting");
   const runtimeStatusMountedRef = useRef(false);
+  const hostId = useHostId();
   const trimmedCwd = useMemo(() => cwd.trim(), [cwd]);
   const runtimeCwdReady = trimmedCwd.length > 0;
   const runtimeKey = useMemo(
-    () => buildTerminalRuntimeKey(threadId, terminalId),
-    [terminalId, threadId],
+    () => buildTerminalRuntimeKey(threadId, terminalId, hostId),
+    [hostId, terminalId, threadId],
   );
   const runtimeEnvSerialized = useMemo(() => serializeRuntimeEnv(runtimeEnv), [runtimeEnv]);
   const runtimeEnvPayload = useMemo(
@@ -159,6 +161,7 @@ export default function TerminalViewport({
   const runtimeConfig = useMemo<TerminalRuntimeConfig>(
     () => ({
       runtimeKey,
+      hostId,
       threadId,
       terminalId,
       terminalLabel,
@@ -187,6 +190,7 @@ export default function TerminalViewport({
       onTerminalMetadataChange,
       runtimeEnvPayload,
       runtimeKey,
+      hostId,
       terminalCliKind,
       terminalId,
       terminalLabel,

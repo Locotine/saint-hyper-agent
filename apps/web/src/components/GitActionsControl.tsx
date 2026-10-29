@@ -3,6 +3,7 @@
 // Layer: Header action control
 // Depends on: git React Query hooks, native shell bridges, and shared picker/menu primitives.
 
+import { apiFor, useHostId } from "~/hosts/hostScope";
 import { DEFAULT_GIT_TEXT_GENERATION_MODEL } from "@saint/contracts";
 import type {
   GitActionProgressEvent,
@@ -256,6 +257,7 @@ export default function GitActionsControl({
   visibleWhen: visibleWhenProp,
   onRegisterCommitAndPushTrigger,
 }: GitActionsControlProps) {
+  const hostId = useHostId();
   const hideQuickActionLabel = hideQuickActionLabelProp ?? false;
   const variant = variantProp ?? "header";
   const visibleWhen = visibleWhenProp ?? "always";
@@ -318,7 +320,7 @@ export default function GitActionsControl({
   }, [threadToastData]);
 
   const { data: branchListData, isSuccess: branchListReady } = useQuery(
-    gitBranchesQueryOptions(gitCwd),
+    gitBranchesQueryOptions(gitCwd, hostId),
   );
   const branchList = branchListData ?? null;
   // Default to true while loading so we don't flash init controls.
@@ -331,7 +333,9 @@ export default function GitActionsControl({
     data: gitStatusData,
     error: gitStatusError,
     isFetching: isGitStatusFetching,
-  } = useQuery(gitStatusQueryOptions(gitCwd, branchListReady && branchList?.isRepo === true));
+  } = useQuery(
+    gitStatusQueryOptions(gitCwd, branchListReady && branchList?.isRepo === true, hostId),
+  );
   const gitStatus = gitStatusData ?? null;
   const isGitStatusRefreshDelayed = isGitExpensiveReadCapacityError(gitStatusError);
   const requestGitActionAvailabilityRefresh = useCallback(() => {
@@ -355,10 +359,11 @@ export default function GitActionsControl({
 
   const gitStatusForActions = isGitStatusOutOfSync ? null : gitStatus;
 
-  const initMutation = useMutation(gitInitMutationOptions({ cwd: gitCwd, queryClient }));
+  const initMutation = useMutation(gitInitMutationOptions({ hostId, cwd: gitCwd, queryClient }));
 
   const runImmediateGitActionMutation = useMutation(
     gitRunStackedActionMutationOptions({
+      hostId,
       cwd: gitCwd,
       queryClient,
       codexHomePath: settings.codexHomePath || null,
@@ -367,7 +372,7 @@ export default function GitActionsControl({
       ...(providerOptions ? { providerOptions } : {}),
     }),
   );
-  const pullMutation = useMutation(gitPullMutationOptions({ cwd: gitCwd, queryClient }));
+  const pullMutation = useMutation(gitPullMutationOptions({ hostId, cwd: gitCwd, queryClient }));
   const persistThreadPr = useCallback(
     async (pr: {
       number: number;
@@ -385,7 +390,7 @@ export default function GitActionsControl({
       if (!activeThreadId) {
         return;
       }
-      const api = readLocalNativeApi();
+      const api = apiFor(hostId);
       if (!api) {
         return;
       }
@@ -485,7 +490,7 @@ export default function GitActionsControl({
       })
     : null;
   useEffect(() => {
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!api) {
       return;
     }
@@ -563,7 +568,7 @@ export default function GitActionsControl({
   }, [updateActiveProgressToast]);
 
   const openExistingPr = useCallback(async () => {
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!api) {
       toastManager.add({
         type: "error",
@@ -639,7 +644,7 @@ export default function GitActionsControl({
 
   const openComparePage = useCallback(
     async (headBranch: string | null, baseBranch: string) => {
-      const api = readLocalNativeApi();
+      const api = apiFor(hostId);
       if (!api || !gitCwd || !headBranch) {
         toastManager.add({
           type: "error",
@@ -1200,7 +1205,7 @@ export default function GitActionsControl({
 
   const createAndCheckoutBranch = useCallback(
     async (branchName: string) => {
-      const api = readLocalNativeApi();
+      const api = apiFor(hostId);
       if (!api || !gitCwd) return;
 
       const trimmedName = branchName.trim();
@@ -1458,7 +1463,7 @@ export default function GitActionsControl({
 
   const openChangedFileInEditor = useCallback(
     (filePath: string) => {
-      const api = readLocalNativeApi();
+      const api = apiFor(hostId);
       if (!api || !gitCwd) {
         toastManager.add({
           type: "error",

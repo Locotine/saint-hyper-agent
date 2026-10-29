@@ -6,6 +6,9 @@
 // Unlike BrowserPanel there is no native view to position: the simulator paints
 // into a canvas we own, so no bounds sync or occlusion machinery is needed.
 
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
+import { handleDeviceEvent } from "~/hooks/useDeviceEventBridge";
+import { apiFor, useHostId } from "~/hosts/hostScope";
 import type {
   DeviceDescriptor,
   DeviceHardwareButton,
@@ -101,6 +104,18 @@ export default function DevicePanel(props: {
   onClosePanel: () => void;
   onRequestLive?: () => void;
 }) {
+  // Simulators run on the chat's machine: a connected host's chat drives that host's.
+  const hostId = useHostId();
+  // This computer's events arrive through the app-wide bridge; a host's only while its pane is open.
+  useEffect(() => {
+    if (hostId === LOCAL_HOST_ID) return;
+    return apiFor(hostId)?.device.onEvent(handleDeviceEvent);
+  }, [hostId]);
+  const deviceApi = () => {
+    const api = apiFor(hostId);
+    if (!api) throw new Error("This host is not connected.");
+    return api;
+  };
   const { threadId, runtimeMode, isVisible } = props;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const threadState = useDeviceStateStore(selectThreadDeviceState(threadId));
@@ -150,7 +165,7 @@ export default function DevicePanel(props: {
   useEffect(() => {
     let cancelled = false;
     const seed = () => {
-      void ensureLocalNativeApi()
+      void deviceApi()
         .device.getThreadState({ threadId })
         .then((state) => {
           if (!cancelled) upsertThreadState(state);
@@ -230,7 +245,7 @@ export default function DevicePanel(props: {
 
   const attachDevice = useCallback(
     async (udid: DeviceUdid) => {
-      const api = ensureLocalNativeApi();
+      const api = deviceApi();
       upsertThreadState(await api.device.attach({ threadId, udid }));
     },
     [threadId, upsertThreadState],
@@ -246,7 +261,7 @@ export default function DevicePanel(props: {
       void runDeviceAction(async () => {
         try {
           if (entry.action.kind === "boot-then-attach") {
-            const result = await ensureLocalNativeApi().device.boot({ udid });
+            const result = await deviceApi().device.boot({ udid });
             if (result.kind === "boot-limit-reached") {
               // A refusal, not a failure: hand the user the devices they can
               // free instead of a dead end.
@@ -283,7 +298,7 @@ export default function DevicePanel(props: {
       if (requested) setPendingDevice({ device: requested, supersedes: reportedUdid });
       void runDeviceAction(async () => {
         try {
-          const api = ensureLocalNativeApi();
+          const api = deviceApi();
           await api.device.shutdown({ udid: candidate.udid });
           const result = await api.device.boot({ udid: pending.pendingUdid });
           if (result.kind === "boot-limit-reached") {
@@ -304,14 +319,14 @@ export default function DevicePanel(props: {
   const detachDevice = useCallback(() => {
     setPendingDevice(null);
     void runDeviceAction(async () => {
-      upsertThreadState(await ensureLocalNativeApi().device.detach({ threadId }));
+      upsertThreadState(await deviceApi().device.detach({ threadId }));
     }, "Could not detach the simulator");
   }, [runDeviceAction, threadId, upsertThreadState]);
 
   const shutdownAttached = useCallback(() => {
     if (!attachedDevice) return;
     void runDeviceAction(async () => {
-      await ensureLocalNativeApi().device.shutdown({ udid: attachedDevice.udid });
+      await deviceApi().device.shutdown({ udid: attachedDevice.udid });
     }, "Could not shut down the simulator");
   }, [attachedDevice, runDeviceAction]);
 
@@ -319,7 +334,7 @@ export default function DevicePanel(props: {
     (button: DeviceHardwareButton) => {
       if (!attachedDevice) return;
       void runDeviceAction(async () => {
-        await ensureLocalNativeApi().device.pressButton({ udid: attachedDevice.udid, button });
+        await deviceApi().device.pressButton({ udid: attachedDevice.udid, button });
       }, "Could not press that button");
     },
     [attachedDevice, runDeviceAction],
@@ -342,7 +357,7 @@ export default function DevicePanel(props: {
     const intent = deviceRecordingClickIntent(recording);
     if (!intent) return;
     const udid = attachedDevice.udid;
-    const api = ensureLocalNativeApi();
+    const api = deviceApi();
 
     if (intent === "start") {
       setRecording((state) => stepDeviceRecording(state, { kind: "start-requested" }));
@@ -398,7 +413,7 @@ export default function DevicePanel(props: {
       // browser chose — or nowhere at all where downloads are unavailable —
       // while the record button wrote to the Desktop. Two capture buttons on
       // one rail have to leave their output in the same place.
-      const shot = await ensureLocalNativeApi().device.screenshot({
+      const shot = await deviceApi().device.screenshot({
         udid: attachedDevice.udid,
         save: true,
       });
@@ -436,7 +451,7 @@ export default function DevicePanel(props: {
     setMeasuredPointSize(null);
     if (!attachedUdid || attachedDevice?.state !== "booted" || !needsMeasuredPointSize) return;
     let cancelled = false;
-    void ensureLocalNativeApi()
+    void deviceApi()
       .device.describeUi({ udid: attachedUdid })
       .then((result) => {
         if (cancelled) return;
@@ -528,7 +543,7 @@ export default function DevicePanel(props: {
       });
       if (!gesture) return;
 
-      const api = ensureLocalNativeApi();
+      const api = deviceApi();
       const udid = attachedDevice.udid;
       const sent =
         gesture.kind === "tap"
@@ -572,7 +587,7 @@ export default function DevicePanel(props: {
       const keyCode = deviceHidUsageForKey(event.key);
       if (keyCode === null) return;
       event.preventDefault();
-      void ensureLocalNativeApi()
+      void deviceApi()
         .device.keyEvent({
           udid: attachedDevice.udid,
           keyCode,

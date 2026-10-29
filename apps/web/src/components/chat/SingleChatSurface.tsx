@@ -231,12 +231,11 @@ export function SingleChatSurface(props: {
       threadWorkspaceMetadata.workingDirectory ?? draftThread?.workingDirectory ?? null,
   });
   const homeDir = useWorkspacePathsStore((store) => store.homeDir);
-  const dockGitRepositoryQuery = useQuery(gitBranchesQueryOptions(workspaceRoot));
+  const dockGitRepositoryQuery = useQuery(gitBranchesQueryOptions(workspaceRoot, chatHost.hostId));
   const hasGitRepository = dockGitRepositoryQuery.data?.isRepo === true;
   const dockDiffTotals = useRepoDiffTotals({
     gitCwd: workspaceRoot,
-    // Diff totals read this computer's git; a host's chat has no Review pane.
-    isGitRepo: hasGitRepository && !isRemoteHost,
+    isGitRepo: hasGitRepository,
   });
   const hasDeviceSupport = useDeviceSupport();
   const dockLauncherItems = resolveRightDockLauncherItems({
@@ -244,7 +243,6 @@ export function SingleChatSurface(props: {
     hasGitRepository,
     hasReview: dockDiffTotals.fileCount > 0,
     hasDeviceSupport,
-    onRemoteHost: isRemoteHost,
   });
   const availableDockPaneKinds = dockLauncherItems.map(({ kind }) => kind);
   const projects = useStore((store) => store.projects);

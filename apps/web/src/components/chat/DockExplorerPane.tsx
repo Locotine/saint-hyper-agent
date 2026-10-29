@@ -22,7 +22,6 @@ import type { FileCommentSelection } from "~/lib/fileComments";
 import { projectListDirectoriesQueryOptions } from "~/lib/projectReactQuery";
 import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
 import { WorkspaceFilePreview } from "../WorkspaceFilePreview";
-import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useHostId } from "~/hosts/hostScope";
 import { XIcon } from "~/lib/icons";
@@ -81,7 +80,6 @@ function FilePreviewTabs(props: {
               role="tab"
               aria-selected={active}
               tabIndex={active ? 0 : -1}
-              title={path}
               className={cn(
                 WORKSPACE_TAB_CLASS_NAME,
                 "max-w-48 cursor-default gap-1 pr-1",
@@ -125,7 +123,7 @@ export const DockExplorerPane = function DockExplorerPane(props: {
   onCommentInChat?: ((comment: FileCommentSelection) => void) | undefined;
 }) {
   const queryClient = useQueryClient();
-  // A connected host's chat browses that host's files, read-only: edits would be saved here.
+  // A connected host's chat browses, edits and saves that host's files.
   const hostId = useHostId();
   // Browse state lives in the per-thread store, not component state: the pane
   // unmounts on a thread switch and remounts on return, so useState here would

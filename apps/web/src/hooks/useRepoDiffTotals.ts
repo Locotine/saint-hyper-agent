@@ -4,6 +4,7 @@
 //          badge and the Environment panel "Changes" row so both read the same numbers.
 // Layer: Chat git data hook
 
+import { useHostId } from "~/hosts/hostScope";
 import { useQuery } from "@tanstack/react-query";
 
 import { gitWorkingTreeDiffStatsQueryOptions } from "~/lib/gitReactQuery";
@@ -27,6 +28,7 @@ export function useRepoDiffTotals({
   isGitRepo: boolean;
   refetchInterval?: number | false;
 }): RepoDiffTotals {
+  const hostId = useHostId();
   const refetchInterval = refetchIntervalProp ?? false;
   // Match the Diff panel source selector so every surface shows the selected scope.
   const { scope: repoDiffScope, compareRef: repoDiffCompareRef } = useRepoDiffScope(gitCwd);
@@ -36,6 +38,7 @@ export function useRepoDiffTotals({
   // patch it would have sent, so the displayed numbers are unchanged.
   const { data: totals } = useQuery(
     gitWorkingTreeDiffStatsQueryOptions({
+      hostId,
       cwd: gitCwd,
       scope: repoDiffScope,
       compareRef: repoDiffCompareRef,

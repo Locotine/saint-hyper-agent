@@ -8,6 +8,8 @@ import type {
   PullRequestSetPinnedInput,
   PullRequestState,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { pullRequestApiFor } from "./pullRequestQueryOptions";
 import { normalizeGitHubPullRequestUrl } from "@saint/shared/githubRepository";
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
@@ -143,14 +145,17 @@ function invalidatePullRequestActionDetails(
   });
 }
 
-export function pullRequestActionMutationOptions(queryClient: QueryClient) {
+export function pullRequestActionMutationOptions(
+  queryClient: QueryClient,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   return mutationOptions({
     mutationKey: pullRequestMutationKeys.action,
     // Manual refreshes share this scope, so their snapshot cannot race a PR state action.
     scope: { id: PULL_REQUEST_ACTION_REFRESH_SCOPE_ID },
     networkMode: "always",
     mutationFn: (input: PullRequestActionInput) =>
-      ensureLocalNativeApi().pullRequests.action(input),
+      pullRequestApiFor(hostId).pullRequests.action(input),
     onMutate: async (input): Promise<ActionMutationContext> => {
       const patch = optimisticPullRequestActionPatch(input.action) ?? {};
       const optimisticListPatch = {
@@ -348,12 +353,15 @@ export function pullRequestSetPinnedMutationOptions(queryClient: QueryClient) {
   });
 }
 
-export function pullRequestCommentMutationOptions(queryClient: QueryClient) {
+export function pullRequestCommentMutationOptions(
+  queryClient: QueryClient,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   return mutationOptions({
     mutationKey: pullRequestMutationKeys.comment,
     networkMode: "always",
     mutationFn: (input: PullRequestCommentInput) =>
-      ensureLocalNativeApi().pullRequests.comment(input),
+      pullRequestApiFor(hostId).pullRequests.comment(input),
     onSettled: async (_result, _error, input) => {
       const detailKey = pullRequestQueryKeys.detail(input);
       const detailState = queryClient.getQueryData<{ state?: PullRequestState }>(detailKey)?.state;

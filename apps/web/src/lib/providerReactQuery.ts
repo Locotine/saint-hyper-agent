@@ -10,13 +10,24 @@ import {
 } from "@saint/contracts";
 import { queryOptions } from "@tanstack/react-query";
 import { Option, Schema } from "effect";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { ensureLocalNativeApi } from "../nativeApi";
+import { apiFor } from "../hosts/hostApi";
+
 import {
   expensiveReadErrorRefetchInterval,
   expensiveReadRetryDelay,
   isRpcCapacityExceededError,
   shouldRetryExpensiveRead,
 } from "./expensiveReadRetry";
+
+/** A connected host's thread reads go to that host. */
+function apiForHost(hostId: HostId) {
+  if (hostId === LOCAL_HOST_ID) return ensureLocalNativeApi();
+  const api = apiFor(hostId);
+  if (!api) throw new Error("This host is not connected.");
+  return api;
+}
 
 interface CheckpointDiffQueryInput {
   threadId: ThreadId | null;
@@ -27,6 +38,8 @@ interface CheckpointDiffQueryInput {
   /** Live snapshots are replaced frequently; release unused full patches immediately. */
   liveSnapshot?: boolean;
   enabled?: boolean;
+  /** The machine the thread lives on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }
 
 export const providerQueryKeys = {
@@ -145,9 +158,12 @@ export function checkpointDiffQueryOptions(input: CheckpointDiffQueryInput) {
   const decodedRequest = decodeCheckpointDiffRequest(input);
 
   return queryOptions({
-    queryKey: providerQueryKeys.checkpointDiff(input),
+    queryKey:
+      (input.hostId ?? LOCAL_HOST_ID) === LOCAL_HOST_ID
+        ? providerQueryKeys.checkpointDiff(input)
+        : ([...providerQueryKeys.checkpointDiff(input), input.hostId] as const),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = apiForHost(input.hostId ?? LOCAL_HOST_ID);
       if (!input.threadId || decodedRequest._tag === "None") {
         throw new Error("Checkpoint diff is unavailable.");
       }

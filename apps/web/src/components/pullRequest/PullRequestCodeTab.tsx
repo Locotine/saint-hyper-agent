@@ -5,6 +5,7 @@
 // Layer: Pull request presentation
 // Exports: PullRequestCodeTab (default export for React.lazy)
 
+import { useHostId } from "~/hosts/hostScope";
 import type { PullRequestDetail, PullRequestDetailInput } from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -32,9 +33,10 @@ export function PullRequestCodeTab({
   input: PullRequestDetailInput;
   detail: PullRequestDetail;
 }) {
+  const hostId = useHostId();
   const { resolvedTheme } = useTheme();
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(() => new Set());
-  const diffQuery = useQuery(pullRequestDiffQueryOptions(input));
+  const diffQuery = useQuery(pullRequestDiffQueryOptions(input, hostId));
 
   // Parse once per distinct patch (mirroring DiffPanel): every collapse toggle
   // and theme change re-renders this tab, and the patch can be up to 8 MiB.

@@ -69,8 +69,7 @@ import {
 import { cn } from "~/lib/utils";
 import { resolveWorkspaceFileEditorReadOnlyReason } from "~/lib/workspaceFileEditor";
 import { readLocalNativeApi } from "~/nativeApi";
-import { LOCAL_HOST_ID } from "@saint/shared/hostId";
-import { useHostId } from "~/hosts/hostScope";
+import { apiFor, useHostId } from "~/hosts/hostScope";
 import ChatMarkdown from "./ChatMarkdown";
 import { DiffTruncationWarning } from "./DiffTruncationWarning";
 import { FileLineCommentBox } from "./chat/FileLineCommentBox";
@@ -739,6 +738,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
     editableDocument === null;
   const workingTreeDiffQuery = useQuery(
     gitWorkingTreeDiffQueryOptions({
+      hostId,
       cwd: props.workspaceRoot,
       filePath: resolvedWorkspaceRelativePath,
       enabled: changeGutterEnabled,
@@ -806,11 +806,14 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
   // disk: optimistic cache update first, ordered write-through after, refetch
   // on failure so the preview never drifts from the file.
   const handleTaskToggle = ({ sourceLine, checked }: { sourceLine: number; checked: boolean }) => {
-    // A connected host's file is read-only here: the write would land on this computer.
-    if (!workspaceRoot || !filePath || hostId !== LOCAL_HOST_ID) {
+    if (!workspaceRoot || !filePath) {
       return;
     }
-    const options = projectReadFileQueryOptions({ cwd: workspaceRoot, relativePath: filePath });
+    const options = projectReadFileQueryOptions({
+      cwd: workspaceRoot,
+      relativePath: filePath,
+      hostId,
+    });
     const current = queryClient.getQueryData(options.queryKey);
     if (
       !current ||
@@ -832,7 +835,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
     }
     // No API means no write can happen — bail before the optimistic update
     // so the preview never shows a toggle that was silently dropped.
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!api) {
       return;
     }

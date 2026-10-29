@@ -3,6 +3,7 @@
 // Depends on: git React Query helpers, native API mutations, and toolbar selection rules.
 // Note: the "Create branch" footer row uses raw <button> because it is a
 // menu-item-style affordance inside a ComboboxPopup, not a generic action.
+import { apiFor, useHostId } from "~/hosts/hostScope";
 import type { GitBranch, GitStashInfoResult, GitStatusResult, NativeApi } from "@saint/contracts";
 import { pluralize } from "@saint/shared/text";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -385,6 +386,7 @@ export function BranchToolbarBranchSelector({
   onComposerFocusRequest,
   variant: variantProp,
 }: BranchToolbarBranchSelectorProps) {
+  const hostId = useHostId();
   const variant = variantProp ?? "toolbar";
   const isPanel = variant === "panel";
   const queryClient = useQueryClient();
@@ -394,8 +396,8 @@ export function BranchToolbarBranchSelector({
   const [branchQuery, setBranchQuery] = useState("");
   const deferredBranchQuery = useDeferredValue(branchQuery);
 
-  const branchesQuery = useQuery(gitBranchesQueryOptions(branchCwd));
-  const branchStatusQuery = useQuery(gitStatusQueryOptions(branchCwd));
+  const branchesQuery = useQuery(gitBranchesQueryOptions(branchCwd, hostId));
+  const branchStatusQuery = useQuery(gitStatusQueryOptions(branchCwd, true, hostId));
   const branches = useMemo(
     () => dedupeRemoteBranchesWithLocalMatches(branchesQuery.data?.branches ?? []),
     [branchesQuery.data?.branches],
@@ -502,7 +504,7 @@ export function BranchToolbarBranchSelector({
   }, [canPrefillCreateBranch, hasExactBranchMatch, trimmedBranchQuery]);
 
   const openStashDiscardDialog = useCallback((input: { cwd: string }) => {
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     setStashDiscardDialog({
       cwd: input.cwd,
       error: api ? null : "Native API is unavailable.",
@@ -533,7 +535,7 @@ export function BranchToolbarBranchSelector({
 
   const discardStashFromDialog = useCallback(() => {
     const dialog = stashDiscardDialog;
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!dialog || !api || isDroppingStash) return;
     setIsDroppingStash(true);
     runBranchAction(
@@ -551,7 +553,7 @@ export function BranchToolbarBranchSelector({
   }, [isDroppingStash, runBranchAction, stashDiscardDialog]);
 
   const selectBranch = (branch: GitBranch) => {
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!api || !branchCwd || isBranchActionPending) return;
 
     // In new-worktree mode, selecting a branch sets the base branch.
@@ -630,7 +632,7 @@ export function BranchToolbarBranchSelector({
 
   const createBranch = (rawName: string) => {
     const name = rawName.trim();
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!api || !branchCwd || !name || isBranchActionPending) return;
 
     setIsBranchMenuOpen(false);
