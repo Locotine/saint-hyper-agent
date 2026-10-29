@@ -148,7 +148,7 @@ import { useRailShellStore } from "../railShellStore";
 import { isElectron } from "../env";
 import { useRemoteSshState } from "../hooks/useRemoteSshState";
 import { useHostSearchThreads } from "../hosts/hostSearchThreads";
-import { remoteHostAlias } from "./settings/remoteHostsSettingsModel";
+import { remoteHostAlias, remoteHostRows } from "./settings/remoteHostsSettingsModel";
 import { formatRelativeTime } from "../lib/relativeTime";
 import { useAllHostProjects } from "../hosts/hostStores";
 import {
@@ -1313,6 +1313,8 @@ export default function Sidebar() {
   );
   // Null without the desktop's remote SSH bridge: no remote hosts to list.
   const remoteSshState = useRemoteSshState();
+  // With hosts saved, the Projects list splits into this computer's area and one per host.
+  const hasRemoteHosts = remoteSshState ? remoteHostRows(remoteSshState).length > 0 : false;
   const remoteChatNeedsAnswer = useRemoteChatNeedsAnswer();
   const projects = useStore((store) => store.projects);
   const spaces = useStore((store) => store.spaces);
@@ -7554,6 +7556,7 @@ export default function Sidebar() {
                         </>,
                       )}
 
+                      {hasRemoteHosts ? <SidebarAreaLabel label="Local" /> : null}
                       {isManualProjectSorting ? (
                         <DndContext
                           sensors={projectDnDSensors}
@@ -7586,10 +7589,13 @@ export default function Sidebar() {
                         </SidebarMenu>
                       )}
 
-                      {remoteSshState ? (
-                        <SidebarMenu className="mt-3 gap-3">
-                          <RemoteHostProjects state={remoteSshState} />
-                        </SidebarMenu>
+                      {remoteSshState && hasRemoteHosts ? (
+                        <>
+                          <SidebarAreaLabel label="Remote" className="mt-4" />
+                          <SidebarMenu className="gap-3">
+                            <RemoteHostProjects state={remoteSshState} />
+                          </SidebarMenu>
+                        </>
                       ) : null}
 
                       {projectEmptyState === "loading" && (
@@ -8465,5 +8471,19 @@ function SidebarSearchPaletteController(props: {
       onImportProjects={(providers) => useProjectImportDialogStore.getState().openDialog(providers)}
       onOpenThread={props.onOpenThread}
     />
+  );
+}
+
+/** Names one area of the Projects list (this computer, or the remote hosts). */
+function SidebarAreaLabel(props: { label: string; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "px-2 pb-1 text-ui-xs font-medium tracking-wide text-muted-foreground/70 uppercase",
+        props.className,
+      )}
+    >
+      {props.label}
+    </div>
   );
 }

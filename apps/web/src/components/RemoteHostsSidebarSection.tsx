@@ -14,6 +14,7 @@ import {
 } from "@saint/contracts";
 import { scopeThread, sshHostId, type HostId } from "@saint/shared/hostId";
 import { useNavigate, useParams } from "@tanstack/react-router";
+import { Schema } from "effect";
 import { useSyncExternalStore } from "react";
 
 import { toastManager } from "~/components/ui/toast";
@@ -22,7 +23,11 @@ import { useRemoteHostStoreSync } from "~/hooks/useRemoteHostStoreSync";
 import { useRemoteSshState } from "~/hooks/useRemoteSshState";
 import { hostStores } from "~/hosts/hostStores";
 import { useHostThreadActions } from "~/hooks/useHostThreadActions";
-import { addHostProject } from "~/hosts/hostThreadCreate";
+import { addHostProject, removeHostProject } from "~/hosts/hostThreadCreate";
+import { useLocalStorage } from "~/hooks/useLocalStorage";
+import { THREAD_CONTEXT_MENU_ICONS } from "~/lib/contextMenuIcons";
+import { readLocalNativeApi } from "~/nativeApi";
+import { DisclosureChevron } from "./ui/DisclosureChevron";
 import { AddPlusIcon, FolderIcon, MonitorIcon, NewThreadIcon, ServerIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
 import {
@@ -71,8 +76,9 @@ function RemoteThreadRow(props: {
   activeThreadParam: string | null;
   /** Names the host on the row, for lists that do not group by host. */
   host?: string;
+  indentClassName?: string;
 }) {
-  const { hostId, thread, activeThreadParam, host } = props;
+  const { hostId, thread, activeThreadParam, host, indentClassName = "pl-5" } = props;
   const navigate = useNavigate();
   const param = scopeThread(hostId, ThreadId.makeUnsafe(thread.id));
   return (
@@ -81,7 +87,8 @@ function RemoteThreadRow(props: {
       isActive={param === activeThreadParam}
       className={cn(
         SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
-        "gap-1.5 pl-5",
+        "gap-1.5",
+        indentClassName,
         SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
         SIDEBAR_ROW_HOVER_CLASS_NAME,
       )}
@@ -103,14 +110,63 @@ function HostLabel(props: { host: string }) {
   );
 }
 
-/** A host's projects as rows of the main Projects list, each labeled with the host. */
-function RemoteHostProjectRows(props: {
+const COLLAPSED_STORAGE_KEY = "saint:sidebar:remote-collapsed";
+const CollapsedKeys = Schema.Array(Schema.String);
+
+/** Which host groups and remote projects are collapsed, remembered across reloads. */
+function useRemoteCollapsed() {
+  const [collapsed, setCollapsed] = useLocalStorage(COLLAPSED_STORAGE_KEY, [], CollapsedKeys);
+  const toggle = (key: string) =>
+    setCollapsed((current) =>
+      current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key],
+    );
+  return { isCollapsed: (key: string) => collapsed.includes(key), toggle };
+}
+
+async function confirmRemoveHostProject(input: {
+  hostId: HostId;
+  host: string;
+  projectId: string;
+  title: string;
+  threadCount: number;
+  position: { x: number; y: number };
+}) {
+  const api = readLocalNativeApi();
+  if (!api) return;
+  const clicked = await api.contextMenu.show(
+    [{ id: "remove", label: "Remove from Saint", icon: THREAD_CONTEXT_MENU_ICONS.delete }],
+    input.position,
+  );
+  if (clicked !== "remove") return;
+  const confirmed = await api.dialogs.confirm(
+    [
+      `Remove project "${input.title}" from ${input.host}?`,
+      input.threadCount > 0
+        ? `This deletes its ${input.threadCount} ${input.threadCount === 1 ? "thread" : "threads"} in Saint. The folder on ${input.host} is not touched.`
+        : `The folder on ${input.host} is not touched.`,
+    ].join("\n"),
+  );
+  if (!confirmed) return;
+  try {
+    await removeHostProject(input.hostId, ProjectId.makeUnsafe(input.projectId));
+  } catch (error) {
+    toastManager.add({
+      type: "error",
+      title: `Could not remove the project on ${input.host}`,
+      description: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/** One host's group: a header that collapses it, then its projects and their threads. */
+function RemoteHostGroup(props: {
   host: string;
   hostKey: string;
   hostState: DesktopRemoteSshHostState | null;
   activeThreadParam: string | null;
+  collapsed: ReturnType<typeof useRemoteCollapsed>;
 }) {
-  const { host, hostKey, hostState, activeThreadParam } = props;
+  const { host, hostKey, hostState, activeThreadParam, collapsed } = props;
   const hostId = sshHostId(hostKey);
   const status = remoteHostSidebarStatus(hostState);
   const catalog = useRemoteHostCatalog(hostKey);
@@ -118,70 +174,121 @@ function RemoteHostProjectRows(props: {
   const offline = status !== "connected" || catalog.status === "error";
   const label = `${host} · ${remoteHostStatus(hostState)}`;
   const { startThread } = useHostThreadActions();
+  const hostCollapseKey = `host:${hostKey}`;
+  const hostOpen = !collapsed.isCollapsed(hostCollapseKey);
 
-  return catalog.projects.map((project) => (
-    <SidebarMenuItem
-      key={`${hostKey}:${project.id}`}
-      className={cn("rounded-md", offline && "opacity-60")}
-    >
-      <div className="flex items-center gap-0.5">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <SidebarMenuButton
-                size="sm"
-                className={cn(
-                  SIDEBAR_HEADER_ROW_CLASS_NAME,
-                  SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
-                  SIDEBAR_ROW_HOVER_CLASS_NAME,
-                  "min-w-0 flex-1 cursor-default",
-                )}
-              />
-            }
-          >
-            <FolderIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
-            <span className="min-w-0 flex-1 truncate">{project.title}</span>
-            <HostLabel host={host} />
-            <StatusDot
-              className={
-                STATUS_DOT_CLASS_NAME[
-                  status === "connected" && catalog.status === "error" ? "error" : status
-                ]
-              }
+  return (
+    <SidebarMenuItem className={cn("rounded-md", offline && "opacity-60")}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <SidebarMenuButton
+              size="sm"
+              aria-expanded={hostOpen}
+              className={cn(
+                SIDEBAR_HEADER_ROW_CLASS_NAME,
+                SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
+                SIDEBAR_ROW_HOVER_CLASS_NAME,
+                "min-w-0",
+              )}
+              onClick={() => collapsed.toggle(hostCollapseKey)}
             />
-          </TooltipTrigger>
-          <TooltipPopup side="right">
-            <div>{`${host}:${project.workspaceRoot}`}</div>
-            <div className="text-muted-foreground">{catalog.message ?? label}</div>
-          </TooltipPopup>
-        </Tooltip>
-        {offline ? null : (
-          <SidebarIconButton
-            icon={NewThreadIcon}
-            label={`New thread in ${project.title} on ${host}`}
-            tooltip={`New thread on ${host}`}
-            tooltipSide="right"
-            onClick={() => void startThread(hostId, host, ProjectId.makeUnsafe(project.id))}
+          }
+        >
+          <ServerIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
+          <span className="min-w-0 flex-1 truncate">{host}</span>
+          <StatusDot
+            className={
+              STATUS_DOT_CLASS_NAME[
+                status === "connected" && catalog.status === "error" ? "error" : status
+              ]
+            }
           />
-        )}
-      </div>
-      <SidebarMenu className={cn(SIDEBAR_NESTED_LIST_GAP_CLASS_NAME, "pt-0.5")}>
-        {project.threads.map((thread) => (
-          <RemoteThreadRow
-            key={thread.id}
-            hostId={hostId}
-            thread={thread}
-            activeThreadParam={activeThreadParam}
-          />
-        ))}
-        {project.hiddenThreadCount > 0 ? (
-          <div className="px-2 py-1 pl-5 text-ui-sm text-muted-foreground/58">
-            {`+${project.hiddenThreadCount} more on ${host}`}
-          </div>
-        ) : null}
-      </SidebarMenu>
+          <DisclosureChevron open={hostOpen} className="size-3.5 shrink-0" />
+        </TooltipTrigger>
+        <TooltipPopup side="right">{catalog.message ?? label}</TooltipPopup>
+      </Tooltip>
+      {hostOpen ? (
+        <SidebarMenu className={cn(SIDEBAR_NESTED_LIST_GAP_CLASS_NAME, "pt-0.5")}>
+          {catalog.projects.map((project) => {
+            const projectCollapseKey = `project:${hostKey}:${project.id}`;
+            const projectOpen = !collapsed.isCollapsed(projectCollapseKey);
+            return (
+              <SidebarMenuItem key={project.id} className="rounded-md">
+                <div className="flex items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <SidebarMenuButton
+                          size="sm"
+                          aria-expanded={projectOpen}
+                          className={cn(
+                            SIDEBAR_HEADER_ROW_CLASS_NAME,
+                            SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
+                            SIDEBAR_ROW_HOVER_CLASS_NAME,
+                            "min-w-0 flex-1 pl-4",
+                          )}
+                          onClick={() => collapsed.toggle(projectCollapseKey)}
+                          onContextMenu={(event) => {
+                            event.preventDefault();
+                            if (offline) return;
+                            void confirmRemoveHostProject({
+                              hostId,
+                              host,
+                              projectId: project.id,
+                              title: project.title,
+                              threadCount: project.threads.length + project.hiddenThreadCount,
+                              position: { x: event.clientX, y: event.clientY },
+                            });
+                          }}
+                        />
+                      }
+                    >
+                      <FolderIcon
+                        aria-hidden
+                        className="size-3.5 shrink-0 text-muted-foreground/79"
+                      />
+                      <span className="min-w-0 flex-1 truncate">{project.title}</span>
+                    </TooltipTrigger>
+                    <TooltipPopup side="right">{`${host}:${project.workspaceRoot}`}</TooltipPopup>
+                  </Tooltip>
+                  {offline ? null : (
+                    <SidebarIconButton
+                      icon={NewThreadIcon}
+                      label={`New thread in ${project.title} on ${host}`}
+                      tooltip={`New thread on ${host}`}
+                      tooltipSide="right"
+                      onClick={() =>
+                        void startThread(hostId, host, ProjectId.makeUnsafe(project.id))
+                      }
+                    />
+                  )}
+                </div>
+                {projectOpen ? (
+                  <SidebarMenu className={cn(SIDEBAR_NESTED_LIST_GAP_CLASS_NAME, "pt-0.5")}>
+                    {project.threads.map((thread) => (
+                      <RemoteThreadRow
+                        key={thread.id}
+                        hostId={hostId}
+                        thread={thread}
+                        activeThreadParam={activeThreadParam}
+                        indentClassName="pl-8"
+                      />
+                    ))}
+                    {project.hiddenThreadCount > 0 ? (
+                      <div className="px-2 py-1 pl-8 text-ui-sm text-muted-foreground/58">
+                        {`+${project.hiddenThreadCount} more on ${host}`}
+                      </div>
+                    ) : null}
+                  </SidebarMenu>
+                ) : null}
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      ) : null}
     </SidebarMenuItem>
-  ));
+  );
 }
 
 function useActiveThreadParam(): string | null {
@@ -205,9 +312,10 @@ function RemoteHostStoreSyncFor(props: { state: DesktopRemoteSshState }) {
   return null;
 }
 
-/** Every host's projects in the main Projects list, after this computer's. */
+/** The Remote area: one collapsible group per host, after this computer's projects. */
 export function RemoteHostProjects(props: { state: DesktopRemoteSshState }) {
   const activeThreadParam = useActiveThreadParam();
+  const collapsed = useRemoteCollapsed();
   return remoteHostRows(props.state).map((row) => {
     const hostKey =
       row.state?.hostKey ??
@@ -215,12 +323,13 @@ export function RemoteHostProjects(props: { state: DesktopRemoteSshState }) {
       null;
     if (!hostKey) return null;
     return (
-      <RemoteHostProjectRows
+      <RemoteHostGroup
         key={row.host}
         host={row.host}
         hostKey={hostKey}
         hostState={row.state}
         activeThreadParam={activeThreadParam}
+        collapsed={collapsed}
       />
     );
   });
