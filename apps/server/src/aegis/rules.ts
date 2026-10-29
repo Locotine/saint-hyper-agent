@@ -1,9 +1,9 @@
 // FILE: rules.ts
-// Purpose: Aegis hard rules (no model involved): autonomy-ladder locks, the permit/forbid policy
-//          evaluator, egress host matching and tripwire scanning.
+// Purpose: Aegis hard rules (no model involved): autonomy-ladder locks, the default egress
+//          allowlist and tripwire scanning. Policy decisions are Cedar (`policy.ts`).
 // Layer: Server Aegis domain (pure)
 
-import type { AegisPolicyRule, AegisSettings, AutonomyLevel, RuntimeMode } from "@saint/contracts";
+import type { AutonomyLevel, RuntimeMode } from "@saint/contracts";
 
 export const AUTONOMY_ORDER: ReadonlyArray<AutonomyLevel> = ["L0", "L1", "L2", "L3", "L4"];
 export const autonomyAtLeast = (level: AutonomyLevel, floor: AutonomyLevel) =>
@@ -39,31 +39,6 @@ export function autonomyLocks(env: AutonomyEnvironment): Partial<Record<Autonomy
   return locks;
 }
 
-/** `*` matches any run of characters; matching ignores case. */
-export function globMatch(pattern: string, value: string): boolean {
-  const source = pattern
-    .split("*")
-    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
-    .join(".*");
-  return new RegExp(`^${source}$`, "i").test(value);
-}
-
-/** Forbid wins over permit; with no matching rule the default applies. */
-export function evaluatePolicy(
-  rules: ReadonlyArray<AegisPolicyRule>,
-  request: { readonly principal: string; readonly action: string; readonly resource: string },
-  fallback: "permit" | "forbid",
-): "permit" | "forbid" {
-  const matching = rules.filter(
-    (rule) =>
-      globMatch(rule.principal, request.principal) &&
-      globMatch(rule.action, request.action) &&
-      globMatch(rule.resource, request.resource),
-  );
-  if (matching.some((rule) => rule.effect === "forbid")) return "forbid";
-  return matching.length > 0 ? "permit" : fallback;
-}
-
 /** Hosts every provider needs to reach its own API, so turning egress on does not cut them off. */
 export const DEFAULT_EGRESS_ALLOWLIST: ReadonlyArray<string> = [
   "*.anthropic.com",
@@ -84,28 +59,6 @@ export const DEFAULT_EGRESS_ALLOWLIST: ReadonlyArray<string> = [
   "localhost",
   "127.0.0.1",
 ];
-
-export type EgressVerdict = "allow" | "deny" | "unknown";
-
-export function egressVerdict(
-  settings: Pick<AegisSettings, "egressAllowlist" | "egressDenylist" | "rules">,
-  host: string,
-  principal = "*",
-): EgressVerdict {
-  const hostname = host.toLowerCase();
-  if (settings.egressDenylist.some((pattern) => globMatch(pattern, hostname))) return "deny";
-  const ruled = settings.rules.filter(
-    (rule) =>
-      globMatch(rule.action, "egress") &&
-      globMatch(rule.principal, principal) &&
-      globMatch(rule.resource, hostname),
-  );
-  if (ruled.some((rule) => rule.effect === "forbid")) return "deny";
-  if (ruled.length > 0) return "allow";
-  return settings.egressAllowlist.some((pattern) => globMatch(pattern, hostname))
-    ? "allow"
-    : "unknown";
-}
 
 /** Paths no agent has a reason to read. */
 export const SENSITIVE_PATH_PATTERNS: ReadonlyArray<RegExp> = [

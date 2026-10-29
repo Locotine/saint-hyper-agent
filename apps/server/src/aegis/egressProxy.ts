@@ -6,7 +6,7 @@
 import http from "node:http";
 import net from "node:net";
 
-import type { EgressVerdict } from "./rules.ts";
+import type { EgressVerdict } from "./policy.ts";
 
 export interface EgressProxyOptions {
   readonly decide: (host: string) => EgressVerdict;

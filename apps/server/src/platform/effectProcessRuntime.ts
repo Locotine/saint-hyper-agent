@@ -45,7 +45,7 @@ export function spawnProviderProcess(
   });
 }
 
-type ProcessPlanningOptions = Pick<ProcessLaunchInput, "platform" | "lowerPriority">;
+type ProcessPlanningOptions = Pick<ProcessLaunchInput, "platform" | "lowerPriority" | "sandbox">;
 
 // The pinned Effect revision predates these Node-only Windows options. The
 // tracked platform-node-shared patch reads them from the command at runtime.
@@ -83,7 +83,7 @@ function prepareEffectProcessCommand(
   args: ReadonlyArray<string>,
   options: EffectProcessRuntimeOptions,
 ): { command: ReturnType<typeof ChildProcess.make>; priorityBeforeExec: boolean } {
-  const { platform, lowerPriority, ...commandOptions } = options;
+  const { platform, lowerPriority, sandbox, ...commandOptions } = options;
   const effectivePlatform = platform ?? process.platform;
 
   // Effect's ChildProcessSpawner is injectable. Keep executable existence and
@@ -92,7 +92,7 @@ function prepareEffectProcessCommand(
   // nice is per-thread, so post-spawn adjustment can miss existing agent threads.
   // Windows still needs centralized launch planning for PATHEXT, batch shims,
   // PowerShell scripts, and WSL dispatch before the spawner receives the command.
-  if (effectivePlatform !== "win32" && !lowerPriority) {
+  if (effectivePlatform !== "win32" && !lowerPriority && !sandbox) {
     return {
       command: ChildProcess.make(command, [...args], { ...commandOptions, shell: false }),
       priorityBeforeExec: false,
@@ -104,6 +104,7 @@ function prepareEffectProcessCommand(
   const plan = prepareProcess(command, args, {
     platform: effectivePlatform,
     ...(lowerPriority ? { lowerPriority: true } : {}),
+    ...(sandbox ? { sandbox } : {}),
     ...(cwd !== undefined ? { cwd } : {}),
     ...(env !== undefined ? { env } : {}),
   });
