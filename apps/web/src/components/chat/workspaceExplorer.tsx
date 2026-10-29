@@ -5,6 +5,7 @@
 // Exports: WorkspaceFilesSidebar, WorkspaceSearchSidebar, WorkspaceExplorerSidebar,
 //          useExplorerEntryPrefetch, setFileReferenceDragData, ExplorerActivityBarButton.
 
+import { useHostId } from "~/hosts/hostScope";
 import type { ProjectEntry, ProjectFileSystemEntry } from "@saint/contracts";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -109,6 +110,7 @@ function shouldShowExplorerEntry(entry: ProjectFileSystemEntry): boolean {
  */
 export function useExplorerEntryPrefetch(cwd: string | null) {
   const queryClient = useQueryClient();
+  const hostId = useHostId();
   return (entry: Pick<ProjectFileSystemEntry, "path" | "kind">) => {
     if (!cwd) {
       return;
@@ -119,11 +121,14 @@ export function useExplorerEntryPrefetch(cwd: string | null) {
           cwd,
           relativePath: entry.path,
           includeFiles: true,
+          hostId,
         }),
       );
       return;
     }
-    void queryClient.prefetchQuery(projectReadFileQueryOptions({ cwd, relativePath: entry.path }));
+    void queryClient.prefetchQuery(
+      projectReadFileQueryOptions({ cwd, relativePath: entry.path, hostId }),
+    );
     void getSyntaxHighlighterPromise(getSyntaxLanguageForPath(entry.path)).catch(() => undefined);
   };
 }
@@ -256,11 +261,13 @@ function WorkspaceDirectory(props: {
   onEntryContextMenu: (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => void;
 }) {
   const { selectedPaths } = props.selection;
+  const hostId = useHostId();
   const query = useQuery(
     projectListDirectoriesQueryOptions({
       cwd: props.cwd,
       relativePath: props.relativePath,
       includeFiles: true,
+      hostId,
     }),
   );
 
@@ -528,8 +535,10 @@ function useWorkspaceFileSearch(
   });
   const inputQuery = query.trim();
   const trimmedQuery = debouncedQuery.trim();
+  const hostId = useHostId();
   const entriesQuery = useQuery(
     projectSearchEntriesQueryOptions({
+      hostId,
       cwd: workspaceRoot,
       query: trimmedQuery,
       kind: "file",

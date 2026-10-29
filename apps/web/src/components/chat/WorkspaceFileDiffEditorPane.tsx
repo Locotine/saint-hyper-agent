@@ -1,4 +1,5 @@
 import type { ChatFileReference } from "~/lib/chatReferences";
+import { useHostId } from "~/hosts/hostScope";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
@@ -34,6 +35,7 @@ export interface WorkspaceFileDiffEditorPaneProps {
 }
 
 export function WorkspaceFileDiffEditorPane(props: WorkspaceFileDiffEditorPaneProps) {
+  const hostId = useHostId();
   const [renderSideBySide, setRenderSideBySide] = useState(true);
   const historyControlsRef = useRef<CodeEditHistoryControls | null>(null);
   const paneRef = useRef<HTMLDivElement | null>(null);
@@ -49,6 +51,7 @@ export function WorkspaceFileDiffEditorPane(props: WorkspaceFileDiffEditorPanePr
   });
   const originalQuery = useQuery(
     gitReadFileAtRevQueryOptions({
+      hostId,
       cwd: props.workspaceRoot,
       filePath: props.basePath ?? props.filePath,
       ...props.baseRev,

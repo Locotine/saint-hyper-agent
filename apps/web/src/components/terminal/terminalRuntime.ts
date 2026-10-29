@@ -23,6 +23,8 @@ import {
 import type { TerminalSessionSnapshot } from "@saint/contracts";
 import { Terminal } from "@xterm/xterm";
 
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
+import { apiFor } from "~/hosts/hostApi";
 import { readLocalNativeApi } from "~/nativeApi";
 import { suppressQueryResponses } from "~/lib/suppressQueryResponses";
 import { hasOpenDismissibleOverlay } from "~/lib/editableEventTarget";
@@ -82,13 +84,18 @@ const TERMINAL_CURSOR_WIDTH = 1;
 // Once WebGL fails, skip it for subsequent terminals in this renderer process.
 let suggestedRendererType: "webgl" | "dom" | undefined;
 
+/** The API of the machine this terminal runs on. */
+function terminalApiFor(entry: Pick<TerminalRuntimeEntry, "hostId">) {
+  return entry.hostId === LOCAL_HOST_ID ? readLocalNativeApi() : apiFor(entry.hostId);
+}
+
 function terminalByteLength(data: string): number {
   return TERMINAL_TEXT_ENCODER.encode(data).byteLength;
 }
 
 function acknowledgeParsedOutput(entry: TerminalRuntimeEntry, bytes: number): void {
   if (bytes <= 0) return;
-  const api = readLocalNativeApi();
+  const api = terminalApiFor(entry);
   if (!api) return;
   const ackOutput = api.terminal.ackOutput;
   if (typeof ackOutput !== "function") return;
@@ -295,7 +302,7 @@ function scheduleWrite(entry: TerminalRuntimeEntry, data: string, byteLength: nu
 }
 
 function flushPendingResize(entry: TerminalRuntimeEntry): void {
-  const api = readLocalNativeApi();
+  const api = terminalApiFor(entry);
   const pendingResize = entry.pendingResize;
   if (!api || !pendingResize) return;
 
@@ -683,7 +690,7 @@ async function sendTerminalInput(
   data: string,
   fallbackError: string,
 ): Promise<void> {
-  const api = readLocalNativeApi();
+  const api = terminalApiFor(entry);
   if (!api) return;
   try {
     await api.terminal.write({ threadId: entry.threadId, terminalId: entry.terminalId, data });
@@ -694,7 +701,7 @@ async function sendTerminalInput(
 
 function reconcileTerminalSnapshot(entry: TerminalRuntimeEntry): void {
   if (entry.disposed || !entry.opened || entry.hasHandledExit) return;
-  const api = readLocalNativeApi();
+  const api = terminalApiFor(entry);
   if (!api) return;
 
   const outputEventVersionAtRequest = entry.outputEventVersion;
@@ -760,6 +767,7 @@ export function syncRuntimeConfig(
   config: TerminalRuntimeConfig,
 ): void {
   entry.runtimeKey = config.runtimeKey;
+  entry.hostId = config.hostId ?? LOCAL_HOST_ID;
   entry.threadId = config.threadId;
   entry.terminalId = config.terminalId;
   entry.terminalLabel = config.terminalLabel;
@@ -822,6 +830,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
 
   const entry: TerminalRuntimeEntry = {
     runtimeKey: config.runtimeKey,
+    hostId: config.hostId ?? LOCAL_HOST_ID,
     threadId: config.threadId,
     terminalId: config.terminalId,
     terminalLabel: config.terminalLabel,
@@ -979,7 +988,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
             range,
             activate: (event: MouseEvent) => {
               if (!isTerminalLinkActivation(event)) return;
-              const api = readLocalNativeApi();
+              const api = terminalApiFor(entry);
               if (!api) return;
 
               if (match.kind === "url") {
@@ -1012,7 +1021,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
           label: submittedIdentity.title,
         });
       }
-      const api = readLocalNativeApi();
+      const api = terminalApiFor(entry);
       if (!api) return;
       void api.terminal
         .write({ threadId: entry.threadId, terminalId: entry.terminalId, data })
@@ -1035,6 +1044,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
   });
 
   entry.unsubscribeTerminalEvents = terminalEventDispatcher.subscribe(
+    entry.hostId,
     entry.threadId,
     entry.terminalId,
     (event) => {
@@ -1153,7 +1163,7 @@ function scheduleAutomaticTerminalFocus(
 }
 
 function openTerminal(entry: TerminalRuntimeEntry): void {
-  const api = readLocalNativeApi();
+  const api = terminalApiFor(entry);
   if (!api || entry.opened) return;
 
   fitTerminal(entry);

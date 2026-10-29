@@ -17,7 +17,7 @@ import {
 import { deriveAssociatedWorktreeMetadata } from "@saint/shared/threadWorkspace";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { newCommandId, newMessageId, newThreadId } from "../lib/utils";
-import { readLocalNativeApi } from "../nativeApi";
+import { apiFor, useHostId } from "../hosts/hostScope";
 import type { Project, Thread } from "../types";
 import type { ComposerTrigger } from "../composer-logic";
 import { extendReplacementRangeForTrailingSpace } from "../composerTriggerInsertion";
@@ -123,6 +123,8 @@ export function useComposerSlashCommands(input: {
     setComposerHighlightedItemId: (id: string | null) => void;
   };
 }) {
+  // Commands act on the chat's own machine (a connected host for a host's chat).
+  const hostId = useHostId();
   const chatHost = useHostHandle();
   const [isSlashStatusDialogOpen, setIsSlashStatusDialogOpen] = useState(false);
   const {
@@ -168,7 +170,7 @@ export function useComposerSlashCommands(input: {
   });
 
   const compactProviderThread = useCallback(async (): Promise<boolean> => {
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (
       !api ||
       !canOfferCompactCommand ||
@@ -209,7 +211,7 @@ export function useComposerSlashCommands(input: {
       });
       return false;
     }
-  }, [activeThread, canOfferCompactCommand, isServerThread]);
+  }, [hostId, activeThread, canOfferCompactCommand, isServerThread]);
 
   const setFastModeFromSlashCommand = useCallback(
     (enabled: boolean) => {
@@ -457,7 +459,7 @@ export function useComposerSlashCommands(input: {
       /** Fork from a specific turn: imports the transcript up to (and including) this message. */
       throughMessageId?: MessageId | null;
     }) => {
-      const api = readLocalNativeApi();
+      const api = apiFor(hostId);
       if (!api || !activeProject || !activeThread || !isServerThread) {
         toastManager.add({
           type: "warning",
@@ -483,6 +485,7 @@ export function useComposerSlashCommands(input: {
       return true;
     },
     [
+      hostId,
       activeProject,
       activeRootBranch,
       activeThread,
@@ -498,7 +501,7 @@ export function useComposerSlashCommands(input: {
   const sidechatCreationByKeyRef = useRef(new Map<string, SidechatCreationFlight>());
   const createSidechatFromSlashCommand = useCallback(
     (inputOptions?: { initialPrompt?: string; targetProvider?: ProviderKind }): Promise<true> => {
-      const api = readLocalNativeApi();
+      const api = apiFor(hostId);
       if (
         !api ||
         !activeProject ||
@@ -586,6 +589,7 @@ export function useComposerSlashCommands(input: {
       });
     },
     [
+      hostId,
       chatHost,
       activeProject,
       activeThread,
@@ -607,7 +611,7 @@ export function useComposerSlashCommands(input: {
 
   const runCodexReviewStart = useCallback(
     async (target: "changes" | "base-branch") => {
-      const api = readLocalNativeApi();
+      const api = apiFor(hostId);
       if (!api || !activeThread || !activeProject) {
         toastManager.add({
           type: "warning",
@@ -704,6 +708,7 @@ export function useComposerSlashCommands(input: {
       }
     },
     [
+      hostId,
       activeProject,
       activeRootBranch,
       activeThread,
@@ -765,7 +770,7 @@ export function useComposerSlashCommands(input: {
   );
 
   const checkClaudeFastSlashCommandAvailability = useCallback(async (): Promise<boolean> => {
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!api || !providerCommandDiscoveryCwd) {
       editorActions.clearComposerSlashDraft();
       toastManager.add({
@@ -809,7 +814,7 @@ export function useComposerSlashCommands(input: {
       description: "Claude did not expose /fast for this account or environment.",
     });
     return false;
-  }, [editorActions, providerCommandDiscoveryCwd, threadId]);
+  }, [hostId, editorActions, providerCommandDiscoveryCwd, threadId]);
 
   const runExportSlashCommand = useCallback(() => {
     // Re-validate at call time (mirrors /compact): menu selections and stale

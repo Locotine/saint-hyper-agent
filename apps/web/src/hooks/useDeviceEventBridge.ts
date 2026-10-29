@@ -8,27 +8,27 @@
 // lives in apps/server, so the equivalent signal is a WebSocket push and this
 // works in a plain browser tab as well as the desktop app.
 
-import type { DeviceOpenPaneRequestedEvent } from "@saint/contracts";
+import type { DeviceEvent, DeviceOpenPaneRequestedEvent } from "@saint/contracts";
 import { useEffect, useEffectEvent } from "react";
 
 import { ensureLocalNativeApi } from "~/nativeApi";
 import { useDeviceStateStore } from "../deviceStateStore";
 
+/** Applies one device event to the store, from this computer's server or a connected host's. */
+export function handleDeviceEvent(event: DeviceEvent): void {
+  const store = useDeviceStateStore.getState();
+  if (event.type === "device.thread-state") {
+    store.upsertThreadState(event.state);
+  } else {
+    // The server sends this once per thread/device. Retain it until a
+    // surface can honor it, even if automatic opening is currently off.
+    store.queueOpenRequest(event);
+  }
+}
+
 /** Mounted once by EventRouter, including while settings or split view is open. */
 export function useDeviceEventBridge(): void {
-  useEffect(() => {
-    const unsubscribe = ensureLocalNativeApi().device.onEvent((event) => {
-      const store = useDeviceStateStore.getState();
-      if (event.type === "device.thread-state") {
-        store.upsertThreadState(event.state);
-      } else {
-        // The server sends this once per thread/device. Retain it until a
-        // surface can honor it, even if automatic opening is currently off.
-        store.queueOpenRequest(event);
-      }
-    });
-    return unsubscribe;
-  }, []);
+  useEffect(() => ensureLocalNativeApi().device.onEvent(handleDeviceEvent), []);
 }
 
 export function useDevicePaneOpenRequests(input: {

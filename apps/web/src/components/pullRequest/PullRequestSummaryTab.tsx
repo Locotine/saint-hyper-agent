@@ -7,6 +7,7 @@
 // Layer: Pull request presentation
 // Exports: PullRequestSummaryTab, PullRequestPageSummary, GitHubItemPageSummary, GitHubItemComments
 
+import { useHostId } from "~/hosts/hostScope";
 import type { PullRequestComment, PullRequestDetail } from "@saint/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -162,8 +163,9 @@ export function PullRequestPageSummary({ detail }: { detail: PullRequestDetail }
 }
 
 function usePullRequestCommentMutation() {
+  const hostId = useHostId();
   const queryClient = useQueryClient();
-  return useMutation(pullRequestCommentMutationOptions(queryClient));
+  return useMutation(pullRequestCommentMutationOptions(queryClient, hostId));
 }
 
 export function PullRequestSummaryTab({

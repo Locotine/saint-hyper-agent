@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useHostId } from "~/hosts/hostScope";
 import { useEffect, useRef, type ReactNode } from "react";
 
 import type { TimestampFormat } from "~/appSettings";
@@ -86,10 +87,12 @@ export function DiffLineBlamePopover(props: {
   onReferenceInChat: ((target: DiffLineBlameTarget) => void) | undefined;
   onClose: () => void;
 }) {
+  const hostId = useHostId();
   const { onClose } = props;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const blameQuery = useQuery(
     gitBlameLineQueryOptions({
+      hostId,
       cwd: props.cwd,
       filePath: props.target.filePath,
       line: props.target.line,

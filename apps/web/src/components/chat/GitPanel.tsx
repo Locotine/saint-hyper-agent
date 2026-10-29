@@ -8,6 +8,7 @@
 // staged/unstaged patches, parsing them into file lists. Stage/unstage are index mutations routed
 // through GitCore; on settle we invalidate the per-cwd git caches so both lists stay in sync.
 
+import { useHostId } from "~/hosts/hostScope";
 import { type FileDiffMetadata } from "@pierre/diffs/react";
 import { type ProjectId, type ThreadId } from "@saint/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -196,6 +197,7 @@ export function GitPanel(props: {
   projectId: ProjectId | null;
   onClose?: () => void;
 }) {
+  const hostId = useHostId();
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme as "light" | "dark";
@@ -214,8 +216,10 @@ export function GitPanel(props: {
   // No fixed polling: turn-driven file changes already push-invalidate the
   // working-tree-diff cache (see __root.tsx), and focus + the Refresh button +
   // post-mutation invalidation cover the rest. This keeps the pane cheap.
-  const stagedQuery = useQuery(gitWorkingTreeDiffQueryOptions({ cwd, scope: "staged" }));
-  const unstagedQuery = useQuery(gitWorkingTreeDiffQueryOptions({ cwd, scope: "unstaged" }));
+  const stagedQuery = useQuery(gitWorkingTreeDiffQueryOptions({ hostId, cwd, scope: "staged" }));
+  const unstagedQuery = useQuery(
+    gitWorkingTreeDiffQueryOptions({ hostId, cwd, scope: "unstaged" }),
+  );
 
   const stagedPatch = stagedQuery.data?.patch;
   const unstagedPatch = unstagedQuery.data?.patch;
@@ -228,8 +232,8 @@ export function GitPanel(props: {
     [theme, unstagedPatch],
   );
 
-  const stageMutation = useMutation(gitStageFilesMutationOptions({ cwd, queryClient }));
-  const unstageMutation = useMutation(gitUnstageFilesMutationOptions({ cwd, queryClient }));
+  const stageMutation = useMutation(gitStageFilesMutationOptions({ hostId, cwd, queryClient }));
+  const unstageMutation = useMutation(gitUnstageFilesMutationOptions({ hostId, cwd, queryClient }));
   const mutating = stageMutation.isPending || unstageMutation.isPending;
 
   const stage = (paths: string[]) => {

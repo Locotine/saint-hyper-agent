@@ -27,14 +27,33 @@ describe("dockExplorerBrowseStore", () => {
     const stateB = selectDockExplorerBrowseState(threadB)(useDockExplorerBrowseStore.getState());
     expect(stateA).toEqual({
       selectedFilePath: "src/a.ts",
+      openFilePaths: ["src/a.ts"],
       expandedDirectories: new Set(["src"]),
       searchQuery: "read",
     });
     expect(stateB).toEqual({
       selectedFilePath: "docs/b.md",
+      openFilePaths: ["docs/b.md"],
       expandedDirectories: new Set(),
       searchQuery: "",
     });
+  });
+
+  it("opens each selected file as a tab and closes to the neighbouring tab", () => {
+    const store = useDockExplorerBrowseStore.getState();
+    store.selectFile(threadA, "a.ts");
+    store.selectFile(threadA, "b.ts");
+    store.selectFile(threadA, "c.ts");
+    store.selectFile(threadA, "b.ts");
+    const read = () =>
+      selectDockExplorerBrowseState(threadA)(useDockExplorerBrowseStore.getState());
+    expect(read().openFilePaths).toEqual(["a.ts", "b.ts", "c.ts"]);
+    store.closeFile(threadA, "b.ts");
+    expect(read()).toMatchObject({ openFilePaths: ["a.ts", "c.ts"], selectedFilePath: "c.ts" });
+    store.closeFile(threadA, "a.ts");
+    expect(read()).toMatchObject({ openFilePaths: ["c.ts"], selectedFilePath: "c.ts" });
+    store.closeFile(threadA, "c.ts");
+    expect(read()).toMatchObject({ openFilePaths: [], selectedFilePath: null });
   });
 
   it("toggles directories independently per thread", () => {

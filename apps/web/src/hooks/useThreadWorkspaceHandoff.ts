@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useHostId } from "~/hosts/hostScope";
 import {
   resolveWorktreeHandoffIntent,
   resolveWorktreeHandoffWorkspaceMetadata,
@@ -45,10 +46,15 @@ export function useThreadWorkspaceHandoff(input: {
     options?: ProjectScriptRunOptions,
   ) => Promise<ProjectScriptRunResult | null>;
 }) {
+  const hostId = useHostId();
   const queryClient = useQueryClient();
   const setThreadWorkspace = useStore((store) => store.setThreadWorkspace);
   const handoffThreadMutation = useMutation(
-    gitHandoffThreadMutationOptions({ cwd: input.activeProject?.cwd ?? null, queryClient }),
+    gitHandoffThreadMutationOptions({
+      cwd: input.activeProject?.cwd ?? null,
+      queryClient,
+      hostId,
+    }),
   );
   const [worktreeHandoffDialogOpen, setWorktreeHandoffDialogOpen] = useState(false);
   const [worktreeHandoffName, setWorktreeHandoffName] = useState("");

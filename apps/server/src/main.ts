@@ -63,6 +63,7 @@ import {
 import { ProjectionSnapshotQuery } from "./orchestration/Services/ProjectionSnapshotQuery";
 import { ProviderSessionReaperLive } from "./provider/Layers/ProviderSessionReaper";
 import { EconomyLive } from "./economy/Layers/Economy";
+import { ProjectFolderReaperLive } from "./orchestration/Layers/ProjectFolderReaper";
 import { ProviderRuntimeReconcilerLive } from "./provider/Layers/ProviderRuntimeReconciler";
 import { Server } from "./effectServer";
 import { ServerLoggerLive } from "./serverLogger";
@@ -401,6 +402,9 @@ const LayerLive = (input: CliInput) => {
     Layer.provideMerge(runtimeServicesLayer),
     Layer.provideMerge(providerLayer),
   );
+  const projectFolderReaperLayer = ProjectFolderReaperLive.pipe(
+    Layer.provideMerge(runtimeServicesLayer),
+  );
   const providerRuntimeReconcilerLayer = ProviderRuntimeReconcilerLive.pipe(
     Layer.provide(ProviderRuntimeEventRepositoryLive),
     Layer.provideMerge(runtimeServicesLayer),
@@ -411,6 +415,7 @@ const LayerLive = (input: CliInput) => {
     Layer.provideMerge(providerLayer),
     Layer.provideMerge(providerSessionReaperLayer),
     Layer.provideMerge(economyLayer),
+    Layer.provideMerge(projectFolderReaperLayer),
     Layer.provideMerge(providerRuntimeReconcilerLayer),
     Layer.provideMerge(SqlitePersistence.layerConfig),
     Layer.provideMerge(ServerLoggerLive),
