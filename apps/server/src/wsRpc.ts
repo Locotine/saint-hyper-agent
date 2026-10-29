@@ -2265,6 +2265,8 @@ const makeWsRpcHandlersLayer = () =>
               .pipe(Effect.map((alerts) => ({ alerts }))),
             "Failed to resolve alerts",
           ),
+        [WS_METHODS.aegisUnfreeze]: (input) =>
+          rpcEffect(aegis.unfreeze(input.id, "user"), "Failed to unfreeze the worktree"),
         [WS_METHODS.aegisUpdate]: (input) =>
           rpcEffect(aegis.update(input, "user"), "Failed to update security settings"),
         [WS_METHODS.economyStatus]: () =>

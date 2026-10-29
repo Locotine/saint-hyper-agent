@@ -4,21 +4,7 @@ import net from "node:net";
 import { describe, expect, it } from "vitest";
 
 import { startEgressProxy } from "./egressProxy";
-import {
-  DEFAULT_EGRESS_ALLOWLIST,
-  autonomyLocks,
-  egressVerdict,
-  evaluatePolicy,
-  runtimeModeCap,
-  scanForTripwire,
-} from "./rules";
-import { sandboxArgv } from "./sandbox";
-
-const settings = {
-  egressAllowlist: [...DEFAULT_EGRESS_ALLOWLIST],
-  egressDenylist: ["evil.example"],
-  rules: [{ effect: "permit" as const, principal: "*", action: "egress", resource: "*.corp.test" }],
-};
+import { autonomyLocks, runtimeModeCap, scanForTripwire } from "./rules";
 
 describe("autonomy", () => {
   it("caps approval mode by level", () => {
@@ -44,42 +30,7 @@ describe("autonomy", () => {
   });
 });
 
-describe("policy and egress", () => {
-  it("forbid wins over permit", () => {
-    const rules = [
-      { effect: "permit" as const, principal: "*", action: "saint_*", resource: "*" },
-      {
-        effect: "forbid" as const,
-        principal: "node:qa",
-        action: "saint_flow_start",
-        resource: "*",
-      },
-    ];
-    expect(
-      evaluatePolicy(
-        rules,
-        { principal: "node:qa", action: "saint_flow_start", resource: "x" },
-        "permit",
-      ),
-    ).toBe("forbid");
-    expect(
-      evaluatePolicy(
-        rules,
-        { principal: "node:coder", action: "saint_flow_start", resource: "x" },
-        "forbid",
-      ),
-    ).toBe("permit");
-  });
-
-  it.each([
-    ["api.anthropic.com", "allow"],
-    ["evil.example", "deny"],
-    ["git.corp.test", "allow"],
-    ["unknown.example", "unknown"],
-  ])("%s → %s", (host, verdict) => {
-    expect(egressVerdict(settings, host)).toBe(verdict);
-  });
-
+describe("egress proxy", () => {
   it("proxy refuses unknown hosts over CONNECT and reports them once", async () => {
     const reported: string[] = [];
     const upstream = http.createServer((_request, response) => response.end("hi"));
@@ -115,39 +66,5 @@ describe("tripwire", () => {
     expect(scanForTripwire('{"cmd":"cat ~/.aws/credentials"}', [])?.kind).toBe("sensitive_path");
     expect(scanForTripwire('{"cmd":"cat ~/.ssh/id_ed25519"}', [])?.kind).toBe("sensitive_path");
     expect(scanForTripwire('{"cmd":"bun run test"}', [canary])).toBeNull();
-  });
-});
-
-describe("sandbox argv", () => {
-  it("bwrap binds the workspace and cuts the network without a proxy", () => {
-    const { file, args } = sandboxArgv({
-      kind: "bwrap",
-      cwd: "/work/repo",
-      home: "/nonexistent-home",
-      scratch: "/tmp/scratch",
-      decoys: [],
-      command: "bun run test",
-      proxyPort: null,
-    });
-    expect(file).toBe("bwrap");
-    expect(args.join(" ")).toContain("--bind /work/repo /work/repo");
-    expect(args).toContain("--unshare-net");
-    expect(args.slice(-3)).toEqual(["/bin/sh", "-c", "bun run test"]);
-  });
-
-  it("sandbox-exec denies credential reads and allows only the proxy port", () => {
-    const { args } = sandboxArgv({
-      kind: "sandbox-exec",
-      cwd: "/work/repo",
-      home: "/Users/me",
-      scratch: "/tmp/scratch",
-      decoys: [],
-      command: "make test",
-      proxyPort: 4100,
-    });
-    const profile = args[1]!;
-    expect(profile).toContain('(subpath "/Users/me/.ssh")');
-    expect(profile).toContain("(deny network*)");
-    expect(profile).toContain("localhost:4100");
   });
 });

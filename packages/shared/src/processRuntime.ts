@@ -29,7 +29,10 @@ import { resolveWindowsComSpec } from "./platformEnvironment";
 import { trackProcessSpawn } from "./processSpawnOutcome";
 export { didProcessFailToSpawn } from "./processSpawnOutcome";
 
-type ProcessPlanningOptions = Pick<ProcessLaunchInput, "platform" | "requireExecutable">;
+type ProcessPlanningOptions = Pick<
+  ProcessLaunchInput,
+  "platform" | "requireExecutable" | "sandbox"
+>;
 
 type ProcessGroupOptions = {
   /** Own a POSIX process group while keeping Windows launches attached for tree control. */
@@ -89,15 +92,17 @@ function planFromOptions(
     ...(options.requireExecutable !== undefined
       ? { requireExecutable: options.requireExecutable }
       : {}),
+    ...(options.sandbox !== undefined ? { sandbox: options.sandbox } : {}),
   });
 }
 
 function runtimeOptions<T extends ProcessPlanningOptions & ProcessGroupOptions>(
   options: T,
-): Omit<T, "platform" | "requireExecutable" | "ownProcessGroup" | "lowerPriority"> {
+): Omit<T, "platform" | "requireExecutable" | "sandbox" | "ownProcessGroup" | "lowerPriority"> {
   const {
     platform: _platform,
     requireExecutable: _requireExecutable,
+    sandbox: _sandbox,
     ownProcessGroup: _ownProcessGroup,
     lowerPriority: _lowerPriority,
     ...nodeOptions

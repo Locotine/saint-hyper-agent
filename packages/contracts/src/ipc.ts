@@ -1465,6 +1465,10 @@ export interface NativeApi {
       typeof AegisContracts.AegisAlertsResult
     >;
     update: SchemaRpc<typeof AegisContracts.AegisUpdateInput, typeof AegisContracts.AegisStatus>;
+    unfreeze: SchemaRpc<
+      typeof AegisContracts.AegisUnfreezeInput,
+      typeof AegisContracts.AegisStatus
+    >;
   };
   economy: {
     status: SchemaRpc<

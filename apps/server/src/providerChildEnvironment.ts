@@ -105,13 +105,6 @@ export function stripSaintControlPlaneEnvironment(env: NodeJS.ProcessEnv): NodeJ
 const isTestHarnessKey = (key: string, env: NodeJS.ProcessEnv): boolean =>
   Boolean(env.VITEST) && (key.startsWith("SAINT_FAKE_") || key.startsWith("SAINT_ACP_"));
 
-// Set by Aegis while egress control is on: new provider processes route HTTP(S) through it.
-let egressProxyEnvironment: Readonly<Record<string, string>> | null = null;
-
-export function setProviderEgressProxyEnvironment(env: Readonly<Record<string, string>> | null) {
-  egressProxyEnvironment = env;
-}
-
 export function buildProviderChildEnvironment(input: {
   readonly provider: ProviderChildKind;
   readonly baseEnv?: NodeJS.ProcessEnv;
@@ -145,5 +138,5 @@ export function buildProviderChildEnvironment(input: {
     childEnv[key] = value;
   }
 
-  return egressProxyEnvironment ? { ...childEnv, ...egressProxyEnvironment } : childEnv;
+  return childEnv;
 }

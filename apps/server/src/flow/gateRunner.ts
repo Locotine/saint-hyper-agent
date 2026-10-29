@@ -85,6 +85,7 @@ export async function runFlowGate(input: {
     readonly file: string;
     readonly args: ReadonlyArray<string>;
     readonly env: Record<string, string>;
+    readonly attach?: (child: import("node:child_process").ChildProcess) => void;
   } | null;
 }): Promise<FlowGateResult> {
   const shell =
@@ -98,6 +99,7 @@ export async function runFlowGate(input: {
   const result = await runProcess(sandbox?.file ?? shell, sandbox ? [...sandbox.args] : args, {
     cwd: input.cwd,
     ...(sandbox ? { env: { ...process.env, ...sandbox.env } } : {}),
+    ...(sandbox?.attach ? { onSpawn: sandbox.attach } : {}),
     timeoutMs: input.gate.timeoutMs ?? FLOW_GATE_DEFAULT_TIMEOUT_MS,
     allowNonZeroExit: true,
     outputMode: "truncate",

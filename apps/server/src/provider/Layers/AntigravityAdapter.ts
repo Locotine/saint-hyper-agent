@@ -1,4 +1,5 @@
 import { providerProcessPriorityEnabled } from "../../providerProcessPriority";
+import { planProviderLaunch } from "../../aegis/providerLaunch.ts";
 import { recordAgentProcess } from "../../economy/agentProcesses.ts";
 import crypto from "node:crypto";
 import type { ChildProcess } from "node:child_process";
@@ -2615,21 +2616,34 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
                 ...options,
                 requireExecutable: true,
               }) as AntigravityChildProcess);
+          const turnEnv = buildAntigravityTurnProcessEnvironment({
+            eventFile,
+            baseEnv: context.environment,
+            ...(gatewaySessionLease && gatewayBootstrapToken
+              ? {
+                  gatewayConnection: gatewaySessionLease.connection,
+                  gatewayBootstrapToken,
+                }
+              : {}),
+          });
+          const turnCwd = context.session.cwd ?? serverConfig.cwd;
+          const launch = yield* Effect.promise(() =>
+            planProviderLaunch({
+              threadId: context.session.threadId,
+              provider: "antigravity",
+              cwd: turnCwd,
+              env: turnEnv,
+              writable: [runDir],
+            }),
+          );
           child = spawnProcess(context.binaryPath, args, {
             lowerPriority: yield* providerProcessPriorityEnabled,
-            cwd: context.session.cwd ?? serverConfig.cwd,
-            env: buildAntigravityTurnProcessEnvironment({
-              eventFile,
-              baseEnv: context.environment,
-              ...(gatewaySessionLease && gatewayBootstrapToken
-                ? {
-                    gatewayConnection: gatewaySessionLease.connection,
-                    gatewayBootstrapToken,
-                  }
-                : {}),
-            }),
+            cwd: turnCwd,
+            env: { ...turnEnv, ...launch.env },
+            ...(launch.sandbox ? { sandbox: launch.sandbox } : {}),
             stdio: ["ignore", "pipe", "pipe"],
           });
+          launch.attach(child);
           recordAgentProcess(context.session.threadId, child.pid);
         } catch (cause) {
           releaseTurnGatewayLease(context, gatewaySessionLease);

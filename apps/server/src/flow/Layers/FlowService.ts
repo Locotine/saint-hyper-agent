@@ -12,6 +12,7 @@ import {
   type OrchestrationEvent,
   type ProjectId,
 } from "@saint/contracts";
+import { existsSync } from "node:fs";
 import * as NodeFs from "node:fs/promises";
 import * as NodePath from "node:path";
 
@@ -29,6 +30,8 @@ import {
 } from "../../orchestration/forkContinue.ts";
 import { ForkContinue } from "../../orchestration/Services/ForkContinue.ts";
 import { Aegis } from "../../aegis/Services/Aegis.ts";
+import { ServerConfig } from "../../config.ts";
+import { GitCore } from "../../git/Services/GitCore.ts";
 import { currentFlowAdmission } from "../../economy/Services/Economy.ts";
 import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
@@ -116,6 +119,10 @@ const make = Effect.gen(function* () {
   const credentials = Option.getOrUndefined(yield* Effect.serviceOption(AgentGatewayCredentials));
   const forkContinue = Option.getOrUndefined(yield* Effect.serviceOption(ForkContinue));
   const aegis = Option.getOrUndefined(yield* Effect.serviceOption(Aegis));
+  const git = Option.getOrUndefined(yield* Effect.serviceOption(GitCore));
+  const worktreesDir = Option.getOrUndefined(
+    yield* Effect.serviceOption(ServerConfig),
+  )?.worktreesDir;
   const alert = (input: Parameters<NonNullable<typeof aegis>["raise"]>[0]) =>
     aegis ? aegis.raise(input).pipe(Effect.ignore) : Effect.void;
   // Threads already moved to a clean session for a full context, so one fill level forks once.
@@ -164,11 +171,48 @@ const make = Effect.gen(function* () {
           }).pipe(Effect.mapError(toError(`Node "${spec.id}" names an unknown provider or model.`)))
         : Effect.succeed(run.modelSelection);
 
-  const projectCwd = (run: FlowRun) =>
+  const projectFolder = (run: FlowRun) =>
     snapshotQuery.getProjectShellById(run.projectId).pipe(
       Effect.map((shell) => Option.getOrNull(shell)?.workspaceRoot ?? null),
       Effect.mapError(toError("Could not read the flow's project.")),
     );
+
+  /** Every flow runs in its own Saint-managed worktree, so a kill can freeze it safely. */
+  const flowWorktreePath = (flowId: string) =>
+    worktreesDir ? NodePath.join(worktreesDir, `flow-${flowId}`) : "";
+  const worktreesInFlight = new Map<string, Promise<string | null>>();
+
+  /**
+   * The folder a flow's steps and gates run in: its worktree, created on first use. A project
+   * that is not a git repository (or has no commit yet) falls back to the project folder.
+   */
+  const projectCwd = (run: FlowRun) =>
+    Effect.gen(function* () {
+      const root = yield* projectFolder(run);
+      if (!root) return null;
+      const worktree = flowWorktreePath(run.id);
+      if (!worktree || !git) return root;
+      if (existsSync(worktree)) return worktree;
+      const pending =
+        worktreesInFlight.get(run.id) ??
+        Effect.runPromise(
+          git
+            .createDetachedWorktree({
+              cwd: root,
+              ref: "HEAD",
+              path: worktree,
+              newBranch: `saint/flow-${run.id}`,
+            })
+            .pipe(
+              Effect.map((created) => created.worktree.path),
+              Effect.orElseSucceed(() => null),
+            ),
+        );
+      worktreesInFlight.set(run.id, pending);
+      const created = yield* Effect.promise(() => pending);
+      worktreesInFlight.delete(run.id);
+      return created ?? root;
+    });
 
   const spawnNode = (state: FlowRunState, node: FlowNodeRun, continuation?: string) =>
     Effect.gen(function* () {
@@ -184,7 +228,9 @@ const make = Effect.gen(function* () {
           from: edge.from,
           handoff: state.nodes.find((entry) => entry.nodeId === edge.from)?.handoff ?? null,
         }));
-      const cwd = spec.gate ? yield* projectCwd(run) : null;
+      const stepCwd = yield* projectCwd(run);
+      const ownWorktree = stepCwd !== null && stepCwd === flowWorktreePath(run.id);
+      const cwd = spec.gate ? stepCwd : null;
       const baselineRef = cwd
         ? yield* Effect.promise(() => captureGateBaseline(cwd).catch(() => null))
         : null;
@@ -216,9 +262,9 @@ const make = Effect.gen(function* () {
           modelSelection,
           runtimeMode: stepRuntimeMode(run, node.nodeId),
           interactionMode: "default",
-          envMode: "local",
-          branch: null,
-          worktreePath: null,
+          envMode: ownWorktree ? "worktree" : "local",
+          branch: ownWorktree ? `saint/flow-${run.id}` : null,
+          worktreePath: ownWorktree ? stepCwd : null,
           createdAt: now,
         })
         .pipe(Effect.mapError(toError(`Could not create the thread for "${spec.id}".`)));
@@ -588,10 +634,10 @@ const make = Effect.gen(function* () {
         const sandbox =
           cwd && aegis
             ? yield* aegis
-                .gateSandbox({ cwd, command: gate.cmd })
+                .gateSandbox({ cwd, command: gate.cmd, threadId: node.threadId })
                 .pipe(Effect.orElseSucceed(() => null))
             : null;
-        const result: FlowGateResult = cwd
+        const gateRun: FlowGateResult = cwd
           ? yield* Effect.tryPromise(() =>
               runFlowGate({ gate, cwd, baseline: node.baselineRef ?? null, sandbox }),
             ).pipe(
@@ -600,6 +646,17 @@ const make = Effect.gen(function* () {
               ),
             )
           : failedGate("Saint could not find the project folder to run the gate in.");
+        // A protected-zone edit the Cedar policy permits for this step is not held.
+        const result: FlowGateResult =
+          aegis && node.threadId && gateRun.protectedEdits.length > 0
+            ? {
+                ...gateRun,
+                protectedEdits: yield* aegis.unpermittedWrites({
+                  threadId: node.threadId,
+                  paths: gateRun.protectedEdits,
+                }),
+              }
+            : gateRun;
         const evidence = yield* ledger
           .putHandle({
             kind: "ev",
@@ -961,7 +1018,28 @@ const make = Effect.gen(function* () {
   const killAll: FlowServiceShape["killAll"] = (by) =>
     Effect.gen(function* () {
       const runs = yield* list({ statuses: ["running", "paused"] });
+      const states = yield* Effect.forEach(runs, (run) => load(run.id));
       yield* Effect.forEach(runs, (run) => cancel(run.id, by), { discard: true });
+      // Then the kill switch proper: process trees, capabilities, frozen worktrees, ledger.
+      const threadIds = states.flatMap((state) =>
+        state.nodes.flatMap((node) =>
+          node.threadId && (node.status === "running" || node.status === "gating")
+            ? [node.threadId]
+            : [],
+        ),
+      );
+      if (aegis && threadIds.length > 0) {
+        yield* aegis
+          .kill({
+            threadIds,
+            reason: "kill all flows",
+            by,
+            worktrees: runs
+              .map((run) => flowWorktreePath(run.id))
+              .filter((worktree) => worktree !== "" && existsSync(worktree)),
+          })
+          .pipe(Effect.ignore);
+      }
       return runs.length;
     });
 
@@ -1060,6 +1138,27 @@ const make = Effect.gen(function* () {
 
   const startReactor: FlowServiceShape["startReactor"] = () =>
     Effect.gen(function* () {
+      aegis?.setPrincipalResolver((threadId) =>
+        threadId.startsWith("flow-")
+          ? nodeForThread(ThreadId.makeUnsafe(threadId)).pipe(
+              Effect.map((found) =>
+                found
+                  ? {
+                      flowId: found.run.id,
+                      nodeId: found.node.nodeId,
+                      autopilot: nodeSpecOf(found.run, found.node.nodeId).mode === "autopilot",
+                      worktree:
+                        flowWorktreePath(found.run.id) !== "" &&
+                        existsSync(flowWorktreePath(found.run.id))
+                          ? flowWorktreePath(found.run.id)
+                          : null,
+                    }
+                  : null,
+              ),
+              Effect.orElseSucceed(() => null),
+            )
+          : Effect.succeed(null),
+      );
       // A tripwire on a step cancels its whole flow.
       aegis?.onKill((threadId) =>
         nodeForThread(threadId).pipe(

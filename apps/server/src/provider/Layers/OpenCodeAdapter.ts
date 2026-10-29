@@ -3877,7 +3877,9 @@ export function makeOpenCodeAdapterLive(options?: OpenCodeAdapterLiveOptions) {
                       ...(serverUrl ? { serverUrl } : {}),
                       ...(environment !== undefined ? { environment } : {}),
                       ...(experimentalWebSockets ? { experimentalWebSockets: true } : {}),
-                      ...(poolIsolationKey ? { poolIsolationKey } : {}),
+                      ...(poolIsolationKey
+                        ? { poolIsolationKey, ownerThreadId: input.threadId }
+                        : {}),
                     });
                     const clientServerPassword = serverPasswordForOpenCodeClient(
                       server,

@@ -51,6 +51,16 @@ export interface ProcessLaunchInput {
   readonly requireExecutable?: boolean;
   /** Apply CPU priority before exec on POSIX, including Windows launches through WSL. */
   readonly lowerPriority?: boolean;
+  /**
+   * POSIX OS sandbox (bwrap, sandbox-exec) the planned command runs inside: its argv is
+   * appended to `args`. Windows has no OS sandbox, so it is ignored there and in WSL.
+   */
+  readonly sandbox?: ProcessSandboxLauncher;
+}
+
+export interface ProcessSandboxLauncher {
+  readonly command: string;
+  readonly args: ReadonlyArray<string>;
 }
 
 export interface ProcessLaunchPlan extends WindowsSafeProcessCommand {
@@ -221,11 +231,13 @@ export function prepareProcess(
       console.warn("Agent priority launcher /bin/sh is unavailable; using post-spawn priority");
       priorityBeforeExec = false;
     }
+    const plannedCommand = priorityBeforeExec ? "/bin/sh" : resolvedCommand;
+    const plannedArgs = priorityBeforeExec
+      ? priorityExecArgs(resolvedCommand, args, inheritedAgentPriority())
+      : [...args];
     return {
-      command: priorityBeforeExec ? "/bin/sh" : resolvedCommand,
-      args: priorityBeforeExec
-        ? priorityExecArgs(resolvedCommand, args, inheritedAgentPriority())
-        : [...args],
+      command: input.sandbox ? input.sandbox.command : plannedCommand,
+      args: input.sandbox ? [...input.sandbox.args, plannedCommand, ...plannedArgs] : plannedArgs,
       shell: false,
       requestedCommand: command,
       resolvedCommand,

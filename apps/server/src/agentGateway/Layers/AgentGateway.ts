@@ -128,6 +128,7 @@ import { makeAgentGatewayKanbanTools } from "../kanbanTools.ts";
 import { makeAgentGatewayTodoTools } from "../todoTools.ts";
 import { makeAgentGatewayFlowTools } from "../flowTools.ts";
 import { FlowService } from "../../flow/Services/FlowService.ts";
+import { Aegis } from "../../aegis/Services/Aegis.ts";
 import { Ledger } from "../../ledger/Services/Ledger.ts";
 import { SapBus } from "../../sap/Services/SapBus.ts";
 import { ForkContinue } from "../../orchestration/Services/ForkContinue.ts";
@@ -209,6 +210,7 @@ export const makeAgentGateway = Effect.gen(function* () {
   const sapBus = Option.getOrUndefined(yield* Effect.serviceOption(SapBus));
   const forkContinue = Option.getOrUndefined(yield* Effect.serviceOption(ForkContinue));
   const ledger = Option.getOrUndefined(yield* Effect.serviceOption(Ledger));
+  const aegis = Option.getOrUndefined(yield* Effect.serviceOption(Aegis));
   const git = yield* GitCore;
   const gitManager = yield* GitManager;
   const providerDiscovery = yield* ProviderDiscoveryService;
@@ -1741,6 +1743,12 @@ export const makeAgentGateway = Effect.gen(function* () {
       snapshotQuery,
       tools,
       onCapabilityDenied: surfaceCapabilityDenial,
+      ...(aegis
+        ? {
+            authorizeToolCall: ({ toolName, callerThreadId }) =>
+              aegis.authorizeTool({ threadId: callerThreadId, tool: toolName }),
+          }
+        : {}),
       // Namespace-insensitive: a session that never saw the catalog reaches
       // for prefixed spellings (saint_computer_click,
       // mcp__saint__computer_click). Those must deny with the card, never die

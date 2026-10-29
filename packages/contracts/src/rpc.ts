@@ -31,6 +31,7 @@ import {
   AegisResolveInput,
   AegisStatus,
   AegisStatusInput,
+  AegisUnfreezeInput,
   AegisUpdateInput,
 } from "./aegis";
 import {
@@ -1414,6 +1415,11 @@ export const WsAegisUpdateRpc = Rpc.make(WS_METHODS.aegisUpdate, {
   success: AegisStatus,
   error: WsRpcError,
 });
+export const WsAegisUnfreezeRpc = Rpc.make(WS_METHODS.aegisUnfreeze, {
+  payload: AegisUnfreezeInput,
+  success: AegisStatus,
+  error: WsRpcError,
+});
 
 export const WsEconomyStatusRpc = Rpc.make(WS_METHODS.economyStatus, {
   payload: EconomyStatusInput,
@@ -2273,6 +2279,7 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsAegisAlertsRpc,
   WsAegisResolveRpc,
   WsAegisUpdateRpc,
+  WsAegisUnfreezeRpc,
   WsEconomyStatusRpc,
   WsEconomyAgentRpc,
   WsEconomyUpdateRpc,
