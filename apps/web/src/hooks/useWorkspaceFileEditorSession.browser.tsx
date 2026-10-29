@@ -9,8 +9,8 @@ const { api } = vi.hoisted(() => ({
   api: { projects: { readFile: vi.fn(), writeFile: vi.fn() } },
 }));
 vi.mock("../nativeApi", () => ({
-  ensureNativeApi: () => api,
-  readNativeApi: () => api,
+  ensureLocalNativeApi: () => api,
+  readLocalNativeApi: () => api,
   readNativeApiServerCapability: () => false,
   onNativeApiServerCapabilitiesChange: () => () => undefined,
 }));

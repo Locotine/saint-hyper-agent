@@ -12,7 +12,7 @@ import type {
 import { PROJECT_SEARCH_CONTENT_MIN_QUERY_LENGTH } from "@saint/contracts";
 import { isLocalAbsolutePath } from "@saint/shared/path";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import {
   EXPENSIVE_READ_RETRY_OPTIONS,
   expensiveReadErrorRefetchInterval,
@@ -196,7 +196,7 @@ const ABSOLUTE_LOCAL_READ_CWD = "/";
 export function prewarmProjectSearchIndex(cwd: string | null): void {
   if (!cwd) return;
   try {
-    void ensureNativeApi()
+    void ensureLocalNativeApi()
       .projects.prewarmSearchIndex({ cwd })
       .catch(() => undefined);
   } catch {
@@ -247,7 +247,7 @@ export function projectListDirectoriesQueryOptions(input: {
   return queryOptions<ProjectListDirectoriesResult>({
     queryKey: projectQueryKeys.listDirectories(input.cwd, relativePath, includeFiles),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd) {
         throw new Error("Workspace directory listing is unavailable.");
       }
@@ -278,7 +278,7 @@ export function projectReadFileQueryOptions(input: {
   return queryOptions<ProjectReadFileResult>({
     queryKey: projectQueryKeys.readFile(input.cwd, input.relativePath),
     queryFn: async ({ signal }) => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!effectiveCwd || !input.relativePath) {
         throw new Error("Workspace file read is unavailable.");
       }
@@ -338,7 +338,7 @@ export function projectResolveOutOfRootFileReferenceQueryOptions(input: {
   return queryOptions<ProjectResolveOutOfRootFileReferenceResult>({
     queryKey: projectQueryKeys.resolveOutOfRootFileReference(input.cwd, input.relativePath),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd || !input.relativePath) {
         throw new Error("Out-of-root file reference resolution is unavailable.");
       }
@@ -364,7 +364,7 @@ export function projectLocalPreviewGrantQueryOptions(input: {
   return queryOptions<ProjectCreateLocalFilePreviewGrantResult>({
     queryKey: projectQueryKeys.localPreviewGrant(input.path),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.path) {
         throw new Error("Local file preview grant is unavailable.");
       }
@@ -386,7 +386,7 @@ export function projectDiscoverScriptsQueryOptions(input: {
   return queryOptions({
     queryKey: projectQueryKeys.discoverScripts(input.cwd, depth),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd) {
         throw new Error("Project script discovery is unavailable.");
       }
@@ -413,7 +413,7 @@ export function projectSearchEntriesQueryOptions(input: {
   return queryOptions({
     queryKey: projectQueryKeys.searchEntries(input.cwd, input.query, limit, input.kind ?? null),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd) {
         throw new Error("Workspace entry search is unavailable.");
       }
@@ -444,7 +444,7 @@ export function projectSearchLocalEntriesQueryOptions(input: {
   return queryOptions({
     queryKey: projectQueryKeys.searchLocalEntries(input.rootPath, trimmedQuery, limit),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.rootPath) {
         throw new Error("Local entry search is unavailable.");
       }
@@ -474,7 +474,7 @@ export function projectSearchContentQueryOptions(input: {
   return queryOptions({
     queryKey: projectQueryKeys.searchContent(input.cwd, trimmedQuery, limit),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd) {
         throw new Error("Workspace content search is unavailable.");
       }

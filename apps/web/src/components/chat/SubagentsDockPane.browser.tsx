@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import "../../index.css";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { page, userEvent } from "vitest/browser";
@@ -25,7 +26,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   useNavigate: () => state.navigate,
 }));
 vi.mock("../../nativeApi", () => ({
-  readNativeApi: () => ({ orchestration: { dispatchCommand: state.dispatch } }),
+  readLocalNativeApi: () => ({ orchestration: { dispatchCommand: state.dispatch } }),
 }));
 vi.mock("./useSubagentStripSource", () => ({
   useThreadSubagentRoster: () => ({
@@ -109,6 +110,7 @@ it.each(["Stop subagent Scout", "Run Scout in background"])(
 it("opens the subagent dock in a split pane, keeps its destination in that pane, and closes it", async () => {
   await page.viewport(1800, 1000);
   const split = useSplitViewStore.getState().createFromDrop({
+    hostId: LOCAL_HOST_ID,
     sourceThreadId: parent,
     ownerProjectId: ProjectId.makeUnsafe("project"),
     droppedThreadId: other,

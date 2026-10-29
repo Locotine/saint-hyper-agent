@@ -1,3 +1,4 @@
+import { scopeLocalProject } from "@saint/shared/hostId";
 import { describe, expect, it } from "vitest";
 
 import { ProjectId, ThreadId } from "@saint/contracts";
@@ -429,7 +430,10 @@ describe("buildKanbanBoard", () => {
           },
         },
         draftOrderByProjectId: {
-          "project-1": [kanbanDraftCardId(first), kanbanDraftCardId(second)],
+          [scopeLocalProject("project-1" as ProjectId)]: [
+            kanbanDraftCardId(first),
+            kanbanDraftCardId(second),
+          ],
         },
       }),
     );

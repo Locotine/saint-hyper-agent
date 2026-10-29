@@ -92,6 +92,9 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock("react", () => ({
+  // Host scoping reads a context; outside any provider it is always the default value.
+  createContext: (value: unknown) => ({ Provider: () => null, defaultValue: value }),
+  useContext: (context: { defaultValue: unknown }) => context.defaultValue,
   useCallback: reactHarness.useCallback,
   useEffect: reactHarness.useEffect,
   useMemo: reactHarness.useMemo,
@@ -120,7 +123,7 @@ vi.mock("../projectRunStore", () => {
 });
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     projects: {
       runDevServer: harness.runDevServer,
       stopDevServer: harness.stopDevServer,

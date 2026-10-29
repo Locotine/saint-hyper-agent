@@ -4,10 +4,10 @@
 // Layer: lib
 
 import { toastManager } from "~/components/ui/toast";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 
 export function revealFolderInShell(input: { path: string; onRevealed?: () => void }): void {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     toastManager.add({
       type: "error",

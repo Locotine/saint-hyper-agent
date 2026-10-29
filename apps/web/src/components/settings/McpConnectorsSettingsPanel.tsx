@@ -41,7 +41,7 @@ import { SearchInput } from "~/components/ui/search-input";
 import { toastManager } from "~/components/ui/toast";
 import { AddPlusIcon, EllipsisIcon } from "~/lib/icons";
 import { MCP_CONNECTORS_QUERY_KEY, mcpConnectorsQueryOptions } from "~/lib/mcpConnectorsReactQuery";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 
 import { McpConnectorConnectDialog, type McpConnectorTarget } from "./McpConnectorConnectDialog";
 import { McpConnectorGlyph } from "./McpConnectorGlyph";
@@ -269,7 +269,7 @@ export function McpConnectorsSettingsPanel(props: { active: boolean }) {
 
   const disconnectMutation = useMutation({
     mutationFn: (connectorId: string) =>
-      ensureNativeApi().server.disconnectMcpConnector({ connectorId }),
+      ensureLocalNativeApi().server.disconnectMcpConnector({ connectorId }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: MCP_CONNECTORS_QUERY_KEY }),
     onError: (error) =>
       toastManager.add({
@@ -293,7 +293,7 @@ export function McpConnectorsSettingsPanel(props: { active: boolean }) {
   );
 
   const disconnect = async (connector: McpConnector) => {
-    const confirmed = await ensureNativeApi().dialogs.confirm(
+    const confirmed = await ensureLocalNativeApi().dialogs.confirm(
       `Disconnect ${connector.name}?\nAgents lose its tools, and Saint deletes its sign-in from this computer.`,
     );
     if (confirmed) disconnectMutation.mutate(connector.connectorId);

@@ -1,16 +1,16 @@
 // FILE: RemoteFolderPickerDialog.tsx
-// Purpose: Folder picker for remote SSH host windows. Browses the host's folders
-//          through the server (`filesystem.browse`), marks git repositories, and
-//          resolves `pickRemoteFolder()` with the chosen host path.
+// Purpose: Folder picker for remote SSH hosts (a host window, or Add project on a connected
+//          host). Browses the host's folders through its server (`filesystem.browse`), marks
+//          git repositories, and resolves `pickRemoteFolder()` with the chosen host path.
 // Layer: Web UI dialog (mounted once in the root route)
 // Exports: RemoteFolderPickerDialog
 
 import type { FilesystemBrowseResult } from "@saint/contracts";
+import type { HostId } from "@saint/shared/hostId";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { remoteWindowHost } from "../env";
-import { readNativeApi } from "../nativeApi";
+import { apiFor } from "../hosts/hostScope";
 import { useRemoteFolderPickerStore } from "../remoteFolderPickerStore";
 import { ArrowUpIcon, EyeIcon, FolderIcon, GitBranchIcon, HomeIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
@@ -28,8 +28,8 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 
 const HOME_DIRECTORY = "~";
-// Reopening the picker starts where the last pick ended, like a native dialog.
-let lastPickedDirectory = HOME_DIRECTORY;
+// Reopening the picker starts where the last pick on that host ended, like a native dialog.
+const lastPickedDirectoryByHost = new Map<HostId, string>();
 
 function parentDirectory(directory: string): string {
   const trimmed = directory.replace(/\/+$/u, "");
@@ -44,20 +44,31 @@ function browsePath(directory: string): string {
 export function RemoteFolderPickerDialog() {
   const resolve = useRemoteFolderPickerStore((state) => state.resolve);
   const settle = useRemoteFolderPickerStore((state) => state.settle);
+  const hostId = useRemoteFolderPickerStore((state) => state.hostId);
+  const hostName = useRemoteFolderPickerStore((state) => state.hostName);
   // Mounting per request resets navigation to the last picked folder.
-  return resolve ? <RemoteFolderPickerContent onSettle={settle} /> : null;
+  return resolve ? (
+    <RemoteFolderPickerContent hostId={hostId} hostName={hostName} onSettle={settle} />
+  ) : null;
 }
 
-function RemoteFolderPickerContent(props: { onSettle: (path: string | null) => void }) {
-  const [directory, setDirectory] = useState(lastPickedDirectory);
+function RemoteFolderPickerContent(props: {
+  hostId: HostId;
+  hostName: string | null;
+  onSettle: (path: string | null) => void;
+}) {
+  const { hostId } = props;
+  const [directory, setDirectory] = useState(
+    () => lastPickedDirectoryByHost.get(hostId) ?? HOME_DIRECTORY,
+  );
   const [draftPath, setDraftPath] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
 
   const browseQuery = useQuery<FilesystemBrowseResult>({
-    queryKey: ["remote-folder-picker", directory],
+    queryKey: ["remote-folder-picker", hostId, directory],
     queryFn: async () => {
-      const api = readNativeApi();
-      if (!api) throw new Error("The app server is unavailable.");
+      const api = apiFor(hostId);
+      if (!api) throw new Error("The host's server is unavailable.");
       return api.filesystem.browse({ partialPath: browsePath(directory) });
     },
     retry: false,
@@ -76,7 +87,7 @@ function RemoteFolderPickerContent(props: { onSettle: (path: string | null) => v
   };
   const choose = () => {
     if (!resolvedDirectory) return;
-    lastPickedDirectory = resolvedDirectory;
+    lastPickedDirectoryByHost.set(hostId, resolvedDirectory);
     props.onSettle(resolvedDirectory);
   };
 
@@ -91,7 +102,7 @@ function RemoteFolderPickerContent(props: { onSettle: (path: string | null) => v
         <DialogHeader className="px-5 pt-5">
           <DialogTitle>Choose a folder</DialogTitle>
           <DialogDescription>
-            Folders on {remoteWindowHost ?? "the server"}. Agents, git and terminals run there.
+            Folders on {props.hostName ?? "the server"}. Agents, git and terminals run there.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel className="space-y-3 px-5" scrollFade={false}>

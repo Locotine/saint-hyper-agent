@@ -1,3 +1,5 @@
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import {
   ThreadId,
   type ModelSlug,
@@ -177,6 +179,7 @@ export function useChatComposerCommands({
   pendingUserInputs,
   composerDraft,
 }: ChatComposerCommandsInput) {
+  const chatHost = useHostHandle();
   const onSelectComposerItem = useCallback(
     (item: ComposerCommandItem) => {
       if (composerSelectLockRef.current) return;
@@ -545,7 +548,7 @@ export function useChatComposerCommands({
           setComposerDraftPromptHistorySavedDraft(
             threadId,
             captureComposerPromptHistorySavedDraft({
-              threadId,
+              threadId: scopeThread(chatHost.hostId, threadId),
               draft: composerDraft,
               prompt: result.state.draft,
             }),

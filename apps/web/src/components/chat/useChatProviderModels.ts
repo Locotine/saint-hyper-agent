@@ -5,6 +5,8 @@ import {
   type ProviderKind,
   type ServerProviderStatus,
 } from "@saint/contracts";
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import { normalizeModelSlug } from "@saint/shared/model";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -60,6 +62,7 @@ export function useChatProviderModels({
   resolvedThreadWorktreePath,
   allowProviderHandoff,
 }: ChatProviderModelsInput) {
+  const chatHost = useHostHandle();
   const queryClient = useQueryClient();
   const prompt = composerDraft.prompt;
   const sessionProvider = activeThread?.session?.provider ?? null;
@@ -250,7 +253,7 @@ export function useChatProviderModels({
     ],
   );
   const { modelOptions: composerModelOptions, selectedModel } = useEffectiveComposerModelState({
-    threadId,
+    threadId: scopeThread(chatHost.hostId, threadId),
     selectedProvider,
     selectedProviderInstanceId,
     threadModelSelection: activeThread?.modelSelection,

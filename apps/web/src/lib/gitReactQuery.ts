@@ -8,8 +8,10 @@ import type {
   NativeApi,
   ProviderStartOptions,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
-import { ensureNativeApi } from "../nativeApi";
+import { apiFor } from "../hosts/hostScope";
+import { ensureLocalNativeApi } from "../nativeApi";
 import { createActivityRefreshThrottle } from "./activityRefreshThrottle";
 import { EXPENSIVE_READ_RETRY_OPTIONS, isRpcCapacityExceededError } from "./expensiveReadRetry";
 import { preserveActivePullRequestActionGitFields } from "./pullRequestGitCache";
@@ -474,12 +476,32 @@ export function refreshGitQueriesScoped(
   return scoped.then(() => undefined);
 }
 
-export function gitStatusQueryOptions(cwd: string | null, enabled = true) {
+/**
+ * Reads for a connected host's chat (multi-host) go to that host and key by it after the
+ * usual key, so a host path never shares a cache entry with the same path here and the
+ * existing prefix invalidations still reach it. This computer's keys are unchanged.
+ */
+function hostKeyPart(hostId: HostId): readonly HostId[] {
+  return hostId === LOCAL_HOST_ID ? [] : [hostId];
+}
+
+function gitApiFor(hostId: HostId) {
+  if (hostId === LOCAL_HOST_ID) return ensureLocalNativeApi();
+  const api = apiFor(hostId);
+  if (!api) throw new Error("This host is not connected.");
+  return api;
+}
+
+export function gitStatusQueryOptions(
+  cwd: string | null,
+  enabled = true,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   return queryOptions({
-    queryKey: gitQueryKeys.status(cwd),
+    queryKey: [...gitQueryKeys.status(cwd), ...hostKeyPart(hostId)],
     queryFn: async ({ client }) => {
       const readFence = capturePullRequestActionReadFence(client);
-      const api = ensureNativeApi();
+      const api = gitApiFor(hostId);
       if (!cwd) throw new Error("Git status is unavailable.");
       return preserveActivePullRequestActionGitFields(
         client,
@@ -496,11 +518,15 @@ export function gitStatusQueryOptions(cwd: string | null, enabled = true) {
   });
 }
 
-export function gitGithubRepositoryQueryOptions(cwd: string | null, enabled = true) {
+export function gitGithubRepositoryQueryOptions(
+  cwd: string | null,
+  enabled = true,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   return queryOptions({
-    queryKey: gitQueryKeys.githubRepository(cwd),
+    queryKey: [...gitQueryKeys.githubRepository(cwd), ...hostKeyPart(hostId)],
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = gitApiFor(hostId);
       if (!cwd) throw new Error("GitHub repository is unavailable.");
       return api.git.githubRepository({ cwd });
     },
@@ -531,7 +557,7 @@ export function gitRecentCommitsQueryOptions(input: {
   return queryOptions({
     queryKey: gitQueryKeys.recentCommits(input.cwd, limit),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd) throw new Error("Git commits are unavailable.");
       return api.git.listRecentCommits({ cwd: input.cwd, limit });
     },
@@ -542,11 +568,11 @@ export function gitRecentCommitsQueryOptions(input: {
   });
 }
 
-export function gitBranchesQueryOptions(cwd: string | null) {
+export function gitBranchesQueryOptions(cwd: string | null, hostId: HostId = LOCAL_HOST_ID) {
   return queryOptions({
-    queryKey: gitQueryKeys.branches(cwd),
+    queryKey: [...gitQueryKeys.branches(cwd), ...hostKeyPart(hostId)],
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = gitApiFor(hostId);
       if (!cwd) throw new Error("Git branches are unavailable.");
       return api.git.listBranches({ cwd });
     },
@@ -566,7 +592,7 @@ export function gitResolvePullRequestQueryOptions(input: {
   return queryOptions({
     queryKey: [...gitQueryKeys.pullRequest(input.cwd), input.reference] as const,
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd || !input.reference) {
         throw new Error("Pull request lookup is unavailable.");
       }
@@ -599,7 +625,7 @@ export function gitPullRequestSnapshotQueryOptions(input: {
     queryKey: [...gitQueryKeys.pullRequest(input.cwd), "snapshot", input.reference] as const,
     queryFn: async ({ client }) => {
       const readFence = capturePullRequestActionReadFence(client);
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd || !input.reference) {
         throw new Error("Pull request snapshot is unavailable.");
       }
@@ -646,7 +672,7 @@ export function gitWorkingTreeDiffStatsQueryOptions(input: {
   return queryOptions({
     queryKey: gitQueryKeys.workingTreeDiffStats(input.cwd, scope, compareRef),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd) {
         throw new Error("Working tree diff stats are unavailable.");
       }
@@ -676,7 +702,7 @@ export function gitReadFileAtRevQueryOptions(input: {
   return queryOptions({
     queryKey: gitQueryKeys.fileAtRev(cwd, filePath, rev ?? null, base ?? null),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!cwd || !filePath) {
         throw new Error("File revision read is unavailable.");
       }
@@ -706,7 +732,7 @@ export function gitWorkingTreeDiffQueryOptions(input: {
   return queryOptions({
     queryKey: gitQueryKeys.workingTreeDiff(input.cwd, scope, compareRef, input.filePath ?? null),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd) {
         throw new Error("Working tree diff is unavailable.");
       }
@@ -739,7 +765,7 @@ export function gitBlameLineQueryOptions(input: {
   return queryOptions({
     queryKey: gitQueryKeys.blameLine(input.cwd, input.filePath, input.line, rev, base),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd || !input.filePath || input.line === null) {
         throw new Error("Git blame is unavailable.");
       }
@@ -799,7 +825,7 @@ function makeGitMutationOptions<TArgs, TResult>(config: {
   return mutationOptions({
     mutationKey: config.mutationKey,
     mutationFn: async (args: TArgs) => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!config.cwd) throw new Error(config.unavailableMessage);
       return config.run(api, config.cwd, args);
     },
@@ -945,7 +971,7 @@ export function gitCreateDetachedWorktreeMutationOptions(input: { queryClient: Q
       newBranch?: string;
       progressId?: string;
     }) => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!cwd) throw new Error("Git worktree creation is unavailable.");
       return api.git.createDetachedWorktree({
         cwd,
@@ -972,7 +998,7 @@ export function gitRemoveWorktreeMutationOptions(input: { queryClient: QueryClie
       archiveCleanup,
       reclaimTemporaryBranch = true,
     }: GitRemoveWorktreeInput) => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!cwd) throw new Error("Git worktree removal is unavailable.");
       // Every UI removal retires a thread-scoped managed worktree, so its
       // temporary saint/* branch (if any) is reclaimed with it.

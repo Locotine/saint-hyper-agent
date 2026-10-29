@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { ProjectId } from "@saint/contracts";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { ensureNativeApi } from "../nativeApi";
+import { ensureLocalNativeApi } from "../nativeApi";
 import { relocateProjectFromClient } from "../lib/projectRelocation";
 import { hasUnsavedWorkspaceEditors } from "../lib/workspaceEditorSession";
 import { RenameDialog } from "./RenameDialog";
@@ -32,7 +32,7 @@ export function RelocateProjectDialog(props: {
           if (hasUnsavedWorkspaceEditors(queryClient)) {
             throw new Error("Save or discard unsaved file edits before changing a project path.");
           }
-          await relocateProjectFromClient(ensureNativeApi().orchestration, {
+          await relocateProjectFromClient(ensureLocalNativeApi().orchestration, {
             projectId: props.projectId,
             previousWorkspaceRoot: originalWorkspaceRoot,
             workspaceRoot,

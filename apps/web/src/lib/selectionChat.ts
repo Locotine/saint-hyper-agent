@@ -1,10 +1,11 @@
 // Purpose: Route selected transcript text through the normal Side and new-chat flows.
 
+import { scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
 import type { ProjectId, ThreadEnvironmentMode, ThreadId } from "@saint/contracts";
 
 import { useComposerDraftStore, type QueuedComposerChatTurn } from "../composerDraftStore";
 import { requestComposerFocus } from "../composerFocusRequestStore";
-import { ensureNativeApi } from "../nativeApi";
+import { ensureLocalNativeApi } from "../nativeApi";
 import { useProjectEnvironmentStore } from "../projectEnvironmentStore";
 import { useRightDockStore } from "../rightDockStore";
 import { useStore } from "../store";
@@ -33,14 +34,16 @@ export async function addSelectionToSide(
     throw new Error("Open a main chat before starting Side.");
   }
   await createSidechatThread({
-    api: ensureNativeApi(),
+    api: ensureLocalNativeApi(),
     project: input.project,
     sourceThread: input.sourceThread,
     selectedModelSelection: input.selectedModelSelection,
     ...(input.runtimeMode !== undefined ? { runtimeMode: input.runtimeMode } : {}),
     openSidechat: (threadId) => {
       // Seed the reference before mounting the Side composer, including during a slow sync.
-      useComposerDraftStore.getState().addAssistantSelection(threadId, attachment);
+      useComposerDraftStore
+        .getState()
+        .addAssistantSelection(scopeLocalThread(threadId), attachment);
       useRightDockStore.getState().openPane(input.sourceThread.id, { kind: "sidechat", threadId });
       requestComposerFocus(threadId);
     },
@@ -70,7 +73,7 @@ export async function startSelectionChat(
 
   let branch: string | null = null;
   if (input.envMode === "worktree") {
-    const status = await ensureNativeApi().git.status({ cwd: input.projectCwd });
+    const status = await ensureLocalNativeApi().git.status({ cwd: input.projectCwd });
     branch = status.branch;
     if (!branch) throw new Error("Check out a branch before starting a new worktree.");
   }
@@ -85,19 +88,21 @@ export async function startSelectionChat(
   if (!threadId) throw new Error("Could not open the new chat. Try again.");
 
   const drafts = useComposerDraftStore.getState();
-  drafts.setModelSelection(threadId, input.modelSelection);
-  drafts.setRuntimeMode(threadId, input.runtimeMode);
-  drafts.setInteractionMode(threadId, "default");
-  useProjectEnvironmentStore.getState().setProjectEnvMode(input.projectId, input.envMode);
+  drafts.setModelSelection(scopeLocalThread(threadId), input.modelSelection);
+  drafts.setRuntimeMode(scopeLocalThread(threadId), input.runtimeMode);
+  drafts.setInteractionMode(scopeLocalThread(threadId), "default");
+  useProjectEnvironmentStore
+    .getState()
+    .setProjectEnvMode(scopeLocalProject(input.projectId), input.envMode);
   if (input.intent === "compose") {
-    drafts.setPrompt(threadId, input.prompt);
-    drafts.addAssistantSelection(threadId, attachment);
+    drafts.setPrompt(scopeLocalThread(threadId), input.prompt);
+    drafts.addAssistantSelection(scopeLocalThread(threadId), attachment);
     requestComposerFocus(threadId);
     return;
   }
   // The destination ChatView drains this queue through its regular first-send path,
   // including worktree creation, setup scripts, attachment serialization and recovery.
-  drafts.enqueueQueuedTurn(threadId, {
+  drafts.enqueueQueuedTurn(scopeLocalThread(threadId), {
     id: randomUUID(),
     kind: "chat",
     createdAt: new Date().toISOString(),

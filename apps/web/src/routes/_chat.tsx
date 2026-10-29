@@ -1,3 +1,4 @@
+import { scopeLocalThread, scopeLocalProject, localProjectId } from "@saint/shared/hostId";
 import type { ResolvedKeybindingsConfig } from "@saint/contracts";
 import { CHAT_SURFACE_HEADER_HEIGHT_PX } from "@saint/shared/desktopChrome";
 import { useQuery } from "@tanstack/react-query";
@@ -232,7 +233,9 @@ function ChatRouteGlobalShortcuts() {
   const chatWorkspaceRoot = useWorkspacePathsStore((state) => state.chatWorkspaceRoot);
   const studioWorkspaceRoot = useWorkspacePathsStore((state) => state.studioWorkspaceRoot);
   const groupsWorkspaceRoot = useWorkspacePathsStore((state) => state.groupsWorkspaceRoot);
-  const latestProjectId = useLatestProjectStore((state) => state.latestProjectId);
+  const latestProjectId = useLatestProjectStore((state) =>
+    state.latestProjectId ? localProjectId(state.latestProjectId) : null,
+  );
   const setLatestProjectId = useLatestProjectStore((state) => state.setLatestProjectId);
   const clearLatestProjectId = useLatestProjectStore((state) => state.clearLatestProjectId);
   const threadsHydrated = useStore((state) => state.threadsHydrated);
@@ -247,7 +250,7 @@ function ChatRouteGlobalShortcuts() {
   const refreshProviderStatuses = useRefreshProviderStatusesNow();
   const { settings } = useAppSettings();
   const activeThreadTerminalState = activeContextThreadId
-    ? selectThreadTerminalState(terminalStateByThreadId, activeContextThreadId)
+    ? selectThreadTerminalState(terminalStateByThreadId, scopeLocalThread(activeContextThreadId))
     : null;
   const terminalOpen = activeThreadTerminalState?.terminalOpen ?? false;
   const activeProject =
@@ -331,12 +334,12 @@ function ChatRouteGlobalShortcuts() {
     if (!currentProjectId) {
       return;
     }
-    setLatestProjectId(currentProjectId);
+    setLatestProjectId(scopeLocalProject(currentProjectId));
   }, [currentProjectId, setLatestProjectId]);
 
   useEffect(() => {
     if (threadsHydrated && latestProjectId && persistedLatestProjectStillExists === null) {
-      clearLatestProjectId(latestProjectId);
+      clearLatestProjectId(scopeLocalProject(latestProjectId));
     }
   }, [clearLatestProjectId, latestProjectId, persistedLatestProjectStillExists, threadsHydrated]);
 

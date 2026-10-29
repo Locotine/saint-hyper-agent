@@ -11,11 +11,11 @@ import { findProjectFolderProblem } from "@saint/shared/projectFolders";
 import { normalizeProjectDirectoryName } from "@saint/shared/projectDirectoryName";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
-import { isElectron, remoteWindowHost } from "../env";
+import { isElectron } from "../env";
 import { useWindowFolderDrop } from "../hooks/useWindowFolderDrop";
 import { VOID_SPACE_KEY, spaceKey, toSpaceIconName } from "../lib/spaceGrouping";
 import { createSpace } from "../lib/spaces";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { randomUUID } from "../lib/utils";
 import { joinProjectPath } from "../lib/projectPaths";
 import type { Space } from "../types";
@@ -175,7 +175,7 @@ export function CreateProjectDialog(props: {
 
   useEffect(() => {
     if (!props.open) return;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     return api.projects.onProvisionProgress((event: GitHubProjectProvisionProgressEvent) => {
       if (event.operationId !== activeOperationIdRef.current) return;
@@ -245,7 +245,7 @@ export function CreateProjectDialog(props: {
 
   const handleAddFolder = async () => {
     if (isPickingFolder || submitting) return;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       setFormError("The app server is unavailable.");
       return;
@@ -262,7 +262,7 @@ export function CreateProjectDialog(props: {
 
   const handleBrowse = async () => {
     if (isPickingFolder || submitting) return;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       setFormError("The app server is unavailable.");
       return;
@@ -284,8 +284,7 @@ export function CreateProjectDialog(props: {
   // While the dialog is open it is the only interactive surface, so a folder dropped
   // anywhere in the window counts (see useWindowFolderDrop).
   const isDropTarget = useWindowFolderDrop({
-    // A dropped folder is on this computer, not on a remote window's host.
-    enabled: props.open && isElectron && !remoteWindowHost && source === "local",
+    enabled: props.open && isElectron && source === "local",
     // With a primary folder in place, another dropped folder joins the project.
     onFolder: (dropped) => {
       if (trimmedPath) addAdditionalFolder(dropped);
@@ -299,11 +298,7 @@ export function CreateProjectDialog(props: {
     // The confirm button stays enabled (and white) like the reference dialog;
     // an empty submit explains what is missing instead of being unclickable.
     if (source === "local" && trimmedPath.length === 0) {
-      setFormError(
-        remoteWindowHost
-          ? "Type a folder path, or browse for one above."
-          : "Type a folder path, or drop a folder above.",
-      );
+      setFormError("Type a folder path, or drop a folder above.");
       return;
     }
     const folderProblem =
@@ -398,7 +393,7 @@ export function CreateProjectDialog(props: {
   // The space is created right away (same command the sidebar uses) and picked
   // as the destination, so one Create click ships the project into it.
   const handleCreateSpace = async (value: SpaceEditorValue) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) throw new Error("The app server is unavailable.");
     const icon = toSpaceIconName(value.icon);
     const { spaceId } = await createSpace({ api, name: value.name, icon });
@@ -582,8 +577,6 @@ export function CreateProjectDialog(props: {
                           {pickedPath}
                         </span>
                       </span>
-                    ) : remoteWindowHost ? (
-                      `Browse folders on ${remoteWindowHost}`
                     ) : (
                       "Drop a folder here, or browse"
                     )}

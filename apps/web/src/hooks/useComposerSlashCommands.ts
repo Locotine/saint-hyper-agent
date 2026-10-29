@@ -1,3 +1,5 @@
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import {
   PROVIDER_DISPLAY_NAMES,
   THREAD_GOAL_MAX_CHARS,
@@ -15,7 +17,7 @@ import {
 import { deriveAssociatedWorktreeMetadata } from "@saint/shared/threadWorkspace";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { newCommandId, newMessageId, newThreadId } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import type { Project, Thread } from "../types";
 import type { ComposerTrigger } from "../composer-logic";
 import { extendReplacementRangeForTrailingSpace } from "../composerTriggerInsertion";
@@ -121,6 +123,7 @@ export function useComposerSlashCommands(input: {
     setComposerHighlightedItemId: (id: string | null) => void;
   };
 }) {
+  const chatHost = useHostHandle();
   const [isSlashStatusDialogOpen, setIsSlashStatusDialogOpen] = useState(false);
   const {
     activeProject,
@@ -165,7 +168,7 @@ export function useComposerSlashCommands(input: {
   });
 
   const compactProviderThread = useCallback(async (): Promise<boolean> => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (
       !api ||
       !canOfferCompactCommand ||
@@ -274,8 +277,8 @@ export function useComposerSlashCommands(input: {
         // header shows it immediately, then the first send persists it right
         // after `thread.create` promotes the draft.
         const draftStore = useComposerDraftStore.getState();
-        if (draftStore.getDraftThread(activeThread.id)) {
-          draftStore.setDraftThreadContext(activeThread.id, { goal });
+        if (draftStore.getDraftThread(scopeThread(chatHost.hostId, activeThread.id))) {
+          draftStore.setDraftThreadContext(scopeThread(chatHost.hostId, activeThread.id), { goal });
           return true;
         }
       }
@@ -301,7 +304,7 @@ export function useComposerSlashCommands(input: {
         return false;
       }
     },
-    [activeThread, isServerThread],
+    [chatHost, activeThread, isServerThread],
   );
 
   const clearThreadGoal = useCallback(async () => {
@@ -454,7 +457,7 @@ export function useComposerSlashCommands(input: {
       /** Fork from a specific turn: imports the transcript up to (and including) this message. */
       throughMessageId?: MessageId | null;
     }) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeProject || !activeThread || !isServerThread) {
         toastManager.add({
           type: "warning",
@@ -495,7 +498,7 @@ export function useComposerSlashCommands(input: {
   const sidechatCreationByKeyRef = useRef(new Map<string, SidechatCreationFlight>());
   const createSidechatFromSlashCommand = useCallback(
     (inputOptions?: { initialPrompt?: string; targetProvider?: ProviderKind }): Promise<true> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (
         !api ||
         !activeProject ||
@@ -550,7 +553,9 @@ export function useComposerSlashCommands(input: {
             threadId: sidechatThreadId,
             selectedModelSelection: sidechatModelSelection,
             runtimeMode:
-              useComposerDraftStore.getState().draftsByThreadId[sidechatThreadId]?.runtimeMode ??
+              useComposerDraftStore.getState().draftsByThreadId[
+                scopeThread(chatHost.hostId, sidechatThreadId)
+              ]?.runtimeMode ??
               getThreadFromState(useStore.getState(), sidechatThreadId)?.runtimeMode ??
               runtimeMode,
             prompt,
@@ -581,6 +586,7 @@ export function useComposerSlashCommands(input: {
       });
     },
     [
+      chatHost,
       activeProject,
       activeThread,
       isServerThread,
@@ -601,7 +607,7 @@ export function useComposerSlashCommands(input: {
 
   const runCodexReviewStart = useCallback(
     async (target: "changes" | "base-branch") => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeThread || !activeProject) {
         toastManager.add({
           type: "warning",
@@ -759,7 +765,7 @@ export function useComposerSlashCommands(input: {
   );
 
   const checkClaudeFastSlashCommandAvailability = useCallback(async (): Promise<boolean> => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !providerCommandDiscoveryCwd) {
       editorActions.clearComposerSlashDraft();
       toastManager.add({

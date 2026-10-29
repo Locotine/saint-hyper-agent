@@ -3,6 +3,13 @@
 // Layer: UI hook
 // Exports: useRecentViewSwitcher
 
+import {
+  localThreadId,
+  localThreadIdFromKey,
+  localThreadIds,
+  scopeLocalThread,
+  type ScopedThreadId,
+} from "@saint/shared/hostId";
 import { ThreadId } from "@saint/contracts";
 import type { ResolvedTerminalVisualIdentity } from "@saint/shared/terminalThreads";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
@@ -85,8 +92,8 @@ export function useRecentViewSwitcher(input: UseRecentViewSwitcherInput) {
     settingsSection,
   });
   const currentRecentViewKey = currentRecentView ? recentViewKey(currentRecentView) : null;
-  const recentThreadIds = recentViews.flatMap((view) =>
-    view.kind === "thread" ? [view.threadId] : [],
+  const recentThreadIds = localThreadIds(
+    recentViews.flatMap((view) => (view.kind === "thread" ? [view.threadId] : [])),
   );
   const switcherOpen = recentSwitcherState !== null;
   let recentViewEntries: RecentViewDisplayEntry[] = EMPTY_RECENT_VIEW_ENTRIES;
@@ -94,6 +101,8 @@ export function useRecentViewSwitcher(input: UseRecentViewSwitcherInput) {
     const terminalVisualIdentityByThreadId = new Map<ThreadId, ResolvedTerminalVisualIdentity>();
     for (const view of recentViews) {
       if (view.kind !== "thread") continue;
+      const threadId = localThreadId(view.threadId);
+      if (threadId === null) continue;
       const terminalState = selectThreadTerminalState(terminalStateByThreadId, view.threadId);
       if (terminalState.entryPoint === "terminal") {
         const terminalVisualIdentityById = resolveTerminalVisualIdentityMap({
@@ -110,14 +119,16 @@ export function useRecentViewSwitcher(input: UseRecentViewSwitcherInput) {
           terminalVisualIdentityById,
         });
         if (representativeIdentity) {
-          terminalVisualIdentityByThreadId.set(view.threadId, representativeIdentity.identity);
+          terminalVisualIdentityByThreadId.set(threadId, representativeIdentity.identity);
         }
       }
     }
     const draftThreadsById: Record<string, RecentViewThreadDraftSummary> = {};
-    for (const [threadId, draftThread] of Object.entries(draftThreadsByThreadId)) {
+    for (const [key, draftThread] of Object.entries(draftThreadsByThreadId)) {
+      const threadId = localThreadIdFromKey(key);
+      if (threadId === null) continue;
       draftThreadsById[threadId] = {
-        id: ThreadId.makeUnsafe(threadId),
+        id: threadId,
         projectId: draftThread.projectId,
       };
     }
@@ -171,29 +182,29 @@ export function useRecentViewSwitcher(input: UseRecentViewSwitcherInput) {
     const activeContextThreadId = activeContextThreadIdRef.current;
     const activeDraftThread = activeDraftThreadRef.current;
 
-    const availableThreadIds = new Set<ThreadId>();
+    const availableThreadIds = new Set<ScopedThreadId>();
     for (const [threadId, thread] of Object.entries(sidebarThreadSummaryById)) {
       if (!thread || !isSidechatThread(thread)) {
-        availableThreadIds.add(ThreadId.makeUnsafe(threadId));
+        availableThreadIds.add(scopeLocalThread(ThreadId.makeUnsafe(threadId)));
       }
     }
-    for (const threadId of Object.keys(draftThreadsByThreadId)) {
-      availableThreadIds.add(ThreadId.makeUnsafe(threadId));
+    for (const key of Object.keys(draftThreadsByThreadId)) {
+      availableThreadIds.add(key as ScopedThreadId);
     }
     if (activeDraftThread && activeContextThreadId) {
-      availableThreadIds.add(activeContextThreadId);
+      availableThreadIds.add(scopeLocalThread(activeContextThreadId));
     }
 
     const availableSplitViewIds = new Set(
       Object.keys(splitViewsById).filter((splitViewId) => Boolean(splitViewsById[splitViewId])),
     );
-    const threadIdsBySplitViewId = new Map<string, Set<ThreadId>>();
+    const threadIdsBySplitViewId = new Map<string, Set<ScopedThreadId>>();
     for (const [splitViewId, splitView] of Object.entries(splitViewsById)) {
       if (!splitView) continue;
-      const threadIds = new Set<ThreadId>();
+      const threadIds = new Set<ScopedThreadId>();
       for (const leaf of collectLeaves(splitView.root)) {
         if (leaf.threadId) {
-          threadIds.add(leaf.threadId);
+          threadIds.add(scopeLocalThread(leaf.threadId));
         }
       }
       threadIdsBySplitViewId.set(splitViewId, threadIds);
@@ -224,10 +235,15 @@ export function useRecentViewSwitcher(input: UseRecentViewSwitcherInput) {
   const activateRecentView = (view: RecentView) => {
     switch (view.kind) {
       case "thread": {
-        if (!buildRecentViewAvailability().availableThreadIds.has(view.threadId)) {
+        // Only this computer's threads open here until remote threads get a UI.
+        const threadId = localThreadId(view.threadId);
+        if (
+          threadId === null ||
+          !buildRecentViewAvailability().availableThreadIds.has(view.threadId)
+        ) {
           return;
         }
-        prewarmThreadDetail(view.threadId);
+        prewarmThreadDetail(threadId);
         const splitActivation = resolveRecentThreadSplitActivation({
           view,
           splitViewsById: useSplitViewStore.getState().splitViewsById,
@@ -248,7 +264,7 @@ export function useRecentViewSwitcher(input: UseRecentViewSwitcherInput) {
         }
         void navigate({
           to: "/$threadId",
-          params: { threadId: view.threadId },
+          params: { threadId },
           search: () => (splitActivation ? { splitViewId: splitActivation.splitViewId } : {}),
         });
         return;
@@ -305,8 +321,10 @@ export function useRecentViewSwitcher(input: UseRecentViewSwitcherInput) {
       return false;
     }
 
-    if (selectedView.kind === "thread") {
-      prewarmThreadDetail(selectedView.threadId);
+    const selectedThreadId =
+      selectedView.kind === "thread" ? localThreadId(selectedView.threadId) : null;
+    if (selectedThreadId !== null) {
+      prewarmThreadDetail(selectedThreadId);
     }
 
     setRecentSwitcherState({

@@ -1,10 +1,12 @@
 import type { MessageId, ThreadId } from "@saint/contracts";
+import { useHostHandle } from "~/hosts/hostScope";
+import { LOCAL_HOST_ID, scopeThread } from "@saint/shared/hostId";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toastManager, reportToastIssue } from "../components/ui/toast";
 import { diagnosticIssueReason } from "../lib/rendererErrorDiagnostics";
 import { newCommandId, newMessageId } from "../lib/utils";
 import { useClaudeCompactionRequests } from "../lib/claudeCompactionRequests";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import {
@@ -27,6 +29,7 @@ export function useClaudeContextCompaction({
   onAccepted: (threadId: ThreadId) => void;
   onFailure: () => void;
 }) {
+  const chatHost = useHostHandle();
   const inFlightThreadIdsRef = useRef(new Set<ThreadId>());
   const activeThreadIdRef = useRef(threadId);
   const [submittingThreadIds, setSubmittingThreadIds] = useState<ReadonlySet<ThreadId>>(
@@ -39,14 +42,14 @@ export function useClaudeContextCompaction({
   useEffect(() => {
     const forgetObservedRequest = () => {
       const pending = useClaudeCompactionRequests.getState();
-      const request = pending.requests[threadId];
+      const request = pending.requests[scopeThread(chatHost.hostId, threadId)];
       if (!request) return;
       const current = getThreadFromState(useStore.getState(), threadId);
       if (
         current?.claudeCacheReview?.messageId === request.message.messageId ||
         current?.messages.some((message) => message.id === request.message.messageId)
       ) {
-        pending.forget(threadId, request.commandId);
+        pending.forget(scopeThread(chatHost.hostId, threadId), request.commandId);
       }
     };
     forgetObservedRequest();
@@ -57,7 +60,7 @@ export function useClaudeContextCompaction({
       unsubscribe();
       unsubscribeHydration?.();
     };
-  }, [threadId]);
+  }, [chatHost, threadId]);
 
   const compact = useCallback(async (): Promise<boolean> => {
     if (
@@ -66,7 +69,7 @@ export function useClaudeContextCompaction({
       useClaudeCompactionRequests.persist?.hasHydrated() === false
     )
       return false;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const thread = getThreadFromState(useStore.getState(), threadId);
     if (
       !api ||
@@ -98,7 +101,7 @@ export function useClaudeContextCompaction({
       return false;
 
     const pending = useClaudeCompactionRequests.getState();
-    const command = pending.requests[threadId] ?? {
+    const command = pending.requests[scopeThread(chatHost.hostId, threadId)] ?? {
       type: "thread.turn.start" as const,
       commandId: newCommandId(),
       threadId,
@@ -114,14 +117,16 @@ export function useClaudeContextCompaction({
       createdAt: new Date().toISOString(),
     };
     const messageId = command.message.messageId;
-    pending.remember(command);
+    pending.remember(LOCAL_HOST_ID, command);
     inFlightThreadIdsRef.current.add(threadId);
     setSubmittingThreadIds((current) => new Set([...current, threadId]));
     onBegin({ expectedUserMessageId: messageId });
     const startedAt = performance.now();
     try {
       await api.orchestration.dispatchCommand(command);
-      useClaudeCompactionRequests.getState().forget(threadId, command.commandId);
+      useClaudeCompactionRequests
+        .getState()
+        .forget(scopeThread(chatHost.hostId, threadId), command.commandId);
       if (activeThreadIdRef.current === threadId) onAccepted(threadId);
       return true;
     } catch (error) {
@@ -131,7 +136,9 @@ export function useClaudeContextCompaction({
         current?.claudeCacheReview?.messageId === messageId ||
         current?.messages.some((message) => message.id === messageId)
       ) {
-        useClaudeCompactionRequests.getState().forget(threadId, command.commandId);
+        useClaudeCompactionRequests
+          .getState()
+          .forget(scopeThread(chatHost.hostId, threadId), command.commandId);
         if (activeThreadIdRef.current === threadId) onAccepted(threadId);
         return true;
       }
@@ -140,7 +147,10 @@ export function useClaudeContextCompaction({
         error !== null &&
         "code" in error &&
         error.code === "ORCHESTRATION_COMMAND_REJECTED";
-      if (rejected) useClaudeCompactionRequests.getState().forget(threadId, command.commandId);
+      if (rejected)
+        useClaudeCompactionRequests
+          .getState()
+          .forget(scopeThread(chatHost.hostId, threadId), command.commandId);
       if (activeThreadIdRef.current === threadId) onFailure();
       const toastId = toastManager.add({
         type: "error",
@@ -160,7 +170,7 @@ export function useClaudeContextCompaction({
       inFlightThreadIdsRef.current.delete(threadId);
       setSubmittingThreadIds((current) => new Set([...current].filter((id) => id !== threadId)));
     }
-  }, [disabledReason, onAccepted, onBegin, onFailure, threadId]);
+  }, [chatHost, disabledReason, onAccepted, onBegin, onFailure, threadId]);
 
   return { compact, isSubmitting: submittingThreadIds.has(threadId) };
 }

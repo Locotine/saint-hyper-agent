@@ -13,7 +13,7 @@ import { serverQueryKeys } from "~/lib/serverReactQuery";
 const api = vi.hoisted(() => ({ getAuditHistory: vi.fn(), getStatus: vi.fn() }));
 vi.mock("~/nativeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../nativeApi")>()),
-  ensureNativeApi: () => ({ computer: api }),
+  ensureLocalNativeApi: () => ({ computer: api }),
 }));
 
 beforeEach(() => {

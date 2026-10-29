@@ -9,6 +9,8 @@ const hostState = (
   extra: Partial<DesktopRemoteSshHostState> = {},
 ): DesktopRemoteSshHostState => ({
   host,
+  hostKey: null,
+  epoch: 0,
   remoteRoot: ".saint-beta-remote",
   phase,
   message: null,

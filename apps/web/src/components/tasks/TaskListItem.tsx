@@ -12,7 +12,7 @@ import type { MouseEvent } from "react";
 
 import { ProviderIcon } from "~/components/ProviderIcon";
 import { cn } from "~/lib/utils";
-import { readNativeApi } from "../../nativeApi";
+import { readLocalNativeApi } from "../../nativeApi";
 import { SIDEBAR_ROW_ACTIVE_CLASS_NAME } from "../../sidebarRowStyles";
 import { ELEVATED_HOVER_SURFACE_CLASS_NAME } from "../../surfaceStyles";
 import { TASK_META_TONE_CLASS } from "./TaskCardPrimitives";
@@ -62,7 +62,7 @@ export function TaskListItem({
   };
 
   const handleContextMenu = (event: MouseEvent) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     event.preventDefault();
     onSelect();

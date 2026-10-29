@@ -7,7 +7,7 @@ import { useEffect, useSyncExternalStore } from "react";
 
 import {
   onNativeApiServerCapabilitiesChange,
-  readNativeApi,
+  readLocalNativeApi,
   readNativeApiServerCapability,
 } from "../nativeApi";
 
@@ -33,7 +33,7 @@ export function useProjectFileChangeSubscription(input: {
     if (!input.enabled || !capabilityAvailable || !input.cwd || !input.relativePath) {
       return;
     }
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     return api?.projects.onFileChange?.(
       { cwd: input.cwd, relativePath: input.relativePath },
       input.onChange,

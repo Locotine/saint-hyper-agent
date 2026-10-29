@@ -2,7 +2,7 @@
 // Purpose: Owns composer attachment identity, blob lifetime, persistence verification, and hydration.
 // Exports: Attachment transitions used by persistence and action construction.
 
-import { type ThreadId } from "@saint/contracts";
+import type { ScopedThreadId } from "@saint/shared/hostId";
 import * as Schema from "effect/Schema";
 
 import {
@@ -36,7 +36,7 @@ export function pendingComposerAttachmentSyncGenerationCount(): number {
 }
 
 function enqueueComposerAttachmentPersistence<Result>(
-  threadId: ThreadId,
+  threadId: ScopedThreadId,
   operation: () => Promise<Result> | Result,
 ): Promise<Result> {
   const previous = composerAttachmentPersistenceQueueByThreadId.get(threadId);
@@ -395,7 +395,7 @@ export const PROMPT_HISTORY_ATTACHMENT_SLOT: ComposerAttachmentSlot = {
 };
 
 function readPersistedAttachmentIdsFromStorage(
-  threadId: ThreadId,
+  threadId: ScopedThreadId,
   slot: ComposerAttachmentSlot,
 ): PersistedAttachmentIdsRead {
   if (threadId.length === 0) {
@@ -416,7 +416,7 @@ function readPersistedAttachmentIdsFromStorage(
 }
 
 function verifyPersistedAttachmentsForSlot(
-  threadId: ThreadId,
+  threadId: ScopedThreadId,
   attachments: PersistedComposerImageAttachment[],
   get: ComposerDraftStoreGet,
   set: ComposerDraftStoreSet,
@@ -484,7 +484,7 @@ function verifyPersistedAttachmentsForSlot(
 }
 
 export function syncPersistedAttachmentsForSlot(
-  threadId: ThreadId,
+  threadId: ScopedThreadId,
   attachments: PersistedComposerImageAttachment[],
   get: ComposerDraftStoreGet,
   set: ComposerDraftStoreSet,

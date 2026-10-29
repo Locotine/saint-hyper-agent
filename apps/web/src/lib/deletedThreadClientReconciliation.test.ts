@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 // FILE: deletedThreadClientReconciliation.test.ts
 // Purpose: Verifies immediate thread-delete UI reconciliation without rendering callers.
 // Layer: Web orchestration helper tests
@@ -15,7 +16,7 @@ describe("reconcileDeletedThreadFromClient", () => {
   it("removes the local row without applying a shell snapshot", async () => {
     const threadId = ThreadId.makeUnsafe("thread-delete");
     const removeDeletedThreadFromClientState = vi.fn();
-    useDiffRenderModeStore.getState().setModeForThread(threadId, "stacked");
+    useDiffRenderModeStore.getState().setModeForThread(scopeLocalThread(threadId), "stacked");
 
     await reconcileDeletedThreadFromClient({
       threadId,
@@ -24,7 +25,9 @@ describe("reconcileDeletedThreadFromClient", () => {
 
     expect(removeDeletedThreadFromClientState).toHaveBeenCalledOnce();
     expect(removeDeletedThreadFromClientState).toHaveBeenCalledWith(threadId);
-    expect(useDiffRenderModeStore.getState().getModeForThread(threadId, "split")).toBe("split");
+    expect(
+      useDiffRenderModeStore.getState().getModeForThread(scopeLocalThread(threadId), "split"),
+    ).toBe("split");
   });
 });
 

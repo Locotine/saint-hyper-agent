@@ -10,7 +10,7 @@ const nativeApi = vi.hoisted(() => ({
 }));
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     projects: {
       onProvisionProgress: nativeApi.onProvisionProgress,
     },

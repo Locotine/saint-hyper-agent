@@ -117,7 +117,7 @@ vi.mock("../../lib/voiceRecorder", () => ({
 }));
 
 vi.mock("../../nativeApi", () => ({
-  readNativeApi: () =>
+  readLocalNativeApi: () =>
     nativeApi.available
       ? {
           server: {

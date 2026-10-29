@@ -1,3 +1,4 @@
+import { scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
 import type { ResolvedKeybindingsConfig, ThreadId } from "@saint/contracts";
 import { useEffect } from "react";
 
@@ -15,7 +16,7 @@ export interface ThreadActionShortcutsInput {
   readonly routeThreadId: ThreadId | null;
   readonly activeSplitView: SplitView | null | undefined;
   readonly threadById: Readonly<Record<string, SidebarThreadSummary>>;
-  readonly terminalStateByThreadId: Record<ThreadId, ThreadTerminalState>;
+  readonly terminalStateByThreadId: Record<ScopedThreadId, ThreadTerminalState>;
   readonly canSnooze: (thread: SidebarThreadSummary) => boolean;
   readonly onArchive: (threadId: ThreadId) => Promise<void>;
   readonly onSnooze: (threadId: ThreadId) => void;
@@ -40,7 +41,7 @@ export function useThreadActionShortcuts({
     : routeThreadId;
   const thread = threadId ? threadById[threadId] : undefined;
   const terminalState = threadId
-    ? selectThreadTerminalState(terminalStateByThreadId, threadId)
+    ? selectThreadTerminalState(terminalStateByThreadId, scopeLocalThread(threadId))
     : null;
   const terminalOpen = terminalState?.terminalOpen ?? false;
   const terminalWorkspaceOpen = terminalState?.presentationMode === "workspace" && terminalOpen;

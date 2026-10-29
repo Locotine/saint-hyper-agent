@@ -2,7 +2,7 @@ import type { ProjectReadFileResult } from "@saint/contracts";
 import { isWorkspaceFileWriteConflictError } from "@saint/shared/workspaceFileWrite";
 import type { QueryClient } from "@tanstack/react-query";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { refreshGitAfterFileWrite } from "./gitReactQuery";
 import { projectQueryKeys, projectReadFileQueryOptions } from "./projectReactQuery";
 import {
@@ -121,7 +121,7 @@ export class WorkspaceEditorSession {
           if (!format) return false;
           this.dispatch({ type: "saveStarted" });
           try {
-            const result = await ensureNativeApi().projects.writeFile({
+            const result = await ensureLocalNativeApi().projects.writeFile({
               cwd: this.cwd,
               relativePath: this.relativePath,
               contents: value,

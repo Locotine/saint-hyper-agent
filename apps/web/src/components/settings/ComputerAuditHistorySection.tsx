@@ -6,7 +6,7 @@ import {
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { serverQueryKeys } from "~/lib/serverReactQuery";
 import { describeComputerToolCall } from "~/lib/computerToolPresentation";
 import { ComputerUseIcon } from "~/lib/icons";
@@ -52,7 +52,7 @@ export function ComputerAuditHistorySection() {
   const history = useInfiniteQuery({
     queryKey: serverQueryKeys.computerAuditHistory(),
     initialPageParam: { limit: PAGE_SIZE } as AuditPage,
-    queryFn: ({ pageParam }) => ensureNativeApi().computer.getAuditHistory(pageParam),
+    queryFn: ({ pageParam }) => ensureLocalNativeApi().computer.getAuditHistory(pageParam),
     getNextPageParam: nextComputerAuditHistoryPage,
     enabled: open,
     staleTime: Infinity,

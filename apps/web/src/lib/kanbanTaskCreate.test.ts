@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ProjectId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,7 +13,7 @@ const nativeApiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     orchestration: {
       dispatchCommand: nativeApiMocks.dispatchCommand,
     },
@@ -45,12 +46,13 @@ describe("Kanban task Debug mode", () => {
       envMode: "local",
     });
 
-    expect(useComposerDraftStore.getState().getDraftThread(threadId)?.interactionMode).toBe(
-      "debug",
-    );
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.interactionMode).toBe(
-      "debug",
-    );
+    expect(
+      useComposerDraftStore.getState().getDraftThread(scopeLocalThread(threadId))?.interactionMode,
+    ).toBe("debug");
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.interactionMode,
+    ).toBe("debug");
 
     const result = await dispatchKanbanDraftThread({
       threadId,

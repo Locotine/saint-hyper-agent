@@ -1,22 +1,27 @@
 // FILE: RunningChatsQuitCoordinator.tsx
 // Purpose: Answers Electron quit requests with the running-chats confirmation.
 // Layer: Root web coordinator
-// Depends on: Desktop bridge quit IPC, the orchestration store, and the quit-resume RPC.
+// Depends on: Desktop bridge quit IPC, the host stores, and the quit-resume RPC.
 
 import { ThreadId } from "@saint/contracts";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { APP_DISPLAY_NAME } from "~/branding";
+import { useRemoteSshState } from "~/hooks/useRemoteSshState";
+import { hostStores } from "~/hosts/hostStores";
 import {
   listRunningChatsFromDesktopStore,
+  localRunningChats,
   quitResumeContinuationPrompt,
   stopRunningChatsForQuit,
   type RunningChatQuitSummary,
 } from "~/lib/runningChatsQuitConfirmation";
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useStore } from "~/store";
 
+import { remoteHostAlias } from "./settings/remoteHostsSettingsModel";
 import { RunningChatsQuitDialog, type RunningChatsQuitDecision } from "./RunningChatsQuitDialog";
 
 export function RunningChatsQuitCoordinator() {
@@ -25,6 +30,9 @@ export function RunningChatsQuitCoordinator() {
   // user does not see a bare window for the bounded wait before the desktop hides it.
   const [quitting, setQuitting] = useState(false);
   const pendingRequestIdRef = useRef<string | null>(null);
+  const remoteSshState = useRemoteSshState();
+  const remoteSshStateRef = useRef(remoteSshState);
+  remoteSshStateRef.current = remoteSshState;
 
   const settle = useCallback(
     (decision: RunningChatsQuitDecision | null) => {
@@ -33,7 +41,8 @@ export function RunningChatsQuitCoordinator() {
         return;
       }
       const allow = decision != null;
-      const chatsToStop = allow ? chats : null;
+      // Quit closes the tunnels only; a host's server keeps its chats running.
+      const chatsToStop = allow && chats ? localRunningChats(chats) : null;
       pendingRequestIdRef.current = null;
       if (!decision?.resume) {
         setChats(null);
@@ -55,7 +64,7 @@ export function RunningChatsQuitCoordinator() {
       const stopped = stopRunningChatsForQuit({
         chats: chatsToStop,
         dispatchInterrupt: (threadId) => {
-          const api = readNativeApi();
+          const api = readLocalNativeApi();
           if (!api) {
             return;
           }
@@ -70,7 +79,7 @@ export function RunningChatsQuitCoordinator() {
           ? {
               resume: {
                 prepare: (threadIds: ReadonlyArray<string>) => {
-                  const api = readNativeApi();
+                  const api = readLocalNativeApi();
                   if (!api) {
                     return Promise.reject(new Error("Native API unavailable"));
                   }
@@ -110,7 +119,10 @@ export function RunningChatsQuitCoordinator() {
     }
 
     return subscribe((request) => {
-      const running = listRunningChatsFromDesktopStore(useStore.getState());
+      const running = [
+        ...listRunningChatsFromDesktopStore(useStore.getState()),
+        ...listRemoteRunningChats(remoteSshStateRef.current),
+      ];
       reply({
         requestId: request.requestId,
         phase: "ready",
@@ -130,4 +142,19 @@ export function RunningChatsQuitCoordinator() {
       onQuit={settle}
     />
   );
+}
+
+/** Running chats in connected hosts' stores, each named with its host. */
+function listRemoteRunningChats(
+  state: ReturnType<typeof useRemoteSshState>,
+): RunningChatQuitSummary[] {
+  return hostStores.hostIds().flatMap((hostId) => {
+    if (hostId === LOCAL_HOST_ID) return [];
+    const host = remoteHostAlias(state, hostId) ?? "Remote host";
+    return listRunningChatsFromDesktopStore(hostStores.get(hostId).getState()).map((chat) => ({
+      id: chat.id,
+      title: chat.title,
+      host,
+    }));
+  });
 }

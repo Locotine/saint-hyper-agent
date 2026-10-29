@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -31,7 +32,7 @@ const nativeApiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     orchestration: {
       dispatchCommand: nativeApiMocks.dispatchCommand,
     },
@@ -101,7 +102,7 @@ describe("kanbanDispatch failure preserves the prompt", () => {
     const threadId = ThreadId.makeUnsafe("thread-fail-keep-1");
     const projectId = ProjectId.makeUnsafe("project-fail-keep");
     const prompt = "Goal prompt that must survive a turn failure";
-    useComposerDraftStore.getState().setPrompt(threadId, prompt);
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(threadId), prompt);
     nativeApiMocks.dispatchCommand.mockImplementation(async (...args: unknown[]) => {
       const [command] = args;
       // The goal command is accepted, then the provider fails the turn.
@@ -120,7 +121,7 @@ describe("kanbanDispatch failure preserves the prompt", () => {
     });
 
     expect(result.kind).toBe("error");
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.prompt).toBe(prompt);
     // Visible: the board derives the draft/unsent-prompt card from this snapshot.
     expect(buildKanbanComposerDraftSnapshot(draft ?? null)?.prompt).toBe(prompt);
@@ -138,7 +139,7 @@ describe("kanbanDispatch board-vs-chat turn guard", () => {
     const threadId = ThreadId.makeUnsafe("thread-race-chat-1");
     const projectId = ProjectId.makeUnsafe("project-race-chat");
     const prompt = "Board prompt deferred to the in-flight chat send";
-    useComposerDraftStore.getState().setPrompt(threadId, prompt);
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(threadId), prompt);
     const thread = { id: threadId, projectId } as unknown as SidebarThreadSummary;
 
     // Simulate the chat send holding the dispatch guard: it arms the watchdog
@@ -168,7 +169,9 @@ describe("kanbanDispatch board-vs-chat turn guard", () => {
         ),
       ).toHaveLength(0);
       // The prompt is untouched so the chat send still owns it.
-      expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.prompt).toBe(prompt);
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.prompt,
+      ).toBe(prompt);
     } finally {
       clearPendingTurnDispatch(threadId);
       releaseChat();
@@ -194,7 +197,7 @@ describe("kanbanDispatch board-vs-chat turn guard", () => {
     const threadId = ThreadId.makeUnsafe("thread-marker-no-owner");
     const projectId = ProjectId.makeUnsafe("project-marker-no-owner");
     const prompt = "Follow-up drafted while the watchdog marker is still live";
-    useComposerDraftStore.getState().setPrompt(threadId, prompt);
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(threadId), prompt);
     const thread = { id: threadId, projectId } as unknown as SidebarThreadSummary;
 
     // After a send's turn RPC settles, the watchdog marker stays armed until
@@ -223,7 +226,9 @@ describe("kanbanDispatch board-vs-chat turn guard", () => {
   it("waitForDraftThreadDispatchToSettle waits out a board dispatch, then proceeds", async () => {
     const threadId = ThreadId.makeUnsafe("thread-settle-wait");
     const projectId = ProjectId.makeUnsafe("project-settle");
-    useComposerDraftStore.getState().setPrompt(threadId, "Board dispatch settles first");
+    useComposerDraftStore
+      .getState()
+      .setPrompt(scopeLocalThread(threadId), "Board dispatch settles first");
     const thread = { id: threadId, projectId } as unknown as SidebarThreadSummary;
 
     let releaseTurnStart: () => void = () => undefined;
@@ -267,7 +272,9 @@ describe("kanbanDispatch board-vs-chat turn guard", () => {
   it("waitForDraftThreadDispatchToSettle returns the settled board failure", async () => {
     const threadId = ThreadId.makeUnsafe("thread-settle-fail");
     const projectId = ProjectId.makeUnsafe("project-settle-fail");
-    useComposerDraftStore.getState().setPrompt(threadId, "Failing board dispatch settles the wait");
+    useComposerDraftStore
+      .getState()
+      .setPrompt(scopeLocalThread(threadId), "Failing board dispatch settles the wait");
     const thread = { id: threadId, projectId } as unknown as SidebarThreadSummary;
 
     nativeApiMocks.dispatchCommand.mockImplementation(async (...args: unknown[]) => {
@@ -299,7 +306,7 @@ describe("kanbanDispatch board-vs-chat turn guard", () => {
   it("keeps the pending-turn marker armed after a successful board dispatch", async () => {
     const threadId = ThreadId.makeUnsafe("thread-watchdog");
     const projectId = ProjectId.makeUnsafe("project-watchdog");
-    useComposerDraftStore.getState().setPrompt(threadId, "Prompt.");
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(threadId), "Prompt.");
     const thread = { id: threadId, projectId } as unknown as SidebarThreadSummary;
     const result = await dispatchKanbanDraftThread({
       threadId,
@@ -341,7 +348,9 @@ describe("kanbanDispatch persisted image attachments", () => {
     async (outcome) => {
       const threadId = ThreadId.makeUnsafe("thread-persisted-image");
       const projectId = ProjectId.makeUnsafe("project-persisted-image");
-      useComposerDraftStore.getState().setPrompt(threadId, "Prompt with a saved screenshot");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(threadId), "Prompt with a saved screenshot");
       const persisted: PersistedComposerImageAttachment = {
         id: "appsnap-saved-1",
         name: "saved-capture.png",
@@ -350,11 +359,12 @@ describe("kanbanDispatch persisted image attachments", () => {
         blobKey: "thread-persisted-image:appsnap-saved-1",
       };
       useComposerDraftStore.setState((state) => {
-        const draft = state.draftsByThreadId[threadId] ?? createEmptyThreadDraft();
+        const draft =
+          state.draftsByThreadId[scopeLocalThread(threadId)] ?? createEmptyThreadDraft();
         return {
           draftsByThreadId: {
             ...state.draftsByThreadId,
-            [threadId]: { ...draft, persistedAttachments: [persisted] },
+            [scopeLocalThread(threadId)]: { ...draft, persistedAttachments: [persisted] },
           },
         };
       });
@@ -378,11 +388,12 @@ describe("kanbanDispatch persisted image attachments", () => {
       if (outcome === "unreadable") {
         expect(nativeApiMocks.dispatchCommand).not.toHaveBeenCalled();
         expect(
-          useComposerDraftStore.getState().draftsByThreadId[threadId]?.persistedAttachments,
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+            ?.persistedAttachments,
         ).toEqual([persisted]);
-        expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.prompt).toBe(
-          "Prompt with a saved screenshot",
-        );
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.prompt,
+        ).toBe("Prompt with a saved screenshot");
         return;
       }
       expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:saved-capture.png");
@@ -425,7 +436,7 @@ describe("kanbanDispatch oversized prompts and pasted text", () => {
     const threadId = ThreadId.makeUnsafe("thread-big-prompt-file");
     const projectId = ProjectId.makeUnsafe("project-big-prompt-file");
     const prompt = `Big task. ${"x".repeat(1500)}`;
-    useComposerDraftStore.getState().setPrompt(threadId, prompt);
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(threadId), prompt);
 
     const result = await dispatchKanbanDraftThread({
       threadId,
@@ -446,7 +457,7 @@ describe("kanbanDispatch oversized prompts and pasted text", () => {
   it("dispatches a draft made only of a large pasted text", async () => {
     const threadId = ThreadId.makeUnsafe("thread-pasted-only");
     const projectId = ProjectId.makeUnsafe("project-pasted-only");
-    useComposerDraftStore.getState().addPastedTexts(threadId, [
+    useComposerDraftStore.getState().addPastedTexts(scopeLocalThread(threadId), [
       createPastedTextDraft({
         id: "pasted-1",
         createdAt: new Date().toISOString(),
@@ -474,7 +485,7 @@ describe("kanbanDispatch oversized prompts and pasted text", () => {
     const threadId = ThreadId.makeUnsafe("thread-big-goal");
     const projectId = ProjectId.makeUnsafe("project-big-goal");
     const prompt = `g${"o".repeat(5000)}`;
-    useComposerDraftStore.getState().setPrompt(threadId, prompt);
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(threadId), prompt);
 
     const result = await dispatchKanbanDraftThreadAsGoal({
       threadId,
@@ -492,7 +503,7 @@ describe("kanbanDispatch oversized prompts and pasted text", () => {
   it("leaves a small prompt inline", async () => {
     const threadId = ThreadId.makeUnsafe("thread-small-prompt");
     const projectId = ProjectId.makeUnsafe("project-small-prompt");
-    useComposerDraftStore.getState().setPrompt(threadId, "short prompt");
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(threadId), "short prompt");
 
     const result = await dispatchKanbanDraftThread({
       threadId,

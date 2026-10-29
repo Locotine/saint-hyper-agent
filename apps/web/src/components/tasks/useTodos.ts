@@ -5,6 +5,7 @@
 // Layer: Tasks UI hooks
 // Exports: useTodoList, useTodoMutations, useTodoEventSubscription, useTaskRows
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   Todo,
   TodoCreateInput,
@@ -18,7 +19,7 @@ import { useEffect, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { useComposerDraftStore } from "../../composerDraftStore";
-import { ensureNativeApi } from "../../nativeApi";
+import { ensureLocalNativeApi } from "../../nativeApi";
 import { useStore } from "../../store";
 import { isTasksRefusal, noteTasksRefusal } from "../../tasksSurface";
 import { isRequestOutcomeUnknown } from "~/lib/requestOutcome";
@@ -122,7 +123,7 @@ export function useTodoList(enabled = true) {
     queryFn: async ({ signal }) => {
       const uncertainDeletes = [...pendingDeletesById].filter(([, entry]) => entry.uncertain);
       try {
-        const { todos } = await ensureNativeApi().todo.list();
+        const { todos } = await ensureLocalNativeApi().todo.list();
         if (!signal.aborted && uncertainDeletes.length > 0) {
           const presentIds = new Set(todos.map((todo) => todo.id));
           for (const [id, entry] of uncertainDeletes) {
@@ -158,7 +159,7 @@ export function useTodoEventSubscription(enabled = true) {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (!enabled) return;
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     return api.todo.onEvent((event) => {
       queryClient.setQueryData<TodoListResult>(todoQueryKey, (prev) =>
         applyTodoEventHoldingEdits(prev, event),
@@ -203,7 +204,7 @@ export function useTodoMutations() {
     // the same id instead of dropping a row the server may already hold.
     retry: (failureCount, error) => isRequestOutcomeUnknown(error) && failureCount < 3,
     retryDelay: (attempt) => 1_000 * 2 ** attempt,
-    mutationFn: (input: TodoCreateInput) => ensureNativeApi().todo.create(input),
+    mutationFn: (input: TodoCreateInput) => ensureLocalNativeApi().todo.create(input),
     onMutate: async (input) => {
       beginPendingCreate(input.id);
       await cancelListFetch();
@@ -243,7 +244,7 @@ export function useTodoMutations() {
   const updateMutation = useMutation({
     mutationFn: async (input: TodoUpdateInput) => {
       await afterPendingCreate(input.id);
-      return ensureNativeApi().todo.update(input);
+      return ensureLocalNativeApi().todo.update(input);
     },
     onMutate: async (input) => {
       const pending = beginPendingUpdate(input);
@@ -287,7 +288,7 @@ export function useTodoMutations() {
   const deleteMutation = useMutation({
     mutationFn: async (id: TodoId) => {
       await afterPendingCreate(id);
-      return ensureNativeApi().todo.delete({ id });
+      return ensureLocalNativeApi().todo.delete({ id });
     },
     onMutate: async (id) => {
       await cancelListFetch();
@@ -353,7 +354,8 @@ export function useTaskRows(todos: readonly Todo[], now?: Date): TaskRowModel[] 
       todos.map((todo, index) => {
         const thread = linkedThreads[index] ?? null;
         const hasDraftThread =
-          todo.threadId !== null && draftThreadsByThreadId[todo.threadId] !== undefined;
+          todo.threadId !== null &&
+          draftThreadsByThreadId[scopeLocalThread(todo.threadId)] !== undefined;
         return {
           todo,
           thread,

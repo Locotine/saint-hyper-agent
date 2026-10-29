@@ -3,6 +3,7 @@
 // Layer: Web Sidebar controller hook
 // Exports: useSidebarThreadActions
 
+import { LOCAL_HOST_ID, localThreadIds, scopeLocalThread } from "@saint/shared/hostId";
 import { type ProjectId, ThreadId } from "@saint/contracts";
 import { pluralize } from "@saint/shared/text";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -52,7 +53,7 @@ import {
   type OptimisticSettledMutation,
 } from "../lib/threadSettle";
 import { newCommandId, randomUUID } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { usePinnedThreadsStore } from "../pinnedThreadsStore";
 import { reconcileOptimisticPinState } from "../pinning.logic";
 import {
@@ -86,7 +87,7 @@ const SETTLE_OVERRIDE_MAX_LIFETIME_MS = 15_000;
  */
 async function unarchiveThreadIgnoringAlreadyRestored(threadId: ThreadId): Promise<void> {
   try {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) throw new Error("Unable to connect to the app server.");
     await unarchiveThreadFromClient(api.orchestration, threadId);
   } catch (error) {
@@ -148,7 +149,11 @@ export function useSidebarThreadActions(input: {
   const clearProjectDraftThreadById = useComposerDraftStore(
     (store) => store.clearProjectDraftThreadById,
   );
-  const persistedPinnedThreadIds = usePinnedThreadsStore((store) => store.pinnedThreadIds);
+  const persistedScopedPinnedThreadIds = usePinnedThreadsStore((store) => store.pinnedThreadIds);
+  const persistedPinnedThreadIds = useMemo(
+    () => localThreadIds(persistedScopedPinnedThreadIds),
+    [persistedScopedPinnedThreadIds],
+  );
   const pinThreadLocally = usePinnedThreadsStore((store) => store.pinThread);
   const unpinThread = usePinnedThreadsStore((store) => store.unpinThread);
   const prunePinnedThreads = usePinnedThreadsStore((store) => store.prunePinnedThreads);
@@ -204,7 +209,7 @@ export function useSidebarThreadActions(input: {
     });
   }, []);
   const dispatchThreadPinnedState = useCallback(async (threadId: ThreadId, isPinned: boolean) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     await api.orchestration.dispatchCommand({
       type: "thread.meta.update",
@@ -215,7 +220,7 @@ export function useSidebarThreadActions(input: {
   }, []);
   const setThreadPinned = useCallback(
     async (threadId: ThreadId, isPinned: boolean) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const requestVersion =
         (latestPinnedMutationVersionByThreadIdRef.current.get(threadId) ?? 0) + 1;
@@ -223,9 +228,9 @@ export function useSidebarThreadActions(input: {
 
       setOptimisticThreadPinned(threadId, isPinned);
       if (isPinned) {
-        pinThreadLocally(threadId);
+        pinThreadLocally(scopeLocalThread(threadId));
       } else {
-        unpinThread(threadId);
+        unpinThread(scopeLocalThread(threadId));
       }
 
       try {
@@ -242,9 +247,9 @@ export function useSidebarThreadActions(input: {
         }
         const confirmedPinned = sidebarThreadSummaryByIdRef.current[threadId]?.isPinned === true;
         if (confirmedPinned) {
-          pinThreadLocally(threadId);
+          pinThreadLocally(scopeLocalThread(threadId));
         } else {
-          unpinThread(threadId);
+          unpinThread(scopeLocalThread(threadId));
         }
         clearOptimisticThreadPinned(threadId);
         throw error;
@@ -393,7 +398,7 @@ export function useSidebarThreadActions(input: {
 
   const setThreadSettled = useCallback(
     async (threadId: ThreadId, isSettled: boolean) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) throw new Error("Unable to connect to the app server.");
       const routeVersionAtDispatch =
         closeNavigationInputRef.current.routeThreadId === threadId
@@ -647,7 +652,10 @@ export function useSidebarThreadActions(input: {
 
   useEffect(() => {
     if (!threadsHydrated) return;
-    prunePinnedThreads(sidebarThreads.map((thread) => thread.id));
+    prunePinnedThreads(
+      LOCAL_HOST_ID,
+      sidebarThreads.map((thread) => thread.id),
+    );
   }, [sidebarThreads, threadsHydrated, prunePinnedThreads]);
 
   useEffect(() => {
@@ -706,11 +714,11 @@ export function useSidebarThreadActions(input: {
             : null,
         }),
         onDeleted: ({ thread, prepared }) => {
-          unpinThread(threadId);
-          clearComposerDraftForThread(threadId);
-          clearProjectDraftThreadById(thread.projectId, thread.id);
+          unpinThread(scopeLocalThread(threadId));
+          clearComposerDraftForThread(scopeLocalThread(threadId));
+          clearProjectDraftThreadById(thread.projectId, scopeLocalThread(thread.id));
           clearTerminalState(threadId);
-          removeThreadFromSplitViews(threadId);
+          removeThreadFromSplitViews(LOCAL_HOST_ID, threadId);
           clearTemporaryThread(threadId);
 
           if (routeSplitViewId && prepared?.deletedPaneInActiveSplit) {
@@ -774,7 +782,7 @@ export function useSidebarThreadActions(input: {
       const thread = sidebarThreadSummaryById[threadId];
       if (!thread) return;
       if (appSettings.confirmThreadDelete) {
-        const api = readNativeApi();
+        const api = readLocalNativeApi();
         const confirmationMessage = [
           `Delete thread "${thread.title}"?`,
           "This permanently clears conversation history for this thread.",
@@ -810,7 +818,7 @@ export function useSidebarThreadActions(input: {
       threadId: ThreadId,
       options?: { waitForUndo?: boolean; excludedThreadIds?: ReadonlySet<ThreadId> },
     ): Promise<boolean> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return false;
       const thread = getThreadFromState(useStore.getState(), threadId);
       if (!thread) return false;
@@ -956,7 +964,7 @@ export function useSidebarThreadActions(input: {
       const thread = sidebarThreadSummaryById[threadId];
       if (!thread) return;
       if (appSettings.confirmThreadArchive) {
-        const api = readNativeApi();
+        const api = readLocalNativeApi();
         const confirmationMessage = [
           `Archive thread "${thread.title}"?`,
           "Archived threads are hidden from the sidebar but can be restored later.",
@@ -973,7 +981,7 @@ export function useSidebarThreadActions(input: {
 
   const archiveAllThreadsInProject = useCallback(
     async (projectId: ProjectId): Promise<void> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const project = projectById.get(projectId);
       if (!api || !project) return;
       const projectThreads = excludeHiddenProjectAgentCoordinatorThreads(
@@ -1038,7 +1046,7 @@ export function useSidebarThreadActions(input: {
 
   const deleteProjectThreads = useCallback(
     async (projectId: ProjectId, options?: DeleteProjectThreadsOptions) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const project = projectById.get(projectId);
       if (!api || !project) return null;
       const allProjectThreads = sidebarThreads.filter((thread) => thread.projectId === projectId);

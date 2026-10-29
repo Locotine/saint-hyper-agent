@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ProjectId, type ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,7 +13,7 @@ const nativeApiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     orchestration: {
       dispatchCommand: nativeApiMocks.dispatchCommand,
     },
@@ -36,12 +37,13 @@ describe("draft thread creation", () => {
       envMode: "local",
     });
 
-    expect(useComposerDraftStore.getState().getDraftThread(threadId)?.interactionMode).toBe(
-      "debug",
-    );
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.interactionMode).toBe(
-      "debug",
-    );
+    expect(
+      useComposerDraftStore.getState().getDraftThread(scopeLocalThread(threadId))?.interactionMode,
+    ).toBe("debug");
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.interactionMode,
+    ).toBe("debug");
 
     const result = await dispatchDraftThread({
       threadId,
@@ -52,7 +54,9 @@ describe("draft thread creation", () => {
     });
 
     expect(result).toEqual({ kind: "dispatched" });
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.prompt ?? "").toBe("");
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.prompt ?? "",
+    ).toBe("");
     expect(nativeApiMocks.dispatchCommand).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "thread.turn.start",
@@ -81,7 +85,9 @@ describe("draft thread creation", () => {
     });
 
     expect(result).toEqual({ kind: "dispatched" });
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.prompt ?? "").toBe("");
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.prompt ?? "",
+    ).toBe("");
     expect(linked).toEqual([threadId]);
     const commandTypes = nativeApiMocks.dispatchCommand.mock.calls.map(
       ([command]) => (command as { type: string }).type,
@@ -111,8 +117,8 @@ describe("draft thread creation", () => {
     useComposerDraftStore.setState((state) => ({
       draftThreadsByThreadId: {
         ...state.draftThreadsByThreadId,
-        [threadId]: {
-          ...state.draftThreadsByThreadId[threadId]!,
+        [scopeLocalThread(threadId)]: {
+          ...state.draftThreadsByThreadId[scopeLocalThread(threadId)]!,
           createdAt: draftCreatedAt,
         },
       },
@@ -177,16 +183,17 @@ describe("draft thread creation", () => {
       const editWhilePending = (id: ThreadId) => {
         editedId = id;
         const store = useComposerDraftStore.getState();
-        if (change === "text") store.setPrompt(id, "My next message");
-        else if (change === "file") store.addFiles(id, [makeFile({ id: "next-file" })]);
-        else if (change === "model") store.setRuntimeMode(id, "full-access");
+        if (change === "text") store.setPrompt(scopeLocalThread(id), "My next message");
+        else if (change === "file")
+          store.addFiles(scopeLocalThread(id), [makeFile({ id: "next-file" })]);
+        else if (change === "model") store.setRuntimeMode(scopeLocalThread(id), "full-access");
         else if (change === "deferred-attachment") {
           // Restored persistence can contain an image that has not hydrated to a File yet.
           useComposerDraftStore.setState({
             draftsByThreadId: {
               ...store.draftsByThreadId,
-              [id]: {
-                ...store.draftsByThreadId[id]!,
+              [scopeLocalThread(id)]: {
+                ...store.draftsByThreadId[scopeLocalThread(id)]!,
                 persistedAttachments: [
                   {
                     id: "deferred",
@@ -199,9 +206,9 @@ describe("draft thread creation", () => {
               },
             },
           });
-        } else if (change === "same-prompt") store.setPrompt(id, "Original task");
+        } else if (change === "same-prompt") store.setPrompt(scopeLocalThread(id), "Original task");
         // This action runs on composer mount even when no images exist.
-        else store.clearPersistedAttachments(id);
+        else store.clearPersistedAttachments(scopeLocalThread(id));
       };
       if (stage === "dispatch") {
         nativeApiMocks.dispatchCommand.mockImplementationOnce(async () => undefined);
@@ -227,7 +234,7 @@ describe("draft thread creation", () => {
       if (stage === "link") await expect(pending).rejects.toThrow("Link refused");
       else expect((await pending).result).toEqual({ kind: "dispatched" });
       const store = useComposerDraftStore.getState();
-      const draft = store.draftsByThreadId[editedId!];
+      const draft = store.draftsByThreadId[scopeLocalThread(editedId!)];
       const substantive =
         change === "text" ||
         change === "file" ||
@@ -242,7 +249,8 @@ describe("draft thread creation", () => {
         expect(draft?.persistedAttachments.map((attachment) => attachment.id)).toEqual([
           "deferred",
         ]);
-      if (stage === "link") expect(store.getDraftThread(editedId!) !== null).toBe(substantive);
+      if (stage === "link")
+        expect(store.getDraftThread(scopeLocalThread(editedId!)) !== null).toBe(substantive);
     },
   );
 });

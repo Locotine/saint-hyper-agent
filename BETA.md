@@ -344,11 +344,11 @@ HTTP-hosted clients retain native component visuals but never execute HTML. The 
 bootstrap removes WebRTC capabilities before page scripts and stops parsing if that boundary
 cannot be enforced. HTML messages cannot open external URLs through the host.
 
-The feature list holds one entry, `remote-ssh` (Remote hosts); diagnostics retain their
-separate Beta-only policy. Remote hosts run in the desktop main process, not the server:
-the main process refuses every `desktop:remote-ssh-*` IPC on Stable, the preload exposes no
-`desktopBridge.remoteSsh`, and Settings hides the Remote hosts section. The saved-host file
-(`userdata/remote-ssh-hosts.json`) is inert on Stable. See [Remote access](REMOTE.md#3-remote-ssh-hosts-beta).
+The feature list is empty again; diagnostics retain their separate Beta-only policy. Remote SSH
+hosts (`remote-ssh`) ship in Stable and run in the desktop main process. Multi-host, Beta-only
+while it was built, now ships in both apps: connected hosts' projects sit in the main Projects
+list and their chats open in the app window, and the old window switch is gone. See
+[multi-host plan](docs/multi-host-plan.md).
 Inline visuals are available in Stable and Beta:
 the `saint_show_visual` agent tool, its transcript rows, and the `orchestration.getInlineVisual`
 read all use the shared policy. Both native component specs and sandboxed HTML retain their
@@ -397,6 +397,16 @@ exactly what is collected, what usage counters exclude, and how the Cloudflare
 ingest works.
 
 ## Data
+
+Renderer state that names threads or projects (drafts, tabs, pins, splits,
+terminal layout, recent views, per-project preferences) is stored under
+host-qualified ids since the multi-host P3 change. Each such store moved to a
+new localStorage key (for example `saint:composer-drafts:v1` →
+`saint:composer-drafts:v2`): the first run reads the old key once, treating
+its raw ids as this computer's, and writes only the new key. The old key is
+left untouched, so installing an older build again (a beta → older beta
+downgrade, or a rollback) finds its own state as it was at the upgrade, without
+anything changed since.
 
 Without an explicit import, beta starts with an empty `~/.saint-beta` home. It
 does not copy, share, or migrate stable (`~/.saint`) or Canary

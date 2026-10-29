@@ -95,6 +95,8 @@ function makeManager(
   return { manager, states };
 }
 
+const tunnels = (calls: readonly FakeChild[]) => calls.filter((call) => call.args.includes("-N"));
+
 function scriptKind(stdin: string): string {
   if (stdin.includes('report "{\\"kind\\":\\"probe')) return "probe";
   if (stdin.includes("Unpacking the dependencies")) return "install";
@@ -285,24 +287,120 @@ describe("RemoteSshManager", () => {
     });
   });
 
-  it("reports a tunnel that drops after connecting and keeps the URL for reconnects", async () => {
-    const { spawn, calls } = fakeSpawn((args, stdin) => {
-      if (args.includes("-N")) return "tunnel";
-      return scriptKind(stdin) === "probe"
-        ? {
-            stdout:
-              'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","tar":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}',
+  describe("tunnel supervisor", () => {
+    const LIVE_PROBE =
+      'SAINT_REMOTE {"kind":"probe","node":"v24.1.0","tar":true,"installed":true,"server":{"info":{"port":4200,"version":"1.2.3"},"token":"live"}}';
+
+    it("goes reconnecting when the tunnel drops and keeps the URL while it waits", async () => {
+      const { spawn, calls } = fakeSpawn((args, stdin) => {
+        if (args.includes("-N")) return "tunnel";
+        return scriptKind(stdin) === "probe" ? { stdout: LIVE_PROBE } : {};
+      });
+      const { manager, states } = makeManager(spawn, { sleep: () => new Promise(() => undefined) });
+      await manager.connect({ host: "devbox" });
+      tunnels(calls)[0]?.exit(255);
+      expect(states.at(-1)).toMatchObject({ phase: "reconnecting", epoch: 1 });
+      expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
+      manager.disconnect("devbox");
+      expect(states.at(-1)).toMatchObject({ phase: "idle" });
+    });
+
+    it("re-opens the tunnel on the same port and token without bumping the epoch", async () => {
+      const delays: number[] = [];
+      const { spawn, calls } = fakeSpawn((args, stdin) => {
+        if (args.includes("-N")) return "tunnel";
+        return scriptKind(stdin) === "probe" ? { stdout: LIVE_PROBE } : {};
+      });
+      const { manager, states } = makeManager(spawn, {
+        sleep: async (ms) => {
+          delays.push(ms);
+        },
+      });
+      await manager.connect({ host: "devbox" });
+      tunnels(calls)[0]?.exit(255);
+      await vi.waitFor(() => expect(states.at(-1)).toMatchObject({ phase: "connected" }));
+      expect(delays).toEqual([1_000]);
+      expect(states.map((state) => state.phase).slice(-2)).toEqual(["reconnecting", "connected"]);
+      expect(states.at(-1)).toMatchObject({ epoch: 1, localPort: 45_000 });
+      expect(tunnels(calls)).toHaveLength(2);
+      expect(tunnels(calls)[1]?.args).toContain("127.0.0.1:45000:127.0.0.1:4200");
+      expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
+    });
+
+    it("runs a full connect when the server is gone and bumps the epoch for the new token", async () => {
+      const seen: string[] = [];
+      let probes = 0;
+      let tokens = 0;
+      const { spawn, calls } = fakeSpawn((args, stdin) => {
+        if (args.includes("-N")) return "tunnel";
+        const kind = scriptKind(stdin);
+        seen.push(kind);
+        if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4300}' };
+        probes += 1;
+        return {
+          stdout:
+            probes === 1
+              ? LIVE_PROBE
+              : PROBE_FRESH.replace('"installed":false', '"installed":true'),
+        };
+      });
+      let reachable = true;
+      const { manager, states } = makeManager(spawn, {
+        sleep: async () => undefined,
+        createToken: () => `tok${(tokens += 1)}`,
+        waitForHttpReady: async () => {
+          if (!reachable) {
+            reachable = true;
+            throw new Error("down");
           }
-        : {};
+        },
+      });
+      await manager.connect({ host: "devbox" });
+      const connectedStates = states.length;
+      reachable = false;
+      tunnels(calls)[0]?.exit(255);
+      await vi.waitFor(() => expect(states.at(-1)).toMatchObject({ phase: "connected", epoch: 2 }));
+      expect(seen).toEqual(["probe", "probe", "start"]);
+      // The first connect reused the live server's token; the restart minted tok1.
+      expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=tok1");
+      // The retry stays "reconnecting" instead of flashing the connect phases.
+      expect(states.slice(connectedStates).map((state) => state.phase)).toEqual([
+        "reconnecting",
+        "connected",
+      ]);
     });
-    const { manager, states } = makeManager(spawn);
-    await manager.connect({ host: "devbox" });
-    calls.find((call) => call.args.includes("-N"))?.exit(255);
-    expect(states.at(-1)).toMatchObject({
-      phase: "error",
-      message: expect.stringMatching(/tunnel/),
+
+    it("gives up with an error after the backoff schedule is spent", async () => {
+      const delays: number[] = [];
+      let tunnelsSeen = 0;
+      const base = fakeSpawn((args, stdin) => {
+        if (args.includes("-N")) return "tunnel";
+        return scriptKind(stdin) === "probe" && tunnelsSeen <= 1
+          ? { stdout: LIVE_PROBE }
+          : { code: 255, stderr: "no route" };
+      });
+      const calls = base.calls;
+      // Every tunnel after the first dies at once, like a network that stays down.
+      const spawn: RemoteSshManagerDependencies["spawn"] = (command, args, options) => {
+        const child = base.spawn(command, args, options);
+        if (args.includes("-N") && (tunnelsSeen += 1) > 1) {
+          setImmediate(() => child.emit("exit", 255));
+        }
+        return child;
+      };
+      const { manager, states } = makeManager(spawn, {
+        sleep: async (ms) => {
+          delays.push(ms);
+        },
+        // Slower than the dying tunnel, so its exit wins the readiness race.
+        waitForHttpReady: () => new Promise((resolve) => setTimeout(resolve, 20)),
+      });
+      await manager.connect({ host: "devbox" });
+      tunnels(calls)[0]?.exit(255);
+      await vi.waitFor(() => expect(states.at(-1)).toMatchObject({ phase: "error" }));
+      expect(delays).toEqual([1_000, 2_000, 5_000, 15_000, 30_000]);
+      expect(states.at(-1)?.message).toMatch(/devbox/u);
     });
-    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
   });
 
   it("disconnect closes the tunnel and stop runs the stop script", async () => {

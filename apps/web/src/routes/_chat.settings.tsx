@@ -125,7 +125,7 @@ import {
   isMacPlatform,
   isWindowsPlatform,
 } from "../lib/utils";
-import { ensureNativeApi, readNativeApi } from "../nativeApi";
+import { ensureLocalNativeApi, readLocalNativeApi } from "../nativeApi";
 import { isProviderKind, sameProviderOrder } from "../providerOrdering";
 import {
   normalizeSettingsSection,
@@ -591,8 +591,8 @@ function SettingsRouteView() {
   async function restoreDefaults() {
     if (changedSettingLabels.length === 0) return;
 
-    const api = readNativeApi();
-    const confirmed = await (api ?? ensureNativeApi()).dialogs.confirm(
+    const api = readLocalNativeApi();
+    const confirmed = await (api ?? ensureLocalNativeApi()).dialogs.confirm(
       ["Restore default settings?", `This will reset: ${changedSettingLabels.join(", ")}.`].join(
         "\n",
       ),

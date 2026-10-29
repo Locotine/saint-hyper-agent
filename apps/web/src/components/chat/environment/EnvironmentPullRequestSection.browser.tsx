@@ -4,6 +4,7 @@
 //          the panel.
 // Layer: Vitest browser tests
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import "../../../index.css";
 
 import {
@@ -46,8 +47,9 @@ const {
   runPullRequestAction: vi.fn<NativeApi["pullRequests"]["action"]>(),
 }));
 
-vi.mock("~/nativeApi", () => ({
-  ensureNativeApi: () => ({
+vi.mock("~/nativeApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("~/nativeApi")>()),
+  ensureLocalNativeApi: () => ({
     git: { status: getGitStatus, pullRequestSnapshot: getPullRequestSnapshot },
     pullRequests: {
       detail: getPullRequestDetail,
@@ -166,7 +168,10 @@ async function openRepairSubmenu() {
 }
 
 function draftCards() {
-  return useComposerDraftStore.getState().draftsByThreadId[threadId]?.pullRequestContexts ?? [];
+  return (
+    useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+      ?.pullRequestContexts ?? []
+  );
 }
 
 describe("EnvironmentPullRequestSection", () => {
@@ -207,7 +212,7 @@ describe("EnvironmentPullRequestSection", () => {
     }
     queryClients.clear();
     vi.resetAllMocks();
-    useComposerDraftStore.getState().clearDraftThread(threadId);
+    useComposerDraftStore.getState().clearDraftThread(scopeLocalThread(threadId));
   });
 
   it.each(["ready"] as const)(
@@ -406,7 +411,9 @@ describe("EnvironmentPullRequestSection", () => {
     });
     expect(draftCards()[0]?.text).toContain("Fix the failing CI checks on PR #321");
     // The prompt itself never lands in the editor.
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.prompt ?? "").toBe("");
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.prompt ?? "",
+    ).toBe("");
     expect(onClose).toHaveBeenCalledTimes(1);
 
     // A second scope adds a second card; re-picking the same scope replaces, not stacks.

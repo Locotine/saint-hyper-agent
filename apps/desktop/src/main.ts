@@ -302,11 +302,9 @@ import {
   parseSavedRemoteSshHosts,
   serializeSavedRemoteSshHosts,
 } from "./remoteSshConfig";
-import { buildRemoteSshEditorUrl } from "./remoteSshEditors";
 import { registerRemoteSshIpc } from "./remoteSshIpc";
 import { RemoteSshManager } from "./remoteSshManager";
 import { showInFileManager } from "./showInFileManager";
-import { downloadWorkspaceFiles, resolveWorkspaceDownloadRequests } from "./workspaceDownloads";
 import { BrowserCookieImport } from "./browserAutomation/browserCookieImport";
 import { shutdownBrowserServices } from "./browserAutomation/browserShutdown";
 import {
@@ -575,12 +573,6 @@ const browserPerfLoggingEnabled = process.env.SAINT_BROWSER_PERF === "1";
 type DesktopUpdateErrorContext = DesktopUpdateState["errorContext"];
 
 let mainWindow: BrowserWindow | null = null;
-// Remote SSH host windows, keyed by webContents id. Each one talks to its host's
-// tunnelled backend instead of the local one.
-const remoteSshWindows = new Map<
-  number,
-  { readonly host: string; readonly window: BrowserWindow }
->();
 const REMOTE_SSH_ENABLED = isBetaFeatureEnabled(REMOTE_SSH_BETA_FEATURE, desktopFlavor);
 const REMOTE_SSH_HOSTS_PATH = Path.join(STATE_DIR, "remote-ssh-hosts.json");
 const REMOTE_SSH_CLIENT_ID_PATH = Path.join(STATE_DIR, "remote-ssh-client-id");
@@ -2264,26 +2256,6 @@ function clearUnreadNotificationBadge(): void {
   }
   unreadBackgroundNotificationCount = 0;
   syncUnreadNotificationBadge();
-}
-
-function hasOpenRemoteSshWindow(): boolean {
-  return [...remoteSshWindows.values()].some((entry) => !entry.window.isDestroyed());
-}
-
-// Launching the app again while only remote SSH windows remain reopens the
-// local window; the backend kept running for them.
-function focusOrReopenMainWindow(): void {
-  if (
-    (!mainWindow || mainWindow.isDestroyed()) &&
-    hasOpenRemoteSshWindow() &&
-    app.isReady() &&
-    !isQuitting &&
-    !desktopStartupBlockedForDatabaseRestore
-  ) {
-    mainWindow = createWindow();
-    return;
-  }
-  focusMainWindow();
 }
 
 // Reuse the existing desktop window when the app is launched again so users
@@ -5175,11 +5147,6 @@ function registerIpcHandlers(): void {
 
   ipcMain.removeAllListeners(IPC.wsUrl);
   ipcMain.on(IPC.wsUrl, (event: IpcMainEvent) => {
-    const remoteWindow = remoteSshWindows.get(event.sender.id);
-    if (remoteWindow) {
-      event.returnValue = remoteSshManager?.wsUrl(remoteWindow.host) ?? null;
-      return;
-    }
     // The backend port is reserved at runtime, so preload asks main for the
     // live URL instead of trusting build-time or inherited renderer env.
     event.returnValue =
@@ -5196,72 +5163,8 @@ function registerIpcHandlers(): void {
     event.returnValue = desktopWindowTranslucency;
   });
 
-  ipcMain.removeAllListeners(IPC.remoteSsh.windowHost);
-  ipcMain.on(IPC.remoteSsh.windowHost, (event: IpcMainEvent) => {
-    event.returnValue = remoteSshWindows.get(event.sender.id)?.host ?? null;
-  });
-
-  ipcMain.removeHandler(IPC.remoteSsh.openInEditor);
-  ipcMain.handle(IPC.remoteSsh.openInEditor, async (event, rawInput: unknown) => {
-    const remoteWindow = remoteSshWindows.get(event.sender.id);
-    if (!remoteWindow) throw new Error("Only remote host windows open editors over SSH.");
-    const input = rawInput as { target?: unknown; editor?: unknown } | null;
-    const url =
-      typeof input?.target === "string" && typeof input.editor === "string"
-        ? buildRemoteSshEditorUrl({
-            host: remoteWindow.host,
-            editor: input.editor,
-            target: input.target,
-          })
-        : null;
-    if (!url) throw new Error("This editor cannot open folders on a remote host.");
-    await shell.openExternal(url);
-  });
-
-  // Explorer "Download": host workspace files saved on this computer. Main
-  // fetches only the window's own tunnelled download route (see
-  // resolveWorkspaceDownloadRequests), never a URL the renderer chose.
-  ipcMain.removeHandler(IPC.remoteSsh.downloadFiles);
-  ipcMain.handle(IPC.remoteSsh.downloadFiles, async (event, rawInput: unknown) => {
-    const remoteWindow = remoteSshWindows.get(event.sender.id);
-    if (!remoteWindow) throw new Error("Only remote host windows download workspace files.");
-    const requests = resolveWorkspaceDownloadRequests(
-      rawInput,
-      remoteSshManager?.wsUrl(remoteWindow.host) ?? null,
-    );
-    if (!requests) throw new Error("This download request is not valid.");
-    const [first] = requests;
-    if (!first) return { canceled: false, saved: [], failures: [] };
-    const downloadsPath = app.getPath("downloads");
-    if (requests.length === 1) {
-      const result = await dialog.showSaveDialog(remoteWindow.window, {
-        defaultPath: Path.join(downloadsPath, first.fileName),
-      });
-      if (result.canceled || !result.filePath) return { canceled: true, saved: [], failures: [] };
-      return downloadWorkspaceFiles({
-        requests,
-        destination: { kind: "file", path: result.filePath },
-      });
-    }
-    const result = await dialog.showOpenDialog(remoteWindow.window, {
-      title: `Download ${requests.length} files`,
-      buttonLabel: "Download",
-      defaultPath: downloadsPath,
-      properties: ["openDirectory", "createDirectory"],
-    });
-    const directory = result.filePaths[0];
-    if (result.canceled || !directory) return { canceled: true, saved: [], failures: [] };
-    return downloadWorkspaceFiles({
-      requests,
-      destination: { kind: "directory", path: directory },
-    });
-  });
-
   ipcMain.removeHandler(IPC.pickFolder);
-  ipcMain.handle(IPC.pickFolder, async (event) => {
-    // A local folder means nothing to a remote host's server; remote windows
-    // browse the host through the server instead (see `remoteWindow`).
-    if (remoteSshWindows.has(event.sender.id)) return null;
+  ipcMain.handle(IPC.pickFolder, async () => {
     const owner = BrowserWindow.getFocusedWindow() ?? mainWindow;
     const result = owner
       ? await dialog.showOpenDialog(owner, {
@@ -5436,10 +5339,6 @@ function registerIpcHandlers(): void {
 
   ipcMain.removeHandler(IPC.showInFolder);
   ipcMain.handle(IPC.showInFolder, async (event, rawPath: unknown) => {
-    // A same-named local path would reveal the wrong folder.
-    if (remoteSshWindows.has(event.sender.id)) {
-      throw new Error("Folders on a remote host cannot be shown in this computer's file manager.");
-    }
     if (typeof rawPath !== "string" || rawPath.trim().length === 0) {
       throw new Error("Missing folder path.");
     }
@@ -5973,7 +5872,6 @@ function registerRemoteSshHandlers(): void {
     manager: remoteSshManager,
     defaultRemoteRoot: remoteSshDefaultRoot,
     isControlRenderer: (event) =>
-      !remoteSshWindows.has(event.sender.id) &&
       event.senderFrame === event.sender.mainFrame &&
       (mainWindow === null || mainWindow.webContents.id === event.sender.id),
     readSshConfig: () => {
@@ -5988,12 +5886,6 @@ function registerRemoteSshHandlers(): void {
       FS.mkdirSync(STATE_DIR, { recursive: true });
       FS.writeFileSync(REMOTE_SSH_HOSTS_PATH, serializeSavedRemoteSshHosts(hosts));
     },
-    openHostWindow: openRemoteSshWindow,
-    closeHostWindows: (host) => {
-      for (const entry of remoteSshWindows.values()) {
-        if (entry.host === host && !entry.window.isDestroyed()) entry.window.close();
-      }
-    },
     broadcast: (state) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(IPC.remoteSsh.state, state);
@@ -6001,70 +5893,6 @@ function registerRemoteSshHandlers(): void {
     },
   });
   publishRemoteSshState = registration.publishState;
-}
-
-/**
- * A desktop window whose backend is a remote host's server, reached through
- * the SSH tunnel (see `IPC.wsUrl`). It loads the same renderer as the main
- * window; local-only surfaces (browser panel) stay with the main window, and
- * folders, editors and drops follow the host (see `remoteWindow` in preload).
- */
-function openRemoteSshWindow(host: string): void {
-  for (const entry of remoteSshWindows.values()) {
-    if (entry.host !== host || entry.window.isDestroyed()) continue;
-    if (entry.window.isMinimized()) entry.window.restore();
-    entry.window.focus();
-    return;
-  }
-  const title = `${APP_DISPLAY_NAME} — ${host}`;
-  const window = new BrowserWindow({
-    width: 1100,
-    height: 780,
-    minWidth: 840,
-    minHeight: 620,
-    show: false,
-    autoHideMenuBar: true,
-    ...getIconOption(),
-    title,
-    ...getTitleBarOptions(),
-    ...getWindowMaterialOptions(),
-    webPreferences: {
-      preload: Path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      backgroundThrottling: true,
-    },
-  });
-  const webContentsId = window.webContents.id;
-  remoteSshWindows.set(webContentsId, { host, window });
-  attachDesktopZoomFactorSync(window);
-  attachAppSubframeNavigationGuard(window.webContents, () => remoteSshManager?.wsUrl(host) ?? null);
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    const externalUrl = getSafeExternalUrl(url);
-    if (externalUrl) {
-      void shell.openExternal(externalUrl);
-    }
-    return { action: "deny" };
-  });
-  window.on("page-title-updated", (event) => {
-    event.preventDefault();
-    window.setTitle(title);
-  });
-  window.once("ready-to-show", () => {
-    window.show();
-    emitDesktopWindowState(window);
-  });
-  window.on("maximize", () => emitDesktopWindowState(window));
-  window.on("unmaximize", () => emitDesktopWindowState(window));
-  window.on("enter-full-screen", () => emitDesktopWindowState(window));
-  window.on("leave-full-screen", () => emitDesktopWindowState(window));
-  window.on("closed", () => {
-    remoteSshWindows.delete(webContentsId);
-  });
-  void window.loadURL(
-    isDevelopment ? (process.env.VITE_DEV_SERVER_URL as string) : desktopIdentity.entryUrl,
-  );
 }
 
 function createWindow(): BrowserWindow {
@@ -6223,12 +6051,6 @@ function createWindow(): BrowserWindow {
       });
     } catch (error) {
       console.warn(`[desktop] Failed to persist window state: ${formatErrorMessage(error)}`);
-    }
-
-    // Remote SSH windows run on their own tunnel, so closing the local window
-    // leaves them open; the app quits with its last window.
-    if (hasOpenRemoteSshWindow() && !isQuitting && !desktopShutdownComplete) {
-      return;
     }
 
     if (
@@ -6512,7 +6334,7 @@ if (!hasSingleInstanceLock) {
   app.quit();
 } else {
   app.on("second-instance", () => {
-    focusOrReopenMainWindow();
+    focusMainWindow();
   });
 }
 

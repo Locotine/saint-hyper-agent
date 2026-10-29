@@ -7,12 +7,13 @@ import {
   type ProviderUserInputAnswers,
 } from "@saint/contracts";
 import { describeErrorMessage } from "@saint/shared/errorMessages";
+import { useHostHandle } from "~/hosts/hostScope";
+import { useStore } from "../../store";
 import { respondingInteractionReclaimAt } from "@saint/shared/pendingInteractions";
 import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
 import {
   collapseExpandedComposerCursor,
   detectComposerTrigger,
@@ -36,7 +37,6 @@ import {
   type PendingApproval,
   type PendingUserInput,
 } from "../../session-logic";
-import { useStore } from "../../store";
 import {
   buildThreadSubscribeInput,
   clearThreadDetailResumeCursor,
@@ -69,6 +69,7 @@ export function useChatPendingInteractions({
   setComposerTrigger,
   setComposerHighlightedItemId,
 }: ChatPendingInteractionsInput) {
+  const chatHost = useHostHandle();
   const activeThreadId = activeThread?.id ?? null;
   const threadActivities = activeThread?.activities ?? EMPTY_ACTIVITIES;
   const setStoreThreadError = useStore((store) => store.setError);
@@ -257,7 +258,7 @@ export function useChatPendingInteractions({
       lifecycleGeneration?: string,
       requestKind?: ProviderRequestKind,
     ) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       if (!api || !activeThreadId) return;
       const requestKey = pendingRequestInstanceKey(requestId, lifecycleGeneration);
 
@@ -271,13 +272,14 @@ export function useChatPendingInteractions({
         lifecycleGeneration,
         requestKind,
         runtimeMode,
+        host: chatHost,
       }).catch((err: unknown) => {
         setRespondingRequestKeys((existing) => existing.filter((key) => key !== requestKey));
         throw err;
       });
       setRespondingRequestKeys((existing) => existing.filter((key) => key !== requestKey));
     },
-    [activeThreadId, runtimeMode],
+    [chatHost, activeThreadId, runtimeMode],
   );
 
   const userInputSubmissionsRef = useRef(new Set<string>());
@@ -288,7 +290,7 @@ export function useChatPendingInteractions({
       answers: ProviderUserInputAnswers,
       lifecycleGeneration?: string,
     ) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       if (!api || !activeThreadId) return;
       const requestKey = pendingRequestInstanceKey(requestId, lifecycleGeneration);
       const submissionKey = `${activeThreadId}:${requestKey}`;
@@ -334,7 +336,7 @@ export function useChatPendingInteractions({
           );
         });
     },
-    [activeThreadId, setStoreThreadError],
+    [chatHost, activeThreadId, setStoreThreadError],
   );
 
   const onCancelActivePendingUserInput = useCallback(() => {

@@ -516,7 +516,7 @@ describe("prefetchModelsForNewThread — warm-option invariants", () => {
       retryAfterMs: 250,
     });
     const listModels = vi.fn().mockRejectedValue(capacity);
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       provider: {
         listModels,
         listAgents: vi.fn().mockResolvedValue({ agents: [], source: "unsupported", cached: false }),

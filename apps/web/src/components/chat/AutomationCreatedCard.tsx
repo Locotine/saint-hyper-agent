@@ -10,7 +10,7 @@ import {
 } from "~/components/automation/AutomationProposalActions";
 import { Button } from "~/components/ui/button";
 import { ClockIcon } from "~/lib/icons";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
@@ -34,7 +34,7 @@ export function AutomationCreatedCard({
   const [currentProposalState, setCurrentProposalState] = useState(proposalState);
   const proposalListQuery = useQuery({
     queryKey: automationProposalListQueryKey,
-    queryFn: () => ensureNativeApi().automation.list({ includeArchived: true }),
+    queryFn: () => ensureLocalNativeApi().automation.list({ includeArchived: true }),
     enabled: currentProposalState === "pending",
   });
 

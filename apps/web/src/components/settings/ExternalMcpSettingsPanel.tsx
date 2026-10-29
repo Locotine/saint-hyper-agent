@@ -14,7 +14,7 @@ import { Switch } from "~/components/ui/switch";
 import { toastManager } from "~/components/ui/toast";
 import { copyTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { cn, getNavigatorPlatform } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import {
   buildExternalMcpClientConfiguration,
   buildExternalMcpExamplePrompt,
@@ -80,14 +80,14 @@ export function ExternalMcpSettingsPanel(props: { active: boolean }) {
 
   const integrationsQuery = useQuery({
     queryKey: INTEGRATIONS_QUERY_KEY,
-    queryFn: () => ensureNativeApi().server.listExternalMcpIntegrations(),
+    queryFn: () => ensureLocalNativeApi().server.listExternalMcpIntegrations(),
     enabled: props.active,
     staleTime: 5_000,
     refetchInterval: setup ? 2_000 : false,
   });
   const projectsQuery = useQuery({
     queryKey: PROJECTS_QUERY_KEY,
-    queryFn: () => ensureNativeApi().orchestration.getShellSnapshot(),
+    queryFn: () => ensureLocalNativeApi().orchestration.getShellSnapshot(),
     enabled: props.active,
     staleTime: 5_000,
   });
@@ -102,7 +102,7 @@ export function ExternalMcpSettingsPanel(props: { active: boolean }) {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      ensureNativeApi().server.createExternalMcpIntegration({
+      ensureLocalNativeApi().server.createExternalMcpIntegration({
         name: name.trim(),
         projectScope: allProjects ? "all" : "selected",
         ...(allProjects
@@ -133,7 +133,7 @@ export function ExternalMcpSettingsPanel(props: { active: boolean }) {
 
   const revokeMutation = useMutation({
     mutationFn: (integrationId: string) =>
-      ensureNativeApi().server.revokeExternalMcpIntegration({ integrationId }),
+      ensureLocalNativeApi().server.revokeExternalMcpIntegration({ integrationId }),
     onSuccess: (_result, integrationId) => {
       setManualOpen(false);
       setSetup((current) =>
@@ -156,7 +156,7 @@ export function ExternalMcpSettingsPanel(props: { active: boolean }) {
 
   const refreshPairingMutation = useMutation({
     mutationFn: (integrationId: string) =>
-      ensureNativeApi().server.refreshExternalMcpPairing({ integrationId }),
+      ensureLocalNativeApi().server.refreshExternalMcpPairing({ integrationId }),
     onSuccess: (result) => {
       setSetup(result);
       void queryClient.invalidateQueries({ queryKey: INTEGRATIONS_QUERY_KEY });

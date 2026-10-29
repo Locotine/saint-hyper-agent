@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Connected SSH hosts' projects sit in the main Projects list with a host label and status dot, and their chats open in the app window next to this computer's (send, stream, interrupt, approvals). Search, Activity, task notifications and the quit dialog cover them. Add project can create a project on a host. A disconnected host's rows dim and its chats turn read-only.
+
+### Removed
+
+- Switching the app window onto a host: the sidebar's **Remote hosts** section, **This computer**, the **Open** button in Settings, the host in the window title, and the remote-window editor, Explorer upload and download paths.
+
 ## 1.0.15 — 2026-10-28
 
 **Remote SSH hosts never run npm, and releases move to GitHub.**

@@ -7,6 +7,7 @@
 
 import type { ProjectId, ProviderKind, ThreadId } from "@saint/contracts";
 import { arrayMove } from "@dnd-kit/sortable";
+import { localThreadId, parseScopedThreadId, type ScopedThreadId } from "@saint/shared/hostId";
 import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 import { resolveThreadStatusPill } from "./components/Sidebar.logic";
@@ -41,16 +42,16 @@ export interface OpenThreadTabSource {
 
 /** Opening a thread that already has a tab keeps its position; a new one goes last. */
 export function addOpenThreadTab(
-  threadIds: readonly ThreadId[],
-  threadId: ThreadId,
-): readonly ThreadId[] {
+  threadIds: readonly ScopedThreadId[],
+  threadId: ScopedThreadId,
+): readonly ScopedThreadId[] {
   return threadIds.includes(threadId) ? threadIds : [...threadIds, threadId];
 }
 
 export function removeOpenThreadTab(
-  threadIds: readonly ThreadId[],
-  threadId: ThreadId,
-): readonly ThreadId[] {
+  threadIds: readonly ScopedThreadId[],
+  threadId: ScopedThreadId,
+): readonly ScopedThreadId[] {
   return threadIds.includes(threadId)
     ? threadIds.filter((candidate) => candidate !== threadId)
     : threadIds;
@@ -61,10 +62,10 @@ export function removeOpenThreadTab(
  * tabs and their relative order.
  */
 export function moveOpenThreadTab(
-  threadIds: readonly ThreadId[],
-  threadId: ThreadId,
-  overThreadId: ThreadId,
-): readonly ThreadId[] {
+  threadIds: readonly ScopedThreadId[],
+  threadId: ScopedThreadId,
+  overThreadId: ScopedThreadId,
+): readonly ScopedThreadId[] {
   const fromIndex = threadIds.indexOf(threadId);
   const toIndex = threadIds.indexOf(overThreadId);
   return fromIndex < 0 || toIndex < 0 || fromIndex === toIndex
@@ -73,25 +74,31 @@ export function moveOpenThreadTab(
 }
 
 export function pruneOpenThreadTabs(
-  threadIds: readonly ThreadId[],
-  isKept: (threadId: ThreadId) => boolean,
-): readonly ThreadId[] {
+  threadIds: readonly ScopedThreadId[],
+  isKept: (threadId: ScopedThreadId) => boolean,
+): readonly ScopedThreadId[] {
   const kept = threadIds.filter(isKept);
   return kept.length === threadIds.length ? threadIds : kept;
 }
 
-export function normalizeOpenThreadTabIds(input: unknown): ThreadId[] {
+/** Reads persisted ids; one without a host prefix predates scoping and is a local thread. */
+export function normalizeOpenThreadTabIds(input: unknown): ScopedThreadId[] {
   if (!Array.isArray(input)) return [];
   const seen = new Set<string>();
-  const threadIds: ThreadId[] = [];
+  const threadIds: ScopedThreadId[] = [];
   for (const candidate of input) {
     if (typeof candidate !== "string") continue;
-    const threadId = candidate.trim();
-    if (threadId.length === 0 || seen.has(threadId)) continue;
+    const threadId = parseScopedThreadId(candidate.trim());
+    if (threadId === null || seen.has(threadId)) continue;
     seen.add(threadId);
-    threadIds.push(threadId as ThreadId);
+    threadIds.push(threadId);
   }
   return threadIds;
+}
+
+/** The raw ids of this computer's open threads, in tab order. Other hosts have no tab UI yet. */
+export function localOpenThreadIds(threadIds: readonly ScopedThreadId[]): ThreadId[] {
+  return threadIds.flatMap((scoped) => localThreadId(scoped) ?? []);
 }
 
 /**

@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 // FILE: recentViewActivation.logic.test.ts
 // Purpose: Verifies split-pane restoration for Ctrl+Tab recent thread activation.
 // Layer: UI state logic test
@@ -30,6 +31,7 @@ function makeSplitView(input: {
 
   return {
     id: input.id,
+    hostId: LOCAL_HOST_ID,
     sourceThreadId: input.threadId,
     ownerProjectId: PROJECT_ID,
     focusedPaneId: input.focusedPane === "empty" ? emptyPaneId : threadPaneId,
@@ -57,7 +59,11 @@ describe("recent view activation", () => {
 
     expect(
       resolveRecentThreadSplitActivation({
-        view: { kind: "thread", threadId: targetThreadId, splitViewId: "split-1" },
+        view: {
+          kind: "thread",
+          threadId: scopeLocalThread(targetThreadId),
+          splitViewId: "split-1",
+        },
         splitViewsById: { "split-1": splitView },
       }),
     ).toEqual({
@@ -71,7 +77,7 @@ describe("recent view activation", () => {
       resolveRecentThreadSplitActivation({
         view: {
           kind: "thread",
-          threadId: threadId("thread-missing"),
+          threadId: scopeLocalThread(threadId("thread-missing")),
           splitViewId: "split-1",
         },
         splitViewsById: {

@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -19,39 +20,53 @@ describe("composerDraftStore browser annotations", () => {
 
   it("isolates batches by thread and keeps ordinals stable after removal", () => {
     const store = useComposerDraftStore.getState();
-    expect(store.addBrowserAnnotation(threadId, makeBrowserAnnotation({ id: "a" }))).toBe(true);
-    expect(store.addBrowserAnnotation(threadId, makeBrowserAnnotation({ id: "b" }))).toBe(true);
-    expect(store.addBrowserAnnotation(otherThreadId, makeBrowserAnnotation({ id: "other" }))).toBe(
-      true,
-    );
+    expect(
+      store.addBrowserAnnotation(scopeLocalThread(threadId), makeBrowserAnnotation({ id: "a" })),
+    ).toBe(true);
+    expect(
+      store.addBrowserAnnotation(scopeLocalThread(threadId), makeBrowserAnnotation({ id: "b" })),
+    ).toBe(true);
+    expect(
+      store.addBrowserAnnotation(
+        scopeLocalThread(otherThreadId),
+        makeBrowserAnnotation({ id: "other" }),
+      ),
+    ).toBe(true);
 
-    store.removeBrowserAnnotation(threadId, "a");
-    store.addBrowserAnnotation(threadId, makeBrowserAnnotation({ id: "c" }));
+    store.removeBrowserAnnotation(scopeLocalThread(threadId), "a");
+    store.addBrowserAnnotation(scopeLocalThread(threadId), makeBrowserAnnotation({ id: "c" }));
 
     expect(
       useComposerDraftStore
         .getState()
-        .draftsByThreadId[threadId]?.browserAnnotations.map(({ id, ordinal }) => ({
-          id,
-          ordinal,
-        })),
+        .draftsByThreadId[scopeLocalThread(threadId)]?.browserAnnotations.map(
+          ({ id, ordinal }) => ({
+            id,
+            ordinal,
+          }),
+        ),
     ).toEqual([
       { id: "b", ordinal: 2 },
       { id: "c", ordinal: 3 },
     ]);
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[otherThreadId]?.browserAnnotations,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(otherThreadId)]
+        ?.browserAnnotations,
     ).toMatchObject([{ id: "other", ordinal: 1 }]);
   });
 
   it("resets numbering after the batch is emptied", () => {
     const store = useComposerDraftStore.getState();
-    store.addBrowserAnnotation(threadId, makeBrowserAnnotation({ id: "a" }));
-    store.clearBrowserAnnotations(threadId);
-    store.addBrowserAnnotation(threadId, makeBrowserAnnotation({ id: "b", ordinal: 99 }));
+    store.addBrowserAnnotation(scopeLocalThread(threadId), makeBrowserAnnotation({ id: "a" }));
+    store.clearBrowserAnnotations(scopeLocalThread(threadId));
+    store.addBrowserAnnotation(
+      scopeLocalThread(threadId),
+      makeBrowserAnnotation({ id: "b", ordinal: 99 }),
+    );
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.browserAnnotations[0]?.ordinal,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.browserAnnotations[0]?.ordinal,
     ).toBe(1);
   });
 
@@ -66,15 +81,17 @@ describe("composerDraftStore browser annotations", () => {
     ];
 
     const store = useComposerDraftStore.getState();
-    store.addBrowserAnnotations(threadId, queuedTurn.browserAnnotations);
+    store.addBrowserAnnotations(scopeLocalThread(threadId), queuedTurn.browserAnnotations);
 
     expect(
       useComposerDraftStore
         .getState()
-        .draftsByThreadId[threadId]?.browserAnnotations.map(({ id, ordinal }) => ({
-          id,
-          ordinal,
-        })),
+        .draftsByThreadId[scopeLocalThread(threadId)]?.browserAnnotations.map(
+          ({ id, ordinal }) => ({
+            id,
+            ordinal,
+          }),
+        ),
     ).toEqual([
       { id: "a", ordinal: 1 },
       { id: "c", ordinal: 3 },
@@ -89,11 +106,11 @@ describe("composerDraftStore browser annotations", () => {
       throw new Error("Expected chat turn");
     }
     queued.browserAnnotations = [makeBrowserAnnotation({ id: "queued", ordinal: 4 })];
-    store.addBrowserAnnotation(threadId, live);
-    store.enqueueQueuedTurn(threadId, queued);
+    store.addBrowserAnnotation(scopeLocalThread(threadId), live);
+    store.enqueueQueuedTurn(scopeLocalThread(threadId), queued);
 
     const persisted = partializeComposerDraftStoreState(useComposerDraftStore.getState())
-      .draftsByThreadId[threadId];
+      .draftsByThreadId[scopeLocalThread(threadId)];
     expect(persisted?.browserAnnotations).toMatchObject([
       { id: "live", ordinal: 1, documentKey: live.documentKey },
     ]);
@@ -102,7 +119,7 @@ describe("composerDraftStore browser annotations", () => {
       browserAnnotations: [{ id: "queued", ordinal: 4 }],
     });
 
-    const hydrated = toHydratedThreadDraft(threadId, persisted!);
+    const hydrated = toHydratedThreadDraft(scopeLocalThread(threadId), persisted!);
     expect(hydrated.browserAnnotations).toMatchObject([
       { id: "live", ordinal: 1, documentKey: live.documentKey },
     ]);

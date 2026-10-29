@@ -2,6 +2,13 @@
 // Purpose: Resolve the active thread route into either a single chat surface or a persisted split view.
 // Layer: Route container
 
+import {
+  bareLocalThreadParam,
+  LOCAL_HOST_ID,
+  parseScopedThreadId,
+  scopeLocalThread,
+  unscopeThread,
+} from "@saint/shared/hostId";
 import { type ProjectId, ThreadId } from "@saint/contracts";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,12 +24,13 @@ import {
 } from "../chatRouteRecovery";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { parseDiffRouteSearch, stripDiffSearchParams } from "../diffRouteSearch";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { isSplitRoute } from "../splitViewRoute";
 import { selectSplitView, useSplitViewStore } from "../splitViewStore";
 import { useStore } from "../store";
 import { createThreadExistsSelector, createThreadProjectIdSelector } from "../storeSelectors";
 import { ChatPaneKeepAliveProvider } from "../components/chat/ChatPaneKeepAlive";
+import { RemoteThreadSurface } from "../components/chat/RemoteThreadSurface";
 import { SingleChatSurface } from "../components/chat/SingleChatSurface";
 import { SplitChatSurface } from "../components/chat/SplitChatSurface";
 import { resolveSingleProjectId } from "./-chatThreadRoute.logic";
@@ -30,11 +38,25 @@ import { resolveSingleProjectId } from "./-chatThreadRoute.logic";
 // The single and split surfaces swap below this provider, which keeps the chat they both
 // show mounted across the swap.
 function ChatThreadRouteView() {
+  const param = Route.useParams({ select: (params) => params.threadId });
+  const remote = useMemo(() => remoteThreadRef(param), [param]);
   return (
     <ChatPaneKeepAliveProvider>
-      <ChatThreadRouteContent />
+      {remote ? (
+        <RemoteThreadSurface hostId={remote.hostId} threadId={remote.threadId} />
+      ) : (
+        <ChatThreadRouteContent />
+      )}
     </ChatPaneKeepAliveProvider>
   );
+}
+
+/** Another host's thread, or null for this computer's. */
+function remoteThreadRef(param: string) {
+  const scoped = parseScopedThreadId(param);
+  if (!scoped) return null;
+  const ref = unscopeThread(scoped);
+  return ref.hostId === LOCAL_HOST_ID ? null : ref;
 }
 
 function ChatThreadRouteContent() {
@@ -49,7 +71,7 @@ function ChatThreadRouteContent() {
   const threadProjectId: ProjectId | null = useStore(threadProjectIdSelector);
   const threadExists = useStore(threadExistsSelector);
   const draftThreadState = useComposerDraftStore(
-    (store) => store.draftThreadsByThreadId[threadId] ?? null,
+    (store) => store.draftThreadsByThreadId[scopeLocalThread(threadId)] ?? null,
   );
   const draftThreadExists = draftThreadState !== null;
   const routeThreadExists = threadExists || draftThreadExists;
@@ -123,7 +145,7 @@ function ChatThreadRouteContent() {
           }
         }, 0);
         void Promise.all([
-          refreshEmptyRouteRestoreSnapshot(readNativeApi()).catch(() => false),
+          refreshEmptyRouteRestoreSnapshot(readLocalNativeApi()).catch(() => false),
           waitForEmptyRouteRestoreFallbackDelay(),
         ]).finally(() => {
           window.clearTimeout(pendingTimer);
@@ -199,6 +221,11 @@ function ChatThreadRouteContent() {
 }
 
 export const Route = createFileRoute("/_chat/$threadId")({
+  // A local thread keeps its bare id in the URL; a host-qualified local id is shortened both ways.
+  params: {
+    parse: (params) => ({ threadId: bareLocalThreadParam(params.threadId) }),
+    stringify: (params) => ({ threadId: bareLocalThreadParam(params.threadId) }),
+  },
   validateSearch: (search) => parseDiffRouteSearch(search),
   component: ChatThreadRouteView,
 });

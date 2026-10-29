@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ProjectId, ThreadId } from "@saint/contracts";
+import { scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
 
 import type { SidebarThreadSummary, ThreadSession } from "../types";
 
@@ -420,7 +421,11 @@ describe("buildActivityViewModel", () => {
     const model = buildActivityViewModel({
       threads: [newest, oldDraft, settledDraft, pinnedPlain, pinnedDraft],
       pinnedThreadIdSet: new Set([pinnedPlain.id, pinnedDraft.id]),
-      draftThreadIdSet: new Set([oldDraft.id, settledDraft.id, pinnedDraft.id]),
+      draftThreadIdSet: new Set([
+        scopeLocalThread(oldDraft.id),
+        scopeLocalThread(settledDraft.id),
+        scopeLocalThread(pinnedDraft.id),
+      ]),
     });
 
     expect(model.drafts.map((thread) => thread.id)).toEqual(["settled-draft", "old-draft"]);
@@ -490,13 +495,13 @@ describe("buildActivityViewModel", () => {
       ],
       pinnedThreadIdSet: new Set([pinnedPlain.id, pinnedRunningDraft.id, pinnedIdleDraft.id]),
       draftThreadIdSet: new Set([
-        idleDraft.id,
-        runningDraft.id,
-        connectingDraft.id,
-        startingDraft.id,
-        openDraft.id,
-        pinnedRunningDraft.id,
-        pinnedIdleDraft.id,
+        scopeLocalThread(idleDraft.id),
+        scopeLocalThread(runningDraft.id),
+        scopeLocalThread(connectingDraft.id),
+        scopeLocalThread(startingDraft.id),
+        scopeLocalThread(openDraft.id),
+        scopeLocalThread(pinnedRunningDraft.id),
+        scopeLocalThread(pinnedIdleDraft.id),
       ]),
       activeThreadId: openDraft.id,
     });
@@ -859,7 +864,7 @@ describe("resolveActivityPriority", () => {
 
   it("never loses a thread: every feed row lands in exactly one section", () => {
     const pinnedIds = new Set<ThreadId>();
-    const draftIds = new Set<ThreadId>();
+    const draftIds = new Set<ScopedThreadId>();
     const threads: SidebarThreadSummary[] = [];
     const statuses = ["waiting", "unread", "working", "read"] as const;
     const placements = ["plain", "pinned", "draft", "settled", "snoozed"] as const;
@@ -883,7 +888,7 @@ describe("resolveActivityPriority", () => {
           if (placement === "snoozed")
             thread = { ...thread, snoozedUntil: "2026-08-03T09:00:00.000Z" };
           if (placement === "pinned") pinnedIds.add(thread.id);
-          if (placement === "draft") draftIds.add(thread.id);
+          if (placement === "draft") draftIds.add(scopeLocalThread(thread.id));
           threads.push(thread);
         }
       }

@@ -1,4 +1,5 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
+import { useHostHandle } from "~/hosts/hostScope";
 import {
   buildProposedPlanMarkdownFilename,
   normalizePlanMarkdownForExport,
@@ -6,7 +7,6 @@ import {
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { ArrowDownIcon, ArrowUpIcon, CopyIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
 import { IconButton } from "../ui/icon-button";
 import { toastManager } from "../ui/toast";
 
@@ -29,6 +29,7 @@ export const ProposedPlanActions = memo(function ProposedPlanActions({
   buttonClassName,
   iconClassName,
 }: ProposedPlanActionsProps) {
+  const chatHost = useHostHandle();
   const variant = variantProp ?? "outline";
   const [isDownloading, setIsDownloading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -52,7 +53,7 @@ export const ProposedPlanActions = memo(function ProposedPlanActions({
   };
 
   const handleDownload = () => {
-    const api = readNativeApi();
+    const api = chatHost.api();
     if (!api || !workspaceRoot) {
       toastManager.add({
         type: "error",
@@ -87,7 +88,7 @@ export const ProposedPlanActions = memo(function ProposedPlanActions({
   };
 
   const handleExport = () => {
-    const api = readNativeApi();
+    const api = chatHost.api();
     if (!api) return;
 
     if (!api.dialogs.saveFile) {

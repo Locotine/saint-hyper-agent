@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { type ReactNode, useState } from "react";
 import { flushSync } from "react-dom";
@@ -47,6 +48,7 @@ const panel = {
 } as const;
 const splitView: SplitView = {
   id: "shortcut-split",
+  hostId: LOCAL_HOST_ID,
   sourceThreadId: firstId,
   ownerProjectId: ProjectId.makeUnsafe("shortcut-project"),
   focusedPaneId: "right",

@@ -37,7 +37,7 @@ import { toDisplayName } from "~/components/profile/profileFormatting";
 import { useProfileName } from "~/components/profile/useProfileName";
 import { isDefaultGroupCoordinatorName } from "~/lib/groupCoordinatorName";
 import { cn, newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import {
   SETTINGS_SIDEBAR_ICON_CLASS_NAME,
   SETTINGS_SIDEBAR_ITEM_CLASS_NAME,
@@ -191,7 +191,7 @@ export function GroupSettingsDialog(props: {
 
   const handleSave = async () => {
     if (!draft || !baseline || saving) return;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api?.projectAgent) {
       setSaveError("Project coordinator is unavailable.");
       return;
@@ -292,7 +292,7 @@ export function GroupSettingsDialog(props: {
       props.onOpenChange(false);
       return;
     }
-    const projectAgent = readNativeApi()?.projectAgent;
+    const projectAgent = readLocalNativeApi()?.projectAgent;
     const sidebarThreadCount = Object.values(useStore.getState().sidebarThreadSummaryById).filter(
       (summary) => summary?.projectId === props.projectId,
     ).length;

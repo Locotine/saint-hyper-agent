@@ -6,6 +6,7 @@
 // Layer: Chat command helper
 // Exports: respondToThreadApproval
 
+import { LOCAL_HOST_ID, scopeThread } from "@saint/shared/hostId";
 import type {
   ApprovalRequestId,
   ProviderApprovalDecision,
@@ -20,9 +21,8 @@ import {
 } from "@saint/shared/errorMessages";
 
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { hostHandle, type HostHandle } from "~/hosts/hostScope";
 import { useComposerDraftStore } from "../../composerDraftStore";
-import { useStore } from "../../store";
 import {
   buildThreadSubscribeInput,
   clearThreadDetailResumeCursor,
@@ -41,11 +41,14 @@ export async function respondToThreadApproval(input: {
   requestKind?: ProviderRequestKind | undefined;
   /** The thread's current runtime mode, to persist a supervised "always allow". */
   runtimeMode: RuntimeMode;
+  /** The thread's host; this computer when omitted. */
+  host?: HostHandle;
 }): Promise<void> {
-  const api = readNativeApi();
+  const host = input.host ?? hostHandle(LOCAL_HOST_ID);
+  const api = host.api();
   if (!api) return;
   const { threadId, requestId, decision, lifecycleGeneration } = input;
-  const setThreadError = useStore.getState().setError;
+  const setThreadError = host.store.getState().setError;
   // Persist supervised "always allow" client-side so the next turn (after an
   // idle-stop or runtime restart) uses full access. Auto remains the durable
   // thread policy; its server-side override applies only to the live session.
@@ -55,7 +58,9 @@ export async function respondToThreadApproval(input: {
     input.requestKind,
   );
   if (durableRuntimeMode) {
-    useComposerDraftStore.getState().setRuntimeMode(threadId, durableRuntimeMode);
+    useComposerDraftStore
+      .getState()
+      .setRuntimeMode(scopeThread(host.hostId, threadId), durableRuntimeMode);
   }
   await api.orchestration
     .dispatchCommand({

@@ -1,6 +1,7 @@
 // FILE: BranchToolbar.tsx
 // Purpose: Renders the chat thread's compact workspace controls, including the
 // local usage popover, inline workspace handoff actions, and runtime access toggle.
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   ProviderKind,
   ProviderModelDescriptor,
@@ -15,7 +16,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useAppSettings } from "~/appSettings";
 
 import { newCommandId, cn } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useProviderUsageSummary } from "../hooks/useProviderUsageSummary";
 import { resolveThreadEnvironmentPresentation } from "../lib/threadEnvironment";
@@ -283,7 +284,9 @@ export default function BranchToolbar({
   const showEnvironmentPicker = showEnvironmentPickerProp ?? true;
   const isPanel = variant === "panel";
   const setThreadWorkspaceAction = useStore((store) => store.setThreadWorkspace);
-  const draftThread = useComposerDraftStore((store) => store.getDraftThread(threadId));
+  const draftThread = useComposerDraftStore((store) =>
+    store.getDraftThread(scopeLocalThread(threadId)),
+  );
   const setDraftThreadContext = useComposerDraftStore((store) => store.setDraftThreadContext);
   const [rateLimitThreadsSelector] = useState(() => createAccountRateLimitThreadsSelector());
   const threads = useStore(rateLimitThreadsSelector);
@@ -341,7 +344,7 @@ export default function BranchToolbar({
           return;
         }
 
-        const api = readNativeApi();
+        const api = readLocalNativeApi();
         if (serverThreadSession && api) {
           void api.orchestration
             .dispatchCommand({
@@ -364,7 +367,7 @@ export default function BranchToolbar({
           setThreadWorkspaceAction(activeThreadId, nextWorkspace);
           return;
         }
-        setDraftThreadContext(threadId, nextWorkspace);
+        setDraftThreadContext(scopeLocalThread(threadId), nextWorkspace);
         return;
       }
 
@@ -389,7 +392,7 @@ export default function BranchToolbar({
           ? { patchAssociatedWorktreeRef: patch.associatedWorktreeRef }
           : {}),
       });
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       // If the effective cwd is about to change, stop the running session so the
       // next message creates a new one with the correct cwd.
       if (serverThreadSession && worktreePath !== activeWorktreePath && api) {
@@ -429,7 +432,7 @@ export default function BranchToolbar({
         currentWorktreePath: activeWorktreePath,
         effectiveEnvMode,
       });
-      setDraftThreadContext(threadId, {
+      setDraftThreadContext(scopeLocalThread(threadId), {
         branch,
         worktreePath,
         envMode: nextDraftEnvMode,

@@ -33,7 +33,7 @@ it.each(["standalone", "composer"] as const)(
       source: "omp-cli",
       cached: false,
     });
-    vi.mocked(nativeApi.ensureNativeApi).mockReturnValue({
+    vi.mocked(nativeApi.ensureLocalNativeApi).mockReturnValue({
       provider: { listModels },
     } as unknown as NativeApi);
     const onProviderModelChange = vi.fn();

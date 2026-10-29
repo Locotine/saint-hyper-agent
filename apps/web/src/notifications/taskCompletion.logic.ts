@@ -8,6 +8,7 @@ import {
   type TerminalCliKind,
   type TerminalVisualState,
 } from "@saint/shared/terminalThreads";
+import { localThreadIdFromKey } from "@saint/shared/hostId";
 import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
 import type { Thread, ThreadSession } from "../types";
 import {
@@ -698,6 +699,8 @@ export function collectCompletedTerminalCandidates(
   const candidates: CompletedTerminalCandidate[] = [];
 
   for (const threadId of threadIds) {
+    const localId = localThreadIdFromKey(threadId);
+    if (localId === null) continue;
     const previousThreadState = previousByThreadId[threadId];
     const nextThreadState = nextByThreadId[threadId];
     const terminalIds = new Set([
@@ -713,7 +716,7 @@ export function collectCompletedTerminalCandidates(
       }
       const { cliKind, title } = resolveTerminalNotificationTitle(nextThreadState, terminalId);
       candidates.push({
-        threadId: threadId as Thread["id"],
+        threadId: localId,
         terminalId,
         cliKind,
         title,
@@ -872,6 +875,8 @@ export function collectTerminalAttentionCandidates(
   const candidates: TerminalAttentionCandidate[] = [];
 
   for (const threadId of threadIds) {
+    const localId = localThreadIdFromKey(threadId);
+    if (localId === null) continue;
     const previousThreadState = previousByThreadId[threadId];
     const nextThreadState = nextByThreadId[threadId];
     const terminalIds = new Set([
@@ -887,7 +892,7 @@ export function collectTerminalAttentionCandidates(
       }
       const { cliKind, title } = resolveTerminalNotificationTitle(nextThreadState, terminalId);
       candidates.push({
-        threadId: threadId as Thread["id"],
+        threadId: localId,
         terminalId,
         cliKind,
         title,

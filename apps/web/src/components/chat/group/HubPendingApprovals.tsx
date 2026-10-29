@@ -1,5 +1,6 @@
 // Hub-only UI: reads the worker's existing detail stream and sends human choices
 // through the same command helper as the thread. No agent-facing approval API.
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ProjectId, ThreadId } from "@saint/contracts";
 import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
 import { useEffect, useMemo, useState } from "react";
@@ -118,8 +119,8 @@ function HubApprovalCard({ thread, approval }: { thread: Thread; approval: Pendi
             lifecycleGeneration,
             requestKind,
             runtimeMode:
-              useComposerDraftStore.getState().draftsByThreadId[thread.id]?.runtimeMode ??
-              thread.runtimeMode,
+              useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(thread.id)]
+                ?.runtimeMode ?? thread.runtimeMode,
           });
         } catch (error) {
           toastManager.add({

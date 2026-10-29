@@ -20,7 +20,7 @@ import { FolderOpenIcon } from "~/lib/icons";
 import { getNavigatorPlatform } from "~/lib/utils";
 import { getRevealInFolderLabel } from "~/lib/fileReferenceContextMenu";
 import { revealFolderInShell } from "~/lib/revealFolder";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useStore } from "~/store";
 import { useWorkspacePathsStore } from "~/workspacePathsStore";
 
@@ -50,10 +50,7 @@ export function GroupEnvironmentSection(props: {
 
   const revealLabel = getRevealInFolderLabel(getNavigatorPlatform());
   const canReveal =
-    typeof window !== "undefined" &&
-    Boolean(window.desktopBridge) &&
-    !window.desktopBridge?.remoteWindow &&
-    props.workspacePath;
+    typeof window !== "undefined" && Boolean(window.desktopBridge) && props.workspacePath;
   const canPickFolder = typeof window !== "undefined" && Boolean(window.desktopBridge?.pickFolder);
 
   const revealGroupFolder = () => {
@@ -72,7 +69,7 @@ export function GroupEnvironmentSection(props: {
   };
 
   const pickLibraryPath = async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     const path = await api.dialogs.pickFolder().catch(() => null);
     if (path) onChange({ libraryPath: path });

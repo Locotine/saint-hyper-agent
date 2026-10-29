@@ -4,10 +4,11 @@
 // Exports: useThreadErrorToast, buildThreadErrorToastOptions, threadErrorToastId, decideThreadErrorToastAction, collectThreadErrorMap
 
 import type { ThreadId } from "@saint/contracts";
+import { useHostHandle } from "~/hosts/hostScope";
+import { useStore } from "../../store";
 import { isProviderDeliveryBlockDetail } from "@saint/shared/providerDeliveryBlock";
 import { useEffect, useRef, type RefObject } from "react";
 
-import { useStore } from "../../store";
 import type { ThreadShell } from "../../types";
 import { toastManager } from "../ui/toast";
 
@@ -117,6 +118,7 @@ export function useThreadErrorToast(input: {
   /** Thread whose unblock recovery is in flight, if any. */
   unblockingThreadId: ThreadId | null;
 }): void {
+  const chatHost = useHostHandle();
   const { onDismiss, onUnblock, threadId, unblockingThreadId } = input;
   const callbacksRef = useRef({ onDismiss, onUnblock });
   const closingSilentlyRef = useRef(false);
@@ -205,10 +207,10 @@ export function useThreadErrorToast(input: {
       lastErrorByThreadRef.current = errors;
     };
 
-    reconcile(collectThreadErrorMap(useStore.getState().threadShellById));
+    reconcile(collectThreadErrorMap(chatHost.store.getState().threadShellById));
     return useStore.subscribe((state, previousState) => {
       if (state.threadShellById === previousState.threadShellById) return;
       reconcile(collectThreadErrorMap(state.threadShellById));
     });
-  }, []);
+  }, [chatHost]);
 }

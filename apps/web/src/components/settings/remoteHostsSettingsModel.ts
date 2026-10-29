@@ -1,8 +1,9 @@
 // FILE: remoteHostsSettingsModel.ts
 // Purpose: Pure view model for Settings › Remote hosts: host rows and their status copy.
 // Layer: Settings UI support
-// Exports: remoteHostRows, remoteHostStatus, isRemoteHostBusy, RemoteHostRow
+// Exports: remoteHostRows, remoteHostStatus, remoteHostAlias, isRemoteHostBusy, RemoteHostRow
 
+import { sshHostId, type HostId } from "@saint/shared/hostId";
 import type {
   DesktopRemoteSshHostState,
   DesktopRemoteSshPhase,
@@ -27,6 +28,8 @@ const PHASE_LABELS: Record<DesktopRemoteSshPhase, string> = {
   starting: "Starting the server…",
   tunneling: "Opening the SSH tunnel…",
   connected: "Connected",
+  // Reuses the tunnel copy: no new visible text until the multi-host UI is approved.
+  reconnecting: "Opening the SSH tunnel…",
   stopping: "Stopping the server…",
   error: "Connection failed",
 };
@@ -37,6 +40,7 @@ const BUSY_PHASES: ReadonlySet<DesktopRemoteSshPhase> = new Set([
   "installing",
   "starting",
   "tunneling",
+  "reconnecting",
   "stopping",
 ]);
 
@@ -50,6 +54,18 @@ export function remoteHostStatus(state: DesktopRemoteSshHostState | null): strin
     return `Connected · forwarded to 127.0.0.1:${state.localPort}`;
   }
   return PHASE_LABELS[state.phase];
+}
+
+/** The name the user gave the host (its ssh alias), or null when no saved or live host has that id. */
+export function remoteHostAlias(
+  state: DesktopRemoteSshState | null,
+  hostId: HostId,
+): string | null {
+  if (!state) return null;
+  const match = [...state.hosts, ...state.savedHosts].find(
+    (host) => host.hostKey && sshHostId(host.hostKey) === hostId,
+  );
+  return match?.host ?? null;
 }
 
 /** Saved hosts first (most recent first), then hosts with live state that were forgotten. */

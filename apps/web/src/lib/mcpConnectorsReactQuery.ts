@@ -6,14 +6,14 @@
 
 import { queryOptions } from "@tanstack/react-query";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 
 export const MCP_CONNECTORS_QUERY_KEY = ["server", "mcpConnectors"] as const;
 
 export function mcpConnectorsQueryOptions() {
   return queryOptions({
     queryKey: MCP_CONNECTORS_QUERY_KEY,
-    queryFn: () => ensureNativeApi().server.listMcpConnectors(),
+    queryFn: () => ensureLocalNativeApi().server.listMcpConnectors(),
     staleTime: 5_000,
     // Remote and browser-hosted clients get a definitive refusal (connectors
     // are managed on the loopback instance); retrying only repeats it.

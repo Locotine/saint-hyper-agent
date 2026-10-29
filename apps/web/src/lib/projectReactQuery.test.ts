@@ -102,7 +102,7 @@ describe("project read file capacity retry", () => {
       seenSignal = options?.signal;
       return new Promise(() => undefined);
     });
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       projects: { readFile },
     } as unknown as NativeApi);
 
@@ -142,7 +142,7 @@ describe("project read file capacity retry", () => {
         lineEnding: "lf" as const,
       });
     });
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       projects: { readFile },
     } as unknown as NativeApi);
 
@@ -189,7 +189,7 @@ describe("project read file capacity retry", () => {
         lineEnding: "lf" as const,
       });
     });
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       projects: { readFile },
     } as unknown as NativeApi);
 

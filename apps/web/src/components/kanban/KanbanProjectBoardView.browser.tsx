@@ -1,3 +1,4 @@
+import { scopeLocalProject } from "@saint/shared/hostId";
 // Real-chromium render of the v2 attention-first board over seeded state.
 import "../../index.css";
 
@@ -216,7 +217,7 @@ describe("KanbanProjectBoardView v2 (browser)", () => {
         .element(page.getByRole("heading", { name: "Awaiting you" }))
         .not.toBeInTheDocument();
       expect(
-        JSON.parse(localStorage.getItem("saint:kanban-ui:v1") ?? "null").state.kanbanViewMode,
+        JSON.parse(localStorage.getItem("saint:kanban-ui:v2") ?? "null").state.kanbanViewMode,
       ).toBe("classic");
     } finally {
       await screen.unmount();
@@ -501,7 +502,9 @@ describe("KanbanProjectBoardView v2 (browser)", () => {
     } satisfies KanbanProjectBoard;
     // Start from a clean slate: earlier tests may have stored an order.
     const reorderProjectId = "project-1" as KanbanProjectBoard["projectId"];
-    useKanbanUiStore.getState().setDraftOrder(reorderProjectId, ["draft:key-1", "draft:key-2"]);
+    useKanbanUiStore
+      .getState()
+      .setDraftOrder(scopeLocalProject(reorderProjectId), ["draft:key-1", "draft:key-2"]);
     const { unmount } = await render(
       <KanbanProjectBoardView
         board={reorderBoard}
@@ -523,9 +526,13 @@ describe("KanbanProjectBoardView v2 (browser)", () => {
         }),
       );
       await expect
-        .poll(() => useKanbanUiStore.getState().draftOrderByProjectId["project-1"], {
-          timeout: 5000,
-        })
+        .poll(
+          () =>
+            useKanbanUiStore.getState().draftOrderByProjectId[scopeLocalProject(reorderProjectId)],
+          {
+            timeout: 5000,
+          },
+        )
         .toEqual(["draft:key-2", "draft:key-1"]);
     } finally {
       await unmount();

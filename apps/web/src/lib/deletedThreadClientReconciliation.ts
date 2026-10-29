@@ -4,6 +4,7 @@
 // Exports: reconcileDeletedThreadFromClient, reconcileDeletedThreadsFromClient
 
 import type { ThreadId } from "@saint/contracts";
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { useDiffRenderModeStore } from "../diffRenderModeStore";
 
 interface DeletedThreadClientReconciliationInput {
@@ -38,7 +39,7 @@ export async function reconcileDeletedThreadsFromClient(
   }
 
   for (const threadId of threadIds) {
-    useDiffRenderModeStore.getState().removeThread(threadId);
+    useDiffRenderModeStore.getState().removeThread(scopeLocalThread(threadId));
     input.removeDeletedThreadFromClientState(threadId);
   }
 }

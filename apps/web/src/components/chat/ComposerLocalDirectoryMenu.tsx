@@ -11,7 +11,7 @@ import { useDebouncedValue } from "@tanstack/react-pacer";
 import { ArrowUpIcon, FileIcon, FolderIcon } from "~/lib/icons";
 import { expandLocalFolderPath } from "~/lib/localFolderMentions";
 import { projectSearchLocalEntriesQueryOptions } from "~/lib/projectReactQuery";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { cn } from "~/lib/utils";
 import {
   ELEVATED_HOVER_SURFACE_CLASS_NAME,
@@ -188,7 +188,7 @@ export function ComposerLocalDirectoryMenu(props: {
     let cancelled = false;
     const timeoutId = window.setTimeout(() => {
       if (cancelled) return;
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         setErrorMessage("App is still connecting. Try again in a moment.");
         return;

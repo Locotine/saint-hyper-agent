@@ -1,3 +1,6 @@
+import { type ScopedThreadId, scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
+import { useStore } from "../../store";
 import { MessageId, ThreadId, type ProviderKind, type TurnId } from "@saint/contracts";
 import { resolveTailUserMessageEditTarget } from "@saint/shared/conversationEdit";
 import { providerSupportsNativeTurnSteering } from "@saint/shared/providerMetadata";
@@ -6,7 +9,6 @@ import { useNavigate } from "@tanstack/react-router";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback } from "react";
 import { newCommandId, newMessageId, newThreadId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
 import { ProviderHandoffBackgroundTasksError } from "~/lib/threadHandoff";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { formatOutgoingComposerPrompt } from "../../lib/composerSend";
@@ -23,7 +25,6 @@ import {
 } from "../../proposedPlan";
 import type { LatestProposedPlanState } from "../../session-logic";
 import { buildSourceProposedPlanReference } from "../../session-logic";
-import { useStore } from "../../store";
 import { getThreadFromState } from "../../threadDerivation";
 import { truncateTitle } from "../../truncateTitle";
 import type { Project } from "../../types";
@@ -103,7 +104,7 @@ interface ChatTurnFollowUpsInput {
   workflowRunState: ReturnType<typeof useChatWorkLog>["workflowRunState"];
   lateComposerSendHandlersRef: RefObject<LateComposerSendHandlers | null>;
   activeThreadId: ThreadId | null;
-  markWorkflowRunDismissed: (threadId: ThreadId, workflowTaskId: string) => void;
+  markWorkflowRunDismissed: (threadId: ScopedThreadId, workflowTaskId: string) => void;
   activeProject: Project | undefined;
   activeThreadAssociatedWorktree: ReturnType<typeof deriveAssociatedWorktreeMetadata>;
   syncServerShellSnapshot: ReturnType<typeof useStore.getState>["syncServerShellSnapshot"];
@@ -154,6 +155,7 @@ export function useChatTurnFollowUps({
   planSidebarOpenOnNextThreadRef,
   navigate,
 }: ChatTurnFollowUpsInput) {
+  const chatHost = useHostHandle();
   async function onSubmitPlanFollowUp({
     text,
     interactionMode: nextInteractionMode,
@@ -161,7 +163,7 @@ export function useChatTurnFollowUps({
     queuedTurn,
     resumeQueueAfterSend: preparedQueueResume,
   }: PlanFollowUpSubmission): Promise<boolean> {
-    const api = readNativeApi();
+    const api = chatHost.api();
     if (
       !api ||
       !activeThread ||
@@ -238,7 +240,7 @@ export function useChatTurnFollowUps({
       if (needsProviderHandoff && prepareProviderHandoffForSend) {
         await prepareProviderHandoffForSend(activeThread, modelSelectionForPlanDispatch);
         messageCreatedAt = createdAtAfterProviderHandoff({
-          activities: getThreadFromState(useStore.getState(), threadIdForSend)?.activities,
+          activities: getThreadFromState(chatHost.store.getState(), threadIdForSend)?.activities,
           createdAt: messageCreatedAt,
         });
         setOptimisticUserMessages((messages) =>
@@ -293,7 +295,10 @@ export function useChatTurnFollowUps({
         createdAt: messageCreatedAt,
       });
       if (!queuedTurn && planDispatchSettings.computerControlMode === "request") {
-        const draft = useComposerDraftStore.getState().draftsByThreadId[threadIdForSend];
+        const draft =
+          useComposerDraftStore.getState().draftsByThreadId[
+            scopeThread(chatHost.hostId, threadIdForSend)
+          ];
         if (
           draft?.computerControlMode === "request" &&
           computerControlChangeSequence.current === computerControlSequenceForSend
@@ -355,7 +360,7 @@ export function useChatTurnFollowUps({
 
   const onEditUserMessage = useCallback(
     async (messageId: MessageId, text: string): Promise<boolean> => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       if (!api || !activeThread || !isServerThread || isRevertingCheckpoint) {
         return false;
       }
@@ -431,6 +436,7 @@ export function useChatTurnFollowUps({
         });
     },
     [
+      chatHost,
       sendInFlightRef,
       setIsRevertingCheckpoint,
       activeThread,
@@ -455,7 +461,7 @@ export function useChatTurnFollowUps({
 
   const onContinueFailedTurn = useCallback(
     async (turnId: TurnId): Promise<boolean> => {
-      const current = getThreadFromState(useStore.getState(), threadId);
+      const current = getThreadFromState(chatHost.store.getState(), threadId);
       const handlers = lateComposerSendHandlersRef.current;
       if (
         !handlers ||
@@ -493,6 +499,7 @@ export function useChatTurnFollowUps({
       });
     },
     [
+      chatHost,
       threadId,
       isServerThread,
       lateComposerSendHandlersRef,
@@ -531,9 +538,10 @@ export function useChatTurnFollowUps({
       ...queuedChatTurnDispatchFields(turnDispatchSettings, undefined),
     });
     if (sent && activeThreadId) {
-      markWorkflowRunDismissed(activeThreadId, workflowTaskId);
+      markWorkflowRunDismissed(scopeThread(chatHost.hostId, activeThreadId), workflowTaskId);
     }
   }, [
+    chatHost,
     lateComposerSendHandlersRef,
     activeThreadId,
     markWorkflowRunDismissed,
@@ -545,7 +553,7 @@ export function useChatTurnFollowUps({
   ]);
 
   const onImplementPlanInNewThread = useCallback(async () => {
-    const api = readNativeApi();
+    const api = chatHost.api();
     if (
       !api ||
       !activeThread ||
@@ -667,7 +675,7 @@ export function useChatTurnFollowUps({
           void reconcileDeletedThreadFromClient({
             threadId: nextThreadId,
             removeDeletedThreadFromClientState:
-              useStore.getState().removeDeletedThreadFromClientState,
+              chatHost.store.getState().removeDeletedThreadFromClientState,
           });
         }
         toastManager.add({
@@ -679,6 +687,7 @@ export function useChatTurnFollowUps({
       })
       .then(finish, finish);
   }, [
+    chatHost,
     planSidebarOpenOnNextThreadRef,
     sendInFlightRef,
     activeProject,

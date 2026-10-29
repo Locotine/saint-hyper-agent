@@ -26,7 +26,7 @@ describe("pullRequestSetPinnedMutationOptions", () => {
         return otherGate.promise;
       },
     );
-    vi.spyOn(nativeApi, "ensureNativeApi").mockReturnValue({
+    vi.spyOn(nativeApi, "ensureLocalNativeApi").mockReturnValue({
       pullRequests: { setPinned },
     } as never);
     const options = pullRequestSetPinnedMutationOptions(queryClient);

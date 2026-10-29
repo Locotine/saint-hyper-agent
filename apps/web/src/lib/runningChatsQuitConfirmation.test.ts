@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   isRunningChatForQuit,
   listRunningChatsFromDesktopStore,
+  localRunningChats,
+  runningChatsQuitCopy,
   stopRunningChatsForQuit,
 } from "./runningChatsQuitConfirmation";
 
@@ -160,5 +162,26 @@ describe("running chats quit confirmation", () => {
       }),
     ).resolves.toEqual({ resumeRecorded: false });
     expect(prepared).toBe(false);
+  });
+});
+
+describe("remote running chats on quit", () => {
+  const local = { id: "a", title: "Local chat" };
+  const remote = { id: "b", title: "Remote chat", host: "devbox" };
+
+  it("stops only this computer's chats", () => {
+    expect(localRunningChats([local, remote])).toEqual([local]);
+  });
+
+  it("says remote chats keep running", () => {
+    expect(runningChatsQuitCopy([remote], "Saint").description).toBe(
+      "Chats on remote hosts keep running there. Closing Saint does not stop them.",
+    );
+    expect(runningChatsQuitCopy([local, remote], "Saint").description).toBe(
+      "Work in progress on this computer will stop when Saint is closed. Chats on remote hosts keep running there.",
+    );
+    expect(runningChatsQuitCopy([local], "Saint").description).toBe(
+      "Work in progress will stop when Saint is closed.",
+    );
   });
 });

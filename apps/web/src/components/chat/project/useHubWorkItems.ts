@@ -1,7 +1,7 @@
 import type { HubWorkItem, ProjectId } from "@saint/contracts";
 import { useEffect, useState } from "react";
 
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { mergeHubWorkItems } from "./hubWorkItems";
 
 const EMPTY_WORK_ITEMS: readonly HubWorkItem[] = [];
@@ -13,7 +13,7 @@ export function useHubWorkItems(projectId: ProjectId | null) {
   }>({ projectId: null, items: EMPTY_WORK_ITEMS });
 
   useEffect(() => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!projectId || !api?.projectAgent) return;
     let disposed = false;
     const apply = (items: readonly HubWorkItem[]) => {

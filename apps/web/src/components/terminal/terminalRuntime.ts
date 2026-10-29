@@ -23,7 +23,7 @@ import {
 import type { TerminalSessionSnapshot } from "@saint/contracts";
 import { Terminal } from "@xterm/xterm";
 
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { suppressQueryResponses } from "~/lib/suppressQueryResponses";
 import { hasOpenDismissibleOverlay } from "~/lib/editableEventTarget";
 
@@ -88,7 +88,7 @@ function terminalByteLength(data: string): number {
 
 function acknowledgeParsedOutput(entry: TerminalRuntimeEntry, bytes: number): void {
   if (bytes <= 0) return;
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) return;
   const ackOutput = api.terminal.ackOutput;
   if (typeof ackOutput !== "function") return;
@@ -295,7 +295,7 @@ function scheduleWrite(entry: TerminalRuntimeEntry, data: string, byteLength: nu
 }
 
 function flushPendingResize(entry: TerminalRuntimeEntry): void {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   const pendingResize = entry.pendingResize;
   if (!api || !pendingResize) return;
 
@@ -683,7 +683,7 @@ async function sendTerminalInput(
   data: string,
   fallbackError: string,
 ): Promise<void> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) return;
   try {
     await api.terminal.write({ threadId: entry.threadId, terminalId: entry.terminalId, data });
@@ -694,7 +694,7 @@ async function sendTerminalInput(
 
 function reconcileTerminalSnapshot(entry: TerminalRuntimeEntry): void {
   if (entry.disposed || !entry.opened || entry.hasHandledExit) return;
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) return;
 
   const outputEventVersionAtRequest = entry.outputEventVersion;
@@ -979,7 +979,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
             range,
             activate: (event: MouseEvent) => {
               if (!isTerminalLinkActivation(event)) return;
-              const api = readNativeApi();
+              const api = readLocalNativeApi();
               if (!api) return;
 
               if (match.kind === "url") {
@@ -1012,7 +1012,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
           label: submittedIdentity.title,
         });
       }
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       void api.terminal
         .write({ threadId: entry.threadId, terminalId: entry.terminalId, data })
@@ -1153,7 +1153,7 @@ function scheduleAutomaticTerminalFocus(
 }
 
 function openTerminal(entry: TerminalRuntimeEntry): void {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api || entry.opened) return;
 
   fitTerminal(entry);

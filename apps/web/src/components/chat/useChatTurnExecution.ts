@@ -1,3 +1,6 @@
+import { scopeThread, scopeProject, type HostId } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
+import { readLocalNativeApi } from "~/nativeApi";
 import type {
   ProjectId,
   ProjectKind,
@@ -23,7 +26,6 @@ import { waitForDraftThreadDispatchToSettle } from "~/lib/draftThreadDispatch";
 import { runComposerSendOnce } from "~/lib/composerSendOwnership";
 import { ProviderHandoffBackgroundTasksError } from "~/lib/threadHandoff";
 import { newCommandId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
 import { dispatchThreadNotes } from "~/pinnedMessages";
 import {
   mergeProjectInstructionsIntoThreadNotes,
@@ -35,6 +37,7 @@ import {
   useComposerDraftStore,
   type DraftThreadEnvMode,
   type QueuedComposerChatTurn,
+  type RestoredComposerSourceProposedPlan,
 } from "../../composerDraftStore";
 import {
   cloneComposerImageAttachment,
@@ -42,7 +45,6 @@ import {
 } from "../../lib/composerSend";
 import { armQueuedComposerSteerGate } from "../../lib/queuedComposerDrain";
 import { clearPendingTurnDispatch } from "../../pendingTurnDispatch";
-import { useStore } from "../../store";
 import { getThreadFromState } from "../../threadDerivation";
 import { buildModelSelection } from "../../providerModelOptions";
 import { type Thread } from "../../types";
@@ -68,7 +70,7 @@ interface PreparedChatTurn {
   nextAssociatedWorktreePath: string | null;
   nextAssociatedWorktreeBranch: string | null;
   nextAssociatedWorktreeRef: string | null;
-  api: NonNullable<ReturnType<typeof readNativeApi>>;
+  api: NonNullable<ReturnType<typeof readLocalNativeApi>>;
   targetProjectCwdForSend: string;
   threadIdForSend: ThreadId;
   worktreeSetupResolution: ReturnType<typeof createWorktreeSetupResolution> | null;
@@ -158,6 +160,17 @@ type ChatTurnExecutionInput = Pick<
   | "resetLocalDispatch"
 >;
 
+// The send flow holds the server's thread id; the draft store keys by host.
+function setStoredRestoredSourceProposedPlan(
+  hostId: HostId,
+  threadId: ThreadId,
+  plan: RestoredComposerSourceProposedPlan | null,
+): void {
+  useComposerDraftStore
+    .getState()
+    .setRestoredSourceProposedPlan(scopeThread(hostId, threadId), plan);
+}
+
 export function useChatTurnExecution({
   prepareProviderHandoffForSend,
   isServerThread,
@@ -202,6 +215,7 @@ export function useChatTurnExecution({
   scheduleFailedWorktreeSetupDispatchReset,
   resetLocalDispatch,
 }: ChatTurnExecutionInput) {
+  const chatHost = useHostHandle();
   const execute = useCallback(
     async (preparedTurn: PreparedChatTurn): Promise<boolean> => {
       let {
@@ -371,7 +385,7 @@ export function useChatTurnExecution({
         if (isLocalDraftThread) {
           const inheritedProjectInstructions =
             useProjectInstructionsStore.getState().instructionsByProjectId[
-              targetProjectIdForSend
+              scopeProject(chatHost.hostId, targetProjectIdForSend)
             ] ?? "";
           const inheritedThreadNotes = mergeProjectInstructionsIntoThreadNotes({
             threadNotes,
@@ -621,7 +635,7 @@ export function useChatTurnExecution({
         if (needsProviderHandoff && prepareProviderHandoffForSend) {
           await prepareProviderHandoffForSend(activeThread, dispatchSettings.modelSelection);
           messageCreatedAt = createdAtAfterProviderHandoff({
-            activities: getThreadFromState(useStore.getState(), threadIdForSend)?.activities,
+            activities: getThreadFromState(chatHost.store.getState(), threadIdForSend)?.activities,
             createdAt: messageCreatedAt,
           });
           if (activeThreadIdRef.current === threadIdForSend) {
@@ -654,7 +668,10 @@ export function useChatTurnExecution({
           providerOptions: dispatchSettings.providerOptions,
         });
         await stagedTurnAttachments.runWithDispatch(async (turnAttachments) => {
-          if (getThreadFromState(useStore.getState(), threadIdForSend)?.claudeCacheReview != null) {
+          if (
+            getThreadFromState(chatHost.store.getState(), threadIdForSend)?.claudeCacheReview !=
+            null
+          ) {
             throw new Error(
               "Choose how to resume the held message before sending another message.",
             );
@@ -682,7 +699,7 @@ export function useChatTurnExecution({
             })
             .catch((error: unknown) => {
               if (
-                getThreadFromState(useStore.getState(), threadIdForSend)?.claudeCacheReview
+                getThreadFromState(chatHost.store.getState(), threadIdForSend)?.claudeCacheReview
                   ?.messageId !== messageIdForSend
               ) {
                 throw error;
@@ -724,7 +741,8 @@ export function useChatTurnExecution({
         if (queuedChatTurn === null) {
           (activeThreadIdRef.current === threadIdForSend
             ? setRestoredQueuedSourceProposedPlan
-            : useComposerDraftStore.getState().setRestoredSourceProposedPlan)(
+            : (threadId: ThreadId, plan: RestoredComposerSourceProposedPlan | null) =>
+                setStoredRestoredSourceProposedPlan(chatHost.hostId, threadId, plan))(
             threadIdForSend,
             null,
           );
@@ -736,7 +754,7 @@ export function useChatTurnExecution({
         if (
           !turnStartSucceeded &&
           hasServerReceivedSentMessage(
-            getThreadFromState(useStore.getState(), threadIdForSend),
+            getThreadFromState(chatHost.store.getState(), threadIdForSend),
             messageIdForSend,
           )
         ) {
@@ -851,7 +869,10 @@ export function useChatTurnExecution({
               return next.length === existing.length ? existing : next;
             });
         }
-        const retryDraft = useComposerDraftStore.getState().draftsByThreadId[threadIdForSend];
+        const retryDraft =
+          useComposerDraftStore.getState().draftsByThreadId[
+            scopeThread(chatHost.hostId, threadIdForSend)
+          ];
         if (
           queuedChatTurn === null &&
           !turnStartSucceeded &&
@@ -880,31 +901,41 @@ export function useChatTurnExecution({
           if (sourceProposedPlanForSend) {
             (isFocusedSend
               ? setRestoredQueuedSourceProposedPlan
-              : useComposerDraftStore.getState().setRestoredSourceProposedPlan)(threadIdForSend, {
-              threadId: threadIdForSend,
-              restoredPrompt: promptForSend,
-              sourceProposedPlan: sourceProposedPlanForSend,
-            });
+              : (threadId: ThreadId, plan: RestoredComposerSourceProposedPlan | null) =>
+                  setStoredRestoredSourceProposedPlan(chatHost.hostId, threadId, plan))(
+              threadIdForSend,
+              {
+                threadId: threadIdForSend,
+                restoredPrompt: promptForSend,
+                sourceProposedPlan: sourceProposedPlanForSend,
+              },
+            );
           }
           if (isFocusedSend)
             setComposerCursor(collapseExpandedComposerCursor(promptForSend, promptForSend.length));
           (isFocusedSend
             ? addComposerImagesToDraft
             : (value: Parameters<typeof addComposerImagesToDraft>[0]) =>
-                useComposerDraftStore.getState().addImages(threadIdForSend, value))(
+                useComposerDraftStore
+                  .getState()
+                  .addImages(scopeThread(chatHost.hostId, threadIdForSend), value))(
             composerImagesSnapshot.map(cloneComposerImageAttachment),
           );
           (isFocusedSend
             ? addComposerFilesToDraft
             : (value: Parameters<typeof addComposerFilesToDraft>[0]) =>
-                useComposerDraftStore.getState().addFiles(threadIdForSend, value))(
+                useComposerDraftStore
+                  .getState()
+                  .addFiles(scopeThread(chatHost.hostId, threadIdForSend), value))(
             composerFilesSnapshot,
           );
           for (const selection of composerAssistantSelectionsSnapshot) {
             (isFocusedSend
               ? addComposerAssistantSelectionToDraft
               : (value: Parameters<typeof addComposerAssistantSelectionToDraft>[0]) =>
-                  useComposerDraftStore.getState().addAssistantSelection(threadIdForSend, value))(
+                  useComposerDraftStore
+                    .getState()
+                    .addAssistantSelection(scopeThread(chatHost.hostId, threadIdForSend), value))(
               selection,
             );
           }
@@ -913,32 +944,44 @@ export function useChatTurnExecution({
             (isFocusedSend
               ? addComposerFileCommentToDraft
               : (value: Parameters<typeof addComposerFileCommentToDraft>[0]) =>
-                  useComposerDraftStore.getState().addFileComment(threadIdForSend, value))(comment);
+                  useComposerDraftStore
+                    .getState()
+                    .addFileComment(scopeThread(chatHost.hostId, threadIdForSend), value))(comment);
           }
           (isFocusedSend
             ? addComposerTerminalContextsToDraft
             : (value: Parameters<typeof addComposerTerminalContextsToDraft>[0]) =>
-                useComposerDraftStore.getState().addTerminalContexts(threadIdForSend, value))(
+                useComposerDraftStore
+                  .getState()
+                  .addTerminalContexts(scopeThread(chatHost.hostId, threadIdForSend), value))(
             composerTerminalContextsSnapshot,
           );
           (isFocusedSend
             ? addComposerPastedTextsToDraft
             : (value: Parameters<typeof addComposerPastedTextsToDraft>[0]) =>
-                useComposerDraftStore.getState().addPastedTexts(threadIdForSend, value))(
+                useComposerDraftStore
+                  .getState()
+                  .addPastedTexts(scopeThread(chatHost.hostId, threadIdForSend), value))(
             composerPastedTextsSnapshot,
           );
           (isFocusedSend
             ? addComposerPullRequestContextsToDraft
             : (value: Parameters<typeof addComposerPullRequestContextsToDraft>[0]) =>
                 value.forEach((context) =>
-                  useComposerDraftStore.getState().addPullRequestContext(threadIdForSend, context),
+                  useComposerDraftStore
+                    .getState()
+                    .addPullRequestContext(scopeThread(chatHost.hostId, threadIdForSend), context),
                 ))(composerPullRequestContextsSnapshot);
           if (isFocusedSend) {
             updateSelectedComposerSkills(composerSkillsSnapshot);
             updateSelectedComposerMentions(composerMentionsSnapshot);
           } else {
-            useComposerDraftStore.getState().setSkills(threadIdForSend, composerSkillsSnapshot);
-            useComposerDraftStore.getState().setMentions(threadIdForSend, composerMentionsSnapshot);
+            useComposerDraftStore
+              .getState()
+              .setSkills(scopeThread(chatHost.hostId, threadIdForSend), composerSkillsSnapshot);
+            useComposerDraftStore
+              .getState()
+              .setMentions(scopeThread(chatHost.hostId, threadIdForSend), composerMentionsSnapshot);
           }
           if (isFocusedSend)
             setComposerTrigger(detectComposerTrigger(promptForSend, promptForSend.length));
@@ -966,6 +1009,7 @@ export function useChatTurnExecution({
       return turnStartSucceeded;
     },
     [
+      chatHost,
       isServerThread,
       setStoreThreadWorkspace,
       clearLocalDispatchWorktreeSetup,

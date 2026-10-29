@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ProjectId, ThreadId } from "@saint/contracts";
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 import type { SplitView } from "../splitViewStore";
 import {
   activateThreadFromSidebarIntent,
@@ -30,6 +31,7 @@ function makeSplitViewFixture(input: {
   };
   return {
     id: input.id,
+    hostId: LOCAL_HOST_ID,
     sourceThreadId: input.sourceThreadId,
     ownerProjectId: PROJECT_ID,
     focusedPaneId: input.focusOn === "first" ? firstId : secondId,
@@ -261,7 +263,7 @@ describe("activateThreadFromSidebarIntent", () => {
 
   it("preserves terminal entry point when opening a single thread", () => {
     const terminalStateByThreadId = {
-      [THREAD_C]: { entryPoint: "terminal" },
+      [scopeLocalThread(THREAD_C)]: { entryPoint: "terminal" },
     } as unknown as ThreadActivationControllerInput["terminalStateByThreadId"];
     const input = makeControllerInput({
       routeThreadId: THREAD_A,

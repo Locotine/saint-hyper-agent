@@ -4,8 +4,11 @@
 // Layer: UI state store
 // Exports: useKanbanUiStore
 
+import { parseScopedProjectId, type ScopedProjectId } from "@saint/shared/hostId";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+import { createMemoryStorage, withLegacyKeyFallback } from "./lib/storage";
 
 import type { KanbanOptimisticDispatchSnapshot } from "./components/kanban/kanban.logic";
 
@@ -14,9 +17,9 @@ export type KanbanViewMode = "classic" | "v2";
 
 interface KanbanUiStoreState {
   /** Manual order of draft-column card ids per project, captured after a drag. */
-  draftOrderByProjectId: Record<string, string[]>;
-  setDraftOrder: (projectId: string, order: readonly string[]) => void;
-  clearDraftOrder: (projectId: string) => void;
+  draftOrderByProjectId: Record<ScopedProjectId, string[]>;
+  setDraftOrder: (projectId: ScopedProjectId, order: readonly string[]) => void;
+  clearDraftOrder: (projectId: ScopedProjectId) => void;
   /** Board flavor: classic 3-column escape hatch vs v2 attention-first board. */
   kanbanViewMode: KanbanViewMode;
   setKanbanViewMode: (mode: KanbanViewMode) => void;
@@ -43,7 +46,10 @@ interface KanbanUiStoreState {
   ) => Array<[string, KanbanOptimisticDispatchSnapshot]>;
 }
 
-const KANBAN_UI_STORAGE_KEY = "saint:kanban-ui:v1";
+const KANBAN_UI_STORAGE_KEY = "saint:kanban-ui:v2";
+// v1 keyed draft orders by raw project ids. Read once as local projects, then left alone for a
+// rollback.
+const LEGACY_KANBAN_UI_STORAGE_KEY = "saint:kanban-ui:v1";
 // Stale card ids are harmless (ordering ignores unknown ids) but should not grow unbounded.
 const MAX_DRAFT_ORDER_LENGTH = 200;
 
@@ -66,14 +72,15 @@ function sanitizeDraftOrder(value: unknown): string[] {
   return order;
 }
 
-function sanitizeDraftOrderByProjectId(value: unknown): Record<string, string[]> {
+function sanitizeDraftOrderByProjectId(value: unknown): Record<ScopedProjectId, string[]> {
   if (typeof value !== "object" || value === null) {
     return {};
   }
-  const result: Record<string, string[]> = {};
-  for (const [projectId, order] of Object.entries(value)) {
+  const result: Record<ScopedProjectId, string[]> = {};
+  for (const [key, order] of Object.entries(value)) {
+    const projectId = parseScopedProjectId(key);
     const sanitized = sanitizeDraftOrder(order);
-    if (sanitized.length > 0) {
+    if (projectId !== null && sanitized.length > 0) {
       result[projectId] = sanitized;
     }
   }
@@ -187,7 +194,11 @@ export const useKanbanUiStore = create<KanbanUiStoreState>()(
     }),
     {
       name: KANBAN_UI_STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        typeof localStorage === "undefined"
+          ? createMemoryStorage()
+          : withLegacyKeyFallback(localStorage, LEGACY_KANBAN_UI_STORAGE_KEY),
+      ),
       partialize: (state) => ({
         draftOrderByProjectId: state.draftOrderByProjectId,
         kanbanViewMode: state.kanbanViewMode,

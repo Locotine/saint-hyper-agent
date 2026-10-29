@@ -13,7 +13,7 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock("~/nativeApi", () => ({
-  readNativeApi: () => ({ projectAgent: { library: harness.library } }),
+  readLocalNativeApi: () => ({ projectAgent: { library: harness.library } }),
 }));
 vi.mock("~/lib/wsHttpUrl", () => ({ resolveWsHttpUrl: (path: string) => path }));
 

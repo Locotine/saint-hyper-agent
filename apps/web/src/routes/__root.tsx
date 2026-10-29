@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID, localThreadIdFromKey, scopeLocalThread } from "@saint/shared/hostId";
 import { EditorDirtyRouteGuard } from "../components/EditorDirtyRouteGuard";
 import {
   ORCHESTRATION_STREAM_OVERFLOW_CODE,
@@ -5,7 +6,6 @@ import {
   ThreadId,
   type OrchestrationEvent,
   type OrchestrationShellSnapshot,
-  type OrchestrationShellStreamEvent,
   type OrchestrationThread,
   type ServerConfig,
   type ServerProviderStatus,
@@ -60,6 +60,7 @@ import { useGitProgressToastPreview } from "../components/useGitProgressToastPre
 import { resolveAndPersistPreferredEditor } from "../editorPreferences";
 import { useFeatureFlags } from "../featureFlags";
 import { useFocusedChatContext } from "../focusedChatContext";
+import { createShellFence } from "../hosts/shellFence";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
   invalidateProviderUsageQueries,
@@ -69,7 +70,7 @@ import {
   serverQueryKeys,
   serverSettingsQueryOptions,
 } from "../lib/serverReactQuery";
-import { ensureNativeApi, readNativeApi } from "../nativeApi";
+import { ensureLocalNativeApi, readLocalNativeApi } from "../nativeApi";
 import { registerThreadDetailSyncRetry, retryThreadDetailSync } from "../threadDetailSyncRetry";
 import {
   finalizePromotedDraftThreads,
@@ -105,9 +106,12 @@ import {
 } from "../lib/terminalStateCleanup";
 import { useProjectRunStore } from "../projectRunStore";
 import { dockTerminalThreadId } from "../lib/dockTerminalScope";
-import { TaskCompletionNotifications } from "../notifications/taskCompletion";
+import {
+  RemoteHostTaskCompletionNotifications,
+  TaskCompletionNotifications,
+} from "../notifications/taskCompletion";
 import { RemoteFolderPickerDialog } from "../components/RemoteFolderPickerDialog";
-import { remoteWindowHost } from "../env";
+import { RemoteHostStoreSync } from "../components/RemoteHostsSidebarSection";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
 import {
   isThreadDetailRetained,
@@ -233,7 +237,6 @@ const THREAD_DETAIL_REPLAY_MAX_NOOP_STREAK = 2;
 // accumulated delays cannot postpone that resync beyond 72s.
 const THREAD_DETAIL_PROJECTION_RECONCILE_MAX_NOOP_STREAK = 4;
 const THREAD_DETAIL_PROJECTION_RECONCILE_MAX_INTERVAL_MS = 72_000;
-const PENDING_SHELL_EVENT_BUFFER_LIMIT = 1_024;
 const PENDING_THREAD_EVENT_BUFFER_LIMIT = 512;
 const IMMEDIATE_ASSISTANT_FLUSH_ID_LIMIT = 512;
 const seenProviderUpdateNotificationKeys = new Set<string>();
@@ -270,16 +273,17 @@ function detailThreadHasStarted(thread: OrchestrationThread): boolean {
 function reconcilePromotedDraftsFromShellThreads(
   threads: ReadonlyArray<OrchestrationShellSnapshot["threads"][number]>,
 ): void {
-  markPromotedDraftThreads(new Set(threads.map((thread) => thread.id)));
+  markPromotedDraftThreads(LOCAL_HOST_ID, new Set(threads.map((thread) => thread.id)));
   finalizePromotedDraftThreads(
+    LOCAL_HOST_ID,
     new Set(threads.filter((thread) => shellThreadHasStarted(thread)).map((thread) => thread.id)),
   );
 }
 
 function reconcilePromotedDraftFromThreadDetail(thread: OrchestrationThread): void {
-  markPromotedDraftThreads(new Set([thread.id]));
+  markPromotedDraftThreads(LOCAL_HOST_ID, new Set([thread.id]));
   if (detailThreadHasStarted(thread)) {
-    finalizePromotedDraftThreads(new Set([thread.id]));
+    finalizePromotedDraftThreads(LOCAL_HOST_ID, new Set([thread.id]));
   }
 }
 
@@ -344,7 +348,7 @@ function RootRouteView() {
     );
   }
 
-  if (!readNativeApi()) {
+  if (!readLocalNativeApi()) {
     return (
       <>
         <div className="flex h-screen flex-col bg-background text-foreground">
@@ -372,6 +376,8 @@ function RootRouteView() {
           <BrowserVaultDialog />
           <GlobalWhatsNewSurface />
           <TaskCompletionNotifications />
+          <RemoteHostStoreSync />
+          <RemoteHostTaskCompletionNotifications />
           <QueuedComposerDrainCoordinator />
           {/* Beta welcome must resolve the first-run gate even while Safari is queued. */}
           <BetaWelcomeDialog />
@@ -383,7 +389,7 @@ function RootRouteView() {
           <GlobalOnboardingDialog />
           <ProjectImportAnnouncementDialog />
           <GlobalProjectImportDialog />
-          {remoteWindowHost ? <RemoteFolderPickerDialog /> : null}
+          <RemoteFolderPickerDialog />
           <AppSnapCoordinator />
           <DesktopProjectBootstrap />
           <Outlet />
@@ -593,7 +599,7 @@ async function runProviderUpdateAll(params: {
   const failures: Array<{ provider: ServerProviderStatus; reason: string }> = [];
 
   try {
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     for (const provider of providers) {
       try {
         const driver = provider.driver ?? provider.provider;
@@ -831,7 +837,7 @@ function GlobalShortcutsDialog() {
   const platform = getNavigatorPlatform();
   const activeThreadTerminalState = useTerminalStateStore((state) =>
     focusedThreadId
-      ? selectThreadTerminalState(state.terminalStateByThreadId, focusedThreadId)
+      ? selectThreadTerminalState(state.terminalStateByThreadId, scopeLocalThread(focusedThreadId))
       : null,
   );
   const terminalOpen = activeThreadTerminalState?.terminalOpen ?? false;
@@ -1032,14 +1038,6 @@ function errorDetails(error: unknown): string {
   } catch {
     return "No additional error details are available.";
   }
-}
-
-function appendBounded<T>(items: T[], item: T, limit: number): void {
-  const normalizedLimit = Math.max(1, Math.floor(limit));
-  if (items.length >= normalizedLimit) {
-    items.splice(0, items.length - normalizedLimit + 1);
-  }
-  items.push(item);
 }
 
 function addBoundedSetValue<T>(set: Set<T>, value: T, limit: number): void {
@@ -1311,7 +1309,7 @@ function EventRouter() {
   }, [pathname, subscribedThreadIds, visibleThreadIds]);
 
   useEffect(() => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     let disposed = false;
     let needsProviderInvalidation = false;
@@ -1328,10 +1326,10 @@ function EventRouter() {
     // with one synchronous flush, so no event inside it may flush on its own.
     let queueingThreadReplayBatch = false;
     let providerDiscoveryInvalidationFingerprint: string | null = null;
-    let shellSnapshotSequence = -1;
+    // The snapshot fence is shared with every remote host's pump (hosts/shellFence.ts).
+    const shellFence = createShellFence({ syncServerShellSnapshot, applyShellEvent });
     let shellSubscriptionGeneration = 0;
     let shellSnapshotReceivedGeneration = -1;
-    let pendingShellEvents: OrchestrationShellStreamEvent[] = [];
     const subscribedThreadIds = new Set<ThreadId>();
     const threadSnapshotSequenceById = new Map<ThreadId, number>();
     const pendingThreadEventsById = new Map<
@@ -1382,7 +1380,10 @@ function EventRouter() {
     };
 
     const isDraftThreadAwaitingProjection = (threadId: ThreadId): boolean => {
-      if (useComposerDraftStore.getState().draftThreadsByThreadId[threadId] === undefined) {
+      if (
+        useComposerDraftStore.getState().draftThreadsByThreadId[scopeLocalThread(threadId)] ===
+        undefined
+      ) {
         return false;
       }
       return (
@@ -1567,17 +1568,6 @@ function EventRouter() {
       }
     };
 
-    const flushShellBuffer = (snapshotSequence: number) => {
-      const nextPending = pendingShellEvents
-        .filter((event) => event.sequence > snapshotSequence)
-        .toSorted((left, right) => left.sequence - right.sequence);
-      pendingShellEvents = [];
-      for (const event of nextPending) {
-        shellSnapshotSequence = Math.max(shellSnapshotSequence, event.sequence);
-        applyShellEvent(event);
-      }
-    };
-
     const reconcileThreadSubscriptions = async (threadIds: readonly ThreadId[]) => {
       const nextThreadIds = new Set(threadIds);
       const removals = [...subscribedThreadIds].filter((threadId) => !nextThreadIds.has(threadId));
@@ -1724,7 +1714,10 @@ function EventRouter() {
       const draftsByThreadId = useComposerDraftStore.getState().draftThreadsByThreadId;
       return threads
         .map((thread) => thread.id)
-        .filter((threadId) => subscribedThreadIds.has(threadId) && threadId in draftsByThreadId);
+        .filter(
+          (threadId) =>
+            subscribedThreadIds.has(threadId) && scopeLocalThread(threadId) in draftsByThreadId,
+        );
     }
 
     function reconcileMissingSubscribedThreadProjections(threadIds: readonly ThreadId[]) {
@@ -1739,14 +1732,11 @@ function EventRouter() {
       if (disposed) return false;
       // A query can resolve after the live shell stream has already moved
       // forward. Never roll the store back behind the EventRouter fence.
-      if (shellSnapshotSequence >= 0 && snapshot.snapshotSequence < shellSnapshotSequence) {
-        return false;
-      }
       const promotedDraftThreadIds = collectSubscribedDraftsInShell(snapshot.threads);
-      shellSnapshotSequence = snapshot.snapshotSequence;
-      syncServerShellSnapshot(snapshot);
-      reconcilePromotedDraftsFromShellThreads(snapshot.threads);
-      flushShellBuffer(snapshot.snapshotSequence);
+      const applied = shellFence.applySnapshot(snapshot, {
+        afterSync: () => reconcilePromotedDraftsFromShellThreads(snapshot.threads),
+      });
+      if (!applied) return false;
       removeOrphanedTerminalsForCurrentState();
       reconcileMissingSubscribedThreadProjections(promotedDraftThreadIds);
       return true;
@@ -1802,10 +1792,10 @@ function EventRouter() {
 
     const unregisterShellSnapshotRefresh = registerShellSnapshotRefresh(async (minSequence) => {
       if (disposed) return false;
-      if (shellSnapshotSequence >= minSequence) return true;
+      if (shellFence.sequence >= minSequence) return true;
       const snapshot = await api.orchestration.getShellSnapshot();
       applyAuthoritativeShellSnapshot(snapshot);
-      return !disposed && shellSnapshotSequence >= minSequence;
+      return !disposed && shellFence.sequence >= minSequence;
     });
     const unregisterEmptyRouteRestoreRefresh = registerEmptyRouteRestoreRefresh(() =>
       runEmptyRouteRestoreRefresh({
@@ -1848,8 +1838,7 @@ function EventRouter() {
       }
       scheduleShellSnapshotFallback(generation);
       const refresh = (async () => {
-        shellSnapshotSequence = -1;
-        pendingShellEvents = [];
+        shellFence.reset();
         await api.orchestration
           .subscribeShell()
           .catch(() => loadBootstrapShellSnapshotIfMissing(generation));
@@ -1895,9 +1884,13 @@ function EventRouter() {
     };
 
     const removeOrphanedTerminalsForCurrentState = () => {
+      // This snapshot is the local host's: only its drafts keep terminals alive here.
       const draftThreadIds = Object.keys(
         useComposerDraftStore.getState().draftThreadsByThreadId,
-      ) as ThreadId[];
+      ).flatMap((key) => {
+        const threadId = localThreadIdFromKey(key);
+        return threadId === null ? [] : [threadId];
+      });
       const activeThreadIds = collectActiveTerminalThreadIds({
         snapshotThreads: getThreadsFromState(useStore.getState()).map((thread) => ({
           id: thread.id,
@@ -1912,7 +1905,7 @@ function EventRouter() {
       for (const activeThreadId of Array.from(activeThreadIds)) {
         activeThreadIds.add(dockTerminalThreadId(activeThreadId));
       }
-      removeOrphanedTerminalStates(activeThreadIds);
+      removeOrphanedTerminalStates(LOCAL_HOST_ID, activeThreadIds);
       removeOrphanedTerminalRuntimes(activeThreadIds);
     };
 
@@ -2273,25 +2266,20 @@ function EventRouter() {
         toastManager.close("stream-overflow:shell");
         shellSnapshotReceivedGeneration = shellSubscriptionGeneration;
         const promotedDraftThreadIds = collectSubscribedDraftsInShell(item.snapshot.threads);
-        shellSnapshotSequence = item.snapshot.snapshotSequence;
-        syncServerShellSnapshot(item.snapshot);
-        reconcilePromotedDraftsFromShellThreads(item.snapshot.threads);
-        flushShellBuffer(item.snapshot.snapshotSequence);
+        shellFence.applySnapshot(item.snapshot, {
+          force: true,
+          afterSync: () => reconcilePromotedDraftsFromShellThreads(item.snapshot.threads),
+        });
         removeOrphanedTerminalsForCurrentState();
         reconcileMissingSubscribedThreadProjections(promotedDraftThreadIds);
         return;
       }
 
-      if (shellSnapshotSequence < 0) {
-        appendBounded(pendingShellEvents, item, PENDING_SHELL_EVENT_BUFFER_LIMIT);
+      if (
+        !shellFence.applyEvent(item, { onApply: () => toastManager.close("stream-overflow:shell") })
+      ) {
         return;
       }
-      if (item.sequence <= shellSnapshotSequence) {
-        return;
-      }
-      shellSnapshotSequence = item.sequence;
-      toastManager.close("stream-overflow:shell");
-      applyShellEvent(item);
       if (item.kind === "thread-upserted") {
         reconcilePromotedDraftsFromShellThreads([item.thread]);
       }
@@ -2486,8 +2474,7 @@ function EventRouter() {
             if (disposed) return;
             // Reset only the shell snapshot fence. Thread subscriptions and
             // their applied cursors stay on the existing connection.
-            shellSnapshotSequence = -1;
-            pendingShellEvents = [];
+            shellFence.reset();
             const generation = shellSubscriptionGeneration;
             void api.orchestration.subscribeShell().catch(() => {
               if (disposed || shellSubscriptionGeneration !== generation) return;
@@ -2566,10 +2553,12 @@ function EventRouter() {
       if (event.type === "activity") {
         const terminalStore = useTerminalStateStore.getState();
         const currentCliKind =
-          selectThreadTerminalState(terminalStore.terminalStateByThreadId, terminalThreadId)
-            .terminalCliKindsById[event.terminalId] ?? null;
+          selectThreadTerminalState(
+            terminalStore.terminalStateByThreadId,
+            scopeLocalThread(terminalThreadId),
+          ).terminalCliKindsById[event.terminalId] ?? null;
         if (event.cliKind || currentCliKind !== null) {
-          terminalStore.setTerminalMetadata(terminalThreadId, event.terminalId, {
+          terminalStore.setTerminalMetadata(scopeLocalThread(terminalThreadId), event.terminalId, {
             cliKind: event.cliKind,
             label: event.cliKind ? defaultTerminalTitleForCliKind(event.cliKind) : "Terminal",
           });
@@ -2579,10 +2568,12 @@ function EventRouter() {
       if (activity === null) {
         return;
       }
-      useTerminalStateStore.getState().setTerminalActivity(terminalThreadId, event.terminalId, {
-        hasRunningSubprocess: activity.hasRunningSubprocess,
-        agentState: activity.agentState,
-      });
+      useTerminalStateStore
+        .getState()
+        .setTerminalActivity(scopeLocalThread(terminalThreadId), event.terminalId, {
+          hasRunningSubprocess: activity.hasRunningSubprocess,
+          agentState: activity.agentState,
+        });
     });
     // Dev servers are first-class server processes; mirror their lifecycle into the
     // client store so the sidebar indicator survives reconnects and stays consistent
@@ -2936,7 +2927,7 @@ function DesktopProjectBootstrap() {
 
   useEffect(() => {
     let disposed = false;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !threadsHydrated) {
       return;
     }

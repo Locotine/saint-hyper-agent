@@ -14,7 +14,7 @@ vi.mock("../nativeApi", () => {
   const api = {
     server: { getConfig: mocks.getConfig, refreshProviders: mocks.refreshProviders },
   };
-  return { ensureNativeApi: () => api, readNativeApi: () => api };
+  return { ensureLocalNativeApi: () => api, readLocalNativeApi: () => api };
 });
 vi.mock("../appSettings", () => {
   const appSettings = { settings: { disabledProviders: [] }, updateSettingsAndWait: vi.fn() };

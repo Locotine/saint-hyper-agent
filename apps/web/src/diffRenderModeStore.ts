@@ -5,28 +5,34 @@
 // Layer: Web UI state store
 // Exports: per-thread diff render mode store helpers
 
+import type { ScopedThreadId } from "@saint/shared/hostId";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { DiffRenderMode } from "./diffRenderMode";
-import { sanitizeStringKeyedRecord } from "./persistedRecord";
+import { withLegacyKeyFallback } from "./lib/storage";
+import { sanitizeStringKeyedRecord, scopeThreadKeyedRecord } from "./persistedRecord";
 
-export const THREAD_DIFF_RENDER_MODE_STORAGE_KEY = "saint:diff-render-mode-by-thread:v1";
+export const THREAD_DIFF_RENDER_MODE_STORAGE_KEY = "saint:diff-render-mode-by-thread:v2";
+// v1 was keyed by raw thread ids. Read once as local threads, then left alone for a rollback.
+const LEGACY_THREAD_DIFF_RENDER_MODE_STORAGE_KEY = "saint:diff-render-mode-by-thread:v1";
 export const MAX_SAVED_THREAD_DIFF_LAYOUTS = 512;
 
 function isDiffRenderMode(value: unknown): value is DiffRenderMode {
   return value === "stacked" || value === "split";
 }
 
-function retainRecentModes(modes: Record<string, DiffRenderMode>): Record<string, DiffRenderMode> {
+function retainRecentModes(
+  modes: Record<ScopedThreadId, DiffRenderMode>,
+): Record<ScopedThreadId, DiffRenderMode> {
   return Object.fromEntries(Object.entries(modes).slice(-MAX_SAVED_THREAD_DIFF_LAYOUTS));
 }
 
 interface DiffRenderModeStore {
-  modeByThreadId: Record<string, DiffRenderMode>;
-  getModeForThread: (threadId: string | null, fallback: DiffRenderMode) => DiffRenderMode;
-  setModeForThread: (threadId: string, mode: DiffRenderMode) => void;
-  removeThread: (threadId: string) => void;
+  modeByThreadId: Record<ScopedThreadId, DiffRenderMode>;
+  getModeForThread: (threadId: ScopedThreadId | null, fallback: DiffRenderMode) => DiffRenderMode;
+  setModeForThread: (threadId: ScopedThreadId, mode: DiffRenderMode) => void;
+  removeThread: (threadId: ScopedThreadId) => void;
 }
 
 export const useDiffRenderModeStore = create<DiffRenderModeStore>()(
@@ -59,29 +65,34 @@ export const useDiffRenderModeStore = create<DiffRenderModeStore>()(
       name: THREAD_DIFF_RENDER_MODE_STORAGE_KEY,
       // Resolve storage through globalThis on each call so tests can replace
       // localStorage after this module has already been evaluated.
-      storage: createJSONStorage(() => ({
-        getItem: (name) => {
-          try {
-            return globalThis.localStorage?.getItem(name) ?? null;
-          } catch {
-            return null;
-          }
-        },
-        setItem: (name, value) => {
-          try {
-            globalThis.localStorage?.setItem(name, value);
-          } catch {
-            // Keep the active layout usable when browser storage is unavailable.
-          }
-        },
-        removeItem: (name) => {
-          try {
-            globalThis.localStorage?.removeItem(name);
-          } catch {
-            // In-memory cleanup must still complete if storage has been disabled.
-          }
-        },
-      })),
+      storage: createJSONStorage(() =>
+        withLegacyKeyFallback(
+          {
+            getItem: (name) => {
+              try {
+                return globalThis.localStorage?.getItem(name) ?? null;
+              } catch {
+                return null;
+              }
+            },
+            setItem: (name, value) => {
+              try {
+                globalThis.localStorage?.setItem(name, value);
+              } catch {
+                // Keep the active layout usable when browser storage is unavailable.
+              }
+            },
+            removeItem: (name) => {
+              try {
+                globalThis.localStorage?.removeItem(name);
+              } catch {
+                // In-memory cleanup must still complete if storage has been disabled.
+              }
+            },
+          },
+          LEGACY_THREAD_DIFF_RENDER_MODE_STORAGE_KEY,
+        ),
+      ),
       partialize: (state) => ({ modeByThreadId: state.modeByThreadId }),
       merge: (persisted, current) => {
         const persistedModes = (persisted as { modeByThreadId?: unknown } | undefined)
@@ -89,8 +100,10 @@ export const useDiffRenderModeStore = create<DiffRenderModeStore>()(
         return {
           ...current,
           modeByThreadId: retainRecentModes(
-            sanitizeStringKeyedRecord(persistedModes, (value) =>
-              isDiffRenderMode(value) ? value : null,
+            scopeThreadKeyedRecord(
+              sanitizeStringKeyedRecord(persistedModes, (value) =>
+                isDiffRenderMode(value) ? value : null,
+              ),
             ),
           ),
         };

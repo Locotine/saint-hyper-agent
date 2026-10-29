@@ -1,4 +1,11 @@
 import { ProjectId, ThreadId } from "@saint/contracts";
+import {
+  LOCAL_HOST_ID,
+  scopeLocalThread,
+  scopeThread,
+  sshHostId,
+  unscopeThread,
+} from "@saint/shared/hostId";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -7,7 +14,9 @@ import {
   closeOpenThreadTab,
   closeOpenThreadTabs,
   createOpenThreadTabCloseQueue,
+  localOpenThreadIds,
   moveOpenThreadTab,
+  pruneOpenThreadTabs,
   replaceLastTabWithFreshChat,
   normalizeOpenThreadTabIds,
   type OpenThreadTabSource,
@@ -46,28 +55,55 @@ function tabIds(ids: readonly string[]) {
   return ids.map((id) => ({ threadId: ThreadId.makeUnsafe(id) }));
 }
 
+const local = (id: string) => scopeLocalThread(ThreadId.makeUnsafe(id));
+const remoteHost = sshHostId("a1b2c3d4");
+
 describe("open thread tab list", () => {
   it("keeps an already open thread in place and appends new ones", () => {
-    const open = ["a", "b", "c"].map((id) => ThreadId.makeUnsafe(id));
+    const open = ["a", "b", "c"].map(local);
 
-    expect(addOpenThreadTab(open, ThreadId.makeUnsafe("a"))).toEqual(open);
-    expect(addOpenThreadTab(open, ThreadId.makeUnsafe("d"))).toEqual([...open, "d"]);
+    expect(addOpenThreadTab(open, local("a"))).toBe(open);
+    expect(addOpenThreadTab(open, local("d"))).toEqual([...open, local("d")]);
+  });
+
+  it("treats the same raw id on two hosts as two tabs", () => {
+    const remote = scopeThread(remoteHost, ThreadId.makeUnsafe("a"));
+    expect(addOpenThreadTab([local("a")], remote)).toEqual([local("a"), remote]);
   });
 
   it("moves a dragged tab into the slot of the tab it is dropped on", () => {
-    const open = ["a", "b", "c", "d"].map((id) => ThreadId.makeUnsafe(id));
-    const move = (from: string, to: string) =>
-      moveOpenThreadTab(open, ThreadId.makeUnsafe(from), ThreadId.makeUnsafe(to));
+    const open = ["a", "b", "c", "d"].map(local);
+    const move = (from: string, to: string) => moveOpenThreadTab(open, local(from), local(to));
 
-    expect(move("a", "c")).toEqual(["b", "c", "a", "d"]);
-    expect(move("d", "b")).toEqual(["a", "d", "b", "c"]);
+    expect(move("a", "c")).toEqual(["b", "c", "a", "d"].map(local));
+    expect(move("d", "b")).toEqual(["a", "d", "b", "c"].map(local));
     expect(move("b", "b")).toBe(open);
     expect(move("b", "missing")).toBe(open);
   });
 
   it("restores a persisted list without duplicates or malformed entries", () => {
-    expect(normalizeOpenThreadTabIds(["a", " b ", "a", "", 3, null, "c"])).toEqual(["a", "b", "c"]);
+    expect(normalizeOpenThreadTabIds(["a", " b ", "a", "", 3, null, "c"])).toEqual(
+      ["a", "b", "c"].map(local),
+    );
     expect(normalizeOpenThreadTabIds({ threadIds: ["a"] })).toEqual([]);
+  });
+
+  it("reads ids saved before scoping as this computer's threads and keeps scoped ones", () => {
+    const remote = scopeThread(remoteHost, ThreadId.makeUnsafe("a"));
+    expect(normalizeOpenThreadTabIds(["a", remote, local("a")])).toEqual([local("a"), remote]);
+  });
+
+  it("lists only this computer's threads for rendering", () => {
+    const remote = scopeThread(remoteHost, ThreadId.makeUnsafe("r"));
+    expect(localOpenThreadIds([local("a"), remote, local("b")])).toEqual(["a", "b"]);
+  });
+
+  it("prunes only by the caller's rule, so another host's tabs survive a local prune", () => {
+    const remote = scopeThread(remoteHost, ThreadId.makeUnsafe("r"));
+    const open = [local("a"), remote];
+    expect(
+      pruneOpenThreadTabs(open, (scoped) => unscopeThread(scoped).hostId !== LOCAL_HOST_ID),
+    ).toEqual([remote]);
   });
 });
 

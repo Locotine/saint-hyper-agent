@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID, scopeProject } from "@saint/shared/hostId";
 // FILE: useAuxiliarySurface.browser.tsx
 // Purpose: Verifies the auxiliary dock-surface default for group chats — the
 //          Groups panel opens on a group's first visit (new group → coordinator
@@ -18,7 +19,7 @@ import { useAuxiliarySurface } from "./useAuxiliarySurface";
 
 const GROUP_ID = ProjectId.makeUnsafe("group-under-test");
 const OTHER_GROUP_ID = ProjectId.makeUnsafe("group-other");
-const CLOSED_STORAGE_KEY = "saint:group-panel-closed:v1";
+const CLOSED_STORAGE_KEY = "saint:group-panel-closed:v2";
 
 function SurfaceProbe({
   projectId,
@@ -104,7 +105,9 @@ describe("useAuxiliarySurface", () => {
   });
 
   it("scopes the remembered close to the group it was made in", async () => {
-    useGroupPanelClosedStore.setState({ closedProjectIds: [GROUP_ID] });
+    useGroupPanelClosedStore.setState({
+      closedProjectIds: [scopeProject(LOCAL_HOST_ID, GROUP_ID)],
+    });
     await render(
       <SurfaceProbe
         projectId={OTHER_GROUP_ID}

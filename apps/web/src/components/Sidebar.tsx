@@ -1,3 +1,13 @@
+import {
+  hostIdOf,
+  localThreadIdFromKey,
+  parseScopedThreadId,
+  scopeLocalThread,
+  scopeLocalProject,
+  LOCAL_HOST_ID,
+  localProjectId,
+  localProjectIds,
+} from "@saint/shared/hostId";
 import { useProjectImportDialogStore } from "~/projectImport/projectImportDialogStore";
 // FILE: Sidebar.tsx
 // Purpose: Renders the project/thread sidebar, including row status, sorting, and thread actions.
@@ -43,7 +53,7 @@ import {
 import { PinStatusIcon, pinActionLabel } from "~/lib/pin";
 import { useTasksNeedingAttentionCount, useTodoEventSubscription } from "./tasks/useTodos";
 import { THREAD_CONTEXT_MENU_ICONS } from "~/lib/contextMenuIcons";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import {
   getActiveComposerSendThreadIds,
   subscribeComposerSends,
@@ -91,6 +101,7 @@ import {
   type AutomationDefinition,
   type AutomationListResult,
   MAX_PINNED_PROJECTS,
+  type DesktopRemoteSshState,
   type DesktopUpdateState,
   type OrchestrationShellSnapshot,
   type OrchestrationThreadPullRequest,
@@ -134,8 +145,18 @@ import {
   toggleRailShortcutKey,
 } from "../appRail.logic";
 import { useRailShellStore } from "../railShellStore";
-import { isElectron, remoteWindowHost } from "../env";
+import { isElectron } from "../env";
+import { useRemoteSshState } from "../hooks/useRemoteSshState";
+import { useHostSearchThreads } from "../hosts/hostSearchThreads";
+import { remoteHostAlias } from "./settings/remoteHostsSettingsModel";
 import { formatRelativeTime } from "../lib/relativeTime";
+import { useAllHostProjects } from "../hosts/hostStores";
+import {
+  AddProjectOnHostButton,
+  RemoteHostActivity,
+  RemoteHostProjects,
+  useRemoteChatNeedsAnswer,
+} from "./RemoteHostsSidebarSection";
 import {
   isMacNavigatorPlatform,
   newCommandId,
@@ -205,7 +226,7 @@ import {
 } from "../lib/serverReactQuery";
 import {
   onNativeApiServerCapabilitiesChange,
-  readNativeApi,
+  readLocalNativeApi,
   readNativeApiServerCapability,
 } from "../nativeApi";
 import { isHomeChatContainerProject, prewarmHomeChatProject } from "../lib/chatProjects";
@@ -1290,6 +1311,9 @@ export default function Sidebar() {
   const [showDebugFeatureFlagsMenu, setShowDebugFeatureFlagsMenu] = useState(
     readDebugFeatureFlagsMenuVisibility,
   );
+  // Null without the desktop's remote SSH bridge: no remote hosts to list.
+  const remoteSshState = useRemoteSshState();
+  const remoteChatNeedsAnswer = useRemoteChatNeedsAnswer();
   const projects = useStore((store) => store.projects);
   const spaces = useStore((store) => store.spaces);
   // Selection state only; the handlers and sync effects live in useSpacesController.
@@ -1336,7 +1360,11 @@ export default function Sidebar() {
     getActiveComposerSendThreadIds,
   );
   const temporaryThreadIds = useTemporaryThreadStore((store) => store.temporaryThreadIds);
-  const persistedPinnedProjectIds = usePinnedProjectsStore((store) => store.pinnedProjectIds);
+  const persistedScopedPinnedProjectIds = usePinnedProjectsStore((store) => store.pinnedProjectIds);
+  const persistedPinnedProjectIds = useMemo(
+    () => localProjectIds(persistedScopedPinnedProjectIds),
+    [persistedScopedPinnedProjectIds],
+  );
   const pinProjectLocally = usePinnedProjectsStore((store) => store.pinProject);
   const unpinProject = usePinnedProjectsStore((store) => store.unpinProject);
   const prunePinnedProjects = usePinnedProjectsStore((store) => store.prunePinnedProjects);
@@ -1365,10 +1393,10 @@ export default function Sidebar() {
   // ["automations"] query cache with the Automations route (and its live stream updates).
   const automationListQuery = useQuery({
     queryKey: automationQueryKey,
-    queryFn: () => ensureNativeApi().automation.list({}),
+    queryFn: () => ensureLocalNativeApi().automation.list({}),
   });
   useEffect(() => {
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
     return api.automation.onEvent((event) => {
       queryClient.setQueryData<AutomationListResult>(automationQueryKey, (prev) =>
         applyAutomationEvent(prev, event),
@@ -1471,7 +1499,7 @@ export default function Sidebar() {
   const splitViewsById = useSplitViewStore((store) => store.splitViewsById);
 
   useEffect(() => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !threadsHydrated || projects.length > 0) {
       return;
     }
@@ -1580,7 +1608,9 @@ export default function Sidebar() {
     (isMacNavigatorPlatform() ? "⇧⌘O" : "Ctrl+Shift+O");
   const usageSettingsShortcutLabel = shortcutLabelForCommand(keybindings, "settings.usage");
   const { activeProjectId: focusedProjectId } = useFocusedChatContext();
-  const latestProjectId = useLatestProjectStore((state) => state.latestProjectId);
+  const latestProjectId = useLatestProjectStore((state) =>
+    state.latestProjectId ? localProjectId(state.latestProjectId) : null,
+  );
   // Shared with the composer project picker, which opens this same dialog.
   const createProjectDialogOpen = useCreateProjectDialogStore((state) => state.isOpen);
   const setCreateProjectDialogOpen = useCreateProjectDialogStore((state) => state.setOpen);
@@ -1940,7 +1970,7 @@ export default function Sidebar() {
     ],
   );
   const routeTerminalState = routeThreadId
-    ? selectThreadTerminalState(terminalStateByThreadId, routeThreadId)
+    ? selectThreadTerminalState(terminalStateByThreadId, scopeLocalThread(routeThreadId))
     : null;
   const terminalOpen = routeTerminalState?.terminalOpen ?? false;
   const terminalWorkspaceOpen = shouldRenderTerminalWorkspace({
@@ -1987,7 +2017,7 @@ export default function Sidebar() {
   } = useSidebarThreadActions({
     activeSplitView,
     appSettings,
-    clearTerminalState,
+    clearTerminalState: (threadId) => clearTerminalState(scopeLocalThread(threadId)),
     filterThreadsToActiveSpace,
     handleNewChat,
     projectById,
@@ -2058,7 +2088,7 @@ export default function Sidebar() {
   // out of the Groups surface and snap the segmented picker back to Projects.
   const activeRouteProjectId = routeThreadId
     ? (sidebarThreadSummaryById[routeThreadId]?.projectId ??
-      draftThreadsByThreadId[routeThreadId]?.projectId ??
+      draftThreadsByThreadId[scopeLocalThread(routeThreadId)]?.projectId ??
       null)
     : null;
   const activeRouteProject = activeRouteProjectId
@@ -2127,7 +2157,7 @@ export default function Sidebar() {
     event.preventDefault();
     event.stopPropagation();
 
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       toastManager.add({
         type: "error",
@@ -2176,7 +2206,7 @@ export default function Sidebar() {
   }, []);
   const dispatchProjectPinnedState = useCallback(
     async (projectId: ProjectId, isPinned: boolean) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       await api.orchestration.dispatchCommand({
         type: "project.meta.update",
@@ -2189,7 +2219,7 @@ export default function Sidebar() {
   );
   const setProjectPinned = useCallback(
     async (projectId: ProjectId, isPinned: boolean) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const project = projectByIdRef.current.get(projectId);
       if (!project || project.kind !== "project") {
@@ -2201,7 +2231,7 @@ export default function Sidebar() {
 
       setOptimisticProjectPinned(projectId, isPinned);
       if (isPinned) {
-        const accepted = pinProjectLocally(projectId);
+        const accepted = pinProjectLocally(scopeLocalProject(projectId));
         if (!accepted) {
           clearOptimisticProjectPinned(projectId);
           toastManager.add({
@@ -2212,7 +2242,7 @@ export default function Sidebar() {
           return;
         }
       } else {
-        unpinProject(projectId);
+        unpinProject(scopeLocalProject(projectId));
       }
 
       try {
@@ -2230,9 +2260,9 @@ export default function Sidebar() {
 
         const confirmedPinned = projectByIdRef.current.get(projectId)?.isPinned === true;
         if (confirmedPinned) {
-          pinProjectLocally(projectId);
+          pinProjectLocally(scopeLocalProject(projectId));
         } else {
-          unpinProject(projectId);
+          unpinProject(scopeLocalProject(projectId));
         }
         clearOptimisticProjectPinned(projectId);
         throw error;
@@ -2249,7 +2279,9 @@ export default function Sidebar() {
   const toggleProjectPinned = useCallback(
     (projectId: ProjectId) => {
       const optimisticPinned = optimisticPinnedStateByProjectIdRef.current.get(projectId);
-      const locallyPinned = usePinnedProjectsStore.getState().pinnedProjectIds.includes(projectId);
+      const locallyPinned = usePinnedProjectsStore
+        .getState()
+        .pinnedProjectIds.includes(scopeLocalProject(projectId));
       const serverPinned = projectByIdRef.current.get(projectId)?.isPinned === true;
       const isPinned = optimisticPinned ?? (locallyPinned || serverPinned);
       void setProjectPinned(projectId, !isPinned).catch((error) => {
@@ -2410,7 +2442,7 @@ export default function Sidebar() {
   // Poll the server read model briefly after project.create so we only recover from fresh state.
   const waitForProjectInSnapshot = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       projectId: ProjectId,
       workspaceRoot?: string,
     ): Promise<{
@@ -2432,7 +2464,7 @@ export default function Sidebar() {
   // observable before reporting the clone as cancelled.
   const waitForCancelledGitHubProjectInSnapshot = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       projectId: ProjectId,
       workspaceRoot?: string,
     ): Promise<{
@@ -2451,7 +2483,7 @@ export default function Sidebar() {
 
   const waitForProjectWorkspaceRootInSnapshot = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       workspaceRoot: string,
     ): Promise<{
       project: OrchestrationShellSnapshot["projects"][number] | null;
@@ -2469,7 +2501,7 @@ export default function Sidebar() {
   // Keep add-project recovery on the same fresh-snapshot path for create, duplicate, and existing-project flows.
   const recoverExistingProjectFromServer = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       projectId: ProjectId,
     ): Promise<boolean> => {
       const { project, snapshot } = await waitForProjectInSnapshot(api, projectId);
@@ -2487,7 +2519,7 @@ export default function Sidebar() {
 
   const recoverExistingProjectByWorkspaceRootFromServer = useCallback(
     async (
-      api: NonNullable<ReturnType<typeof readNativeApi>>,
+      api: NonNullable<ReturnType<typeof readLocalNativeApi>>,
       workspaceRoot: string,
     ): Promise<boolean> => {
       const { project, snapshot } = await waitForProjectWorkspaceRootInSnapshot(api, workspaceRoot);
@@ -2565,8 +2597,9 @@ export default function Sidebar() {
   // for both the settings back button and the segment switcher.
   const groupDraftThreadIds = useMemo(() => {
     const draftThreadIds = new Set<string>();
-    for (const [threadId, draft] of Object.entries(draftThreadsByThreadId)) {
-      if (groupProjectIdSet.has(draft.projectId)) {
+    for (const [key, draft] of Object.entries(draftThreadsByThreadId)) {
+      const threadId = localThreadIdFromKey(key);
+      if (threadId !== null && groupProjectIdSet.has(draft.projectId)) {
         draftThreadIds.add(threadId);
       }
     }
@@ -2574,8 +2607,9 @@ export default function Sidebar() {
   }, [draftThreadsByThreadId, groupProjectIdSet]);
   const nonGroupDraftThreadIds = useMemo(() => {
     const draftThreadIds = new Set<string>();
-    for (const [threadId, draft] of Object.entries(draftThreadsByThreadId)) {
-      if (!groupProjectIdSet.has(draft.projectId)) {
+    for (const [key, draft] of Object.entries(draftThreadsByThreadId)) {
+      const threadId = localThreadIdFromKey(key);
+      if (threadId !== null && !groupProjectIdSet.has(draft.projectId)) {
         draftThreadIds.add(threadId);
       }
     }
@@ -2713,7 +2747,7 @@ export default function Sidebar() {
       if (!cwd) {
         throw new Error("Project folder path is empty.");
       }
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         throw new Error("The app server is unavailable.");
       }
@@ -2871,7 +2905,7 @@ export default function Sidebar() {
         // preferences only when creating a fresh one.
         envMode:
           draftThread?.envMode ??
-          useProjectEnvironmentStore.getState().envModeByProjectId[projectId] ??
+          useProjectEnvironmentStore.getState().envModeByProjectId[scopeLocalProject(projectId)] ??
           appSettings.defaultThreadEnvMode,
         providerStatuses,
         statusesReconciled: hasReconciledServerProviderStatuses(queryClient),
@@ -2926,7 +2960,7 @@ export default function Sidebar() {
 
   const handleImportThread = useCallback(
     async (target: ThreadImportTarget, externalId: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         throw new Error("The app server is unavailable.");
       }
@@ -3196,7 +3230,7 @@ export default function Sidebar() {
 
   const forkThread = useCallback(
     async (thread: Thread, target: ForkThreadTarget) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const projectCwd = projectCwdById.get(thread.projectId) ?? null;
       // Only a thread without its own branch needs the root checkout's branch.
@@ -3249,7 +3283,7 @@ export default function Sidebar() {
   // when moving a thread into a configured group).
   const postGroupPickupMessage = useCallback(
     async (coordinatorThreadId: ThreadId, text: string): Promise<boolean> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return false;
       // Run the coordinator under its configured runtime mode — never a
       // blanket full-access turn.
@@ -3285,7 +3319,7 @@ export default function Sidebar() {
   );
 
   const continueThreadAsGroup = useCallback(async (thread: Thread) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api?.projectAgent) return;
     const groupId = await createGroupProject({ title: thread.title ?? "New hub" }).catch(
       () => null,
@@ -3321,7 +3355,7 @@ export default function Sidebar() {
   }, []);
   const moveThreadToGroup = useCallback(
     async (thread: Thread, targetGroupProjectId: ProjectId) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api?.projectAgent) return;
       const overview = await api.projectAgent
         .linkProject({
@@ -3358,7 +3392,7 @@ export default function Sidebar() {
       position: { x: number; y: number },
       options?: ThreadContextMenuOptions,
     ) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const thread = getThreadFromState(useStore.getState(), threadId);
       if (!thread) return;
@@ -3729,7 +3763,7 @@ export default function Sidebar() {
         const terminalStore = useTerminalStateStore.getState();
         const currentTerminalState = selectThreadTerminalState(
           terminalStore.terminalStateByThreadId,
-          threadId,
+          scopeLocalThread(threadId),
         );
 
         const targetTerminalId = currentTerminalState.activeTerminalId;
@@ -3747,9 +3781,9 @@ export default function Sidebar() {
         const previousPresentationMode = currentTerminalState.presentationMode;
         const previousActiveTerminalId = currentTerminalState.activeTerminalId;
 
-        terminalStore.setTerminalPresentationMode(threadId, "workspace");
-        terminalStore.setTerminalOpen(threadId, true);
-        terminalStore.setActiveTerminal(threadId, targetTerminalId);
+        terminalStore.setTerminalPresentationMode(scopeLocalThread(threadId), "workspace");
+        terminalStore.setTerminalOpen(scopeLocalThread(threadId), true);
+        terminalStore.setActiveTerminal(scopeLocalThread(threadId), targetTerminalId);
 
         const cdCommand = `cd ${quotePosixShellArgument(threadWorkspacePath)}\r`;
         try {
@@ -3776,10 +3810,13 @@ export default function Sidebar() {
         } catch (error) {
           // Open may already have created a PTY, even if navigation or its
           // acknowledgement failed. Keep its identity available for reattach.
-          terminalStore.setTerminalPresentationMode(threadId, previousPresentationMode);
-          terminalStore.setTerminalOpen(threadId, previousTerminalOpen);
+          terminalStore.setTerminalPresentationMode(
+            scopeLocalThread(threadId),
+            previousPresentationMode,
+          );
+          terminalStore.setTerminalOpen(scopeLocalThread(threadId), previousTerminalOpen);
           if (previousActiveTerminalId) {
-            terminalStore.setActiveTerminal(threadId, previousActiveTerminalId);
+            terminalStore.setActiveTerminal(scopeLocalThread(threadId), previousActiveTerminalId);
           }
           toastManager.add({
             type: "error",
@@ -3855,7 +3892,7 @@ export default function Sidebar() {
   useEffect(() => registerThreadContextMenu(handleThreadContextMenu), [handleThreadContextMenu]);
   const handleMultiSelectContextMenu = useCallback(
     async (position: { x: number; y: number }) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const ids = [...selectedThreadIds];
       if (ids.length === 0) return;
@@ -3987,13 +4024,13 @@ export default function Sidebar() {
     activeSplitView,
     clearSelection,
     navigate,
-    openChatThreadPage,
+    openChatThreadPage: (threadId) => openChatThreadPage(scopeLocalThread(threadId)),
     openSidechatDock: ({ sourceThreadId, sidechatThreadId }) =>
       openRightDockPane(sourceThreadId, {
         kind: "sidechat",
         threadId: sidechatThreadId,
       }),
-    openTerminalThreadPage,
+    openTerminalThreadPage: (threadId) => openTerminalThreadPage(scopeLocalThread(threadId)),
     prewarmThreadDetailForIntent,
     rememberLastThreadRouteNow,
     routeSplitViewId: routeSearch.splitViewId,
@@ -4102,7 +4139,7 @@ export default function Sidebar() {
         : value.spaceId;
       const runCreateProject = async () => {
         if (value.source === "github") {
-          const api = readNativeApi();
+          const api = readLocalNativeApi();
           if (!api) throw new Error("The app server is unavailable.");
           await runExclusiveProjectAddition(projectAdditionLockRef, async () => {
             const openProvisionedProject = async (
@@ -4215,7 +4252,7 @@ export default function Sidebar() {
   const handleProjectContextMenuAction = useCallback(
     async (projectId: ProjectId, clicked: ProjectContextMenuId) => {
       setProjectContextMenuState(null);
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const project = projectById.get(projectId);
       if (!project) return;
@@ -4373,7 +4410,7 @@ export default function Sidebar() {
 
   const handleProjectContextMenu = useCallback(
     (projectId: ProjectId, position: { x: number; y: number }) => {
-      if (!readNativeApi()) return;
+      if (!readLocalNativeApi()) return;
       if (!projectById.has(projectId)) return;
       setProjectContextMenuState({ projectId, position });
     },
@@ -4527,7 +4564,7 @@ export default function Sidebar() {
     ],
   );
   const handleNavContextMenu = useCallback((event: MouseEvent) => {
-    if (!readNativeApi()) return;
+    if (!readLocalNativeApi()) return;
     event.preventDefault();
     setNavCustomizeMenuPosition({ x: event.clientX, y: event.clientY });
   }, []);
@@ -4759,8 +4796,17 @@ export default function Sidebar() {
     () => orderPinnedProjectsForSidebar(standardProjectsBase, pinnedProjectIds),
     [pinnedProjectIds, standardProjectsBase],
   );
+  // Hosts' projects fill the list too, so this computer having none is not an empty list.
+  const allHostProjects = useAllHostProjects();
+  const remoteHostProjectCount = useMemo(
+    () =>
+      allHostProjects.filter(
+        (row) => row.hostId !== LOCAL_HOST_ID && row.project.kind === "project",
+      ).length,
+    [allHostProjects],
+  );
   const projectEmptyState = resolveProjectEmptyState({
-    projectCount: standardProjects.length,
+    projectCount: standardProjects.length + remoteHostProjectCount,
     shouldShowProjectPathEntry: createProjectDialogOpen,
     threadsHydrated,
   });
@@ -4964,7 +5010,10 @@ export default function Sidebar() {
     if (!shouldPrunePinnedThreads({ threadsHydrated })) {
       return;
     }
-    prunePinnedProjects(allStandardProjectsBase.map((project) => project.id));
+    prunePinnedProjects(
+      LOCAL_HOST_ID,
+      allStandardProjectsBase.map((project) => project.id),
+    );
     prunePinnedProjectAgents(projects.map((project) => project.id));
   }, [
     allStandardProjectsBase,
@@ -5320,7 +5369,7 @@ export default function Sidebar() {
         isSettled={false}
         isPinned={pinnedThreadIdSet.has(thread.id)}
         threadJumpLabel={visibleThreadJumpLabelByThreadId.get(thread.id) ?? null}
-        hasPendingDraft={draftThreadIdSet.has(thread.id)}
+        hasPendingDraft={draftThreadIdSet.has(scopeLocalThread(thread.id))}
         pr={
           prByThreadId.has(thread.id)
             ? (prByThreadId.get(thread.id) ?? null)
@@ -5433,7 +5482,10 @@ export default function Sidebar() {
   }
 
   function renderPinnedThreadRow(thread: SidebarThreadSummary) {
-    const threadTerminalState = selectThreadTerminalState(terminalStateByThreadId, thread.id);
+    const threadTerminalState = selectThreadTerminalState(
+      terminalStateByThreadId,
+      scopeLocalThread(thread.id),
+    );
     const threadEntryPoint = threadTerminalState.entryPoint;
     const terminalStatus = terminalStatusFromThreadState({
       runningTerminalIds: threadTerminalState.runningTerminalIds,
@@ -5566,7 +5618,10 @@ export default function Sidebar() {
     // same small-label treatment as pinned rows' project name.
     projectContextLabel?: string,
   ) {
-    const threadTerminalState = selectThreadTerminalState(terminalStateByThreadId, thread.id);
+    const threadTerminalState = selectThreadTerminalState(
+      terminalStateByThreadId,
+      scopeLocalThread(thread.id),
+    );
     const threadEntryPoint = threadTerminalState.entryPoint;
     const isActive = visualActiveSidebarThreadId === thread.id;
     const isPinned = pinnedThreadIdSet.has(thread.id);
@@ -5581,7 +5636,7 @@ export default function Sidebar() {
     const terminalCount = threadTerminalState.terminalIds.length;
     const isTemporaryThread =
       temporaryThreadIds[thread.id] === true ||
-      draftThreadsByThreadId[thread.id]?.isTemporary === true;
+      draftThreadsByThreadId[scopeLocalThread(thread.id)]?.isTemporary === true;
     const secondaryMetaClass = isHighlighted
       ? "text-foreground/54 dark:text-foreground/64"
       : "text-muted-foreground/34";
@@ -7334,7 +7389,7 @@ export default function Sidebar() {
                     {!isOnGroups ? (
                       <SidebarActivityBellButton
                         active={activityViewEnabled}
-                        showUnreadDot={hasUnreadActivity}
+                        showUnreadDot={hasUnreadActivity || remoteChatNeedsAnswer}
                         shortcutLabel={activityShortcutLabel}
                         onClick={() => setActivityViewEnabledSmoothly(!activityViewEnabled)}
                       />
@@ -7430,6 +7485,11 @@ export default function Sidebar() {
                         onCreateChat={handlePrimaryNewThread}
                         onAddProject={handleStartAddProject}
                       />
+                      {remoteSshState ? (
+                        <SidebarMenu className="mt-3 gap-1">
+                          <RemoteHostActivity state={remoteSshState} />
+                        </SidebarMenu>
+                      ) : null}
                     </SidebarGroup>
                   ) : showRailSpacesPanel ? (
                     renderRailSpacesPanel()
@@ -7487,12 +7547,9 @@ export default function Sidebar() {
                             }}
                             {...threadSortMenuProps}
                           />
-                          <SidebarIconButton
-                            icon={AddPlusIcon}
-                            label="Add project"
-                            onClick={handleStartAddProject}
-                            tooltip="Add project"
-                            tooltipSide="right"
+                          <AddProjectOnHostButton
+                            state={remoteSshState}
+                            onAddLocal={handleStartAddProject}
                           />
                         </>,
                       )}
@@ -7528,6 +7585,12 @@ export default function Sidebar() {
                           ))}
                         </SidebarMenu>
                       )}
+
+                      {remoteSshState ? (
+                        <SidebarMenu className="mt-3 gap-3">
+                          <RemoteHostProjects state={remoteSshState} />
+                        </SidebarMenu>
+                      ) : null}
 
                       {projectEmptyState === "loading" && (
                         <div
@@ -7766,21 +7829,18 @@ export default function Sidebar() {
             className={PROJECT_CONTEXT_MENU_PANEL_CLASS_NAME}
           >
             <MenuGroup>
-              {/* A remote host's folders are not on this computer. */}
-              {remoteWindowHost ? null : (
-                <MenuItem
-                  className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                  onClick={() =>
-                    void handleProjectContextMenuAction(
-                      projectContextMenuState.projectId,
-                      "open-in-finder",
-                    )
-                  }
-                >
-                  <ProjectContextMenuIcon icon={FolderOpenIcon} />
-                  <span>Open in Finder</span>
-                </MenuItem>
-              )}
+              <MenuItem
+                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
+                onClick={() =>
+                  void handleProjectContextMenuAction(
+                    projectContextMenuState.projectId,
+                    "open-in-finder",
+                  )
+                }
+              >
+                <ProjectContextMenuIcon icon={FolderOpenIcon} />
+                <span>Open in Finder</span>
+              </MenuItem>
               <MenuItem
                 className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
                 onClick={() =>
@@ -8205,7 +8265,7 @@ export default function Sidebar() {
                     prewarmThreadDetailForIntent(coordinatorThreadId);
                     setOptimisticActiveThreadId(coordinatorThreadId);
                     setSelectionAnchor(coordinatorThreadId);
-                    openChatThreadPage(coordinatorThreadId);
+                    openChatThreadPage(scopeLocalThread(coordinatorThreadId));
                     rememberLastThreadRouteNow({ threadId: coordinatorThreadId });
                     void navigate({
                       to: "/$threadId",
@@ -8262,8 +8322,15 @@ export default function Sidebar() {
           providerInstances={sidebarProviderInstances}
           onImportThread={handleImportThread}
           onOpenThread={(threadId) => {
+            const scoped = parseScopedThreadId(threadId);
+            // A connected host's thread opens by its host-qualified route id.
+            if (scoped && hostIdOf(scoped) !== LOCAL_HOST_ID) {
+              void navigate({ to: "/$threadId", params: { threadId: scoped } });
+              return;
+            }
             activateThreadFromSidebarIntent(ThreadId.makeUnsafe(threadId));
           }}
+          remoteSshState={remoteSshState}
         />
       ) : null}
     </>
@@ -8305,8 +8372,12 @@ function SidebarSearchPaletteController(props: {
   providerInstances: readonly ProviderInstanceOption[];
   onImportThread: (target: ThreadImportTarget, externalId: string) => Promise<void>;
   onOpenThread: (threadId: string) => void;
+  remoteSshState: DesktopRemoteSshState | null;
 }) {
   const selectAllThreads = useMemo(() => createAllThreadsSelector(), []);
+  const hostSearchThreads = useHostSearchThreads(
+    (hostId) => remoteHostAlias(props.remoteSshState, hostId) ?? "Remote host",
+  );
   // Search keeps automation-run threads as an intent-driven escape hatch, while
   // structurally nested side chats stay out of standalone thread results.
   const selectSidebarDisplayThreads = useMemo(
@@ -8360,9 +8431,17 @@ function SidebarSearchPaletteController(props: {
       ];
     });
   }, [props.projectById, props.projects, sidebarDisplayThreads, threads]);
-  const searchPaletteThreads = useStableValue(
+  const localSearchPaletteThreads = useStableValue(
     rebuiltSearchPaletteThreads,
     areSidebarSearchThreadListsEqual,
+  );
+  // Multi-host: connected hosts' threads are searchable next to this computer's.
+  const searchPaletteThreads = useMemo(
+    () =>
+      hostSearchThreads.length > 0
+        ? [...localSearchPaletteThreads, ...hostSearchThreads]
+        : localSearchPaletteThreads,
+    [hostSearchThreads, localSearchPaletteThreads],
   );
 
   return (

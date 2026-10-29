@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DesktopAppSnapCapture } from "@saint/contracts";
@@ -100,7 +101,7 @@ describe("insertAppSnapCaptureIntoDraft", () => {
       },
     });
     expect(syncPersistedAttachments).toHaveBeenCalledOnce();
-    expect(setPromptHistorySavedDraft).toHaveBeenCalledWith(threadId, null);
+    expect(setPromptHistorySavedDraft).toHaveBeenCalledWith(scopeLocalThread(threadId), null);
   });
 
   it("rolls back the image and blob without discarding prompt history when persistence rejects", async () => {
@@ -108,9 +109,9 @@ describe("insertAppSnapCaptureIntoDraft", () => {
     await expect(insertAppSnapCaptureIntoDraft(threadId, captureFixture())).rejects.toThrow(
       "draft metadata was rejected",
     );
-    expect(addImage).toHaveBeenCalledWith(threadId, expect.anything());
+    expect(addImage).toHaveBeenCalledWith(scopeLocalThread(threadId), expect.anything());
     expect(setPromptHistorySavedDraft).not.toHaveBeenCalled();
-    expect(removeImage).toHaveBeenCalledWith(threadId, "image-1");
+    expect(removeImage).toHaveBeenCalledWith(scopeLocalThread(threadId), "image-1");
     expect(deleteComposerImageBlob).toHaveBeenCalledWith("blob-key-1");
   });
 

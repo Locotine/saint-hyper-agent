@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserVaultSettings, BrowserVaultSnapshot } from "@saint/contracts";
 import { CentralIcon } from "~/lib/central-icons";
 import { Key01Icon } from "~/lib/icons";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { Button } from "./ui/button";
 import { IconButton } from "./ui/icon-button";
 import { Dialog, DialogHeader, DialogPanel, DialogPopup, DialogTitle } from "./ui/dialog";
@@ -18,7 +18,7 @@ export function BrowserVaultButton({
 }: {
   destination?: BrowserCookieDestination | undefined;
 }) {
-  if (!readNativeApi()?.browser.vault) return null;
+  if (!readLocalNativeApi()?.browser.vault) return null;
   return (
     <IconButton
       variant="ghost"
@@ -37,7 +37,7 @@ export function BrowserVaultButton({
 }
 
 export function BrowserVaultDialog() {
-  const api = readNativeApi()?.browser.vault;
+  const api = readLocalNativeApi()?.browser.vault;
   const [open, setOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<BrowserVaultSnapshot>();
   const [error, setError] = useState<string | null>(null);

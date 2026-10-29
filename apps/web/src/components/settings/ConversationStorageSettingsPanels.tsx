@@ -17,7 +17,7 @@ import { formatRelativeTime } from "~/lib/relativeTime";
 import { serverQueryKeys, serverWorktreesQueryOptions } from "~/lib/serverReactQuery";
 import { unarchiveThreadFromClient } from "~/lib/threadArchive";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi, readNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi, readLocalNativeApi } from "~/nativeApi";
 import { SETTINGS_CARD_ROW_DESCRIPTION_CLASS_NAME } from "~/settingsPanelStyles";
 import { useStore } from "~/store";
 import { createThreadShellsSelector } from "~/storeSelectors";
@@ -90,7 +90,7 @@ export function WorktreesSettingsPanel({ active }: { readonly active: boolean })
 
   const deleteManagedWorktree = useCallback(
     async (input: { workspaceRoot: string; worktreePath: string }) => {
-      const api = readNativeApi() ?? ensureNativeApi();
+      const api = readLocalNativeApi() ?? ensureLocalNativeApi();
       const displayName = formatWorktreePathForDisplay(input.worktreePath);
       const snapshot = await api.orchestration.getShellSnapshot().catch(() => null);
       if (snapshot === null) {
@@ -292,7 +292,7 @@ export function ArchivedSettingsPanel({ active }: { readonly active: boolean }) 
   }, [projects, threadShells]);
 
   const unarchiveThread = useCallback(async (threadId: ThreadId) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     try {
       await unarchiveThreadFromClient(api.orchestration, threadId);
@@ -325,7 +325,7 @@ export function ArchivedSettingsPanel({ active }: { readonly active: boolean }) 
 
   const deleteArchivedThread = useCallback(
     async (threadId: ThreadId, threadTitle: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const confirmed = await api.dialogs.confirm(
         `Permanently delete "${threadTitle}"?\n\nThis will remove the thread and its conversation history forever.`,
@@ -359,7 +359,7 @@ export function ArchivedSettingsPanel({ active }: { readonly active: boolean }) 
   );
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const deleteAllArchivedThreads = useCallback(async () => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     const rootThreadIds = archivedGroups.flatMap((group) =>
       group.threads.map((thread) => thread.id),
@@ -394,7 +394,7 @@ export function ArchivedSettingsPanel({ active }: { readonly active: boolean }) 
 
   const handleContextMenu = useCallback(
     async (threadId: ThreadId, threadTitle: string, position: { x: number; y: number }) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const clicked = await api.contextMenu.show(
         [

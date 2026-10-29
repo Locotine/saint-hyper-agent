@@ -1,9 +1,10 @@
 // FILE: remoteSshIpc.ts
-// Purpose: Registers the remote SSH host IPC surface used by Settings › Remote hosts.
+// Purpose: Registers the remote SSH host IPC surface used by Settings › Remote hosts and the sidebar.
 // Layer: Desktop IPC (Electron main)
 // Exports: registerRemoteSshIpc, RemoteSshIpcOptions
 
 import type { DesktopRemoteSshSavedHost, DesktopRemoteSshState } from "@saint/contracts";
+import { generateHostKey } from "@saint/shared/hostId";
 import type { IpcMain, IpcMainEvent, IpcMainInvokeEvent } from "electron";
 
 import { DESKTOP_IPC_CHANNELS } from "./ipcChannels";
@@ -23,13 +24,11 @@ export interface RemoteSshIpcOptions {
   readonly enabled: boolean;
   readonly manager: RemoteSshManager;
   readonly defaultRemoteRoot: string;
-  /** Only the local app window may drive remote hosts; remote windows may not. */
+  /** Only the app window may drive remote hosts. */
   readonly isControlRenderer: (event: IpcMainEvent | IpcMainInvokeEvent) => boolean;
   readonly readSshConfig: () => string | null;
   readonly readSavedHosts: () => SavedRemoteSshHost[];
   readonly writeSavedHosts: (hosts: readonly SavedRemoteSshHost[]) => void;
-  readonly openHostWindow: (host: string) => void;
-  readonly closeHostWindows: (host: string) => void;
   readonly broadcast: (state: DesktopRemoteSshState) => void;
 }
 
@@ -96,23 +95,26 @@ export function registerRemoteSshIpc(
   handle(IPC.getState, () => snapshot());
   handle(IPC.connect, async (payload) => {
     const input = parseSavedHostInput(payload);
-    const saved: DesktopRemoteSshSavedHost = { host: input.host, remoteRoot: input.remoteRoot };
-    options.writeSavedHosts(rememberRemoteSshHost(options.readSavedHosts(), input));
+    const [latest, ...older] = rememberRemoteSshHost(options.readSavedHosts(), input);
+    // First connect of a host mints its stable key; later connects keep the saved one.
+    const hostKey = latest?.hostKey ?? generateHostKey();
+    const saved: DesktopRemoteSshSavedHost = {
+      host: input.host,
+      remoteRoot: input.remoteRoot,
+      hostKey,
+    };
+    options.writeSavedHosts([{ ...input, hostKey }, ...older]);
     publishState();
-    const state = await options.manager.connect(saved);
-    options.openHostWindow(input.host);
-    return state;
+    return options.manager.connect(saved);
   });
   handle(IPC.disconnect, (payload) => {
-    const host = parseHost(payload);
-    options.closeHostWindows(host);
-    options.manager.disconnect(host);
+    options.manager.disconnect(parseHost(payload));
   });
   handle(IPC.stopServer, async (payload) => {
-    const input = parseSavedHostInput(payload);
-    options.closeHostWindows(input.host);
-    await options.manager.stopServer(input);
+    await options.manager.stopServer(parseSavedHostInput(payload));
   });
+  // The renderer's per-host connections reach a connected host's server here.
+  handle(IPC.wsUrl, (payload) => options.manager.wsUrl(parseHost(payload)));
   handle(IPC.forget, (payload) => {
     const host = parseHost(payload);
     options.writeSavedHosts(options.readSavedHosts().filter((saved) => saved.host !== host));

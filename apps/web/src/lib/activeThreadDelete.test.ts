@@ -32,7 +32,7 @@ const THREAD = {
 };
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     dialogs: { confirm: harness.confirm },
     orchestration: { dispatchCommand: harness.dispatchCommand },
   }),

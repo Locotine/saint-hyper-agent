@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import "../index.css";
 import {
   ThreadId,
@@ -45,7 +46,7 @@ const api = vi.hoisted(() => ({
     onEvent: vi.fn<(listener: (event: TerminalEvent) => void) => () => void>(() => () => {}),
   },
 }));
-vi.mock("../nativeApi", () => ({ readNativeApi: () => api }));
+vi.mock("../nativeApi", () => ({ readLocalNativeApi: () => api }));
 
 afterEach(() => {
   terminalRuntimeRegistry.disposeOrphanedThreads(new Set());
@@ -191,12 +192,13 @@ it.each(["chat-panel", "dock-terminal:chat-panel"])(
     );
     await page.getByRole("textbox", { name: "Terminal input" }).fill("pwd");
     await expect.poll(() => api.terminal.write.mock.calls.length).toBeGreaterThan(0);
-    useTerminalStateStore.getState().openTerminalThreadPage(threadId);
+    useTerminalStateStore.getState().openTerminalThreadPage(scopeLocalThread(threadId));
     api.terminal.close.mockRejectedValueOnce(new Error("Connection lost"));
     await expect(closeTerminalSurface(threadId, false)).rejects.toThrow("Connection lost");
-    expect(useTerminalStateStore.getState().terminalStateByThreadId[threadId]?.terminalOpen).toBe(
-      true,
-    );
+    expect(
+      useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(threadId)]
+        ?.terminalOpen,
+    ).toBe(true);
     expect(document.querySelector('aside[aria-label="Terminal"] .xterm')).toBe(viewport);
     api.terminal.write.mockClear();
     await page.getByRole("textbox", { name: "Terminal input" }).fill("echo still connected");
@@ -206,9 +208,10 @@ it.each(["chat-panel", "dock-terminal:chat-panel"])(
     if (scope === "chat-panel")
       await page.screenshot({ path: "../../../../output/playwright/single-terminal-panel.png" });
     await expect(closeTerminalSurface(threadId, false)).resolves.toBe(true);
-    expect(useTerminalStateStore.getState().terminalStateByThreadId[threadId]?.terminalOpen).toBe(
-      false,
-    );
+    expect(
+      useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(threadId)]
+        ?.terminalOpen,
+    ).toBe(false);
     expect(document.querySelector('aside[aria-label="Terminal"] .xterm')).toBeNull();
     await view.unmount();
   },
@@ -217,11 +220,14 @@ it.each(["chat-panel", "dock-terminal:chat-panel"])(
 it("keeps busy legacy sessions pending and retires them on a later idle mount", async () => {
   const threadId = ThreadId.makeUnsafe("legacy-layout");
   const store = useTerminalStateStore.getState();
-  store.openTerminalThreadPage(threadId);
+  store.openTerminalThreadPage(scopeLocalThread(threadId));
   useTerminalStateStore.setState((state) => ({
     terminalStateByThreadId: {
       ...state.terminalStateByThreadId,
-      [threadId]: { ...state.terminalStateByThreadId[threadId]!, retiredTerminalIds: ["old-tab"] },
+      [scopeLocalThread(threadId)]: {
+        ...state.terminalStateByThreadId[scopeLocalThread(threadId)]!,
+        retiredTerminalIds: ["old-tab"],
+      },
     },
   }));
   const error = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -232,7 +238,8 @@ it("keeps busy legacy sessions pending and retires them on a later idle mount", 
   await expect.poll(() => api.terminal.close.mock.calls.length).toBe(1);
   await expect.poll(() => error.mock.calls.length).toBe(1);
   expect(
-    useTerminalStateStore.getState().terminalStateByThreadId[threadId]?.retiredTerminalIds,
+    useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(threadId)]
+      ?.retiredTerminalIds,
   ).toEqual(["old-tab"]);
   expect(api.terminal.write).not.toHaveBeenCalled();
   await view.unmount();
@@ -241,7 +248,9 @@ it("keeps busy legacy sessions pending and retires them on a later idle mount", 
   const reopened = await render(panel(threadId, true));
   await expect
     .poll(
-      () => useTerminalStateStore.getState().terminalStateByThreadId[threadId]?.retiredTerminalIds,
+      () =>
+        useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(threadId)]
+          ?.retiredTerminalIds,
     )
     .toEqual([]);
   expect(api.terminal.close).toHaveBeenLastCalledWith({

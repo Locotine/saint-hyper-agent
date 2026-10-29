@@ -1,3 +1,4 @@
+import { scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
 import "../../index.css";
 
 import {
@@ -35,10 +36,10 @@ function ClaudeTraitsPickerHarness(props: {
   runtimeModel?: ProviderModelDescriptor;
   slider?: boolean;
 }) {
-  const prompt = useComposerThreadDraft(CLAUDE_THREAD_ID).prompt;
+  const prompt = useComposerThreadDraft(scopeLocalThread(CLAUDE_THREAD_ID)).prompt;
   const setPrompt = useComposerDraftStore((store) => store.setPrompt);
   const { modelOptions, selectedModel } = useEffectiveComposerModelState({
-    threadId: CLAUDE_THREAD_ID,
+    threadId: scopeLocalThread(CLAUDE_THREAD_ID),
     selectedProvider: "claudeAgent",
     threadModelSelection: props.fallbackModelSelection,
     projectModelSelection: null,
@@ -56,7 +57,7 @@ function ClaudeTraitsPickerHarness(props: {
     },
   });
   const handlePromptChange = (nextPrompt: string) => {
-    setPrompt(CLAUDE_THREAD_ID, nextPrompt);
+    setPrompt(scopeLocalThread(CLAUDE_THREAD_ID), nextPrompt);
   };
 
   const Control = props.slider ? ComposerEffortSliderCard : TraitsPicker;
@@ -90,8 +91,8 @@ async function mountClaudePicker(props?: {
 }) {
   const model = props?.model ?? "claude-opus-4-6";
   const claudeOptions = !props?.skipDraftModelOptions ? props?.options : undefined;
-  const draftsByThreadId: Record<ThreadId, ComposerThreadDraftState> = {
-    [CLAUDE_THREAD_ID]: {
+  const draftsByThreadId: Record<ScopedThreadId, ComposerThreadDraftState> = {
+    [scopeLocalThread(CLAUDE_THREAD_ID)]: {
       prompt: props?.prompt ?? "",
       promptHistorySavedDraft: null,
       images: [],
@@ -194,14 +195,14 @@ describe("TraitsPicker (Claude)", () => {
     await userEvent.keyboard("{End}");
     await expect.element(slider).toHaveAttribute("aria-valuetext", "Max");
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[CLAUDE_THREAD_ID]?.modelSelectionByProvider
-        .claudeAgent?.options,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(CLAUDE_THREAD_ID)]
+        ?.modelSelectionByProvider.claudeAgent?.options,
     ).toEqual({ effort: "max" });
     await page.getByRole("button", { name: "Reset effort and speed" }).click();
     await expect.element(slider).toHaveAttribute("aria-valuetext", "Low");
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[CLAUDE_THREAD_ID]?.modelSelectionByProvider
-        .claudeAgent?.options,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(CLAUDE_THREAD_ID)]
+        ?.modelSelectionByProvider.claudeAgent?.options,
     ).toEqual({ effort: "low" });
   });
 
@@ -355,8 +356,8 @@ describe("TraitsPicker (Claude)", () => {
 async function mountCodexPicker(props: { model?: string; options?: CodexModelOptions }) {
   const threadId = ThreadId.makeUnsafe("thread-codex-traits");
   const model = props.model ?? DEFAULT_MODEL_BY_PROVIDER.codex;
-  const draftsByThreadId: Record<ThreadId, ComposerThreadDraftState> = {
-    [threadId]: {
+  const draftsByThreadId: Record<ScopedThreadId, ComposerThreadDraftState> = {
+    [scopeLocalThread(threadId)]: {
       prompt: "",
       promptHistorySavedDraft: null,
       images: [],
@@ -389,7 +390,7 @@ async function mountCodexPicker(props: { model?: string; options?: CodexModelOpt
     draftsByThreadId,
     draftThreadsByThreadId: {},
     projectDraftThreadIdByProjectId: {
-      [ProjectId.makeUnsafe("project-codex-traits")]: threadId,
+      [ProjectId.makeUnsafe("project-codex-traits")]: scopeLocalThread(threadId),
     },
   });
   const host = document.createElement("div");
@@ -626,10 +627,10 @@ function OpenCodeTraitsPickerHarness(props: {
   runtimeModel?: ProviderModelDescriptor;
   fallbackModelSelection: ModelSelection | null;
 }) {
-  const prompt = useComposerThreadDraft(OPENCODE_THREAD_ID).prompt;
+  const prompt = useComposerThreadDraft(scopeLocalThread(OPENCODE_THREAD_ID)).prompt;
   const setPrompt = useComposerDraftStore((store) => store.setPrompt);
   const { modelOptions, selectedModel } = useEffectiveComposerModelState({
-    threadId: OPENCODE_THREAD_ID,
+    threadId: scopeLocalThread(OPENCODE_THREAD_ID),
     selectedProvider: "opencode",
     threadModelSelection: props.fallbackModelSelection,
     projectModelSelection: null,
@@ -647,7 +648,7 @@ function OpenCodeTraitsPickerHarness(props: {
     },
   });
   const handlePromptChange = (nextPrompt: string) => {
-    setPrompt(OPENCODE_THREAD_ID, nextPrompt);
+    setPrompt(scopeLocalThread(OPENCODE_THREAD_ID), nextPrompt);
   };
 
   return (
@@ -670,8 +671,8 @@ async function mountOpenCodePicker(props?: {
   fallbackModelOptions?: OpenCodeModelOptions | null;
 }) {
   const model = props?.model ?? DEFAULT_MODEL_BY_PROVIDER.opencode;
-  const draftsByThreadId: Record<ThreadId, ComposerThreadDraftState> = {
-    [OPENCODE_THREAD_ID]: {
+  const draftsByThreadId: Record<ScopedThreadId, ComposerThreadDraftState> = {
+    [scopeLocalThread(OPENCODE_THREAD_ID)]: {
       prompt: "",
       promptHistorySavedDraft: null,
       images: [],

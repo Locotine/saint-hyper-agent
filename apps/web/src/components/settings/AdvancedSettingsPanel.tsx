@@ -14,7 +14,7 @@ import { DisclosureChevron } from "~/components/ui/DisclosureChevron";
 import { DisclosureRegion } from "~/components/ui/DisclosureRegion";
 import { Button } from "~/components/ui/button";
 import { toastManager } from "~/components/ui/toast";
-import { ensureNativeApi, readNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi, readLocalNativeApi } from "~/nativeApi";
 import { serverAuthSessionQueryOptions, serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { cn } from "~/lib/utils";
 import { SETTINGS_INSET_LIST_CLASS_NAME } from "~/settingsPanelStyles";
@@ -65,7 +65,7 @@ export function AdvancedSettingsPanel(props: {
       setIsOpeningKeybindings(false);
       return;
     }
-    void ensureNativeApi()
+    void ensureLocalNativeApi()
       .shell.openInEditor(keybindingsConfigPath, editor)
       .catch((error) => {
         setOpenKeybindingsError(
@@ -79,7 +79,7 @@ export function AdvancedSettingsPanel(props: {
 
   const repairLocalState = useCallback(async () => {
     if (isRepairingLocalState) return;
-    const api = readNativeApi() ?? ensureNativeApi();
+    const api = readLocalNativeApi() ?? ensureLocalNativeApi();
     const confirmed = await api.dialogs.confirm(
       [
         "Repair local state?",
@@ -114,7 +114,7 @@ export function AdvancedSettingsPanel(props: {
 
   const logoutCurrentSession = useCallback(async () => {
     if (isLoggingOut) return;
-    const api = readNativeApi() ?? ensureNativeApi();
+    const api = readLocalNativeApi() ?? ensureLocalNativeApi();
     setIsLoggingOut(true);
     const result = await logoutCurrentBrowserSession({
       confirm: () =>

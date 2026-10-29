@@ -13,6 +13,8 @@ import {
   type ThreadId,
 } from "@saint/contracts";
 import { isGenericChatThreadTitle } from "@saint/shared/chatThreads";
+import { useHostHandle } from "~/hosts/hostScope";
+import { scopeThread } from "@saint/shared/hostId";
 import React, { useEffect, useRef, useState } from "react";
 import type { ThreadPrimarySurface } from "../../types";
 import GitActionsControl from "../GitActionsControl";
@@ -58,7 +60,11 @@ import {
   useRecordOpenThreadTab,
 } from "../../hooks/useOpenThreadTabs";
 import { useOptimisticTabSelection } from "../../hooks/useOptimisticTabSelection";
-import { closeOpenThreadTab, createOpenThreadTabCloseQueue } from "../../openThreadTabs.logic";
+import {
+  closeOpenThreadTab,
+  createOpenThreadTabCloseQueue,
+  localOpenThreadIds,
+} from "../../openThreadTabs.logic";
 import { useOpenThreadTabsStore } from "../../openThreadTabsStore";
 import { StatusDot } from "~/components/ui/status-chip";
 import { cn } from "~/lib/utils";
@@ -99,6 +105,8 @@ interface ChatHeaderProps {
   // scripts, git/open-in) — the chat hasn't started yet — keeping only the sidebar
   // cluster plus the Environment and right-panel toggles.
   minimalChrome?: boolean;
+  /** Hides "Open in" (a connected host's chat: this computer's editors cannot open its files). */
+  hideOpenIn?: boolean;
   isGitRepo: boolean;
   openInTarget: string | null;
   activeProjectScripts: ProjectScript[] | undefined;
@@ -245,6 +253,7 @@ function EditorRailTabs(props: {
   onOpenTerminal: () => void;
   onCloseTerminal: () => void;
 }) {
+  const chatHost = useHostHandle();
   // The rail's chat tabs are this project's slice of the app-wide open threads, so a chat
   // opened or closed here is opened or closed in the chat header strip too.
   useRecordOpenThreadTab(props.activeSurface === "chat" ? props.activeThreadId : null);
@@ -306,12 +315,12 @@ function EditorRailTabs(props: {
     // Same close flow as the chat header strip: the active chat's tab goes only once the
     // route has left it, so a guarded navigation keeps it in both places.
     void enqueueClose(() => {
-      const openThreadIds = useOpenThreadTabsStore.getState().threadIds;
+      const openThreadIds = localOpenThreadIds(useOpenThreadTabsStore.getState().threadIds);
       return closeOpenThreadTab({
         tabs: chatTabs.filter((tab) => openThreadIds.includes(tab.threadId)),
         closedThreadId: threadId,
         activeThreadId: props.activeSurface === "chat" ? readRouteThreadId() : null,
-        closeTab: closeThreadTab,
+        closeTab: (closedThreadId) => closeThreadTab(scopeThread(chatHost.hostId, closedThreadId)),
         openTab: props.onOpenChat,
         // The last chat tab gives way to the terminal tab, which keeps the thread's route.
         replaceLastTab: terminalTabVisible
@@ -435,6 +444,7 @@ export function ChatHeader({
   hideSidebarControls: hideSidebarControlsProp,
   hideHandoffControls: hideHandoffControlsProp,
   minimalChrome: minimalChromeProp,
+  hideOpenIn = false,
   isGitRepo,
   openInTarget,
   activeProjectScripts,
@@ -476,6 +486,7 @@ export function ChatHeader({
   onRenameThread,
   onCloseThreadPane,
 }: ChatHeaderProps) {
+  const chatHost = useHostHandle();
   const hideSidebarControls = hideSidebarControlsProp ?? false;
   const hideHandoffControls = hideHandoffControlsProp ?? false;
   const showHandoffAction = showHandoffActionProp ?? true;
@@ -593,7 +604,7 @@ export function ChatHeader({
   // "Parent /" and once as the tab), so the inline lineage keeps only the closed ones.
   const openTabThreadIds = useOpenThreadTabsStore((state) => state.threadIds);
   const inlineThreadBreadcrumbs = threadBreadcrumbs.filter(
-    (breadcrumb) => !openTabThreadIds.includes(breadcrumb.threadId),
+    (breadcrumb) => !openTabThreadIds.includes(scopeThread(chatHost.hostId, breadcrumb.threadId)),
   );
   const renderBreadcrumbLinks = (breadcrumbs: typeof threadBreadcrumbs) =>
     breadcrumbs.map((breadcrumb, index) => (
@@ -872,7 +883,7 @@ export function ChatHeader({
           <>
             {/* Open in editor: dedicated split-button with an editor switcher; the project
                 action control sits beside it as its own project command surface. */}
-            {!minimalChrome && activeProjectName ? (
+            {!minimalChrome && !hideOpenIn && activeProjectName ? (
               <OpenInPicker
                 keybindings={keybindings}
                 availableEditors={availableEditors}

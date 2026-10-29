@@ -3,6 +3,7 @@
 // Layer: Web orchestration helper
 // Exports: dispatchQueuedComposerTurnHeadless
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { AssistantDeliveryMode, MessageId, ThreadId } from "@saint/contracts";
 
 import {
@@ -10,7 +11,7 @@ import {
   retargetQueuedTurnToThreadProvider,
 } from "../components/ChatView.logic";
 import { useComposerDraftStore, type QueuedComposerTurn } from "../composerDraftStore";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { clearPendingTurnDispatch, markPendingTurnDispatch } from "../pendingTurnDispatch";
 import {
   buildSourceProposedPlanReference,
@@ -54,7 +55,7 @@ export async function dispatchQueuedComposerTurnHeadless(input: {
 async function dispatchQueuedComposerTurnOnce(
   input: Parameters<typeof dispatchQueuedComposerTurnHeadless>[0],
 ): Promise<boolean> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return false;
   }
@@ -101,7 +102,7 @@ async function dispatchQueuedComposerTurnOnce(
       });
       useComposerDraftStore
         .getState()
-        .setInteractionMode(input.threadId, queuedTurn.interactionMode);
+        .setInteractionMode(scopeLocalThread(input.threadId), queuedTurn.interactionMode);
       await api.orchestration.dispatchCommand({
         type: "thread.turn.start",
         commandId: newCommandId(),
@@ -239,7 +240,7 @@ async function dispatchQueuedComposerTurnOnce(
 }
 
 async function persistQueuedTurnThreadSettings(input: {
-  api: NonNullable<ReturnType<typeof readNativeApi>>;
+  api: NonNullable<ReturnType<typeof readLocalNativeApi>>;
   thread: NonNullable<ReturnType<typeof getThreadFromState>>;
   queuedTurn: QueuedComposerTurn;
   createdAt: string;

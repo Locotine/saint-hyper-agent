@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ThreadId } from "@saint/contracts";
 import { selectThreadTerminalState, useTerminalStateStore } from "../../terminalStateStore";
 
@@ -7,7 +8,7 @@ const SETUP_SCRIPT_TERMINAL_MAX_RUNTIME_MS = 10 * 60 * 1000;
 function terminalHasRunningSubprocess(threadId: ThreadId, terminalId: string): boolean {
   const terminalState = selectThreadTerminalState(
     useTerminalStateStore.getState().terminalStateByThreadId,
-    threadId,
+    scopeLocalThread(threadId),
   );
   return terminalState.runningTerminalIds.includes(terminalId);
 }

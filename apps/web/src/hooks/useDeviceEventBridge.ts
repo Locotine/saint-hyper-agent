@@ -11,13 +11,13 @@
 import type { DeviceOpenPaneRequestedEvent } from "@saint/contracts";
 import { useEffect, useEffectEvent } from "react";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { useDeviceStateStore } from "../deviceStateStore";
 
 /** Mounted once by EventRouter, including while settings or split view is open. */
 export function useDeviceEventBridge(): void {
   useEffect(() => {
-    const unsubscribe = ensureNativeApi().device.onEvent((event) => {
+    const unsubscribe = ensureLocalNativeApi().device.onEvent((event) => {
       const store = useDeviceStateStore.getState();
       if (event.type === "device.thread-state") {
         store.upsertThreadState(event.state);

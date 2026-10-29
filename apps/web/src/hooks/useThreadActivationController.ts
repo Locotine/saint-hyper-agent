@@ -2,6 +2,7 @@
 // Purpose: Centralize sidebar thread activation side effects around the pure activation policy.
 // Exports: useThreadActivationController
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { useNavigate } from "@tanstack/react-router";
 import type { ThreadId } from "@saint/contracts";
 import type { LastThreadRoute } from "../chatRouteRestore";
@@ -208,7 +209,7 @@ function activateThreadSingle(input: ThreadActivationControllerInput, threadId: 
 
   const threadEntryPoint = selectThreadTerminalState(
     input.terminalStateByThreadId,
-    threadId,
+    scopeLocalThread(threadId),
   ).entryPoint;
   if (threadEntryPoint === "terminal") {
     input.openTerminalThreadPage(threadId);

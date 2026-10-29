@@ -1,3 +1,5 @@
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import type { OrchestrationThreadActivity, ThreadId } from "@saint/contracts";
 import { pendingRequestInstanceKey } from "@saint/shared/threadSummary";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
@@ -19,7 +21,10 @@ export function usePendingUserInputDrafts(
   requests: ReadonlyArray<PendingUserInput>,
   activities: ReadonlyArray<OrchestrationThreadActivity>,
 ) {
-  const drafts = useComposerThreadDraft(threadId).pendingUserInputDrafts ?? EMPTY_DRAFTS;
+  const chatHost = useHostHandle();
+  const drafts =
+    useComposerThreadDraft(scopeThread(chatHost.hostId, threadId)).pendingUserInputDrafts ??
+    EMPTY_DRAFTS;
   const answers = useMemo(() => draftAnswers(drafts), [drafts]);
   const answersRef = useRef<Answers>(answers);
   const requestsRef = useRef(requests);
@@ -31,7 +36,9 @@ export function usePendingUserInputDrafts(
   const setAnswers = useCallback(
     (update: (existing: Answers) => Answers) => {
       const store = useComposerDraftStore.getState();
-      const existing = store.draftsByThreadId[threadId]?.pendingUserInputDrafts ?? EMPTY_DRAFTS;
+      const existing =
+        store.draftsByThreadId[scopeThread(chatHost.hostId, threadId)]?.pendingUserInputDrafts ??
+        EMPTY_DRAFTS;
       const nextAnswers = update(draftAnswers(existing));
       const nextDrafts = { ...existing };
       for (const [key, requestAnswers] of Object.entries(nextAnswers)) {
@@ -44,9 +51,9 @@ export function usePendingUserInputDrafts(
         if (request) nextDrafts[key] = { request, answers: requestAnswers };
       }
       answersRef.current = nextAnswers;
-      store.setPendingUserInputDrafts(threadId, nextDrafts);
+      store.setPendingUserInputDrafts(scopeThread(chatHost.hostId, threadId), nextDrafts);
     },
-    [threadId],
+    [chatHost, threadId],
   );
 
   // Only a provider resolution proves delivery. Terminal stale rows must keep
@@ -79,10 +86,10 @@ export function usePendingUserInputDrafts(
     useComposerDraftStore
       .getState()
       .setPendingUserInputDrafts(
-        threadId,
+        scopeThread(chatHost.hostId, threadId),
         Object.fromEntries(Object.entries(drafts).filter(([key]) => !confirmed.has(key))),
       );
-  }, [drafts, activities, threadId]);
+  }, [chatHost, drafts, activities, threadId]);
 
   return { answers, answersRef, setAnswers, drafts };
 }

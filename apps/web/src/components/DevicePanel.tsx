@@ -14,7 +14,7 @@ import type {
 } from "@saint/contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { addWsTransportStateListener } from "~/wsTransportEvents";
 import type { DockPaneRuntimeMode } from "~/lib/dockPaneActivation";
 import { CheckIcon, ChevronDownIcon, LoaderCircleIcon } from "~/lib/icons";
@@ -150,7 +150,7 @@ export default function DevicePanel(props: {
   useEffect(() => {
     let cancelled = false;
     const seed = () => {
-      void ensureNativeApi()
+      void ensureLocalNativeApi()
         .device.getThreadState({ threadId })
         .then((state) => {
           if (!cancelled) upsertThreadState(state);
@@ -230,7 +230,7 @@ export default function DevicePanel(props: {
 
   const attachDevice = useCallback(
     async (udid: DeviceUdid) => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       upsertThreadState(await api.device.attach({ threadId, udid }));
     },
     [threadId, upsertThreadState],
@@ -246,7 +246,7 @@ export default function DevicePanel(props: {
       void runDeviceAction(async () => {
         try {
           if (entry.action.kind === "boot-then-attach") {
-            const result = await ensureNativeApi().device.boot({ udid });
+            const result = await ensureLocalNativeApi().device.boot({ udid });
             if (result.kind === "boot-limit-reached") {
               // A refusal, not a failure: hand the user the devices they can
               // free instead of a dead end.
@@ -283,7 +283,7 @@ export default function DevicePanel(props: {
       if (requested) setPendingDevice({ device: requested, supersedes: reportedUdid });
       void runDeviceAction(async () => {
         try {
-          const api = ensureNativeApi();
+          const api = ensureLocalNativeApi();
           await api.device.shutdown({ udid: candidate.udid });
           const result = await api.device.boot({ udid: pending.pendingUdid });
           if (result.kind === "boot-limit-reached") {
@@ -304,14 +304,14 @@ export default function DevicePanel(props: {
   const detachDevice = useCallback(() => {
     setPendingDevice(null);
     void runDeviceAction(async () => {
-      upsertThreadState(await ensureNativeApi().device.detach({ threadId }));
+      upsertThreadState(await ensureLocalNativeApi().device.detach({ threadId }));
     }, "Could not detach the simulator");
   }, [runDeviceAction, threadId, upsertThreadState]);
 
   const shutdownAttached = useCallback(() => {
     if (!attachedDevice) return;
     void runDeviceAction(async () => {
-      await ensureNativeApi().device.shutdown({ udid: attachedDevice.udid });
+      await ensureLocalNativeApi().device.shutdown({ udid: attachedDevice.udid });
     }, "Could not shut down the simulator");
   }, [attachedDevice, runDeviceAction]);
 
@@ -319,7 +319,7 @@ export default function DevicePanel(props: {
     (button: DeviceHardwareButton) => {
       if (!attachedDevice) return;
       void runDeviceAction(async () => {
-        await ensureNativeApi().device.pressButton({ udid: attachedDevice.udid, button });
+        await ensureLocalNativeApi().device.pressButton({ udid: attachedDevice.udid, button });
       }, "Could not press that button");
     },
     [attachedDevice, runDeviceAction],
@@ -342,7 +342,7 @@ export default function DevicePanel(props: {
     const intent = deviceRecordingClickIntent(recording);
     if (!intent) return;
     const udid = attachedDevice.udid;
-    const api = ensureNativeApi();
+    const api = ensureLocalNativeApi();
 
     if (intent === "start") {
       setRecording((state) => stepDeviceRecording(state, { kind: "start-requested" }));
@@ -398,7 +398,7 @@ export default function DevicePanel(props: {
       // browser chose — or nowhere at all where downloads are unavailable —
       // while the record button wrote to the Desktop. Two capture buttons on
       // one rail have to leave their output in the same place.
-      const shot = await ensureNativeApi().device.screenshot({
+      const shot = await ensureLocalNativeApi().device.screenshot({
         udid: attachedDevice.udid,
         save: true,
       });
@@ -436,7 +436,7 @@ export default function DevicePanel(props: {
     setMeasuredPointSize(null);
     if (!attachedUdid || attachedDevice?.state !== "booted" || !needsMeasuredPointSize) return;
     let cancelled = false;
-    void ensureNativeApi()
+    void ensureLocalNativeApi()
       .device.describeUi({ udid: attachedUdid })
       .then((result) => {
         if (cancelled) return;
@@ -528,7 +528,7 @@ export default function DevicePanel(props: {
       });
       if (!gesture) return;
 
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       const udid = attachedDevice.udid;
       const sent =
         gesture.kind === "tap"
@@ -572,7 +572,7 @@ export default function DevicePanel(props: {
       const keyCode = deviceHidUsageForKey(event.key);
       if (keyCode === null) return;
       event.preventDefault();
-      void ensureNativeApi()
+      void ensureLocalNativeApi()
         .device.keyEvent({
           udid: attachedDevice.udid,
           keyCode,
@@ -693,7 +693,7 @@ export default function DevicePanel(props: {
               ? {
                   label: action.label,
                   onClick: () => {
-                    void ensureNativeApi().shell.openExternal(action.url);
+                    void ensureLocalNativeApi().shell.openExternal(action.url);
                   },
                 }
               : null

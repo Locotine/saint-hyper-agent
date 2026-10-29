@@ -5,6 +5,7 @@
 // Layer: Web orchestration helper
 // Exports: createDraftThread, createAndDispatchDraftThread, DraftThreadInput
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   AssistantDeliveryMode,
   ModelSelection,
@@ -47,7 +48,7 @@ export interface DraftThreadInput {
 export function createDraftThread(input: DraftThreadInput): ThreadId {
   const store = useComposerDraftStore.getState();
   const threadId = newThreadId();
-  store.registerDraftThread(threadId, {
+  store.registerDraftThread(scopeLocalThread(threadId), {
     projectId: input.projectId,
     envMode: input.envMode,
     runtimeMode: input.runtimeMode,
@@ -56,14 +57,20 @@ export function createDraftThread(input: DraftThreadInput): ThreadId {
   });
   // The source can be gone by now (its form unmounted while the create was pending);
   // copying from it would leave the new chat empty, so fall back to the prompt.
-  if (input.sourceComposerThreadId && store.draftsByThreadId[input.sourceComposerThreadId]) {
-    store.copyTransferableComposerState(input.sourceComposerThreadId, threadId);
+  if (
+    input.sourceComposerThreadId &&
+    store.draftsByThreadId[scopeLocalThread(input.sourceComposerThreadId)]
+  ) {
+    store.copyTransferableComposerState(
+      scopeLocalThread(input.sourceComposerThreadId),
+      scopeLocalThread(threadId),
+    );
   } else {
-    store.setPrompt(threadId, input.prompt);
+    store.setPrompt(scopeLocalThread(threadId), input.prompt);
   }
-  store.setModelSelection(threadId, input.modelSelection);
-  store.setRuntimeMode(threadId, input.runtimeMode);
-  store.setInteractionMode(threadId, input.interactionMode);
+  store.setModelSelection(scopeLocalThread(threadId), input.modelSelection);
+  store.setRuntimeMode(scopeLocalThread(threadId), input.runtimeMode);
+  store.setInteractionMode(scopeLocalThread(threadId), input.interactionMode);
   return threadId;
 }
 
@@ -83,7 +90,8 @@ export async function createAndDispatchDraftThread(
 ): Promise<{ threadId: ThreadId; result: DraftThreadDispatchResult }> {
   const threadId = createDraftThread(input);
   if (input.beforeDispatch) {
-    const createdComposerState = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const createdComposerState =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     try {
       await input.beforeDispatch(threadId);
     } catch (error) {
@@ -92,9 +100,12 @@ export async function createAndDispatchDraftThread(
       const currentStore = useComposerDraftStore.getState();
       if (
         !isRequestOutcomeUnknown(error) &&
-        composerDraftsMatchForCleanup(currentStore.draftsByThreadId[threadId], createdComposerState)
+        composerDraftsMatchForCleanup(
+          currentStore.draftsByThreadId[scopeLocalThread(threadId)],
+          createdComposerState,
+        )
       ) {
-        currentStore.clearDraftThread(threadId);
+        currentStore.clearDraftThread(scopeLocalThread(threadId));
       }
       throw error;
     }

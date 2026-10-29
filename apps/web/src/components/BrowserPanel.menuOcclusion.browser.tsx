@@ -38,7 +38,7 @@ const api = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../nativeApi", () => ({ readNativeApi: () => api, ensureNativeApi: () => api }));
+vi.mock("../nativeApi", () => ({ readLocalNativeApi: () => api, ensureLocalNativeApi: () => api }));
 
 const SYNTHETIC_WEBVIEW_TAG = "synthetic-browser-webview";
 

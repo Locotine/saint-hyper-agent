@@ -4,6 +4,7 @@
 // Layer: Kanban UI hook
 // Exports: useKanbanTaskScratchDraft
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ProviderKind } from "@saint/contracts";
 import type { AppSettings } from "../../appSettings";
 import { useCallback, useEffect, useRef } from "react";
@@ -57,14 +58,14 @@ export function useKanbanTaskScratchDraft(input: {
   useEffect(() => {
     const nextSkills = filterPromptSkillReferences(prompt, composerSkills, selectedProvider);
     if (!providerSkillReferencesEqual(composerSkills, nextSkills)) {
-      useComposerDraftStore.getState().setSkills(scratchThreadId, nextSkills);
+      useComposerDraftStore.getState().setSkills(scopeLocalThread(scratchThreadId), nextSkills);
     }
   }, [composerSkills, prompt, scratchThreadId, selectedProvider]);
 
   useEffect(() => {
     const nextMentions = filterPromptProviderMentionReferences(prompt, composerMentions);
     if (!providerMentionReferencesEqual(composerMentions, nextMentions)) {
-      useComposerDraftStore.getState().setMentions(scratchThreadId, nextMentions);
+      useComposerDraftStore.getState().setMentions(scopeLocalThread(scratchThreadId), nextMentions);
     }
   }, [composerMentions, prompt, scratchThreadId]);
 
@@ -81,20 +82,20 @@ export function useKanbanTaskScratchDraft(input: {
     ) {
       return;
     }
-    useComposerDraftStore.getState().setSkills(scratchThreadId, []);
-    useComposerDraftStore.getState().setMentions(scratchThreadId, []);
+    useComposerDraftStore.getState().setSkills(scopeLocalThread(scratchThreadId), []);
+    useComposerDraftStore.getState().setMentions(scopeLocalThread(scratchThreadId), []);
   }, [scratchThreadId, selectedProvider]);
 
   const existingAttachmentCount = useCallback(
     () =>
       effectiveComposerAttachmentCount(
-        useComposerDraftStore.getState().draftsByThreadId[scratchThreadId],
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(scratchThreadId)],
       ),
     [scratchThreadId],
   );
   const commitImages = useCallback(
     (images: ComposerImageAttachment[]) =>
-      useComposerDraftStore.getState().addImages(scratchThreadId, images),
+      useComposerDraftStore.getState().addImages(scopeLocalThread(scratchThreadId), images),
     [scratchThreadId],
   );
   const handleImageError = useCallback((error: string | null) => {
@@ -118,19 +119,21 @@ export function useKanbanTaskScratchDraft(input: {
   };
 
   const removeComposerImage = (imageId: string) => {
-    useComposerDraftStore.getState().removeImage(scratchThreadId, imageId);
+    useComposerDraftStore.getState().removeImage(scopeLocalThread(scratchThreadId), imageId);
   };
 
   const clearComposerAssistantSelections = () => {
-    useComposerDraftStore.getState().clearAssistantSelections(scratchThreadId);
+    useComposerDraftStore.getState().clearAssistantSelections(scopeLocalThread(scratchThreadId));
   };
 
   const clearComposerFileComments = () => {
-    useComposerDraftStore.getState().clearFileComments(scratchThreadId);
+    useComposerDraftStore.getState().clearFileComments(scopeLocalThread(scratchThreadId));
   };
 
   const removeComposerTerminalContext = (contextId: string) => {
-    useComposerDraftStore.getState().removeTerminalContext(scratchThreadId, contextId);
+    useComposerDraftStore
+      .getState()
+      .removeTerminalContext(scopeLocalThread(scratchThreadId), contextId);
   };
 
   return {

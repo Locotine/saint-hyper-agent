@@ -3,7 +3,7 @@
 // Layer: UI state store
 // Exports: useRecentViewsStore
 
-import type { ThreadId } from "@saint/contracts";
+import { parseScopedThreadId } from "@saint/shared/hostId";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
@@ -14,7 +14,7 @@ import {
   recentViewKey,
   upsertRecentView,
 } from "./recentViews.logic";
-import { createMemoryStorage } from "./lib/storage";
+import { createMemoryStorage, withLegacyKeyFallback } from "./lib/storage";
 
 interface RecentViewsStoreState {
   recentViews: RecentView[];
@@ -22,7 +22,9 @@ interface RecentViewsStoreState {
   pruneRecentViews: (availability: RecentViewAvailability) => void;
 }
 
-const RECENT_VIEWS_STORAGE_KEY = "saint:recent-views:v1";
+const RECENT_VIEWS_STORAGE_KEY = "saint:recent-views:v2";
+// v1 held raw thread ids. Read once as local threads, then left alone for a rollback.
+const LEGACY_RECENT_VIEWS_STORAGE_KEY = "saint:recent-views:v1";
 
 function normalizeOptionalId(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
@@ -33,12 +35,13 @@ function normalizeRecentView(input: unknown): RecentView | null {
   const record = input as Record<string, unknown>;
 
   if (record.kind === "thread") {
-    const threadId = normalizeOptionalId(record.threadId);
+    const rawThreadId = normalizeOptionalId(record.threadId);
+    const threadId = rawThreadId ? parseScopedThreadId(rawThreadId) : null;
     if (!threadId) return null;
     const splitViewId = normalizeOptionalId(record.splitViewId);
     return {
       kind: "thread",
-      threadId: threadId as ThreadId,
+      threadId,
       ...(splitViewId ? { splitViewId } : {}),
     };
   }
@@ -104,7 +107,9 @@ export const useRecentViewsStore = create<RecentViewsStoreState>()(
     {
       name: RECENT_VIEWS_STORAGE_KEY,
       storage: createJSONStorage(() =>
-        typeof localStorage === "undefined" ? createMemoryStorage() : localStorage,
+        typeof localStorage === "undefined"
+          ? createMemoryStorage()
+          : withLegacyKeyFallback(localStorage, LEGACY_RECENT_VIEWS_STORAGE_KEY),
       ),
       partialize: (state) => ({
         recentViews: normalizeRecentViews(state.recentViews),

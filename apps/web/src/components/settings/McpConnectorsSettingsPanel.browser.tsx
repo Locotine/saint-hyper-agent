@@ -14,7 +14,7 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("~/nativeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../nativeApi")>()),
-  ensureNativeApi: () => ({ server: api, shell: { openExternal: api.openExternal } }),
+  ensureLocalNativeApi: () => ({ server: api, shell: { openExternal: api.openExternal } }),
 }));
 
 it.each(["slack", null])(

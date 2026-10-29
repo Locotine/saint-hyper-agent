@@ -3,10 +3,11 @@
 // Layer: Settings UI (desktop Beta only; the main process owns ssh, install and tunnels)
 // Exports: RemoteHostsSettingsPanel
 
-import type { DesktopRemoteSshSavedHost, DesktopRemoteSshState } from "@saint/contracts";
-import { useEffect, useState } from "react";
+import type { DesktopRemoteSshSavedHost } from "@saint/contracts";
+import { useState } from "react";
 
 import { Button } from "~/components/ui/button";
+import { useRemoteSshState } from "~/hooks/useRemoteSshState";
 import { Input } from "~/components/ui/input";
 import { toastManager } from "~/components/ui/toast";
 import {
@@ -16,10 +17,7 @@ import {
   type RemoteHostRow,
 } from "./remoteHostsSettingsModel";
 import { SettingsListRow, SettingsRow, SettingsSection } from "./SettingsPanelPrimitives";
-
-function remoteSshBridge() {
-  return typeof window === "undefined" ? undefined : window.desktopBridge?.remoteSsh;
-}
+import { remoteSshBridge } from "../../lib/devLoopbackHosts";
 
 function showError(title: string, error: unknown): void {
   toastManager.add({
@@ -30,26 +28,11 @@ function showError(title: string, error: unknown): void {
 }
 
 export function RemoteHostsSettingsPanel(props: { active: boolean }) {
-  const [state, setState] = useState<DesktopRemoteSshState | null>(null);
+  const state = useRemoteSshState(props.active, (error) =>
+    showError("Could not load remote hosts", error),
+  );
   const [host, setHost] = useState("");
   const [remoteRoot, setRemoteRoot] = useState("");
-
-  useEffect(() => {
-    const bridge = remoteSshBridge();
-    if (!props.active || !bridge) return;
-    let cancelled = false;
-    void bridge.getState().then(
-      (next) => {
-        if (!cancelled) setState(next);
-      },
-      (error: unknown) => showError("Could not load remote hosts", error),
-    );
-    const unsubscribe = bridge.onState(setState);
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [props.active]);
 
   const bridge = remoteSshBridge();
   if (!props.active || !bridge) return null;
@@ -115,7 +98,7 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
         />
         <SettingsRow
           title="Connect"
-          description="Installs this Saint version on the host when needed, starts its server in tmux, and opens it in a new window through an SSH tunnel."
+          description={`Installs this Saint version on the host when needed, starts its server in tmux, and connects through an SSH tunnel. Its projects then appear in the sidebar's Projects list.`}
           control={
             <Button
               size="sm"
@@ -207,9 +190,12 @@ function RemoteHostListRow(props: {
       }
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="xs" variant="outline" disabled={busy} onClick={props.onConnect}>
-            {connected ? "Open window" : failed ? "Retry" : "Connect"}
-          </Button>
+          {/* A connected host's chats open from the sidebar, so it needs no button here. */}
+          {connected ? null : (
+            <Button size="xs" variant="outline" disabled={busy} onClick={props.onConnect}>
+              {failed ? "Retry" : "Connect"}
+            </Button>
+          )}
           {connected || busy ? (
             <Button size="xs" variant="ghost" onClick={props.onDisconnect}>
               {busy ? "Cancel" : "Disconnect"}

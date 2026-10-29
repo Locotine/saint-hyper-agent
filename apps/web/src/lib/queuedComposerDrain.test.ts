@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   ApprovalRequestId,
   MessageId,
@@ -328,7 +329,7 @@ describe("queued composer drain watcher", () => {
     seedThread({ ...idleThread, claudeCacheReview: makeCacheReview() });
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-held"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-held"));
 
     for (const status of ["pending", "responding", "compacting", "failed", "uncertain"] as const) {
       seedThread({ ...idleThread, claudeCacheReview: makeCacheReview(status) });
@@ -337,7 +338,7 @@ describe("queued composer drain watcher", () => {
       expect(dispatch).not.toHaveBeenCalled();
       expect(getQueuedComposerAutoDispatchRetryDelay(THREAD_ID, "queued-held")).toBeUndefined();
       expect(
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns,
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns,
       ).toHaveLength(1);
     }
 
@@ -346,7 +347,8 @@ describe("queued composer drain watcher", () => {
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(dispatch.mock.calls[0]?.[0].queuedTurn.id).toBe("queued-held");
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns ?? [],
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns ??
+        [],
     ).toHaveLength(0);
   });
 
@@ -359,15 +361,15 @@ describe("queued composer drain watcher", () => {
     });
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-race"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-race"));
 
     await flushDrain();
     await flushDrain();
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(getQueuedComposerAutoDispatchRetryDelay(THREAD_ID, "queued-race")).toBeUndefined();
-    expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns).toHaveLength(
-      1,
-    );
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns,
+    ).toHaveLength(1);
 
     seedThread({ ...idleThread, claudeCacheReview: null });
     await flushDrain();
@@ -379,10 +381,10 @@ describe("queued composer drain watcher", () => {
     seedThread(idleThread);
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-first"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-first"));
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-second"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-second"));
     await flushDrain();
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(isQueuedComposerAwaitingTurnStart(THREAD_ID)).toBe(true);
@@ -404,7 +406,9 @@ describe("queued composer drain watcher", () => {
     expect(isQueuedComposerAwaitingTurnStart(THREAD_ID)).toBe(false);
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns.map(({ id }) => id),
+      useComposerDraftStore
+        .getState()
+        .draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns.map(({ id }) => id),
     ).toEqual(["queued-second"]);
 
     seedThread({ ...idleThread, claudeCacheReview: null });
@@ -425,12 +429,13 @@ describe("queued composer drain watcher", () => {
     });
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("accepted-held"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("accepted-held"));
     await flushDrain();
     await flushDrain();
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns ?? [],
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns ??
+        [],
     ).toHaveLength(0);
     seedThread({ ...idleThread, claudeCacheReview: null });
     await flushDrain();
@@ -443,7 +448,7 @@ describe("queued composer drain watcher", () => {
     seedThread({ ...idleThread, claudeCacheReview: makeCacheReview() });
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-claimed"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-claimed"));
     for (let attempt = 0; attempt < 4; attempt += 1) {
       recordQueuedComposerAutoDispatchFailure(THREAD_ID, "queued-claimed");
     }
@@ -465,7 +470,9 @@ describe("queued composer drain watcher", () => {
         session: makeSession("running", LIVE_TURN_ID),
       }),
     );
-    useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-1"));
+    useComposerDraftStore
+      .getState()
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-1"));
 
     await flushDrain();
     expect(dispatch).not.toHaveBeenCalled();
@@ -487,9 +494,10 @@ describe("queued composer drain watcher", () => {
         queuedTurn: expect.objectContaining({ id: "queued-1" }),
       }),
     );
-    expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns ?? []).toEqual(
-      [],
-    );
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns ??
+        [],
+    ).toEqual([]);
   });
 
   it("holds a background queue after a stopped turn until the user resumes it", async () => {
@@ -500,8 +508,12 @@ describe("queued composer drain watcher", () => {
         latestTurn: makeLatestTurn("running"),
       }),
     );
-    useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-1"));
-    useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-2"));
+    useComposerDraftStore
+      .getState()
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-1"));
+    useComposerDraftStore
+      .getState()
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-2"));
     holdQueuedComposerTurnsForStop(THREAD_ID);
 
     // Claude can settle a stopped turn as "completed"; the recorded stop still holds.
@@ -516,10 +528,12 @@ describe("queued composer drain watcher", () => {
     await flushDrain();
     expect(dispatch).not.toHaveBeenCalled();
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns.map((t) => t.id),
+      useComposerDraftStore
+        .getState()
+        .draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns.map((t) => t.id),
     ).toEqual(["queued-1", "queued-2"]);
 
-    useComposerDraftStore.getState().resumeQueuedTurns(THREAD_ID, LIVE_TURN_ID);
+    useComposerDraftStore.getState().resumeQueuedTurns(scopeLocalThread(THREAD_ID), LIVE_TURN_ID);
     await vi.waitFor(() => {
       expect(dispatch).toHaveBeenCalledTimes(1);
     });
@@ -536,11 +550,14 @@ describe("queued composer drain watcher", () => {
         latestTurn: makeLatestTurn("running"),
       }),
     );
-    useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-1"));
+    useComposerDraftStore
+      .getState()
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-1"));
     const releaseHold = holdQueuedComposerTurnsForStop(THREAD_ID);
-    expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queueStoppedTurnId).toBe(
-      LIVE_TURN_ID,
-    );
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+        ?.queueStoppedTurnId,
+    ).toBe(LIVE_TURN_ID);
 
     releaseHold();
     seedThread(
@@ -563,7 +580,9 @@ describe("queued composer drain watcher", () => {
         latestTurn: makeLatestTurn("running"),
       }),
     );
-    useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-1"));
+    useComposerDraftStore
+      .getState()
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-1"));
     seedThread(
       makeThread({
         id: THREAD_ID,
@@ -583,8 +602,12 @@ describe("queued composer drain watcher", () => {
         session: makeSession("ready"),
       }),
     );
-    useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-1"));
-    useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-2"));
+    useComposerDraftStore
+      .getState()
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-1"));
+    useComposerDraftStore
+      .getState()
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-2"));
 
     await vi.waitFor(() => {
       expect(dispatch).toHaveBeenCalledTimes(1);
@@ -593,7 +616,9 @@ describe("queued composer drain watcher", () => {
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(isQueuedComposerAwaitingTurnStart(THREAD_ID)).toBe(true);
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns.map(({ id }) => id),
+      useComposerDraftStore
+        .getState()
+        .draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns.map(({ id }) => id),
     ).toEqual(["queued-2"]);
 
     seedThread(
@@ -632,7 +657,7 @@ describe("queued composer drain watcher", () => {
     );
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-failing"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-failing"));
 
     await flushDrain();
     expect(dispatch).toHaveBeenCalledTimes(1);
@@ -658,7 +683,7 @@ describe("queued composer drain watcher", () => {
     claimQueuedComposerAutoDispatch(THREAD_ID);
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-claimed-failing"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-claimed-failing"));
 
     recordQueuedComposerAutoDispatchFailure(THREAD_ID, "queued-claimed-failing");
     expect(getQueuedComposerAutoDispatchRetryDelay(THREAD_ID, "queued-claimed-failing")).toBe(
@@ -717,7 +742,7 @@ describe("queued composer drain watcher", () => {
     );
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-streaming"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-streaming"));
     await flushDrain();
     expect(dispatch).not.toHaveBeenCalled();
     now.mockClear();
@@ -745,22 +770,23 @@ describe("queued composer drain watcher", () => {
     claimQueuedComposerAutoDispatch(THREAD_ID);
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-open"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-open"));
 
     await flushDrain();
     expect(dispatch).not.toHaveBeenCalled();
-    expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns).toHaveLength(
-      1,
-    );
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns,
+    ).toHaveLength(1);
 
     releaseQueuedComposerAutoDispatch(THREAD_ID);
 
     await vi.waitFor(() => {
       expect(dispatch).toHaveBeenCalledTimes(1);
     });
-    expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns ?? []).toEqual(
-      [],
-    );
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns ??
+        [],
+    ).toEqual([]);
   });
 
   it("does not drain while an approval is pending", async () => {
@@ -801,7 +827,7 @@ describe("queued composer drain watcher", () => {
     );
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-approval"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-approval"));
 
     await flushDrain();
     expect(dispatch).not.toHaveBeenCalled();
@@ -823,7 +849,7 @@ describe("queued composer drain watcher", () => {
     );
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-overlap-focus"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-overlap-focus"));
 
     await vi.waitFor(() => {
       expect(dispatch).toHaveBeenCalledTimes(1);
@@ -835,7 +861,8 @@ describe("queued composer drain watcher", () => {
     resolveDispatch?.(true);
     await vi.waitFor(() => {
       expect(
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns ?? [],
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+          ?.queuedTurns ?? [],
       ).toEqual([]);
     });
     expect(dispatch).toHaveBeenCalledTimes(1);
@@ -851,7 +878,7 @@ describe("queued composer drain watcher", () => {
     claimQueuedComposerAutoDispatch(THREAD_ID);
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-overlap-unmount"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-overlap-unmount"));
     expect(tryBeginQueuedComposerAutoDispatch(THREAD_ID)).toBe(true);
 
     releaseQueuedComposerAutoDispatch(THREAD_ID);
@@ -879,7 +906,7 @@ describe("queued composer drain watcher", () => {
     armQueuedComposerSteerGate(THREAD_ID, armedGate);
     useComposerDraftStore
       .getState()
-      .enqueueQueuedTurn(THREAD_ID, makeQueuedChatTurn("queued-steer-remount"));
+      .enqueueQueuedTurn(scopeLocalThread(THREAD_ID), makeQueuedChatTurn("queued-steer-remount"));
 
     claimQueuedComposerAutoDispatch(THREAD_ID);
     releaseQueuedComposerAutoDispatch(THREAD_ID);

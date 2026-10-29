@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "~/components/ui/button";
 import { toastManager } from "~/components/ui/toast";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 
 export const automationProposalListQueryKey = ["automation-proposals", "include-archived"] as const;
 
@@ -17,7 +17,7 @@ export function AutomationProposalActions({
   const queryClient = useQueryClient();
   const resolutionMutation = useMutation({
     mutationFn: (resolution: Exclude<AutomationProposalState, "pending">) =>
-      ensureNativeApi().automation.resolveProposal({
+      ensureLocalNativeApi().automation.resolveProposal({
         automationId: AutomationId.makeUnsafe(automationId),
         resolution,
       }),

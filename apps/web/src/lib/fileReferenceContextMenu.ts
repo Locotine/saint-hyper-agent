@@ -11,7 +11,7 @@ import { formatSelectionLabel, type ChatFileReference } from "~/lib/chatReferenc
 import { contextMenuGroup } from "~/lib/contextMenuGroup";
 import { copyTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { getNavigatorPlatform, isMacPlatform, isWindowsPlatform } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { toastManager } from "~/components/ui/toast";
 
 export function getRevealInFolderLabel(platform: string): string {
@@ -37,7 +37,7 @@ export async function showFileReferenceContextMenu(input: {
   selection?: Omit<ChatFileReference, "path"> | null;
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
   onAskWhyInChat?: ((reference: ChatFileReference) => void) | undefined;
-  /** Root `path` is relative to; adds "Copy path › Full path" (the host's path in a remote window). */
+  /** Root `path` is relative to; adds "Copy path › Full path". */
   workspaceRoot?: string | null;
   /**
    * File-tree actions; each receives nothing and acts on the clicked entry or
@@ -54,15 +54,12 @@ export async function showFileReferenceContextMenu(input: {
     readonly download?: { readonly label: string; readonly onDownload: () => void };
   };
 }): Promise<void> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return;
   }
   const revealPath =
-    input.revealPath &&
-    typeof window !== "undefined" &&
-    window.desktopBridge &&
-    !window.desktopBridge.remoteWindow
+    input.revealPath && typeof window !== "undefined" && window.desktopBridge
       ? input.revealPath
       : undefined;
   const reference: ChatFileReference = {

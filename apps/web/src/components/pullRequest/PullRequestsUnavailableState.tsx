@@ -21,7 +21,7 @@ import {
 import { copyTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { CheckIcon, CopyIcon, GitPullRequestIcon, TriangleAlertIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { formatShortTimestamp } from "~/timestampFormat";
 import { PR_FINE_TEXT_CLASS_NAME, PR_META_TEXT_CLASS_NAME } from "./pullRequestText";
 
@@ -177,7 +177,9 @@ export function PullRequestsUnavailableState({
                 variant="outline"
                 size="sm"
                 className="flex-1"
-                onClick={() => void ensureNativeApi().shell.openExternal("https://cli.github.com/")}
+                onClick={() =>
+                  void ensureLocalNativeApi().shell.openExternal("https://cli.github.com/")
+                }
               >
                 Install instructions
               </Button>

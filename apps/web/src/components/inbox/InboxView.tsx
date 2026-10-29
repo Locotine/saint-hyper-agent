@@ -35,7 +35,7 @@ import {
   serverRecapQueryOptions,
 } from "~/lib/serverReactQuery";
 import { cn } from "~/lib/utils";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { automationAttentionCount, automationQueryKey } from "~/routes/-automations.shared";
 import { SETTINGS_PAGE_BACKGROUND_CLASS_NAME } from "~/settingsPanelStyles";
 import { useStore } from "~/store";
@@ -562,7 +562,7 @@ export default function InboxView() {
   // Shares the ["automations"] cache the sidebar keeps live.
   const automationsQuery = useQuery({
     queryKey: automationQueryKey,
-    queryFn: () => ensureNativeApi().automation.list({}),
+    queryFn: () => ensureLocalNativeApi().automation.list({}),
     enabled: inboxAvailable,
   });
   const usageQuery = useQuery(serverAllProviderUsageQueryOptions(inboxAvailable));

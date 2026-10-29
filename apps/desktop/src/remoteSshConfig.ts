@@ -5,6 +5,8 @@
 //          createRemoteClientId, parseRemoteClientId, clientRemoteRoot,
 //          saved-host parse/remember/serialize helpers
 
+import { isHostKey } from "@saint/shared/hostId";
+
 /**
  * Concrete `Host` aliases from an OpenSSH config file. Patterns (`*`, `?`) and
  * negations cannot be connected to by name, so they are skipped. `Include`d
@@ -89,6 +91,8 @@ export function clientRemoteRoot(storeRoot: string, clientId: string): string {
 export interface SavedRemoteSshHost {
   readonly host: string;
   readonly remoteRoot: string | null;
+  /** Stable identity (`@saint/shared/hostId`); absent in files written before multi-host. */
+  readonly hostKey?: string;
 }
 
 /** Saved hosts from the desktop's JSON file; invalid entries are dropped. */
@@ -108,7 +112,12 @@ export function parseSavedRemoteSshHosts(contents: string): SavedRemoteSshHost[]
     if (typeof host !== "string" || !isValidSshTarget(host)) continue;
     if (saved.some((existing) => existing.host === host)) continue;
     const remoteRoot = typeof rawRoot === "string" ? normalizeRemoteRoot(rawRoot) : null;
-    saved.push({ host, remoteRoot });
+    const rawKey = (entry as { hostKey?: unknown }).hostKey;
+    saved.push(
+      typeof rawKey === "string" && isHostKey(rawKey)
+        ? { host, remoteRoot, hostKey: rawKey }
+        : { host, remoteRoot },
+    );
   }
   return saved;
 }
@@ -118,7 +127,11 @@ export function rememberRemoteSshHost(
   saved: readonly SavedRemoteSshHost[],
   host: SavedRemoteSshHost,
 ): SavedRemoteSshHost[] {
-  return [host, ...saved.filter((existing) => existing.host !== host.host)];
+  const hostKey = host.hostKey ?? saved.find((existing) => existing.host === host.host)?.hostKey;
+  return [
+    hostKey ? { ...host, hostKey } : host,
+    ...saved.filter((existing) => existing.host !== host.host),
+  ];
 }
 
 export function serializeSavedRemoteSshHosts(saved: readonly SavedRemoteSshHost[]): string {

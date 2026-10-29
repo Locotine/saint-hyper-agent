@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { OrchestrationProposedPlanId, ProjectId, ThreadId } from "@saint/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { partializeComposerDraftStoreState, useComposerDraftStore } from "./composerDraftStore";
@@ -28,26 +29,31 @@ describe("composerDraftStore persisted-state hydration", () => {
     resetComposerDraftStore();
     const threadId = ThreadId.makeUnsafe("thread-queue-resume");
     const store = useComposerDraftStore.getState();
-    store.enqueueQueuedTurn(threadId, makeQueuedChatTurn("resume-queue"));
+    store.enqueueQueuedTurn(scopeLocalThread(threadId), makeQueuedChatTurn("resume-queue"));
     const roundTrip = () => {
       const persisted = normalizeCurrentPersistedComposerDraftStoreState(
         JSON.parse(
           JSON.stringify(partializeComposerDraftStoreState(useComposerDraftStore.getState())),
         ),
       );
-      return toHydratedThreadDraft(threadId, persisted.draftsByThreadId[threadId]!);
+      return toHydratedThreadDraft(
+        scopeLocalThread(threadId),
+        persisted.draftsByThreadId[scopeLocalThread(threadId)]!,
+      );
     };
 
-    store.pauseQueuedTurnsAfterStop(threadId, "turn-stopped");
+    store.pauseQueuedTurnsAfterStop(scopeLocalThread(threadId), "turn-stopped");
     expect(roundTrip().queueStoppedTurnId).toBe("turn-stopped");
 
-    store.resumeQueuedTurns(threadId, "turn-failed");
+    store.resumeQueuedTurns(scopeLocalThread(threadId), "turn-failed");
     const resumed = roundTrip();
     expect(resumed.queueStoppedTurnId).toBeUndefined();
     expect(resumed.queueResumedTurnId).toBe("turn-failed");
 
-    store.removeQueuedTurn(threadId, "resume-queue");
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toBeUndefined();
+    store.removeQueuedTurn(scopeLocalThread(threadId), "resume-queue");
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+    ).toBeUndefined();
   });
 
   it.each([true, false])(
@@ -55,15 +61,19 @@ describe("composerDraftStore persisted-state hydration", () => {
     (enabled) => {
       resetComposerDraftStore();
       const threadId = ThreadId.makeUnsafe("thread-computer-choice");
-      useComposerDraftStore.getState().setEnableComputerControl(threadId, enabled);
+      useComposerDraftStore
+        .getState()
+        .setEnableComputerControl(scopeLocalThread(threadId), enabled);
 
       const serialized = JSON.stringify(
         partializeComposerDraftStoreState(useComposerDraftStore.getState()),
       );
       const restored = normalizeCurrentPersistedComposerDraftStoreState(JSON.parse(serialized));
-      const draft = restored.draftsByThreadId[threadId];
+      const draft = restored.draftsByThreadId[scopeLocalThread(threadId)];
       expect(draft?.enableComputerControl).toBe(enabled);
-      expect(toHydratedThreadDraft(threadId, draft!).enableComputerControl).toBe(enabled);
+      expect(toHydratedThreadDraft(scopeLocalThread(threadId), draft!).enableComputerControl).toBe(
+        enabled,
+      );
     },
   );
 
@@ -73,9 +83,9 @@ describe("composerDraftStore persisted-state hydration", () => {
       resetComposerDraftStore();
       const threadId = ThreadId.makeUnsafe("computer-mode-roundtrip");
       const store = useComposerDraftStore.getState();
-      store.setPrompt(threadId, "Keep my unsent message");
-      store.setComputerControlMode(threadId, mode, { generation: 7 });
-      store.enqueueQueuedTurn(threadId, {
+      store.setPrompt(scopeLocalThread(threadId), "Keep my unsent message");
+      store.setComputerControlMode(scopeLocalThread(threadId), mode, { generation: 7 });
+      store.enqueueQueuedTurn(scopeLocalThread(threadId), {
         ...makeQueuedChatTurn("mode-queue"),
         computerControlMode: mode,
         computerControlGeneration: 7,
@@ -86,17 +96,20 @@ describe("composerDraftStore persisted-state hydration", () => {
           JSON.stringify(partializeComposerDraftStoreState(useComposerDraftStore.getState())),
         ),
       );
-      const draft = toHydratedThreadDraft(threadId, persisted.draftsByThreadId[threadId]!);
+      const draft = toHydratedThreadDraft(
+        scopeLocalThread(threadId),
+        persisted.draftsByThreadId[scopeLocalThread(threadId)]!,
+      );
       expect(draft.prompt).toBe("Keep my unsent message");
       expect(draft.computerControlMode).toBe(mode);
       expect(draft.computerControlGeneration).toBe(7);
       expect(draft.enableComputerControl).toBe(mode !== "off");
       expect(draft.queuedTurns[0]?.computerControlMode).toBe(mode);
       expect(draft.queuedTurns[0]?.computerControlGeneration).toBe(7);
-      store.setComputerControlMode(threadId, "off");
+      store.setComputerControlMode(scopeLocalThread(threadId), "off");
       expect(
-        useComposerDraftStore.getState().draftsByThreadId[threadId]?.queuedTurns[0]
-          ?.computerControlMode,
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+          ?.queuedTurns[0]?.computerControlMode,
       ).toBe(mode);
     },
   );
@@ -105,8 +118,8 @@ describe("composerDraftStore persisted-state hydration", () => {
     resetComposerDraftStore();
     const threadId = ThreadId.makeUnsafe("computer-request-legacy");
     const store = useComposerDraftStore.getState();
-    store.setComputerControlMode(threadId, "request", { generation: 7 });
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    store.setComputerControlMode(scopeLocalThread(threadId), "request", { generation: 7 });
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.computerControlMode).toBe("request");
     expect(draft?.enableComputerControl).toBe(true);
     expect(draft?.computerControlGeneration).toBe(7);
@@ -116,13 +129,14 @@ describe("composerDraftStore persisted-state hydration", () => {
     resetComposerDraftStore();
     const threadId = ThreadId.makeUnsafe("computer-revoke-queue");
     const store = useComposerDraftStore.getState();
-    store.enqueueQueuedTurn(threadId, {
+    store.enqueueQueuedTurn(scopeLocalThread(threadId), {
       ...makeQueuedChatTurn("request"),
       computerControlMode: "chat",
       enableComputerControl: true,
     });
-    store.setComputerControlMode(threadId, "off", { revokeQueued: true });
-    const queued = useComposerDraftStore.getState().draftsByThreadId[threadId]?.queuedTurns[0];
+    store.setComputerControlMode(scopeLocalThread(threadId), "off", { revokeQueued: true });
+    const queued =
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.queuedTurns[0];
     expect(queued?.computerControlMode).toBe("off");
     expect(queued?.enableComputerControl).toBe(false);
     expect(queued?.previewText).toBe("queued chat request");
@@ -133,15 +147,17 @@ describe("composerDraftStore persisted-state hydration", () => {
     const source = ThreadId.makeUnsafe("generation-source");
     const target = ThreadId.makeUnsafe("generation-target");
     const store = useComposerDraftStore.getState();
-    store.setComputerControlMode(source, "chat", { generation: 12 });
-    store.copyTransferableComposerState(source, target);
+    store.setComputerControlMode(scopeLocalThread(source), "chat", { generation: 12 });
+    store.copyTransferableComposerState(scopeLocalThread(source), scopeLocalThread(target));
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[target]?.computerControlGeneration,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(target)]
+        ?.computerControlGeneration,
     ).toBe(0);
-    store.setComputerControlMode(target, "off", { generation: 4 });
-    store.copyTransferableComposerState(source, target);
+    store.setComputerControlMode(scopeLocalThread(target), "off", { generation: 4 });
+    store.copyTransferableComposerState(scopeLocalThread(source), scopeLocalThread(target));
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[target]?.computerControlGeneration,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(target)]
+        ?.computerControlGeneration,
     ).toBe(4);
   });
 
@@ -158,6 +174,29 @@ describe("composerDraftStore persisted-state hydration", () => {
     expect(normalizeCurrentPersistedComposerDraftStoreState({})).toEqual(emptyState);
   });
 
+  it("reads v1 drafts keyed by bare thread ids as this computer's threads", () => {
+    const projectId = ProjectId.makeUnsafe("project-v1");
+    const threadId = ThreadId.makeUnsafe("thread-v1");
+    const promotedId = ThreadId.makeUnsafe("thread-v1-promoted");
+
+    const hydrated = normalizeCurrentPersistedComposerDraftStoreState({
+      draftsByThreadId: { [threadId]: { prompt: "from v1", attachments: [] } },
+      draftThreadsByThreadId: {
+        [threadId]: { projectId, createdAt: "2026-10-01T00:00:00.000Z", promotedTo: promotedId },
+      },
+      projectDraftThreadIdByProjectId: { [projectId]: threadId },
+    });
+
+    expect(Object.keys(hydrated.draftsByThreadId)).toEqual([scopeLocalThread(threadId)]);
+    expect(hydrated.draftsByThreadId[scopeLocalThread(threadId)]?.prompt).toBe("from v1");
+    expect(hydrated.draftThreadsByThreadId[scopeLocalThread(threadId)]?.promotedTo).toBe(
+      scopeLocalThread(promotedId),
+    );
+    expect(hydrated.projectDraftThreadIdByProjectId).toEqual({
+      [projectId]: scopeLocalThread(threadId),
+    });
+  });
+
   it("hydrates project mappings, defaults, and persisted selections", () => {
     const projectId = ProjectId.makeUnsafe("project-hydration");
     const threadId = ThreadId.makeUnsafe("thread-hydration");
@@ -165,7 +204,7 @@ describe("composerDraftStore persisted-state hydration", () => {
 
     const hydrated = normalizeCurrentPersistedComposerDraftStoreState({
       draftsByThreadId: {
-        [threadId]: {
+        [scopeLocalThread(threadId)]: {
           prompt: "Review these selections",
           attachments: [],
           assistantSelections: [
@@ -187,24 +226,26 @@ describe("composerDraftStore persisted-state hydration", () => {
         },
       },
       draftThreadsByThreadId: {},
-      projectDraftThreadIdByProjectId: { [mappingKey]: threadId },
+      projectDraftThreadIdByProjectId: { [mappingKey]: scopeLocalThread(threadId) },
     });
 
-    expect(hydrated.projectDraftThreadIdByProjectId).toEqual({ [mappingKey]: threadId });
-    expect(hydrated.draftThreadsByThreadId[threadId]).toMatchObject({
+    expect(hydrated.projectDraftThreadIdByProjectId).toEqual({
+      [mappingKey]: scopeLocalThread(threadId),
+    });
+    expect(hydrated.draftThreadsByThreadId[scopeLocalThread(threadId)]).toMatchObject({
       projectId,
       runtimeMode: "full-access",
       interactionMode: "default",
       entryPoint: "terminal",
     });
-    expect(hydrated.draftsByThreadId[threadId]?.assistantSelections).toEqual([
+    expect(hydrated.draftsByThreadId[scopeLocalThread(threadId)]?.assistantSelections).toEqual([
       {
         id: "assistant-selection-1",
         assistantMessageId: "assistant-message-1",
         text: "selected assistant text",
       },
     ]);
-    expect(hydrated.draftsByThreadId[threadId]?.fileComments).toEqual([
+    expect(hydrated.draftsByThreadId[scopeLocalThread(threadId)]?.fileComments).toEqual([
       {
         id: "file-comment-1",
         path: "src/example.ts",
@@ -221,14 +262,14 @@ describe("composerDraftStore persisted-state hydration", () => {
 
     const hydrated = normalizeCurrentPersistedComposerDraftStoreState({
       draftsByThreadId: {
-        [threadId]: {
+        [scopeLocalThread(threadId)]: {
           prompt: "",
           attachments: [],
           runtimeMode: "auto",
         },
       },
       draftThreadsByThreadId: {
-        [threadId]: {
+        [scopeLocalThread(threadId)]: {
           projectId,
           createdAt: "2026-07-25T00:00:00.000Z",
           runtimeMode: "auto",
@@ -243,8 +284,8 @@ describe("composerDraftStore persisted-state hydration", () => {
       projectDraftThreadIdByProjectId: {},
     });
 
-    expect(hydrated.draftsByThreadId[threadId]?.runtimeMode).toBe("auto");
-    expect(hydrated.draftThreadsByThreadId[threadId]?.runtimeMode).toBe("auto");
+    expect(hydrated.draftsByThreadId[scopeLocalThread(threadId)]?.runtimeMode).toBe("auto");
+    expect(hydrated.draftThreadsByThreadId[scopeLocalThread(threadId)]?.runtimeMode).toBe("auto");
   });
 
   it("migrates persisted Kilo draft and sticky selections to OpenCode", () => {
@@ -256,7 +297,7 @@ describe("composerDraftStore persisted-state hydration", () => {
     };
     const hydrated = normalizeCurrentPersistedComposerDraftStoreState({
       draftsByThreadId: {
-        [threadId]: {
+        [scopeLocalThread(threadId)]: {
           prompt: "Continue this draft",
           attachments: [],
           modelSelectionByProvider: {
@@ -272,8 +313,10 @@ describe("composerDraftStore persisted-state hydration", () => {
       stickyActiveProvider: "kilo",
     });
 
-    expect(hydrated.draftsByThreadId[threadId]?.activeProvider).toBe("opencode");
-    expect(hydrated.draftsByThreadId[threadId]?.modelSelectionByProvider?.opencode).toEqual({
+    expect(hydrated.draftsByThreadId[scopeLocalThread(threadId)]?.activeProvider).toBe("opencode");
+    expect(
+      hydrated.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider?.opencode,
+    ).toEqual({
       provider: "opencode",
       model: "openai/gpt-5",
     });
@@ -289,7 +332,7 @@ describe("composerDraftStore persisted-state hydration", () => {
     const hydrated = normalizeCurrentPersistedComposerDraftStoreState({
       draftsByThreadId: {},
       draftThreadsByThreadId: {
-        [threadId]: {
+        [scopeLocalThread(threadId)]: {
           projectId,
           createdAt: "2026-08-13T00:00:00.000Z",
           runtimeMode: "full-access",
@@ -301,7 +344,7 @@ describe("composerDraftStore persisted-state hydration", () => {
           envMode: "local",
           goal: "clean the directory and build a snake game",
         },
-        [blankGoalThreadId]: {
+        [scopeLocalThread(blankGoalThreadId)]: {
           projectId,
           createdAt: "2026-08-13T00:00:00.000Z",
           runtimeMode: "full-access",
@@ -317,7 +360,7 @@ describe("composerDraftStore persisted-state hydration", () => {
       projectDraftThreadIdByProjectId: {},
     });
 
-    expect(hydrated.draftThreadsByThreadId[threadId]?.goal).toBe(
+    expect(hydrated.draftThreadsByThreadId[scopeLocalThread(threadId)]?.goal).toBe(
       "clean the directory and build a snake game",
     );
     expect(hydrated.draftThreadsByThreadId[blankGoalThreadId]?.goal).toBeUndefined();
@@ -342,8 +385,8 @@ describe("composerDraftStore restored source proposed plan", () => {
     };
     const store = useComposerDraftStore.getState();
 
-    store.setPrompt(threadId, restoredSource.restoredPrompt);
-    store.setRestoredSourceProposedPlan(threadId, restoredSource);
+    store.setPrompt(scopeLocalThread(threadId), restoredSource.restoredPrompt);
+    store.setRestoredSourceProposedPlan(scopeLocalThread(threadId), restoredSource);
 
     const persistApi = useComposerDraftStore.persist as unknown as {
       getOptions: () => {
@@ -365,17 +408,17 @@ describe("composerDraftStore restored source proposed plan", () => {
       >;
     };
 
-    expect(persistedState.draftsByThreadId?.[threadId]?.restoredSourceProposedPlan).toEqual(
-      restoredSource,
-    );
+    expect(
+      persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.restoredSourceProposedPlan,
+    ).toEqual(restoredSource);
 
     const mergedState = persistApi
       .getOptions()
       .merge(persistedState, useComposerDraftStore.getInitialState());
 
-    expect(mergedState.draftsByThreadId[threadId]?.restoredSourceProposedPlan).toEqual(
-      restoredSource,
-    );
+    expect(
+      mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.restoredSourceProposedPlan,
+    ).toEqual(restoredSource);
   });
 });
 
@@ -391,9 +434,9 @@ describe("composerDraftStore provider references", () => {
     const selectedMention = { name: "linear", path: "plugin://linear" };
     const store = useComposerDraftStore.getState();
 
-    store.setPrompt(threadId, "Use @linear with /check-code");
-    store.setSkills(threadId, [selectedSkill]);
-    store.setMentions(threadId, [selectedMention]);
+    store.setPrompt(scopeLocalThread(threadId), "Use @linear with /check-code");
+    store.setSkills(scopeLocalThread(threadId), [selectedSkill]);
+    store.setMentions(scopeLocalThread(threadId), [selectedMention]);
 
     const persistApi = useComposerDraftStore.persist as unknown as {
       getOptions: () => {
@@ -416,15 +459,23 @@ describe("composerDraftStore provider references", () => {
       >;
     };
 
-    expect(persistedState.draftsByThreadId?.[threadId]?.skills).toEqual([selectedSkill]);
-    expect(persistedState.draftsByThreadId?.[threadId]?.mentions).toEqual([selectedMention]);
+    expect(persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.skills).toEqual([
+      selectedSkill,
+    ]);
+    expect(persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.mentions).toEqual([
+      selectedMention,
+    ]);
 
     const mergedState = persistApi
       .getOptions()
       .merge(persistedState, useComposerDraftStore.getInitialState());
 
-    expect(mergedState.draftsByThreadId[threadId]?.skills).toEqual([selectedSkill]);
-    expect(mergedState.draftsByThreadId[threadId]?.mentions).toEqual([selectedMention]);
+    expect(mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.skills).toEqual([
+      selectedSkill,
+    ]);
+    expect(mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.mentions).toEqual([
+      selectedMention,
+    ]);
   });
 });
 
@@ -445,20 +496,24 @@ describe("composerDraftStore terminal contexts", () => {
     const first = makeTerminalContext({ id: "ctx-1" });
     const duplicate = makeTerminalContext({ id: "ctx-2" });
 
-    useComposerDraftStore.getState().addTerminalContexts(threadId, [first, duplicate]);
+    useComposerDraftStore
+      .getState()
+      .addTerminalContexts(scopeLocalThread(threadId), [first, duplicate]);
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.terminalContexts.map((context) => context.id)).toEqual(["ctx-1"]);
   });
 
   it("clears terminal contexts when clearing composer content", () => {
     useComposerDraftStore
       .getState()
-      .addTerminalContext(threadId, makeTerminalContext({ id: "ctx-1" }));
+      .addTerminalContext(scopeLocalThread(threadId), makeTerminalContext({ id: "ctx-1" }));
 
-    useComposerDraftStore.getState().clearComposerContent(threadId);
+    useComposerDraftStore.getState().clearComposerContent(scopeLocalThread(threadId));
 
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toBeUndefined();
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+    ).toBeUndefined();
   });
 
   it("inserts terminal contexts at the requested inline prompt position", () => {
@@ -469,7 +524,7 @@ describe("composerDraftStore terminal contexts", () => {
       useComposerDraftStore
         .getState()
         .insertTerminalContext(
-          threadId,
+          scopeLocalThread(threadId),
           firstInsertion.prompt,
           makeTerminalContext({ id: "ctx-1" }),
           firstInsertion.contextIndex,
@@ -477,7 +532,7 @@ describe("composerDraftStore terminal contexts", () => {
     ).toBe(true);
     expect(
       useComposerDraftStore.getState().insertTerminalContext(
-        threadId,
+        scopeLocalThread(threadId),
         secondInsertion.prompt,
         makeTerminalContext({
           id: "ctx-2",
@@ -489,7 +544,7 @@ describe("composerDraftStore terminal contexts", () => {
       ),
     ).toBe(true);
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.prompt).toBe(
       `${INLINE_TERMINAL_CONTEXT_PLACEHOLDER} alpha ${INLINE_TERMINAL_CONTEXT_PLACEHOLDER} beta`,
     );
@@ -499,7 +554,7 @@ describe("composerDraftStore terminal contexts", () => {
   it("omits terminal context text from persisted drafts", () => {
     useComposerDraftStore
       .getState()
-      .addTerminalContext(threadId, makeTerminalContext({ id: "ctx-persist" }));
+      .addTerminalContext(scopeLocalThread(threadId), makeTerminalContext({ id: "ctx-persist" }));
 
     const persistedState = partializeComposerDraftStoreState(
       useComposerDraftStore.getState(),
@@ -508,7 +563,7 @@ describe("composerDraftStore terminal contexts", () => {
     };
 
     expect(
-      persistedState.draftsByThreadId?.[threadId]?.terminalContexts?.[0],
+      persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.terminalContexts?.[0],
       "Expected terminal context metadata to be persisted.",
     ).toMatchObject({
       id: "ctx-persist",
@@ -518,7 +573,7 @@ describe("composerDraftStore terminal contexts", () => {
       lineEnd: 5,
     });
     expect(
-      persistedState.draftsByThreadId?.[threadId]?.terminalContexts?.[0]?.text,
+      persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.terminalContexts?.[0]?.text,
     ).toBeUndefined();
   });
 
@@ -534,7 +589,7 @@ describe("composerDraftStore terminal contexts", () => {
     const mergedState = persistApi.getOptions().merge(
       {
         draftsByThreadId: {
-          [threadId]: {
+          [scopeLocalThread(threadId)]: {
             prompt: INLINE_TERMINAL_CONTEXT_PLACEHOLDER,
             attachments: [],
             terminalContexts: [
@@ -556,7 +611,9 @@ describe("composerDraftStore terminal contexts", () => {
       useComposerDraftStore.getInitialState(),
     );
 
-    expect(mergedState.draftsByThreadId[threadId]?.terminalContexts).toMatchObject([
+    expect(
+      mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.terminalContexts,
+    ).toMatchObject([
       {
         id: "ctx-rehydrated",
         terminalId: "default",
@@ -580,7 +637,7 @@ describe("composerDraftStore terminal contexts", () => {
     const mergedState = persistApi.getOptions().merge(
       {
         draftsByThreadId: {
-          [threadId]: {
+          [scopeLocalThread(threadId)]: {
             prompt: "",
             attachments: "not-an-array",
             terminalContexts: "not-an-array",
@@ -594,7 +651,7 @@ describe("composerDraftStore terminal contexts", () => {
       useComposerDraftStore.getInitialState(),
     );
 
-    expect(mergedState.draftsByThreadId[threadId]).toBeUndefined();
+    expect(mergedState.draftsByThreadId[scopeLocalThread(threadId)]).toBeUndefined();
     expect(mergedState.draftThreadsByThreadId).toEqual({});
     expect(mergedState.projectDraftThreadIdByProjectId).toEqual({});
   });
@@ -611,7 +668,7 @@ describe("composerDraftStore terminal contexts", () => {
     const mergedState = persistApi.getOptions().merge(
       {
         draftsByThreadId: {
-          [threadId]: {
+          [scopeLocalThread(threadId)]: {
             provider: "grok",
             model: "grok-build",
             modelOptions: {
@@ -627,9 +684,9 @@ describe("composerDraftStore terminal contexts", () => {
       useComposerDraftStore.getInitialState(),
     );
 
-    expect(mergedState.draftsByThreadId[threadId]?.modelSelectionByProvider.grok).toEqual(
-      modelSelection("grok", "grok-build"),
-    );
+    expect(
+      mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.grok,
+    ).toEqual(modelSelection("grok", "grok-build"));
   });
 
   it("trims a runtime-discovered Codex effort from legacy draft storage", () => {
@@ -644,7 +701,7 @@ describe("composerDraftStore terminal contexts", () => {
     const mergedState = persistApi.getOptions().merge(
       {
         draftsByThreadId: {
-          [threadId]: {
+          [scopeLocalThread(threadId)]: {
             provider: "codex",
             model: "gpt-5.6-sol",
             effort: "  ultra  ",
@@ -656,9 +713,9 @@ describe("composerDraftStore terminal contexts", () => {
       useComposerDraftStore.getInitialState(),
     );
 
-    expect(mergedState.draftsByThreadId[threadId]?.modelSelectionByProvider.codex).toEqual(
-      modelSelection("codex", "gpt-5.6-sol", { reasoningEffort: "ultra" }),
-    );
+    expect(
+      mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.codex,
+    ).toEqual(modelSelection("codex", "gpt-5.6-sol", { reasoningEffort: "ultra" }));
   });
 
   it("restores provider-scoped selections without leaking effort across providers", () => {
@@ -679,7 +736,7 @@ describe("composerDraftStore terminal contexts", () => {
     const mergedState = persistApi.getOptions().merge(
       {
         draftsByThreadId: {
-          [threadId]: {
+          [scopeLocalThread(threadId)]: {
             modelSelectionByProvider: {
               codex: codexSelection,
               cursor: cursorSelection,
@@ -693,7 +750,7 @@ describe("composerDraftStore terminal contexts", () => {
       useComposerDraftStore.getInitialState(),
     );
 
-    const draft = mergedState.draftsByThreadId[threadId];
+    const draft = mergedState.draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.modelSelectionByProvider.codex).toEqual(codexSelection);
     expect(draft?.modelSelectionByProvider.cursor).toEqual(cursorSelection);
     expect(draft?.activeProvider).toBe("cursor");
@@ -719,13 +776,17 @@ describe("composerDraftStore queued follow-ups", () => {
   it("keeps queued turns when the live composer draft is cleared", () => {
     const store = useComposerDraftStore.getState();
 
-    store.setPrompt(threadId, "temporary prompt");
-    store.setSkills(threadId, [{ name: "check-code", path: "/skills/check-code" }]);
-    store.setMentions(threadId, [{ name: "linear", path: "plugin://linear" }]);
-    store.enqueueQueuedTurn(threadId, makeQueuedTurn("queued-1"));
-    store.clearComposerContent(threadId);
+    store.setPrompt(scopeLocalThread(threadId), "temporary prompt");
+    store.setSkills(scopeLocalThread(threadId), [
+      { name: "check-code", path: "/skills/check-code" },
+    ]);
+    store.setMentions(scopeLocalThread(threadId), [{ name: "linear", path: "plugin://linear" }]);
+    store.enqueueQueuedTurn(scopeLocalThread(threadId), makeQueuedTurn("queued-1"));
+    store.clearComposerContent(scopeLocalThread(threadId));
 
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toMatchObject({
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+    ).toMatchObject({
       prompt: "",
       skills: [],
       mentions: [],
@@ -736,10 +797,12 @@ describe("composerDraftStore queued follow-ups", () => {
   it("drops the draft entry once the last queued turn is removed", () => {
     const store = useComposerDraftStore.getState();
 
-    store.enqueueQueuedTurn(threadId, makeQueuedTurn("queued-1"));
-    store.removeQueuedTurn(threadId, "queued-1");
+    store.enqueueQueuedTurn(scopeLocalThread(threadId), makeQueuedTurn("queued-1"));
+    store.removeQueuedTurn(scopeLocalThread(threadId), "queued-1");
 
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toBeUndefined();
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+    ).toBeUndefined();
   });
 
   it("persists queued chat turns for refresh and restart rehydration", () => {
@@ -753,7 +816,7 @@ describe("composerDraftStore queued follow-ups", () => {
     if (queuedChatTurn.kind !== "chat") {
       throw new Error("Expected a queued chat turn fixture");
     }
-    store.enqueueQueuedTurn(threadId, {
+    store.enqueueQueuedTurn(scopeLocalThread(threadId), {
       ...queuedChatTurn,
       interactionMode: "debug",
     });
@@ -773,13 +836,15 @@ describe("composerDraftStore queued follow-ups", () => {
       draftsByThreadId?: Record<string, { queuedTurns?: Array<Record<string, unknown>> }>;
     };
 
-    expect(persistedState.draftsByThreadId?.[threadId]?.queuedTurns).toHaveLength(1);
+    expect(persistedState.draftsByThreadId?.[scopeLocalThread(threadId)]?.queuedTurns).toHaveLength(
+      1,
+    );
 
     const mergedState = persistApi
       .getOptions()
       .merge(persistedState, useComposerDraftStore.getInitialState());
 
-    expect(mergedState.draftsByThreadId[threadId]?.queuedTurns).toMatchObject([
+    expect(mergedState.draftsByThreadId[scopeLocalThread(threadId)]?.queuedTurns).toMatchObject([
       {
         id: "queued-chat-1",
         kind: "chat",
@@ -802,8 +867,11 @@ describe("composerDraftStore queued follow-ups", () => {
     });
     const store = useComposerDraftStore.getState();
 
-    store.enqueueQueuedTurn(threadId, makeQueuedChatTurn("queued-chat-blob", queuedImage));
-    store.removeQueuedTurn(threadId, "queued-chat-blob");
+    store.enqueueQueuedTurn(
+      scopeLocalThread(threadId),
+      makeQueuedChatTurn("queued-chat-blob", queuedImage),
+    );
+    store.removeQueuedTurn(scopeLocalThread(threadId), "queued-chat-blob");
 
     expect(revokeSpy).toHaveBeenCalledWith("blob:queued-image-blob");
   });
@@ -815,9 +883,15 @@ describe("composerDraftStore queued follow-ups", () => {
     });
     const store = useComposerDraftStore.getState();
 
-    store.setProjectDraftThreadId(ProjectId.makeUnsafe("queue-project"), threadId);
-    store.enqueueQueuedTurn(threadId, makeQueuedChatTurn("queued-chat-thread-clear", queuedImage));
-    store.clearDraftThread(threadId);
+    store.setProjectDraftThreadId(
+      ProjectId.makeUnsafe("queue-project"),
+      scopeLocalThread(threadId),
+    );
+    store.enqueueQueuedTurn(
+      scopeLocalThread(threadId),
+      makeQueuedChatTurn("queued-chat-thread-clear", queuedImage),
+    );
+    store.clearDraftThread(scopeLocalThread(threadId));
 
     expect(revokeSpy).toHaveBeenCalledWith("blob:queued-image-thread-clear");
   });

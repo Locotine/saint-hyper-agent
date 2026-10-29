@@ -68,7 +68,7 @@ import {
 } from "~/lib/syntaxHighlighting";
 import { cn } from "~/lib/utils";
 import { resolveWorkspaceFileEditorReadOnlyReason } from "~/lib/workspaceFileEditor";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import ChatMarkdown from "./ChatMarkdown";
 import { DiffTruncationWarning } from "./DiffTruncationWarning";
 import { FileLineCommentBox } from "./chat/FileLineCommentBox";
@@ -827,7 +827,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
     }
     // No API means no write can happen — bail before the optimistic update
     // so the preview never shows a toggle that was silently dropped.
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       return;
     }

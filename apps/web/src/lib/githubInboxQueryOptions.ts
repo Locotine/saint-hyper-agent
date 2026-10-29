@@ -9,7 +9,7 @@ import type {
 } from "@saint/contracts";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 
 export const GITHUB_INBOX_STATES: readonly GitHubInboxState[] = ["open", "closed"];
 
@@ -39,7 +39,7 @@ export const GITHUB_ITEM_DETAIL_POLL_INTERVAL_MS = 2 * 60_000;
 export const GITHUB_ITEM_DETAIL_STALE_TIME_MS = 60_000;
 
 function fetchGitHubInboxList(state: GitHubInboxState, sort: GitHubInboxSort) {
-  return ensureNativeApi().githubInbox.list({ state, sort });
+  return ensureLocalNativeApi().githubInbox.list({ state, sort });
 }
 
 export function githubInboxListQueryOptions(
@@ -96,7 +96,7 @@ export function githubIssueDetailQueryOptions(
     queryKey: githubInboxQueryKeys.issueDetail(input),
     queryFn: () => {
       if (!input) throw new Error("Issue detail is unavailable.");
-      return ensureNativeApi().githubInbox.issueDetail(input);
+      return ensureLocalNativeApi().githubInbox.issueDetail(input);
     },
     enabled: input !== null,
     staleTime: GITHUB_ITEM_DETAIL_STALE_TIME_MS,
@@ -116,7 +116,7 @@ export function githubIssueCommentMutationOptions(queryClient: QueryClient) {
     mutationKey: githubInboxMutationKeys.issueComment,
     networkMode: "always",
     mutationFn: (input: GitHubIssueCommentInput) =>
-      ensureNativeApi().githubInbox.issueComment(input),
+      ensureLocalNativeApi().githubInbox.issueComment(input),
     // A comment changes the issue's comment count and `updatedAt`, so both lists may reorder.
     onSettled: (_result, _error, input) =>
       Promise.all([

@@ -7,10 +7,11 @@
 // Exports: resolveGroupWorkerRoutingDefaults, applyGroupWorkerRoutingDefaults,
 //          resolveGroupContainerThreadDefaults
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { type ProjectId, type ServerProviderStatus, type ThreadId } from "@saint/contracts";
 
 import { useComposerDraftStore } from "../composerDraftStore";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import type { ThreadPrimarySurface } from "../types";
 import { useWorkspacePathsStore } from "../workspacePathsStore";
@@ -26,7 +27,7 @@ import type { ContainerThreadDefaults } from "./startContainerChat";
 export async function resolveGroupWorkerRoutingDefaults(input: {
   readonly groupProjectId: ProjectId;
 }): Promise<ContainerThreadDefaults | null> {
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   if (!api) {
     return null;
   }
@@ -61,13 +62,16 @@ export function applyGroupWorkerRoutingDefaults(input: {
   if (modelSelection) {
     const status = findProviderStatus(input.providerStatuses, modelSelection.provider);
     if (input.providerStatuses.length === 0 || isProviderUsable(status)) {
-      draftStore.setModelSelection(input.threadId, modelSelection);
+      draftStore.setModelSelection(scopeLocalThread(input.threadId), modelSelection);
     } else {
-      draftStore.seedModelSelection(input.threadId, modelSelection);
+      draftStore.seedModelSelection(scopeLocalThread(input.threadId), modelSelection);
     }
   }
   if (input.defaults.providerOptions) {
-    draftStore.setProviderOptionsForDispatch(input.threadId, input.defaults.providerOptions);
+    draftStore.setProviderOptionsForDispatch(
+      scopeLocalThread(input.threadId),
+      input.defaults.providerOptions,
+    );
   }
 }
 

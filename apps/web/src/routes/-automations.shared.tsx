@@ -102,7 +102,7 @@ import {
 import { findProviderStatus } from "~/lib/providerAvailability";
 import { cn } from "~/lib/utils";
 import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { buildModelSelection } from "~/providerModelOptions";
 import { useProviderModelCatalog } from "~/hooks/useProviderModelCatalog";
 import { useProviderStatusesForLocalConfig } from "~/hooks/useProviderStatusesForLocalConfig";
@@ -672,18 +672,18 @@ export function useAutomations(onRunStarted?: (threadId: ThreadId) => void) {
 
   const automationsQuery = useQuery({
     queryKey: automationQueryKey,
-    queryFn: () => ensureNativeApi().automation.list({}),
+    queryFn: () => ensureLocalNativeApi().automation.list({}),
   });
   const data = automationsQuery.data ?? EMPTY_AUTOMATION_LIST;
 
   const createMutation = useMutation({
-    mutationFn: (input: AutomationCreateInput) => ensureNativeApi().automation.create(input),
+    mutationFn: (input: AutomationCreateInput) => ensureLocalNativeApi().automation.create(input),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: automationQueryKey }),
     onError: (error) => toastManager.add({ type: "error", title: error.message }),
   });
   const updateMutation = useMutation({
     ...automationDefinitionUpdateMutationOptions((input) =>
-      ensureNativeApi().automation.update(input),
+      ensureLocalNativeApi().automation.update(input),
     ),
     // Optimistically merge the patch so inline edits on the detail page feel instant; the
     // server's authoritative definition (with recomputed nextRunAt) arrives via the stream.
@@ -721,13 +721,13 @@ export function useAutomations(onRunStarted?: (threadId: ThreadId) => void) {
   });
   const deleteMutation = useMutation({
     mutationFn: (definition: AutomationDefinition) =>
-      ensureNativeApi().automation.delete({ id: definition.id }),
+      ensureLocalNativeApi().automation.delete({ id: definition.id }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: automationQueryKey }),
     onError: (error) => toastManager.add({ type: "error", title: error.message }),
   });
   const runNowMutation = useMutation({
     mutationFn: (definition: AutomationDefinition) =>
-      ensureNativeApi().automation.runNow({ automationId: definition.id }),
+      ensureLocalNativeApi().automation.runNow({ automationId: definition.id }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: automationQueryKey });
       if (result.run.threadId) onRunStarted?.(result.run.threadId);
@@ -735,19 +735,23 @@ export function useAutomations(onRunStarted?: (threadId: ThreadId) => void) {
     onError: (error) => toastManager.add({ type: "error", title: error.message }),
   });
   const cancelRunMutation = useMutation({
-    mutationFn: (run: AutomationRun) => ensureNativeApi().automation.cancelRun({ runId: run.id }),
+    mutationFn: (run: AutomationRun) =>
+      ensureLocalNativeApi().automation.cancelRun({ runId: run.id }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: automationQueryKey }),
     onError: (error) => toastManager.add({ type: "error", title: error.message }),
   });
   const markRunReadMutation = useMutation({
     mutationFn: (input: { readonly run: AutomationRun; readonly unread: boolean }) =>
-      ensureNativeApi().automation.markRunRead({ runId: input.run.id, unread: input.unread }),
+      ensureLocalNativeApi().automation.markRunRead({ runId: input.run.id, unread: input.unread }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: automationQueryKey }),
     onError: (error) => toastManager.add({ type: "error", title: error.message }),
   });
   const archiveRunMutation = useMutation({
     mutationFn: (input: { readonly run: AutomationRun; readonly archived: boolean }) =>
-      ensureNativeApi().automation.archiveRun({ runId: input.run.id, archived: input.archived }),
+      ensureLocalNativeApi().automation.archiveRun({
+        runId: input.run.id,
+        archived: input.archived,
+      }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: automationQueryKey }),
     onError: (error) => toastManager.add({ type: "error", title: error.message }),
   });

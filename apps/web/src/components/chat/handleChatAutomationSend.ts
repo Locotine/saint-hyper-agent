@@ -1,5 +1,6 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ThreadId, type ModelSelection, type ProviderStartOptions } from "@saint/contracts";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import {
   automationClarificationPrompt,
   buildComposerAutomationDraft,
@@ -23,7 +24,7 @@ interface ChatAutomationSendInput {
   trimmedPromptForSend: string;
   threadWorkspaceCwd: string | null;
   activeProject: Project;
-  api: NonNullable<ReturnType<typeof readNativeApi>>;
+  api: NonNullable<ReturnType<typeof readLocalNativeApi>>;
   activeThreadIdRef: ReturnType<typeof useChatAutomationSetup>["activeThreadIdRef"];
   pendingAutomationConversationRef: ReturnType<
     typeof useChatAutomationSetup

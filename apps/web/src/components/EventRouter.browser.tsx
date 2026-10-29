@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import "../index.css";
 
 import {
@@ -2496,7 +2497,7 @@ describe("EventRouter scoped orchestration sync", () => {
     useComposerDraftStore.setState({
       draftsByThreadId: {},
       draftThreadsByThreadId: {
-        [recoveryThreadId]: {
+        [scopeLocalThread(recoveryThreadId)]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "full-access",
@@ -2509,7 +2510,7 @@ describe("EventRouter scoped orchestration sync", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [PROJECT_ID]: recoveryThreadId,
+        [PROJECT_ID]: scopeLocalThread(recoveryThreadId),
       },
     });
     const mounted = await mountApp({ routeThreadId: recoveryThreadId, waitForThreadId: null });
@@ -2591,7 +2592,7 @@ describe("EventRouter scoped orchestration sync", () => {
     useComposerDraftStore.setState({
       draftsByThreadId: {},
       draftThreadsByThreadId: {
-        [draftThreadId]: {
+        [scopeLocalThread(draftThreadId)]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "full-access",
@@ -2604,7 +2605,7 @@ describe("EventRouter scoped orchestration sync", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [PROJECT_ID]: draftThreadId,
+        [PROJECT_ID]: scopeLocalThread(draftThreadId),
       },
     });
     const mounted = await mountApp({ routeThreadId: draftThreadId, waitForThreadId: null });
@@ -2671,7 +2672,9 @@ describe("EventRouter scoped orchestration sync", () => {
             getThreadFromState(useStore.getState(), draftThreadId)?.messages.at(-1)?.text,
           ).toBe("recovered without a reload");
           expect(
-            useComposerDraftStore.getState().draftThreadsByThreadId[draftThreadId],
+            useComposerDraftStore.getState().draftThreadsByThreadId[
+              scopeLocalThread(draftThreadId)
+            ],
           ).toBeUndefined();
         },
         { timeout: 8_000, interval: 16 },
@@ -2687,7 +2690,7 @@ describe("EventRouter scoped orchestration sync", () => {
     useComposerDraftStore.setState({
       draftsByThreadId: {},
       draftThreadsByThreadId: {
-        [draftThreadId]: {
+        [scopeLocalThread(draftThreadId)]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "full-access",
@@ -2700,7 +2703,7 @@ describe("EventRouter scoped orchestration sync", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [PROJECT_ID]: draftThreadId,
+        [PROJECT_ID]: scopeLocalThread(draftThreadId),
       },
     });
 
@@ -2818,7 +2821,7 @@ describe("EventRouter scoped orchestration sync", () => {
     useComposerDraftStore.setState({
       draftsByThreadId: {},
       draftThreadsByThreadId: {
-        [draftThreadId]: {
+        [scopeLocalThread(draftThreadId)]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "full-access",
@@ -2831,7 +2834,7 @@ describe("EventRouter scoped orchestration sync", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [PROJECT_ID]: draftThreadId,
+        [PROJECT_ID]: scopeLocalThread(draftThreadId),
       },
     });
     const mounted = await mountApp({ routeThreadId: draftThreadId, waitForThreadId: null });

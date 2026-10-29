@@ -1,3 +1,4 @@
+import { scopeLocalProject } from "@saint/shared/hostId";
 // FILE: KanbanProjectBoardView.tsx
 // Purpose: Full 4-column board for one project — drag a Draft card onto In Progress to
 //          dispatch its prompt, or reorder drafts; other moves are derived-only.
@@ -98,7 +99,7 @@ export function KanbanProjectBoardView({
   // Reorder against the full persisted order so hidden (filtered-out) cards
   // keep their slots instead of being dropped from the stored order.
   const storedDraftOrder = useKanbanUiStore(
-    (state) => state.draftOrderByProjectId[board.projectId],
+    (state) => state.draftOrderByProjectId[scopeLocalProject(board.projectId)],
   );
   const persistVisibleMove = (
     visibleCardIds: readonly string[],
@@ -112,7 +113,7 @@ export function KanbanProjectBoardView({
       overId,
     );
     if (nextOrder) {
-      setDraftOrder(board.projectId, nextOrder);
+      setDraftOrder(scopeLocalProject(board.projectId), nextOrder);
     }
   };
   const hasRevealedReviewFold = useKanbanUiStore((state) => state.hasRevealedReviewFold);

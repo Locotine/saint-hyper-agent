@@ -73,7 +73,7 @@ import {
   buildProviderOptionPatch,
   type ProviderOptions,
 } from "~/providerModelOptions";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { useStore } from "~/store";
 import { createSidebarThreadSummariesSelector } from "~/storeSelectors";
 import {
@@ -225,7 +225,7 @@ function AutomationDetailView() {
     queryKey: ["automation-memory", automationId],
     queryFn: () =>
       definition
-        ? ensureNativeApi().automation.getMemory({ automationId: definition.id })
+        ? ensureLocalNativeApi().automation.getMemory({ automationId: definition.id })
         : Promise.resolve(null),
     enabled: definition !== null,
   });
@@ -412,7 +412,7 @@ function AutomationDetailView() {
   };
 
   const deleteDefinition = async () => {
-    const confirmed = await ensureNativeApi().dialogs.confirm(`Delete "${definition.name}"?`);
+    const confirmed = await ensureLocalNativeApi().dialogs.confirm(`Delete "${definition.name}"?`);
     if (!confirmed) return;
     deleteMutation.mutate(definition, {
       onSuccess: () => void navigate({ to: "/automations" }),

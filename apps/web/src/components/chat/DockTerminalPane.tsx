@@ -1,5 +1,7 @@
 // A single terminal panel with an independent, chat-owned dock session.
 
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import { type ProjectId, type ThreadId } from "@saint/contracts";
 import { resolveThreadWorkspaceCwd } from "@saint/shared/threadEnvironment";
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
@@ -27,6 +29,7 @@ export function DockTerminalPane(props: {
   isActive?: boolean;
   onClosePanel: () => void;
 }) {
+  const chatHost = useHostHandle();
   const scopeId = dockTerminalThreadId(props.hostThreadId);
   const paneScopeId = props.paneScopeId ?? SINGLE_CHAT_PANE_SCOPE_ID;
   const threadWorkspace = useStore(
@@ -76,12 +79,13 @@ export function DockTerminalPane(props: {
     const paneKey = `${scopeId}:${props.paneId}`;
     if (initializedPaneRef.current === paneKey) return;
     initializedPaneRef.current = paneKey;
-    ensureDockTerminal(scopeId, props.paneId);
-  }, [ensureDockTerminal, props.paneId, scopeId]);
+    ensureDockTerminal(scopeThread(chatHost.hostId, scopeId), props.paneId);
+  }, [chatHost, ensureDockTerminal, props.paneId, scopeId]);
 
   useEffect(() => {
-    if (terminalId && (props.isActive ?? true)) setActiveTerminal(scopeId, terminalId);
-  }, [props.isActive, scopeId, setActiveTerminal, terminalId]);
+    if (terminalId && (props.isActive ?? true))
+      setActiveTerminal(scopeThread(chatHost.hostId, scopeId), terminalId);
+  }, [chatHost, props.isActive, scopeId, setActiveTerminal, terminalId]);
 
   const onSessionExited = (terminalId: string) => {
     const disposition = terminal.handleDockTerminalSessionExited(terminalId);

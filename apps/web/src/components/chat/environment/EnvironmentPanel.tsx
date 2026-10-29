@@ -8,6 +8,7 @@
 //          use floating overlay only. The card surface and content are identical either way.
 // Layer: Environment panel container
 
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 import { SidePanelOverlay } from "~/components/chat/SidePanelOverlay";
 import type {
   AutomationDefinition,
@@ -32,11 +33,11 @@ import GitActionsControl from "~/components/GitActionsControl";
 import { DiffStat } from "~/components/ui/diff-stat";
 import { IconButton } from "~/components/ui/icon-button";
 import { toastManager } from "~/components/ui/toast";
-import { isElectron, remoteWindowHost } from "~/env";
+import { isElectron } from "~/env";
 import { basenameOfPath } from "~/file-icons";
 import type { RepoDiffTotals } from "~/hooks/useRepoDiffTotals";
 import { ChangesIcon, ExternalLinkIcon, GitHubIcon, SettingsIcon, FolderIcon } from "~/lib/icons";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { revealFolderInShell } from "~/lib/revealFolder";
 import { deleteActiveThreadFromClient } from "~/lib/activeThreadDelete";
 import { gitRemoveWorktreeMutationOptions } from "~/lib/gitReactQuery";
@@ -299,8 +300,7 @@ export function EnvironmentPanel({
   const showGroupFolderRow = shouldShowGroupFolderRow({
     isGroupChat,
     groupFolderPath,
-    // A remote host's folder cannot be revealed on this computer.
-    nativeShellAvailable: isElectron && !remoteWindowHost,
+    nativeShellAvailable: isElectron,
   });
 
   const content = (
@@ -433,7 +433,7 @@ export function EnvironmentPanel({
                   `Delete side chat "${sidechat.title}"?`,
                   "This permanently clears conversation history for this side chat and its subagents.",
                 ].join("\n");
-                const api = readNativeApi();
+                const api = readLocalNativeApi();
                 const confirmed = api
                   ? await api.dialogs.confirm(confirmationMessage)
                   : await showConfirmDialogFallback(confirmationMessage);
@@ -446,12 +446,12 @@ export function EnvironmentPanel({
                 threadId: sidechat.id,
                 includeSubagentDescendants: true,
                 onDeleted: ({ thread }) => {
-                  usePinnedThreadsStore.getState().unpinThread(thread.id);
+                  usePinnedThreadsStore.getState().unpinThread(scopeLocalThread(thread.id));
                   const drafts = useComposerDraftStore.getState();
-                  drafts.clearDraftThread(thread.id);
-                  drafts.clearProjectDraftThreadById(thread.projectId, thread.id);
-                  useTerminalStateStore.getState().clearTerminalState(thread.id);
-                  useSplitViewStore.getState().removeThreadFromSplitViews(thread.id);
+                  drafts.clearDraftThread(scopeLocalThread(thread.id));
+                  drafts.clearProjectDraftThreadById(thread.projectId, scopeLocalThread(thread.id));
+                  useTerminalStateStore.getState().clearTerminalState(scopeLocalThread(thread.id));
+                  useSplitViewStore.getState().removeThreadFromSplitViews(LOCAL_HOST_ID, thread.id);
                   useTemporaryThreadStore.getState().clearTemporaryThread(thread.id);
                 },
                 removeWorktree: (worktree) => removeWorktreeMutation.mutateAsync(worktree),

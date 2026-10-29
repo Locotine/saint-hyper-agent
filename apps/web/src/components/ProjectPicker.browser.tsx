@@ -7,6 +7,8 @@ import { page } from "vitest/browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 
+import { sshHostId } from "@saint/shared/hostId";
+import { hostStores } from "../hosts/hostStores";
 import { ProjectPicker } from "./chat/ProjectPicker";
 import { useSpacesUiStore } from "../spacesUiStore";
 import { useStore } from "../store";
@@ -256,6 +258,87 @@ describe("ProjectPicker new projects", () => {
       await vi.waitFor(() => expect(useCreateProjectDialogStore.getState().isOpen).toBe(true));
       expect(onCreateProjectFromPath).not.toHaveBeenCalled();
       await expect.element(page.getByPlaceholder("Search projects")).not.toBeInTheDocument();
+    } finally {
+      await screen.unmount();
+      restore();
+    }
+  });
+});
+
+describe("ProjectPicker connected hosts", () => {
+  const hostId = sshHostId("abcd1234");
+  const hostProject: Project = {
+    ...project,
+    id: ProjectId.makeUnsafe("project-picker-host-app"),
+    name: "app",
+    remoteName: "app",
+    folderName: "app",
+    cwd: "/srv/app",
+  };
+
+  function installRemoteBridge() {
+    const state = {
+      configHosts: [],
+      defaultRemoteRoot: ".saint-remote",
+      savedHosts: [{ host: "devbox", remoteRoot: null, hostKey: "abcd1234" }],
+      hosts: [
+        {
+          host: "devbox",
+          hostKey: "abcd1234",
+          epoch: 1,
+          remoteRoot: ".saint-remote",
+          phase: "connected",
+          message: null,
+          localPort: 45000,
+        },
+      ],
+    };
+    const previous = Object.getOwnPropertyDescriptor(window, "desktopBridge");
+    Object.defineProperty(window, "desktopBridge", {
+      configurable: true,
+      value: { remoteSsh: { getState: async () => state, onState: () => () => {} } },
+    });
+    hostStores.get(hostId).setState({ projects: [hostProject] });
+    return () => {
+      hostStores.get(hostId).setState({ projects: [] });
+      if (previous) Object.defineProperty(window, "desktopBridge", previous);
+      else Reflect.deleteProperty(window, "desktopBridge");
+    };
+  }
+
+  it("lists a connected host's projects and starts the thread on that host", async () => {
+    const restore = installRemoteBridge();
+    const start = vi.fn(async () => {});
+    const startInNewProject = vi.fn(async () => {});
+    const screen = await mountPicker({
+      selectionMode: "project",
+      onSelectProject: vi.fn(),
+      hostThreads: { start, startInNewProject },
+    });
+    try {
+      await page.getByTestId("project-picker-trigger").click();
+      await page.getByRole("option", { name: /app/ }).click();
+      expect(start).toHaveBeenCalledExactlyOnceWith(hostId, "devbox", hostProject.id);
+    } finally {
+      await screen.unmount();
+      restore();
+    }
+  });
+
+  it("offers Add new project on the host", async () => {
+    const restore = installRemoteBridge();
+    const startInNewProject = vi.fn(async () => {});
+    const screen = await mountPicker({
+      selectionMode: "project",
+      onSelectProject: vi.fn(),
+      hostThreads: { start: vi.fn(async () => {}), startInNewProject },
+    });
+    try {
+      await page.getByTestId("project-picker-trigger").click();
+      await page.getByText("Add new project on devbox").click();
+      await vi.waitFor(() =>
+        expect(startInNewProject).toHaveBeenCalledExactlyOnceWith(hostId, "devbox"),
+      );
     } finally {
       await screen.unmount();
       restore();

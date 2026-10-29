@@ -21,8 +21,11 @@ vi.mock("~/env", () => ({ isElectron: true }));
 vi.mock("~/lib/linkChips", () => ({ openExternalLink: harness.openExternalLink }));
 
 vi.mock("~/store", () => ({
+  createHostStore: vi.fn(),
+  HostStoreProvider: ({ children }: { children: unknown }) => children,
   useStore: Object.assign((selector: (store: Record<string, unknown>) => unknown) => selector({}), {
     getState: () => ({}),
+    subscribe: () => () => {},
   }),
   persistAppStateNow: harness.persistAppStateNow,
 }));

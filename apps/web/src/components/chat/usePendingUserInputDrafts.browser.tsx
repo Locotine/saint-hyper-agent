@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   ApprovalRequestId,
   ThreadId,
@@ -100,15 +101,16 @@ it.each(["stale", "pruned-stale", "delivered", "old-generation-resolution"])(
         activities.some((activity) => activity.kind === "provider.user-input.respond.failed"),
       ).toBe(false);
     if (scenario === "delivered") expect(thread.pendingInteractions).toEqual([]);
-    useComposerDraftStore.getState().setPendingUserInputDrafts(threadId, { [key]: draft });
+    useComposerDraftStore
+      .getState()
+      .setPendingUserInputDrafts(scopeLocalThread(threadId), { [key]: draft });
     const hook = await renderHook(() => usePendingUserInputDrafts(threadId, [], activities));
     try {
       await expect
         .poll(
           () =>
-            useComposerDraftStore.getState().draftsByThreadId[threadId]?.pendingUserInputDrafts?.[
-              key
-            ],
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+              ?.pendingUserInputDrafts?.[key],
         )
         .toEqual(scenario === "delivered" ? undefined : draft);
     } finally {

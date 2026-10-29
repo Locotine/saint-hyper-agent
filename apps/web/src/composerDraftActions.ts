@@ -2,13 +2,13 @@
 // Purpose: Constructs the ComposerDraftStoreState actions while preserving granular thread identity.
 // Exports: Zustand state creator consumed by the public facade.
 
+import { unscopeThread, type ScopedThreadId } from "@saint/shared/hostId";
 import {
   type ModelSelection,
   type ProviderKind,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
   ProviderInteractionMode,
   RuntimeMode,
-  ThreadId,
 } from "@saint/contracts";
 import { getDefaultModel, normalizeModelSlug } from "@saint/shared/model";
 import * as Equal from "effect/Equal";
@@ -91,18 +91,18 @@ import { buildModelSelection } from "./providerModelOptions";
 import { DEFAULT_INTERACTION_MODE, DEFAULT_RUNTIME_MODE } from "./types";
 
 function removeDraftThreadIfUnmapped(input: {
-  threadId: ThreadId | undefined;
-  projectDraftThreadIdByProjectId: Record<string, ThreadId>;
-  draftThreadsByThreadId: Record<ThreadId, DraftThreadState>;
-  draftsByThreadId: Record<ThreadId, ComposerThreadDraftState>;
-  getDraftsByThreadId: () => Record<ThreadId, ComposerThreadDraftState>;
+  threadId: ScopedThreadId | undefined;
+  projectDraftThreadIdByProjectId: Record<string, ScopedThreadId>;
+  draftThreadsByThreadId: Record<ScopedThreadId, DraftThreadState>;
+  draftsByThreadId: Record<ScopedThreadId, ComposerThreadDraftState>;
+  getDraftsByThreadId: () => Record<ScopedThreadId, ComposerThreadDraftState>;
 }): {
-  draftThreadsByThreadId: Record<ThreadId, DraftThreadState>;
-  draftsByThreadId: Record<ThreadId, ComposerThreadDraftState>;
+  draftThreadsByThreadId: Record<ScopedThreadId, DraftThreadState>;
+  draftsByThreadId: Record<ScopedThreadId, ComposerThreadDraftState>;
 } {
   if (
     !input.threadId ||
-    hasActiveComposerSend(input.threadId) ||
+    hasActiveComposerSend(unscopeThread(input.threadId).threadId) ||
     input.draftThreadsByThreadId[input.threadId]?.promotedTo !== undefined ||
     Object.values(input.projectDraftThreadIdByProjectId).includes(input.threadId)
   ) {
@@ -187,11 +187,11 @@ export const createComposerDraftStoreState =
         if (hasSameProjectMapping && draftThreadStatesEqual(existingThread, nextDraftThread)) {
           return state;
         }
-        const nextProjectDraftThreadIdByProjectId: Record<string, ThreadId> = {
+        const nextProjectDraftThreadIdByProjectId: Record<string, ScopedThreadId> = {
           ...state.projectDraftThreadIdByProjectId,
           [mappingKey]: threadId,
         };
-        const nextDraftThreadsByThreadId: Record<ThreadId, DraftThreadState> = {
+        const nextDraftThreadsByThreadId: Record<ScopedThreadId, DraftThreadState> = {
           ...state.draftThreadsByThreadId,
           [threadId]: nextDraftThread,
         };
@@ -267,7 +267,7 @@ export const createComposerDraftStoreState =
         if (draftThreadStatesEqual(existing, nextDraftThread)) {
           return state;
         }
-        const nextProjectDraftThreadIdByProjectId: Record<string, ThreadId> = {
+        const nextProjectDraftThreadIdByProjectId: Record<string, ScopedThreadId> = {
           ...removeProjectDraftMappingsForThread(state.projectDraftThreadIdByProjectId, threadId),
           [projectDraftThreadMappingKey(nextProjectId, nextDraftThread.entryPoint)]: threadId,
         };
@@ -312,12 +312,12 @@ export const createComposerDraftStoreState =
           return state;
         }
 
-        const nextProjectDraftThreadIdByProjectId: Record<string, ThreadId> = {
+        const nextProjectDraftThreadIdByProjectId: Record<string, ScopedThreadId> = {
           ...removeProjectDraftMappingsForThread(state.projectDraftThreadIdByProjectId, threadId),
           [targetMappingKey]: threadId,
         };
 
-        const nextDraftThreadsByThreadId: Record<ThreadId, DraftThreadState> = {
+        const nextDraftThreadsByThreadId: Record<ScopedThreadId, DraftThreadState> = {
           ...state.draftThreadsByThreadId,
           [threadId]: nextDraftThread,
         };
@@ -354,7 +354,7 @@ export const createComposerDraftStoreState =
         }
         const { [mappingKey]: _removed, ...restProjectMappingsRaw } =
           state.projectDraftThreadIdByProjectId;
-        const restProjectMappings = restProjectMappingsRaw as Record<string, ThreadId>;
+        const restProjectMappings = restProjectMappingsRaw as Record<string, ScopedThreadId>;
         const cleanedDrafts = removeDraftThreadIfUnmapped({
           threadId,
           projectDraftThreadIdByProjectId: restProjectMappings,
@@ -374,8 +374,8 @@ export const createComposerDraftStoreState =
         return;
       }
       set((state) => {
-        const nextProjectDraftThreadIdByProjectId: Record<string, ThreadId> = {};
-        const removedThreadIds = new Set<ThreadId>();
+        const nextProjectDraftThreadIdByProjectId: Record<string, ScopedThreadId> = {};
+        const removedThreadIds = new Set<ScopedThreadId>();
         for (const [mappingKey, threadId] of Object.entries(
           state.projectDraftThreadIdByProjectId,
         )) {
@@ -423,7 +423,7 @@ export const createComposerDraftStoreState =
         }
         const { [matchingMappingKey]: _removed, ...restProjectMappingsRaw } =
           state.projectDraftThreadIdByProjectId;
-        const restProjectMappings = restProjectMappingsRaw as Record<string, ThreadId>;
+        const restProjectMappings = restProjectMappingsRaw as Record<string, ScopedThreadId>;
         const cleanedDrafts = removeDraftThreadIfUnmapped({
           threadId,
           projectDraftThreadIdByProjectId: restProjectMappings,
@@ -500,7 +500,7 @@ export const createComposerDraftStoreState =
           Object.entries(state.projectDraftThreadIdByProjectId).filter(
             ([, draftThreadId]) => draftThreadId !== threadId,
           ),
-        ) as Record<string, ThreadId>;
+        ) as Record<string, ScopedThreadId>;
         const { [threadId]: _removedDraftThread, ...restDraftThreadsByThreadId } =
           state.draftThreadsByThreadId;
         const { [threadId]: _removedComposerDraft, ...restDraftsByThreadId } =
@@ -1502,7 +1502,7 @@ export const createComposerDraftStoreState =
                 }
               : {}),
           };
-          const threadId = rawThreadId as ThreadId;
+          const threadId = rawThreadId as ScopedThreadId;
           if (shouldRemoveDraft(nextDraft)) {
             delete nextDraftsByThreadId[threadId];
           } else {

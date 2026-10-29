@@ -1,4 +1,5 @@
 import { ThreadId } from "@saint/contracts";
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createDefaultWorkflowRunUiThreadState,
@@ -7,8 +8,8 @@ import {
   useWorkflowRunUiStore,
 } from "./workflowRunUiStore";
 
-const THREAD_A = ThreadId.makeUnsafe("thread-a");
-const THREAD_B = ThreadId.makeUnsafe("thread-b");
+const THREAD_A = scopeLocalThread(ThreadId.makeUnsafe("thread-a"));
+const THREAD_B = scopeLocalThread(ThreadId.makeUnsafe("thread-b"));
 
 describe("workflowRunUiStore", () => {
   beforeEach(() => {
@@ -107,7 +108,7 @@ describe("workflowRunUiStore", () => {
 });
 
 describe("sanitizeWorkflowRunUiStateByThreadId", () => {
-  it("keeps valid entries and drops malformed ones", () => {
+  it("keeps valid entries, keyed as this computer's threads, and drops malformed ones", () => {
     const result = sanitizeWorkflowRunUiStateByThreadId({
       "thread-a": { pausedByUser: ["task-1", "task-1", 42], dismissed: ["task-2"] },
       "thread-b": { pausedByUser: [], dismissed: [] },
@@ -115,9 +116,12 @@ describe("sanitizeWorkflowRunUiStateByThreadId", () => {
       "thread-d": null,
     });
 
-    expect(result["thread-a"]).toEqual({ pausedByUser: ["task-1"], dismissed: ["task-2"] });
-    expect(result["thread-b"]).toBeUndefined();
-    expect(result["thread-c"]).toBeUndefined();
-    expect(result["thread-d"]).toBeUndefined();
+    expect(result[scopeLocalThread(ThreadId.makeUnsafe("thread-a"))]).toEqual({
+      pausedByUser: ["task-1"],
+      dismissed: ["task-2"],
+    });
+    expect(result[scopeLocalThread(ThreadId.makeUnsafe("thread-b"))]).toBeUndefined();
+    expect(result[scopeLocalThread(ThreadId.makeUnsafe("thread-c"))]).toBeUndefined();
+    expect(result[scopeLocalThread(ThreadId.makeUnsafe("thread-d"))]).toBeUndefined();
   });
 });

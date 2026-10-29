@@ -10,7 +10,7 @@ import type {
   ProviderSkillsCatalogResult,
 } from "@saint/contracts";
 import { queryOptions } from "@tanstack/react-query";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import {
   expensiveReadErrorRefetchInterval,
   isRpcCapacityExceededError,
@@ -363,7 +363,7 @@ export function providerComposerCapabilitiesQueryOptions(
   return queryOptions({
     queryKey: providerDiscoveryQueryKeys.composerCapabilities(provider, keyInstanceId),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.provider.getComposerCapabilities({
         provider,
         ...(instanceId ? { instanceId } : {}),
@@ -389,7 +389,7 @@ export function providerSkillsQueryOptions(input: {
       input.instanceId ?? null,
     ),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd) {
         throw new Error("Skill discovery is unavailable.");
       }
@@ -415,7 +415,7 @@ export function skillsCatalogQueryOptions(input?: { cwd?: string | null; enabled
   return queryOptions({
     queryKey: providerDiscoveryQueryKeys.skillsCatalog(cwd),
     queryFn: async (): Promise<ProviderSkillsCatalogResult> => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.provider.listSkillsCatalog(cwd ? { cwd } : {});
     },
     enabled: input?.enabled ?? true,
@@ -453,7 +453,7 @@ export function providerCommandsQueryOptions(input: {
       input.instanceId ?? null,
     ),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!input.cwd) {
         throw new Error("Command discovery is unavailable.");
       }
@@ -533,7 +533,7 @@ export function providerModelsQueryOptions(input: {
         signal,
         input.priority ?? "background",
         async () => {
-          const api = ensureNativeApi();
+          const api = ensureLocalNativeApi();
           const result = await api.provider.listModels({
             provider: input.provider,
             ...(input.refresh ? { refresh: input.refresh } : {}),
@@ -623,7 +623,7 @@ export function providerAgentsQueryOptions(input: {
       input.cwd ?? null,
     ),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.provider.listAgents({
         provider: input.provider,
         ...(input.instanceId ? { instanceId: input.instanceId } : {}),
@@ -656,7 +656,7 @@ export function providerPluginsQueryOptions(input: {
       input.instanceId ?? null,
     ),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.provider.listPlugins({
         provider: input.provider,
         ...(input.instanceId ? { instanceId: input.instanceId } : {}),

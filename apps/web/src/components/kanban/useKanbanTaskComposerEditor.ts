@@ -3,6 +3,7 @@
 // Layer: Kanban UI hook
 // Exports: useKanbanTaskComposerEditor
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type {
   ModelSlug,
   ProviderInteractionMode,
@@ -261,7 +262,7 @@ export function useKanbanTaskComposerEditor(input: UseKanbanTaskComposerEditorIn
           if (!exists) {
             useComposerDraftStore
               .getState()
-              .setSkills(scratchThreadId, [...composerSkills, nextSkill]);
+              .setSkills(scopeLocalThread(scratchThreadId), [...composerSkills, nextSkill]);
           }
         },
       });
@@ -278,7 +279,7 @@ export function useKanbanTaskComposerEditor(input: UseKanbanTaskComposerEditorIn
           );
           useComposerDraftStore
             .getState()
-            .setMentions(scratchThreadId, [...nextWithoutSameName, item.mention]);
+            .setMentions(scopeLocalThread(scratchThreadId), [...nextWithoutSameName, item.mention]);
         },
       });
       return;
@@ -299,7 +300,7 @@ export function useKanbanTaskComposerEditor(input: UseKanbanTaskComposerEditorIn
     }
     if (item.type === "slash-command") {
       if (item.command === "clear") {
-        useComposerDraftStore.getState().clearComposerContent(scratchThreadId);
+        useComposerDraftStore.getState().clearComposerContent(scopeLocalThread(scratchThreadId));
         setComposerCursor(0);
         setComposerTrigger(null);
         return;
@@ -324,7 +325,7 @@ export function useKanbanTaskComposerEditor(input: UseKanbanTaskComposerEditorIn
       useComposerDraftStore
         .getState()
         .setTerminalContexts(
-          scratchThreadId,
+          scopeLocalThread(scratchThreadId),
           syncTerminalContextsByIds(composerTerminalContexts, terminalContextIds),
         );
     }

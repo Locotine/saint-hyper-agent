@@ -4,6 +4,7 @@
 // Exports: recent view types plus MRU update, pruning, and display derivation helpers
 
 import type { ProjectId, ProviderKind, ThreadId } from "@saint/contracts";
+import { localThreadId, scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
 import type {
   ResolvedTerminalVisualIdentity,
   TerminalIconKey,
@@ -15,7 +16,7 @@ export const MAX_RECENT_VIEWS = 5;
 export type RecentView =
   | {
       kind: "thread";
-      threadId: ThreadId;
+      threadId: ScopedThreadId;
       splitViewId?: string | undefined;
     }
   | {
@@ -56,9 +57,9 @@ export interface RecentViewThreadDraftSummary {
 }
 
 export interface RecentViewAvailability {
-  availableThreadIds: ReadonlySet<ThreadId>;
+  availableThreadIds: ReadonlySet<ScopedThreadId>;
   availableSplitViewIds: ReadonlySet<string>;
-  threadIdsBySplitViewId?: ReadonlyMap<string, ReadonlySet<ThreadId>> | undefined;
+  threadIdsBySplitViewId?: ReadonlyMap<string, ReadonlySet<ScopedThreadId>> | undefined;
 }
 
 const SETTINGS_LABELS: Readonly<Record<string, string>> = {
@@ -111,7 +112,7 @@ export function deriveCurrentRecentView(input: {
   if (input.routeThreadId) {
     return {
       kind: "thread",
-      threadId: input.activeThreadId ?? input.routeThreadId,
+      threadId: scopeLocalThread(input.activeThreadId ?? input.routeThreadId),
       ...(splitViewId ? { splitViewId } : {}),
     };
   }
@@ -219,7 +220,7 @@ export function buildRecentViewDisplayEntries(input: {
   threadsById: Readonly<Record<string, SidebarThreadSummary | undefined>>;
   draftThreadsById?: Readonly<Record<string, RecentViewThreadDraftSummary | undefined>>;
   projects: readonly Project[];
-  pinnedThreadIds: readonly ThreadId[];
+  pinnedThreadIds: readonly ScopedThreadId[];
   terminalVisualIdentityByThreadId?: ReadonlyMap<ThreadId, ResolvedTerminalVisualIdentity>;
 }): RecentViewDisplayEntry[] {
   const currentKey = input.currentView ? recentViewKey(input.currentView) : null;
@@ -228,8 +229,11 @@ export function buildRecentViewDisplayEntries(input: {
 
   return input.recentViews.map((view) => {
     const key = recentViewKey(view);
-    const terminalVisualIdentity =
-      view.kind === "thread" ? input.terminalVisualIdentityByThreadId?.get(view.threadId) : null;
+    // Summaries, drafts and terminals are still keyed by this computer's raw ids.
+    const localId = view.kind === "thread" ? localThreadId(view.threadId) : null;
+    const terminalVisualIdentity = localId
+      ? input.terminalVisualIdentityByThreadId?.get(localId)
+      : null;
     const base = {
       key,
       view,
@@ -243,8 +247,8 @@ export function buildRecentViewDisplayEntries(input: {
 
     switch (view.kind) {
       case "thread": {
-        const summary = input.threadsById[view.threadId];
-        const thread = summary ?? input.draftThreadsById?.[view.threadId];
+        const summary = localId ? input.threadsById[localId] : undefined;
+        const thread = summary ?? (localId ? input.draftThreadsById?.[localId] : undefined);
         const projectName = thread ? projectNameById.get(thread.projectId) : null;
         const provider = summary?.modelSelection.provider;
         const title = normalizeOptionalId(thread?.title) ?? "New chat";

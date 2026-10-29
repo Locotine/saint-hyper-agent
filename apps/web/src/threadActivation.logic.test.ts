@@ -1,3 +1,4 @@
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { describe, expect, it } from "vitest";
 
 import { ProjectId, ThreadId } from "@saint/contracts";
@@ -30,6 +31,7 @@ function makeSplitViewFixture(input: {
   };
   return {
     id: input.id,
+    hostId: LOCAL_HOST_ID,
     sourceThreadId: input.sourceThreadId,
     ownerProjectId: PROJECT_ID,
     focusedPaneId: input.focusOn === "first" ? firstId : secondId,

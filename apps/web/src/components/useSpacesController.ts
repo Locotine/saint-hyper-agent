@@ -22,7 +22,7 @@ import {
   reorderSpaces,
   updateSpace,
 } from "../lib/spaces";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useSpacesUiStore } from "../spacesUiStore";
 import { useStore } from "../store";
 import type { Project, SidebarThreadSummary, Space } from "../types";
@@ -267,7 +267,7 @@ export function useSpacesController(input: {
         return;
       }
 
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !spaceEditorState) {
         throw new Error("The app server is unavailable.");
       }
@@ -332,7 +332,7 @@ export function useSpacesController(input: {
 
   const handleDeleteSpace = useCallback(
     async (spaceId: SpaceId) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const space = spaces.find((candidate) => candidate.id === spaceId);
       if (!api || !space) return;
       const projectCount = ordinarySpaceProjects.filter(
@@ -383,7 +383,7 @@ export function useSpacesController(input: {
   );
 
   const handleRenameSpace = useCallback(async (space: Space, name: string) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || space.name === name) return;
     try {
       await updateSpace({ api, spaceId: space.id, name });
@@ -405,7 +405,7 @@ export function useSpacesController(input: {
 
   const handleReorderSpaces = useCallback(
     (orderedSpaceIds: ReadonlyArray<SpaceId>, movedSpaceId: SpaceId) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       reorderSpacesLocally(orderedSpaceIds);
       void reorderSpaces({ api, movedSpaceId, orderedSpaceIds }).catch(async (error) => {
@@ -434,7 +434,7 @@ export function useSpacesController(input: {
 
   const handleBulkMoveProjects = useCallback(
     async (projectIds: ReadonlyArray<ProjectId>, spaceId: SpaceId) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) throw new Error("The app server is unavailable.");
       const result = await moveProjectsToSpace({ api, projectIds, spaceId });
       return result.failedProjectIds;
@@ -444,7 +444,7 @@ export function useSpacesController(input: {
 
   const handleMoveProjectToSpace = useCallback(
     async (projectId: ProjectId, spaceId: SpaceId | null) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const project = projectById.get(projectId);
       if (!api || !project || (project.spaceId ?? null) === spaceId) return;
       onCloseProjectContextMenu();

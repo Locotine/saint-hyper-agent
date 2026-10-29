@@ -1,3 +1,6 @@
+import { LOCAL_HOST_ID, scopeThread, scopeProject } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
+import { useStore } from "../store";
 import { type LegendListRef } from "@legendapp/list/react";
 import {
   parseComputerInvocation,
@@ -86,7 +89,6 @@ import { holdQueuedComposerTurnsForStop } from "~/lib/queuedComposerDrain";
 import { resolveAuxiliaryTextGenerationSelection } from "~/lib/textGenerationCapabilities";
 import { resolveInheritedThreadContext } from "~/lib/threadBootstrap";
 import { cn, isMacNavigatorPlatform, newCommandId, newThreadId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
 import { dispatchThreadSnoozedUntil, resolveSnoozeDeadline } from "~/lib/threadSnooze";
 import {
   ChatLinkActionsContext,
@@ -116,7 +118,7 @@ import {
   type ComposerImageAttachment,
   type DraftThreadEnvMode,
 } from "../composerDraftStore";
-import { composerDraftHasUnsentContent } from "../composerDraftDomain";
+import { composerDraftHasUnsentContent, localProjectDraftThread } from "../composerDraftDomain";
 import { useComposerFocusRequestStore } from "../composerFocusRequestStore";
 import {
   buildGoalSlashCommandPrompt,
@@ -232,7 +234,6 @@ import {
   useSplitViewStore,
   type SplitViewPanePanelState,
 } from "../splitViewStore";
-import { useStore } from "../store";
 import {
   createComposerThreadMentionSourcesSelector,
   createProjectSelector,
@@ -371,6 +372,7 @@ import {
   deriveTurnTimingByTurnId,
 } from "./chat/MessagesTimeline.logic";
 import { ProjectPicker } from "./chat/ProjectPicker";
+import { useHostThreadActions } from "../hooks/useHostThreadActions";
 import { ProviderHealthBanner } from "./chat/ProviderHealthBanner";
 import { resolveProviderModelLabel } from "./chat/ProviderModelPicker";
 import {
@@ -632,6 +634,10 @@ export default function ChatView({
   viewModeAction: viewModeActionProp,
   onCloseThreadPane,
 }: ChatViewProps) {
+  const chatHost = useHostHandle();
+  // A connected host's chat (multi-host): this computer's editors, servers, panels, git and
+  // project scripts would act on the wrong machine, so their controls stay hidden.
+  const isRemoteHost = chatHost.hostId !== LOCAL_HOST_ID;
   // Prop defaults are resolved here instead of in the destructuring pattern: an
   // AssignmentPattern in the parameter list makes React Compiler bail out (silently —
   // `panicThreshold` is unset) on this entire component, the hottest one in the app.
@@ -664,6 +670,12 @@ export default function ChatView({
   } = useComposerOverlayHeight();
   const composerTranscriptInsetPx = composerTranscriptBottomInsetPx(composerOverlayHeightPx);
   const navigate = useNavigate();
+  const { startThread: startHostThread, startThreadInNewProject: startHostThreadInNewProject } =
+    useHostThreadActions();
+  const hostThreadPicker = useMemo(
+    () => ({ start: startHostThread, startInNewProject: startHostThreadInNewProject }),
+    [startHostThread, startHostThreadInNewProject],
+  );
   const { handleNewThread } = useHandleNewThread();
   const { handleNewChat } = useHandleNewChat();
   const { continueThreadHandoff, createThreadHandoff, createTranscriptHandoff } =
@@ -759,7 +771,7 @@ export default function ChatView({
     showComposerPastedTextInField,
   } = useChatComposerDraft({ threadId });
   const draftThread = useComposerDraftStore(
-    (store) => store.draftThreadsByThreadId[threadId] ?? null,
+    (store) => store.draftThreadsByThreadId[scopeThread(chatHost.hostId, threadId)] ?? null,
   );
   const hasTemporaryThreadMarker = useTemporaryThreadStore((store) =>
     threadId ? store.temporaryThreadIds[threadId] === true : false,
@@ -1117,7 +1129,7 @@ export default function ChatView({
   );
   const deletePlaceholderTerminalThread = useCallback(
     async (terminalThreadId: ThreadId) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       if (!api) return;
       // Body kept in a nested function: React Compiler's BuildHIR cannot lower a value block
       // (`?.`, `??`, ternary) that sits directly inside a `try`, and one of them makes the
@@ -1131,11 +1143,15 @@ export default function ChatView({
         void reconcileDeletedThreadFromClient({
           threadId: terminalThreadId,
           removeDeletedThreadFromClientState:
-            useStore.getState().removeDeletedThreadFromClientState,
+            chatHost.store.getState().removeDeletedThreadFromClientState,
         });
-        useComposerDraftStore.getState().clearDraftThread(terminalThreadId);
-        useTerminalStateStore.getState().clearTerminalState(terminalThreadId);
-        removeThreadFromSplitViews(terminalThreadId);
+        useComposerDraftStore
+          .getState()
+          .clearDraftThread(scopeThread(chatHost.hostId, terminalThreadId));
+        useTerminalStateStore
+          .getState()
+          .clearTerminalState(scopeThread(chatHost.hostId, terminalThreadId));
+        removeThreadFromSplitViews(LOCAL_HOST_ID, terminalThreadId);
         if (activeSplitView) {
           const nextSplitView = useSplitViewStore.getState().splitViewsById[activeSplitView.id];
           const nextThreadId = nextSplitView
@@ -1163,7 +1179,7 @@ export default function ChatView({
         });
       }
     },
-    [activeSplitView, handleNewChat, navigate, removeThreadFromSplitViews],
+    [chatHost, activeSplitView, handleNewChat, navigate, removeThreadFromSplitViews],
   );
   const {
     terminalState,
@@ -1197,7 +1213,9 @@ export default function ChatView({
     onDeletePlaceholderThread: deletePlaceholderTerminalThread,
   });
   const localProjectInstructions = useProjectInstructionsStore((state) =>
-    activeProjectId ? (state.instructionsByProjectId[activeProjectId] ?? "") : "",
+    activeProjectId
+      ? (state.instructionsByProjectId[scopeProject(chatHost.hostId, activeProjectId)] ?? "")
+      : "",
   );
   const setProjectInstructions = useProjectInstructionsStore((state) => state.setInstructions);
   const serverProjectInstructions = useProjectInstructionsSource(activeProjectId ?? null);
@@ -1399,12 +1417,16 @@ export default function ChatView({
     if (!activeTurnCompletedAt) return;
     const turnCompletedAt = Date.parse(activeTurnCompletedAt);
     if (Number.isNaN(turnCompletedAt)) return;
-    const visitedAt = getThreadFromState(useStore.getState(), autoReadThreadId)?.lastVisitedAt;
+    const visitedAt = getThreadFromState(
+      chatHost.store.getState(),
+      autoReadThreadId,
+    )?.lastVisitedAt;
     const lastVisitedAt = visitedAt ? Date.parse(visitedAt) : NaN;
     if (!Number.isNaN(lastVisitedAt) && lastVisitedAt >= turnCompletedAt) return;
 
     markThreadVisited(autoReadThreadId);
   }, [
+    chatHost,
     autoReadThreadId,
     activeTurnCompletedAt,
     isInactiveSplitPane,
@@ -1421,11 +1443,12 @@ export default function ChatView({
     const returned = {
       snoozedUntil: activeSnoozedUntil,
       snoozeReminderAt: activeSnoozeReminderAt,
-      lastVisitedAt: getThreadFromState(useStore.getState(), autoReadThreadId)?.lastVisitedAt,
+      lastVisitedAt: getThreadFromState(chatHost.store.getState(), autoReadThreadId)?.lastVisitedAt,
     };
     if (hasUnseenSnoozeReturn(returned))
       markThreadVisited(autoReadThreadId, activeSnoozeReminderAt);
   }, [
+    chatHost,
     autoReadThreadId,
     isInactiveSplitPane,
     activeSnoozedUntil,
@@ -2345,8 +2368,8 @@ export default function ChatView({
         })
       : null;
 
-  const branchesQuery = useQuery(gitBranchesQueryOptions(gitBranchSourceCwd));
-  const gitStatusQuery = useQuery(gitStatusQueryOptions(gitBranchSourceCwd));
+  const branchesQuery = useQuery(gitBranchesQueryOptions(gitBranchSourceCwd, chatHost.hostId));
+  const gitStatusQuery = useQuery(gitStatusQueryOptions(gitBranchSourceCwd, true, chatHost.hostId));
   const localFolderBrowseRootPath = getLocalFolderBrowseRootPath(
     serverConfigQuery.data?.homeDir ?? null,
     isMacNavigatorPlatform(),
@@ -2420,7 +2443,7 @@ export default function ChatView({
   );
   const onRespondToClaudeCacheReview = useCallback(
     async (review: PendingClaudeCacheReview, decision: ClaudeCacheReviewDecision) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       if (!api) throw new Error("Reconnect before choosing how to resume.");
       await api.orchestration.dispatchCommand({
         type: "thread.claude-cache.respond",
@@ -2433,7 +2456,7 @@ export default function ChatView({
       });
       if (decision === "never") updateSettings({ claudeConfirmColdCacheResume: false });
     },
-    [threadId, updateSettings],
+    [chatHost, threadId, updateSettings],
   );
   const activeRootBranch = useMemo(
     () =>
@@ -2845,7 +2868,7 @@ export default function ChatView({
   }, [browserOpen, navigate, onToggleBrowserPanel, threadId]);
   const openBrowserUrl = useCallback(
     (url: string) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       void api?.browser.open({ threadId, initialUrl: url }).catch((error) => {
         toastManager.add({
           type: "error",
@@ -2868,7 +2891,7 @@ export default function ChatView({
         }),
       });
     },
-    [navigate, onOpenBrowserUrl, threadId],
+    [chatHost, navigate, onOpenBrowserUrl, threadId],
   );
   // Chat links offer the built-in review view only for repositories this project owns,
   // matching the Environment panel; any other pull request or issue falls back to the in-app
@@ -2889,7 +2912,12 @@ export default function ChatView({
       return;
     }
     const { kind, repository, number } = item;
-    void queryClient.fetchQuery(gitGithubRepositoryQueryOptions(gitBranchSourceCwd)).then(
+    const repositoryQuery = gitGithubRepositoryQueryOptions(
+      gitBranchSourceCwd,
+      true,
+      chatHost.hostId,
+    );
+    void queryClient.fetchQuery(repositoryQuery).then(
       (result) => {
         const belongsToProject = result.repositories.some(
           (candidate) => candidate.nameWithOwner.toLowerCase() === repository.toLowerCase(),
@@ -2946,7 +2974,7 @@ export default function ChatView({
   const setThreadError = useCallback(
     (targetThreadId: ThreadId | null, error: string | null) => {
       if (!targetThreadId) return;
-      if (getThreadFromState(useStore.getState(), targetThreadId)) {
+      if (getThreadFromState(chatHost.store.getState(), targetThreadId)) {
         setStoreThreadError(targetThreadId, error);
         return;
       }
@@ -2960,12 +2988,14 @@ export default function ChatView({
         };
       });
     },
-    [setLocalDraftErrorsByThreadId, setStoreThreadError],
+    [chatHost, setLocalDraftErrorsByThreadId, setStoreThreadError],
   );
   const composerImageAttachmentCount = useCallback(
     () =>
-      effectiveComposerAttachmentCount(useComposerDraftStore.getState().draftsByThreadId[threadId]),
-    [threadId],
+      effectiveComposerAttachmentCount(
+        useComposerDraftStore.getState().draftsByThreadId[scopeThread(chatHost.hostId, threadId)],
+      ),
+    [chatHost, threadId],
   );
   const commitPreparedComposerImages = useCallback(
     (images: ComposerImageAttachment[]) => addComposerImagesToDraft(images),
@@ -3254,7 +3284,7 @@ export default function ChatView({
   // Temporary threads are visually identical to regular chats — they use the same
   // Environment panel + header controls. "Temporary" is purely a sidebar badge +
   // auto-delete-on-leave concern, never a stripped-down chat UI.
-  const environmentEnabled = !isEditorRail && !hideHeader;
+  const environmentEnabled = !isEditorRail && !hideHeader && !isRemoteHost;
   const environmentUsesFloatingOverlay =
     isTerminalEnvironmentContext || isMobileViewport || rightDockOpen || surfaceMode === "split";
   const environmentDefaultOpen = resolveDefaultEnvironmentPanelOpen({
@@ -3345,7 +3375,7 @@ export default function ChatView({
     [chooseAuxiliarySurface, closeEnvironmentPanelAfterAction],
   );
   const githubRepositoryQuery = useQuery(
-    gitGithubRepositoryQueryOptions(gitBranchSourceCwd, environmentPanelVisible),
+    gitGithubRepositoryQueryOptions(gitBranchSourceCwd, environmentPanelVisible, chatHost.hostId),
   );
   const threadRecap = useThreadRecap({
     thread: activeThread,
@@ -3377,7 +3407,7 @@ export default function ChatView({
       },
     ) => {
       if (!activeThreadId) return;
-      storeSetTerminalMetadata(activeThreadId, terminalId, metadata);
+      storeSetTerminalMetadata(scopeThread(chatHost.hostId, activeThreadId), terminalId, metadata);
     },
     onTerminalActivityChange: (
       terminalId: string,
@@ -3387,7 +3417,7 @@ export default function ChatView({
       },
     ) => {
       if (!activeThreadId) return;
-      storeSetTerminalActivity(activeThreadId, terminalId, activity);
+      storeSetTerminalActivity(scopeThread(chatHost.hostId, activeThreadId), terminalId, activity);
     },
     ...(canAddTerminalContextToChat ? { onAddTerminalContext: addTerminalContextToDraft } : {}),
   };
@@ -3406,7 +3436,7 @@ export default function ChatView({
     setThreadError,
   });
   const stopActiveThreadSession = useCallback(async () => {
-    const api = readNativeApi();
+    const api = chatHost.api();
     if (
       !api ||
       !isServerThread ||
@@ -3423,7 +3453,7 @@ export default function ChatView({
       threadId: activeThread.id,
       createdAt: new Date().toISOString(),
     });
-  }, [activeThread, isServerThread]);
+  }, [chatHost, activeThread, isServerThread]);
   const {
     handoffBusy,
     worktreeHandoffDialogOpen,
@@ -3511,7 +3541,9 @@ export default function ChatView({
     setTailAnchor(null);
   }, [settings.anchorSentMessagesToTop, tailAnchorScrollInFlightRef]);
   const selectionChatEnvMode = useProjectEnvironmentStore((state) =>
-    activeProject ? state.envModeByProjectId[activeProject.id] : undefined,
+    activeProject
+      ? state.envModeByProjectId[scopeProject(chatHost.hostId, activeProject.id)]
+      : undefined,
   );
   const {
     pendingTranscriptSelectionAction,
@@ -3847,8 +3879,14 @@ export default function ChatView({
     if (terminalState.entryPoint !== "terminal") {
       return;
     }
-    storeOpenTerminalThreadPage(activeThreadId);
-  }, [activatedThreadIdRef, activeThreadId, storeOpenTerminalThreadPage, terminalState.entryPoint]);
+    storeOpenTerminalThreadPage(scopeThread(chatHost.hostId, activeThreadId));
+  }, [
+    chatHost,
+    activatedThreadIdRef,
+    activeThreadId,
+    storeOpenTerminalThreadPage,
+    terminalState.entryPoint,
+  ]);
 
   useEffect(() => {
     if (!terminalWorkspaceOpen) {
@@ -3874,7 +3912,7 @@ export default function ChatView({
   ]);
 
   const onInterrupt = useCallback(async () => {
-    const api = readNativeApi();
+    const api = chatHost.api();
     if (!api || !activeThread) return;
     // A user Stop pauses the waiting queue instead of sending it after the turn.
     const releaseQueueHold = holdQueuedComposerTurnsForStop(activeThread.id);
@@ -3890,7 +3928,7 @@ export default function ChatView({
         releaseQueueHold();
         throw error;
       });
-  }, [activeThread]);
+  }, [chatHost, activeThread]);
 
   // A rejected interrupt (orchestration dispatch timeout, dead runtime) leaves the
   // UI spinning with no explanation, so the stop affordances report it.
@@ -3911,7 +3949,7 @@ export default function ChatView({
   // leaves the row running, so the failure is reported instead of swallowed.
   const onStopBackgroundTask = useCallback(
     (taskId: string) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       if (!api || !activeThread) return;
       void api.orchestration
         .dispatchCommand({
@@ -3929,11 +3967,11 @@ export default function ChatView({
           });
         });
     },
-    [activeThread],
+    [chatHost, activeThread],
   );
 
   const onStopWorkflowRun = useCallback(async () => {
-    const api = readNativeApi();
+    const api = chatHost.api();
     if (!api || !activeThread || !workflowRunState) return;
     await api.orchestration.dispatchCommand({
       type: "thread.task.stop",
@@ -3942,7 +3980,7 @@ export default function ChatView({
       taskId: workflowRunState.workflowTaskId,
       createdAt: new Date().toISOString(),
     });
-  }, [activeThread, workflowRunState]);
+  }, [chatHost, activeThread, workflowRunState]);
 
   const {
     backgroundSubagent: onBackgroundSubagentStripItem,
@@ -3961,15 +3999,15 @@ export default function ChatView({
   const onPauseWorkflowRun = useCallback(async () => {
     if (!workflowRunState || !activeThreadId) return;
     const { workflowTaskId } = workflowRunState;
-    markWorkflowRunPaused(activeThreadId, workflowTaskId);
+    markWorkflowRunPaused(scopeThread(chatHost.hostId, activeThreadId), workflowTaskId);
     await onStopWorkflowRun();
-  }, [activeThreadId, markWorkflowRunPaused, onStopWorkflowRun, workflowRunState]);
+  }, [chatHost, activeThreadId, markWorkflowRunPaused, onStopWorkflowRun, workflowRunState]);
 
   const onDismissWorkflowRun = useCallback(() => {
     if (!workflowRunState || !activeThreadId) return;
     const { workflowTaskId } = workflowRunState;
-    markWorkflowRunDismissed(activeThreadId, workflowTaskId);
-  }, [activeThreadId, markWorkflowRunDismissed, workflowRunState]);
+    markWorkflowRunDismissed(scopeThread(chatHost.hostId, activeThreadId), workflowTaskId);
+  }, [chatHost, activeThreadId, markWorkflowRunDismissed, workflowRunState]);
 
   const onProviderModelSelect = useCallback(
     async (
@@ -4033,7 +4071,10 @@ export default function ChatView({
         nextRuntimeMode,
         persistRuntimeMode: persistRuntimeModeChange,
         commit: () => {
-          setComposerDraftModelSelectionAndSticky(activeThread.id, nextModelSelection);
+          setComposerDraftModelSelectionAndSticky(
+            scopeThread(chatHost.hostId, activeThread.id),
+            nextModelSelection,
+          );
           if (provider === "cursor" && !selectionOptions?.modelOptions) {
             setComposerDraftProviderModelOptions(
               activeThread.id,
@@ -4060,6 +4101,7 @@ export default function ChatView({
       scheduleComposerFocus();
     },
     [
+      chatHost,
       activeThread,
       boundProvider,
       customModelsByProvider,
@@ -4234,7 +4276,9 @@ export default function ChatView({
       const { files: nextFiles, error } = buildComposerFileAttachmentsFromFiles({
         files,
         existingAttachmentCount: effectiveComposerAttachmentCount(
-          useComposerDraftStore.getState().draftsByThreadId[activeThreadId],
+          useComposerDraftStore.getState().draftsByThreadId[
+            scopeThread(chatHost.hostId, activeThreadId)
+          ],
         ),
       });
 
@@ -4247,6 +4291,7 @@ export default function ChatView({
       );
     },
     [
+      chatHost,
       activeThreadId,
       addComposerFilesToDraft,
       isSidechatExpired,
@@ -4328,7 +4373,7 @@ export default function ChatView({
 
   const onRevertToTurnCount = useCallback(
     async (turnCount: number) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       if (!api || !activeThread || isRevertingCheckpoint) return;
 
       if (hasLiveTurn || isSendBusy || isConnecting) {
@@ -4366,6 +4411,7 @@ export default function ChatView({
       setIsRevertingCheckpoint(false);
     },
     [
+      chatHost,
       setIsRevertingCheckpoint,
       activeThread,
       hasLiveTurn,
@@ -4378,7 +4424,7 @@ export default function ChatView({
 
   const onUndoTurnFiles = useCallback(
     async (turnCounts: readonly number[]) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       if (!api || !activeThread || isRevertingCheckpoint || turnCounts.length === 0) return;
 
       if (hasLiveTurn || isSendBusy || isConnecting) {
@@ -4431,6 +4477,7 @@ export default function ChatView({
       });
     },
     [
+      chatHost,
       setIsRevertingCheckpoint,
       setPendingFileUndo,
       activeThread,
@@ -5174,7 +5221,8 @@ export default function ChatView({
       const draft = (
         composerEditorRef.current?.readSnapshot()?.value ?? promptRef.current
       ).trimEnd();
-      const stagedDraft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+      const stagedDraft =
+        useComposerDraftStore.getState().draftsByThreadId[scopeThread(chatHost.hostId, threadId)];
       const hasStagedContext =
         isPreparingComposerImages ||
         (stagedDraft !== undefined &&
@@ -5188,7 +5236,14 @@ export default function ChatView({
       setComposerPromptValue(message);
       setComposerAutoSendRequest((current) => current + 1);
     },
-    [composerEditorRef, promptRef, setComposerPromptValue, threadId, isPreparingComposerImages],
+    [
+      chatHost,
+      composerEditorRef,
+      promptRef,
+      setComposerPromptValue,
+      threadId,
+      isPreparingComposerImages,
+    ],
   );
 
   // A denied task offers the same visible, one-request invocation as the slash menu.
@@ -5493,9 +5548,11 @@ export default function ChatView({
   const onOpenThreadSplit = useCallback(
     (nextThreadId: ThreadId) => {
       const ownerProjectId =
-        useStore.getState().sidebarThreadSummaryById[nextThreadId]?.projectId ?? activeProjectId;
+        chatHost.store.getState().sidebarThreadSummaryById[nextThreadId]?.projectId ??
+        activeProjectId;
       if (!ownerProjectId) return;
       const splitViewId = useSplitViewStore.getState().createFromThread({
+        hostId: LOCAL_HOST_ID,
         sourceThreadId: nextThreadId,
         ownerProjectId,
       });
@@ -5506,7 +5563,7 @@ export default function ChatView({
         search: () => ({ splitViewId }),
       });
     },
-    [activeProjectId, navigate],
+    [chatHost, activeProjectId, navigate],
   );
   const activeProjectIdForNewChat = activeProject?.id ?? null;
   const onNewEditorChat = useCallback(() => {
@@ -5521,10 +5578,10 @@ export default function ChatView({
   }, [activeProjectIdForNewChat, handleNewThread]);
   const onOpenEditorChat = useCallback(
     (nextThreadId: ThreadId) => {
-      storeOpenChatThreadPage(nextThreadId);
+      storeOpenChatThreadPage(scopeThread(chatHost.hostId, nextThreadId));
       return onNavigateToThread(nextThreadId);
     },
-    [onNavigateToThread, storeOpenChatThreadPage],
+    [chatHost, onNavigateToThread, storeOpenChatThreadPage],
   );
   const onOpenEditorTerminal = useCallback(() => {
     if (!activeThreadId) return;
@@ -5562,9 +5619,9 @@ export default function ChatView({
     if (!targetProjectId) return;
     // The shared New thread path reopens a pending draft before creating a chat. Keep
     // that draft's workspace instead of retargeting its unsent text to the viewed chat.
-    const pendingProjectDraft = useComposerDraftStore
-      .getState()
-      .getDraftThreadByProjectId(targetProjectId);
+    const pendingProjectDraft = localProjectDraftThread(
+      useComposerDraftStore.getState().getDraftThreadByProjectId(targetProjectId),
+    );
     void handleNewThread(
       targetProjectId,
       resolveInheritedThreadContext({
@@ -5905,9 +5962,14 @@ export default function ChatView({
       ? { onCheckoutPullRequestRequest: openPullRequestDialog }
       : {}),
   };
-  const showTrailingBranchToolbar = !activeThreadIsSidechat && isGitRepo && !environmentEnabled;
+  // A host's branch actions would run here, so its chat shows no branch toolbar (U6).
+  const showTrailingBranchToolbar =
+    !activeThreadIsSidechat && isGitRepo && !environmentEnabled && !isRemoteHost;
   const showEmptyLandingBranchToolbar =
-    isCenteredEmptyLanding && activeProject?.kind === "project" && !isHomeChatContainer;
+    isCenteredEmptyLanding &&
+    activeProject?.kind === "project" &&
+    !isHomeChatContainer &&
+    !isRemoteHost;
   // Temporary is chosen while starting a chat. Draft metadata covers local reloads;
   // the in-memory marker keeps the badge + auto-delete alive through promotion.
   const isThreadTemporary = draftThread?.isTemporary === true || hasTemporaryThreadMarker;
@@ -5977,6 +6039,7 @@ export default function ChatView({
             ? {
                 onSelectProject: handleSelectProjectForEmptyDraft,
                 onCreateProjectFromPath: handleCreateProjectFromPickerPath,
+                hostThreads: hostThreadPicker,
               }
             : {})}
         />
@@ -5997,6 +6060,7 @@ export default function ChatView({
           onSelectProject={handleSelectProjectForEmptyDraft}
           onCreateProjectFromPath={handleCreateProjectFromPickerPath}
           onResetToHome={handleResetWorkspaceToHome}
+          hostThreads={hostThreadPicker}
         />
       ) : (
         emptyLandingProjectChip
@@ -6115,7 +6179,8 @@ export default function ChatView({
     canCopyProjectInstructionsToNotes: !isLocalDraftThread,
     onProjectInstructionsChange: serverProjectInstructions.serverBacked
       ? serverProjectInstructions.onChange
-      : setProjectInstructions,
+      : (projectId: ProjectId, instructions: string) =>
+          setProjectInstructions(scopeProject(chatHost.hostId, projectId), instructions),
     onCopyProjectInstructionsToNotes: handleCopyProjectInstructionsToNotes,
     onToggleDiff,
     onOpenAutomation: (definition: AutomationDefinition) => onOpenAutomation(definition.id),
@@ -6770,7 +6835,8 @@ export default function ChatView({
                     closeActiveTabRef={closeActiveThreadTabRef}
                     onRenameActiveThread={() => setRenameDialogOpen(true)}
                     onNewThread={
-                      activeProjectScripts !== undefined && !isCenteredEmptyLanding
+                      // A host's new thread starts from its project row, not a local draft.
+                      activeProjectScripts !== undefined && !isCenteredEmptyLanding && !isRemoteHost
                         ? onNewThreadFromHeader
                         : null
                     }
@@ -6780,13 +6846,17 @@ export default function ChatView({
             : {})}
           isSidechat={isSidechatThread(activeThread)}
           hideSidebarControls={isEditorRail}
-          hideHandoffControls={terminalWorkspaceTerminalTabActive || isEditorRail}
+          hideHandoffControls={terminalWorkspaceTerminalTabActive || isEditorRail || isRemoteHost}
+          hideOpenIn={isRemoteHost}
           minimalChrome={isCenteredEmptyLanding}
           isGitRepo={isGitRepo}
           openInTarget={threadWorkspaceCwd}
-          activeProjectScripts={isEditorRail ? undefined : activeProjectScripts}
+          activeProjectScripts={isEditorRail || isRemoteHost ? undefined : activeProjectScripts}
           preferredScriptId={
-            activeProject ? (lastInvokedScriptByProjectId[activeProject.id] ?? null) : null
+            activeProject
+              ? (lastInvokedScriptByProjectId[scopeProject(chatHost.hostId, activeProject.id)] ??
+                null)
+              : null
           }
           keybindings={keybindings}
           availableEditors={availableEditors}
@@ -6800,15 +6870,15 @@ export default function ChatView({
           showHeaderActions={settings.showHeaderActions}
           gitCwd={threadWorkspaceCwd}
           diffTotals={repoDiffTotals}
-          showGitActions={showGitActions && !isEditorRail}
-          showDiffToggle={!isEditorRail}
+          showGitActions={showGitActions && !isEditorRail && !isRemoteHost}
+          showDiffToggle={!isEditorRail && !isRemoteHost}
           diffOpen={resolvedDiffOpen}
           diffDisabledReason={diffDisabledReason}
           rightDockOpen={rightDockOpen}
           {...(onToggleRightDock ? { onToggleRightDock } : {})}
-          environment={isEditorRail ? null : environmentHeaderState}
-          projectPanel={isEditorRail ? null : projectHeaderState}
-          libraryPanel={isEditorRail ? null : libraryHeaderState}
+          environment={isEditorRail || isRemoteHost ? null : environmentHeaderState}
+          projectPanel={isEditorRail || isRemoteHost ? null : projectHeaderState}
+          libraryPanel={isEditorRail || isRemoteHost ? null : libraryHeaderState}
           surfaceMode={surfaceMode}
           editorChatControls={
             isEditorRail && activeProject
@@ -6965,6 +7035,7 @@ export default function ChatView({
                               onSelectProject={handleSelectProjectForEmptyDraft}
                               onCreateProjectFromPath={handleCreateProjectFromPickerPath}
                               onResetToHome={handleResetWorkspaceToHome}
+                              hostThreads={hostThreadPicker}
                               renderTrigger={
                                 <button
                                   type="button"
@@ -7139,7 +7210,7 @@ export default function ChatView({
                       <GroupPausedBanner
                         projectId={activeThread!.projectId}
                         onResume={async () => {
-                          const api = readNativeApi();
+                          const api = chatHost.api();
                           if (!api?.projectAgent || !activeThread) return;
                           const overview = await api.projectAgent
                             .resumeGroup({

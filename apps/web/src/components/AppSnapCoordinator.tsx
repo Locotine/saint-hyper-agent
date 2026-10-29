@@ -3,6 +3,7 @@
 // Layer: Root web coordinator
 // Depends on: Desktop bridge, focused chat context, and existing composer attachment intake.
 
+import { scopeLocalThread, type ScopedThreadId } from "@saint/shared/hostId";
 import {
   type DesktopAppSnapCapture,
   type DesktopAppSnapShortcut,
@@ -66,7 +67,8 @@ function isThreadAvailable(threadId: ThreadId): boolean {
   if (state.threadShellById?.[threadId]) return true;
   const draftState = useComposerDraftStore.getState();
   return Boolean(
-    draftState.draftsByThreadId[threadId] || draftState.draftThreadsByThreadId[threadId],
+    draftState.draftsByThreadId[scopeLocalThread(threadId)] ||
+    draftState.draftThreadsByThreadId[scopeLocalThread(threadId)],
   );
 }
 
@@ -91,7 +93,7 @@ async function hydratePersistedAppSnaps(
 ): Promise<void> {
   const draftStore = useComposerDraftStore.getState();
   for (const [rawThreadId, draft] of Object.entries(draftStore.draftsByThreadId)) {
-    const threadId = rawThreadId as ThreadId;
+    const threadId = rawThreadId as ScopedThreadId;
     const targets: PersistedAppSnapHydrationTarget[] = [
       {
         attachments: draft.persistedAttachments,
@@ -309,7 +311,7 @@ export function AppSnapCoordinator() {
 
   const activateExistingTarget = useCallback(
     async (target: AppSnapThreadTarget) => {
-      openChatThreadPage(target.threadId);
+      openChatThreadPage(scopeLocalThread(target.threadId));
       // Same thread is only "already active" when the split pane matches too;
       // a capture aimed at another pane still needs activation below.
       const focused = focusedTargetRef.current;
@@ -323,7 +325,7 @@ export function AppSnapCoordinator() {
       const splitActivation = resolveRecentThreadSplitActivation({
         view: {
           kind: "thread",
-          threadId: target.threadId,
+          threadId: scopeLocalThread(target.threadId),
           ...(target.splitViewId ? { splitViewId: target.splitViewId } : {}),
         },
         splitViewsById: useSplitViewStore.getState().splitViewsById,
@@ -369,7 +371,7 @@ export function AppSnapCoordinator() {
         if (!result.ok) throw new Error(result.error);
         if (result.threadId) {
           target = { threadId: result.threadId };
-          openChatThreadPage(target.threadId);
+          openChatThreadPage(scopeLocalThread(target.threadId));
         } else {
           // A null threadId means a concurrent navigation superseded the
           // fresh-thread creation: the user actively went somewhere else, so
@@ -377,7 +379,7 @@ export function AppSnapCoordinator() {
           const focused = focusedTargetRef.current;
           if (!focused) throw new Error("Saint could not create a task for this AppSnap.");
           target = focused;
-          openChatThreadPage(target.threadId);
+          openChatThreadPage(scopeLocalThread(target.threadId));
         }
       }
 

@@ -1,9 +1,10 @@
 // One terminal viewport per chat or dock scope. The owning surface supplies its header.
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { useEffect, useRef } from "react";
 import { type ThreadId } from "@saint/contracts";
 import { type TerminalActivityState, type TerminalCliKind } from "@saint/shared/terminalThreads";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useTerminalStateStore } from "~/terminalStateStore";
 import { disposeAndCloseTerminalSession } from "./terminal/terminalSession";
 import TerminalViewport from "./terminal/TerminalViewport";
@@ -34,11 +35,11 @@ export default function ThreadTerminalDrawer(props: ThreadTerminalDrawerProps) {
   const { threadId, activeTerminalId } = props;
   const retiring = useRef(new Set<string>());
   const retiredTerminalIds = useTerminalStateStore(
-    (state) => state.terminalStateByThreadId[threadId]?.retiredTerminalIds,
+    (state) => state.terminalStateByThreadId[scopeLocalThread(threadId)]?.retiredTerminalIds,
   );
   const forgetRetiredTerminal = useTerminalStateStore((state) => state.forgetRetiredTerminal);
   useEffect(() => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     for (const terminalId of retiredTerminalIds ?? []) {
       const key = `${threadId}::${terminalId}`;
@@ -53,7 +54,7 @@ export default function ThreadTerminalDrawer(props: ThreadTerminalDrawerProps) {
         onlyIfIdle: true,
       })
         .then(() => {
-          forgetRetiredTerminal(threadId, terminalId);
+          forgetRetiredTerminal(scopeLocalThread(threadId), terminalId);
         })
         .catch((error: unknown) => {
           console.error("Failed to retire nested terminal", { threadId, terminalId, error });

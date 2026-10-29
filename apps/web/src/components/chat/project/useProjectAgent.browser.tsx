@@ -49,8 +49,8 @@ const harness = vi.hoisted(() => {
 });
 
 vi.mock("~/nativeApi", () => ({
-  readNativeApi: () => harness.api,
-  ensureNativeApi: () => harness.api,
+  readLocalNativeApi: () => harness.api,
+  ensureLocalNativeApi: () => harness.api,
 }));
 
 import { useProjectAgent } from "./useProjectAgent";

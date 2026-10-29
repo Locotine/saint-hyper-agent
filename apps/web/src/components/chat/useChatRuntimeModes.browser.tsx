@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import {
   ThreadId,
   type ProviderModelDescriptor,
@@ -12,7 +13,7 @@ import { useChatRuntimeModes } from "./useChatRuntimeModes";
 const { dispatchCommand } = vi.hoisted(() => ({ dispatchCommand: vi.fn(async () => {}) }));
 vi.mock("../../nativeApi", async (original) => ({
   ...(await original<typeof import("../../nativeApi")>()),
-  readNativeApi: () => ({ orchestration: { dispatchCommand } }),
+  readLocalNativeApi: () => ({ orchestration: { dispatchCommand } }),
 }));
 
 afterEach(async () => {
@@ -65,12 +66,16 @@ function Harness({
 }
 
 it("keeps the chosen Auto mode while provider capabilities load or reconnect", async () => {
-  useComposerDraftStore.getState().setRuntimeMode(threadId, "auto");
+  useComposerDraftStore.getState().setRuntimeMode(scopeLocalThread(threadId), "auto");
   const mounted = await render(<Harness providerStatus={null} />);
-  expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.runtimeMode).toBe("auto");
+  expect(
+    useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.runtimeMode,
+  ).toBe("auto");
   await mounted.rerender(<Harness providerStatus={status} />);
   await mounted.rerender(<Harness providerStatus={null} />);
-  expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.runtimeMode).toBe("auto");
+  expect(
+    useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.runtimeMode,
+  ).toBe("auto");
 });
 
 it("does not persist a stricter mode for an existing Hub worker before discovery arrives", async () => {
@@ -99,9 +104,11 @@ it("keeps Claude Auto while model metadata loads, but respects explicit model in
     driver: "claudeAgent",
     instanceId: "claudeAgent",
   } as const;
-  useComposerDraftStore.getState().setRuntimeMode(threadId, "auto");
+  useComposerDraftStore.getState().setRuntimeMode(scopeLocalThread(threadId), "auto");
   const mounted = await render(<Harness providerStatus={claudeStatus} />);
-  expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.runtimeMode).toBe("auto");
+  expect(
+    useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.runtimeMode,
+  ).toBe("auto");
   await mounted.rerender(
     <Harness
       providerStatus={claudeStatus}
@@ -109,18 +116,18 @@ it("keeps Claude Auto while model metadata loads, but respects explicit model in
     />,
   );
   await vi.waitFor(() =>
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.runtimeMode).toBe(
-      "approval-required",
-    ),
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.runtimeMode,
+    ).toBe("approval-required"),
   );
 });
 
 it("still falls back when the provider explicitly reports Auto is unsupported", async () => {
-  useComposerDraftStore.getState().setRuntimeMode(threadId, "auto");
+  useComposerDraftStore.getState().setRuntimeMode(scopeLocalThread(threadId), "auto");
   await render(<Harness providerStatus={{ ...status, supportsAutoRuntimeMode: false }} />);
   await vi.waitFor(() =>
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.runtimeMode).toBe(
-      "approval-required",
-    ),
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.runtimeMode,
+    ).toBe("approval-required"),
   );
 });

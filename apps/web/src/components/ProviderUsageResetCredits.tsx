@@ -17,7 +17,7 @@ import {
   readCodexResetAttempt,
 } from "~/lib/codexResetAttempt";
 import { consumeCodexResetCredit, serverQueryKeys } from "~/lib/serverReactQuery";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 
 function formatExpiry(expiresAt: string | undefined, now: number): string {
   if (!expiresAt) return "No expiry listed";
@@ -75,7 +75,7 @@ export function ProviderUsageResetCredits({
     locked.current = true;
     setConfirming(true);
     try {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const message =
         "Use one Codex reset?\nThis spends one banked reset and cannot be undone. Saint will check your current account and usage first.";
       const confirmed = api

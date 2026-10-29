@@ -21,8 +21,8 @@ vi.mock("../hooks/useDiffRouteSearch", () => ({
 }));
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: () => undefined,
-  ensureNativeApi: () => {
+  readLocalNativeApi: () => undefined,
+  ensureLocalNativeApi: () => {
     throw new Error("This diff preference test must not call the server.");
   },
   readNativeApiServerCapability: () => false,

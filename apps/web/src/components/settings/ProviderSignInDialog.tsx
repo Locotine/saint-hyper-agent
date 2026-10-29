@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRefreshProviderStatusesNow } from "~/hooks/useProviderStatusRefresh";
 import { serverConfigQueryOptions, serverQueryKeys } from "~/lib/serverReactQuery";
-import { ensureNativeApi, readNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi, readLocalNativeApi } from "~/nativeApi";
 import TerminalViewport from "../terminal/TerminalViewport";
 import type { TerminalRuntimeStatus } from "../terminal/terminalRuntimeTypes";
 import { disposeAndCloseTerminalSession } from "../terminal/terminalSession";
@@ -84,7 +84,7 @@ export default function ProviderSignInDialog(props: {
       queueMicrotask(() => {
         if (alive.current) return;
         void disposeAndCloseTerminalSession({
-          api: readNativeApi(),
+          api: readLocalNativeApi(),
           ...session,
           requireStructuredClose: true,
         })
@@ -104,7 +104,7 @@ export default function ProviderSignInDialog(props: {
     setClosing(true);
     try {
       await disposeAndCloseTerminalSession({
-        api: readNativeApi(),
+        api: readLocalNativeApi(),
         ...session,
         requireStructuredClose: true,
       });
@@ -127,7 +127,7 @@ export default function ProviderSignInDialog(props: {
     if (!interactiveCommand || optionsSent) return;
     setOptionsSent(true);
     try {
-      await ensureNativeApi().terminal.write({ ...session, data: `${interactiveCommand}\r` });
+      await ensureLocalNativeApi().terminal.write({ ...session, data: `${interactiveCommand}\r` });
     } catch (error) {
       if (!alive.current) return;
       setOptionsSent(false);

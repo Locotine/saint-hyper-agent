@@ -35,7 +35,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { ProjectSidebarIcon } from "./ProjectSidebarIcon";
 import { ProviderIcon as SharedProviderIcon } from "./ProviderIcon";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { cn, getNavigatorPlatform, isMacPlatform } from "~/lib/utils";
 import { ShortcutKbd } from "./ui/kbd";
 import {
@@ -433,7 +433,7 @@ export function SidebarSearchPalette(props: SidebarSearchPaletteProps) {
       queryKey: ["sidebar-palette-browse", expandedBrowsePath],
       queryFn: async () => {
         if (!canBrowse || expandedBrowsePath.length === 0) return null;
-        const api = readNativeApi();
+        const api = readLocalNativeApi();
         if (!api) return null;
         return await api.filesystem.browse({ partialPath: expandedBrowsePath });
       },
@@ -501,7 +501,7 @@ export function SidebarSearchPalette(props: SidebarSearchPaletteProps) {
   const { data: serverThreadSearch } = useQuery({
     queryKey: ["sidebar-palette-thread-search", debouncedThreadQuery],
     queryFn: async () => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return null;
       const result = await api.orchestration.searchThreads({
         query: debouncedThreadQuery,

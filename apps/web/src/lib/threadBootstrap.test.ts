@@ -1,4 +1,5 @@
 import { ProjectId, type ModelSelection, ThreadId } from "@saint/contracts";
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { describe, expect, it } from "vitest";
 import { type ComposerThreadDraftState, type DraftThreadState } from "../composerDraftStore";
 import {
@@ -95,7 +96,7 @@ describe("threadBootstrap", () => {
   it("does not reopen an already promoted draft as a new thread", () => {
     expect(
       shouldReuseActiveDraftThread({
-        draftThread: { ...makeDraftThread(), promotedTo: THREAD_ID },
+        draftThread: { ...makeDraftThread(), promotedTo: scopeLocalThread(THREAD_ID) },
         entryPoint: "terminal",
         projectId: PROJECT_ID,
         routeThreadId: THREAD_ID,

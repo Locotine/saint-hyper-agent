@@ -2,6 +2,7 @@
 // Purpose: Verifies focus-switch cleanup decisions for temporary threads.
 // Layer: Web route/domain helper tests
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 import { resolveTemporaryThreadIdToDelete } from "./temporaryThread";
@@ -17,7 +18,7 @@ describe("resolveTemporaryThreadIdToDelete", () => {
         previousThreadId: THREAD_A,
         nextThreadId: THREAD_A,
         draftThreadsByThreadId: {
-          [THREAD_A]: {
+          [scopeLocalThread(THREAD_A)]: {
             projectId: PROJECT_ID,
             createdAt: "2026-04-07T10:00:00.000Z",
             runtimeMode: "full-access",
@@ -39,7 +40,7 @@ describe("resolveTemporaryThreadIdToDelete", () => {
         previousThreadId: THREAD_A,
         nextThreadId: THREAD_B,
         draftThreadsByThreadId: {
-          [THREAD_A]: {
+          [scopeLocalThread(THREAD_A)]: {
             projectId: PROJECT_ID,
             createdAt: "2026-04-07T10:00:00.000Z",
             runtimeMode: "full-access",
@@ -60,7 +61,7 @@ describe("resolveTemporaryThreadIdToDelete", () => {
         previousThreadId: THREAD_A,
         nextThreadId: THREAD_B,
         draftThreadsByThreadId: {
-          [THREAD_A]: {
+          [scopeLocalThread(THREAD_A)]: {
             projectId: PROJECT_ID,
             createdAt: "2026-04-07T10:00:00.000Z",
             runtimeMode: "full-access",

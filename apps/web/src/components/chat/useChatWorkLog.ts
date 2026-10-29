@@ -1,3 +1,5 @@
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import { OrchestrationThreadActivity, type TurnId } from "@saint/contracts";
 import { useMemo } from "react";
 import { setsEqual, useStableValue } from "../../hooks/useStableValue";
@@ -27,6 +29,7 @@ export function useChatWorkLog({
   latestTurnSettled,
   latestTurnLive,
 }: ChatWorkLogInput) {
+  const chatHost = useHostHandle();
   const activeThreadId = activeThread?.id ?? null;
   const activeLatestTurn = activeThread?.latestTurn ?? null;
   const activeLatestTurnId = activeLatestTurn?.turnId ?? null;
@@ -214,7 +217,9 @@ export function useChatWorkLog({
   // card apart from a plain stop; dismissed retires a settled card the run's
   // activities would otherwise keep visible. Survive reloads via
   // workflowRunUiStore instead of living in component state.
-  const workflowRunUiThreadState = useWorkflowRunUiThreadState(activeThreadId);
+  const workflowRunUiThreadState = useWorkflowRunUiThreadState(
+    activeThreadId ? scopeThread(chatHost.hostId, activeThreadId) : null,
+  );
   const pausedWorkflowTaskIds = useMemo(
     () => new Set(workflowRunUiThreadState.pausedByUser),
     [workflowRunUiThreadState.pausedByUser],

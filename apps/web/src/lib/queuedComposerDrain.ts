@@ -6,6 +6,7 @@
 //          locked-dispatch helper, steer-gate sharing, stop hold, ChatView
 //          claim/release, watcher start
 
+import { localThreadIdFromKey, scopeLocalThread } from "@saint/shared/hostId";
 import type { AssistantDeliveryMode, MessageId, ThreadId } from "@saint/contracts";
 
 import {
@@ -151,32 +152,35 @@ export function holdQueuedComposerTurnsForStop(threadId: ThreadId): () => void {
   const thread = getThreadFromState(useStore.getState(), threadId);
   const stoppedTurnId = thread?.session?.activeTurnId ?? thread?.latestTurn?.turnId ?? null;
   const drafts = useComposerDraftStore.getState();
-  const previousStoppedTurnId = drafts.draftsByThreadId[threadId]?.queueStoppedTurnId ?? null;
+  const previousStoppedTurnId =
+    drafts.draftsByThreadId[scopeLocalThread(threadId)]?.queueStoppedTurnId ?? null;
   if (stoppedTurnId === null || stoppedTurnId === previousStoppedTurnId) {
     return () => {};
   }
-  drafts.pauseQueuedTurnsAfterStop(threadId, stoppedTurnId);
+  drafts.pauseQueuedTurnsAfterStop(scopeLocalThread(threadId), stoppedTurnId);
   return () => {
-    const current = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const current = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     if (current?.queueStoppedTurnId === stoppedTurnId) {
-      useComposerDraftStore.getState().pauseQueuedTurnsAfterStop(threadId, previousStoppedTurnId);
+      useComposerDraftStore
+        .getState()
+        .pauseQueuedTurnsAfterStop(scopeLocalThread(threadId), previousStoppedTurnId);
     }
   };
 }
 
 /** Releases the stop acknowledged by a successful manual send, preserving newer queue controls. */
 export function prepareQueuedComposerResumeAfterSend(threadId: ThreadId): () => void {
-  const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+  const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
   const stoppedTurnId = draft?.queueStoppedTurnId ?? null;
   const resumedTurnId = draft?.queueResumedTurnId ?? null;
   return () => {
     const drafts = useComposerDraftStore.getState();
-    const current = drafts.draftsByThreadId[threadId];
+    const current = drafts.draftsByThreadId[scopeLocalThread(threadId)];
     if (
       (current?.queueStoppedTurnId ?? null) === stoppedTurnId &&
       (current?.queueResumedTurnId ?? null) === resumedTurnId
     ) {
-      drafts.resumeQueuedTurns(threadId, null);
+      drafts.resumeQueuedTurns(scopeLocalThread(threadId), null);
     }
   };
 }
@@ -280,9 +284,11 @@ export function resetQueuedComposerDrainForTests(): void {
 function collectThreadIdsWithQueuedTurns(): ThreadId[] {
   const drafts = useComposerDraftStore.getState().draftsByThreadId;
   const threadIds: ThreadId[] = [];
-  for (const [threadId, draft] of Object.entries(drafts)) {
-    if (draft.queuedTurns.length > 0) {
-      threadIds.push(threadId as ThreadId);
+  for (const [key, draft] of Object.entries(drafts)) {
+    // Local threads only until the drain dispatches through a host API (P4).
+    const threadId = localThreadIdFromKey(key);
+    if (threadId !== null && draft.queuedTurns.length > 0) {
+      threadIds.push(threadId);
     }
   }
   return threadIds;
@@ -300,10 +306,9 @@ function haveQueuedTurnsChanged(
   current: ReturnType<typeof useComposerDraftStore.getState>["draftsByThreadId"],
   previous: ReturnType<typeof useComposerDraftStore.getState>["draftsByThreadId"],
 ): boolean {
-  const threadIds = new Set<ThreadId>([
-    ...(Object.keys(current) as ThreadId[]),
-    ...(Object.keys(previous) as ThreadId[]),
-  ]);
+  const threadIds = new Set([...Object.keys(current), ...Object.keys(previous)] as Array<
+    keyof typeof current
+  >);
   for (const threadId of threadIds) {
     if (
       current[threadId]?.queuedTurns !== previous[threadId]?.queuedTurns ||
@@ -320,7 +325,7 @@ function resetRetriesForChangedQueueHeads(
   draftsByThreadId: ReturnType<typeof useComposerDraftStore.getState>["draftsByThreadId"],
 ): void {
   for (const [threadId, retryState] of retryStateByThreadId) {
-    const queuedTurnId = draftsByThreadId[threadId]?.queuedTurns[0]?.id;
+    const queuedTurnId = draftsByThreadId[scopeLocalThread(threadId)]?.queuedTurns[0]?.id;
     if (queuedTurnId !== retryState.queuedTurnId) {
       retryStateByThreadId.delete(threadId);
     }
@@ -401,7 +406,7 @@ function resetRetriesForRelevantThreadChanges(current: AppState, previous: AppSt
 }
 
 function readQueuedComposerAutoDispatchGates(threadId: ThreadId): QueuedComposerAutoDispatchGates {
-  const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+  const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
   const thread = getThreadFromState(useStore.getState(), threadId);
   const phase = derivePhase(thread?.session ?? null);
   const hasLiveTurn = phase === "running";
@@ -592,7 +597,7 @@ function runQueuedComposerDrainPass(): void {
     if (claimedThreadIds.has(threadId)) {
       continue;
     }
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     const nextQueuedTurn = draft?.queuedTurns[0];
     if (!nextQueuedTurn) {
       continue;
@@ -632,7 +637,9 @@ function runQueuedComposerDrainPass(): void {
         if (succeeded || acceptedReview?.messageId === messageId) {
           retryStateByThreadId.delete(threadId);
           awaitingTurnStartsByThreadId.set(threadId, localDispatch);
-          useComposerDraftStore.getState().removeQueuedTurn(threadId, nextQueuedTurn.id);
+          useComposerDraftStore
+            .getState()
+            .removeQueuedTurn(scopeLocalThread(threadId), nextQueuedTurn.id);
           return;
         }
         if (getThreadFromState(useStore.getState(), threadId)?.claudeCacheReview == null) {

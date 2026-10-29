@@ -18,7 +18,7 @@ import { isHomeChatContainerProject } from "../lib/chatProjects";
 import { projectDiscoverScriptsQueryOptions } from "../lib/projectReactQuery";
 import { serverQueryKeys, sidebarLocalServersQueryOptions } from "../lib/serverReactQuery";
 import { newCommandId } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useProjectRunStore, type ProjectRunState } from "../projectRunStore";
 import {
   selectPrimaryProjectRunCommand,
@@ -141,7 +141,7 @@ export function useSidebarProjectRunController(input: {
 
   const startProjectRun = useCallback(
     async (projectId: ProjectId, commandOverride?: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const project = input.projectById.get(projectId);
       const runCommand = commandByProjectIdRef.current.get(projectId);
       if (!api || !project || !runCommand || projectRunsByProjectId[projectId]) {
@@ -190,7 +190,7 @@ export function useSidebarProjectRunController(input: {
 
   const stopProjectRun = useCallback(
     async (projectId: ProjectId) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) {
         storeRemoveProjectRun(projectId);
         return;
@@ -218,7 +218,7 @@ export function useSidebarProjectRunController(input: {
   );
 
   const openProjectRunServer = useCallback(async (projectId: ProjectId) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     const server = serverByProjectIdRef.current.get(projectId);
     const url = server ? firstLocalServerUrl(server) : null;
     if (!api || !server || !url) return;
@@ -235,7 +235,7 @@ export function useSidebarProjectRunController(input: {
 
   const persistProjectRunCommand = useCallback(
     async (projectId: ProjectId, command: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       const project = input.projectById.get(projectId);
       if (!api || !project) return;
       const nextScripts = upsertProjectRunCommandScripts({ scripts: project.scripts, command });

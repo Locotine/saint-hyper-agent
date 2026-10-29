@@ -1,3 +1,4 @@
+import { localProjectId } from "@saint/shared/hostId";
 // FILE: useTaskDelegateTarget.ts
 // Purpose: The "Run in" choice of the Tasks delegate form — a project or a picked
 //          folder — seeded from the to-do's project, then the latest project, then the
@@ -17,7 +18,9 @@ export type DelegateTarget =
 
 export function useTaskDelegateTarget(todoProjectId: Todo["projectId"]) {
   const projects = useStore((state) => state.projects);
-  const latestProjectId = useLatestProjectStore((state) => state.latestProjectId);
+  const latestProjectId = useLatestProjectStore((state) =>
+    state.latestProjectId ? localProjectId(state.latestProjectId) : null,
+  );
   const userProjects = useMemo(
     () => projects.filter((project) => project.kind === "project"),
     [projects],

@@ -5,11 +5,10 @@
 // Exports: useSubagentRunControls
 
 import type { ThreadId } from "@saint/contracts";
+import { useHostHandle } from "~/hosts/hostScope";
 import { useCallback } from "react";
 
 import { newCommandId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
-import { useStore } from "../../store";
 import { getThreadFromState } from "../../threadDerivation";
 
 import { toastManager } from "../ui/toast";
@@ -20,9 +19,10 @@ import type { ComposerSubagentStripItem } from "./ComposerSubagentStrip.logic";
 type SubagentRunTarget = Pick<ComposerSubagentStripItem, "providerThreadId">;
 
 export function useSubagentRunControls(stripSourceThreadId: ThreadId | null) {
+  const chatHost = useHostHandle();
   const backgroundSubagent = useCallback(
     async (item: SubagentRunTarget) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       // The Task tool_use lives on the strip source thread (the parent while a
       // subagent thread is open), so route the command there.
       if (!api || !stripSourceThreadId) return;
@@ -43,7 +43,7 @@ export function useSubagentRunControls(stripSourceThreadId: ThreadId | null) {
         });
       }
     },
-    [stripSourceThreadId],
+    [chatHost, stripSourceThreadId],
   );
 
   // Devin tasks can outlive the parent turn and use the existing task-stop command.
@@ -53,10 +53,10 @@ export function useSubagentRunControls(stripSourceThreadId: ThreadId | null) {
   // resolution lags, which the server would reject as an unknown thread.
   const stopSubagent = useCallback(
     async (item: SubagentRunTarget) => {
-      const api = readNativeApi();
+      const api = chatHost.api();
       if (!api || !stripSourceThreadId) return;
       try {
-        const snapshot = useStore.getState();
+        const snapshot = chatHost.store.getState();
         let owner = getThreadFromState(snapshot, stripSourceThreadId);
         const visited = new Set<ThreadId>();
         while (owner && !owner.session && owner.parentThreadId && !visited.has(owner.id)) {
@@ -90,7 +90,7 @@ export function useSubagentRunControls(stripSourceThreadId: ThreadId | null) {
         });
       }
     },
-    [stripSourceThreadId],
+    [chatHost, stripSourceThreadId],
   );
 
   return { backgroundSubagent, stopSubagent };

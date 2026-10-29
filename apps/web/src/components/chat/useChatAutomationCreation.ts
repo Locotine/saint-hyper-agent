@@ -1,3 +1,5 @@
+import { scopeProject } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import {
   EventId,
   ProviderInteractionMode,
@@ -17,7 +19,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { promoteThreadCreate } from "~/lib/threadCreatePromotion";
 import { newCommandId, randomUUID } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { dispatchThreadNotes } from "~/pinnedMessages";
 import {
   mergeProjectInstructionsIntoThreadNotes,
@@ -126,6 +128,7 @@ export function useChatAutomationCreation({
   automationDraftWarnings,
   acknowledgedAutomationWarnings,
 }: ChatAutomationCreationInput) {
+  const chatHost = useHostHandle();
   const createAutomationFromForm = useCallback(
     async (input: {
       readonly form: AutomationFormState;
@@ -134,7 +137,7 @@ export function useChatAutomationCreation({
       readonly providerOptions?: ProviderStartOptions;
       readonly activityThreadId?: ThreadId | null;
     }): Promise<boolean> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeProject) {
         return false;
       }
@@ -244,7 +247,7 @@ export function useChatAutomationCreation({
       readonly threadRuntimeMode: RuntimeMode;
       readonly threadInteractionMode: ProviderInteractionMode;
     }): Promise<ThreadId | null> => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api || !activeProject || !activeThread) {
         toastManager.add({
           type: "warning",
@@ -296,7 +299,9 @@ export function useChatAutomationCreation({
         }
 
         const inheritedProjectInstructions =
-          useProjectInstructionsStore.getState().instructionsByProjectId[activeProject.id] ?? "";
+          useProjectInstructionsStore.getState().instructionsByProjectId[
+            scopeProject(chatHost.hostId, activeProject.id)
+          ] ?? "";
         const inheritedThreadNotes = mergeProjectInstructionsIntoThreadNotes({
           threadNotes,
           projectInstructions: inheritedProjectInstructions,
@@ -322,7 +327,14 @@ export function useChatAutomationCreation({
         return null;
       }
     },
-    [activeProject, activeThread, activeThreadAssociatedWorktree, isServerThread, threadNotes],
+    [
+      chatHost,
+      activeProject,
+      activeThread,
+      activeThreadAssociatedWorktree,
+      isServerThread,
+      threadNotes,
+    ],
   );
 
   const prepareAutomationFormForCreate = useCallback(

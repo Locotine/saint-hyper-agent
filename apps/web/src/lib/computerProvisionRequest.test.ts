@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { provisionComputer } from "./serverReactQuery";
 
 const provision = vi.hoisted(() => vi.fn());
-vi.mock("~/nativeApi", () => ({ ensureNativeApi: () => ({ computer: { provision } }) }));
+vi.mock("~/nativeApi", () => ({ ensureLocalNativeApi: () => ({ computer: { provision } }) }));
 afterEach(() => provision.mockReset());
 
 describe("computer setup across surfaces", () => {

@@ -10,7 +10,7 @@ const transport = vi.hoisted(() => ({
 }));
 
 vi.mock("~/nativeApi", () => ({
-  ensureNativeApi: () => ({
+  ensureLocalNativeApi: () => ({
     device: {
       onEvent: (listener: (event: DeviceEvent) => void) => {
         transport.listener = listener;

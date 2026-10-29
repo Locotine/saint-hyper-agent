@@ -11,7 +11,7 @@ import { type TerminalActivityState, type TerminalCliKind } from "@saint/shared/
 import { Terminal } from "@xterm/xterm";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type TerminalContextSelection } from "~/lib/terminalContext";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { cn } from "~/lib/utils";
 import {
   resolveTerminalSelectionActionPosition,
@@ -368,7 +368,7 @@ export default function TerminalViewport({
       clearSelectionAction();
       return;
     }
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) return;
     const requestId = ++selectionActionRequestIdRef.current;
     selectionActionOpenRef.current = true;

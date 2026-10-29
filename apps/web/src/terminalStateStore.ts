@@ -8,9 +8,19 @@
 import { randomTerminalId } from "./components/terminal/terminalIds";
 import { type TerminalActivityState, type TerminalCliKind } from "@saint/shared/terminalThreads";
 import type { ThreadId } from "@saint/contracts";
+import {
+  parseScopedThreadId,
+  unscopeThread,
+  type HostId,
+  type ScopedThreadId,
+} from "@saint/shared/hostId";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { createDeferredPersistStorage, flushStorageBeforePageHide } from "./lib/storage";
+import {
+  createDeferredPersistStorage,
+  flushStorageBeforePageHide,
+  withLegacyKeyFallback,
+} from "./lib/storage";
 import {
   DEFAULT_THREAD_TERMINAL_ID,
   type ThreadPrimarySurface,
@@ -37,7 +47,9 @@ export interface ThreadTerminalState {
   dockTerminalIdsByPaneId?: Record<string, string>;
 }
 
-const TERMINAL_STATE_STORAGE_KEY = "saint:terminal-state:v1";
+const TERMINAL_STATE_STORAGE_KEY = "saint:terminal-state:v2";
+// v1 keyed state by raw thread id. Read once as local threads, then left alone for a rollback.
+const LEGACY_TERMINAL_STATE_STORAGE_KEY = "saint:terminal-state:v1";
 
 function normalizeTerminalIds(terminalIds: string[]): string[] {
   const ids = [...new Set(terminalIds.map((id) => id.trim()).filter((id) => id.length > 0))];
@@ -344,18 +356,23 @@ function stripVolatileTerminalRuntimeState(state: ThreadTerminalState): ThreadTe
 }
 
 export function sanitizePersistedTerminalStateByThreadId(
-  terminalStateByThreadId: Record<ThreadId, ThreadTerminalState> | null | undefined,
-): Record<ThreadId, ThreadTerminalState> {
-  const next: Record<ThreadId, ThreadTerminalState> = {};
+  terminalStateByThreadId: Record<ScopedThreadId, ThreadTerminalState> | null | undefined,
+): Record<ScopedThreadId, ThreadTerminalState> {
+  const next: Record<ScopedThreadId, ThreadTerminalState> = {};
   for (const [threadId, state] of Object.entries(terminalStateByThreadId ?? {})) {
     // Dedicated Workspace pages used synthetic `workspace:*` terminal scopes.
     // Drop those retired entries while hydrating the shared terminal store.
     if (threadId.startsWith("workspace:")) {
       continue;
     }
+    // A key without a host prefix was saved before scoping: a local thread.
+    const scopedThreadId = parseScopedThreadId(threadId);
+    if (scopedThreadId === null) {
+      continue;
+    }
     const sanitized = stripVolatileTerminalRuntimeState(state);
     if (!isDefaultThreadTerminalState(sanitized)) {
-      next[threadId as ThreadId] = sanitized;
+      next[scopedThreadId] = sanitized;
     }
   }
   return next;
@@ -789,8 +806,8 @@ function setThreadTerminalActivity(
 }
 
 export function selectThreadTerminalState(
-  terminalStateByThreadId: Record<ThreadId, ThreadTerminalState>,
-  threadId: ThreadId,
+  terminalStateByThreadId: Record<ScopedThreadId, ThreadTerminalState>,
+  threadId: ScopedThreadId,
 ): ThreadTerminalState {
   if (threadId.length === 0) {
     return getDefaultThreadTerminalState();
@@ -799,10 +816,10 @@ export function selectThreadTerminalState(
 }
 
 function updateTerminalStateByThreadId(
-  terminalStateByThreadId: Record<ThreadId, ThreadTerminalState>,
-  threadId: ThreadId,
+  terminalStateByThreadId: Record<ScopedThreadId, ThreadTerminalState>,
+  threadId: ScopedThreadId,
   updater: (state: ThreadTerminalState) => ThreadTerminalState,
-): Record<ThreadId, ThreadTerminalState> {
+): Record<ScopedThreadId, ThreadTerminalState> {
   if (threadId.length === 0) {
     return terminalStateByThreadId;
   }
@@ -818,7 +835,7 @@ function updateTerminalStateByThreadId(
       return terminalStateByThreadId;
     }
     const { [threadId]: _removed, ...rest } = terminalStateByThreadId;
-    return rest as Record<ThreadId, ThreadTerminalState>;
+    return rest as Record<ScopedThreadId, ThreadTerminalState>;
   }
 
   return {
@@ -828,43 +845,53 @@ function updateTerminalStateByThreadId(
 }
 
 interface TerminalStateStoreState {
-  terminalStateByThreadId: Record<ThreadId, ThreadTerminalState>;
-  openChatThreadPage: (threadId: ThreadId) => void;
-  openTerminalThreadPage: (threadId: ThreadId, options?: { terminalOnly?: boolean }) => void;
-  setTerminalOpen: (threadId: ThreadId, open: boolean) => void;
-  setTerminalPresentationMode: (threadId: ThreadId, mode: ThreadTerminalPresentationMode) => void;
-  setTerminalWorkspaceLayout: (threadId: ThreadId, layout: ThreadTerminalWorkspaceLayout) => void;
-  setTerminalWorkspaceTab: (threadId: ThreadId, tab: ThreadTerminalWorkspaceTab) => void;
+  terminalStateByThreadId: Record<ScopedThreadId, ThreadTerminalState>;
+  openChatThreadPage: (threadId: ScopedThreadId) => void;
+  openTerminalThreadPage: (threadId: ScopedThreadId, options?: { terminalOnly?: boolean }) => void;
+  setTerminalOpen: (threadId: ScopedThreadId, open: boolean) => void;
+  setTerminalPresentationMode: (
+    threadId: ScopedThreadId,
+    mode: ThreadTerminalPresentationMode,
+  ) => void;
+  setTerminalWorkspaceLayout: (
+    threadId: ScopedThreadId,
+    layout: ThreadTerminalWorkspaceLayout,
+  ) => void;
+  setTerminalWorkspaceTab: (threadId: ScopedThreadId, tab: ThreadTerminalWorkspaceTab) => void;
   setTerminalMetadata: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     terminalId: string,
     metadata: { cliKind: TerminalCliKind | null; label: string },
   ) => void;
   setTerminalCliKind: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     terminalId: string,
     cliKind: TerminalCliKind | null,
   ) => void;
   setTerminalTitleOverride: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     terminalId: string,
     titleOverride: string | null | undefined,
   ) => void;
-  newTerminal: (threadId: ThreadId, terminalId: string) => void;
-  ensureDockTerminal: (threadId: ThreadId, paneId: string, openedTerminalId?: string) => void;
-  openNewFullWidthTerminal: (threadId: ThreadId) => void;
-  closeWorkspaceChat: (threadId: ThreadId) => void;
-  setActiveTerminal: (threadId: ThreadId, terminalId: string) => void;
-  closeTerminal: (threadId: ThreadId, terminalId: string) => void;
-  closeExitedTerminal: (threadId: ThreadId, terminalId: string) => TerminalExitDisposition;
-  forgetRetiredTerminal: (threadId: ThreadId, terminalId: string) => void;
+  newTerminal: (threadId: ScopedThreadId, terminalId: string) => void;
+  ensureDockTerminal: (threadId: ScopedThreadId, paneId: string, openedTerminalId?: string) => void;
+  openNewFullWidthTerminal: (threadId: ScopedThreadId) => void;
+  closeWorkspaceChat: (threadId: ScopedThreadId) => void;
+  setActiveTerminal: (threadId: ScopedThreadId, terminalId: string) => void;
+  closeTerminal: (threadId: ScopedThreadId, terminalId: string) => void;
+  closeExitedTerminal: (threadId: ScopedThreadId, terminalId: string) => TerminalExitDisposition;
+  forgetRetiredTerminal: (threadId: ScopedThreadId, terminalId: string) => void;
   setTerminalActivity: (
-    threadId: ThreadId,
+    threadId: ScopedThreadId,
     terminalId: string,
     activity: { agentState: TerminalActivityState | null; hasRunningSubprocess: boolean },
   ) => void;
-  clearTerminalState: (threadId: ThreadId) => void;
-  removeOrphanedTerminalStates: (activeThreadIds: Set<ThreadId>) => void;
+  clearTerminalState: (threadId: ScopedThreadId) => void;
+  /**
+   * Drops one host's state for threads missing from its snapshot. Other hosts' state is
+   * never touched: call this only with a fresh snapshot of `hostId`.
+   */
+  removeOrphanedTerminalStates: (hostId: HostId, activeThreadIds: ReadonlySet<ThreadId>) => void;
 }
 
 // Defers partialize + JSON.stringify off the hot set() path (terminal layout
@@ -874,7 +901,7 @@ const terminalPersistStorage = createDeferredPersistStorage<
   TerminalStateStoreState,
   Pick<TerminalStateStoreState, "terminalStateByThreadId">
 >({
-  getStorage: () => localStorage,
+  getStorage: () => withLegacyKeyFallback(localStorage, LEGACY_TERMINAL_STATE_STORAGE_KEY),
   partialize: (state) => ({
     terminalStateByThreadId: sanitizePersistedTerminalStateByThreadId(
       state.terminalStateByThreadId,
@@ -890,7 +917,7 @@ export const useTerminalStateStore = create<TerminalStateStoreState>()(
   persist(
     (set) => {
       const updateTerminal = (
-        threadId: ThreadId,
+        threadId: ScopedThreadId,
         updater: (state: ThreadTerminalState) => ThreadTerminalState,
       ) => {
         set((state) => {
@@ -964,15 +991,18 @@ export const useTerminalStateStore = create<TerminalStateStoreState>()(
           ),
         clearTerminalState: (threadId) =>
           updateTerminal(threadId, () => createDefaultThreadTerminalState()),
-        removeOrphanedTerminalStates: (activeThreadIds) =>
+        removeOrphanedTerminalStates: (hostId, activeThreadIds) =>
           set((state) => {
-            const orphanedIds = Object.keys(state.terminalStateByThreadId).filter(
-              (id) => !activeThreadIds.has(id as ThreadId),
-            );
+            const orphanedIds = (
+              Object.keys(state.terminalStateByThreadId) as ScopedThreadId[]
+            ).filter((id) => {
+              const ref = unscopeThread(id);
+              return ref.hostId === hostId && !activeThreadIds.has(ref.threadId);
+            });
             if (orphanedIds.length === 0) return state;
             const next = { ...state.terminalStateByThreadId };
             for (const id of orphanedIds) {
-              delete next[id as ThreadId];
+              delete next[id];
             }
             return { terminalStateByThreadId: next };
           }),

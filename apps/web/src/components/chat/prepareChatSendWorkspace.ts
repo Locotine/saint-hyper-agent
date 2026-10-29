@@ -3,7 +3,9 @@ import {
   RuntimeMode,
   ThreadId,
   type ModelSelection,
+  type ProjectId,
 } from "@saint/contracts";
+import type { DraftThreadMutationOptions } from "../../composerDraftDomain";
 import {
   GENERIC_CHAT_THREAD_TITLE,
   buildPromptThreadTitleFallback,
@@ -12,7 +14,7 @@ import { getDefaultModel } from "@saint/shared/model";
 import type { QueryClient } from "@tanstack/react-query";
 import { gitStatusQueryOptions } from "~/lib/gitReactQuery";
 import { newCommandId, newProjectId } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { setupProjectScript } from "~/projectScripts";
 import {
   useComposerDraftStore,
@@ -34,7 +36,7 @@ import {
 import { formatTerminalContextLabel, type TerminalContextDraft } from "../../lib/terminalContext";
 import { buildModelSelection } from "../../providerModelOptions";
 import { readActiveSpaceId } from "../../spacesUiStore";
-import { useStore } from "../../store";
+import type { HostStore } from "../../store";
 import type { Project } from "../../types";
 import { type Thread } from "../../types";
 import { formatPastedTextTitleSeed } from "./queuedComposerPreview";
@@ -62,12 +64,17 @@ interface Input {
   resolvedThreadWorkingDirectory: string | null;
   currentActiveGitBranch: string | null;
   isContainerLandingProject: boolean;
-  api: NonNullable<ReturnType<typeof readNativeApi>>;
-  syncServerShellSnapshot: ReturnType<typeof useStore.getState>["syncServerShellSnapshot"];
+  api: NonNullable<ReturnType<typeof readLocalNativeApi>>;
+  /** The thread's host store. */
+  store: Pick<HostStore, "getState">;
+  syncServerShellSnapshot: ReturnType<HostStore["getState"]>["syncServerShellSnapshot"];
   clearProjectDraftThreadId: ReturnType<
     typeof useComposerDraftStore.getState
   >["clearProjectDraftThreadId"];
-  setDraftThreadContext: ReturnType<typeof useComposerDraftStore.getState>["setDraftThreadContext"];
+  setDraftThreadContext: (
+    threadId: ThreadId,
+    options: DraftThreadMutationOptions & { projectId?: ProjectId },
+  ) => void;
   activeRootBranch: string | null;
   gitBranchSourceCwd: string | null;
   setStoreThreadError: (threadId: ThreadId, error: string | null) => void;
@@ -75,6 +82,7 @@ interface Input {
 }
 
 export async function prepareChatSendWorkspace({
+  store,
   activeThread,
   isServerThread,
   hasNativeUserMessages,
@@ -137,7 +145,7 @@ export async function prepareChatSendWorkspace({
   }
   // Keep the optimistic label short while the server asks Codex for a better summary.
   const title = buildPromptThreadTitleFallback(titleSeed);
-  const currentStoreState = useStore.getState();
+  const currentStoreState = store.getState();
   // Keep an optimistically selected Space across the command/snapshot race. The server
   // validates this best-effort target and degrades genuinely stale/deleted ids to Void.
   const activeSpaceIdForSend = readActiveSpaceId();

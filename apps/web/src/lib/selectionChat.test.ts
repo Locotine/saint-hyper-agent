@@ -1,3 +1,4 @@
+import { scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,7 +10,7 @@ import { addSelectionToSide, startSelectionChat } from "./selectionChat";
 
 const status = vi.fn();
 const openPane = vi.fn();
-vi.mock("../nativeApi", () => ({ ensureNativeApi: () => ({ git: { status } }) }));
+vi.mock("../nativeApi", () => ({ ensureLocalNativeApi: () => ({ git: { status } }) }));
 vi.mock("./sidechatCreation", () => ({ createSidechatThread: vi.fn() }));
 vi.mock("../rightDockStore", () => ({ useRightDockStore: { getState: () => ({ openPane }) } }));
 
@@ -42,7 +43,7 @@ describe("startSelectionChat", () => {
   it("creates a fresh local draft and queues the prompt with its intact quote and model", async () => {
     const options = input();
     const original = ThreadId.makeUnsafe("original-thread");
-    useComposerDraftStore.getState().setPrompt(original, "Keep my draft");
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(original), "Keep my draft");
     await startSelectionChat(options);
     expect(status).not.toHaveBeenCalled();
     expect(options.createThread).toHaveBeenCalledWith(projectId, {
@@ -54,9 +55,9 @@ describe("startSelectionChat", () => {
       workingDirectory: null,
     });
     const drafts = useComposerDraftStore.getState().draftsByThreadId;
-    expect(drafts[original]?.prompt).toBe("Keep my draft");
-    expect(drafts[threadId]?.queuedTurns).toHaveLength(1);
-    expect(drafts[threadId]?.queuedTurns[0]).toMatchObject({
+    expect(drafts[scopeLocalThread(original)]?.prompt).toBe("Keep my draft");
+    expect(drafts[scopeLocalThread(threadId)]?.queuedTurns).toHaveLength(1);
+    expect(drafts[scopeLocalThread(threadId)]?.queuedTurns[0]).toMatchObject({
       prompt: "Explain this",
       assistantSelections: [selection],
       modelSelection,
@@ -70,7 +71,7 @@ describe("startSelectionChat", () => {
     "opens an editable draft %j with the quote without queueing a send",
     async (prompt) => {
       await startSelectionChat({ ...input(), intent: "compose", prompt });
-      const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+      const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
       expect(draft?.prompt).toBe(prompt);
       expect(draft?.assistantSelections).toEqual([expect.objectContaining(selection)]);
       expect(draft?.queuedTurns).toHaveLength(0);
@@ -91,7 +92,9 @@ describe("startSelectionChat", () => {
         worktreePath: null,
       }),
     );
-    expect(useProjectEnvironmentStore.getState().envModeByProjectId[projectId]).toBe("worktree");
+    expect(
+      useProjectEnvironmentStore.getState().envModeByProjectId[scopeLocalProject(projectId)],
+    ).toBe("worktree");
   });
 
   it("does not create a local fallback when the worktree has no base branch", async () => {
@@ -125,7 +128,7 @@ describe("addSelectionToSide", () => {
       return { threadId, promptError: null, snapshotError: null };
     });
     const sourceThreadId = ThreadId.makeUnsafe("source-thread");
-    useComposerDraftStore.getState().setPrompt(sourceThreadId, "Keep my prompt");
+    useComposerDraftStore.getState().setPrompt(scopeLocalThread(sourceThreadId), "Keep my prompt");
     await addSelectionToSide({
       selection,
       project: { id: projectId, cwd: "/repo" } as Project,
@@ -134,9 +137,11 @@ describe("addSelectionToSide", () => {
       runtimeMode: "full-access",
     });
     const drafts = useComposerDraftStore.getState().draftsByThreadId;
-    expect(drafts[threadId]?.assistantSelections).toEqual([expect.objectContaining(selection)]);
-    expect(drafts[threadId]?.queuedTurns).toHaveLength(0);
-    expect(drafts[sourceThreadId]?.prompt).toBe("Keep my prompt");
+    expect(drafts[scopeLocalThread(threadId)]?.assistantSelections).toEqual([
+      expect.objectContaining(selection),
+    ]);
+    expect(drafts[scopeLocalThread(threadId)]?.queuedTurns).toHaveLength(0);
+    expect(drafts[scopeLocalThread(sourceThreadId)]?.prompt).toBe("Keep my prompt");
     expect(openPane).toHaveBeenCalledWith(sourceThreadId, { kind: "sidechat", threadId });
   });
 });

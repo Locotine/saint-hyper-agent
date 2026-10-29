@@ -38,7 +38,7 @@ vi.mock("~/hooks/useActivityThreads", () => ({
 }));
 vi.mock("~/nativeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("~/nativeApi")>()),
-  ensureNativeApi: () => ({
+  ensureLocalNativeApi: () => ({
     stats: { getRecap: () => new Promise(() => {}) },
     automation: { list: async () => ({ runs: [] }) },
     server: { listProviderUsage: async () => [] },

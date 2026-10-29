@@ -1,3 +1,4 @@
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { ProviderInstanceId, ThreadId, type ModelSelection } from "@saint/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -155,7 +156,7 @@ describe("OMP role-era persisted selections", () => {
       const merged = useComposerDraftStore.persist.getOptions().merge!(
         {
           draftsByThreadId: {
-            [threadId]: {
+            [scopeLocalThread(threadId)]: {
               modelSelectionByProvider: { omp_work: rawSelection },
               activeProvider: "omp_work",
               prompt: "Keep this prompt",
@@ -166,7 +167,7 @@ describe("OMP role-era persisted selections", () => {
         },
         store,
       );
-      const draft = merged.draftsByThreadId[threadId]!;
+      const draft = merged.draftsByThreadId[scopeLocalThread(threadId)]!;
       expect(draft.modelSelectionByProvider.omp_work).toEqual(rawSelection);
       expect(merged.stickyModelSelectionByProvider.omp_work).toEqual(rawSelection);
       expect(draft.prompt).toBe("Keep this prompt");
@@ -190,10 +191,11 @@ describe("OMP role-era persisted selections", () => {
       });
       expect(resolvePreferredComposerModelSelection(input)).toEqual(rawSelection);
       store.setModelSelection(
-        threadId,
+        scopeLocalThread(threadId),
         modelSelection("omp", "upstream/catalog-model", undefined, "omp_work"),
       );
-      const selectedDraft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+      const selectedDraft =
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
       expect(
         deriveEffectiveComposerModelState({ ...input, draft: selectedDraft }).selectedModel,
       ).toBe("upstream/catalog-model");
@@ -275,15 +277,18 @@ describe("composerDraftStore modelSelection", () => {
   it("preserves provider instance ids when reusing existing model options", () => {
     const store = useComposerDraftStore.getState();
     store.setModelSelection(
-      threadId,
+      scopeLocalThread(threadId),
       modelSelection("codex", "gpt-5.3-codex", { reasoningEffort: "xhigh" }, "codex_work"),
     );
 
-    store.setModelSelection(threadId, modelSelection("codex", "gpt-5.4", undefined, "codex_work"));
+    store.setModelSelection(
+      scopeLocalThread(threadId),
+      modelSelection("codex", "gpt-5.4", undefined, "codex_work"),
+    );
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider
-        .codex_work,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.codex_work,
     ).toEqual(modelSelection("codex", "gpt-5.4", { reasoningEffort: "xhigh" }, "codex_work"));
   });
 
@@ -302,11 +307,12 @@ describe("composerDraftStore modelSelection", () => {
       "claude_work",
     );
 
-    store.setModelSelection(threadId, personal);
-    store.setModelSelection(threadId, work);
+    store.setModelSelection(scopeLocalThread(threadId), personal);
+    store.setModelSelection(scopeLocalThread(threadId), work);
 
     const selections =
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider;
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider;
     expect(selections?.claude_personal).toEqual(personal);
     expect(selections?.claude_work).toEqual(work);
   });
@@ -317,11 +323,13 @@ describe("composerDraftStore modelSelection", () => {
       const store = useComposerDraftStore.getState();
       const selection = modelSelection("codex", "gpt-5.6-sol", { reasoningEffort });
 
-      store.setModelSelection(threadId, selection);
+      store.setModelSelection(scopeLocalThread(threadId), selection);
       store.setStickyModelSelection(selection);
 
       const state = useComposerDraftStore.getState();
-      expect(state.draftsByThreadId[threadId]?.modelSelectionByProvider.codex).toEqual(selection);
+      expect(
+        state.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.codex,
+      ).toEqual(selection);
       expect(state.stickyModelSelectionByProvider.codex).toEqual(selection);
     },
   );
@@ -330,52 +338,68 @@ describe("composerDraftStore modelSelection", () => {
     const store = useComposerDraftStore.getState();
 
     store.setProviderModelOptions(
-      threadId,
+      scopeLocalThread(threadId),
       "codex",
       { reasoningEffort: "   ", fastMode: true },
       { model: "gpt-5.6-sol" },
     );
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider.codex,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.codex,
     ).toEqual(modelSelection("codex", "gpt-5.6-sol", { fastMode: true }));
   });
 
   it("preserves Devin model options in the draft", () => {
     const store = useComposerDraftStore.getState();
 
-    store.setProviderModelOptions(threadId, "devin", { fastMode: true }, { model: "adaptive" });
+    store.setProviderModelOptions(
+      scopeLocalThread(threadId),
+      "devin",
+      { fastMode: true },
+      { model: "adaptive" },
+    );
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider.devin,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.devin,
     ).toEqual(modelSelection("devin", "adaptive", { fastMode: true }));
   });
 
   it("seeds a per-provider model selection without switching the active provider", () => {
     const store = useComposerDraftStore.getState();
-    store.setModelSelection(threadId, modelSelection("codex", "gpt-5.4"));
+    store.setModelSelection(scopeLocalThread(threadId), modelSelection("codex", "gpt-5.4"));
 
-    store.seedModelSelection(threadId, modelSelection("claudeAgent", "claude-opus-4-5"));
+    store.seedModelSelection(
+      scopeLocalThread(threadId),
+      modelSelection("claudeAgent", "claude-opus-4-5"),
+    );
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.activeProvider).toBe("codex");
     expect(draft?.modelSelectionByProvider.codex).toEqual(modelSelection("codex", "gpt-5.4"));
     expect(draft?.modelSelectionByProvider.claudeAgent).toEqual(
       modelSelection("claudeAgent", "claude-opus-4-5"),
     );
     // A later explicit pick can still switch providers — the seed is only a default.
-    store.setModelSelection(threadId, modelSelection("claudeAgent", "claude-fable-5"));
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]?.activeProvider).toBe(
-      "claudeAgent",
+    store.setModelSelection(
+      scopeLocalThread(threadId),
+      modelSelection("claudeAgent", "claude-fable-5"),
     );
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]?.activeProvider,
+    ).toBe("claudeAgent");
   });
 
   it("does not create an active provider when seeding an untouched draft", () => {
     const store = useComposerDraftStore.getState();
 
-    store.seedModelSelection(threadId, modelSelection("claudeAgent", "claude-opus-4-5"));
+    store.seedModelSelection(
+      scopeLocalThread(threadId),
+      modelSelection("claudeAgent", "claude-opus-4-5"),
+    );
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.activeProvider).toBeNull();
     expect(draft?.modelSelectionByProvider.claudeAgent).toEqual(
       modelSelection("claudeAgent", "claude-opus-4-5"),
@@ -388,14 +412,14 @@ describe("composerDraftStore modelSelection", () => {
       reasoningEffort: "high",
     });
 
-    store.setModelSelection(threadId, selection);
+    store.setModelSelection(scopeLocalThread(threadId), selection);
     store.setStickyModelSelection(selection);
 
     const state = useComposerDraftStore.getState();
-    expect(state.draftsByThreadId[threadId]?.modelSelectionByProvider.antigravity).toEqual(
-      selection,
-    );
-    expect(state.draftsByThreadId[threadId]?.activeProvider).toBe("antigravity");
+    expect(
+      state.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.antigravity,
+    ).toEqual(selection);
+    expect(state.draftsByThreadId[scopeLocalThread(threadId)]?.activeProvider).toBe("antigravity");
     expect(state.stickyModelSelectionByProvider.antigravity).toEqual(selection);
     expect(state.stickyActiveProvider).toBe("antigravity");
   });
@@ -404,7 +428,7 @@ describe("composerDraftStore modelSelection", () => {
     const store = useComposerDraftStore.getState();
 
     store.setModelSelection(
-      threadId,
+      scopeLocalThread(threadId),
       modelSelection("claudeAgent", "claude-opus-4-6", {
         effort: "max",
         fastMode: true,
@@ -418,7 +442,7 @@ describe("composerDraftStore modelSelection", () => {
     );
 
     store.setProviderModelOptions(
-      threadId,
+      scopeLocalThread(threadId),
       "claudeAgent",
       {
         thinking: false,
@@ -427,8 +451,8 @@ describe("composerDraftStore modelSelection", () => {
     );
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider
-        .claudeAgent,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.claudeAgent,
     ).toEqual(
       modelSelection("claudeAgent", "claude-opus-4-6", {
         thinking: false,
@@ -445,19 +469,19 @@ describe("composerDraftStore modelSelection", () => {
     const store = useComposerDraftStore.getState();
 
     store.setModelSelection(
-      threadId,
+      scopeLocalThread(threadId),
       modelSelection("claudeAgent", "claude-opus-4-6", {
         effort: "max",
       }),
     );
 
-    store.setProviderModelOptions(threadId, "claudeAgent", {
+    store.setProviderModelOptions(scopeLocalThread(threadId), "claudeAgent", {
       thinking: true,
     });
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider
-        .claudeAgent,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.claudeAgent,
     ).toEqual(
       modelSelection("claudeAgent", "claude-opus-4-6", {
         thinking: true,
@@ -469,15 +493,19 @@ describe("composerDraftStore modelSelection", () => {
   it("keeps explicit off/default codex overrides on the selection", () => {
     const store = useComposerDraftStore.getState();
 
-    store.setModelSelection(threadId, modelSelection("codex", "gpt-5.4", { fastMode: true }));
+    store.setModelSelection(
+      scopeLocalThread(threadId),
+      modelSelection("codex", "gpt-5.4", { fastMode: true }),
+    );
 
-    store.setProviderModelOptions(threadId, "codex", {
+    store.setProviderModelOptions(scopeLocalThread(threadId), "codex", {
       reasoningEffort: "high",
       fastMode: false,
     });
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider.codex,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.codex,
     ).toEqual(
       modelSelection("codex", "gpt-5.4", {
         reasoningEffort: "high",
@@ -495,15 +523,20 @@ describe("composerDraftStore modelSelection", () => {
         modelSelection("claudeAgent", "claude-opus-4-6", { effort: "max" }),
       );
       store.setModelSelection(
-        threadId,
+        scopeLocalThread(threadId),
         modelSelection("claudeAgent", "claude-opus-4-6", { effort: "max" }),
       );
 
-      store.setProviderModelOptions(threadId, "claudeAgent", { thinking: false }, options);
+      store.setProviderModelOptions(
+        scopeLocalThread(threadId),
+        "claudeAgent",
+        { thinking: false },
+        options,
+      );
 
       expect(
-        useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider
-          .claudeAgent,
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+          ?.modelSelectionByProvider.claudeAgent,
       ).toEqual(
         modelSelection("claudeAgent", "claude-opus-4-6", {
           thinking: false,
@@ -520,7 +553,7 @@ describe("composerDraftStore modelSelection", () => {
 
     // Set options for both providers
     store.setModelOptions(
-      threadId,
+      scopeLocalThread(threadId),
       providerModelOptions({
         codex: { fastMode: true },
         claudeAgent: { effort: "max" },
@@ -528,9 +561,12 @@ describe("composerDraftStore modelSelection", () => {
     );
 
     // Now set options for only codex — claudeAgent should be untouched
-    store.setModelOptions(threadId, providerModelOptions({ codex: { reasoningEffort: "xhigh" } }));
+    store.setModelOptions(
+      scopeLocalThread(threadId),
+      providerModelOptions({ codex: { reasoningEffort: "xhigh" } }),
+    );
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.modelSelectionByProvider.codex?.options).toEqual({ reasoningEffort: "xhigh" });
     expect(draft?.modelSelectionByProvider.claudeAgent?.options).toEqual({ effort: "max" });
   });
@@ -539,16 +575,19 @@ describe("composerDraftStore modelSelection", () => {
     const store = useComposerDraftStore.getState();
 
     store.setModelOptions(
-      threadId,
+      scopeLocalThread(threadId),
       providerModelOptions({
         codex: { fastMode: true },
         claudeAgent: { effort: "max" },
       }),
     );
 
-    store.setModelSelection(threadId, modelSelection("claudeAgent", "claude-opus-4-6"));
+    store.setModelSelection(
+      scopeLocalThread(threadId),
+      modelSelection("claudeAgent", "claude-opus-4-6"),
+    );
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.modelSelectionByProvider.claudeAgent).toEqual(
       modelSelection("claudeAgent", "claude-opus-4-6", { effort: "max" }),
     );
@@ -559,10 +598,10 @@ describe("composerDraftStore modelSelection", () => {
   it("creates the first sticky snapshot from provider option changes", () => {
     const store = useComposerDraftStore.getState();
 
-    store.setModelSelection(threadId, modelSelection("codex", "gpt-5.4"));
+    store.setModelSelection(scopeLocalThread(threadId), modelSelection("codex", "gpt-5.4"));
 
     store.setProviderModelOptions(
-      threadId,
+      scopeLocalThread(threadId),
       "codex",
       {
         fastMode: true,
@@ -759,29 +798,38 @@ describe("composerDraftStore setModelSelection", () => {
 
   it("preserves newly discovered Droid effort strings in composer state", () => {
     const store = useComposerDraftStore.getState();
-    store.setModelSelection(threadId, modelSelection("droid", "future-droid-model"));
+    store.setModelSelection(
+      scopeLocalThread(threadId),
+      modelSelection("droid", "future-droid-model"),
+    );
 
-    store.setProviderModelOptions(threadId, "droid", { reasoningEffort: "ultra" });
+    store.setProviderModelOptions(scopeLocalThread(threadId), "droid", {
+      reasoningEffort: "ultra",
+    });
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider.droid,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.droid,
     ).toEqual(modelSelection("droid", "future-droid-model", { reasoningEffort: "ultra" }));
   });
 
   it("drops a runtime Codex effort when switching models before terminal promotion", () => {
     const store = useComposerDraftStore.getState();
     store.setModelSelectionAndSticky(
-      threadId,
+      scopeLocalThread(threadId),
       modelSelection("codex", "gpt-5.6-sol", {
         reasoningEffort: "ultra",
         fastMode: true,
       }),
     );
 
-    store.setModelSelectionAndSticky(threadId, modelSelection("codex", "gpt-5.4"));
+    store.setModelSelectionAndSticky(
+      scopeLocalThread(threadId),
+      modelSelection("codex", "gpt-5.4"),
+    );
 
     const state = useComposerDraftStore.getState();
-    const draft = state.draftsByThreadId[threadId];
+    const draft = state.draftsByThreadId[scopeLocalThread(threadId)];
     const expectedSelection = modelSelection("codex", "gpt-5.4", { fastMode: true });
     expect(draft?.modelSelectionByProvider.codex).toEqual(expectedSelection);
     expect(state.stickyModelSelectionByProvider.codex).toEqual(expectedSelection);
@@ -800,32 +848,40 @@ describe("composerDraftStore setModelSelection", () => {
       reasoningEffort: "max",
       fastMode: true,
     });
-    store.setModelSelectionAndSticky(threadId, selection);
+    store.setModelSelectionAndSticky(scopeLocalThread(threadId), selection);
 
-    store.setModelSelectionAndSticky(threadId, modelSelection("codex", "gpt-5.6-sol"));
+    store.setModelSelectionAndSticky(
+      scopeLocalThread(threadId),
+      modelSelection("codex", "gpt-5.6-sol"),
+    );
 
     const state = useComposerDraftStore.getState();
-    expect(state.draftsByThreadId[threadId]?.modelSelectionByProvider.codex).toEqual(selection);
+    expect(
+      state.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.codex,
+    ).toEqual(selection);
     expect(state.stickyModelSelectionByProvider.codex).toEqual(selection);
   });
 
   it("preserves a built-in Codex effort supported by both models", () => {
     const store = useComposerDraftStore.getState();
     store.setModelSelectionAndSticky(
-      threadId,
+      scopeLocalThread(threadId),
       modelSelection("codex", "gpt-5.5", { reasoningEffort: "xhigh", fastMode: true }),
     );
 
-    store.setModelSelectionAndSticky(threadId, modelSelection("codex", "gpt-5.4"));
+    store.setModelSelectionAndSticky(
+      scopeLocalThread(threadId),
+      modelSelection("codex", "gpt-5.4"),
+    );
 
     const expectedSelection = modelSelection("codex", "gpt-5.4", {
       reasoningEffort: "xhigh",
       fastMode: true,
     });
     const state = useComposerDraftStore.getState();
-    expect(state.draftsByThreadId[threadId]?.modelSelectionByProvider.codex).toEqual(
-      expectedSelection,
-    );
+    expect(
+      state.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.codex,
+    ).toEqual(expectedSelection);
     expect(state.stickyModelSelectionByProvider.codex).toEqual(expectedSelection);
   });
 
@@ -834,34 +890,40 @@ describe("composerDraftStore setModelSelection", () => {
     const cursorSelection = modelSelection("cursor", "cursor-auto", {
       reasoningEffort: "high",
     });
-    store.setModelSelectionAndSticky(threadId, cursorSelection);
+    store.setModelSelectionAndSticky(scopeLocalThread(threadId), cursorSelection);
     store.setModelSelectionAndSticky(
-      threadId,
+      scopeLocalThread(threadId),
       modelSelection("codex", "gpt-5.6-sol", { reasoningEffort: "ultra" }),
     );
 
-    store.setModelSelectionAndSticky(threadId, modelSelection("cursor", "cursor-auto"));
+    store.setModelSelectionAndSticky(
+      scopeLocalThread(threadId),
+      modelSelection("cursor", "cursor-auto"),
+    );
 
     const state = useComposerDraftStore.getState();
-    expect(state.draftsByThreadId[threadId]?.modelSelectionByProvider.cursor).toEqual(
-      cursorSelection,
-    );
+    expect(
+      state.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.cursor,
+    ).toEqual(cursorSelection);
     expect(state.stickyModelSelectionByProvider.cursor).toEqual(cursorSelection);
   });
 
   it("uses destination defaults when switching providers without saved state", () => {
     const store = useComposerDraftStore.getState();
     store.setModelSelectionAndSticky(
-      threadId,
+      scopeLocalThread(threadId),
       modelSelection("codex", "gpt-5.6-sol", { reasoningEffort: "ultra" }),
     );
 
-    store.setModelSelectionAndSticky(threadId, modelSelection("claudeAgent", "claude-opus-4-6"));
-
-    const state = useComposerDraftStore.getState();
-    expect(state.draftsByThreadId[threadId]?.modelSelectionByProvider.claudeAgent).toEqual(
+    store.setModelSelectionAndSticky(
+      scopeLocalThread(threadId),
       modelSelection("claudeAgent", "claude-opus-4-6"),
     );
+
+    const state = useComposerDraftStore.getState();
+    expect(
+      state.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.claudeAgent,
+    ).toEqual(modelSelection("claudeAgent", "claude-opus-4-6"));
     expect(state.stickyModelSelectionByProvider.claudeAgent).toEqual(
       modelSelection("claudeAgent", "claude-opus-4-6"),
     );
@@ -901,16 +963,18 @@ describe("composerDraftStore sticky composer settings", () => {
       supportsAutoMode: false,
     };
 
-    store.setModelSelectionAndSticky(threadId, selection);
+    store.setModelSelectionAndSticky(scopeLocalThread(threadId), selection);
     store.setProviderModelOptions(
-      threadId,
+      scopeLocalThread(threadId),
       "claudeAgent",
       { effort: "high" },
       { persistSticky: true },
     );
 
     const state = useComposerDraftStore.getState();
-    expect(state.draftsByThreadId[threadId]?.modelSelectionByProvider.claudeAgent).toEqual({
+    expect(
+      state.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.claudeAgent,
+    ).toEqual({
       ...selection,
       options: { effort: "high" },
     });
@@ -927,7 +991,7 @@ describe("composerDraftStore sticky composer settings", () => {
     const merged = persistApi.getOptions().merge(
       {
         draftsByThreadId: {
-          [threadId]: state.draftsByThreadId[threadId],
+          [scopeLocalThread(threadId)]: state.draftsByThreadId[scopeLocalThread(threadId)],
         },
         draftThreadsByThreadId: {},
         projectDraftThreadIdByProjectId: {},
@@ -943,7 +1007,7 @@ describe("composerDraftStore sticky composer settings", () => {
     };
 
     const hydratedClaudeSelection =
-      merged.draftsByThreadId[threadId]?.modelSelectionByProvider.claudeAgent;
+      merged.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.claudeAgent;
     expect(
       hydratedClaudeSelection?.provider === "claudeAgent"
         ? hydratedClaudeSelection.supportsAutoMode
@@ -957,20 +1021,20 @@ describe("composerDraftStore sticky composer settings", () => {
   it("does not copy Claude Auto support metadata to a different model", () => {
     const store = useComposerDraftStore.getState();
     const threadId = ThreadId.makeUnsafe("thread-claude-auto-model-switch");
-    store.setModelSelection(threadId, {
+    store.setModelSelection(scopeLocalThread(threadId), {
       provider: "claudeAgent",
       model: "claude-haiku-4-5",
       supportsAutoMode: false,
     });
 
-    store.setModelSelection(threadId, {
+    store.setModelSelection(scopeLocalThread(threadId), {
       provider: "claudeAgent",
       model: "claude-sonnet-5",
     });
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider
-        .claudeAgent,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.claudeAgent,
     ).toEqual({
       provider: "claudeAgent",
       model: "claude-sonnet-5",
@@ -1016,9 +1080,11 @@ describe("composerDraftStore sticky composer settings", () => {
     const threadId = ThreadId.makeUnsafe("thread-sticky-active-provider");
 
     store.setStickyModelSelection(modelSelection("claudeAgent", "claude-opus-4-6"));
-    store.applyStickyState(threadId);
+    store.applyStickyState(scopeLocalThread(threadId));
 
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toMatchObject({
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+    ).toMatchObject({
       modelSelectionByProvider: {
         claudeAgent: modelSelection("claudeAgent", "claude-opus-4-6"),
       },
@@ -1029,9 +1095,11 @@ describe("composerDraftStore sticky composer settings", () => {
     const store = useComposerDraftStore.getState();
     const threadId = ThreadId.makeUnsafe("thread-sticky-saved-default");
     store.setStickyModelSelection(modelSelection("pi", "pi-auto"));
-    store.applyStickyState(threadId);
-    store.setModelSelection(threadId, modelSelection("devin", "adaptive"));
-    expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toMatchObject({
+    store.applyStickyState(scopeLocalThread(threadId));
+    store.setModelSelection(scopeLocalThread(threadId), modelSelection("devin", "adaptive"));
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+    ).toMatchObject({
       modelSelectionByProvider: {
         pi: modelSelection("pi", "pi-auto"),
         devin: modelSelection("devin", "adaptive"),
@@ -1049,12 +1117,13 @@ describe("composerDraftStore sticky composer settings", () => {
     store.setStickyModelSelection(
       modelSelection("codex", "gpt-5.6-sol", { reasoningEffort: "ultra" }),
     );
-    store.setModelSelection(threadId, currentSelection);
+    store.setModelSelection(scopeLocalThread(threadId), currentSelection);
 
-    store.applyStickyState(threadId);
+    store.applyStickyState(scopeLocalThread(threadId));
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider.codex,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.codex,
     ).toEqual(currentSelection);
   });
 
@@ -1065,12 +1134,13 @@ describe("composerDraftStore sticky composer settings", () => {
       reasoningEffort: "xhigh",
     });
     store.setStickyModelSelection(stickySelection);
-    store.setModelSelection(threadId, modelSelection("codex", "gpt-5.4"));
+    store.setModelSelection(scopeLocalThread(threadId), modelSelection("codex", "gpt-5.4"));
 
-    store.applyStickyState(threadId);
+    store.applyStickyState(scopeLocalThread(threadId));
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider.codex,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.codex,
     ).toEqual(stickySelection);
   });
 
@@ -1091,15 +1161,15 @@ describe("composerDraftStore sticky composer settings", () => {
     const threadId = ThreadId.makeUnsafe("thread-sticky-auto-compact-window");
 
     store.setProviderModelOptions(
-      threadId,
+      scopeLocalThread(threadId),
       "claudeAgent",
       { effort: "xhigh", autoCompactWindow: "1m" },
       { persistSticky: true, model: "claude-opus-4-7" },
     );
 
     expect(
-      useComposerDraftStore.getState().draftsByThreadId[threadId]?.modelSelectionByProvider
-        .claudeAgent?.options,
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)]
+        ?.modelSelectionByProvider.claudeAgent?.options,
     ).toEqual({ effort: "xhigh", autoCompactWindow: "1m" });
     expect(useComposerDraftStore.getState().stickyModelSelectionByProvider.claudeAgent).toEqual(
       modelSelection("claudeAgent", "claude-opus-4-7", { effort: "xhigh" }),
@@ -1111,7 +1181,7 @@ describe("composerDraftStore sticky composer settings", () => {
     const threadId = ThreadId.makeUnsafe("thread-sticky-context-window");
 
     store.setProviderModelOptions(
-      threadId,
+      scopeLocalThread(threadId),
       "claudeAgent",
       { effort: "xhigh", contextWindow: "1m" },
       { persistSticky: true, model: "claude-opus-4-7" },
@@ -1119,12 +1189,13 @@ describe("composerDraftStore sticky composer settings", () => {
 
     const state = useComposerDraftStore.getState();
     // The thread keeps its own choice and migrates the legacy field name.
-    expect(state.draftsByThreadId[threadId]?.modelSelectionByProvider.claudeAgent?.options).toEqual(
-      {
-        effort: "xhigh",
-        autoCompactWindow: "1m",
-      },
-    );
+    expect(
+      state.draftsByThreadId[scopeLocalThread(threadId)]?.modelSelectionByProvider.claudeAgent
+        ?.options,
+    ).toEqual({
+      effort: "xhigh",
+      autoCompactWindow: "1m",
+    });
     // The sticky snapshot only carries options that are safe to inherit.
     expect(state.stickyModelSelectionByProvider.claudeAgent).toEqual(
       modelSelection("claudeAgent", "claude-opus-4-7", { effort: "xhigh" }),
@@ -1171,13 +1242,13 @@ describe("composerDraftStore provider-scoped option updates", () => {
   it("retains off-provider option memory without changing the active selection", () => {
     const store = useComposerDraftStore.getState();
     store.setModelSelection(
-      threadId,
+      scopeLocalThread(threadId),
       modelSelection("codex", "gpt-5.3-codex", {
         reasoningEffort: "medium",
       }),
     );
-    store.setProviderModelOptions(threadId, "claudeAgent", { effort: "max" });
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    store.setProviderModelOptions(scopeLocalThread(threadId), "claudeAgent", { effort: "max" });
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.modelSelectionByProvider.codex).toEqual(
       modelSelection("codex", "gpt-5.3-codex", { reasoningEffort: "medium" }),
     );
@@ -1189,13 +1260,13 @@ describe("composerDraftStore provider-scoped option updates", () => {
     const store = useComposerDraftStore.getState();
 
     store.setProviderModelOptions(
-      threadId,
+      scopeLocalThread(threadId),
       "grok",
       { reasoningEffort: "high" },
       { model: "grok-build" },
     );
 
-    const draft = useComposerDraftStore.getState().draftsByThreadId[threadId];
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
     expect(draft?.modelSelectionByProvider.grok).toEqual(
       modelSelection("grok", "grok-build", {
         reasoningEffort: "high",

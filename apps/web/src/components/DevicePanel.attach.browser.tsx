@@ -19,7 +19,7 @@ const transport = vi.hoisted(() => ({
 }));
 
 vi.mock("~/nativeApi", () => ({
-  ensureNativeApi: () => ({ device: { getThreadState: transport.getThreadState } }),
+  ensureLocalNativeApi: () => ({ device: { getThreadState: transport.getThreadState } }),
 }));
 vi.mock("~/lib/deviceFrameSource", () => ({
   createDeviceFrameSource: (options: DeviceFrameSourceOptions) => {

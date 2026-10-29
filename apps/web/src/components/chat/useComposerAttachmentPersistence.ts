@@ -1,3 +1,5 @@
+import { scopeThread } from "@saint/shared/hostId";
+import { useHostHandle } from "~/hosts/hostScope";
 import { ThreadId } from "@saint/contracts";
 import { useEffect } from "react";
 import {
@@ -81,6 +83,7 @@ export function useComposerAttachmentPersistence({
   composerImages,
   composerPromptHistorySavedDraftImages,
 }: ComposerAttachmentPersistenceInput) {
+  const chatHost = useHostHandle();
   const clearComposerDraftPersistedAttachments = useComposerDraftStore(
     (store) => store.clearPersistedAttachments,
   );
@@ -97,31 +100,33 @@ export function useComposerAttachmentPersistence({
         const hasDeferredBlobAttachment =
           useComposerDraftStore
             .getState()
-            .draftsByThreadId[threadId]?.persistedAttachments.some(
+            .draftsByThreadId[scopeThread(chatHost.hostId, threadId)]?.persistedAttachments.some(
               (attachment) => attachment.blobKey,
             ) ?? false;
         if (hasDeferredBlobAttachment) {
           return;
         }
-        clearComposerDraftPersistedAttachments(threadId);
+        clearComposerDraftPersistedAttachments(scopeThread(chatHost.hostId, threadId));
         return;
       }
       const staged = await stagePersistedComposerImageAttachments({
         threadId,
         images: composerImages,
         getPersistedAttachments: () =>
-          useComposerDraftStore.getState().draftsByThreadId[threadId]?.persistedAttachments ?? [],
+          useComposerDraftStore.getState().draftsByThreadId[scopeThread(chatHost.hostId, threadId)]
+            ?.persistedAttachments ?? [],
       });
       if (cancelled) {
         return;
       }
       // Stage attachments in persisted draft state first so persist middleware can write them.
-      void syncComposerDraftPersistedAttachments(threadId, staged);
+      void syncComposerDraftPersistedAttachments(scopeThread(chatHost.hostId, threadId), staged);
     })();
     return () => {
       cancelled = true;
     };
   }, [
+    chatHost,
     clearComposerDraftPersistedAttachments,
     composerImages,
     syncComposerDraftPersistedAttachments,
@@ -141,18 +146,22 @@ export function useComposerAttachmentPersistence({
         threadId,
         images: composerPromptHistorySavedDraftImages,
         getPersistedAttachments: () =>
-          useComposerDraftStore.getState().draftsByThreadId[threadId]?.promptHistorySavedDraft
-            ?.persistedAttachments ?? [],
+          useComposerDraftStore.getState().draftsByThreadId[scopeThread(chatHost.hostId, threadId)]
+            ?.promptHistorySavedDraft?.persistedAttachments ?? [],
       });
       if (cancelled) {
         return;
       }
-      void syncComposerDraftPromptHistorySavedDraftPersistedAttachments(threadId, staged);
+      void syncComposerDraftPromptHistorySavedDraftPersistedAttachments(
+        scopeThread(chatHost.hostId, threadId),
+        staged,
+      );
     })();
     return () => {
       cancelled = true;
     };
   }, [
+    chatHost,
     composerPromptHistorySavedDraftImages,
     syncComposerDraftPromptHistorySavedDraftPersistedAttachments,
     threadId,

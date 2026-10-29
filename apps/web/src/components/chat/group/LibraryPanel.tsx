@@ -60,7 +60,7 @@ import {
 } from "~/lib/icons";
 import { formatRelativeTime } from "~/lib/relativeTime";
 import { cn } from "~/lib/utils";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useStore } from "~/store";
 import { createSidebarThreadSummariesSelector } from "~/storeSelectors";
 
@@ -225,7 +225,7 @@ export function LibraryPanel({ open, variant, projectId, onClose }: LibraryPanel
   const handleContextMenu = useCallback(
     async (entry: LibraryEntry, event: ReactMouseEvent<HTMLElement>) => {
       event.preventDefault();
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api) return;
       const clicked = await api.contextMenu.show(
         [

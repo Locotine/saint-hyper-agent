@@ -58,7 +58,6 @@ export const NATIVE_EDITOR_BETA_FEATURE = "native-editor";
  */
 export const REMOTE_SSH_BETA_FEATURE = "remote-ssh";
 
-// Empty: every feature ships in Stable. Add a key to hold one back again.
 export const BETA_ONLY_FEATURES: readonly BetaOnlyFeature[] = [];
 
 /**

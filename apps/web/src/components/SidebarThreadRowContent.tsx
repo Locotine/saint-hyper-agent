@@ -2,6 +2,7 @@
 // Purpose: Owns the shared identity and status content rendered by every Sidebar thread row.
 // Exports: SidebarThreadRowContent and its terminal-status presentation type.
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ReactNode } from "react";
 
 import { isGenericChatThreadTitle } from "@saint/shared/chatThreads";
@@ -126,7 +127,7 @@ export function SidebarThreadRowContent({
   suffix?: ReactNode;
 }) {
   const showThreadProviderAvatar = !isGenericChatThreadTitle(thread.title);
-  const hasPendingDraft = useThreadHasPendingDraft(thread.id);
+  const hasPendingDraft = useThreadHasPendingDraft(scopeLocalThread(thread.id));
 
   return (
     <>

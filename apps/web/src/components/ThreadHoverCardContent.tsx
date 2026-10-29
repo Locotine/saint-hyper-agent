@@ -8,6 +8,7 @@
 // Why: Shared by both the pinned and the nested thread-row tooltips so the two
 //      surfaces cannot drift apart.
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ModelSelection, OrchestrationThreadPullRequest, ThreadId } from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 import type { MouseEvent, ReactNode } from "react";
@@ -224,7 +225,7 @@ export function ThreadHoverCardContent({
 
 // Unsent composer text, clamped so a long draft cannot stretch the card.
 function DraftPreviewRow({ threadId }: { threadId: ThreadId }) {
-  const previewText = useThreadDraftPreviewText(threadId);
+  const previewText = useThreadDraftPreviewText(scopeLocalThread(threadId));
   if (!previewText) return null;
   return (
     <div className={cn(SIDEBAR_HOVER_CARD_ROW_CLASS_NAME, "items-start text-muted-foreground")}>

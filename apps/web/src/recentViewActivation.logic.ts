@@ -9,6 +9,7 @@ import {
   type SplitView,
   type SplitViewId,
 } from "./splitViewStore";
+import { localThreadId } from "@saint/shared/hostId";
 import type { RecentView } from "./recentViews.logic";
 
 export interface RecentThreadSplitActivation {
@@ -29,6 +30,8 @@ export function resolveRecentThreadSplitActivation(input: {
     return null;
   }
 
-  const paneId = resolveSplitViewPaneIdForThread(splitView, input.view.threadId);
+  // Split views hold this computer's raw thread ids.
+  const threadId = localThreadId(input.view.threadId);
+  const paneId = threadId ? resolveSplitViewPaneIdForThread(splitView, threadId) : null;
   return paneId ? { splitViewId: input.view.splitViewId, paneId } : null;
 }

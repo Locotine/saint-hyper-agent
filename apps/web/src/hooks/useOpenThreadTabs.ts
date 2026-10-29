@@ -8,7 +8,8 @@
 
 import type { ProjectId, ThreadId } from "@saint/contracts";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { LOCAL_HOST_ID, scopeLocalThread, unscopeThread } from "@saint/shared/hostId";
+import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -20,6 +21,7 @@ import {
 import {
   buildOpenThreadTabs,
   canKeepOpenThreadTab,
+  localOpenThreadIds,
   type OpenThreadTab,
   type OpenThreadTabSource,
 } from "../openThreadTabs.logic";
@@ -39,7 +41,8 @@ export function useOpenThreadTabs(input: {
   projectId?: ProjectId | null | undefined;
 }): OpenThreadTab[] {
   const { activeThreadId } = input;
-  const threadIds = useOpenThreadTabsStore((state) => state.threadIds);
+  const scopedThreadIds = useOpenThreadTabsStore((state) => state.threadIds);
+  const threadIds = useMemo(() => localOpenThreadIds(scopedThreadIds), [scopedThreadIds]);
   const pruneThreadTabs = useOpenThreadTabsStore((state) => state.pruneThreadTabs);
   const threadsHydrated = useStore((state) => state.threadsHydrated);
   const activeComposerSendThreadIds = useSyncExternalStore(
@@ -67,8 +70,8 @@ export function useOpenThreadTabs(input: {
     useShallow((state) =>
       threadIds.map(
         (threadId) =>
-          selectThreadTerminalState(state.terminalStateByThreadId, threadId).entryPoint ===
-          "terminal",
+          selectThreadTerminalState(state.terminalStateByThreadId, scopeLocalThread(threadId))
+            .entryPoint === "terminal",
       ),
     ),
   );
@@ -81,14 +84,18 @@ export function useOpenThreadTabs(input: {
     didPruneRef.current = true;
     const { draftThreadsByThreadId } = useComposerDraftStore.getState();
     const { sidebarThreadSummaryById } = useStore.getState();
-    pruneThreadTabs(
-      (threadId) =>
+    pruneThreadTabs((scoped) => {
+      const { hostId, threadId } = unscopeThread(scoped);
+      // Only this computer's snapshot is authoritative here; another host's tabs stay.
+      if (hostId !== LOCAL_HOST_ID) return true;
+      return (
         threadId === activeThreadId ||
         canKeepOpenThreadTab(
           sidebarThreadSummaryById[threadId],
-          draftThreadsByThreadId[threadId] !== undefined,
-        ),
-    );
+          draftThreadsByThreadId[scopeLocalThread(threadId)] !== undefined,
+        )
+      );
+    });
   }, [activeThreadId, pruneThreadTabs, threadsHydrated]);
 
   const sources = threadIds.map((threadId, index): OpenThreadTabSource => {
@@ -122,7 +129,7 @@ export function useRecordOpenThreadTab(threadId: ThreadId | null): void {
   const openThreadTab = useOpenThreadTabsStore((state) => state.openThreadTab);
   useLayoutEffect(() => {
     if (threadId) {
-      openThreadTab(threadId);
+      openThreadTab(scopeLocalThread(threadId));
     }
   }, [openThreadTab, threadId]);
 }
@@ -142,12 +149,12 @@ export function useActivateThreadTab(): (threadId: ThreadId) => Promise<void> {
     prewarmThreadDetail(threadId);
     const { entryPoint } = selectThreadTerminalState(
       useTerminalStateStore.getState().terminalStateByThreadId,
-      threadId,
+      scopeLocalThread(threadId),
     );
     if (entryPoint === "terminal") {
-      openTerminalThreadPage(threadId);
+      openTerminalThreadPage(scopeLocalThread(threadId));
     } else {
-      openChatThreadPage(threadId);
+      openChatThreadPage(scopeLocalThread(threadId));
     }
     return navigate({
       to: "/$threadId",

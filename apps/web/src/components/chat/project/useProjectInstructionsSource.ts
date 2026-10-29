@@ -1,12 +1,13 @@
+import { scopeLocalProject } from "@saint/shared/hostId";
 import type { ProjectId } from "@saint/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { useProjectInstructionsStore } from "~/projectInstructionsStore";
 
 export function useProjectInstructionsSource(projectId: ProjectId | null) {
   const localInstructions = useProjectInstructionsStore((state) =>
-    projectId ? (state.instructionsByProjectId[projectId] ?? "") : "",
+    projectId ? (state.instructionsByProjectId[scopeLocalProject(projectId)] ?? "") : "",
   );
   const setLocalInstructions = useProjectInstructionsStore((state) => state.setInstructions);
   const [serverInstructions, setServerInstructions] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export function useProjectInstructionsSource(projectId: ProjectId | null) {
     }
     let cancelled = false;
     void (async () => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (!api?.projectAgent) return;
       try {
         const overview = await api.projectAgent.getOverview({ projectId });
@@ -59,7 +60,7 @@ export function useProjectInstructionsSource(projectId: ProjectId | null) {
 
   const onChange = useCallback(
     (nextProjectId: ProjectId, instructions: string) => {
-      const api = readNativeApi();
+      const api = readLocalNativeApi();
       if (serverBacked && api?.projectAgent && revision !== null) {
         void api.projectAgent
           .writeDocument({
@@ -83,7 +84,7 @@ export function useProjectInstructionsSource(projectId: ProjectId | null) {
           });
         return;
       }
-      setLocalInstructions(nextProjectId, instructions);
+      setLocalInstructions(scopeLocalProject(nextProjectId), instructions);
     },
     [revision, serverBacked, setLocalInstructions],
   );

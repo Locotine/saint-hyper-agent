@@ -26,7 +26,7 @@ import {
   gitStatusQueryOptions,
   refreshGitQueriesScoped,
 } from "../lib/gitReactQuery";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { parsePullRequestReference } from "../pullRequestReference";
 import {
   dedupeRemoteBranchesWithLocalMatches,
@@ -502,7 +502,7 @@ export function BranchToolbarBranchSelector({
   }, [canPrefillCreateBranch, hasExactBranchMatch, trimmedBranchQuery]);
 
   const openStashDiscardDialog = useCallback((input: { cwd: string }) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     setStashDiscardDialog({
       cwd: input.cwd,
       error: api ? null : "Native API is unavailable.",
@@ -533,7 +533,7 @@ export function BranchToolbarBranchSelector({
 
   const discardStashFromDialog = useCallback(() => {
     const dialog = stashDiscardDialog;
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!dialog || !api || isDroppingStash) return;
     setIsDroppingStash(true);
     runBranchAction(
@@ -551,7 +551,7 @@ export function BranchToolbarBranchSelector({
   }, [isDroppingStash, runBranchAction, stashDiscardDialog]);
 
   const selectBranch = (branch: GitBranch) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !branchCwd || isBranchActionPending) return;
 
     // In new-worktree mode, selecting a branch sets the base branch.
@@ -630,7 +630,7 @@ export function BranchToolbarBranchSelector({
 
   const createBranch = (rawName: string) => {
     const name = rawName.trim();
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api || !branchCwd || !name || isBranchActionPending) return;
 
     setIsBranchMenuOpen(false);

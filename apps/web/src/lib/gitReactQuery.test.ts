@@ -7,7 +7,7 @@ const { readWorkingTreeDiff } = vi.hoisted(() => ({
     truncated: false,
   })),
 }));
-vi.mock("../nativeApi", () => ({ ensureNativeApi: () => ({ git: { readWorkingTreeDiff } }) }));
+vi.mock("../nativeApi", () => ({ ensureLocalNativeApi: () => ({ git: { readWorkingTreeDiff } }) }));
 import {
   gitQueryKeys,
   gitStatusQueryOptions,

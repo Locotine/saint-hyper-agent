@@ -4,11 +4,14 @@
 // Exports: TaskCompletionNotifications and browser permission helpers
 
 import { ThreadId } from "@saint/contracts";
+import { LOCAL_HOST_ID, scopeThread, type HostId } from "@saint/shared/hostId";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { toastManager } from "../components/ui/toast";
 import { resolveVisibleToastThreadIds } from "../components/ui/toastRouteVisibility";
 import { useAppSettings } from "../appSettings";
+import { HostScope } from "../hosts/hostScope";
+import { useRemoteHostIds } from "../hosts/hostStores";
 import { isElectron } from "../env";
 import { useDiffRouteSearch } from "../hooks/useDiffRouteSearch";
 import { selectSplitView, useSplitViewStore } from "../splitViewStore";
@@ -155,7 +158,24 @@ function showThreadToast(
   });
 }
 
-export function TaskCompletionNotifications() {
+const NO_TERMINAL_STATE = {};
+
+/** The route id that opens a host's thread: bare for this computer, host-qualified otherwise. */
+function hostThreadRouteId(hostId: HostId, threadId: Thread["id"]): Thread["id"] {
+  return hostId === LOCAL_HOST_ID
+    ? threadId
+    : (scopeThread(hostId, threadId) as string as Thread["id"]);
+}
+
+/**
+ * One runtime per host: this computer's at the root, and (multi-host) one per connected host
+ * inside its `HostScope`, where `useStore` reads that host's store. A host's chats open by
+ * their host-qualified route id; terminals, snooze reminders and the desktop menu action
+ * stay with this computer's runtime.
+ */
+export function TaskCompletionNotifications(props: { hostId?: HostId } = {}) {
+  const hostId = props.hostId ?? LOCAL_HOST_ID;
+  const isLocal = hostId === LOCAL_HOST_ID;
   const { settings } = useAppSettings();
   const navigate = useNavigate();
   const activeThreadId = useParams({
@@ -179,7 +199,10 @@ export function TaskCompletionNotifications() {
     [sidebarSummaries],
   );
   const threadsHydrated = useStore((store) => store.threadsHydrated);
-  const terminalStateByThreadId = useTerminalStateStore((store) => store.terminalStateByThreadId);
+  const localTerminalStateByThreadId = useTerminalStateStore(
+    (store) => store.terminalStateByThreadId,
+  );
+  const terminalStateByThreadId = isLocal ? localTerminalStateByThreadId : NO_TERMINAL_STATE;
   const visibleThreadIds = resolveVisibleToastThreadIds({
     activeThreadId,
     splitView,
@@ -197,7 +220,7 @@ export function TaskCompletionNotifications() {
 
   useEffect(() => {
     const onMenuAction = window.desktopBridge?.onMenuAction;
-    if (typeof onMenuAction !== "function") {
+    if (!isLocal || typeof onMenuAction !== "function") {
       return;
     }
 
@@ -216,10 +239,10 @@ export function TaskCompletionNotifications() {
     return () => {
       unsubscribe?.();
     };
-  }, [navigate]);
+  }, [isLocal, navigate]);
 
   useEffect(() => {
-    if (!threadsHydrated) return;
+    if (!threadsHydrated || !isLocal) return;
     // Parent ToastProvider subscribes in its passive effect, after this child.
     // Deliver after those effects so hydration cannot consume a lost toast.
     let cancelled = false;
@@ -256,6 +279,7 @@ export function TaskCompletionNotifications() {
       cancelled = true;
     };
   }, [
+    isLocal,
     navigate,
     settings.enableSystemTaskCompletionNotifications,
     settings.enableTaskCompletionToasts,
@@ -322,15 +346,19 @@ export function TaskCompletionNotifications() {
       if (
         settings.enableTaskCompletionToasts &&
         shouldShowThreadNotificationToast({
-          threadId: completion.threadId,
+          threadId: hostThreadRouteId(hostId, completion.threadId),
           visibleThreadIds,
         })
       ) {
-        showThreadToast(copy, completion.threadId, "success", navigate);
+        showThreadToast(copy, hostThreadRouteId(hostId, completion.threadId), "success", navigate);
       }
 
       if (shouldAttemptSystemNotification) {
-        void showSystemThreadNotification(copy, completion.threadId, navigate);
+        void showSystemThreadNotification(
+          copy,
+          hostThreadRouteId(hostId, completion.threadId),
+          navigate,
+        );
       }
     }
 
@@ -339,15 +367,19 @@ export function TaskCompletionNotifications() {
       if (
         settings.enableTaskCompletionToasts &&
         shouldShowThreadNotificationToast({
-          threadId: candidate.threadId,
+          threadId: hostThreadRouteId(hostId, candidate.threadId),
           visibleThreadIds,
         })
       ) {
-        showThreadToast(copy, candidate.threadId, "warning", navigate);
+        showThreadToast(copy, hostThreadRouteId(hostId, candidate.threadId), "warning", navigate);
       }
 
       if (shouldAttemptSystemNotification) {
-        void showSystemThreadNotification(copy, candidate.threadId, navigate);
+        void showSystemThreadNotification(
+          copy,
+          hostThreadRouteId(hostId, candidate.threadId),
+          navigate,
+        );
       }
     }
 
@@ -356,15 +388,19 @@ export function TaskCompletionNotifications() {
       if (
         settings.enableTaskCompletionToasts &&
         shouldShowThreadNotificationToast({
-          threadId: completion.threadId,
+          threadId: hostThreadRouteId(hostId, completion.threadId),
           visibleThreadIds,
         })
       ) {
-        showThreadToast(copy, completion.threadId, "success", navigate);
+        showThreadToast(copy, hostThreadRouteId(hostId, completion.threadId), "success", navigate);
       }
 
       if (shouldAttemptSystemNotification) {
-        void showSystemThreadNotification(copy, completion.threadId, navigate);
+        void showSystemThreadNotification(
+          copy,
+          hostThreadRouteId(hostId, completion.threadId),
+          navigate,
+        );
       }
     }
 
@@ -373,18 +409,23 @@ export function TaskCompletionNotifications() {
       if (
         settings.enableTaskCompletionToasts &&
         shouldShowThreadNotificationToast({
-          threadId: candidate.threadId,
+          threadId: hostThreadRouteId(hostId, candidate.threadId),
           visibleThreadIds,
         })
       ) {
-        showThreadToast(copy, candidate.threadId, "warning", navigate);
+        showThreadToast(copy, hostThreadRouteId(hostId, candidate.threadId), "warning", navigate);
       }
 
       if (shouldAttemptSystemNotification) {
-        void showSystemThreadNotification(copy, candidate.threadId, navigate);
+        void showSystemThreadNotification(
+          copy,
+          hostThreadRouteId(hostId, candidate.threadId),
+          navigate,
+        );
       }
     }
   }, [
+    hostId,
     navigate,
     settings.enableSystemTaskCompletionNotifications,
     settings.enableTaskCompletionToasts,
@@ -397,6 +438,15 @@ export function TaskCompletionNotifications() {
   ]);
 
   return null;
+}
+
+/** Multi-host: a notification runtime per connected host, reading that host's store. */
+export function RemoteHostTaskCompletionNotifications() {
+  return useRemoteHostIds().map((hostId) => (
+    <HostScope key={hostId} hostId={hostId}>
+      <TaskCompletionNotifications hostId={hostId} />
+    </HostScope>
+  ));
 }
 
 export function buildNotificationSettingsSupportText(

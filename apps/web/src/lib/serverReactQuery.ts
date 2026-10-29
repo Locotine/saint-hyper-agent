@@ -10,7 +10,7 @@ import type {
   ThreadId,
 } from "@saint/contracts";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { EXPENSIVE_READ_RETRY_OPTIONS } from "./expensiveReadRetry";
 
 export const LOCAL_SERVERS_VISIBLE_REFETCH_INTERVAL_MS = 10_000;
@@ -48,7 +48,7 @@ export function serverConfigQueryOptions() {
   return queryOptions({
     queryKey: serverQueryKeys.config(),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.server.getConfig();
     },
     staleTime: Infinity,
@@ -62,7 +62,7 @@ export function computerStatusQueryOptions() {
   return queryOptions({
     queryKey: serverQueryKeys.computerStatus(),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       // Desktop-bridge NativeApi implementations update out of band and may
       // predate the computer namespace.
       if (!api.computer) {
@@ -78,7 +78,7 @@ export function computerStatusQueryOptions() {
 let computerProvisionInFlight: Promise<ComputerProvisionResult> | undefined;
 export function provisionComputer(): Promise<ComputerProvisionResult> {
   if (computerProvisionInFlight) return computerProvisionInFlight;
-  const api = ensureNativeApi();
+  const api = ensureLocalNativeApi();
   if (!api.computer?.provision)
     return Promise.reject(new Error("This app build cannot set up computer control."));
   computerProvisionInFlight = api.computer.provision({}).finally(() => {
@@ -200,7 +200,7 @@ export async function reconcileServerProviderStatuses(
       if (inFlight) return inFlight;
       // Coalesce initial stream hydration without fetchQuery's automatic cache
       // write, which would erase a newer cache writer before reconciliation.
-      const request = ensureNativeApi().server.getConfig();
+      const request = ensureLocalNativeApi().server.getConfig();
       providerConfigHydrationByQueryClient.set(queryClient, request);
       try {
         return await request;
@@ -247,7 +247,7 @@ export async function refreshServerConfigAfterTransportOpen(
   });
   // A reconnect must issue a fresh projection read. fetchQuery can share an
   // older in-flight request and write its stale membership before we reconcile.
-  const loadConfig = options?.loadConfig ?? (() => ensureNativeApi().server.getConfig());
+  const loadConfig = options?.loadConfig ?? (() => ensureLocalNativeApi().server.getConfig());
   const config = await loadConfig();
   if (configRefreshRevisionByQueryClient.get(queryClient) !== configRefreshRevision) return;
   const latestProviderSnapshot = latestProviderStatusSnapshotByQueryClient.get(queryClient);
@@ -281,7 +281,7 @@ export function serverAuthSessionQueryOptions() {
   return queryOptions({
     queryKey: serverQueryKeys.authSession(),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.server.getAuthSession();
     },
     staleTime: 15_000,
@@ -297,7 +297,7 @@ export function serverEnvironmentQueryOptions() {
   return queryOptions({
     queryKey: serverQueryKeys.environment(),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.server.getEnvironment();
     },
     staleTime: Infinity,
@@ -308,7 +308,7 @@ export function serverSettingsQueryOptions() {
   return queryOptions({
     queryKey: serverQueryKeys.settings(),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.server.getSettings();
     },
     staleTime: Infinity,
@@ -319,7 +319,7 @@ export function serverWorktreesQueryOptions() {
   return queryOptions({
     queryKey: serverQueryKeys.worktrees(),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.server.listWorktrees();
     },
     staleTime: 30_000,
@@ -342,7 +342,7 @@ export function serverLocalServersQueryOptions(
   return queryOptions({
     queryKey: serverQueryKeys.localServers(),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.server.listLocalServers();
     },
     enabled,
@@ -382,7 +382,7 @@ export function studioThreadOutputsQueryOptions(input: {
   return queryOptions({
     queryKey: serverQueryKeys.studioThreadOutputs(threadId),
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       if (!threadId) {
         return { entries: [] };
       }
@@ -400,7 +400,7 @@ export function serverStopLocalServerMutationOptions(input: { queryClient: Query
   return mutationOptions({
     mutationKey: serverMutationKeys.stopLocalServer(),
     mutationFn: async (server: ServerStopLocalServerInput) => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.server.stopLocalServer(server);
     },
     onSettled: () => {
@@ -423,7 +423,7 @@ export function serverProviderUsageSnapshotQueryOptions(input: {
     retry: false,
     queryFn: async () => {
       if (!input.provider) return null;
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.server.getProviderUsageSnapshot({
         provider: input.provider,
         ...(input.homePath ? { homePath: input.homePath } : {}),
@@ -433,12 +433,12 @@ export function serverProviderUsageSnapshotQueryOptions(input: {
 }
 
 export async function fetchAllProviderUsage(input: ServerListProviderUsageInput = {}) {
-  const api = ensureNativeApi();
+  const api = ensureLocalNativeApi();
   return api.server.listProviderUsage(input);
 }
 
 export async function consumeCodexResetCredit(input: ServerConsumeCodexResetCreditInput) {
-  const api = ensureNativeApi();
+  const api = ensureLocalNativeApi();
   return api.server.consumeCodexResetCredit(input);
 }
 
@@ -462,7 +462,7 @@ export function serverProfileStatsQueryOptions(input: { enabled?: boolean } = {}
     refetchOnWindowFocus: false,
     retry: false,
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.stats.getProfileStats({
         utcOffsetMinutes,
       });
@@ -481,7 +481,7 @@ export function serverProfileTokenStatsQueryOptions(input: { enabled?: boolean }
     refetchOnWindowFocus: false,
     retry: false,
     queryFn: async () => {
-      const api = ensureNativeApi();
+      const api = ensureLocalNativeApi();
       return api.stats.getProfileTokenStats({
         utcOffsetMinutes,
       });
@@ -512,7 +512,7 @@ export function serverRecapQueryOptions(
     refetchInterval: live ? 5 * 60_000 : false,
     refetchOnWindowFocus: false,
     retry: false,
-    queryFn: async () => ensureNativeApi().stats.getRecap(input),
+    queryFn: async () => ensureLocalNativeApi().stats.getRecap(input),
   });
 }
 

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   cleanup: undefined as (() => void) | undefined,
   queryClient: {},
-  readNativeApi: vi.fn(),
+  readLocalNativeApi: vi.fn(),
   reconcileServerProviderStatuses: vi.fn(async () => undefined),
 }));
 
@@ -22,7 +22,7 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 vi.mock("../nativeApi", () => ({
-  readNativeApi: mocks.readNativeApi,
+  readLocalNativeApi: mocks.readLocalNativeApi,
 }));
 
 vi.mock("../lib/serverReactQuery", () => ({
@@ -64,7 +64,7 @@ describe("useProviderStatusRefresh", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mocks.cleanup = undefined;
-    mocks.readNativeApi.mockReset();
+    mocks.readLocalNativeApi.mockReset();
     mocks.reconcileServerProviderStatuses.mockClear();
   });
 
@@ -80,7 +80,7 @@ describe("useProviderStatusRefresh", () => {
       .fn()
       .mockRejectedValueOnce(new Error("transport unavailable"))
       .mockResolvedValueOnce({ providers: [] });
-    mocks.readNativeApi.mockReturnValue({ server: { refreshProviders } });
+    mocks.readLocalNativeApi.mockReturnValue({ server: { refreshProviders } });
     const onRefreshSuccess = vi.fn();
 
     useProviderStatusRefresh({
@@ -102,7 +102,7 @@ describe("useProviderStatusRefresh", () => {
   it("retries a hidden startup refresh when the document becomes visible", async () => {
     const { documentTarget, setVisibilityState } = installBrowserGlobals("hidden");
     const refreshProviders = vi.fn().mockResolvedValue({ providers: [] });
-    mocks.readNativeApi.mockReturnValue({ server: { refreshProviders } });
+    mocks.readLocalNativeApi.mockReturnValue({ server: { refreshProviders } });
     const onRefreshSuccess = vi.fn();
 
     useProviderStatusRefresh({

@@ -14,7 +14,7 @@ const { getGitStatus, getPullRequestSnapshot } = vi.hoisted(() => ({
 }));
 
 vi.mock("../nativeApi", () => ({
-  ensureNativeApi: () => ({
+  ensureLocalNativeApi: () => ({
     git: { status: getGitStatus, pullRequestSnapshot: getPullRequestSnapshot },
   }),
 }));

@@ -3,6 +3,7 @@
 // Layer: Web hook
 // Exports: useThreadHandoff
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { useNavigate } from "@tanstack/react-router";
 import {
   PROVIDER_DISPLAY_NAMES,
@@ -27,7 +28,7 @@ import {
 } from "../lib/threadHandoff";
 import { resolveProviderSendAvailabilityWithRefresh } from "../lib/providerAvailability";
 import { newCommandId, newMessageId, newThreadId } from "../lib/utils";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import { type Thread } from "../types";
@@ -81,7 +82,7 @@ export function useThreadHandoff() {
     // A transcript handoff may restart the same agent with a fresh context.
     options?: { readonly allowSameTarget?: boolean },
   ) => {
-    const api = readNativeApi();
+    const api = readLocalNativeApi();
     if (!api) {
       throw new Error("Native API not found");
     }
@@ -155,7 +156,9 @@ export function useThreadHandoff() {
     const modelSelection = explicitModelSelection ?? prepared.modelSelection;
     const commandId = newCommandId();
     // The composer shows the provider the next message goes to.
-    useComposerDraftStore.getState().setModelSelectionAndSticky(thread.id, modelSelection);
+    useComposerDraftStore
+      .getState()
+      .setModelSelectionAndSticky(scopeLocalThread(thread.id), modelSelection);
     await prepared.api.orchestration.dispatchCommand({
       type: "thread.meta.update",
       commandId,
@@ -227,7 +230,7 @@ export function useThreadHandoff() {
       });
     }
 
-    copyTransferableComposerState(thread.id, nextThreadId);
+    copyTransferableComposerState(scopeLocalThread(thread.id), scopeLocalThread(nextThreadId));
 
     const snapshot = await api.orchestration.getShellSnapshot();
     syncServerShellSnapshot(snapshot);

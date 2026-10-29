@@ -16,7 +16,7 @@ const harness = vi.hoisted(() => ({
   listeners: new Set<(event: ProjectAgentStreamEvent) => void>(),
 }));
 vi.mock("~/nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     projectAgent: {
       listSummaries: harness.listSummaries,
       getOverview: harness.getOverview,

@@ -4,6 +4,13 @@
 // Exports: useKanbanBoard
 
 import type { ProjectId, ThreadId } from "@saint/contracts";
+import {
+  localProjectId,
+  localThreadId,
+  localThreadIdFromKey,
+  type ScopedProjectId,
+  type ScopedThreadId,
+} from "@saint/shared/hostId";
 import { useEffect, useMemo, useRef } from "react";
 
 import { useAppSettings } from "~/appSettings";
@@ -128,8 +135,9 @@ export function useKanbanBoard(): KanbanBoard {
   // sidebar, which swaps the provider avatar for the terminal glyph.
   const terminalEntryThreadIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const [threadId, terminalState] of Object.entries(terminalStateByThreadId)) {
-      if (terminalState.entryPoint === "terminal") {
+    for (const [scopedThreadId, terminalState] of Object.entries(terminalStateByThreadId)) {
+      const threadId = localThreadId(scopedThreadId as ScopedThreadId);
+      if (threadId !== null && terminalState.entryPoint === "terminal") {
         ids.add(threadId);
       }
     }
@@ -144,9 +152,13 @@ export function useKanbanBoard(): KanbanBoard {
     }
     const knownProjectIds = new Set<string>(allProjects.map((project) => project.id));
     const kanbanUi = useKanbanUiStore.getState();
-    for (const projectId of Object.keys(kanbanUi.draftOrderByProjectId)) {
-      if (!knownProjectIds.has(projectId)) {
-        kanbanUi.clearDraftOrder(projectId);
+    // Only this computer's snapshot is known here; other hosts' orders are kept.
+    for (const scopedProjectId of Object.keys(
+      kanbanUi.draftOrderByProjectId,
+    ) as ScopedProjectId[]) {
+      const projectId = localProjectId(scopedProjectId);
+      if (projectId !== null && !knownProjectIds.has(projectId)) {
+        kanbanUi.clearDraftOrder(scopedProjectId);
       }
     }
   }, [allProjects, threadsHydrated]);
@@ -226,7 +238,9 @@ export function useKanbanBoard(): KanbanBoard {
   // doesn't, sparing the downstream board rebuild entirely.
   const computedComposerDraftByThreadId = useMemo(() => {
     const snapshots: Record<string, KanbanComposerDraftSnapshot> = {};
-    for (const [threadId, draft] of Object.entries(draftsByThreadId)) {
+    for (const [key, draft] of Object.entries(draftsByThreadId)) {
+      const threadId = localThreadIdFromKey(key);
+      if (threadId === null) continue;
       const snapshot = buildKanbanComposerDraftSnapshot(draft);
       if (snapshot && (snapshot.prompt.trim().length > 0 || snapshot.hasAttachments)) {
         snapshots[threadId] = snapshot;
@@ -241,14 +255,16 @@ export function useKanbanBoard(): KanbanBoard {
 
   const draftThreads = useMemo(() => {
     const snapshots: KanbanDraftThreadSnapshot[] = [];
-    for (const [threadId, draftThread] of Object.entries(draftThreadsByThreadId)) {
+    for (const [key, draftThread] of Object.entries(draftThreadsByThreadId)) {
+      const threadId = localThreadIdFromKey(key);
+      if (threadId === null) continue;
       // Promoted drafts already surface through their durable thread; temporary and
       // terminal-first drafts have no chat prompt to track on the board.
       if (draftThread.promotedTo || draftThread.isTemporary || draftThread.entryPoint !== "chat") {
         continue;
       }
       snapshots.push({
-        threadId: threadId as ThreadId,
+        threadId,
         projectId: draftThread.projectId,
         createdAt: draftThread.createdAt,
         branch: draftThread.branch,

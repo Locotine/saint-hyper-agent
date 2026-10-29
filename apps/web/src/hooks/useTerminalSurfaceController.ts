@@ -1,5 +1,6 @@
 // Shared lifecycle and metadata for a single terminal panel.
 
+import { scopeLocalThread } from "@saint/shared/hostId";
 import { type ThreadId } from "@saint/contracts";
 import { type TerminalCliKind } from "@saint/shared/terminalThreads";
 import { useState } from "react";
@@ -10,7 +11,7 @@ import {
   shouldPromptForTerminalClose,
 } from "~/lib/terminalCloseConfirmation";
 import { dockTerminalThreadId } from "~/lib/dockTerminalScope";
-import { readNativeApi } from "~/nativeApi";
+import { readLocalNativeApi } from "~/nativeApi";
 import { selectRightDockState, useRightDockStore } from "~/rightDockStore";
 import { selectThreadTerminalState, useTerminalStateStore } from "~/terminalStateStore";
 import { disposeAndCloseTerminalSession } from "~/components/terminal/terminalSession";
@@ -24,7 +25,7 @@ type TerminalActivity = {
 
 export function useTerminalSurfaceController(threadId: ThreadId) {
   const terminalState = useTerminalStateStore((state) =>
-    selectThreadTerminalState(state.terminalStateByThreadId, threadId),
+    selectThreadTerminalState(state.terminalStateByThreadId, scopeLocalThread(threadId)),
   );
   const openTerminalThreadPage = useTerminalStateStore((s) => s.openTerminalThreadPage);
   const closeExitedTerminalStore = useTerminalStateStore((s) => s.closeExitedTerminal);
@@ -36,7 +37,7 @@ export function useTerminalSurfaceController(threadId: ThreadId) {
 
   const disposeExitedTerminal = (terminalId: string) => {
     disposeAndCloseTerminalSession({
-      api: readNativeApi(),
+      api: readLocalNativeApi(),
       threadId,
       terminalId,
       processAlreadyExited: true,
@@ -45,22 +46,22 @@ export function useTerminalSurfaceController(threadId: ThreadId) {
 
   const handleTerminalSessionExited = (terminalId: string) => {
     disposeExitedTerminal(terminalId);
-    closeExitedTerminalStore(threadId, terminalId);
+    closeExitedTerminalStore(scopeLocalThread(threadId), terminalId);
     bumpFocusRequest();
   };
 
   const handleDockTerminalSessionExited = (terminalId: string) => {
     disposeExitedTerminal(terminalId);
-    const disposition = closeExitedTerminalStore(threadId, terminalId);
+    const disposition = closeExitedTerminalStore(scopeLocalThread(threadId), terminalId);
     bumpFocusRequest();
     return disposition;
   };
 
   const setTerminalMetadata = (terminalId: string, metadata: TerminalMetadata) =>
-    setTerminalMetadataStore(threadId, terminalId, metadata);
+    setTerminalMetadataStore(scopeLocalThread(threadId), terminalId, metadata);
 
   const setTerminalActivity = (terminalId: string, activity: TerminalActivity) =>
-    setTerminalActivityStore(threadId, terminalId, activity);
+    setTerminalActivityStore(scopeLocalThread(threadId), terminalId, activity);
 
   return {
     terminalState,
@@ -80,13 +81,16 @@ export async function closeTerminalSurface(
   paneId?: string,
 ) {
   const store = useTerminalStateStore.getState();
-  const terminalState = selectThreadTerminalState(store.terminalStateByThreadId, threadId);
+  const terminalState = selectThreadTerminalState(
+    store.terminalStateByThreadId,
+    scopeLocalThread(threadId),
+  );
   const terminalId =
     paneId && terminalState.dockTerminalIdsByPaneId
       ? terminalState.dockTerminalIdsByPaneId[paneId]
       : terminalState.activeTerminalId;
   if (!terminalId) return true;
-  const api = readNativeApi();
+  const api = readLocalNativeApi();
   const confirmed = await confirmTerminalTabClose({
     api,
     enabled: shouldPromptForTerminalClose({
@@ -105,7 +109,7 @@ export async function closeTerminalSurface(
     return false;
   }
   await disposeAndCloseTerminalSession({ api, threadId, terminalId, requireStructuredClose: true });
-  store.closeTerminal(threadId, terminalId);
+  store.closeTerminal(scopeLocalThread(threadId), terminalId);
   return true;
 }
 

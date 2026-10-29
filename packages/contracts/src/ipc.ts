@@ -1006,6 +1006,8 @@ export type DesktopRemoteSshPhase =
   | "starting"
   | "tunneling"
   | "connected"
+  /** The tunnel dropped; the desktop is re-opening it (same port and token when it can). */
+  | "reconnecting"
   | "stopping"
   | "error";
 
@@ -1013,10 +1015,16 @@ export type DesktopRemoteSshPhase =
 export interface DesktopRemoteSshSavedHost {
   readonly host: string;
   readonly remoteRoot?: string | null;
+  /** Stable 8-hex identity (see `@saint/shared/hostId`); survives renaming the SSH alias. */
+  readonly hostKey?: string | null;
 }
 
 export interface DesktopRemoteSshHostState {
   readonly host: string;
+  /** Null until the host was connected from a saved entry that carries a key. */
+  readonly hostKey: string | null;
+  /** Bumps whenever the tunnel's token changes; clients build a fresh transport per epoch. */
+  readonly epoch: number;
   readonly remoteRoot: string;
   readonly phase: DesktopRemoteSshPhase;
   /** Failure detail for `error`; null otherwise. */
@@ -1165,9 +1173,10 @@ export interface DesktopBridge {
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
   /**
-   * Remote SSH hosts: run a Saint server on another machine and open it in
-   * its own desktop window through an SSH tunnel. Beta only; absent on Stable
-   * and in remote windows, and the main process refuses it there.
+   * Remote SSH hosts: run a Saint server on another machine and use it through
+   * an SSH tunnel, in its own window or by switching the app window onto it.
+   * Beta only; absent on Stable and in host popup windows, and the main process
+   * refuses it there. The app window keeps it while it runs on a host.
    */
   remoteSsh?: {
     getState: () => Promise<DesktopRemoteSshState>;
@@ -1178,28 +1187,9 @@ export interface DesktopBridge {
     /** Stops the host's server (its windows close); installed files and data stay. */
     stopServer: (host: DesktopRemoteSshSavedHost) => Promise<void>;
     forget: (host: string) => Promise<void>;
+    /** The loopback WebSocket URL of a connected host's server, or null while it is down. */
+    wsUrl: (host: string) => Promise<string | null>;
     onState: (listener: (state: DesktopRemoteSshState) => void) => () => void;
-  };
-  /**
-   * Present only in a remote SSH host window. Paths there belong to the host,
-   * so the renderer browses folders through the server, opens editors in their
-   * Remote-SSH mode, and never resolves dropped local files to paths.
-   */
-  remoteWindow?: {
-    readonly host: string;
-    /** Local editors that can open the host's folders over Remote-SSH. */
-    readonly editors: readonly EditorId[];
-    /** Providers the host's server runs; the rest are not installed there. */
-    readonly providers: readonly ProviderKind[];
-    openInEditor: (target: string, editor: EditorId) => Promise<void>;
-    /**
-     * Saves host workspace files on this computer: a Save dialog for one file,
-     * a folder dialog for several (a taken name there gets " (1)", never replaced).
-     * Absent on desktop builds without Explorer downloads.
-     */
-    downloadFiles?: (input: {
-      readonly items: ReadonlyArray<DesktopWorkspaceDownloadItem>;
-    }) => Promise<DesktopWorkspaceDownloadResult>;
   };
   /** Stable→Beta opt-in surface. Absent on builds that do not ship it. */
   beta?: {

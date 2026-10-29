@@ -7,7 +7,7 @@ import type { ServerCodexResetCredits } from "@saint/contracts";
 
 const harness = vi.hoisted(() => ({ confirm: vi.fn(), consume: vi.fn(), toast: vi.fn() }));
 vi.mock("~/nativeApi", () => ({
-  readNativeApi: () => ({ dialogs: { confirm: harness.confirm } }),
+  readLocalNativeApi: () => ({ dialogs: { confirm: harness.confirm } }),
 }));
 vi.mock("~/lib/serverReactQuery", () => ({
   consumeCodexResetCredit: harness.consume,

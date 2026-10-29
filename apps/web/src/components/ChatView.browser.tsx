@@ -69,7 +69,7 @@ import {
 import { extractTrailingBrowserAnnotations } from "../lib/browserAnnotations";
 import { isMacNavigatorPlatform } from "../lib/utils";
 import { STARRED_MODELS_STORAGE_KEY } from "../lib/starredModels";
-import { readNativeApi } from "../nativeApi";
+import { readLocalNativeApi } from "../nativeApi";
 import { emitWsTransportState } from "../wsTransportEvents";
 import { dispatchKanbanDraftThread } from "../lib/kanbanDispatch";
 import {
@@ -121,9 +121,19 @@ import { hasActiveComposerSend, runComposerSendOnce } from "../lib/composerSendO
 import { useProjectAgentSummariesStore } from "./chat/project/useProjectAgentSummaries";
 import { useThreadDispatchStore } from "./chat/useChatLocalDispatch";
 import { hasUnseenSnoozeReturn } from "./Sidebar.logic";
+import { LOCAL_HOST_ID, scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
+import { localOpenThreadIds } from "../openThreadTabs.logic";
 // Pre-transform the compiler-heavy component outside the first case's timeout.
 // The router's auto-split route otherwise requests this module on first mount.
 import "./ChatView";
+
+function setOpenTabs(threadIds: readonly ThreadId[]) {
+  useOpenThreadTabsStore.setState({ threadIds: threadIds.map(scopeLocalThread) });
+}
+
+function openTabs() {
+  return localOpenThreadIds(useOpenThreadTabsStore.getState().threadIds);
+}
 
 const THREAD_ID = "thread-browser-test" as ThreadId;
 const OTHER_THREAD_ID = "thread-browser-test-other" as ThreadId;
@@ -1398,7 +1408,7 @@ function installDeterministicSendNativeApi(options?: {
   projectThreadCommands?: boolean;
 }): () => void {
   const previousNativeApi = window.nativeApi;
-  const wsNativeApi = readNativeApi();
+  const wsNativeApi = readLocalNativeApi();
   if (!wsNativeApi) {
     throw new Error("Expected browser native API fixture.");
   }
@@ -2598,7 +2608,7 @@ describe("ChatView transcript geometry (full app)", () => {
       };
       const previousPins = usePinnedThreadsStore.getState().pinnedThreadIds;
       usePinnedThreadsStore.setState({
-        pinnedThreadIds: threads.slice(1, 4).map((thread) => thread.id),
+        pinnedThreadIds: threads.slice(1, 4).map((thread) => scopeLocalThread(thread.id)),
       });
       onTestFinished(() => {
         usePinnedThreadsStore.setState({ pinnedThreadIds: previousPins });
@@ -3001,7 +3011,7 @@ describe("ChatView transcript geometry (full app)", () => {
         snapshot: { ...snapshot, threads: [{ ...snapshot.threads[0]!, messages: [message] }] },
       });
       const previousNativeApi = window.nativeApi;
-      const api = readNativeApi()!;
+      const api = readLocalNativeApi()!;
       const repository = { nameWithOwner: "pull/123", url: "https://github.com/pull/123" };
       Object.defineProperty(window, "nativeApi", {
         configurable: true,
@@ -3116,7 +3126,7 @@ describe("ChatView transcript geometry (full app)", () => {
       useRightDockStore.getState().openPane(dockHostId, { kind: "sidechat", threadId: sidechatId });
       const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
       const previousNativeApi = window.nativeApi;
-      const api = readNativeApi()!;
+      const api = readLocalNativeApi()!;
       const repository = { nameWithOwner: "acme/widgets", url: "https://github.com/acme/widgets" };
       const openedExternally: string[] = [];
       Object.defineProperty(window, "nativeApi", {
@@ -3224,8 +3234,9 @@ describe("ChatView transcript geometry (full app)", () => {
     );
     let mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
     try {
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "Resize draft");
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), "Resize draft");
       const splitViewId = useSplitViewStore.getState().createFromDrop({
+        hostId: LOCAL_HOST_ID,
         sourceThreadId: THREAD_ID,
         ownerProjectId: PROJECT_ID,
         droppedThreadId: OTHER_THREAD_ID,
@@ -3256,7 +3267,7 @@ describe("ChatView transcript geometry (full app)", () => {
       const sourceChat = document.querySelector(`[data-chat-pane-scope="${sourceScope}"]`)!;
       const sourceBox = sourceChat.closest('[data-slot="sidebar-inset"]')!.parentElement!;
       const persistedRatio = () =>
-        JSON.parse(localStorage.getItem("saint:split-view-state:v1")!).state.splitViewsById[
+        JSON.parse(localStorage.getItem("saint:split-view-state:v2")!).state.splitViewsById[
           splitViewId
         ].root.ratio;
       const dispatch = (target: EventTarget, type: string, ratio: number, buttons: number) =>
@@ -3285,10 +3296,10 @@ describe("ChatView transcript geometry (full app)", () => {
       dispatch(overlay, "pointerup", 0.65, 0);
       await vi.waitFor(() => expect(persistedRatio()).toBeCloseTo(0.65));
       expect([...document.querySelectorAll('[contenteditable="true"]')]).toEqual(editors);
-      const saved = localStorage.getItem("saint:split-view-state:v1")!;
+      const saved = localStorage.getItem("saint:split-view-state:v2")!;
       await mounted.cleanup();
       useSplitViewStore.setState({ splitViewsById: {}, splitViewIdBySourceThreadId: {} });
-      localStorage.setItem("saint:split-view-state:v1", saved);
+      localStorage.setItem("saint:split-view-state:v2", saved);
       await useSplitViewStore.persist.rehydrate();
       mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
       await openSplit();
@@ -3328,10 +3339,12 @@ describe("ChatView transcript geometry (full app)", () => {
       try {
         // The survivor already anchors its own split, so it cannot take over this one.
         const survivorSplitId = useSplitViewStore.getState().createFromThread({
+          hostId: LOCAL_HOST_ID,
           sourceThreadId: THREAD_ID,
           ownerProjectId: PROJECT_ID,
         });
         const splitViewId = useSplitViewStore.getState().createFromDrop({
+          hostId: LOCAL_HOST_ID,
           sourceThreadId: OTHER_THREAD_ID,
           ownerProjectId: PROJECT_ID,
           droppedThreadId: THREAD_ID,
@@ -3386,9 +3399,9 @@ describe("ChatView transcript geometry (full app)", () => {
         await waitForLayout();
         expect(mounted.router.state.location.pathname).toBe(`/${THREAD_ID}`);
         expect(document.querySelector('[contenteditable="true"]')).toBe(survivingEditor);
-        expect(useSplitViewStore.getState().splitViewIdBySourceThreadId[THREAD_ID]).toBe(
-          survivorSplitId,
-        );
+        expect(
+          useSplitViewStore.getState().splitViewIdBySourceThreadId[scopeLocalThread(THREAD_ID)],
+        ).toBe(survivorSplitId);
       } finally {
         await mounted.cleanup();
       }
@@ -3406,8 +3419,11 @@ describe("ChatView transcript geometry (full app)", () => {
         gitQueryKeys.workingTreeDiffStats("/repo/project"),
         { additions: 604, deletions: 27, fileCount: 18 },
       );
-      useComposerDraftStore.getState().setPrompt(OTHER_THREAD_ID, "surviving draft");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(OTHER_THREAD_ID), "surviving draft");
       const splitViewId = useSplitViewStore.getState().createFromDrop({
+        hostId: LOCAL_HOST_ID,
         sourceThreadId: THREAD_ID,
         ownerProjectId: PROJECT_ID,
         droppedThreadId: OTHER_THREAD_ID,
@@ -3484,6 +3500,7 @@ describe("ChatView transcript geometry (full app)", () => {
       const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
       try {
         const splitViewId = useSplitViewStore.getState().createFromDrop({
+          hostId: LOCAL_HOST_ID,
           sourceThreadId: THREAD_ID,
           ownerProjectId: PROJECT_ID,
           droppedThreadId: OTHER_THREAD_ID,
@@ -3581,6 +3598,7 @@ describe("ChatView transcript geometry (full app)", () => {
       const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
       try {
         const splitViewId = useSplitViewStore.getState().createFromDrop({
+          hostId: LOCAL_HOST_ID,
           sourceThreadId: THREAD_ID,
           ownerProjectId: PROJECT_ID,
           droppedThreadId: OTHER_THREAD_ID,
@@ -3623,7 +3641,7 @@ describe("ChatView transcript geometry (full app)", () => {
           expect(mounted.router.state.location.pathname).toBe(`/${closingThreadId}`),
         );
         const persistedSplit = () =>
-          JSON.parse(localStorage.getItem("saint:split-view-state:v1")!).state.splitViewsById[
+          JSON.parse(localStorage.getItem("saint:split-view-state:v2")!).state.splitViewsById[
             splitViewId
           ];
         expect(persistedSplit()).toBeDefined();
@@ -3680,7 +3698,7 @@ describe("ChatView transcript geometry (full app)", () => {
     useRightDockStore.getState().setDockOpen(THREAD_ID, false);
     const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     const commands: Record<string, unknown>[] = [];
     let releaseFork!: () => void;
     const forkBarrier = new Promise<void>((resolve) => {
@@ -4183,7 +4201,7 @@ describe("ChatView transcript geometry (full app)", () => {
       snapshot: { ...snapshot, threads: [pendingThread] },
     });
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     const subscribeThread = vi.fn(api.orchestration.subscribeThread);
     const dispatchCommand = vi.fn(async () => {
       // Only the server fixture learns the winner. The client must fetch and
@@ -4280,13 +4298,15 @@ describe("ChatView transcript geometry (full app)", () => {
           },
         ],
       };
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "Keep this existing draft.");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(THREAD_ID), "Keep this existing draft.");
       const mounted = await mountChatView({
         viewport: DEFAULT_VIEWPORT,
         snapshot: { ...snapshot, threads: [pendingThread] },
       });
       const previousNativeApi = window.nativeApi;
-      const api = readNativeApi()!;
+      const api = readLocalNativeApi()!;
       let expire = false;
       const dispatchCommand = vi.fn(async () => {
         if (!expire) throw new Error("Temporary connection failure");
@@ -4347,9 +4367,8 @@ describe("ChatView transcript geometry (full app)", () => {
         expect(dispatchCommand).toHaveBeenCalledTimes(1);
         await expect.element(submit).toBeEnabled();
         expect(
-          useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.pendingUserInputDrafts?.[
-            requestKey
-          ],
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.pendingUserInputDrafts?.[requestKey],
         ).toEqual({
           request,
           answers: Object.fromEntries(
@@ -4366,7 +4385,9 @@ describe("ChatView transcript geometry (full app)", () => {
         await expect.element(page.getByRole("button", { name: "Restore answers" })).toBeVisible();
         await expect.element(submit).not.toBeInTheDocument();
         await page.getByRole("button", { name: "Restore answers" }).click();
-        expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+        ).toBe(
           `Keep this existing draft.\n\nChoose option 1?\nChoice 1\n\nChoose option 2?\nChoice 2\n\nChoose option 3?\n${navigation === "custom" ? "Custom answer" : "Choice 3"}`,
         );
         expect(dispatchCommand).toHaveBeenCalledTimes(2);
@@ -4437,9 +4458,9 @@ describe("ChatView transcript geometry (full app)", () => {
           inputToPaintMs.push(performance.now() - startedAt);
         }
 
-        expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-          "x".repeat(12),
-        );
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+        ).toBe("x".repeat(12));
         expect(useStore.getState().activityIdsByThreadId?.[THREAD_ID]).toHaveLength(
           benchmarkCase.activityCount + 12,
         );
@@ -4526,7 +4547,7 @@ describe("ChatView transcript geometry (full app)", () => {
       snapshot: { ...snapshot, threads: [pendingThread] },
     });
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     const subscribeThread = vi.fn(api.orchestration.subscribeThread);
     const dispatchCommand = vi.fn(
       async (command: Parameters<typeof api.orchestration.dispatchCommand>[0]) => {
@@ -4662,7 +4683,7 @@ describe("ChatView transcript geometry (full app)", () => {
         configureFixture: withClaudeReady,
       });
       const previousNativeApi = window.nativeApi;
-      const api = readNativeApi()!;
+      const api = readLocalNativeApi()!;
       const commands: Array<Parameters<typeof api.orchestration.dispatchCommand>[0]> = [];
       const dispatchCommand = vi.fn(
         async (command: Parameters<typeof api.orchestration.dispatchCommand>[0]) => {
@@ -4759,7 +4780,9 @@ describe("ChatView transcript geometry (full app)", () => {
           await expect.element(note).not.toBeInTheDocument();
           const surface = document.querySelector<HTMLElement>(".chat-composer-surface")!;
           const originalHeight = surface.getBoundingClientRect().height;
-          useComposerDraftStore.getState().setModelSelection(THREAD_ID, { provider, model });
+          useComposerDraftStore
+            .getState()
+            .setModelSelection(scopeLocalThread(THREAD_ID), { provider, model });
           await vi.waitFor(() => expect(note.query()).not.toBeNull(), { timeout: 3_000 });
           await expect.element(note).toBeVisible();
           expect(surface.contains(note.element())).toBe(false);
@@ -4773,7 +4796,9 @@ describe("ChatView transcript geometry (full app)", () => {
             .toHaveTextContent(provider === "claudeAgent" ? "Next reply" : "new provider");
           expect(document.querySelector('[role="alertdialog"]')).toBeNull();
           expect(document.querySelector('[data-slot="menu-popup"]')).toBeNull();
-          useComposerDraftStore.getState().setPrompt(THREAD_ID, "Continue the task");
+          useComposerDraftStore
+            .getState()
+            .setPrompt(scopeLocalThread(THREAD_ID), "Continue the task");
           if (sessionStatus === "ready") {
             await expect
               .element(page.getByRole("button", { name: "Send message", exact: true }))
@@ -4799,13 +4824,15 @@ describe("ChatView transcript geometry (full app)", () => {
           await note.getByRole("button", { name: "Dismiss tip" }).click();
           await expect.element(note).not.toBeInTheDocument();
 
-          useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+          useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
             provider: "claudeAgent",
             model: "claude-sonnet-4-6",
             options: { effort: "high" },
           });
           await expect.element(note).not.toBeInTheDocument();
-          useComposerDraftStore.getState().setModelSelection(THREAD_ID, { provider, model });
+          useComposerDraftStore
+            .getState()
+            .setModelSelection(scopeLocalThread(THREAD_ID), { provider, model });
           await expect.element(note).toBeVisible();
           document
             .querySelector<HTMLFormElement>('form[data-chat-composer-form="true"]')!
@@ -4817,13 +4844,15 @@ describe("ChatView transcript geometry (full app)", () => {
             );
             expect(mounted.commands).toHaveLength(0);
             expect(
-              useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns,
+              useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+                ?.queuedTurns,
             ).toHaveLength(0);
             await expect.element(note).toBeVisible();
           } else if (sessionStatus === "running") {
             await vi.waitFor(() => {
               expect(
-                useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns[0],
+                useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+                  ?.queuedTurns[0],
               ).toMatchObject({ kind: "chat", modelSelection: { provider, model } });
               expect(document.querySelector('[data-testid="queued-follow-up-row"]')).not.toBeNull();
             });
@@ -4990,11 +5019,11 @@ describe("ChatView transcript geometry (full app)", () => {
       };
 
     async function pickClaudeAndSend(text: string) {
-      useComposerDraftStore.getState().setModelSelectionAndSticky(THREAD_ID, {
+      useComposerDraftStore.getState().setModelSelectionAndSticky(scopeLocalThread(THREAD_ID), {
         provider: "claudeAgent",
         model: "claude-sonnet-4-6",
       });
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, text);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), text);
       const composerEditor = await waitForComposerEditor();
       await vi.waitFor(() => expect(composerEditor.textContent ?? "").toContain(text), {
         timeout: 8_000,
@@ -5186,7 +5215,7 @@ describe("ChatView transcript geometry (full app)", () => {
       const mounted = await mountWithCapturedCommands(snapshot, respondToHandoff("completed"));
       try {
         await expect.element(page.getByText("Task interrupted", { exact: true })).toBeVisible();
-        useComposerDraftStore.getState().setModelSelectionAndSticky(THREAD_ID, {
+        useComposerDraftStore.getState().setModelSelectionAndSticky(scopeLocalThread(THREAD_ID), {
           provider: "claudeAgent",
           model: "claude-sonnet-4-6",
         });
@@ -5238,7 +5267,7 @@ describe("ChatView transcript geometry (full app)", () => {
         const snapshot = createSnapshotWithSettledPlanAwaitingFollowUp();
         const mounted = await mountWithCapturedCommands(snapshot, respondToHandoff(outcome));
         try {
-          useComposerDraftStore.getState().setModelSelectionAndSticky(THREAD_ID, {
+          useComposerDraftStore.getState().setModelSelectionAndSticky(scopeLocalThread(THREAD_ID), {
             provider: "claudeAgent",
             model: "claude-sonnet-4-6",
           });
@@ -5276,7 +5305,7 @@ describe("ChatView transcript geometry (full app)", () => {
       const mounted = await mountWithCapturedCommands(undefined, respondToHandoff("completed"));
       try {
         useComposerDraftStore.getState().addImage(
-          THREAD_ID,
+          scopeLocalThread(THREAD_ID),
           createComposerImage({
             id: "handoff-upload-image",
             previewUrl: "blob:handoff-upload-image",
@@ -5292,7 +5321,7 @@ describe("ChatView transcript geometry (full app)", () => {
             ),
           ).toBe(true),
         );
-        useComposerDraftStore.getState().setModelSelectionAndSticky(THREAD_ID, {
+        useComposerDraftStore.getState().setModelSelectionAndSticky(scopeLocalThread(THREAD_ID), {
           provider: "codex",
           model: "gpt-5.5",
         });
@@ -5480,7 +5509,7 @@ describe("ChatView transcript geometry (full app)", () => {
         }),
       ),
     };
-    useComposerDraftStore.getState().setRuntimeMode(THREAD_ID, "full-access");
+    useComposerDraftStore.getState().setRuntimeMode(scopeLocalThread(THREAD_ID), "full-access");
     const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
     try {
       await expect
@@ -5902,7 +5931,7 @@ describe("ChatView transcript geometry (full app)", () => {
                   : resolve({ relativePath: "file.ts", version: "sha256:saved" });
             }),
         );
-        const api = readNativeApi()!;
+        const api = readLocalNativeApi()!;
         Object.defineProperty(window, "nativeApi", {
           configurable: true,
           value: { ...api, projects: { ...api.projects, writeFile } },
@@ -5923,7 +5952,7 @@ describe("ChatView transcript geometry (full app)", () => {
         });
         session.change("editor draft");
         const prompt = "use the saved editor changes";
-        useComposerDraftStore.getState().setPrompt(THREAD_ID, prompt);
+        useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), prompt);
         const turnStarts = () =>
           wsRequests.filter(
             (request) =>
@@ -5941,7 +5970,9 @@ describe("ChatView transcript geometry (full app)", () => {
           );
           expect(turnStarts()).toHaveLength(before);
           expect(session.getSnapshot().value).toBe("editor draft");
-          expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(prompt);
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+          ).toBe(prompt);
         } else {
           await vi.waitFor(() => expect(turnStarts()).toHaveLength(before + 1));
           expect(session.dirty).toBe(false);
@@ -5981,7 +6012,7 @@ describe("ChatView transcript geometry (full app)", () => {
       );
 
       const prompt = "anchor me before the thread switch";
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, prompt);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), prompt);
       const sendButton = await waitForSendButton();
       expect(sendButton.disabled).toBe(false);
       sendButton.click();
@@ -6176,7 +6207,7 @@ describe("ChatView transcript geometry (full app)", () => {
       restoreScrollTo = scrollSpy.restore;
 
       const prompt = "keep me pinned after send";
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, prompt);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), prompt);
 
       const sendButton = await waitForSendButton();
       expect(sendButton.disabled).toBe(false);
@@ -6232,9 +6263,9 @@ describe("ChatView transcript geometry (full app)", () => {
 
         const prompt = "Keep this message at the bottom";
         if (sendMethod === "plan follow-up") {
-          useComposerDraftStore.getState().setInteractionMode(THREAD_ID, "plan");
+          useComposerDraftStore.getState().setInteractionMode(scopeLocalThread(THREAD_ID), "plan");
         }
-        useComposerDraftStore.getState().setPrompt(THREAD_ID, prompt);
+        useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), prompt);
         await vi.waitFor(async () => {
           expect((await waitForComposerEditor()).textContent).toContain(prompt);
         });
@@ -6375,7 +6406,7 @@ describe("ChatView transcript geometry (full app)", () => {
       await waitForLayout();
 
       const prompt = "anchor this message at the viewport top";
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, prompt);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), prompt);
       const sendButton = await waitForSendButton();
       expect(sendButton.disabled).toBe(false);
       sendButton.click();
@@ -6565,7 +6596,9 @@ describe("ChatView transcript geometry (full app)", () => {
     try {
       // The ordinary loading marker can expire or be absent after navigation.
       useThreadDispatchStore.setState({ threads: {} });
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "Do not duplicate this send");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(THREAD_ID), "Do not duplicate this send");
       await expect.element(page.getByText("Checking message delivery…")).toBeVisible();
       const form = document.querySelector<HTMLFormElement>("[data-chat-composer-form='true']")!;
       form.requestSubmit();
@@ -6615,7 +6648,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
     try {
       const prompt = "keep thinking through the ack gap";
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, prompt);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), prompt);
       const sendButton = await waitForSendButton();
       expect(sendButton.disabled).toBe(false);
       sendButton.click();
@@ -6783,7 +6816,7 @@ describe("ChatView transcript geometry (full app)", () => {
       await waitForLayout();
 
       const prompt = "measure the anchor motion for this send";
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, prompt);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), prompt);
       const sendButton = await waitForSendButton();
       sendButton.click();
 
@@ -7094,7 +7127,7 @@ describe("ChatView transcript geometry (full app)", () => {
       if (action === "send") {
         useComposerDraftStore
           .getState()
-          .setPrompt(THREAD_ID, "Continue with a long streamed response");
+          .setPrompt(scopeLocalThread(THREAD_ID), "Continue with a long streamed response");
         (await waitForSendButton()).click();
         const sent = await waitForElement(
           () =>
@@ -7593,7 +7626,7 @@ describe("ChatView transcript geometry (full app)", () => {
       await vi.waitFor(() =>
         expect(findInlineToolsTurnDisclosure()?.getAttribute("aria-expanded")).toBe("false"),
       );
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "Thanks");
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), "Thanks");
       (await waitForSendButton()).click();
       await vi.waitFor(() => expect(hasDispatchedCommandType("thread.turn.start")).toBe(true));
       // Inspect the whole pending-send window: an unfold followed by a fold
@@ -7855,7 +7888,10 @@ describe("ChatView transcript geometry (full app)", () => {
     try {
       useComposerDraftStore
         .getState()
-        .setPrompt(THREAD_ID, "/automation say hi every 15 seconds 3 times total");
+        .setPrompt(
+          scopeLocalThread(THREAD_ID),
+          "/automation say hi every 15 seconds 3 times total",
+        );
       const composerEditor = await waitForComposerEditor();
       await vi.waitFor(
         () => {
@@ -7902,7 +7938,7 @@ describe("ChatView transcript geometry (full app)", () => {
   it("promotes draft chats before creating composer heartbeat automations", async () => {
     useComposerDraftStore.setState({
       draftThreadsByThreadId: {
-        [THREAD_ID]: {
+        [scopeLocalThread(THREAD_ID)]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "full-access",
@@ -7914,10 +7950,10 @@ describe("ChatView transcript geometry (full app)", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [PROJECT_ID]: THREAD_ID,
+        [PROJECT_ID]: scopeLocalThread(THREAD_ID),
       },
     });
-    useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+    useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
       provider: "codex",
       model: "gpt-5.4",
       options: {
@@ -7933,7 +7969,7 @@ describe("ChatView transcript geometry (full app)", () => {
     try {
       useComposerDraftStore
         .getState()
-        .setPrompt(THREAD_ID, "/automation say hi every 15 seconds for 3 times");
+        .setPrompt(scopeLocalThread(THREAD_ID), "/automation say hi every 15 seconds for 3 times");
       const composerEditor = await waitForComposerEditor();
       await vi.waitFor(
         () => {
@@ -8009,7 +8045,7 @@ describe("ChatView transcript geometry (full app)", () => {
   it("does not promote draft chats until a reviewed automation is submitted", async () => {
     useComposerDraftStore.setState({
       draftThreadsByThreadId: {
-        [THREAD_ID]: {
+        [scopeLocalThread(THREAD_ID)]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "full-access",
@@ -8021,7 +8057,7 @@ describe("ChatView transcript geometry (full app)", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [PROJECT_ID]: THREAD_ID,
+        [PROJECT_ID]: scopeLocalThread(THREAD_ID),
       },
     });
 
@@ -8031,7 +8067,9 @@ describe("ChatView transcript geometry (full app)", () => {
     });
 
     try {
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "/automation say hi every 15 seconds");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(THREAD_ID), "/automation say hi every 15 seconds");
       const composerEditor = await waitForComposerEditor();
       await vi.waitFor(
         () => {
@@ -8100,7 +8138,7 @@ describe("ChatView transcript geometry (full app)", () => {
   it("opens the project cwd for draft threads without a worktree path", async () => {
     useComposerDraftStore.setState({
       draftThreadsByThreadId: {
-        [THREAD_ID]: {
+        [scopeLocalThread(THREAD_ID)]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "full-access",
@@ -8112,7 +8150,7 @@ describe("ChatView transcript geometry (full app)", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [PROJECT_ID]: THREAD_ID,
+        [PROJECT_ID]: scopeLocalThread(THREAD_ID),
       },
     });
 
@@ -8270,7 +8308,9 @@ describe("ChatView transcript geometry (full app)", () => {
       // Simulate an out-of-band checkout after the cached branch query resolved. The send
       // path must refresh Git status instead of trusting the stale composer warning.
       fixture.gitBranchByCwd["/repo/project"] = "feature/latest";
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "resume settled thread");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(THREAD_ID), "resume settled thread");
       const composerEditor = await waitForComposerEditor();
       await vi.waitFor(
         () => expect(composerEditor.textContent ?? "").toContain("resume settled thread"),
@@ -8342,7 +8382,9 @@ describe("ChatView transcript geometry (full app)", () => {
       await expect
         .element(page.getByTestId("composer-branch-mismatch-warning"))
         .toBeInTheDocument();
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "retry after failed turn start");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(THREAD_ID), "retry after failed turn start");
       const sendButton = await waitForSendButton();
       await vi.waitFor(() => expect(sendButton.disabled).toBe(false), {
         timeout: 8_000,
@@ -8365,9 +8407,9 @@ describe("ChatView transcript geometry (full app)", () => {
       await expect
         .element(page.getByTestId("composer-branch-mismatch-warning"))
         .toBeInTheDocument();
-      expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-        "retry after failed turn start",
-      );
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+      ).toBe("retry after failed turn start");
     } finally {
       restoreNativeApi();
       await mounted.cleanup();
@@ -8383,7 +8425,7 @@ describe("ChatView transcript geometry (full app)", () => {
       }),
     });
     const previousNativeApi = window.nativeApi;
-    const nativeApi = readNativeApi()!;
+    const nativeApi = readLocalNativeApi()!;
     const writes: Array<Parameters<typeof nativeApi.terminal.write>[0]> = [];
     Object.defineProperty(window, "nativeApi", {
       configurable: true,
@@ -8422,13 +8464,15 @@ describe("ChatView transcript geometry (full app)", () => {
       await expect
         .element(page.getByText("Unable to open terminal", { exact: true }))
         .toBeVisible();
-      const state = useTerminalStateStore.getState().terminalStateByThreadId[THREAD_ID]!;
+      const state =
+        useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(THREAD_ID)]!;
       expect(state.terminalOpen).toBe(false);
       expect(state.activeTerminalId).toBe(writes[0]!.terminalId);
       expect(state.hasSession).toBe(true);
-      useTerminalStateStore.getState().setTerminalOpen(THREAD_ID, true);
+      useTerminalStateStore.getState().setTerminalOpen(scopeLocalThread(THREAD_ID), true);
       expect(
-        useTerminalStateStore.getState().terminalStateByThreadId[THREAD_ID]?.activeTerminalId,
+        useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(THREAD_ID)]
+          ?.activeTerminalId,
       ).toBe(writes[0]!.terminalId);
     } finally {
       if (previousNativeApi)
@@ -8446,7 +8490,7 @@ describe("ChatView transcript geometry (full app)", () => {
     async (entryPoint) => {
       useComposerDraftStore.setState({
         draftThreadsByThreadId: {
-          [THREAD_ID]: {
+          [scopeLocalThread(THREAD_ID)]: {
             projectId: PROJECT_ID,
             createdAt: NOW_ISO,
             runtimeMode: "full-access",
@@ -8458,7 +8502,7 @@ describe("ChatView transcript geometry (full app)", () => {
           },
         },
         projectDraftThreadIdByProjectId: {
-          [PROJECT_ID]: THREAD_ID,
+          [PROJECT_ID]: scopeLocalThread(THREAD_ID),
         },
       });
 
@@ -8520,6 +8564,7 @@ describe("ChatView transcript geometry (full app)", () => {
         await waitForServerConfigToApply();
         if (entryPoint === "split button") {
           const splitViewId = useSplitViewStore.getState().createFromDrop({
+            hostId: LOCAL_HOST_ID,
             sourceThreadId: THREAD_ID,
             ownerProjectId: PROJECT_ID,
             droppedThreadId: OTHER_THREAD_ID,
@@ -8636,7 +8681,7 @@ describe("ChatView transcript geometry (full app)", () => {
         { provider: "codex", model: "gpt-5.4", effort: "medium", fastMode: true, thinking: null },
       ]),
     );
-    useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+    useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
       provider: "codex",
       model: "gpt-5.4",
       options: { reasoningEffort: "medium", fastMode: true },
@@ -8656,10 +8701,11 @@ describe("ChatView transcript geometry (full app)", () => {
     try {
       await waitForServerConfigToApply();
       const readInteractionMode = () =>
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.interactionMode ?? "default";
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+          ?.interactionMode ?? "default";
       const readModelSelection = () =>
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.modelSelectionByProvider
-          .codex;
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+          ?.modelSelectionByProvider.codex;
       expect(readInteractionMode()).toBe("default");
 
       focusTarget.focus();
@@ -8734,7 +8780,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
   it("keeps the model picker open for 1500ms after the latest Shift+Tab press", async () => {
     localStorage.setItem("saint:app-settings:v1", JSON.stringify({ composerEffortSlider: true }));
-    useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+    useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
       provider: "codex",
       model: "gpt-5.4",
       options: { reasoningEffort: "low" },
@@ -8787,7 +8833,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
   it("keeps a manually opened model picker open after the effort shortcut timer expires", async () => {
     localStorage.setItem("saint:app-settings:v1", JSON.stringify({ composerEffortSlider: true }));
-    useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+    useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
       provider: "codex",
       model: "gpt-5.4",
       options: { reasoningEffort: "medium" },
@@ -8831,7 +8877,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
   it("keeps the existing slider menu open when choosing another model after Shift+Tab", async () => {
     localStorage.setItem("saint:app-settings:v1", JSON.stringify({ composerEffortSlider: true }));
-    useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+    useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
       provider: "codex",
       model: "gpt-5.4",
       options: { reasoningEffort: "medium" },
@@ -8863,8 +8909,8 @@ describe("ChatView transcript geometry (full app)", () => {
       await page.getByRole("menuitem", { name: /^GPT-5\.5/u }).click();
       await vi.waitFor(() => {
         expect(
-          useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.modelSelectionByProvider
-            .codex,
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.modelSelectionByProvider.codex,
         ).toMatchObject({ model: "gpt-5.5" });
       });
       await waitForLayout();
@@ -8877,8 +8923,8 @@ describe("ChatView transcript geometry (full app)", () => {
         );
       await expect.element(slider, { timeout: 1_000 }).toHaveAttribute("aria-valuetext", "Medium");
       expect(
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.modelSelectionByProvider
-          .codex,
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+          ?.modelSelectionByProvider.codex,
       ).toMatchObject({ model: "gpt-5.5", options: { reasoningEffort: "medium" } });
       await new Promise<void>((resolve) => window.setTimeout(resolve, 1_700));
       await expect.element(searchbox, { timeout: 1_000 }).toBeVisible();
@@ -8890,7 +8936,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
   it("opens the existing model picker effort menu when its slider setting is disabled", async () => {
     localStorage.setItem("saint:app-settings:v1", JSON.stringify({ composerEffortSlider: false }));
-    useComposerDraftStore.getState().setModelSelection(THREAD_ID, {
+    useComposerDraftStore.getState().setModelSelection(scopeLocalThread(THREAD_ID), {
       provider: "codex",
       model: "gpt-5.4",
       options: { reasoningEffort: "medium" },
@@ -8916,8 +8962,8 @@ describe("ChatView transcript geometry (full app)", () => {
         }),
       );
       expect(
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.modelSelectionByProvider
-          .codex,
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+          ?.modelSelectionByProvider.codex,
       ).toMatchObject({ options: { reasoningEffort: "high" } });
       await expect
         .element(page.getByRole("searchbox", { name: "Search models" }), { timeout: 1_000 })
@@ -9084,10 +9130,13 @@ describe("ChatView transcript geometry (full app)", () => {
         await nextFrame();
       }
       await userEvent.keyboard("{Shift>}{Enter}{/Shift}Second line");
-      const prompt = useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt;
+      const prompt =
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt;
       await userEvent.keyboard("{ArrowUp>10/}");
       expect(editor.textContent).toContain(draft);
-      expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(prompt);
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+      ).toBe(prompt);
 
       await userEvent.clear(editor);
       await userEvent.keyboard("{ArrowUp}");
@@ -9160,8 +9209,8 @@ describe("ChatView transcript geometry (full app)", () => {
       await dispatchModelCycleShortcutWhenReady(composerEditor, "]");
       await vi.waitFor(() => {
         expect(
-          useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.modelSelectionByProvider
-            .codex,
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.modelSelectionByProvider.codex,
         ).toMatchObject({ provider: "codex", model: DEFAULT_MODEL_BY_PROVIDER.codex });
       });
       expect(document.querySelector('[data-slot="menu-popup"]')).toBeNull();
@@ -9169,8 +9218,8 @@ describe("ChatView transcript geometry (full app)", () => {
       await dispatchModelCycleShortcutWhenReady(composerEditor, "[");
       await vi.waitFor(() => {
         expect(
-          useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.modelSelectionByProvider
-            .codex,
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.modelSelectionByProvider.codex,
         ).toMatchObject({ provider: "codex", model: "gpt-5.2" });
       });
     } finally {
@@ -9381,7 +9430,7 @@ describe("ChatView transcript geometry (full app)", () => {
     const removedLabel = "Terminal 1 lines 1-2";
     const addedLabel = "Terminal 2 lines 9-10";
     useComposerDraftStore.getState().addTerminalContext(
-      THREAD_ID,
+      scopeLocalThread(THREAD_ID),
       createTerminalContext({
         id: "ctx-removed",
         terminalLabel: "Terminal 1",
@@ -9408,21 +9457,23 @@ describe("ChatView transcript geometry (full app)", () => {
       );
 
       const store = useComposerDraftStore.getState();
-      const currentPrompt = store.draftsByThreadId[THREAD_ID]?.prompt ?? "";
+      const currentPrompt = store.draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt ?? "";
       const nextPrompt = removeInlineTerminalContextPlaceholder(currentPrompt, 0);
-      store.setPrompt(THREAD_ID, nextPrompt.prompt);
-      store.removeTerminalContext(THREAD_ID, "ctx-removed");
+      store.setPrompt(scopeLocalThread(THREAD_ID), nextPrompt.prompt);
+      store.removeTerminalContext(scopeLocalThread(THREAD_ID), "ctx-removed");
 
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]).toBeUndefined();
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)],
+          ).toBeUndefined();
           expect(document.body.textContent).not.toContain(removedLabel);
         },
         { timeout: 8_000, interval: 16 },
       );
 
       useComposerDraftStore.getState().addTerminalContext(
-        THREAD_ID,
+        scopeLocalThread(THREAD_ID),
         createTerminalContext({
           id: "ctx-added",
           terminalLabel: "Terminal 2",
@@ -9434,7 +9485,8 @@ describe("ChatView transcript geometry (full app)", () => {
 
       await vi.waitFor(
         () => {
-          const draft = useComposerDraftStore.getState().draftsByThreadId[THREAD_ID];
+          const draft =
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)];
           expect(draft?.terminalContexts.map((context) => context.id)).toEqual(["ctx-added"]);
           expect(document.body.textContent).toContain(addedLabel);
           expect(document.body.textContent).not.toContain(removedLabel);
@@ -9449,7 +9501,7 @@ describe("ChatView transcript geometry (full app)", () => {
   it("warns when sending text while omitting expired terminal pills", async () => {
     const expiredLabel = "Terminal 1 line 4";
     useComposerDraftStore.getState().addTerminalContext(
-      THREAD_ID,
+      scopeLocalThread(THREAD_ID),
       createTerminalContext({
         id: "ctx-expired-send-warning",
         terminalLabel: "Terminal 1",
@@ -9460,7 +9512,7 @@ describe("ChatView transcript geometry (full app)", () => {
     );
     useComposerDraftStore
       .getState()
-      .setPrompt(THREAD_ID, `yoo${INLINE_TERMINAL_CONTEXT_PLACEHOLDER}waddup`);
+      .setPrompt(scopeLocalThread(THREAD_ID), `yoo${INLINE_TERMINAL_CONTEXT_PLACEHOLDER}waddup`);
 
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
@@ -9501,9 +9553,9 @@ describe("ChatView transcript geometry (full app)", () => {
     const restoreNativeApi = installDeterministicSendNativeApi();
     const prompt = "Delete everything I annotated.";
     const store = useComposerDraftStore.getState();
-    store.setPrompt(THREAD_ID, prompt);
+    store.setPrompt(scopeLocalThread(THREAD_ID), prompt);
     expect(
-      store.addBrowserAnnotation(THREAD_ID, {
+      store.addBrowserAnnotation(scopeLocalThread(THREAD_ID), {
         id: "annotation-without-comment",
         tabId: "tab-a",
         source: {
@@ -9521,7 +9573,7 @@ describe("ChatView transcript geometry (full app)", () => {
       }),
     ).toBe(true);
     expect(
-      store.addBrowserAnnotation(THREAD_ID, {
+      store.addBrowserAnnotation(scopeLocalThread(THREAD_ID), {
         id: "annotation-with-comment",
         tabId: "tab-a",
         source: {
@@ -9605,7 +9657,8 @@ describe("ChatView transcript geometry (full app)", () => {
           ]);
           expect(command.message?.attachments ?? []).toHaveLength(0);
           expect(
-            useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.browserAnnotations ?? [],
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+              ?.browserAnnotations ?? [],
           ).toHaveLength(0);
           expect(document.body.textContent).not.toContain("<browser_annotations>");
         },
@@ -9619,7 +9672,9 @@ describe("ChatView transcript geometry (full app)", () => {
 
   it("steers a running turn when Follow-up behavior is set to Steer", async () => {
     localStorage.setItem("saint:app-settings:v1", JSON.stringify({ followUpBehavior: "steer" }));
-    useComposerDraftStore.getState().setPrompt(THREAD_ID, "steer this running turn");
+    useComposerDraftStore
+      .getState()
+      .setPrompt(scopeLocalThread(THREAD_ID), "steer this running turn");
 
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
@@ -9663,7 +9718,9 @@ describe("ChatView transcript geometry (full app)", () => {
   });
 
   it("keeps queued follow-ups when you switch threads and come back", async () => {
-    useComposerDraftStore.getState().setPrompt(THREAD_ID, "queue survives thread switch");
+    useComposerDraftStore
+      .getState()
+      .setPrompt(scopeLocalThread(THREAD_ID), "queue survives thread switch");
 
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
@@ -9803,7 +9860,7 @@ describe("ChatView transcript geometry (full app)", () => {
       : baseSnapshot;
     const restoredRuntimeModes: Array<string | null | undefined> = [];
     const unsubscribe = useComposerDraftStore.subscribe((state) => {
-      const draft = state.draftsByThreadId[THREAD_ID];
+      const draft = state.draftsByThreadId[scopeLocalThread(THREAD_ID)];
       if (draft?.prompt === firstQueuedPrompt) restoredRuntimeModes.push(draft.runtimeMode);
     });
     const mounted = await mountChatView({
@@ -9812,7 +9869,7 @@ describe("ChatView transcript geometry (full app)", () => {
     });
 
     try {
-      useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, {
+      useComposerDraftStore.getState().enqueueQueuedTurn(scopeLocalThread(THREAD_ID), {
         id: "queued-turn-1",
         kind: "chat",
         createdAt: NOW_ISO,
@@ -9839,7 +9896,7 @@ describe("ChatView transcript geometry (full app)", () => {
         interactionMode: "default",
         envMode: "local",
       });
-      useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, {
+      useComposerDraftStore.getState().enqueueQueuedTurn(scopeLocalThread(THREAD_ID), {
         id: "queued-turn-2",
         kind: "chat",
         createdAt: NOW_ISO,
@@ -9905,24 +9962,26 @@ describe("ChatView transcript geometry (full app)", () => {
           );
           expect(queuedRows).toHaveLength(1);
           expect(queuedRows[0]?.textContent ?? "").toContain(secondQueuedPrompt);
-          expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-            firstQueuedPrompt,
-          );
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+          ).toBe(firstQueuedPrompt);
           expect(
             useComposerDraftStore
               .getState()
-              .draftsByThreadId[THREAD_ID]?.images.map((image) => image.name),
+              .draftsByThreadId[scopeLocalThread(THREAD_ID)]?.images.map((image) => image.name),
           ).toEqual(["queued-image.png"]);
           // The restored image renders as a thumbnail chip whose filename lives in
           // its accessible label/title, not in text content.
           expect(document.querySelector('[aria-label="Preview queued-image.png"]')).not.toBeNull();
           if (handedOff) {
             expect(
-              useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.activeProvider,
+              useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+                ?.activeProvider,
             ).toBe("opencode");
-            expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.runtimeMode).toBe(
-              "approval-required",
-            );
+            expect(
+              useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+                ?.runtimeMode,
+            ).toBe("approval-required");
             expect(restoredRuntimeModes).not.toContain("auto");
           }
         },
@@ -9957,8 +10016,8 @@ describe("ChatView transcript geometry (full app)", () => {
 
     try {
       // The user is mid-draft in the composer while a turn-completion drain fires.
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, draftBeingTyped);
-      useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, {
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), draftBeingTyped);
+      useComposerDraftStore.getState().enqueueQueuedTurn(scopeLocalThread(THREAD_ID), {
         id: "queued-turn-auto",
         kind: "chat",
         createdAt: NOW_ISO,
@@ -10008,9 +10067,9 @@ describe("ChatView transcript geometry (full app)", () => {
           // Queue drained...
           expect(document.querySelectorAll('[data-testid="queued-follow-up-row"]')).toHaveLength(0);
           // ...but the in-progress composer draft is left untouched.
-          expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-            draftBeingTyped,
-          );
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+          ).toBe(draftBeingTyped);
         },
         { timeout: 8_000, interval: 16 },
       );
@@ -10083,16 +10142,18 @@ describe("ChatView transcript geometry (full app)", () => {
       useComposerDraftStore
         .getState()
         .enqueueQueuedTurn(
-          THREAD_ID,
+          scopeLocalThread(THREAD_ID),
           kind === "plan-follow-up"
             ? { ...queuedTurn, kind, text: queuedPrompt, interactionMode: "plan" }
             : queuedTurn,
         );
       if (kind === "plan-follow-up") {
-        useComposerDraftStore.getState().setInteractionMode(THREAD_ID, "plan");
+        useComposerDraftStore.getState().setInteractionMode(scopeLocalThread(THREAD_ID), "plan");
       }
       // Same tick as the enqueue: the Stop action recorded this turn before it settled.
-      useComposerDraftStore.getState().pauseQueuedTurnsAfterStop(THREAD_ID, stoppedTurnId);
+      useComposerDraftStore
+        .getState()
+        .pauseQueuedTurnsAfterStop(scopeLocalThread(THREAD_ID), stoppedTurnId);
 
       await vi.waitFor(
         () => {
@@ -10124,7 +10185,8 @@ describe("ChatView transcript geometry (full app)", () => {
           { timeout: 8_000, interval: 16 },
         );
         expect(
-          useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queueStoppedTurnId ?? null,
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.queueStoppedTurnId ?? null,
         ).toBe(null);
       } finally {
         await mounted.cleanup();
@@ -10139,7 +10201,7 @@ describe("ChatView transcript geometry (full app)", () => {
         const mounted = await mountPausedQueue(kind);
         const manualPrompt = "message typed while the queue is paused";
         try {
-          useComposerDraftStore.getState().setPrompt(THREAD_ID, manualPrompt);
+          useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), manualPrompt);
           const composerEditor = await waitForComposerEditor();
           await vi.waitFor(() => expect(composerEditor.textContent ?? "").toContain(manualPrompt), {
             timeout: 8_000,
@@ -10175,8 +10237,8 @@ describe("ChatView transcript geometry (full app)", () => {
                 ),
               ).toBe(true);
               expect(
-                useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queueStoppedTurnId ??
-                  null,
+                useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+                  ?.queueStoppedTurnId ?? null,
               ).toBe(null);
             },
             { timeout: 8_000, interval: 16 },
@@ -10201,16 +10263,18 @@ describe("ChatView transcript geometry (full app)", () => {
       });
       const mounted = await mountPausedQueue();
       const originalQueue =
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]!.queuedTurns;
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]!.queuedTurns;
       try {
         const steer = page.getByRole("button", { name: "Steer", exact: true }).first();
         await steer.click();
         await vi.waitFor(() => expect(sentQueuedPrompt()).toBe(true));
-        expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns).toEqual(
-          originalQueue,
-        );
         expect(
-          useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queueStoppedTurnId,
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.queuedTurns,
+        ).toEqual(originalQueue);
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.queueStoppedTurnId,
         ).toBe(stoppedTurnId);
         const acquired = tryBeginQueuedComposerAutoDispatch(THREAD_ID);
         if (acquired) endQueuedComposerAutoDispatch(THREAD_ID);
@@ -10223,11 +10287,13 @@ describe("ChatView transcript geometry (full app)", () => {
         await vi.waitFor(() =>
           expect(document.body.textContent).toContain("Turn start failed for test."),
         );
-        expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queuedTurns).toEqual(
-          originalQueue,
-        );
         expect(
-          useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queueStoppedTurnId,
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.queuedTurns,
+        ).toEqual(originalQueue);
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.queueStoppedTurnId,
         ).toBe(stoppedTurnId);
       } finally {
         releaseSend();
@@ -10240,21 +10306,23 @@ describe("ChatView transcript geometry (full app)", () => {
       const restoreNativeApi = installDeterministicSendNativeApi();
       const mounted = await mountPausedQueue("plan-follow-up");
       const queuedTurn =
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]!.queuedTurns[0]!;
-      useComposerDraftStore
-        .getState()
-        .enqueueQueuedTurn(THREAD_ID, { ...queuedTurn, id: "remaining-plan-follow-up" });
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]!
+          .queuedTurns[0]!;
+      useComposerDraftStore.getState().enqueueQueuedTurn(scopeLocalThread(THREAD_ID), {
+        ...queuedTurn,
+        id: "remaining-plan-follow-up",
+      });
       try {
         await page.getByRole("button", { name: "Steer", exact: true }).first().click();
         await vi.waitFor(() => {
           expect(
             useComposerDraftStore
               .getState()
-              .draftsByThreadId[THREAD_ID]?.queuedTurns.map((turn) => turn.id),
+              .draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns.map((turn) => turn.id),
           ).toEqual(["remaining-plan-follow-up"]);
           expect(
-            useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queueStoppedTurnId ??
-              null,
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+              ?.queueStoppedTurnId ?? null,
           ).toBe(null);
         });
         expect(
@@ -10276,16 +10344,22 @@ describe("ChatView transcript geometry (full app)", () => {
       });
       const mounted = await mountPausedQueue();
       const queuedTurn =
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]!.queuedTurns[0]!;
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]!
+          .queuedTurns[0]!;
       const newerStoppedTurnId = TurnId.makeUnsafe("newer-stop-while-steering");
       try {
         await page.getByRole("button", { name: "Steer", exact: true }).first().click();
         await vi.waitFor(() => expect(sentQueuedPrompt()).toBe(true));
+        useComposerDraftStore.getState().enqueueQueuedTurn(scopeLocalThread(THREAD_ID), {
+          ...queuedTurn,
+          id: "edited-queued-turn",
+        });
         useComposerDraftStore
           .getState()
-          .enqueueQueuedTurn(THREAD_ID, { ...queuedTurn, id: "edited-queued-turn" });
-        useComposerDraftStore.getState().removeQueuedTurn(THREAD_ID, queuedTurn.id);
-        useComposerDraftStore.getState().pauseQueuedTurnsAfterStop(THREAD_ID, newerStoppedTurnId);
+          .removeQueuedTurn(scopeLocalThread(THREAD_ID), queuedTurn.id);
+        useComposerDraftStore
+          .getState()
+          .pauseQueuedTurnsAfterStop(scopeLocalThread(THREAD_ID), newerStoppedTurnId);
         releaseSend();
         await vi.waitFor(() => {
           const acquired = tryBeginQueuedComposerAutoDispatch(THREAD_ID);
@@ -10297,10 +10371,11 @@ describe("ChatView transcript geometry (full app)", () => {
         expect(
           useComposerDraftStore
             .getState()
-            .draftsByThreadId[THREAD_ID]?.queuedTurns.map((turn) => turn.id),
+            .draftsByThreadId[scopeLocalThread(THREAD_ID)]?.queuedTurns.map((turn) => turn.id),
         ).toEqual(["edited-queued-turn"]);
         expect(
-          useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.queueStoppedTurnId,
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+            ?.queueStoppedTurnId,
         ).toBe(newerStoppedTurnId);
         expect(
           wsRequests.filter((request) => turnStartText(request)?.includes(queuedPrompt)),
@@ -10335,8 +10410,8 @@ describe("ChatView transcript geometry (full app)", () => {
       // plan-follow-up branch in onSend is live. The queued chat turn below
       // carries its own "default" mode and an image attachment, both of which the
       // misroute (onSubmitPlanFollowUp) would discard.
-      useComposerDraftStore.getState().setInteractionMode(THREAD_ID, "plan");
-      useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, {
+      useComposerDraftStore.getState().setInteractionMode(scopeLocalThread(THREAD_ID), "plan");
+      useComposerDraftStore.getState().enqueueQueuedTurn(scopeLocalThread(THREAD_ID), {
         id: "queued-turn-plan-chat",
         kind: "chat",
         createdAt: NOW_ISO,
@@ -10418,7 +10493,7 @@ describe("ChatView transcript geometry (full app)", () => {
     });
 
     const enqueueQueuedChatTurn = (id: string, prompt: string) => {
-      useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, {
+      useComposerDraftStore.getState().enqueueQueuedTurn(scopeLocalThread(THREAD_ID), {
         id,
         kind: "chat",
         createdAt: NOW_ISO,
@@ -10627,7 +10702,9 @@ describe("ChatView transcript geometry (full app)", () => {
         },
       });
       try {
-        useComposerDraftStore.getState().setPrompt(THREAD_ID, "Keep the current draft");
+        useComposerDraftStore
+          .getState()
+          .setPrompt(scopeLocalThread(THREAD_ID), "Keep the current draft");
         const composerEditor = await waitForComposerEditor();
         await vi.waitFor(() =>
           expect(composerEditor.textContent).toContain("Keep the current draft"),
@@ -10685,11 +10762,11 @@ describe("ChatView transcript geometry (full app)", () => {
             expect(editor.textContent).toBe("Explain this selected passage");
             expect(document.activeElement).toBe(editor);
             const drafts = useComposerDraftStore.getState();
-            expect(drafts.draftsByThreadId[draftId]?.assistantSelections[0]?.text).toBe(
-              "assistant filler 21",
-            );
-            expect(drafts.getDraftThread(draftId)?.envMode).toBe(envMode);
-            expect(drafts.draftsByThreadId[draftId]?.queuedTurns).toHaveLength(0);
+            expect(
+              drafts.draftsByThreadId[scopeLocalThread(draftId)]?.assistantSelections[0]?.text,
+            ).toBe("assistant filler 21");
+            expect(drafts.getDraftThread(scopeLocalThread(draftId))?.envMode).toBe(envMode);
+            expect(drafts.draftsByThreadId[scopeLocalThread(draftId)]?.queuedTurns).toHaveLength(0);
           });
           expect(
             wsRequests
@@ -10734,10 +10811,12 @@ describe("ChatView transcript geometry (full app)", () => {
             },
             { timeout: 15_000 },
           );
-        expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-          "Keep the current draft",
-        );
-        expect(useProjectEnvironmentStore.getState().envModeByProjectId[PROJECT_ID]).toBe(envMode);
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+        ).toBe("Keep the current draft");
+        expect(
+          useProjectEnvironmentStore.getState().envModeByProjectId[scopeLocalProject(PROJECT_ID)],
+        ).toBe(envMode);
       } finally {
         window.getSelection()?.removeAllRanges();
         await mounted.cleanup();
@@ -10764,7 +10843,9 @@ describe("ChatView transcript geometry (full app)", () => {
     });
 
     try {
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "Keep the source draft");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(THREAD_ID), "Keep the source draft");
       await waitForLayout();
       const source = page.getByText("assistant filler 21", { exact: true });
       await expect.element(source).toBeVisible();
@@ -10797,16 +10878,17 @@ describe("ChatView transcript geometry (full app)", () => {
       const newThreadId = ThreadId.makeUnsafe(newThreadPath.slice(1));
       await vi.waitFor(
         () => {
-          const draft = useComposerDraftStore.getState().draftsByThreadId[newThreadId];
+          const draft =
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(newThreadId)];
           expect(draft?.queuedTurns).toHaveLength(1);
           expect(draft?.queuedTurns[0]).toMatchObject({
             kind: "chat",
             prompt,
             assistantSelections: [{ text: "assistant filler 21" }],
           });
-          expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-            "Keep the source draft",
-          );
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+          ).toBe("Keep the source draft");
           expect(
             wsRequests
               .map(readDispatchedCommand)
@@ -10834,7 +10916,7 @@ describe("ChatView transcript geometry (full app)", () => {
   });
 
   it("keeps a new draft out of horizontal tabs until it becomes a saved thread", async () => {
-    useOpenThreadTabsStore.setState({ threadIds: [] });
+    setOpenTabs([]);
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: createSnapshotForTargetUser({
@@ -10880,7 +10962,7 @@ describe("ChatView transcript geometry (full app)", () => {
       syncServerReadModel(addThreadToSnapshot(fixture.snapshot, newThreadId));
 
       // Clear the draft now that the server thread exists (mirrors EventRouter behavior).
-      useComposerDraftStore.getState().clearDraftThread(newThreadId);
+      useComposerDraftStore.getState().clearDraftThread(scopeLocalThread(newThreadId));
 
       // The route should still be on the new thread — not redirected away.
       await waitForURL(
@@ -10906,7 +10988,7 @@ describe("ChatView transcript geometry (full app)", () => {
   });
 
   it("uses the latest ordinary project from Home when the global New thread button is clicked", async () => {
-    useLatestProjectStore.setState({ latestProjectId: PROJECT_ID });
+    useLatestProjectStore.setState({ latestProjectId: scopeLocalProject(PROJECT_ID) });
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: withActiveHomeChatThread(
@@ -10928,9 +11010,9 @@ describe("ChatView transcript geometry (full app)", () => {
         "Global New thread should create a draft in the latest ordinary project.",
       );
       const newThreadId = newThreadPath.slice(1) as ThreadId;
-      expect(useComposerDraftStore.getState().getDraftThread(newThreadId)?.projectId).toBe(
-        PROJECT_ID,
-      );
+      expect(
+        useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId))?.projectId,
+      ).toBe(PROJECT_ID);
       await expect.element(page.getByText("Type path", { exact: true })).not.toBeInTheDocument();
     } finally {
       await mounted.cleanup();
@@ -10938,8 +11020,10 @@ describe("ChatView transcript geometry (full app)", () => {
   });
 
   it("keeps the project environment when global New thread creates a draft from Home", async () => {
-    useLatestProjectStore.setState({ latestProjectId: PROJECT_ID });
-    useProjectEnvironmentStore.setState({ envModeByProjectId: { [PROJECT_ID]: "worktree" } });
+    useLatestProjectStore.setState({ latestProjectId: scopeLocalProject(PROJECT_ID) });
+    useProjectEnvironmentStore.setState({
+      envModeByProjectId: { [scopeLocalProject(PROJECT_ID)]: "worktree" },
+    });
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: withActiveHomeChatThread(
@@ -10959,14 +11043,18 @@ describe("ChatView transcript geometry (full app)", () => {
       );
       const draftId = ThreadId.makeUnsafe(path.slice(1));
       await vi.waitFor(() =>
-        expect(useComposerDraftStore.getState().getDraftThread(draftId)).toMatchObject({
+        expect(
+          useComposerDraftStore.getState().getDraftThread(scopeLocalThread(draftId)),
+        ).toMatchObject({
           projectId: PROJECT_ID,
           envMode: "worktree",
           worktreePath: null,
         }),
       );
       await expect.element(await waitForWorktreeCheckbox()).toHaveAttribute("aria-checked", "true");
-      expect(useProjectEnvironmentStore.getState().envModeByProjectId[PROJECT_ID]).toBe("worktree");
+      expect(
+        useProjectEnvironmentStore.getState().envModeByProjectId[scopeLocalProject(PROJECT_ID)],
+      ).toBe("worktree");
     } finally {
       await mounted.cleanup();
     }
@@ -10974,13 +11062,19 @@ describe("ChatView transcript geometry (full app)", () => {
 
   it("keeps the stored draft environment when global New thread reopens it from Home", async () => {
     const draftId = ThreadId.makeUnsafe("00000000-0000-4000-8000-000000000369");
-    useLatestProjectStore.setState({ latestProjectId: PROJECT_ID });
-    useProjectEnvironmentStore.setState({ envModeByProjectId: { [PROJECT_ID]: "local" } });
-    useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, draftId, {
-      entryPoint: "chat",
-      envMode: "worktree",
+    useLatestProjectStore.setState({ latestProjectId: scopeLocalProject(PROJECT_ID) });
+    useProjectEnvironmentStore.setState({
+      envModeByProjectId: { [scopeLocalProject(PROJECT_ID)]: "local" },
     });
-    useComposerDraftStore.getState().setPrompt(draftId, "Preserve this Worktree draft");
+    useComposerDraftStore
+      .getState()
+      .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(draftId), {
+        entryPoint: "chat",
+        envMode: "worktree",
+      });
+    useComposerDraftStore
+      .getState()
+      .setPrompt(scopeLocalThread(draftId), "Preserve this Worktree draft");
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: withActiveHomeChatThread(
@@ -11001,7 +11095,7 @@ describe("ChatView transcript geometry (full app)", () => {
       expect(
         useComposerDraftStore.getState().getDraftThreadByProjectId(PROJECT_ID, "chat"),
       ).toMatchObject({
-        threadId: draftId,
+        threadId: scopeLocalThread(draftId),
         envMode: "worktree",
       });
       const composerEditor = await waitForComposerEditor();
@@ -11009,14 +11103,16 @@ describe("ChatView transcript geometry (full app)", () => {
         expect(composerEditor.textContent).toBe("Preserve this Worktree draft"),
       );
       await expect.element(await waitForWorktreeCheckbox()).toHaveAttribute("aria-checked", "true");
-      expect(useProjectEnvironmentStore.getState().envModeByProjectId[PROJECT_ID]).toBe("local");
+      expect(
+        useProjectEnvironmentStore.getState().envModeByProjectId[scopeLocalProject(PROJECT_ID)],
+      ).toBe("local");
     } finally {
       await mounted.cleanup();
     }
   });
 
   it("opens Add project when the global New thread action has no usable project target", async () => {
-    useLatestProjectStore.setState({ latestProjectId: PROJECT_ID });
+    useLatestProjectStore.setState({ latestProjectId: scopeLocalProject(PROJECT_ID) });
     const snapshot = withActiveHomeChatThread(
       createSnapshotForTargetUser({
         targetMessageId: "msg-user-global-new-thread-no-project" as MessageId,
@@ -11047,7 +11143,7 @@ describe("ChatView transcript geometry (full app)", () => {
   });
 
   it("does not open Add project before project hydration completes", async () => {
-    useLatestProjectStore.setState({ latestProjectId: PROJECT_ID });
+    useLatestProjectStore.setState({ latestProjectId: scopeLocalProject(PROJECT_ID) });
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: withActiveHomeChatThread(
@@ -11109,13 +11205,17 @@ describe("ChatView transcript geometry (full app)", () => {
       );
       const newThreadId = newThreadPath.slice(1) as ThreadId;
 
-      useComposerDraftStore.getState().setDraftThreadContext(newThreadId, {
+      useComposerDraftStore.getState().setDraftThreadContext(scopeLocalThread(newThreadId), {
         envMode: "worktree",
         branch: "feature/keep-out",
         worktreePath: "/repo/project/.worktrees/feature-keep-out",
       });
-      useComposerDraftStore.getState().setProjectDraftThreadId(OTHER_PROJECT_ID, OTHER_THREAD_ID);
-      useComposerDraftStore.getState().setPrompt(OTHER_THREAD_ID, "replace this other draft");
+      useComposerDraftStore
+        .getState()
+        .setProjectDraftThreadId(OTHER_PROJECT_ID, scopeLocalThread(OTHER_THREAD_ID));
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(OTHER_THREAD_ID), "replace this other draft");
 
       const projectPickerTrigger = page.getByTestId("project-picker-trigger");
       await expect.element(projectPickerTrigger).toHaveTextContent("project");
@@ -11168,7 +11268,9 @@ describe("ChatView transcript geometry (full app)", () => {
       currentProjectOption.click();
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
+          ).toMatchObject({
             projectId: PROJECT_ID,
             envMode: "worktree",
             branch: "feature/keep-out",
@@ -11183,15 +11285,19 @@ describe("ChatView transcript geometry (full app)", () => {
 
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
+          ).toMatchObject({
             projectId: OTHER_PROJECT_ID,
             envMode: "local",
             branch: null,
             worktreePath: null,
           });
-          expect(useComposerDraftStore.getState().getDraftThread(OTHER_THREAD_ID)).toBeNull();
           expect(
-            useComposerDraftStore.getState().draftsByThreadId[OTHER_THREAD_ID],
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(OTHER_THREAD_ID)),
+          ).toBeNull();
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(OTHER_THREAD_ID)],
           ).toBeUndefined();
         },
         { timeout: 8_000, interval: 16 },
@@ -11232,7 +11338,9 @@ describe("ChatView transcript geometry (full app)", () => {
       await userEvent.keyboard("{ArrowDown}{Enter}");
 
       await vi.waitFor(() => {
-        expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
+        expect(
+          useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
+        ).toMatchObject({
           projectId: OTHER_PROJECT_ID,
         });
       });
@@ -11247,7 +11355,7 @@ describe("ChatView transcript geometry (full app)", () => {
     async (initialEntry) => {
       useComposerDraftStore.setState({
         draftThreadsByThreadId: {
-          [STUDIO_DRAFT_THREAD_ID]: {
+          [scopeLocalThread(STUDIO_DRAFT_THREAD_ID)]: {
             projectId: STUDIO_PROJECT_ID,
             createdAt: NOW_ISO,
             runtimeMode: "full-access",
@@ -11259,7 +11367,7 @@ describe("ChatView transcript geometry (full app)", () => {
           },
         },
         projectDraftThreadIdByProjectId: {
-          [STUDIO_PROJECT_ID]: STUDIO_DRAFT_THREAD_ID,
+          [STUDIO_PROJECT_ID]: scopeLocalThread(STUDIO_DRAFT_THREAD_ID),
         },
       });
 
@@ -11291,7 +11399,8 @@ describe("ChatView transcript geometry (full app)", () => {
       try {
         expect(mounted.router.state.location.pathname).toBe(`/${STUDIO_DRAFT_THREAD_ID}`);
         expect(
-          useComposerDraftStore.getState().getDraftThread(STUDIO_DRAFT_THREAD_ID)?.projectId,
+          useComposerDraftStore.getState().getDraftThread(scopeLocalThread(STUDIO_DRAFT_THREAD_ID))
+            ?.projectId,
         ).toBe(STUDIO_PROJECT_ID);
         // Fire the surface-aware new-chat chord twice: on the Groups segment it maps to
         // the group chat create path, and the second fire must coalesce with the first.
@@ -11307,7 +11416,9 @@ describe("ChatView transcript geometry (full app)", () => {
 
         await vi.waitFor(
           () => {
-            expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
+            expect(
+              useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
+            ).toMatchObject({
               projectId: STUDIO_PROJECT_ID,
               entryPoint: "chat",
               envMode: "local",
@@ -11337,7 +11448,9 @@ describe("ChatView transcript geometry (full app)", () => {
         projectFolderOption.click();
         await vi.waitFor(
           () => {
-            expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
+            expect(
+              useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
+            ).toMatchObject({
               projectId: STUDIO_PROJECT_ID,
               envMode: "local",
               branch: null,
@@ -11360,9 +11473,11 @@ describe("ChatView transcript geometry (full app)", () => {
               .map(([threadId]) => threadId);
             expect(mounted.router.state.status).toBe("idle");
             expect(mounted.router.state.location.pathname).toBe(newThreadPath);
-            expect(state.getDraftThread(STUDIO_DRAFT_THREAD_ID)).toBeNull();
-            expect(studioDraftIds).toEqual([newThreadId]);
-            expect(state.projectDraftThreadIdByProjectId[STUDIO_PROJECT_ID]).toBe(newThreadId);
+            expect(state.getDraftThread(scopeLocalThread(STUDIO_DRAFT_THREAD_ID))).toBeNull();
+            expect(studioDraftIds).toEqual([scopeLocalThread(newThreadId)]);
+            expect(state.projectDraftThreadIdByProjectId[STUDIO_PROJECT_ID]).toBe(
+              scopeLocalThread(newThreadId),
+            );
             expect(state.projectDraftThreadIdByProjectId[HOME_PROJECT_ID]).toBeUndefined();
           },
           { timeout: 8_000, interval: 16 },
@@ -11452,10 +11567,10 @@ describe("ChatView transcript geometry (full app)", () => {
       for (const viewport of [DEFAULT_VIEWPORT, { name: "narrow", width: 480, height: 640 }]) {
         await mounted.setViewport(viewport);
         for (const count of [0, 1, 4, 0]) {
-          useComposerDraftStore.getState().clearComposerContent(THREAD_ID);
+          useComposerDraftStore.getState().clearComposerContent(scopeLocalThread(THREAD_ID));
           for (let index = 0; index < count; index += 1) {
             useComposerDraftStore.getState().addImage(
-              THREAD_ID,
+              scopeLocalThread(THREAD_ID),
               createComposerImage({
                 id: `hub-image-${index}`,
                 name: `reference-${index + 1}.png`,
@@ -11506,7 +11621,7 @@ describe("ChatView transcript geometry (full app)", () => {
   it("seeds a fresh hub chat draft from the hub's workerRouting", async () => {
     useComposerDraftStore.setState({
       draftThreadsByThreadId: {
-        [STUDIO_DRAFT_THREAD_ID]: {
+        [scopeLocalThread(STUDIO_DRAFT_THREAD_ID)]: {
           projectId: STUDIO_PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "full-access",
@@ -11518,7 +11633,7 @@ describe("ChatView transcript geometry (full app)", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [STUDIO_PROJECT_ID]: STUDIO_DRAFT_THREAD_ID,
+        [STUDIO_PROJECT_ID]: scopeLocalThread(STUDIO_DRAFT_THREAD_ID),
       },
     });
 
@@ -11591,15 +11706,17 @@ describe("ChatView transcript geometry (full app)", () => {
       // selection: the fresh draft dispatches on the group's configured provider.
       await vi.waitFor(
         () => {
-          const draft = useComposerDraftStore.getState().draftsByThreadId[newThreadId];
+          const draft =
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(newThreadId)];
           expect(draft?.activeProvider).toBe("claudeAgent");
           expect(draft?.modelSelectionByProvider.claudeAgent?.model).toBe("claude-opus-4-5");
           expect(draft?.providerOptionsForDispatch).toEqual({
             claudeAgent: { enableArtifacts: true },
           });
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)?.projectId).toBe(
-            STUDIO_PROJECT_ID,
-          );
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId))
+              ?.projectId,
+          ).toBe(STUDIO_PROJECT_ID);
         },
         { timeout: 8_000, interval: 16 },
       );
@@ -11766,7 +11883,9 @@ describe("ChatView transcript geometry (full app)", () => {
         await resetProjectButton.click();
         await vi.waitFor(
           () => {
-            expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
+            expect(
+              useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
+            ).toMatchObject({
               projectId: HOME_PROJECT_ID,
               envMode: "local",
               branch: null,
@@ -11791,7 +11910,7 @@ describe("ChatView transcript geometry (full app)", () => {
   it("moves a home draft into an existing project from the home picker without carrying branch", async () => {
     useComposerDraftStore.setState({
       draftThreadsByThreadId: {
-        [THREAD_ID]: {
+        [scopeLocalThread(THREAD_ID)]: {
           projectId: HOME_PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "full-access",
@@ -11803,7 +11922,7 @@ describe("ChatView transcript geometry (full app)", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [HOME_PROJECT_ID]: THREAD_ID,
+        [HOME_PROJECT_ID]: scopeLocalThread(THREAD_ID),
       },
     });
 
@@ -11849,7 +11968,9 @@ describe("ChatView transcript geometry (full app)", () => {
 
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().getDraftThread(THREAD_ID)).toMatchObject({
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(THREAD_ID)),
+          ).toMatchObject({
             projectId: PROJECT_ID,
             envMode: "local",
             branch: null,
@@ -11897,7 +12018,7 @@ describe("ChatView transcript geometry (full app)", () => {
       }),
     });
     const previousNativeApi = window.nativeApi;
-    const wsNativeApi = readNativeApi();
+    const wsNativeApi = readLocalNativeApi();
     expect(wsNativeApi).toBeDefined();
     const pickFolder = vi.fn(async () => "/repo/new-project");
     let createdProjectId: ProjectId | null = null;
@@ -11971,7 +12092,9 @@ describe("ChatView transcript geometry (full app)", () => {
 
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
+          ).toMatchObject({
             projectId: createdProjectId,
             envMode: "local",
             branch: null,
@@ -12148,7 +12271,9 @@ describe("ChatView transcript geometry (full app)", () => {
         "Project creation should land on a draft thread route.",
       );
       expect(
-        useComposerDraftStore.getState().getDraftThread(ThreadId.makeUnsafe(draftPath.slice(1))),
+        useComposerDraftStore
+          .getState()
+          .getDraftThread(scopeLocalThread(ThreadId.makeUnsafe(draftPath.slice(1)))),
       ).toMatchObject({
         projectId: expect.any(String),
       });
@@ -12168,7 +12293,7 @@ describe("ChatView transcript geometry (full app)", () => {
     });
     const previousPath = mounted.router.state.location.pathname;
     const previousNativeApi = window.nativeApi;
-    const wsNativeApi = readNativeApi();
+    const wsNativeApi = readLocalNativeApi();
     expect(wsNativeApi).toBeDefined();
     Object.defineProperty(window, "nativeApi", {
       configurable: true,
@@ -12324,7 +12449,7 @@ describe("ChatView transcript geometry (full app)", () => {
       },
     });
     const previousNativeApi = window.nativeApi;
-    const wsNativeApi = readNativeApi();
+    const wsNativeApi = readLocalNativeApi();
     expect(wsNativeApi).toBeDefined();
     Object.defineProperty(window, "nativeApi", {
       configurable: true,
@@ -12406,7 +12531,7 @@ describe("ChatView transcript geometry (full app)", () => {
         () => {
           expect(
             useComposerDraftStore.getState().getDraftThreadByProjectId(PROJECT_ID)?.threadId,
-          ).toBe(newThreadId);
+          ).toBe(scopeLocalThread(newThreadId));
           expect(mounted.router.state.location.pathname).toBe(newThreadPath);
           expect(mounted.router.state.status).toBe("idle");
         },
@@ -12416,18 +12541,20 @@ describe("ChatView transcript geometry (full app)", () => {
 
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)?.envMode).toBe(
-            "worktree",
-          );
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId))?.envMode,
+          ).toBe("worktree");
         },
         { timeout: 8_000, interval: 16 },
       );
-      expect(useProjectEnvironmentStore.getState().envModeByProjectId[PROJECT_ID]).toBe("worktree");
+      expect(
+        useProjectEnvironmentStore.getState().envModeByProjectId[scopeLocalProject(PROJECT_ID)],
+      ).toBe("worktree");
 
       let previousDraftId = newThreadId;
       for (const expectedMode of ["worktree", "local"] as const) {
         await mounted.router.navigate({ to: "/$threadId", params: { threadId: THREAD_ID } });
-        useComposerDraftStore.getState().clearDraftThread(previousDraftId);
+        useComposerDraftStore.getState().clearDraftThread(scopeLocalThread(previousDraftId));
         await newThreadButton.click();
         const nextPath = await waitForURL(
           mounted.router,
@@ -12436,7 +12563,9 @@ describe("ChatView transcript geometry (full app)", () => {
         );
         previousDraftId = nextPath.slice(1) as ThreadId;
         await vi.waitFor(() => {
-          expect(useComposerDraftStore.getState().getDraftThread(previousDraftId)).toMatchObject({
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(previousDraftId)),
+          ).toMatchObject({
             projectId: PROJECT_ID,
             envMode: expectedMode,
             worktreePath: null,
@@ -12448,9 +12577,11 @@ describe("ChatView transcript geometry (full app)", () => {
           expect(worktreeCheckbox.getAttribute("aria-checked")).toBe("true");
           worktreeCheckbox.click();
           await vi.waitFor(() => {
-            expect(useProjectEnvironmentStore.getState().envModeByProjectId[PROJECT_ID]).toBe(
-              "local",
-            );
+            expect(
+              useProjectEnvironmentStore.getState().envModeByProjectId[
+                scopeLocalProject(PROJECT_ID)
+              ],
+            ).toBe("local");
           });
         }
       }
@@ -12471,7 +12602,9 @@ describe("ChatView transcript geometry (full app)", () => {
         beforeTurnStart: () => turnGate,
       });
       useKanbanUiStore.setState({ optimisticDispatchByThreadId: {} });
-      useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, THREAD_ID);
+      useComposerDraftStore
+        .getState()
+        .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(THREAD_ID));
       const mounted = await mountChatView({
         viewport: DEFAULT_VIEWPORT,
         snapshot: createDraftOnlySnapshot(),
@@ -12555,9 +12688,9 @@ describe("ChatView transcript geometry (full app)", () => {
           expect(useThreadDispatchStore.getState().threads[THREAD_ID]?.localDispatch).toBeFalsy();
           expect(document.querySelectorAll('[data-message-role="user"]')).toHaveLength(1);
           expect(page.getByTestId("composer-editor").element().textContent).toContain(newerPrompt);
-          expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-            newerPrompt,
-          );
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+          ).toBe(newerPrompt);
         });
         // Real board reconciliation consumes the runtime acknowledgement and drops its optimistic move.
         await mounted.router.navigate({
@@ -12571,9 +12704,9 @@ describe("ChatView transcript geometry (full app)", () => {
         );
         await mounted.router.navigate({ to: "/$threadId", params: { threadId: THREAD_ID } });
         await vi.waitFor(() => {
-          expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-            newerPrompt,
-          );
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+          ).toBe(newerPrompt);
           expect(page.getByTestId("composer-editor").element().textContent).toContain(newerPrompt);
           expect(
             document.querySelector<HTMLButtonElement>('button[aria-label="Send message"]')
@@ -12594,7 +12727,9 @@ describe("ChatView transcript geometry (full app)", () => {
 
   it("keeps the first sent message visible throughout draft promotion", async () => {
     const restoreNativeApi = installDeterministicSendNativeApi();
-    useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, THREAD_ID);
+    useComposerDraftStore
+      .getState()
+      .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(THREAD_ID));
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: createDraftOnlySnapshot(),
@@ -12602,9 +12737,11 @@ describe("ChatView transcript geometry (full app)", () => {
 
     try {
       const prompt = "Keep the first message on screen";
-      const draftCreatedAt = useComposerDraftStore.getState().getDraftThread(THREAD_ID)?.createdAt;
+      const draftCreatedAt = useComposerDraftStore
+        .getState()
+        .getDraftThread(scopeLocalThread(THREAD_ID))?.createdAt;
       expect(draftCreatedAt).toBeDefined();
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, prompt);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), prompt);
       const sendButton = await waitForSendButton();
       expect(sendButton.disabled).toBe(false);
       sendButton.click();
@@ -12657,7 +12794,7 @@ describe("ChatView transcript geometry (full app)", () => {
         threads: [startedThread],
       };
       useStore.getState().syncServerThreadDetailHotPath(startedThread);
-      useComposerDraftStore.getState().finalizePromotedDraftThread(THREAD_ID);
+      useComposerDraftStore.getState().finalizePromotedDraftThread(scopeLocalThread(THREAD_ID));
       await expectTranscript();
 
       // A creation snapshot can finish after the first message echo.
@@ -12699,14 +12836,18 @@ describe("ChatView transcript geometry (full app)", () => {
         useStore.getState().syncServerThreadDetailHotPath(startedThread);
       },
     });
-    useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, THREAD_ID);
+    useComposerDraftStore
+      .getState()
+      .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(THREAD_ID));
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: createDraftOnlySnapshot(),
     });
 
     try {
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "Send this only once");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(THREAD_ID), "Send this only once");
       const sendButton = await waitForSendButton();
       await vi.waitFor(() => expect(sendButton.disabled).toBe(false));
       sendButton.click();
@@ -12717,7 +12858,10 @@ describe("ChatView transcript geometry (full app)", () => {
       });
       await waitForLayout();
 
-      expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt ?? "").toBe("");
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt ??
+          "",
+      ).toBe("");
       expect(
         wsRequests.map(readDispatchedCommand).some((command) => command?.type === "thread.delete"),
       ).toBe(false);
@@ -12756,13 +12900,17 @@ describe("ChatView transcript geometry (full app)", () => {
     try {
       const reusesDraft = workspaceSource === "stored project draft";
       if (workspaceSource !== "active project") {
-        useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, OTHER_THREAD_ID, {
-          branch: "feature/draft",
-          worktreePath: draftWorkspace,
-          envMode: "worktree",
-          isTemporary: workspaceSource === "temporary project draft",
-        });
-        useComposerDraftStore.getState().setPrompt(OTHER_THREAD_ID, "Keep this unsent work");
+        useComposerDraftStore
+          .getState()
+          .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(OTHER_THREAD_ID), {
+            branch: "feature/draft",
+            worktreePath: draftWorkspace,
+            envMode: "worktree",
+            isTemporary: workspaceSource === "temporary project draft",
+          });
+        useComposerDraftStore
+          .getState()
+          .setPrompt(scopeLocalThread(OTHER_THREAD_ID), "Keep this unsent work");
         if (workspaceSource === "sending project draft") {
           pendingSend = runComposerSendOnce(
             OTHER_THREAD_ID,
@@ -12783,7 +12931,7 @@ describe("ChatView transcript geometry (full app)", () => {
       const targetId = ThreadId.makeUnsafe(mounted.router.state.location.pathname.slice(1));
       if (reusesDraft) expect(targetId).toBe(OTHER_THREAD_ID);
       else expect(targetId).not.toBe(OTHER_THREAD_ID);
-      const draft = useComposerDraftStore.getState().getDraftThread(targetId);
+      const draft = useComposerDraftStore.getState().getDraftThread(scopeLocalThread(targetId));
       expect(draft).toMatchObject({
         projectId: PROJECT_ID,
         branch: reusesDraft ? "feature/draft" : "feature/active",
@@ -12791,9 +12939,9 @@ describe("ChatView transcript geometry (full app)", () => {
         envMode: "worktree",
       });
       if (reusesDraft) {
-        expect(useComposerDraftStore.getState().draftsByThreadId[targetId]?.prompt).toBe(
-          "Keep this unsent work",
-        );
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(targetId)]?.prompt,
+        ).toBe("Keep this unsent work");
         await expect
           .poll(async () => (await waitForComposerEditor()).textContent)
           .toContain("Keep this unsent work");
@@ -12815,8 +12963,12 @@ describe("ChatView transcript geometry (full app)", () => {
     });
 
     try {
-      useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, OTHER_THREAD_ID);
-      useComposerDraftStore.getState().setPrompt(OTHER_THREAD_ID, "Older stored draft");
+      useComposerDraftStore
+        .getState()
+        .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(OTHER_THREAD_ID));
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(OTHER_THREAD_ID), "Older stored draft");
       const newThreadButton = page.getByLabelText("Create new thread in Project").element();
       (newThreadButton as HTMLElement).click();
       // Type into the reopened draft as soon as its route is active, while the
@@ -12825,7 +12977,9 @@ describe("ChatView transcript geometry (full app)", () => {
         let microtaskChecks = 0;
         const editWhenRouted = () => {
           if (mounted.router.state.location.pathname === `/${OTHER_THREAD_ID}`) {
-            useComposerDraftStore.getState().setPrompt(OTHER_THREAD_ID, "Newer typed text");
+            useComposerDraftStore
+              .getState()
+              .setPrompt(scopeLocalThread(OTHER_THREAD_ID), "Newer typed text");
             resolve();
             return;
           }
@@ -12840,9 +12994,10 @@ describe("ChatView transcript geometry (full app)", () => {
       );
       await waitForLayout();
 
-      expect(useComposerDraftStore.getState().draftsByThreadId[OTHER_THREAD_ID]?.prompt).toBe(
-        "Newer typed text",
-      );
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(OTHER_THREAD_ID)]
+          ?.prompt,
+      ).toBe("Newer typed text");
     } finally {
       await mounted.cleanup();
     }
@@ -12856,7 +13011,9 @@ describe("ChatView transcript geometry (full app)", () => {
     const restoreNativeApi = installDeterministicSendNativeApi({
       beforeTurnStart: () => turnGate,
     });
-    useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, THREAD_ID);
+    useComposerDraftStore
+      .getState()
+      .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(THREAD_ID));
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: createDraftOnlySnapshot(),
@@ -12878,9 +13035,9 @@ describe("ChatView transcript geometry (full app)", () => {
 
       await expect.element(page.getByText("Still sending your last message")).toBeInTheDocument();
       expect(turnCommands()).toHaveLength(1);
-      expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-        "Second message",
-      );
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+      ).toBe("Second message");
     } finally {
       releaseTurnStart();
       restoreNativeApi();
@@ -12992,9 +13149,11 @@ describe("ChatView transcript geometry (full app)", () => {
       await expect.element(toggle).toBeChecked();
       await mounted.router.navigate({ to: "/$threadId", params: { threadId: THREAD_ID } });
       await expect.poll(background).not.toBeNull();
-      useTerminalStateStore.getState().openTerminalThreadPage(THREAD_ID, { terminalOnly: false });
+      useTerminalStateStore
+        .getState()
+        .openTerminalThreadPage(scopeLocalThread(THREAD_ID), { terminalOnly: false });
       await expect.poll(background).toBeNull();
-      useTerminalStateStore.getState().setTerminalWorkspaceTab(THREAD_ID, "chat");
+      useTerminalStateStore.getState().setTerminalWorkspaceTab(scopeLocalThread(THREAD_ID), "chat");
       await expect.poll(background).not.toBeNull();
     } finally {
       await mounted.cleanup();
@@ -13122,7 +13281,9 @@ describe("ChatView transcript geometry (full app)", () => {
       });
 
       try {
-        useProjectEnvironmentStore.getState().setProjectEnvMode(PROJECT_ID, "worktree");
+        useProjectEnvironmentStore
+          .getState()
+          .setProjectEnvMode(scopeLocalProject(PROJECT_ID), "worktree");
         await page.getByTestId("new-thread-button").click();
         const sendingPath = await waitForURL(
           mounted.router,
@@ -13130,9 +13291,13 @@ describe("ChatView transcript geometry (full app)", () => {
           "Expected a worktree draft.",
         );
         const sendingId = sendingPath.slice(1) as ThreadId;
-        useComposerDraftStore.getState().setPrompt(sendingId, "Create while I start another task");
+        useComposerDraftStore
+          .getState()
+          .setPrompt(scopeLocalThread(sendingId), "Create while I start another task");
         await vi.waitFor(() => {
-          expect(useComposerDraftStore.getState().getDraftThread(sendingId)?.branch).toBe("main");
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(sendingId))?.branch,
+          ).toBe("main");
         });
         const sendButton = await waitForSendButton();
         await vi.waitFor(() => expect(sendButton.disabled).toBe(false));
@@ -13171,17 +13336,19 @@ describe("ChatView transcript geometry (full app)", () => {
           "New thread must remain available during worktree creation.",
         );
         const nextId = nextPath.slice(1) as ThreadId;
-        expect(useComposerDraftStore.getState().getDraftThread(sendingId)).not.toBeNull();
+        expect(
+          useComposerDraftStore.getState().getDraftThread(scopeLocalThread(sendingId)),
+        ).not.toBeNull();
         expect(
           useComposerDraftStore.getState().getDraftThreadByProjectId(PROJECT_ID)?.threadId,
-        ).toBe(nextId);
-        useComposerDraftStore.getState().setPrompt(nextId, "Independent draft");
+        ).toBe(scopeLocalThread(nextId));
+        useComposerDraftStore.getState().setPrompt(scopeLocalThread(nextId), "Independent draft");
         const nextPlanSource = {
           threadId: THREAD_ID,
           planId: OrchestrationProposedPlanId.makeUnsafe("independent-draft-plan"),
         };
         if (outcome === "success") {
-          useComposerDraftStore.getState().setRestoredSourceProposedPlan(nextId, {
+          useComposerDraftStore.getState().setRestoredSourceProposedPlan(scopeLocalThread(nextId), {
             threadId: nextId,
             restoredPrompt: "Independent draft",
             sourceProposedPlan: nextPlanSource,
@@ -13212,14 +13379,17 @@ describe("ChatView transcript geometry (full app)", () => {
           );
           cancel?.click();
           await vi.waitFor(() =>
-            expect(useComposerDraftStore.getState().draftsByThreadId[sendingId]?.prompt).toBe(
-              "Create while I start another task",
-            ),
+            expect(
+              useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(sendingId)]
+                ?.prompt,
+            ).toBe("Create while I start another task"),
           );
         }
         if (outcome === "revisit") {
           await mounted.router.navigate({ to: "/$threadId", params: { threadId: THREAD_ID } });
-          useComposerDraftStore.getState().setPrompt(THREAD_ID, "Existing task draft");
+          useComposerDraftStore
+            .getState()
+            .setPrompt(scopeLocalThread(THREAD_ID), "Existing task draft");
           await vi.waitFor(() =>
             expect(document.querySelector('[contenteditable="true"]')?.textContent).toContain(
               "Existing task draft",
@@ -13237,9 +13407,10 @@ describe("ChatView transcript geometry (full app)", () => {
               expect(turns).toHaveLength(1);
               expect(turns[0]).toMatchObject({ threadId: sendingId });
             } else {
-              expect(useComposerDraftStore.getState().draftsByThreadId[sendingId]?.prompt).toBe(
-                "Create while I start another task",
-              );
+              expect(
+                useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(sendingId)]
+                  ?.prompt,
+              ).toBe("Create while I start another task");
               expect(
                 wsRequests
                   .map(readDispatchedCommand)
@@ -13253,9 +13424,9 @@ describe("ChatView transcript geometry (full app)", () => {
                   ? sendingPath
                   : nextPath,
             );
-            expect(useComposerDraftStore.getState().draftsByThreadId[nextId]?.prompt).toBe(
-              "Independent draft",
-            );
+            expect(
+              useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(nextId)]?.prompt,
+            ).toBe("Independent draft");
           },
           { timeout: 8_000, interval: 16 },
         );
@@ -13311,7 +13482,7 @@ describe("ChatView transcript geometry (full app)", () => {
         () => {
           expect(
             useComposerDraftStore.getState().getDraftThreadByProjectId(PROJECT_ID)?.threadId,
-          ).toBe(newThreadId);
+          ).toBe(scopeLocalThread(newThreadId));
           expect(mounted.router.state.location.pathname).toBe(newThreadPath);
           expect(mounted.router.state.status).toBe("idle");
         },
@@ -13321,17 +13492,19 @@ describe("ChatView transcript geometry (full app)", () => {
 
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)?.envMode).toBe(
-            "worktree",
-          );
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId))?.envMode,
+          ).toBe("worktree");
         },
         { timeout: 8_000, interval: 16 },
       );
 
-      useComposerDraftStore.getState().setPrompt(newThreadId, "Ship it");
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(newThreadId), "Ship it");
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
+          ).toMatchObject({
             envMode: "worktree",
             branch: "main",
           });
@@ -13438,9 +13611,11 @@ describe("ChatView transcript geometry (full app)", () => {
         expect(worktreeCheckbox.getAttribute("aria-checked")).toBe("true");
       });
 
-      useComposerDraftStore.getState().setPrompt(newThreadId, "Cancel before upload finishes");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(newThreadId), "Cancel before upload finishes");
       useComposerDraftStore.getState().addImage(
-        newThreadId,
+        scopeLocalThread(newThreadId),
         createComposerImage({
           id: "new-worktree-cancel-upload-image",
           previewUrl: "blob:new-worktree-cancel-upload-image",
@@ -13544,7 +13719,7 @@ describe("ChatView transcript geometry (full app)", () => {
         () => {
           expect(
             useComposerDraftStore.getState().getDraftThreadByProjectId(PROJECT_ID)?.threadId,
-          ).toBe(newThreadId);
+          ).toBe(scopeLocalThread(newThreadId));
           expect(mounted.router.state.location.pathname).toBe(newThreadPath);
           expect(mounted.router.state.status).toBe("idle");
         },
@@ -13552,10 +13727,14 @@ describe("ChatView transcript geometry (full app)", () => {
       );
       (await waitForWorktreeCheckbox()).click();
 
-      useComposerDraftStore.getState().setPrompt(newThreadId, "Ship it with setup");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(newThreadId), "Ship it with setup");
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().getDraftThread(newThreadId)).toMatchObject({
+          expect(
+            useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
+          ).toMatchObject({
             envMode: "worktree",
             branch: "main",
           });
@@ -13589,7 +13768,7 @@ describe("ChatView transcript geometry (full app)", () => {
           expect(
             request,
             `Expected create worktree request; draft=${JSON.stringify(
-              useComposerDraftStore.getState().getDraftThread(newThreadId),
+              useComposerDraftStore.getState().getDraftThread(scopeLocalThread(newThreadId)),
             )}; path=${mounted.router.state.location.pathname}; forms=${
               document.querySelectorAll('form[data-chat-composer-form="true"]').length
             }; ui=${(document.body.textContent ?? "").slice(-300)}; saw ${wsRequests
@@ -13736,7 +13915,9 @@ describe("ChatView transcript geometry (full app)", () => {
       );
       const newThreadId = newThreadPath.slice(1) as ThreadId;
 
-      expect(useComposerDraftStore.getState().draftsByThreadId[newThreadId]).toMatchObject({
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(newThreadId)],
+      ).toMatchObject({
         modelSelectionByProvider: {
           claudeAgent: {
             provider: "claudeAgent",
@@ -13814,7 +13995,9 @@ describe("ChatView transcript geometry (full app)", () => {
       );
       const newThreadId = newThreadPath.slice(1) as ThreadId;
 
-      expect(useComposerDraftStore.getState().draftsByThreadId[newThreadId]).toMatchObject({
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(newThreadId)],
+      ).toMatchObject({
         modelSelectionByProvider: {
           codex: {
             provider: "codex",
@@ -13850,7 +14033,9 @@ describe("ChatView transcript geometry (full app)", () => {
       );
       const newThreadId = newThreadPath.slice(1) as ThreadId;
 
-      expect(useComposerDraftStore.getState().draftsByThreadId[newThreadId]).toBeUndefined();
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(newThreadId)],
+      ).toBeUndefined();
     } finally {
       await mounted.cleanup();
     }
@@ -13892,7 +14077,9 @@ describe("ChatView transcript geometry (full app)", () => {
       );
       const threadId = threadPath.slice(1) as ThreadId;
 
-      expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toMatchObject({
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+      ).toMatchObject({
         modelSelectionByProvider: {
           codex: {
             provider: "codex",
@@ -13906,7 +14093,7 @@ describe("ChatView transcript geometry (full app)", () => {
         activeProvider: "codex",
       });
 
-      useComposerDraftStore.getState().setModelSelection(threadId, {
+      useComposerDraftStore.getState().setModelSelection(scopeLocalThread(threadId), {
         provider: "codex",
         model: "gpt-5.4",
         options: {
@@ -13916,7 +14103,9 @@ describe("ChatView transcript geometry (full app)", () => {
       });
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().draftsByThreadId[threadId]).toMatchObject({
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+          ).toMatchObject({
             modelSelectionByProvider: {
               codex: {
                 provider: "codex",
@@ -13940,7 +14129,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
       expect(mounted.router.state.location.pathname).toBe(threadPath);
       expect(useComposerDraftStore.getState().projectDraftThreadIdByProjectId[PROJECT_ID]).toBe(
-        threadId,
+        scopeLocalThread(threadId),
       );
     } finally {
       await mounted.cleanup();
@@ -13983,7 +14172,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
       // Type a draft in the new chat
       const prompt = "draft typed in a brand-new home chat";
-      useComposerDraftStore.getState().setPrompt(newThreadId, prompt);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(newThreadId), prompt);
       const composerEditor = await waitForComposerEditor();
       await vi.waitFor(
         () => {
@@ -14031,7 +14220,9 @@ describe("ChatView transcript geometry (full app)", () => {
       );
 
       // The original draft thread must still be registered with its content
-      expect(useComposerDraftStore.getState().draftsByThreadId[newThreadId]?.prompt).toBe(prompt);
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(newThreadId)]?.prompt,
+      ).toBe(prompt);
     } finally {
       await mounted.cleanup();
     }
@@ -14107,7 +14298,9 @@ describe("ChatView transcript geometry (full app)", () => {
     });
 
     try {
-      useProjectEnvironmentStore.getState().setProjectEnvMode(PROJECT_ID, "worktree");
+      useProjectEnvironmentStore
+        .getState()
+        .setProjectEnvMode(scopeLocalProject(PROJECT_ID), "worktree");
       await waitForNewThreadShortcutLabel();
       await waitForServerConfigToApply();
       const composerEditor = await waitForComposerEditor();
@@ -14119,7 +14312,9 @@ describe("ChatView transcript geometry (full app)", () => {
         "Route should have changed to a new draft thread UUID from the shortcut.",
       );
       expect(
-        useComposerDraftStore.getState().getDraftThread(nextPath.slice(1) as ThreadId),
+        useComposerDraftStore
+          .getState()
+          .getDraftThread(scopeLocalThread(nextPath.slice(1) as ThreadId)),
       ).toMatchObject({ envMode: "worktree", worktreePath: null });
     } finally {
       await mounted.cleanup();
@@ -14135,8 +14330,12 @@ describe("ChatView transcript geometry (full app)", () => {
       }),
     });
     try {
-      useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, OTHER_THREAD_ID, {});
-      useComposerDraftStore.getState().setPrompt(OTHER_THREAD_ID, "Destination draft");
+      useComposerDraftStore
+        .getState()
+        .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(OTHER_THREAD_ID), {});
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(OTHER_THREAD_ID), "Destination draft");
       await page.getByRole("button", { name: "Toggle environment panel", exact: true }).click();
       await expect.element(page.getByRole("button", { name: "Local", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Local", exact: true }).click();
@@ -14183,10 +14382,10 @@ describe("ChatView transcript geometry (full app)", () => {
       const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
       try {
         if (kind === "promoted-draft") {
-          useComposerDraftStore.getState().registerDraftThread(OTHER_THREAD_ID, {
+          useComposerDraftStore.getState().registerDraftThread(scopeLocalThread(OTHER_THREAD_ID), {
             projectId: PROJECT_ID,
           });
-          useOpenThreadTabsStore.setState({ threadIds: [THREAD_ID, OTHER_THREAD_ID, thirdId] });
+          setOpenTabs([THREAD_ID, OTHER_THREAD_ID, thirdId]);
           await vi.waitFor(() =>
             expect(
               document.querySelectorAll('nav[aria-label="Open threads"] [data-surface-tab]'),
@@ -14194,11 +14393,13 @@ describe("ChatView transcript geometry (full app)", () => {
           );
           fixture.snapshot = addThreadToSnapshot(fixture.snapshot, OTHER_THREAD_ID);
           useStore.getState().syncServerReadModel(fixture.snapshot);
-          useComposerDraftStore.getState().clearDraftThread(OTHER_THREAD_ID);
+          useComposerDraftStore.getState().clearDraftThread(scopeLocalThread(OTHER_THREAD_ID));
         } else if (kind === "terminal") {
-          useTerminalStateStore.getState().openTerminalThreadPage(OTHER_THREAD_ID);
+          useTerminalStateStore
+            .getState()
+            .openTerminalThreadPage(scopeLocalThread(OTHER_THREAD_ID));
         }
-        useOpenThreadTabsStore.setState({ threadIds: [THREAD_ID, OTHER_THREAD_ID, thirdId] });
+        setOpenTabs([THREAD_ID, OTHER_THREAD_ID, thirdId]);
         await vi.waitFor(() =>
           expect(
             document.querySelectorAll('nav[aria-label="Open threads"] [data-surface-tab]'),
@@ -14234,16 +14435,10 @@ describe("ChatView transcript geometry (full app)", () => {
         document.dispatchEvent(mousePointerEvent("pointermove", targetX + 1, y));
         await nextFrame();
         document.dispatchEvent(mousePointerEvent("pointerup", targetX + 1, y));
-        await vi.waitFor(() =>
-          expect(useOpenThreadTabsStore.getState().threadIds).toEqual([
-            THREAD_ID,
-            thirdId,
-            OTHER_THREAD_ID,
-          ]),
-        );
+        await vi.waitFor(() => expect(openTabs()).toEqual([THREAD_ID, thirdId, OTHER_THREAD_ID]));
         expect(
-          JSON.parse(localStorage.getItem("saint:open-thread-tabs:v1")!).state.threadIds,
-        ).toEqual([THREAD_ID, thirdId, OTHER_THREAD_ID]);
+          JSON.parse(localStorage.getItem("saint:open-thread-tabs:v2")!).state.threadIds,
+        ).toEqual([THREAD_ID, thirdId, OTHER_THREAD_ID].map(scopeLocalThread));
         await vi.waitFor(() =>
           expect(mounted.router.state.location.pathname).toBe(`/${OTHER_THREAD_ID}`),
         );
@@ -14274,7 +14469,7 @@ describe("ChatView transcript geometry (full app)", () => {
     );
     const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
     try {
-      useOpenThreadTabsStore.setState({ threadIds: [THREAD_ID, OTHER_THREAD_ID] });
+      setOpenTabs([THREAD_ID, OTHER_THREAD_ID]);
       await vi.waitFor(() =>
         expect(
           document.querySelectorAll('nav[aria-label="Open threads"] [data-surface-tab]'),
@@ -14288,13 +14483,10 @@ describe("ChatView transcript geometry (full app)", () => {
         sourcePosition: { x: 12, y: 12 },
         targetPosition: { x: 19, y: 12 },
       });
-      await vi.waitFor(
-        () => expect(useOpenThreadTabsStore.getState().threadIds).not.toContain(THREAD_ID),
-        {
-          timeout: 2_000,
-        },
-      );
-      expect(useOpenThreadTabsStore.getState().threadIds).toEqual([OTHER_THREAD_ID]);
+      await vi.waitFor(() => expect(openTabs()).not.toContain(THREAD_ID), {
+        timeout: 2_000,
+      });
+      expect(openTabs()).toEqual([OTHER_THREAD_ID]);
     } finally {
       await mounted.cleanup();
     }
@@ -14314,7 +14506,7 @@ describe("ChatView transcript geometry (full app)", () => {
     );
     const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
     try {
-      useOpenThreadTabsStore.setState({ threadIds: [THREAD_ID, OTHER_THREAD_ID, thirdId] });
+      setOpenTabs([THREAD_ID, OTHER_THREAD_ID, thirdId]);
       await vi.waitFor(() =>
         expect(
           document.querySelectorAll('nav[aria-label="Open threads"] [data-surface-tab]'),
@@ -14340,9 +14532,7 @@ describe("ChatView transcript geometry (full app)", () => {
         .click();
 
       // The thread on screen was among the closed tabs, so the kept tab takes over.
-      await vi.waitFor(() =>
-        expect(useOpenThreadTabsStore.getState().threadIds).toEqual([thirdId]),
-      );
+      await vi.waitFor(() => expect(openTabs()).toEqual([thirdId]));
       expect(mounted.router.state.location.pathname).toBe(`/${thirdId}`);
     } finally {
       await mounted.cleanup();
@@ -14350,7 +14540,7 @@ describe("ChatView transcript geometry (full app)", () => {
   });
 
   it("keeps the saved editor chat reachable while an unsent draft is on screen", async () => {
-    useOpenThreadTabsStore.setState({ threadIds: [] });
+    setOpenTabs([]);
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: createSnapshotForTargetUser({
@@ -14363,8 +14553,12 @@ describe("ChatView transcript geometry (full app)", () => {
       // A lone active saved chat still needs no redundant rail tab.
       expect(page.getByRole("button", { name: "Chat 1", exact: true }).elements()).toHaveLength(0);
       const draftId = ThreadId.makeUnsafe("019f88ab-cdea-7100-8b00-000000000022");
-      useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, draftId, {});
-      useComposerDraftStore.getState().setPrompt(draftId, "Keep this unsent prompt");
+      useComposerDraftStore
+        .getState()
+        .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(draftId), {});
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(draftId), "Keep this unsent prompt");
       await mounted.router.navigate({
         to: "/$threadId",
         params: { threadId: draftId },
@@ -14386,9 +14580,9 @@ describe("ChatView transcript geometry (full app)", () => {
         "The saved tab should return to its chat from the draft.",
       );
       expect(mounted.router.state.location.search.view).toBe("editor");
-      expect(useComposerDraftStore.getState().draftsByThreadId[draftId]?.prompt).toBe(
-        "Keep this unsent prompt",
-      );
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(draftId)]?.prompt,
+      ).toBe("Keep this unsent prompt");
       await expect.element(page.getByTestId("composer-editor")).toBeInTheDocument();
     } finally {
       await mounted.cleanup();
@@ -14417,10 +14611,8 @@ describe("ChatView transcript geometry (full app)", () => {
       try {
         const laterNavigation =
           action === "navigation" || action === "navigation-back" || action === "inflight";
-        useOpenThreadTabsStore.setState({
-          threadIds: [THREAD_ID, OTHER_THREAD_ID, ...(laterNavigation ? [laterThreadId] : [])],
-        });
-        useTerminalStateStore.getState().setTerminalOpen(THREAD_ID, true);
+        setOpenTabs([THREAD_ID, OTHER_THREAD_ID, ...(laterNavigation ? [laterThreadId] : [])]);
+        useTerminalStateStore.getState().setTerminalOpen(scopeLocalThread(THREAD_ID), true);
         await expect
           .element(page.getByRole("button", { name: "Terminal", exact: true }))
           .toBeVisible();
@@ -14504,7 +14696,7 @@ describe("ChatView transcript geometry (full app)", () => {
             .querySelector<HTMLButtonElement>("button[aria-label^='Close ']")!;
           closeButton.click();
           await vi.waitFor(() => {
-            expect(useOpenThreadTabsStore.getState().threadIds).not.toContain(OTHER_THREAD_ID);
+            expect(openTabs()).not.toContain(OTHER_THREAD_ID);
           });
         }
         animationFrame.mockRestore();
@@ -14532,7 +14724,7 @@ describe("ChatView transcript geometry (full app)", () => {
               .getAttribute("aria-pressed"),
           ).toBe("true");
         } else if (action === "close") {
-          expect(useOpenThreadTabsStore.getState().threadIds).not.toContain(OTHER_THREAD_ID);
+          expect(openTabs()).not.toContain(OTHER_THREAD_ID);
         }
       } finally {
         vi.restoreAllMocks();
@@ -14559,7 +14751,9 @@ describe("ChatView transcript geometry (full app)", () => {
         mergeability: "mergeable" as const,
       };
       const previousPins = usePinnedThreadsStore.getState().pinnedThreadIds;
-      usePinnedThreadsStore.setState({ pinnedThreadIds: pinned ? [THREAD_ID] : [] });
+      usePinnedThreadsStore.setState({
+        pinnedThreadIds: pinned ? [scopeLocalThread(THREAD_ID)] : [],
+      });
       onTestFinished(() => {
         usePinnedThreadsStore.setState({ pinnedThreadIds: previousPins });
       });
@@ -14621,7 +14815,7 @@ describe("ChatView transcript geometry (full app)", () => {
   );
 
   it("steps through horizontal tabs with the previous/next tab shortcuts, wrapping at the ends", async () => {
-    useOpenThreadTabsStore.setState({ threadIds: [] });
+    setOpenTabs([]);
     const snapshot = createSnapshotForTargetUser({
       targetMessageId: MessageId.makeUnsafe("tab-shortcuts"),
       targetText: "Tab shortcuts conversation",
@@ -14648,7 +14842,7 @@ describe("ChatView transcript geometry (full app)", () => {
     const expectRoute = (threadId: ThreadId) =>
       vi.waitFor(() => expect(mounted.router.state.location.pathname).toBe(`/${threadId}`));
     try {
-      useOpenThreadTabsStore.setState({ threadIds: [THREAD_ID, OTHER_THREAD_ID, thirdId] });
+      setOpenTabs([THREAD_ID, OTHER_THREAD_ID, thirdId]);
       await vi.waitFor(() =>
         expect(
           document.querySelectorAll('nav[aria-label="Open threads"] [data-surface-tab]'),
@@ -14677,7 +14871,7 @@ describe("ChatView transcript geometry (full app)", () => {
     "switches horizontal tabs without blanking the header or composer (%s)",
     async (targetKind) => {
       onTestFinished(skipReactDevOwnerStacks());
-      useOpenThreadTabsStore.setState({ threadIds: [] });
+      setOpenTabs([]);
       let snapshot = createSnapshotForTargetUser({
         targetMessageId: MessageId.makeUnsafe("horizontal-tabs"),
         targetText: "Horizontal tabs conversation",
@@ -14708,9 +14902,13 @@ describe("ChatView transcript geometry (full app)", () => {
         onRender: (_id, _phase, duration) => commits.push(duration),
       });
       try {
-        useComposerDraftStore.getState().setPrompt(THREAD_ID, "Draft in first tab");
-        useComposerDraftStore.getState().setPrompt(OTHER_THREAD_ID, "Draft in second tab");
-        useOpenThreadTabsStore.setState({ threadIds: [THREAD_ID, OTHER_THREAD_ID] });
+        useComposerDraftStore
+          .getState()
+          .setPrompt(scopeLocalThread(THREAD_ID), "Draft in first tab");
+        useComposerDraftStore
+          .getState()
+          .setPrompt(scopeLocalThread(OTHER_THREAD_ID), "Draft in second tab");
+        setOpenTabs([THREAD_ID, OTHER_THREAD_ID]);
         await vi.waitFor(() =>
           expect(document.querySelector('[contenteditable="true"]')?.textContent).toContain(
             "Draft in first tab",
@@ -14778,7 +14976,7 @@ describe("ChatView transcript geometry (full app)", () => {
             reactMs: commits.reduce((sum, duration) => sum + duration, 0),
             commits: commits.length,
             tabWrites: storageWrites.mock.calls.filter(
-              ([key]) => key === "saint:open-thread-tabs:v1",
+              ([key]) => key === "saint:open-thread-tabs:v2",
             ).length,
             missingHeaderFrames,
             missingComposerFrames,
@@ -14791,21 +14989,22 @@ describe("ChatView transcript geometry (full app)", () => {
         expect(samples.every((sample) => sample.missingHeaderFrames === 0)).toBe(true);
         expect(samples.every((sample) => sample.missingComposerFrames === 0)).toBe(true);
         expect(samples.every((sample) => sample.tabWrites === 0)).toBe(true);
-        expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-          "Draft in first tab",
-        );
-        expect(useComposerDraftStore.getState().draftsByThreadId[OTHER_THREAD_ID]?.prompt).toBe(
-          "Draft in second tab",
-        );
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+        ).toBe("Draft in first tab");
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(OTHER_THREAD_ID)]
+            ?.prompt,
+        ).toBe("Draft in second tab");
         // Retaining the surrounding composer must not retain another chat's
         // Lexical undo history or route its edits into the destination draft.
         const firstEditor = await waitForComposerEditor();
         await userEvent.click(firstEditor);
         await userEvent.keyboard("{End} private text");
         await vi.waitFor(() =>
-          expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toContain(
-            "private text",
-          ),
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+          ).toContain("private text"),
         );
         const secondTab = document.querySelectorAll<HTMLButtonElement>(
           'nav[aria-label="Open threads"] [data-surface-tab] > button:not([aria-label])',
@@ -14823,12 +15022,13 @@ describe("ChatView transcript geometry (full app)", () => {
         );
         await waitForLayout();
         expect(secondEditor.textContent).toBe("Draft in second tab");
-        expect(useComposerDraftStore.getState().draftsByThreadId[OTHER_THREAD_ID]?.prompt).toBe(
-          "Draft in second tab",
-        );
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(OTHER_THREAD_ID)]
+            ?.prompt,
+        ).toBe("Draft in second tab");
       } finally {
         await mounted.cleanup();
-        useOpenThreadTabsStore.setState({ threadIds: [] });
+        setOpenTabs([]);
       }
     },
   );
@@ -14844,9 +15044,13 @@ describe("ChatView transcript geometry (full app)", () => {
     const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
     try {
       const draftId = ThreadId.makeUnsafe("shortcut-hidden-draft");
-      useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, draftId, {});
-      useComposerDraftStore.getState().setPrompt(draftId, "Keep this unsent draft");
-      useOpenThreadTabsStore.setState({ threadIds: [draftId, THREAD_ID, OTHER_THREAD_ID] });
+      useComposerDraftStore
+        .getState()
+        .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(draftId), {});
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(draftId), "Keep this unsent draft");
+      setOpenTabs([draftId, THREAD_ID, OTHER_THREAD_ID]);
       await mounted.router.navigate({ to: "/$threadId", params: { threadId: OTHER_THREAD_ID } });
       await vi.waitFor(() =>
         expect(
@@ -14859,7 +15063,7 @@ describe("ChatView transcript geometry (full app)", () => {
         dispatchConfiguredShortcut(document.activeElement!, { key: "w" }).defaultPrevented,
       ).toBe(true);
       await waitForURL(mounted.router, (path) => path === `/${THREAD_ID}`, "Close the current tab");
-      expect(useOpenThreadTabsStore.getState().threadIds).toEqual([draftId, THREAD_ID]);
+      expect(openTabs()).toEqual([draftId, THREAD_ID]);
       await userEvent.click(await waitForComposerEditor());
       expect(
         dispatchConfiguredShortcut(document.activeElement!, { key: "w" }).defaultPrevented,
@@ -14869,9 +15073,9 @@ describe("ChatView transcript geometry (full app)", () => {
         (path) => path === `/${draftId}`,
         "Restore the hidden draft",
       );
-      expect(useComposerDraftStore.getState().draftsByThreadId[draftId]?.prompt).toBe(
-        "Keep this unsent draft",
-      );
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(draftId)]?.prompt,
+      ).toBe("Keep this unsent draft");
       await vi.waitFor(() =>
         expect(
           document.querySelector('nav[aria-label="Open threads"] [data-surface-tab]'),
@@ -14880,7 +15084,7 @@ describe("ChatView transcript geometry (full app)", () => {
       expect(dispatchConfiguredShortcut(window, { key: "w" }).defaultPrevented).toBe(false);
     } finally {
       await mounted.cleanup();
-      useOpenThreadTabsStore.setState({ threadIds: [] });
+      setOpenTabs([]);
     }
   });
 
@@ -14912,7 +15116,7 @@ describe("ChatView transcript geometry (full app)", () => {
       },
     });
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     const confirm = vi.fn(async () => false);
     const close = vi.fn(async () => {});
     Object.defineProperty(window, "nativeApi", {
@@ -14928,10 +15132,9 @@ describe("ChatView transcript geometry (full app)", () => {
         "Expected the dock terminal keyboard input",
       );
       const terminalId =
-        useTerminalStateStore.getState().terminalStateByThreadId[scopeId]!.dockTerminalIdsByPaneId![
-          paneId
-        ]!;
-      useTerminalStateStore.getState().setTerminalActivity(scopeId, terminalId, {
+        useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(scopeId)]!
+          .dockTerminalIdsByPaneId![paneId]!;
+      useTerminalStateStore.getState().setTerminalActivity(scopeLocalThread(scopeId), terminalId, {
         hasRunningSubprocess: true,
         agentState: null,
       });
@@ -14943,7 +15146,8 @@ describe("ChatView transcript geometry (full app)", () => {
         expect.arrayContaining([expect.objectContaining({ id: paneId })]),
       );
       expect(
-        useTerminalStateStore.getState().terminalStateByThreadId[scopeId]?.terminalIds,
+        useTerminalStateStore.getState().terminalStateByThreadId[scopeLocalThread(scopeId)]
+          ?.terminalIds,
       ).toContain(terminalId);
       confirm.mockResolvedValue(true);
       terminalInput.focus();
@@ -14976,7 +15180,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
   it("Cmd/Ctrl+W yields to the editor surface and keeps its commands working", async () => {
     const previousNativeApi = window.nativeApi;
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     Object.defineProperty(window, "nativeApi", {
       configurable: true,
       value: {
@@ -15031,7 +15235,7 @@ describe("ChatView transcript geometry (full app)", () => {
   });
 
   it("closing the last visible tab returns to an unsent draft hidden from the strip", async () => {
-    useOpenThreadTabsStore.setState({ threadIds: [] });
+    setOpenTabs([]);
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: createSnapshotForTargetUser({
@@ -15042,10 +15246,14 @@ describe("ChatView transcript geometry (full app)", () => {
     try {
       await waitForLayout();
       const draftId = ThreadId.makeUnsafe("hidden-unsent-draft");
-      useComposerDraftStore.getState().setProjectDraftThreadId(PROJECT_ID, draftId, {});
-      useComposerDraftStore.getState().setPrompt(draftId, "Unsent text behind the only tab");
+      useComposerDraftStore
+        .getState()
+        .setProjectDraftThreadId(PROJECT_ID, scopeLocalThread(draftId), {});
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(draftId), "Unsent text behind the only tab");
       // The draft is open but has no tab, so the saved chat is the last one in the strip.
-      useOpenThreadTabsStore.setState({ threadIds: [draftId, THREAD_ID] });
+      setOpenTabs([draftId, THREAD_ID]);
       const close = await waitForElement<HTMLButtonElement>(
         () => document.querySelector('nav[aria-label="Open threads"] button[aria-label^="Close "]'),
         "The active thread should have a closeable tab.",
@@ -15056,20 +15264,20 @@ describe("ChatView transcript geometry (full app)", () => {
         (path) => path === `/${draftId}`,
         "Closing the last visible tab should return to the open draft.",
       );
-      expect(useComposerDraftStore.getState().draftsByThreadId[draftId]?.prompt).toBe(
-        "Unsent text behind the only tab",
-      );
-      expect(useOpenThreadTabsStore.getState().threadIds).not.toContain(THREAD_ID);
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(draftId)]?.prompt,
+      ).toBe("Unsent text behind the only tab");
+      expect(openTabs()).not.toContain(THREAD_ID);
     } finally {
       await mounted.cleanup();
-      useOpenThreadTabsStore.setState({ threadIds: [] });
+      setOpenTabs([]);
     }
   });
 
   it.each(["home", "project"] as const)(
     "closing the last %s tab opens a fresh draft in the same project",
     async (surface) => {
-      useOpenThreadTabsStore.setState({ threadIds: [] });
+      setOpenTabs([]);
       const snapshot = createSnapshotForTargetUser({
         targetMessageId: MessageId.makeUnsafe("last-tab-close"),
         targetText: "Completed conversation",
@@ -15090,10 +15298,16 @@ describe("ChatView transcript geometry (full app)", () => {
       });
       try {
         await waitForLayout();
-        useComposerDraftStore.getState().setProjectDraftThreadId(projectId, staleDraftId, {});
-        useComposerDraftStore.getState().setPrompt(staleDraftId, "Unsent text from a closed tab");
-        useOpenThreadTabsStore.setState({ threadIds: [THREAD_ID] });
-        useProjectEnvironmentStore.getState().setProjectEnvMode(projectId, "worktree");
+        useComposerDraftStore
+          .getState()
+          .setProjectDraftThreadId(projectId, scopeLocalThread(staleDraftId), {});
+        useComposerDraftStore
+          .getState()
+          .setPrompt(scopeLocalThread(staleDraftId), "Unsent text from a closed tab");
+        setOpenTabs([THREAD_ID]);
+        useProjectEnvironmentStore
+          .getState()
+          .setProjectEnvMode(scopeLocalProject(projectId), "worktree");
         const close = await waitForElement<HTMLButtonElement>(
           () =>
             document.querySelector('nav[aria-label="Open threads"] button[aria-label^="Close "]'),
@@ -15105,22 +15319,22 @@ describe("ChatView transcript geometry (full app)", () => {
           expect(nextId).not.toBe(THREAD_ID);
           expect(nextId).not.toBe(staleDraftId);
           const state = useComposerDraftStore.getState();
-          expect(state.getDraftThread(nextId)?.projectId).toBe(projectId);
-          expect(state.getDraftThread(nextId)?.envMode).toBe(
+          expect(state.getDraftThread(scopeLocalThread(nextId))?.projectId).toBe(projectId);
+          expect(state.getDraftThread(scopeLocalThread(nextId))?.envMode).toBe(
             surface === "home" ? "local" : "worktree",
           );
-          expect(state.draftsByThreadId[nextId]?.prompt ?? "").toBe("");
-          expect(useOpenThreadTabsStore.getState().threadIds).not.toContain(THREAD_ID);
+          expect(state.draftsByThreadId[scopeLocalThread(nextId)]?.prompt ?? "").toBe("");
+          expect(openTabs()).not.toContain(THREAD_ID);
         });
       } finally {
         await mounted.cleanup();
-        useOpenThreadTabsStore.setState({ threadIds: [] });
+        setOpenTabs([]);
       }
     },
   );
 
   it("waits for a completed click before switching tabs without remounting the strip", async () => {
-    useOpenThreadTabsStore.setState({ threadIds: [] });
+    setOpenTabs([]);
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
       snapshot: addThreadToSnapshot(
@@ -15134,7 +15348,7 @@ describe("ChatView transcript geometry (full app)", () => {
     try {
       await waitForLayout();
       // The first visit to a saved chat must keep the header mounted.
-      useOpenThreadTabsStore.setState({ threadIds: [THREAD_ID, OTHER_THREAD_ID] });
+      setOpenTabs([THREAD_ID, OTHER_THREAD_ID]);
       const strip = await waitForElement<HTMLElement>(
         () => document.querySelector('nav[aria-label="Open threads"]'),
         "The rail chat header should show the open-thread strip.",
@@ -15183,13 +15397,13 @@ describe("ChatView transcript geometry (full app)", () => {
       }
     } finally {
       await mounted.cleanup();
-      useOpenThreadTabsStore.setState({ threadIds: [] });
+      setOpenTabs([]);
     }
   });
 
   it("reveals an opened transcript once its end scroll lands, not after the list's fallback delay", async () => {
     onTestFinished(skipReactDevOwnerStacks());
-    useOpenThreadTabsStore.setState({ threadIds: [] });
+    setOpenTabs([]);
     const base = createSnapshotForTargetUser({
       targetMessageId: MessageId.makeUnsafe("transcript-reveal"),
       targetText: "Transcript reveal conversation",
@@ -15214,7 +15428,7 @@ describe("ChatView transcript geometry (full app)", () => {
       },
     });
     try {
-      useOpenThreadTabsStore.setState({ threadIds: [THREAD_ID, OTHER_THREAD_ID] });
+      setOpenTabs([THREAD_ID, OTHER_THREAD_ID]);
       await waitForLayout();
       const scrollToVisibleMs: number[] = [];
       for (let index = 0; index < 5; index += 1) {
@@ -15271,7 +15485,7 @@ describe("ChatView transcript geometry (full app)", () => {
       expect(median, JSON.stringify(scrollToVisibleMs)).toBeLessThan(50);
     } finally {
       await mounted.cleanup();
-      useOpenThreadTabsStore.setState({ threadIds: [] });
+      setOpenTabs([]);
     }
   });
 
@@ -15345,12 +15559,13 @@ describe("ChatView transcript geometry (full app)", () => {
 
       // Type a draft in the new home chat
       const prompt = "draft typed via chat.newChat";
-      useComposerDraftStore.getState().setPrompt(newThreadId, prompt);
+      useComposerDraftStore.getState().setPrompt(scopeLocalThread(newThreadId), prompt);
       await vi.waitFor(
         () => {
-          expect(useComposerDraftStore.getState().draftsByThreadId[newThreadId]?.prompt).toBe(
-            prompt,
-          );
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(newThreadId)]
+              ?.prompt,
+          ).toBe(prompt);
         },
         { timeout: 8_000, interval: 16 },
       );
@@ -15382,7 +15597,9 @@ describe("ChatView transcript geometry (full app)", () => {
       );
 
       // The draft must survive the round trip on the same thread
-      expect(useComposerDraftStore.getState().draftsByThreadId[newThreadId]?.prompt).toBe(prompt);
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(newThreadId)]?.prompt,
+      ).toBe(prompt);
       const composerEditorAfter = await waitForComposerEditor();
       await vi.waitFor(
         () => {
@@ -15458,7 +15675,7 @@ describe("ChatView transcript geometry (full app)", () => {
       );
 
       useStore.getState().syncServerReadModel(addThreadToSnapshot(fixture.snapshot, newThreadId));
-      useComposerDraftStore.getState().clearDraftThread(newThreadId);
+      useComposerDraftStore.getState().clearDraftThread(scopeLocalThread(newThreadId));
 
       await vi.waitFor(
         () => {
@@ -15481,7 +15698,7 @@ describe("ChatView transcript geometry (full app)", () => {
     const draftThreadId = ThreadId.makeUnsafe("thread-terminal-draft-reuse");
     useComposerDraftStore.setState({
       draftsByThreadId: {
-        [draftThreadId]: {
+        [scopeLocalThread(draftThreadId)]: {
           prompt: "",
           promptHistorySavedDraft: null,
           images: [],
@@ -15512,7 +15729,7 @@ describe("ChatView transcript geometry (full app)", () => {
         },
       },
       draftThreadsByThreadId: {
-        [draftThreadId]: {
+        [scopeLocalThread(draftThreadId)]: {
           projectId: PROJECT_ID,
           createdAt: NOW_ISO,
           runtimeMode: "approval-required",
@@ -15524,7 +15741,7 @@ describe("ChatView transcript geometry (full app)", () => {
         },
       },
       projectDraftThreadIdByProjectId: {
-        [`${PROJECT_ID}::terminal`]: draftThreadId,
+        [`${PROJECT_ID}::terminal`]: scopeLocalThread(draftThreadId),
       },
       stickyModelSelectionByProvider: {},
       stickyActiveProvider: null,
@@ -15630,16 +15847,16 @@ describe("ChatView transcript geometry (full app)", () => {
           await page.getByTestId("composer-goal-header").click();
           await page.getByRole("button", { name: "Edit goal" }).click();
         } else {
-          useComposerDraftStore.getState().setPrompt(THREAD_ID, "clear");
+          useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), "clear");
           const composerEditor = await waitForComposerEditor();
           await vi.waitFor(() => expect(composerEditor.textContent ?? "").toContain("clear"));
           await page.getByLabelText("Composer extras").click();
           await page.getByText("Set a goal to keep pursuing").click();
         }
         await vi.waitFor(() =>
-          expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-            "/goal -- clear",
-          ),
+          expect(
+            useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+          ).toBe("/goal -- clear"),
         );
         const sendButton = await waitForSendButton();
         sendButton.click();
@@ -15669,7 +15886,9 @@ describe("ChatView transcript geometry (full app)", () => {
   ])(
     "sends a new /goal as a visible message only when the thread is idle ($sessionStatus)",
     async ({ sessionStatus, startBehavior }) => {
-      useComposerDraftStore.getState().setPrompt(THREAD_ID, "/goal ship the release");
+      useComposerDraftStore
+        .getState()
+        .setPrompt(scopeLocalThread(THREAD_ID), "/goal ship the release");
       const restoreNativeApi = installDeterministicSendNativeApi();
       const mounted = await mountChatView({
         viewport: DEFAULT_VIEWPORT,
@@ -15705,7 +15924,9 @@ describe("ChatView transcript geometry (full app)", () => {
   );
 
   it("preserves a rejected first /goal command for retry", async () => {
-    useComposerDraftStore.getState().setPrompt(THREAD_ID, "/goal ship the release");
+    useComposerDraftStore
+      .getState()
+      .setPrompt(scopeLocalThread(THREAD_ID), "/goal ship the release");
     const restoreNativeApi = installDeterministicSendNativeApi();
     const mounted = await mountChatView({
       viewport: DEFAULT_VIEWPORT,
@@ -15714,7 +15935,7 @@ describe("ChatView transcript geometry (full app)", () => {
         targetText: "goal retry",
       }),
     });
-    const api = readNativeApi()!;
+    const api = readLocalNativeApi()!;
     let rejectGoal = true;
     const goalCommands: unknown[] = [];
     Object.defineProperty(window, "nativeApi", {
@@ -15742,9 +15963,9 @@ describe("ChatView transcript geometry (full app)", () => {
       );
       form.requestSubmit();
       await expect.element(page.getByText("Could not update thread goal")).toBeInTheDocument();
-      expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-        "/goal ship the release",
-      );
+      expect(
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt,
+      ).toBe("/goal ship the release");
       rejectGoal = false;
       form.requestSubmit();
       await vi.waitFor(() => expect(goalCommands).toHaveLength(2));
@@ -15759,7 +15980,10 @@ describe("ChatView transcript geometry (full app)", () => {
         }),
       ]);
       await vi.waitFor(() =>
-        expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt ?? "").toBe(""),
+        expect(
+          useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]?.prompt ??
+            "",
+        ).toBe(""),
       );
       expect(wsRequests.map(turnStartText).filter((text) => text !== null)).toEqual([]);
     } finally {
@@ -15779,9 +16003,10 @@ describe("ChatView transcript geometry (full app)", () => {
 
     try {
       const readInteractionMode = () =>
-        useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.interactionMode ?? "default";
+        useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+          ?.interactionMode ?? "default";
       const runSlashCommand = async (command: string) => {
-        useComposerDraftStore.getState().setPrompt(THREAD_ID, command);
+        useComposerDraftStore.getState().setPrompt(scopeLocalThread(THREAD_ID), command);
         const composerEditor = await waitForComposerEditor();
         await vi.waitFor(() => expect(composerEditor.textContent ?? "").toContain(command));
         const sendButton = await waitForSendButton();
@@ -15852,7 +16077,7 @@ describe("ChatView transcript geometry (full app)", () => {
 
       const { syncServerReadModel } = useStore.getState();
       syncServerReadModel(addThreadToSnapshot(fixture.snapshot, promotedThreadId));
-      useComposerDraftStore.getState().clearDraftThread(promotedThreadId);
+      useComposerDraftStore.getState().clearDraftThread(scopeLocalThread(promotedThreadId));
 
       const freshThreadPath = await triggerChatNewShortcutUntilPath(
         mounted.router,
@@ -16506,7 +16731,7 @@ describe("ChatView transcript geometry (full app)", () => {
         const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
         try {
           if (mode === "attachment") {
-            useComposerDraftStore.getState().addImages(THREAD_ID, [
+            useComposerDraftStore.getState().addImages(scopeLocalThread(THREAD_ID), [
               createComposerImage({
                 id: "private-draft-image",
                 name: "private.png",
@@ -16523,9 +16748,10 @@ describe("ChatView transcript geometry (full app)", () => {
           await page.getByRole("button", { name: /Visual follow up/ }).click();
           if (mode === "attachment") {
             await vi.waitFor(() =>
-              expect(useComposerDraftStore.getState().draftsByThreadId[THREAD_ID]?.prompt).toBe(
-                "Follow up from visual",
-              ),
+              expect(
+                useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(THREAD_ID)]
+                  ?.prompt,
+              ).toBe("Follow up from visual"),
             );
             await waitForLayout();
             expect(
@@ -16536,7 +16762,7 @@ describe("ChatView transcript geometry (full app)", () => {
             expect(
               useComposerDraftStore
                 .getState()
-                .draftsByThreadId[THREAD_ID]?.images.map((image) => image.id),
+                .draftsByThreadId[scopeLocalThread(THREAD_ID)]?.images.map((image) => image.id),
             ).toEqual(["private-draft-image"]);
           } else {
             await waitForLayout();

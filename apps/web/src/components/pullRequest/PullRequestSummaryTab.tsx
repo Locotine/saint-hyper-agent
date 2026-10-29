@@ -20,7 +20,7 @@ import {
 import { ChatBubbleIcon, GitBranchIcon, UsersIcon } from "~/lib/icons";
 import { pullRequestCommentMutationOptions } from "~/lib/pullRequestReactQuery";
 import { formatRelativeTime } from "~/lib/relativeTime";
-import { ensureNativeApi } from "~/nativeApi";
+import { ensureLocalNativeApi } from "~/nativeApi";
 import { describePullRequestState } from "./pullRequestDetail.logic";
 import { PullRequestActorLabel } from "./PullRequestActorLabel";
 import { PullRequestCheckStatusIcon } from "./PullRequestCheckStatusIcon";
@@ -267,7 +267,9 @@ export function PullRequestSummaryTab({
                 key={key}
                 type="button"
                 disabled={!check.url}
-                onClick={() => check.url && void ensureNativeApi().shell.openExternal(check.url)}
+                onClick={() =>
+                  check.url && void ensureLocalNativeApi().shell.openExternal(check.url)
+                }
                 className={cn(
                   PR_META_TEXT_CLASS_NAME,
                   // The row bleeds past the panel padding and pays the same amount back as

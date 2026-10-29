@@ -7,7 +7,7 @@ This folder keeps the focused guides that stay in sync with the repository
 - [Core concepts](./core-concepts.md) — projects, tasks, environments, provider sessions, and Git ownership.
 - [Hubs](./hubs.md) — a coordinator that runs parallel threads with shared instructions, memory, and a Library.
 - [Providers](./providers.md) — what Saint manages and what stays provider-owned.
-- [Remote access](../REMOTE.md) — browser access with a token, and remote SSH hosts in their own windows.
+- [Remote access](../REMOTE.md) — browser access with a token, and remote SSH hosts in the left sidebar.
 - [External MCP integrations](./external-mcp.md) — pair another local app with a scoped Saint task surface.
 - [Connectors](./mcp-connectors.md) — sign in to remote MCP servers (Supabase, Linear, ...) for agents in Saint.
 - [Release process](./release.md) — release and signing setup checklist, and [building installers on Linux](./release.md#building-installers-on-linux).

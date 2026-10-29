@@ -28,17 +28,8 @@ const DESKTOP_FLAVOR = desktopFlavorFromProtocol(
 export const isBetaFeatureOn = (feature: string): boolean =>
   isBetaFeatureEnabled(feature, DESKTOP_FLAVOR);
 
-// A remote SSH host's server installs only some providers; the server refuses
-// the rest, so pickers and settings leave them out too.
-const REMOTE_WINDOW_PROVIDERS: ReadonlySet<string> | null =
-  typeof window !== "undefined" && window.desktopBridge?.remoteWindow
-    ? new Set(window.desktopBridge.remoteWindow.providers)
-    : null;
-
-/** A provider this window can select: on for this build and installed on its server's host. */
-export const isProviderOn = (provider: string): boolean =>
-  isBetaFeatureOn(provider) &&
-  (REMOTE_WINDOW_PROVIDERS === null || REMOTE_WINDOW_PROVIDERS.has(provider));
+/** A provider this build can select. */
+export const isProviderOn = (provider: string): boolean => isBetaFeatureOn(provider);
 
 /**
  * Hubs is available in Stable and Beta. The shared feature policy also controls

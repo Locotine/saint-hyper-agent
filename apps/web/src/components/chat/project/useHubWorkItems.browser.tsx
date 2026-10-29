@@ -17,7 +17,7 @@ const harness = vi.hoisted(() => ({
   unsubscribe: vi.fn(async () => undefined),
 }));
 vi.mock("~/nativeApi", () => ({
-  readNativeApi: () => ({
+  readLocalNativeApi: () => ({
     projectAgent: {
       getOverview: harness.getOverview,
       subscribe: harness.subscribe,
