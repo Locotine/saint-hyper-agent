@@ -16,9 +16,14 @@ import {
   type ReactElement,
 } from "react";
 import { type ProjectDirectoryEntry, type ProjectId, type SpaceId } from "@saint/contracts";
+import { sshHostId, type HostId } from "@saint/shared/hostId";
 import { readLocalNativeApi } from "../../nativeApi";
 import { useStore } from "../../store";
-import { PlusIcon, XIcon, FolderIcon } from "~/lib/icons";
+import { useRemoteSshState } from "~/hooks/useRemoteSshState";
+import { useAllHostProjects } from "~/hosts/hostStores";
+import { PlusIcon, XIcon, FolderIcon, ServerIcon } from "~/lib/icons";
+import { remoteHostSidebarStatus } from "~/lib/remoteHostCatalog";
+import { remoteHostRows } from "../settings/remoteHostsSettingsModel";
 import { getLocalFoldersGroupLabel } from "~/lib/localFoldersGroupLabel";
 import type { ProjectAppearance } from "~/lib/projectAppearance";
 import { groupItemsBySpace, spaceDisplayName } from "~/lib/spaceGrouping";
@@ -77,6 +82,26 @@ interface ProjectPickerProps {
   addActionLabel?: string;
   resetActionLabel?: string;
   searchPlaceholder?: string;
+  /**
+   * New-chat landing only: also lists connected hosts' projects and offers Add project on a
+   * host. Picking one starts the thread on that host instead of swapping this computer's draft.
+   */
+  hostThreads?: HostThreadActions | undefined;
+}
+
+interface HostThreadActions {
+  start: (hostId: HostId, host: string, projectId: ProjectId) => Promise<void>;
+  startInNewProject: (hostId: HostId, host: string) => Promise<void>;
+}
+
+interface HostFolderOption {
+  value: string;
+  hostId: HostId;
+  host: string;
+  projectId: ProjectId;
+  primaryLabel: string;
+  secondaryLabel: string | null;
+  cwd: string;
 }
 
 interface ActiveFolderOption {
@@ -164,6 +189,7 @@ export const ProjectPicker = memo(function ProjectPicker({
   addActionLabel,
   resetActionLabel: resetActionLabelProp,
   searchPlaceholder: searchPlaceholderProp,
+  hostThreads,
 }: ProjectPickerProps) {
   const align = alignProp ?? "start";
   const side = sideProp ?? "bottom";
@@ -190,6 +216,43 @@ export const ProjectPicker = memo(function ProjectPicker({
   const resetInFlightRef = useRef(false);
   const openCreateProjectDialog = useCreateProjectDialogStore((state) => state.setOpen);
   const isProjectSelectionMode = selectionMode === "project";
+  const sshState = useRemoteSshState(hostThreads !== undefined);
+  const allHostProjects = useAllHostProjects();
+
+  const connectedHosts = useMemo(
+    () =>
+      hostThreads && sshState
+        ? remoteHostRows(sshState).flatMap((row) =>
+            row.state?.hostKey && remoteHostSidebarStatus(row.state) === "connected"
+              ? [{ host: row.host, hostId: sshHostId(row.state.hostKey) }]
+              : [],
+          )
+        : [],
+    [hostThreads, sshState],
+  );
+  const hostFolderGroups = useMemo(
+    () =>
+      connectedHosts.map(({ host, hostId }) => ({
+        host,
+        hostId,
+        items: allHostProjects
+          .filter((row) => row.hostId === hostId && row.project.kind === "project")
+          .map(({ project }): HostFolderOption => {
+            const folderName = basenameOfPath(project.cwd) ?? project.folderName ?? project.name;
+            const primaryLabel = project.localName?.trim() || folderName;
+            return {
+              value: `${hostId}\u0000${project.id}`,
+              hostId,
+              host,
+              projectId: project.id,
+              primaryLabel,
+              secondaryLabel: primaryLabel !== project.cwd ? project.cwd : null,
+              cwd: project.cwd,
+            };
+          }),
+      })),
+    [allHostProjects, connectedHosts],
+  );
 
   const activeFolderOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -289,19 +352,48 @@ export const ProjectPicker = memo(function ProjectPicker({
     );
   }, [localFolderOptions, normalizedQuery]);
 
+  const filteredHostFolderGroups = useMemo(
+    () =>
+      hostFolderGroups
+        .map((group) => ({
+          ...group,
+          items:
+            normalizedQuery.length === 0
+              ? group.items
+              : group.items.filter((entry) =>
+                  [entry.primaryLabel, entry.host, entry.cwd]
+                    .join(" ")
+                    .toLowerCase()
+                    .includes(normalizedQuery),
+                ),
+        }))
+        .filter((group) => group.items.length > 0),
+    [hostFolderGroups, normalizedQuery],
+  );
+  const hostFolderOptions = useMemo(
+    () => hostFolderGroups.flatMap((group) => group.items),
+    [hostFolderGroups],
+  );
+  const filteredHostFolderOptions = useMemo(
+    () => filteredHostFolderGroups.flatMap((group) => group.items),
+    [filteredHostFolderGroups],
+  );
+
   const selectableDirectoryPaths = useMemo(
     () => [
       ...activeFolderOptions.map((entry) => entry.cwd),
+      ...hostFolderOptions.map((entry) => entry.value),
       ...localFolderOptions.map((entry) => entry.absolutePath),
     ],
-    [activeFolderOptions, localFolderOptions],
+    [activeFolderOptions, hostFolderOptions, localFolderOptions],
   );
   const filteredDirectoryPaths = useMemo(
     () => [
       ...filteredActiveFolderOptions.map((entry) => entry.cwd),
+      ...filteredHostFolderOptions.map((entry) => entry.value),
       ...filteredLocalFolderOptions.map((entry) => entry.absolutePath),
     ],
-    [filteredActiveFolderOptions, filteredLocalFolderOptions],
+    [filteredActiveFolderOptions, filteredHostFolderOptions, filteredLocalFolderOptions],
   );
   const selectedFolderOption = useMemo(() => {
     if (isProjectSelectionMode) {
@@ -551,6 +643,14 @@ export const ProjectPicker = memo(function ProjectPicker({
   const handleValueChange = useCallback(
     (selectedValue: string | null) => {
       if (!selectedValue) return;
+      const hostFolder = hostFolderOptions.find((entry) => entry.value === selectedValue);
+      if (hostFolder) {
+        setOpen(false);
+        if (hostThreads) {
+          void hostThreads.start(hostFolder.hostId, hostFolder.host, hostFolder.projectId);
+        }
+        return;
+      }
       const activeFolder = activeFolderOptions.find((entry) => entry.cwd === selectedValue);
       if (activeFolder) {
         handleSelectActiveFolder(activeFolder);
@@ -564,7 +664,26 @@ export const ProjectPicker = memo(function ProjectPicker({
         setOpen(false);
       }
     },
-    [activeFolderOptions, handleSelectActiveFolder, localFolderOptions, onSelectWorkspaceRoot],
+    [
+      activeFolderOptions,
+      handleSelectActiveFolder,
+      hostFolderOptions,
+      hostThreads,
+      localFolderOptions,
+      onSelectWorkspaceRoot,
+    ],
+  );
+
+  const handleAddProjectOnHost = useCallback(
+    async (hostId: HostId, host: string) => {
+      if (isPicking || !hostThreads) return;
+      setIsPicking(true);
+      setErrorMessage(null);
+      await hostThreads.startInNewProject(hostId, host);
+      setIsPicking(false);
+      setOpen(false);
+    },
+    [hostThreads, isPicking],
   );
 
   return (
@@ -667,6 +786,21 @@ export const ProjectPicker = memo(function ProjectPicker({
                   {isPicking ? loadingAddProjectLabel : addProjectLabel}
                 </span>
               </button>
+              {connectedHosts.map(({ host, hostId }) => (
+                <button
+                  key={hostId}
+                  type="button"
+                  className={cn(
+                    PICKER_PANEL_ACTION_ROW_CLASS_NAME,
+                    "disabled:cursor-not-allowed disabled:opacity-60",
+                  )}
+                  onClick={() => void handleAddProjectOnHost(hostId, host)}
+                  disabled={isPicking}
+                >
+                  <ServerIcon className={PICKER_PANEL_ROW_ICON_CLASS_NAME} />
+                  <span className="truncate">{`Add new project on ${host}`}</span>
+                </button>
+              ))}
               {shouldShowResetToHome ? (
                 <button
                   type="button"
@@ -688,7 +822,9 @@ export const ProjectPicker = memo(function ProjectPicker({
           <ComboboxEmpty>
             {isLoadingDirectories
               ? "Loading folders…"
-              : activeFolderOptions.length === 0 && localFolderOptions.length === 0
+              : activeFolderOptions.length === 0 &&
+                  hostFolderOptions.length === 0 &&
+                  localFolderOptions.length === 0
                 ? "No folders found"
                 : "No matches"}
           </ComboboxEmpty>
@@ -717,7 +853,52 @@ export const ProjectPicker = memo(function ProjectPicker({
                 </Fragment>
               );
             })}
-            {filteredActiveFolderOptions.length > 0 && filteredLocalFolderOptions.length > 0 ? (
+            {filteredHostFolderGroups.map((group, groupIndex) => {
+              const precedingOptionCount =
+                filteredActiveFolderOptions.length +
+                filteredHostFolderGroups
+                  .slice(0, groupIndex)
+                  .reduce((count, candidate) => count + candidate.items.length, 0);
+              return (
+                <Fragment key={group.hostId}>
+                  {filteredActiveFolderOptions.length > 0 || groupIndex > 0 ? (
+                    <ComboboxSeparator />
+                  ) : null}
+                  <ComboboxGroup>
+                    <ComboboxGroupLabel
+                      className={cn(
+                        PICKER_PANEL_GROUP_LABEL_CLASS_NAME,
+                        "flex items-center gap-1.5",
+                      )}
+                    >
+                      <ServerIcon aria-hidden className="size-3 shrink-0" />
+                      <span className="min-w-0 truncate">{group.host}</span>
+                    </ComboboxGroupLabel>
+                    {group.items.map((folder, index) => (
+                      <ComboboxItem
+                        hideIndicator
+                        key={folder.value}
+                        index={precedingOptionCount + index}
+                        value={folder.value}
+                        className={PICKER_PANEL_ROW_GEOMETRY_CLASS_NAME}
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <FolderIcon className={PICKER_PANEL_ROW_ICON_CLASS_NAME} />
+                          <span className="min-w-0 truncate">{folder.primaryLabel}</span>
+                          {folder.secondaryLabel ? (
+                            <span className="min-w-0 truncate text-muted-foreground/60 text-ui leading-snug">
+                              {folder.secondaryLabel}
+                            </span>
+                          ) : null}
+                        </div>
+                      </ComboboxItem>
+                    ))}
+                  </ComboboxGroup>
+                </Fragment>
+              );
+            })}
+            {filteredActiveFolderOptions.length + filteredHostFolderOptions.length > 0 &&
+            filteredLocalFolderOptions.length > 0 ? (
               <ComboboxSeparator />
             ) : null}
             {filteredLocalFolderOptions.length > 0 ? (
@@ -729,7 +910,9 @@ export const ProjectPicker = memo(function ProjectPicker({
                   <ComboboxItem
                     hideIndicator={absolutePath !== selectedWorkspaceRoot}
                     key={absolutePath}
-                    index={filteredActiveFolderOptions.length + index}
+                    index={
+                      filteredActiveFolderOptions.length + filteredHostFolderOptions.length + index
+                    }
                     value={absolutePath}
                     className={cn(
                       PICKER_PANEL_ROW_GEOMETRY_CLASS_NAME,

@@ -372,6 +372,7 @@ import {
   deriveTurnTimingByTurnId,
 } from "./chat/MessagesTimeline.logic";
 import { ProjectPicker } from "./chat/ProjectPicker";
+import { useHostThreadActions } from "../hooks/useHostThreadActions";
 import { ProviderHealthBanner } from "./chat/ProviderHealthBanner";
 import { resolveProviderModelLabel } from "./chat/ProviderModelPicker";
 import {
@@ -669,6 +670,12 @@ export default function ChatView({
   } = useComposerOverlayHeight();
   const composerTranscriptInsetPx = composerTranscriptBottomInsetPx(composerOverlayHeightPx);
   const navigate = useNavigate();
+  const { startThread: startHostThread, startThreadInNewProject: startHostThreadInNewProject } =
+    useHostThreadActions();
+  const hostThreadPicker = useMemo(
+    () => ({ start: startHostThread, startInNewProject: startHostThreadInNewProject }),
+    [startHostThread, startHostThreadInNewProject],
+  );
   const { handleNewThread } = useHandleNewThread();
   const { handleNewChat } = useHandleNewChat();
   const { continueThreadHandoff, createThreadHandoff, createTranscriptHandoff } =
@@ -6032,6 +6039,7 @@ export default function ChatView({
             ? {
                 onSelectProject: handleSelectProjectForEmptyDraft,
                 onCreateProjectFromPath: handleCreateProjectFromPickerPath,
+                hostThreads: hostThreadPicker,
               }
             : {})}
         />
@@ -6052,6 +6060,7 @@ export default function ChatView({
           onSelectProject={handleSelectProjectForEmptyDraft}
           onCreateProjectFromPath={handleCreateProjectFromPickerPath}
           onResetToHome={handleResetWorkspaceToHome}
+          hostThreads={hostThreadPicker}
         />
       ) : (
         emptyLandingProjectChip
@@ -7026,6 +7035,7 @@ export default function ChatView({
                               onSelectProject={handleSelectProjectForEmptyDraft}
                               onCreateProjectFromPath={handleCreateProjectFromPickerPath}
                               onResetToHome={handleResetWorkspaceToHome}
+                              hostThreads={hostThreadPicker}
                               renderTrigger={
                                 <button
                                   type="button"

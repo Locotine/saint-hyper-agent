@@ -21,7 +21,8 @@ import { useRemoteHostCatalog } from "~/hooks/useRemoteHostCatalog";
 import { useRemoteHostStoreSync } from "~/hooks/useRemoteHostStoreSync";
 import { useRemoteSshState } from "~/hooks/useRemoteSshState";
 import { hostStores } from "~/hosts/hostStores";
-import { addHostProject, createHostThread } from "~/hosts/hostThreadCreate";
+import { useHostThreadActions } from "~/hooks/useHostThreadActions";
+import { addHostProject } from "~/hosts/hostThreadCreate";
 import { AddPlusIcon, FolderIcon, MonitorIcon, NewThreadIcon, ServerIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
 import {
@@ -110,25 +111,13 @@ function RemoteHostProjectRows(props: {
   activeThreadParam: string | null;
 }) {
   const { host, hostKey, hostState, activeThreadParam } = props;
-  const navigate = useNavigate();
   const hostId = sshHostId(hostKey);
   const status = remoteHostSidebarStatus(hostState);
   const catalog = useRemoteHostCatalog(hostKey);
   // Offline hosts keep their last known rows, dimmed; their chats open read-only.
   const offline = status !== "connected" || catalog.status === "error";
   const label = `${host} · ${remoteHostStatus(hostState)}`;
-  const startThread = async (projectId: ProjectId) => {
-    try {
-      const threadId = await createHostThread(hostId, projectId);
-      await navigate({ to: "/$threadId", params: { threadId: scopeThread(hostId, threadId) } });
-    } catch (error) {
-      toastManager.add({
-        type: "error",
-        title: `Could not start a thread on ${host}`,
-        description: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
+  const { startThread } = useHostThreadActions();
 
   return catalog.projects.map((project) => (
     <SidebarMenuItem
@@ -172,7 +161,7 @@ function RemoteHostProjectRows(props: {
             label={`New thread in ${project.title} on ${host}`}
             tooltip={`New thread on ${host}`}
             tooltipSide="right"
-            onClick={() => void startThread(ProjectId.makeUnsafe(project.id))}
+            onClick={() => void startThread(hostId, host, ProjectId.makeUnsafe(project.id))}
           />
         )}
       </div>
