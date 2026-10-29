@@ -3,6 +3,7 @@
 // Layer: Web hook
 // Exports: useThreadHandoff
 
+import { apiFor, useHostId } from "~/hosts/hostScope";
 import { scopeLocalThread } from "@saint/shared/hostId";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -68,6 +69,8 @@ function waitForProviderHandoffOutcome(
 
 export function useThreadHandoff() {
   const navigate = useNavigate();
+  // A handoff creates the new thread on the chat's own machine.
+  const hostId = useHostId();
   const projects = useStore((store) => store.projects);
   const syncServerShellSnapshot = useStore((store) => store.syncServerShellSnapshot);
   const providerStatuses = useProviderStatusesForLocalConfig();
@@ -82,7 +85,7 @@ export function useThreadHandoff() {
     // A transcript handoff may restart the same agent with a fresh context.
     options?: { readonly allowSameTarget?: boolean },
   ) => {
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!api) {
       throw new Error("Native API not found");
     }

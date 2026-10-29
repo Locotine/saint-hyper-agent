@@ -9,6 +9,7 @@
 // Depends on: git status/PR-snapshot React Query helpers, the pull request action mutation,
 //             and the shared Environment row skin.
 
+import { useHostId } from "~/hosts/hostScope";
 import type {
   GitPullRequestCheck,
   GitPullRequestComment,
@@ -376,6 +377,7 @@ export function EnvironmentPullRequestSection({
   onOpenUrl: (url: string) => void;
   onClose: () => void;
 }) {
+  const hostId = useHostId();
   const showDiffColors = showDiffColorsProp ?? true;
   const openPane = useRightDockStore((store) => store.openPane);
   const queryClient = useQueryClient();
@@ -383,11 +385,12 @@ export function EnvironmentPullRequestSection({
   const [confirmAction, setConfirmAction] = useState<PullRequestConfirmAction | null>(null);
   // Share the git block's cache, but revalidate stale status when this always-mounted
   // panel opens so an earlier missing PR does not linger until the next polling tick.
-  const { data: gitStatus } = useQuery(gitStatusQueryOptions(gitCwd, enabled));
+  const { data: gitStatus } = useQuery(gitStatusQueryOptions(gitCwd, enabled, hostId));
   const pr = gitStatus?.pr ?? null;
 
   const snapshotQuery = useQuery(
     gitPullRequestSnapshotQueryOptions({
+      hostId,
       cwd: gitCwd,
       reference: pr?.url ?? null,
       enabled: enabled && pr !== null && pr.state === "open",

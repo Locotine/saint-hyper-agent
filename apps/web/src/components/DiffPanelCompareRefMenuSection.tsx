@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useHostId } from "~/hosts/hostScope";
 import { useState } from "react";
 
 import { gitBranchesQueryOptions, gitRecentCommitsQueryOptions } from "~/lib/gitReactQuery";
@@ -40,13 +41,15 @@ export function DiffPanelCompareRefMenuSection(props: {
   iconClassName: string;
   onSelectCompareRef: (ref: string) => void;
 }) {
+  const hostId = useHostId();
   const [refDraft, setRefDraft] = useState("");
   const branchesQuery = useQuery({
-    ...gitBranchesQueryOptions(props.cwd),
+    ...gitBranchesQueryOptions(props.cwd, hostId),
     enabled: props.open && props.cwd !== null,
   });
   const recentCommitsQuery = useQuery(
     gitRecentCommitsQueryOptions({
+      hostId,
       cwd: props.cwd,
       limit: COMPARE_REF_COMMIT_LIMIT,
       enabled: props.open,

@@ -192,6 +192,10 @@ export function SingleChatSurface(props: {
   projectId: ProjectId | null;
 }) {
   const chatHost = useHostHandle();
+  // A connected host's thread routes by its host-qualified id (`/$threadId` for this computer's).
+  const isRemoteHost = chatHost.hostId !== LOCAL_HOST_ID;
+  const routeThreadParam = (threadId: ThreadId): string =>
+    isRemoteHost ? scopeThread(chatHost.hostId, threadId) : threadId;
   const navigate = useNavigate();
   const createSplitView = useSplitViewStore((store) => store.createFromThread);
   const createSplitViewFromDrop = useSplitViewStore((store) => store.createFromDrop);
@@ -227,7 +231,7 @@ export function SingleChatSurface(props: {
       threadWorkspaceMetadata.workingDirectory ?? draftThread?.workingDirectory ?? null,
   });
   const homeDir = useWorkspacePathsStore((store) => store.homeDir);
-  const dockGitRepositoryQuery = useQuery(gitBranchesQueryOptions(workspaceRoot));
+  const dockGitRepositoryQuery = useQuery(gitBranchesQueryOptions(workspaceRoot, chatHost.hostId));
   const hasGitRepository = dockGitRepositoryQuery.data?.isRepo === true;
   const dockDiffTotals = useRepoDiffTotals({
     gitCwd: workspaceRoot,
@@ -424,7 +428,7 @@ export function SingleChatSurface(props: {
   const handleOpenEditorView = () => {
     void navigate({
       to: "/$threadId",
-      params: { threadId: props.threadId },
+      params: { threadId: routeThreadParam(props.threadId) },
       search: (previous) => ({
         ...stripDiffSearchParams(previous),
         view: "editor",
@@ -449,7 +453,7 @@ export function SingleChatSurface(props: {
   const handleCloseEditorView = () => {
     void navigate({
       to: "/$threadId",
-      params: { threadId: props.threadId },
+      params: { threadId: routeThreadParam(props.threadId) },
       search: (previous) => stripEditorViewSearchParams(stripDiffSearchParams(previous)),
     });
   };
@@ -461,7 +465,7 @@ export function SingleChatSurface(props: {
       setEditorEditTarget(null);
       void navigate({
         to: "/$threadId",
-        params: { threadId: props.threadId },
+        params: { threadId: routeThreadParam(props.threadId) },
         replace: true,
         search: (previous) => ({
           ...stripDiffSearchParams(previous),
@@ -515,7 +519,7 @@ export function SingleChatSurface(props: {
     handleEditDiffFileInEditorView(request);
     void navigate({
       to: "/$threadId",
-      params: { threadId: props.threadId },
+      params: { threadId: routeThreadParam(props.threadId) },
       search: (previous) => ({
         ...stripDiffSearchParams(previous),
         view: "editor",
@@ -641,7 +645,8 @@ export function SingleChatSurface(props: {
   };
 
   const handleSplitSurface = () => {
-    if (!props.projectId) return;
+    // Split views hold this computer's threads only.
+    if (!props.projectId || isRemoteHost) return;
     const splitViewId = createSplitView({
       hostId: LOCAL_HOST_ID,
       sourceThreadId: props.threadId,
@@ -650,7 +655,7 @@ export function SingleChatSurface(props: {
     startTransition(() => {
       void navigate({
         to: "/$threadId",
-        params: { threadId: props.threadId },
+        params: { threadId: routeThreadParam(props.threadId) },
         replace: true,
         search: () => ({ splitViewId }),
       });
@@ -662,7 +667,7 @@ export function SingleChatSurface(props: {
     direction: SplitDirection;
     side: SplitDropSide;
   }) => {
-    if (!props.projectId) return;
+    if (!props.projectId || isRemoteHost) return;
     if (payload.threadId === props.threadId) return;
     const splitViewId = createSplitViewFromDrop({
       hostId: LOCAL_HOST_ID,
@@ -675,7 +680,7 @@ export function SingleChatSurface(props: {
     startTransition(() => {
       void navigate({
         to: "/$threadId",
-        params: { threadId: payload.threadId },
+        params: { threadId: routeThreadParam(payload.threadId) },
         replace: true,
         search: () => ({ splitViewId }),
       });
@@ -709,7 +714,7 @@ export function SingleChatSurface(props: {
     }
     void navigate({
       to: "/$threadId",
-      params: { threadId: props.threadId },
+      params: { threadId: routeThreadParam(props.threadId) },
       replace: true,
       search: (previous) => stripDiffSearchParams(previous),
     });
@@ -781,7 +786,7 @@ export function SingleChatSurface(props: {
     if (latestThread) {
       await navigate({
         to: "/$threadId",
-        params: { threadId: latestThread.id },
+        params: { threadId: routeThreadParam(latestThread.id) },
         search: (previous) => ({
           ...stripEditorViewSearchParams(stripDiffSearchParams(previous)),
           view: "editor",

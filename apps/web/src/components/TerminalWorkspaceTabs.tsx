@@ -17,6 +17,14 @@ import { cn } from "~/lib/utils";
 import TerminalActivityIndicator from "./terminal/TerminalActivityIndicator";
 import { type ThreadTerminalWorkspaceLayout, type ThreadTerminalWorkspaceTab } from "../types";
 
+/** Tab shape shared with other workspace tab strips (the Explorer's file tabs). */
+export const WORKSPACE_TAB_CLASS_NAME =
+  "group relative -mb-px inline-flex h-7 shrink-0 items-center rounded-t-[10px] border border-b-0 px-3 text-ui leading-snug transition-colors";
+export const WORKSPACE_TAB_ACTIVE_CLASS_NAME =
+  "z-[1] border-border/70 bg-[var(--composer-surface)] text-foreground";
+export const WORKSPACE_TAB_IDLE_CLASS_NAME =
+  "border-transparent bg-transparent text-muted-foreground hover:bg-background/55 hover:text-foreground";
+
 interface TerminalWorkspaceTabsProps {
   activeTab: ThreadTerminalWorkspaceTab;
   isWorking: boolean;
@@ -36,8 +44,7 @@ export default function TerminalWorkspaceTabs({
 }: TerminalWorkspaceTabsProps) {
   const stripRef = useRef<HTMLDivElement>(null);
   useHorizontalWheelScroll(stripRef);
-  const tabClassName =
-    "group relative -mb-px inline-flex h-7 shrink-0 items-center rounded-t-[10px] border border-b-0 px-3 text-ui leading-snug transition-colors";
+  const tabClassName = WORKSPACE_TAB_CLASS_NAME;
 
   return (
     <div className="relative border-b border-border/70 bg-muted/10 px-3 sm:px-5">
@@ -51,8 +58,8 @@ export default function TerminalWorkspaceTabs({
           className={cn(
             tabClassName,
             activeTab === "terminal"
-              ? "z-[1] border-border/70 bg-[var(--composer-surface)] text-foreground"
-              : "border-transparent bg-transparent text-muted-foreground hover:bg-background/55 hover:text-foreground",
+              ? WORKSPACE_TAB_ACTIVE_CLASS_NAME
+              : WORKSPACE_TAB_IDLE_CLASS_NAME,
           )}
           onClick={() => {
             onSelectTab("terminal");
@@ -69,8 +76,8 @@ export default function TerminalWorkspaceTabs({
             className={cn(
               tabClassName,
               activeTab === "chat"
-                ? "z-[1] border-border/70 bg-[var(--composer-surface)] text-foreground"
-                : "border-transparent bg-transparent text-muted-foreground hover:bg-background/55 hover:text-foreground",
+                ? WORKSPACE_TAB_ACTIVE_CLASS_NAME
+                : WORKSPACE_TAB_IDLE_CLASS_NAME,
             )}
             onClick={() => {
               onSelectTab("chat");

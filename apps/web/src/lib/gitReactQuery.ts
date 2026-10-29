@@ -10,7 +10,7 @@ import type {
 } from "@saint/contracts";
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
-import { apiFor } from "../hosts/hostScope";
+import { apiFor } from "../hosts/hostApi";
 import { ensureLocalNativeApi } from "../nativeApi";
 import { createActivityRefreshThrottle } from "./activityRefreshThrottle";
 import { EXPENSIVE_READ_RETRY_OPTIONS, isRpcCapacityExceededError } from "./expensiveReadRetry";
@@ -552,12 +552,17 @@ export function gitRecentCommitsQueryOptions(input: {
   cwd: string | null;
   limit?: number;
   enabled?: boolean;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   const limit = input.limit ?? DEFAULT_GIT_RECENT_COMMIT_LIMIT;
   return queryOptions({
-    queryKey: gitQueryKeys.recentCommits(input.cwd, limit),
+    queryKey: [
+      ...gitQueryKeys.recentCommits(input.cwd, limit),
+      ...hostKeyPart(input.hostId ?? LOCAL_HOST_ID),
+    ],
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!input.cwd) throw new Error("Git commits are unavailable.");
       return api.git.listRecentCommits({ cwd: input.cwd, limit });
     },
@@ -588,11 +593,13 @@ export function gitResolvePullRequestQueryOptions(input: {
   cwd: string | null;
   reference: string | null;
   pollIntervalMs?: number;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   return queryOptions({
     queryKey: [...gitQueryKeys.pullRequest(input.cwd), input.reference] as const,
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!input.cwd || !input.reference) {
         throw new Error("Pull request lookup is unavailable.");
       }
@@ -619,13 +626,15 @@ export function gitPullRequestSnapshotQueryOptions(input: {
   cwd: string | null;
   reference: string | null;
   enabled?: boolean;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   return queryOptions({
     // Shares the ["git", "pull-request", cwd] prefix so existing invalidations cover it.
     queryKey: [...gitQueryKeys.pullRequest(input.cwd), "snapshot", input.reference] as const,
     queryFn: async ({ client }) => {
       const readFence = capturePullRequestActionReadFence(client);
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!input.cwd || !input.reference) {
         throw new Error("Pull request snapshot is unavailable.");
       }
@@ -665,14 +674,19 @@ export function gitWorkingTreeDiffStatsQueryOptions(input: {
   compareRef?: string | null;
   enabled?: boolean;
   refetchInterval?: number | false;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   const scope = input.scope ?? "workingTree";
   const compareRef = resolveGitCompareRef(scope, input.compareRef);
   const refetchInterval = input.refetchInterval;
   return queryOptions({
-    queryKey: gitQueryKeys.workingTreeDiffStats(input.cwd, scope, compareRef),
+    queryKey: [
+      ...gitQueryKeys.workingTreeDiffStats(input.cwd, scope, compareRef),
+      ...hostKeyPart(input.hostId ?? LOCAL_HOST_ID),
+    ],
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!input.cwd) {
         throw new Error("Working tree diff stats are unavailable.");
       }
@@ -697,12 +711,17 @@ export function gitReadFileAtRevQueryOptions(input: {
   rev?: string | undefined;
   base?: "branch" | "index" | undefined;
   enabled?: boolean;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   const { cwd, filePath, base, rev } = input;
   return queryOptions({
-    queryKey: gitQueryKeys.fileAtRev(cwd, filePath, rev ?? null, base ?? null),
+    queryKey: [
+      ...gitQueryKeys.fileAtRev(cwd, filePath, rev ?? null, base ?? null),
+      ...hostKeyPart(input.hostId ?? LOCAL_HOST_ID),
+    ],
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!cwd || !filePath) {
         throw new Error("File revision read is unavailable.");
       }
@@ -725,14 +744,19 @@ export function gitWorkingTreeDiffQueryOptions(input: {
   filePath?: string | null | undefined;
   enabled?: boolean;
   refetchInterval?: number | false;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   const scope = input.scope ?? "workingTree";
   const compareRef = resolveGitCompareRef(scope, input.compareRef);
   const refetchInterval = input.refetchInterval;
   return queryOptions({
-    queryKey: gitQueryKeys.workingTreeDiff(input.cwd, scope, compareRef, input.filePath ?? null),
+    queryKey: [
+      ...gitQueryKeys.workingTreeDiff(input.cwd, scope, compareRef, input.filePath ?? null),
+      ...hostKeyPart(input.hostId ?? LOCAL_HOST_ID),
+    ],
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!input.cwd) {
         throw new Error("Working tree diff is unavailable.");
       }
@@ -759,13 +783,18 @@ export function gitBlameLineQueryOptions(input: {
   rev?: string | undefined;
   base?: "branch" | undefined;
   enabled?: boolean;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   const rev = input.rev ?? null;
   const base = input.base ?? null;
   return queryOptions({
-    queryKey: gitQueryKeys.blameLine(input.cwd, input.filePath, input.line, rev, base),
+    queryKey: [
+      ...gitQueryKeys.blameLine(input.cwd, input.filePath, input.line, rev, base),
+      ...hostKeyPart(input.hostId ?? LOCAL_HOST_ID),
+    ],
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!input.cwd || !input.filePath || input.line === null) {
         throw new Error("Git blame is unavailable.");
       }
@@ -803,6 +832,8 @@ function makeGitMutationOptions<TArgs, TResult>(config: {
   invalidate?: GitMutationInvalidation;
   invalidateOn?: GitMutationInvalidateOn;
   awaitInvalidation?: boolean;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   const invalidate = config.invalidate ?? "all";
   const invalidateOn = config.invalidateOn ?? "settled";
@@ -825,7 +856,7 @@ function makeGitMutationOptions<TArgs, TResult>(config: {
   return mutationOptions({
     mutationKey: config.mutationKey,
     mutationFn: async (args: TArgs) => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(config.hostId ?? LOCAL_HOST_ID);
       if (!config.cwd) throw new Error(config.unavailableMessage);
       return config.run(api, config.cwd, args);
     },
@@ -835,10 +866,15 @@ function makeGitMutationOptions<TArgs, TResult>(config: {
   });
 }
 
-export function gitInitMutationOptions(input: { cwd: string | null; queryClient: QueryClient }) {
+export function gitInitMutationOptions(input: {
+  cwd: string | null;
+  queryClient: QueryClient;
+  hostId?: HostId;
+}) {
   return makeGitMutationOptions<void, void>({
     cwd: input.cwd,
     queryClient: input.queryClient,
+    ...(input.hostId ? { hostId: input.hostId } : {}),
     mutationKey: gitMutationKeys.init(input.cwd),
     unavailableMessage: "Git init is unavailable.",
     invalidateOn: "success",
@@ -849,10 +885,13 @@ export function gitInitMutationOptions(input: { cwd: string | null; queryClient:
 export function gitStageFilesMutationOptions(input: {
   cwd: string | null;
   queryClient: QueryClient;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   return makeGitMutationOptions<readonly string[], { ok: boolean }>({
     cwd: input.cwd,
     queryClient: input.queryClient,
+    ...(input.hostId ? { hostId: input.hostId } : {}),
     mutationKey: gitMutationKeys.stageFiles(input.cwd),
     unavailableMessage: "Staging is unavailable.",
     invalidate: "cwd",
@@ -866,10 +905,13 @@ export function gitStageFilesMutationOptions(input: {
 export function gitUnstageFilesMutationOptions(input: {
   cwd: string | null;
   queryClient: QueryClient;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   return makeGitMutationOptions<readonly string[], { ok: boolean }>({
     cwd: input.cwd,
     queryClient: input.queryClient,
+    ...(input.hostId ? { hostId: input.hostId } : {}),
     mutationKey: gitMutationKeys.unstageFiles(input.cwd),
     unavailableMessage: "Unstaging is unavailable.",
     invalidate: "cwd",
@@ -887,6 +929,8 @@ export function gitRunStackedActionMutationOptions(input: {
   modelSelection?: ModelSelection | null;
   codexHomePath?: string | null;
   providerOptions?: ProviderStartOptions | null;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   return makeGitMutationOptions<
     {
@@ -904,6 +948,7 @@ export function gitRunStackedActionMutationOptions(input: {
   >({
     cwd: input.cwd,
     queryClient: input.queryClient,
+    ...(input.hostId ? { hostId: input.hostId } : {}),
     mutationKey: gitMutationKeys.runStackedAction(input.cwd),
     unavailableMessage: "Git action is unavailable.",
     invalidate: "cwd",
@@ -942,10 +987,15 @@ export function gitRunStackedActionMutationOptions(input: {
   });
 }
 
-export function gitPullMutationOptions(input: { cwd: string | null; queryClient: QueryClient }) {
+export function gitPullMutationOptions(input: {
+  cwd: string | null;
+  queryClient: QueryClient;
+  hostId?: HostId;
+}) {
   return makeGitMutationOptions<void, Awaited<ReturnType<NativeApi["git"]["pull"]>>>({
     cwd: input.cwd,
     queryClient: input.queryClient,
+    ...(input.hostId ? { hostId: input.hostId } : {}),
     mutationKey: gitMutationKeys.pull(input.cwd),
     unavailableMessage: "Git pull is unavailable.",
     invalidate: "cwd",
@@ -954,7 +1004,10 @@ export function gitPullMutationOptions(input: { cwd: string | null; queryClient:
   });
 }
 
-export function gitCreateDetachedWorktreeMutationOptions(input: { queryClient: QueryClient }) {
+export function gitCreateDetachedWorktreeMutationOptions(input: {
+  queryClient: QueryClient;
+  hostId?: HostId;
+}) {
   return mutationOptions({
     mutationFn: async ({
       cwd,
@@ -971,7 +1024,7 @@ export function gitCreateDetachedWorktreeMutationOptions(input: { queryClient: Q
       newBranch?: string;
       progressId?: string;
     }) => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!cwd) throw new Error("Git worktree creation is unavailable.");
       return api.git.createDetachedWorktree({
         cwd,
@@ -989,7 +1042,10 @@ export function gitCreateDetachedWorktreeMutationOptions(input: { queryClient: Q
   });
 }
 
-export function gitRemoveWorktreeMutationOptions(input: { queryClient: QueryClient }) {
+export function gitRemoveWorktreeMutationOptions(input: {
+  queryClient: QueryClient;
+  hostId?: HostId;
+}) {
   return mutationOptions({
     mutationFn: async ({
       cwd,
@@ -998,7 +1054,7 @@ export function gitRemoveWorktreeMutationOptions(input: { queryClient: QueryClie
       archiveCleanup,
       reclaimTemporaryBranch = true,
     }: GitRemoveWorktreeInput) => {
-      const api = ensureLocalNativeApi();
+      const api = gitApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!cwd) throw new Error("Git worktree removal is unavailable.");
       // Every UI removal retires a thread-scoped managed worktree, so its
       // temporary saint/* branch (if any) is reclaimed with it.
@@ -1014,6 +1070,8 @@ export function gitRemoveWorktreeMutationOptions(input: { queryClient: QueryClie
 export function gitPreparePullRequestThreadMutationOptions(input: {
   cwd: string | null;
   queryClient: QueryClient;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   return makeGitMutationOptions<
     // `cwd` targets another checkout of the same repository (a second project on one repo);
@@ -1023,6 +1081,7 @@ export function gitPreparePullRequestThreadMutationOptions(input: {
   >({
     cwd: input.cwd,
     queryClient: input.queryClient,
+    ...(input.hostId ? { hostId: input.hostId } : {}),
     mutationKey: gitMutationKeys.preparePullRequestThread(input.cwd),
     unavailableMessage: "Pull request thread preparation is unavailable.",
     // The result already identifies the prepared checkout. Opening its draft must not
@@ -1036,6 +1095,8 @@ export function gitPreparePullRequestThreadMutationOptions(input: {
 export function gitHandoffThreadMutationOptions(input: {
   cwd: string | null;
   queryClient: QueryClient;
+  /** The machine to run on: this computer unless the chat is a connected host's. */
+  hostId?: HostId;
 }) {
   return makeGitMutationOptions<
     Omit<GitHandoffThreadInput, "cwd">,
@@ -1043,6 +1104,7 @@ export function gitHandoffThreadMutationOptions(input: {
   >({
     cwd: input.cwd,
     queryClient: input.queryClient,
+    ...(input.hostId ? { hostId: input.hostId } : {}),
     mutationKey: gitMutationKeys.handoffThread(input.cwd),
     unavailableMessage: "Git handoff is unavailable.",
     run: (api, cwd, request) => api.git.handoffThread({ cwd, ...request }),

@@ -2,6 +2,7 @@
 // Purpose: Coordinates diff-panel data sources, toolbar state, and patch body rendering.
 // Layer: Diff panel container
 
+import { useHostId } from "~/hosts/hostScope";
 import { scopeLocalThread } from "@saint/shared/hostId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -457,6 +458,7 @@ export default function DiffPanel({
   onVisibleFileChange,
   onEditFile,
 }: DiffPanelProps) {
+  const hostId = useHostId();
   const queryClient = useQueryClient();
   const mode = modeProp ?? "inline";
   const liveRefreshEnabled = liveRefreshEnabledProp ?? true;
@@ -614,11 +616,11 @@ export default function DiffPanel({
     [activeCwd, diffQueriesEnabled, diffViewKind],
   );
   const gitBranchesQuery = useQuery({
-    ...gitBranchesQueryOptions(activeCwd ?? null),
+    ...gitBranchesQueryOptions(activeCwd ?? null, hostId),
     enabled: diffQueriesEnabled && activeCwd !== null,
   });
   const gitStatusQuery = useQuery({
-    ...gitStatusQueryOptions(activeCwd ?? null),
+    ...gitStatusQueryOptions(activeCwd ?? null, true, hostId),
     enabled: gitStatusQueriesEnabled,
   });
   const gitRepoStatus = gitBranchesQuery.isSuccess ? gitBranchesQuery.data.isRepo : undefined;
@@ -716,6 +718,7 @@ export default function DiffPanel({
   );
   const activeCheckpointDiffQuery = useQuery(
     checkpointDiffQueryOptions({
+      hostId,
       threadId: activeThreadId,
       fromTurnCount: activeCheckpointRange?.fromTurnCount ?? null,
       toTurnCount: activeCheckpointRange?.toTurnCount ?? null,
@@ -751,6 +754,7 @@ export default function DiffPanel({
   // other three in full moved megabytes per refresh on a large working tree for four integers.
   const unstagedDiffStatsQuery = useQuery(
     gitWorkingTreeDiffStatsQueryOptions({
+      hostId,
       cwd: activeCwd ?? null,
       scope: "unstaged",
       enabled: scopeCountQueriesEnabled && !diffEnvironmentPending,
@@ -758,6 +762,7 @@ export default function DiffPanel({
   );
   const stagedDiffStatsQuery = useQuery(
     gitWorkingTreeDiffStatsQueryOptions({
+      hostId,
       cwd: activeCwd ?? null,
       scope: "staged",
       enabled: scopeCountQueriesEnabled && !diffEnvironmentPending,
@@ -765,6 +770,7 @@ export default function DiffPanel({
   );
   const branchDiffStatsQuery = useQuery(
     gitWorkingTreeDiffStatsQueryOptions({
+      hostId,
       cwd: activeCwd ?? null,
       scope: "branch",
       enabled: scopeCountQueriesEnabled && !diffEnvironmentPending,
@@ -772,6 +778,7 @@ export default function DiffPanel({
   );
   const refDiffStatsQuery = useQuery(
     gitWorkingTreeDiffStatsQueryOptions({
+      hostId,
       cwd: activeCwd ?? null,
       scope: "ref",
       compareRef: repoDiffCompareRef,
@@ -780,6 +787,7 @@ export default function DiffPanel({
   );
   const repoDiffQuery = useQuery(
     gitWorkingTreeDiffQueryOptions({
+      hostId,
       cwd: activeCwd ?? null,
       scope: repoDiffScope,
       compareRef: repoDiffCompareRef,
@@ -950,6 +958,7 @@ export default function DiffPanel({
   );
   const workingTreeDiffStatsQuery = useQuery(
     gitWorkingTreeDiffStatsQueryOptions({
+      hostId,
       cwd: activeCwd ?? null,
       scope: "workingTree",
       enabled: scopeCountQueriesEnabled && !diffEnvironmentPending,

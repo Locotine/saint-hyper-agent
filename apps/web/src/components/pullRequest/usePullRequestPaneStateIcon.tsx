@@ -6,6 +6,7 @@
 // Layer: Pull request presentation
 // Exports: usePullRequestPaneStateIcon
 
+import { useHostId } from "~/hosts/hostScope";
 import type { PullRequestDetailInput } from "@saint/contracts";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -17,8 +18,9 @@ import { PullRequestStateGlyph } from "./PullRequestStateGlyph";
 export function usePullRequestPaneStateIcon(
   input: PullRequestDetailInput | null,
 ): ReactNode | undefined {
+  const hostId = useHostId();
   const detailQuery = useQuery({
-    ...pullRequestDetailQueryOptions(input),
+    ...pullRequestDetailQueryOptions(input, { hostId }),
     enabled: false,
   });
   const detail = input ? detailQuery.data : undefined;

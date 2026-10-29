@@ -1,4 +1,6 @@
 import type { PullRequestDetailInput, ThreadId } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { apiFor } from "../hosts/hostApi";
 import { queryOptions } from "@tanstack/react-query";
 
 import { ensureLocalNativeApi } from "~/nativeApi";
@@ -41,16 +43,32 @@ export function pullRequestQueryErrorState<TData, TError>(
     : { initialError: null, backgroundError: query.error };
 }
 
+/**
+ * A connected host's pull request reads go to that host and key by it after the usual key,
+ * so prefix invalidations still reach them. This computer's keys are unchanged.
+ */
+function withHostKey<const Key extends readonly unknown[]>(key: Key, hostId: HostId) {
+  return hostId === LOCAL_HOST_ID ? key : ([...key, hostId] as const);
+}
+
+export function pullRequestApiFor(hostId: HostId) {
+  if (hostId === LOCAL_HOST_ID) return ensureLocalNativeApi();
+  const api = apiFor(hostId);
+  if (!api) throw new Error("This host is not connected.");
+  return api;
+}
+
 export function pullRequestDetailQueryOptions(
   input: PullRequestDetailInput | null,
-  behavior: { pollingEnabled?: boolean } = {},
+  behavior: { pollingEnabled?: boolean; hostId?: HostId } = {},
 ) {
   const pollingEnabled = behavior.pollingEnabled ?? true;
+  const hostId = behavior.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: pullRequestQueryKeys.detail(input),
+    queryKey: withHostKey(pullRequestQueryKeys.detail(input), hostId),
     queryFn: () => {
       if (!input) throw new Error("Pull request detail is unavailable.");
-      return ensureLocalNativeApi().pullRequests.detail(input);
+      return pullRequestApiFor(hostId).pullRequests.detail(input);
     },
     enabled: input !== null,
     staleTime: GITHUB_ITEM_DETAIL_STALE_TIME_MS,
@@ -61,12 +79,15 @@ export function pullRequestDetailQueryOptions(
   });
 }
 
-export function pullRequestDiffQueryOptions(input: PullRequestDetailInput | null) {
+export function pullRequestDiffQueryOptions(
+  input: PullRequestDetailInput | null,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   return queryOptions({
-    queryKey: pullRequestQueryKeys.diff(input),
+    queryKey: withHostKey(pullRequestQueryKeys.diff(input), hostId),
     queryFn: () => {
       if (!input) throw new Error("Pull request diff is unavailable.");
-      return ensureLocalNativeApi().pullRequests.diff(input);
+      return pullRequestApiFor(hostId).pullRequests.diff(input);
     },
     enabled: input !== null,
     staleTime: 30_000,

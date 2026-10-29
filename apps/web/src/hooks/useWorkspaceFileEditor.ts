@@ -1,4 +1,5 @@
 import type { ProjectReadFileResult } from "@saint/contracts";
+import { useHostId } from "~/hosts/hostScope";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
@@ -31,13 +32,14 @@ export function useWorkspaceFileEditorBuffer(
 ) {
   const { cwd, enabled, file, filePath } = input;
   const client = useQueryClient();
+  const hostId = useHostId();
   const relativePath = file?.relativePath ?? filePath;
   const session = useMemo(
     () =>
       enabled && cwd !== null && relativePath !== null
-        ? getWorkspaceEditorSession(client, cwd, relativePath)
+        ? getWorkspaceEditorSession(client, cwd, relativePath, hostId)
         : null,
-    [client, cwd, enabled, relativePath],
+    [client, cwd, enabled, hostId, relativePath],
   );
   const state = useSyncExternalStore(
     session?.subscribe ?? subscribeEmpty,

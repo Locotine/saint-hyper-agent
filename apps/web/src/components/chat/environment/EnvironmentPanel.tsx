@@ -8,6 +8,7 @@
 //          use floating overlay only. The card surface and content are identical either way.
 // Layer: Environment panel container
 
+import { useHostId } from "~/hosts/hostScope";
 import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 import { SidePanelOverlay } from "~/components/chat/SidePanelOverlay";
 import type {
@@ -278,6 +279,7 @@ export function EnvironmentPanel({
   onRegisterCommitAndPushTrigger,
   railBottom,
 }: EnvironmentPanelProps) {
+  const hostId = useHostId();
   const githubRepository = githubRepositoryProp ?? null;
   const githubRepositories = githubRepositoriesProp ?? [];
   const groupFolderPath = groupFolderPathProp ?? null;
@@ -287,7 +289,9 @@ export function EnvironmentPanel({
   const onOpenEditorView = onOpenEditorViewProp ?? null;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const removeWorktreeMutation = useMutation(gitRemoveWorktreeMutationOptions({ queryClient }));
+  const removeWorktreeMutation = useMutation(
+    gitRemoveWorktreeMutationOptions({ queryClient, hostId }),
+  );
   const { settings } = useAppSettings();
   const openRightDockPane = useRightDockStore((store) => store.openPane);
   const { additions, deletions, hasChanges } = diffTotals;

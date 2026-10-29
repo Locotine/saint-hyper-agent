@@ -972,7 +972,8 @@ export class WsTransport {
   // Unary requests wait here for a slot of their server admission class, so the
   // transport never sends a request the server would reject for capacity.
   private readonly unaryRequestQueue = new RpcRequestQueue<WsRequestClass>(WS_REQUEST_CLASS_LIMITS);
-  private readonly explicitUrl: string | null;
+  /** The server this transport talks to; null for the page's own. Binary frame sockets reuse it. */
+  readonly explicitUrl: string | null;
   private readonly listeners = new Map<string, Set<(message: WsPush) => void>>();
   private readonly stateListeners = new Set<(state: WsTransportState) => void>();
   private readonly compatibilityListeners = new Set<(issue: WsCompatibilityError | null) => void>();

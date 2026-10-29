@@ -69,6 +69,7 @@ import {
 import { cn } from "~/lib/utils";
 import { resolveWorkspaceFileEditorReadOnlyReason } from "~/lib/workspaceFileEditor";
 import { readLocalNativeApi } from "~/nativeApi";
+import { apiFor, useHostId } from "~/hosts/hostScope";
 import ChatMarkdown from "./ChatMarkdown";
 import { DiffTruncationWarning } from "./DiffTruncationWarning";
 import { FileLineCommentBox } from "./chat/FileLineCommentBox";
@@ -517,6 +518,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
   const [markdownPreviewOverrides, setMarkdownPreviewOverrides] = useState<
     ReadonlyMap<string, boolean>
   >(() => new Map());
+  const hostId = useHostId();
   const markdownPreviewKey = `${workspaceRoot ?? ""}\0${filePath ?? ""}`;
   const markdownPreviewEnabled =
     props.markdownPreviewEnabled ??
@@ -538,6 +540,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
   const binaryPreviewKey = `${props.workspaceRoot ?? ""}\0${filePath ?? ""}\0${localPreviewGrant ?? ""}\0${binaryPreviewRevision}`;
   const fileQuery = useQuery(
     projectReadFileQueryOptions({
+      hostId,
       cwd: props.workspaceRoot,
       relativePath: filePath,
       previewGrant: localPreviewGrant,
@@ -735,6 +738,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
     editableDocument === null;
   const workingTreeDiffQuery = useQuery(
     gitWorkingTreeDiffQueryOptions({
+      hostId,
       cwd: props.workspaceRoot,
       filePath: resolvedWorkspaceRelativePath,
       enabled: changeGutterEnabled,
@@ -805,7 +809,11 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
     if (!workspaceRoot || !filePath) {
       return;
     }
-    const options = projectReadFileQueryOptions({ cwd: workspaceRoot, relativePath: filePath });
+    const options = projectReadFileQueryOptions({
+      cwd: workspaceRoot,
+      relativePath: filePath,
+      hostId,
+    });
     const current = queryClient.getQueryData(options.queryKey);
     if (
       !current ||
@@ -827,7 +835,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
     }
     // No API means no write can happen — bail before the optimistic update
     // so the preview never shows a toggle that was silently dropped.
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!api) {
       return;
     }

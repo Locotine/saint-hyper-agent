@@ -6,6 +6,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { useHostId } from "~/hosts/hostScope";
 import { serverEnvironmentQueryOptions } from "~/lib/serverReactQuery";
 
 /**
@@ -16,6 +17,7 @@ import { serverEnvironmentQueryOptions } from "~/lib/serverReactQuery";
  * the add-menu entry from flickering in and out on a cold start.
  */
 export function useDeviceSupport(): boolean {
-  const environmentQuery = useQuery(serverEnvironmentQueryOptions());
+  // A connected host's chat asks that host: its simulators run there.
+  const environmentQuery = useQuery(serverEnvironmentQueryOptions(useHostId()));
   return environmentQuery.data?.platform.os === "darwin";
 }
