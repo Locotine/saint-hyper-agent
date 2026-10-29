@@ -11,9 +11,13 @@ import { MCP_CONNECTORS_BETA_FEATURE } from "@saint/shared/betaFeatures";
 import { Effect, Layer } from "effect";
 
 import { version } from "../../../package.json" with { type: "json" };
-import { AgentGatewayCredentials } from "../../agentGateway/Services/AgentGatewayCredentials.ts";
+import {
+  AgentGatewayCredentials,
+  type AgentGatewayConnectorRegistration,
+} from "../../agentGateway/Services/AgentGatewayCredentials.ts";
 import { ServerSecretStore } from "../../auth/Services/ServerSecretStore.ts";
 import { isServerBetaFeatureEnabled } from "../../betaFeatureGate.ts";
+import { MCP_HUB_ID_PREFIX, sharedMcpHub } from "../../economy/mcpHub.ts";
 import { createLogger } from "../../logger.ts";
 import { jsonRpcErrorResult } from "../proxy.ts";
 import { McpConnectorFailure, McpConnectorRuntime } from "../runtime.ts";
@@ -45,6 +49,14 @@ export const makeMcpConnectors = (options: { readonly enabled?: boolean } = {}) 
     const secretStore = yield* ServerSecretStore;
     const credentials = yield* AgentGatewayCredentials;
 
+    // MCP Hub servers ride on the connector route: agents see them as `<name>_hub` connectors.
+    let connectorRegistrations: ReadonlyArray<AgentGatewayConnectorRegistration> = [];
+    const publishAll = () =>
+      credentials.setConnectorServers?.([
+        ...connectorRegistrations,
+        ...sharedMcpHub.registrations(),
+      ]);
+    sharedMcpHub.onChange(publishAll);
     const runtime = new McpConnectorRuntime({
       load: () =>
         Effect.runPromise(
@@ -57,7 +69,10 @@ export const makeMcpConnectors = (options: { readonly enabled?: boolean } = {}) 
           secretStore.set(MCP_CONNECTORS_SECRET_NAME, new TextEncoder().encode(document)),
         ),
       redirectUrl: () => mcpConnectorRedirectUrl(credentials.mcpEndpointUrl),
-      publish: (registrations) => credentials.setConnectorServers?.(registrations),
+      publish: (registrations) => {
+        connectorRegistrations = registrations;
+        publishAll();
+      },
       clientVersion: version,
       logWarning: (message, fields) => log.warn(message, fields),
     });
@@ -108,7 +123,11 @@ export const makeMcpConnectors = (options: { readonly enabled?: boolean } = {}) 
               message: "This version of Saint does not support connectors.",
             }),
       forward: (connectorId, request) =>
-        Effect.tryPromise((signal) => runtime.forward(connectorId, { ...request, signal })).pipe(
+        Effect.tryPromise((signal) =>
+          connectorId.startsWith(MCP_HUB_ID_PREFIX)
+            ? sharedMcpHub.forward(connectorId, request)
+            : runtime.forward(connectorId, { ...request, signal }),
+        ).pipe(
           Effect.catch(() =>
             Effect.succeed(
               jsonRpcErrorResult(request.body, "Saint could not forward this request."),

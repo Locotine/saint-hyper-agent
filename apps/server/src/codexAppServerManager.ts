@@ -1,4 +1,5 @@
 import { providerProcessPriorityEnabled } from "./providerProcessPriority";
+import { recordAgentProcess } from "./economy/agentProcesses.ts";
 import type { ChildProcess, ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
@@ -1497,6 +1498,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         cwd: resolvedCwd,
         env: processLaunch.env,
       });
+      recordAgentProcess(threadId, child.pid);
 
       context = {
         autoApproveSaintTools: input.autoApproveSaintTools === true,
@@ -2530,6 +2532,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         cwd: resolvedCwd,
         env: processLaunch.env,
       });
+      recordAgentProcess(threadId, child.pid);
 
       context = {
         ...(gatewaySessionLease ? { gatewaySessionLease } : {}),

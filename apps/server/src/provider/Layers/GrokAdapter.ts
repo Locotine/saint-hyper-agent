@@ -1169,6 +1169,7 @@ export function makeGrokAdapter(
           });
 
           const acp = yield* makeGrokAcpRuntime({
+            ownerThreadId: input.threadId,
             grokSettings: effectiveGrokSettings,
             childProcessSpawner,
             cwd,

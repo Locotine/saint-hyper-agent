@@ -15,6 +15,8 @@ import type {
   McpHubServer,
 } from "@saint/contracts";
 
+import { hubServerName } from "./mcpHub.ts";
+import { powershellExecutablePath } from "../platform/windowsProcessSnapshot.ts";
 import { runProcess } from "../processRunner.ts";
 
 const MB = 1024 * 1024;
@@ -93,6 +95,34 @@ export function parsePs(text: string): RawProcess[] {
   });
 }
 
+// One row per process; the command line is base64 so tabs in it cannot split the row.
+const WINDOWS_PROCESS_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+Get-CimInstance Win32_Process | ForEach-Object {
+  $command = if ($_.CommandLine) { [string]$_.CommandLine } else { [string]$_.Name }
+  $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($command))
+  [Console]::Out.WriteLine(("{0}\t{1}\t{2}\t{3}\t{4}" -f $_.ProcessId, $_.ParentProcessId, $_.WorkingSetSize, ($_.KernelModeTime + $_.UserModeTime), $encoded))
+}
+`.trim();
+
+/** Win32_Process rows: pid, ppid, working set bytes, CPU time in 100 ns units, base64 command. */
+export function parseWindowsProcesses(text: string): RawProcess[] {
+  return text.split(/\r?\n/).flatMap((line) => {
+    const [pid, ppid, workingSet, cpu100ns, encoded] = line.split("\t");
+    if (encoded === undefined || !/^\d+$/.test(pid ?? "")) return [];
+    return [
+      {
+        pid: Number(pid),
+        ppid: Number(ppid),
+        rssKb: Math.round(Number(workingSet) / 1024),
+        // As Linux clock ticks (1/100 s), so cpuPercents treats both alike.
+        cpu: Math.round(Number(cpu100ns) / 100_000),
+        label: Buffer.from(encoded, "base64").toString("utf8").trim().slice(0, LABEL_CHARS),
+      },
+    ];
+  });
+}
+
 /** Every process below `root`, the root excluded. */
 export function descendants(rows: ReadonlyArray<RawProcess>, root: number): RawProcess[] {
   const children = new Map<number, RawProcess[]>();
@@ -159,12 +189,46 @@ export async function readHost(): Promise<HostReading> {
       outputMode: "truncate",
     }).catch(() => null);
     all = ps ? parsePs(ps.stdout) : [];
+  } else if (process.platform === "win32") {
+    const cim = await runProcess(
+      powershellExecutablePath(),
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-EncodedCommand",
+        Buffer.from(WINDOWS_PROCESS_SCRIPT, "utf16le").toString("base64"),
+      ],
+      { timeoutMs: 10_000, allowNonZeroExit: true, maxBufferBytes: 8 * MB, outputMode: "truncate" },
+    ).catch(() => null);
+    all = cim ? parseWindowsProcesses(cim.stdout) : [];
   }
-  // ponytail: Windows reports host memory only; per-process rows need a WMI query.
   return { totalMb, usedMb, stallPct, processes: descendants(all, process.pid) };
 }
 
-/** CPU percent per pid: Linux ticks are cumulative, so compare with the previous reading. */
+/** The owning thread of each process: its own, or that of its nearest owned ancestor. */
+export function attributeOwners(
+  rows: ReadonlyArray<RawProcess>,
+  owners: ReadonlyMap<number, string>,
+): Map<number, string> {
+  const parent = new Map(rows.map((row) => [row.pid, row.ppid]));
+  const out = new Map<number, string>();
+  for (const row of rows) {
+    const seen = new Set<number>();
+    for (let pid: number | undefined = row.pid; pid !== undefined && !seen.has(pid); ) {
+      seen.add(pid);
+      const owner = owners.get(pid);
+      if (owner) {
+        out.set(row.pid, owner);
+        break;
+      }
+      pid = parent.get(pid);
+    }
+  }
+  return out;
+}
+
+/** CPU percent per pid: Linux and Windows times are cumulative, so compare with the previous reading. */
 export function cpuPercents(
   current: ReadonlyArray<RawProcess>,
   previous: ReadonlyMap<number, number>,
@@ -172,7 +236,8 @@ export function cpuPercents(
 ): Map<number, number> {
   const out = new Map<number, number>();
   for (const row of current) {
-    if (process.platform !== "linux") {
+    // ps reports an instant percentage; Linux and Windows report cumulative time.
+    if (process.platform === "darwin") {
       out.set(row.pid, row.cpu);
       continue;
     }
@@ -223,6 +288,15 @@ export function admissionReason(
   return null;
 }
 
+/** Critical memory and a full seat cap refuse; pressure alone only queues. */
+export function admissionRefuses(
+  level: EconomyLevel,
+  seatsUsed: number,
+  seatCap: number | null,
+): boolean {
+  return level === "critical" || (seatCap !== null && seatsUsed >= seatCap);
+}
+
 export function pushSample(ring: EconomySample[], sample: EconomySample): void {
   ring.push(sample);
   if (ring.length > SAMPLE_RING_SIZE) ring.splice(0, ring.length - SAMPLE_RING_SIZE);
@@ -232,6 +306,7 @@ export function pushSample(ring: EconomySample[], sample: EconomySample): void {
 export function hubServers(
   processes: ReadonlyArray<EconomyProcess>,
   shared: ReadonlyArray<string>,
+  sessionsOf: (command: string) => number = () => 0,
 ): McpHubServer[] {
   const byCommand = new Map<string, { instances: number; rssMb: number }>();
   for (const row of processes) {
@@ -239,7 +314,17 @@ export function hubServers(
     const entry = byCommand.get(row.label) ?? { instances: 0, rssMb: 0 };
     byCommand.set(row.label, { instances: entry.instances + 1, rssMb: entry.rssMb + row.rssMb });
   }
+  // Shared servers are listed before their first use too.
+  for (const command of shared) {
+    if (!byCommand.has(command)) byCommand.set(command, { instances: 0, rssMb: 0 });
+  }
   return [...byCommand]
-    .map(([command, entry]) => ({ command, ...entry, shared: shared.includes(command) }))
+    .map(([command, entry]) => ({
+      command,
+      name: hubServerName(command),
+      ...entry,
+      shared: shared.includes(command),
+      sessions: sessionsOf(command),
+    }))
     .toSorted((a, b) => b.rssMb - a.rssMb);
 }

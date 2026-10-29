@@ -27,6 +27,7 @@ import {
 } from "@saint/shared/runtimeMode";
 import { Cause, Effect, Option, Semaphore } from "effect";
 
+import { currentSpawnRefusal } from "../economy/Services/Economy.ts";
 import type { ServerConfigShape } from "../config.ts";
 import type { GitCoreShape } from "../git/Services/GitCore.ts";
 import type { OrchestrationEngineShape } from "../orchestration/Services/OrchestrationEngine.ts";
@@ -348,6 +349,11 @@ export const makeCreateThreadsHandler = Effect.fn(function* (
             "Thread creation requires an active caller turn.",
           ),
         );
+      }
+      // Host economy: an agent may not add threads while memory is critical or seats are full.
+      const refusal = context.kind === "provider-session" ? currentSpawnRefusal() : null;
+      if (refusal) {
+        return yield* Effect.fail(new GatewayToolError("host_busy", refusal));
       }
       if (context.kind === "external-client" && input.threads.length !== 1) {
         return yield* Effect.fail(

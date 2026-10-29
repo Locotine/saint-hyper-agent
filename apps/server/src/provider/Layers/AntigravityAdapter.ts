@@ -1,4 +1,5 @@
 import { providerProcessPriorityEnabled } from "../../providerProcessPriority";
+import { recordAgentProcess } from "../../economy/agentProcesses.ts";
 import crypto from "node:crypto";
 import type { ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
@@ -2629,6 +2630,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
             }),
             stdio: ["ignore", "pipe", "pipe"],
           });
+          recordAgentProcess(context.session.threadId, child.pid);
         } catch (cause) {
           releaseTurnGatewayLease(context, gatewaySessionLease);
           yield* Effect.promise(() => fs.rm(runDir, { recursive: true, force: true }));

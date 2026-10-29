@@ -2669,6 +2669,7 @@ export function makeDevinAdapter(
           };
 
           const acp = yield* createAcpRuntime({
+            ownerThreadId: input.threadId,
             assistantItemScope: (metadata) => readDevinSubagentContext(metadata)?.parentAgentId,
             loadReplayPolicy: { retainToolState: true },
             devinSettings: effectiveDevinSettings,

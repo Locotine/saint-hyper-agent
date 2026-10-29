@@ -850,6 +850,7 @@ export function makeDroidAdapter(
           });
 
           const acp = yield* makeDroidAcpRuntime({
+            ownerThreadId: input.threadId,
             droidSettings: effectiveDroidSettings,
             childProcessSpawner,
             cwd,

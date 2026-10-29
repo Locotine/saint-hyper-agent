@@ -3,6 +3,7 @@
 // Layer: Provider ACP runtime
 // Exports: AcpSessionRuntime and its typed runtime factory contracts.
 
+import { recordAgentProcess } from "../../economy/agentProcesses.ts";
 import { randomUUID } from "node:crypto";
 import type * as Acp from "@agentclientprotocol/sdk";
 import { resolveExecutionWorkingDirectory } from "@saint/shared/wslBridge";
@@ -376,6 +377,8 @@ export interface AcpSessionRuntimeOptions {
     metadata: Record<string, unknown> | undefined,
   ) => string | undefined;
   readonly spawn: AcpSpawnInput;
+  /** The thread this process serves, for per-agent RSS/CPU; unset for discovery runs. */
+  readonly ownerThreadId?: string;
   readonly cwd: string;
   readonly resumeSessionId?: string;
   readonly clientCapabilities?: Acp.InitializeRequest["clientCapabilities"];
@@ -1513,6 +1516,7 @@ const makeAcpSessionRuntime = (
       ),
     );
 
+    if (options.ownerThreadId) recordAgentProcess(options.ownerThreadId, child.pid);
     yield* Effect.addFinalizer(() => teardownAcpChildProcess(child, options.teardownProcessTree));
     // Registered after child teardown so LIFO scope closure releases any first
     // prompt/fork waiter before waiting for the child process to exit.
