@@ -80,6 +80,12 @@ export async function runFlowGate(input: {
   readonly cwd: string;
   readonly baseline: string | null;
   readonly signal?: AbortSignal;
+  /** Aegis sandbox argv for the command; it replaces the plain shell. */
+  readonly sandbox?: {
+    readonly file: string;
+    readonly args: ReadonlyArray<string>;
+    readonly env: Record<string, string>;
+  } | null;
 }): Promise<FlowGateResult> {
   const shell =
     process.platform === "win32"
@@ -88,8 +94,10 @@ export async function runFlowGate(input: {
   const args =
     process.platform === "win32" ? ["/d", "/s", "/c", input.gate.cmd] : ["-lc", input.gate.cmd];
   const startedAt = Date.now();
-  const result = await runProcess(shell, args, {
+  const sandbox = input.sandbox ?? null;
+  const result = await runProcess(sandbox?.file ?? shell, sandbox ? [...sandbox.args] : args, {
     cwd: input.cwd,
+    ...(sandbox ? { env: { ...process.env, ...sandbox.env } } : {}),
     timeoutMs: input.gate.timeoutMs ?? FLOW_GATE_DEFAULT_TIMEOUT_MS,
     allowNonZeroExit: true,
     outputMode: "truncate",

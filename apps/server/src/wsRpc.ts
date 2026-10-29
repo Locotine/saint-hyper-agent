@@ -250,6 +250,7 @@ import { handleFlowRpc } from "./flow/flowRpc";
 import { FlowService } from "./flow/Services/FlowService";
 import { Ledger } from "./ledger/Services/Ledger";
 import { SapBus } from "./sap/Services/SapBus";
+import { Aegis } from "./aegis/Services/Aegis";
 import {
   GitHubInboxRateLimitedError,
   GitHubInboxService,
@@ -555,6 +556,7 @@ const makeWsRpcHandlersLayer = () =>
       const pullRequestAutoFix = yield* PullRequestAutoFixService;
       const flowRpc = handleFlowRpc({ flows: yield* FlowService, ledger: yield* Ledger });
       const sapBus = yield* SapBus;
+      const aegis = yield* Aegis;
       const githubInbox = yield* GitHubInboxService;
       const profileStatsQuery = yield* ProfileStatsQuery;
       const recapStatsQuery = yield* RecapStatsQuery;
@@ -2236,6 +2238,21 @@ const makeWsRpcHandlersLayer = () =>
           rpcEffect(flowRpc.ledgerHandle(input), "Failed to read the handle"),
         [WS_METHODS.sapList]: (input) =>
           rpcEffect(sapBus.list(input.flowId), "Failed to read the flow's messages"),
+        [WS_METHODS.aegisStatus]: () => rpcEffect(aegis.status(), "Failed to read security status"),
+        [WS_METHODS.aegisAlerts]: (input) =>
+          rpcEffect(
+            aegis.alerts(input.includeResolved ?? false).pipe(Effect.map((alerts) => ({ alerts }))),
+            "Failed to read alerts",
+          ),
+        [WS_METHODS.aegisResolve]: (input) =>
+          rpcEffect(
+            aegis
+              .resolve(input.ids, input.decision, "user")
+              .pipe(Effect.map((alerts) => ({ alerts }))),
+            "Failed to resolve alerts",
+          ),
+        [WS_METHODS.aegisUpdate]: (input) =>
+          rpcEffect(aegis.update(input, "user"), "Failed to update security settings"),
         [WS_METHODS.gitListBranches]: (input) =>
           rpcEffect(git.listBranches(input), "Failed to list branches"),
         [WS_METHODS.gitListRecentCommits]: (input) =>

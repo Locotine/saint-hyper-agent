@@ -22,6 +22,14 @@ import {
 } from "./flow";
 import { SapListInput, SapListResult } from "./sap";
 import {
+  AegisAlertsInput,
+  AegisAlertsResult,
+  AegisResolveInput,
+  AegisStatus,
+  AegisStatusInput,
+  AegisUpdateInput,
+} from "./aegis";
+import {
   EditorDebugStartInput,
   EditorDebugStartResult,
   EditorDebugActionInput,
@@ -1364,6 +1372,27 @@ export const WsSapListRpc = Rpc.make(WS_METHODS.sapList, {
   error: WsRpcError,
 });
 
+export const WsAegisStatusRpc = Rpc.make(WS_METHODS.aegisStatus, {
+  payload: AegisStatusInput,
+  success: AegisStatus,
+  error: WsRpcError,
+});
+export const WsAegisAlertsRpc = Rpc.make(WS_METHODS.aegisAlerts, {
+  payload: AegisAlertsInput,
+  success: AegisAlertsResult,
+  error: WsRpcError,
+});
+export const WsAegisResolveRpc = Rpc.make(WS_METHODS.aegisResolve, {
+  payload: AegisResolveInput,
+  success: AegisAlertsResult,
+  error: WsRpcError,
+});
+export const WsAegisUpdateRpc = Rpc.make(WS_METHODS.aegisUpdate, {
+  payload: AegisUpdateInput,
+  success: AegisStatus,
+  error: WsRpcError,
+});
+
 export const WsGitListBranchesRpc = Rpc.make(WS_METHODS.gitListBranches, {
   payload: GitListBranchesInput,
   success: GitListBranchesResult,
@@ -2200,6 +2229,10 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsLedgerExportRpc,
   WsLedgerHandleRpc,
   WsSapListRpc,
+  WsAegisStatusRpc,
+  WsAegisAlertsRpc,
+  WsAegisResolveRpc,
+  WsAegisUpdateRpc,
   WsGitListBranchesRpc,
   WsGitListRecentCommitsRpc,
   WsGitCreateWorktreeRpc,

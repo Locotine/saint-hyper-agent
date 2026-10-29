@@ -154,6 +154,7 @@ import Migration0135 from "./Migrations/135_ProjectionMessageTurnActivityIndex.t
 import Migration0136 from "./Migrations/136_Ledger.ts";
 import Migration0137 from "./Migrations/137_FlowRuns.ts";
 import Migration0138 from "./Migrations/138_SapMessages.ts";
+import Migration0139 from "./Migrations/139_Aegis.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -308,6 +309,7 @@ export const migrationEntries = [
   [136, "Ledger", Migration0136],
   [137, "FlowRuns", Migration0137],
   [138, "SapMessages", Migration0138],
+  [139, "Aegis", Migration0139],
 ] as const;
 
 export const makeMigrationLoader = (throughId?: number) =>

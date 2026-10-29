@@ -10,10 +10,11 @@ import {
   type FlowRun,
   type SapStats,
 } from "@saint/contracts";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Option, Schema } from "effect";
 import * as Semaphore from "effect/Semaphore";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
+import { Aegis } from "../../aegis/Services/Aegis.ts";
 import { FlowService } from "../../flow/Services/FlowService.ts";
 import { Ledger } from "../../ledger/Services/Ledger.ts";
 import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine.ts";
@@ -42,6 +43,7 @@ const make = Effect.gen(function* () {
   const flows = yield* FlowService;
   const ledger = yield* Ledger;
   const orchestrationEngine = yield* OrchestrationEngineService;
+  const aegis = Option.getOrUndefined(yield* Effect.serviceOption(Aegis));
   // ponytail: one lock for every send so a mailbox is never delivered twice; per-node if hot.
   const lock = yield* Semaphore.make(1);
 
@@ -199,6 +201,24 @@ const make = Effect.gen(function* () {
           },
         })
         .pipe(Effect.mapError(toError("Could not write the ledger.")));
+      if (message.verified === false && aegis) {
+        yield* aegis
+          .raise({
+            kind: "claim_unverified",
+            severity: "low",
+            title: `Unverified claim from ${message.from}`,
+            detail: message.body.slice(0, 500),
+            why: [
+              `flow ${run.spec.name}`,
+              `${message.from} → ${message.to} CLAIM`,
+              "no Saint evidence handle cited",
+            ],
+            flowId: run.id,
+            nodeId: message.from,
+            decidable: false,
+          })
+          .pipe(Effect.ignore);
+      }
       if (message.state === "pending" && message.to !== "user") yield* deliver(run, message.to);
       return message;
     });

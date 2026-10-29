@@ -24,6 +24,7 @@ import {
   contextUsedFraction,
 } from "../../orchestration/forkContinue.ts";
 import { ForkContinue } from "../../orchestration/Services/ForkContinue.ts";
+import { Aegis } from "../../aegis/Services/Aegis.ts";
 import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { FlowRepository, type FlowRunState } from "../../persistence/Services/FlowRepository.ts";
@@ -66,6 +67,26 @@ export const flowNodeThreadId = (flowId: string, nodeId: string, attempt: number
 const nodeSpecOf = (run: FlowRun, nodeId: string) =>
   run.spec.nodes.find((entry) => entry.id === nodeId)!;
 
+/** Steps that read untrusted input, and every step downstream of one. */
+export function taintedNodes(spec: FlowRun["spec"]): Set<string> {
+  const tainted = new Set(spec.nodes.filter((node) => node.untrusted).map((node) => node.id));
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const edge of spec.edges) {
+      if (tainted.has(edge.from) && !tainted.has(edge.to)) {
+        tainted.add(edge.to);
+        grew = true;
+      }
+    }
+  }
+  return tainted;
+}
+
+/** Rule of Two: a tainted step never acts outward without approval. */
+const stepRuntimeMode = (run: FlowRun, nodeId: string) =>
+  taintedNodes(run.spec).has(nodeId) ? "approval-required" : run.runtimeMode;
+
 const failedGate = (output: string): FlowGateResult => ({
   passed: false,
   exitCode: null,
@@ -88,6 +109,9 @@ const make = Effect.gen(function* () {
   const snapshotQuery = yield* ProjectionSnapshotQuery;
   const credentials = Option.getOrUndefined(yield* Effect.serviceOption(AgentGatewayCredentials));
   const forkContinue = Option.getOrUndefined(yield* Effect.serviceOption(ForkContinue));
+  const aegis = Option.getOrUndefined(yield* Effect.serviceOption(Aegis));
+  const alert = (input: Parameters<NonNullable<typeof aegis>["raise"]>[0]) =>
+    aegis ? aegis.raise(input).pipe(Effect.ignore) : Effect.void;
   // Threads already moved to a clean session for a full context, so one fill level forks once.
   const contextForked = new Set<string>();
   // ponytail: one lock for every flow mutation; per-flow locks if many flows run at once.
@@ -184,7 +208,7 @@ const make = Effect.gen(function* () {
           title: `${run.spec.name} · ${spec.role}`,
           creationSource: "flow_node",
           modelSelection,
-          runtimeMode: run.runtimeMode,
+          runtimeMode: stepRuntimeMode(run, node.nodeId),
           interactionMode: "default",
           envMode: "local",
           branch: null,
@@ -210,12 +234,29 @@ const make = Effect.gen(function* () {
           },
           modelSelection,
           dispatchMode: "queue",
-          runtimeMode: run.runtimeMode,
+          runtimeMode: stepRuntimeMode(run, node.nodeId),
           interactionMode: "default",
           createdAt: now,
         })
         .pipe(Effect.mapError(toError(`Could not start "${spec.id}".`)));
       yield* record(run, "node.started", "saint", { attempt, threadId }, node.nodeId);
+      if (stepRuntimeMode(run, node.nodeId) !== run.runtimeMode) {
+        yield* alert({
+          kind: "rule_of_two",
+          severity: "low",
+          title: `${spec.role} runs with approvals on`,
+          detail: `Step ${node.nodeId} reads untrusted input, so its outward actions need approval.`,
+          why: [
+            `flow ${run.spec.name}`,
+            `step ${node.nodeId} is downstream of untrusted input`,
+            "Rule of Two",
+          ],
+          flowId: run.id,
+          nodeId: node.nodeId,
+          threadId,
+          decidable: false,
+        });
+      }
     });
 
   /** Applies scheduler decisions until nothing changes. Callers hold `mutations`. */
@@ -263,6 +304,15 @@ const make = Effect.gen(function* () {
           case "fail":
             yield* saveRun(state.run, { status: "failed", statusReason: action.reason });
             yield* record(state.run, "flow.failed", "saint", { reason: action.reason });
+            yield* alert({
+              kind: "breaker",
+              severity: "medium",
+              title: `Flow stopped: ${state.run.spec.name}`,
+              detail: action.reason,
+              why: [`flow ${state.run.spec.name}`, action.reason],
+              flowId,
+              decidable: false,
+            });
             break;
         }
       }
@@ -284,6 +334,21 @@ const make = Effect.gen(function* () {
         }
         const spec = parsed.spec;
         const depths = flowNodeDepths(spec)!;
+        const status = aegis ? yield* aegis.status().pipe(Effect.orElseSucceed(() => null)) : null;
+        if (
+          status &&
+          spec.nodes.some((node) => node.mode === "autopilot") &&
+          !["L2", "L3"].includes(status.settings.autonomy)
+        ) {
+          return yield* new FlowServiceError({
+            message: `Autopilot steps need autonomy L2 or higher (sandbox + egress control); it is ${status.settings.autonomy}.`,
+          });
+        }
+        const runtimeMode = aegis
+          ? yield* aegis
+              .capRuntimeMode(input.runtimeMode)
+              .pipe(Effect.orElseSucceed(() => input.runtimeMode))
+          : input.runtimeMode;
         const now = isoNow();
         const id = FlowRunId.makeUnsafe(`flow-${crypto.randomUUID()}`);
         const run: FlowRun = {
@@ -293,7 +358,7 @@ const make = Effect.gen(function* () {
           status: "running",
           statusReason: null,
           modelSelection: input.modelSelection,
-          runtimeMode: input.runtimeMode,
+          runtimeMode,
           consecutiveFailures: 0,
           startedBy: input.startedBy,
           ...(input.capabilityCeiling ? { capabilityCeiling: [...input.capabilityCeiling] } : {}),
@@ -472,7 +537,7 @@ const make = Effect.gen(function* () {
               },
               modelSelection,
               dispatchMode: "queue",
-              runtimeMode: run.runtimeMode,
+              runtimeMode: stepRuntimeMode(run, nodeId),
               interactionMode: "default",
               createdAt: isoNow(),
             })
@@ -507,9 +572,15 @@ const make = Effect.gen(function* () {
         const node = nodes.find((entry) => entry.nodeId === nodeId)!;
         const gate = nodeSpecOf(run, nodeId).gate!;
         const cwd = yield* projectCwd(run);
+        const sandbox =
+          cwd && aegis
+            ? yield* aegis
+                .gateSandbox({ cwd, command: gate.cmd })
+                .pipe(Effect.orElseSucceed(() => null))
+            : null;
         const result: FlowGateResult = cwd
           ? yield* Effect.tryPromise(() =>
-              runFlowGate({ gate, cwd, baseline: node.baselineRef ?? null }),
+              runFlowGate({ gate, cwd, baseline: node.baselineRef ?? null, sandbox }),
             ).pipe(
               Effect.catch((error) =>
                 Effect.succeed(failedGate(`Saint could not run the gate: ${String(error)}`)),
@@ -543,6 +614,22 @@ const make = Effect.gen(function* () {
             // Cancelled or approved while the gate ran: keep the evidence, change nothing.
             if (current.status !== "gating") return;
             yield* record(fresh.run, "gate.finished", "saint", outcome, nodeId);
+            if (result.protectedEdits.length > 0) {
+              yield* alert({
+                kind: "gate_file_edited",
+                severity: "high",
+                title: `Gate file edited by ${nodeId}`,
+                detail: `The step changed ${result.protectedEdits.join(", ")}, which its gate protects. The step is held for review.`,
+                why: [
+                  `flow ${fresh.run.spec.name}`,
+                  `step ${nodeId} gate ${gate.id}`,
+                  "protected path changed since the step started",
+                ],
+                flowId,
+                nodeId,
+                threadId: current.threadId,
+              });
+            }
             const spec = nodeSpecOf(fresh.run, nodeId);
             const decision = decideNodeAfterTurn({
               mode: spec.mode,
@@ -895,6 +982,13 @@ const make = Effect.gen(function* () {
 
   const startReactor: FlowServiceShape["startReactor"] = () =>
     Effect.gen(function* () {
+      // A tripwire on a step cancels its whole flow.
+      aegis?.onKill((threadId) =>
+        nodeForThread(threadId).pipe(
+          Effect.flatMap((found) => (found ? cancel(found.run.id, "aegis:tripwire") : Effect.void)),
+          Effect.ignore,
+        ),
+      );
       yield* recover.pipe(
         Effect.catchCause((cause) =>
           Effect.logWarning("flow recovery failed", { cause: Cause.pretty(cause) }),

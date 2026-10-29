@@ -63,6 +63,9 @@ export const FlowNodeSpec = Schema.Struct({
   maxRefix: Schema.optional(NonNegativeInt),
   gate: Schema.optional(FlowGateSpec),
   onQuota: Schema.optional(FlowOnQuota),
+  /** The step reads untrusted input (a public issue, a web page). It and every step after it run
+   *  with approvals on, so untrusted data never meets unapproved outward actions (Rule of Two). */
+  untrusted: Schema.optional(Schema.Boolean),
 });
 export type FlowNodeSpec = typeof FlowNodeSpec.Type;
 
@@ -98,7 +101,7 @@ export const FlowSpec = Schema.Struct({
   allowedProviders: Schema.optional(Schema.Array(ProviderKind)),
   /** How each provider treats your data; quota failover never moves to a lower tier. Unlisted
    *  providers count as `standard`. */
-  dataTerms: Schema.optional(Schema.Record(ProviderKind, FlowDataTerms)),
+  dataTerms: Schema.optional(Schema.Record(Schema.String, FlowDataTerms)),
 });
 export type FlowSpec = typeof FlowSpec.Type;
 

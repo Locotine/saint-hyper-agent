@@ -76,6 +76,7 @@ import { FlowRepositoryLive } from "./persistence/Layers/FlowRepository";
 import { FlowServiceLive } from "./flow/Layers/FlowService";
 import { SapBusLive } from "./sap/Layers/SapBus";
 import { ForkContinueLive } from "./orchestration/Layers/ForkContinue";
+import { AegisLive } from "./aegis/Layers/Aegis";
 import { LedgerLive } from "./ledger/Layers/Ledger";
 import { PullRequestAutoFixServiceLive } from "./pullRequestAutoFix/Layers/PullRequestAutoFixService";
 import { GitHubInboxServiceLive } from "./githubInbox/Layers/GitHubInboxService";
@@ -260,6 +261,7 @@ export function makeServerRuntimeServicesLayer(
         Layer.provideMerge(agentGatewayCredentialsLayer),
         Layer.provideMerge(LedgerLive.pipe(Layer.provide(ServerSecretStoreLive))),
         Layer.provideMerge(ForkContinueLive),
+        Layer.provideMerge(AegisLive.pipe(Layer.provideMerge(agentGatewayCredentialsLayer))),
         Layer.provideMerge(runtimeServicesLayer),
       ),
     ),

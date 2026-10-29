@@ -11,6 +11,7 @@ import {
   LedgerVerifyInput,
 } from "./flow";
 import { SapListInput } from "./sap";
+import { AegisAlertsInput, AegisResolveInput, AegisStatusInput, AegisUpdateInput } from "./aegis";
 import { EditorDebugStartInput, EditorDebugActionInput, EditorDebugPollInput } from "./editorDebug";
 import { Schema, Struct } from "effect";
 import { EditorIntelligenceInput } from "./editorIntelligence";
@@ -337,6 +338,10 @@ export const WS_METHODS = {
   ledgerExport: "ledger.export",
   ledgerHandle: "ledger.handle",
   sapList: "sap.list",
+  aegisStatus: "aegis.status",
+  aegisAlerts: "aegis.alerts",
+  aegisResolve: "aegis.resolve",
+  aegisUpdate: "aegis.update",
 
   // Terminal methods
   terminalOpen: "terminal.open",
@@ -645,6 +650,10 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.ledgerExport, LedgerExportInput),
   tagRequestBody(WS_METHODS.ledgerHandle, LedgerHandleInput),
   tagRequestBody(WS_METHODS.sapList, SapListInput),
+  tagRequestBody(WS_METHODS.aegisStatus, AegisStatusInput),
+  tagRequestBody(WS_METHODS.aegisAlerts, AegisAlertsInput),
+  tagRequestBody(WS_METHODS.aegisResolve, AegisResolveInput),
+  tagRequestBody(WS_METHODS.aegisUpdate, AegisUpdateInput),
 
   // GitHub inbox (pull requests and issues)
   tagRequestBody(WS_METHODS.githubInboxList, GitHubInboxListInput),
