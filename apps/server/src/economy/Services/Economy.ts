@@ -33,9 +33,13 @@ export class Economy extends ServiceMap.Service<Economy, EconomyShape>()(
 // verdict is shared through this module rather than through the service graph (the same way the
 // egress proxy reaches provider processes).
 let admission: string | null = null;
+let refusal: string | null = null;
 
 /** Why a new flow step must wait right now, or null to start it. */
 export const currentFlowAdmission = (): string | null => admission;
-export const setFlowAdmission = (reason: string | null): void => {
+/** Why an agent may not start a child thread right now (critical memory or full seats). */
+export const currentSpawnRefusal = (): string | null => refusal;
+export const setFlowAdmission = (reason: string | null, hard = false): void => {
   admission = reason;
+  refusal = hard ? reason : null;
 };

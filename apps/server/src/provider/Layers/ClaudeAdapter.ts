@@ -1,4 +1,5 @@
 import { providerProcessPriorityEnabled } from "../../providerProcessPriority";
+import { recordAgentProcess } from "../../economy/agentProcesses.ts";
 import { claudeTurnResultUsage, type ClaudeResultUsageBaseline } from "../claudeResultUsage.ts";
 import { restoreClaudeImportedCopyDates } from "../claudeImportedCopyDates.ts";
 /**
@@ -2546,11 +2547,12 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
       );
 
     const bindClaudeProcessOwner =
-      (owner: ClaudeProcessOwner, lowerPriority: boolean) =>
+      (owner: ClaudeProcessOwner, lowerPriority: boolean, threadId?: ThreadId) =>
       (spawnOptions: ClaudeSpawnOptions): ClaudeSpawnedProcess => {
         const process = options?.spawnClaudeCodeProcess
           ? options.spawnClaudeCodeProcess(spawnOptions)
           : spawnOwnedClaudeCodeProcess(spawnOptions, lowerPriority);
+        if (threadId) recordAgentProcess(threadId, process.pid);
         owner.process = process;
         return process;
       };
@@ -7428,6 +7430,7 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
           spawnClaudeCodeProcess: bindClaudeProcessOwner(
             processOwner,
             yield* providerProcessPriorityEnabled,
+            input.threadId,
           ),
           ...(input.cwd || input.additionalDirectories?.length
             ? {

@@ -2,7 +2,7 @@
 // Purpose: Parse `flows/*.yaml` into a `flow-v1` spec and reject graphs the scheduler cannot run
 //          (unknown endpoints, duplicates, cycles, depth over budget). Also serializes a spec
 //          back to YAML for the Canvas ↔ YAML round trip.
-// Layer: Server flow domain (pure)
+// Layer: Shared flow domain (pure), used by the server scheduler and the web Canvas
 
 import {
   FLOW_DEFAULT_MAX_DEPTH,

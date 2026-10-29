@@ -9,6 +9,7 @@ import type {
   FlowRun,
   FlowRunId,
   FlowRunStatus,
+  FlowSavedSpec,
   FlowSpec,
   ModelSelection,
   ProjectId,
@@ -85,6 +86,16 @@ export interface FlowServiceShape {
   }) => Effect.Effect<void, FlowServiceError>;
   /** Cancels every running or paused flow and interrupts their nodes. Returns how many. */
   readonly killAll: (by: string) => Effect.Effect<number, FlowServiceError>;
+  /** Validates flow-v1 YAML and writes it to `flows/<name>.yaml` in the project. */
+  readonly saveSpec: (input: {
+    readonly projectId: ProjectId;
+    readonly yaml: string;
+    readonly by: string;
+  }) => Effect.Effect<{ readonly path: string }, FlowServiceError>;
+  /** The project's saved `flows/*.yaml` files. */
+  readonly listSpecs: (
+    projectId: ProjectId,
+  ) => Effect.Effect<ReadonlyArray<FlowSavedSpec>, FlowServiceError>;
   /** Stores the handoff a node's agent submits for the steps after it. */
   readonly submitHandoff: (input: {
     readonly threadId: ThreadId;

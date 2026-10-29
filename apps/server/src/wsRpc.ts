@@ -2238,6 +2238,10 @@ const makeWsRpcHandlersLayer = () =>
         [WS_METHODS.flowKillAll]: () => rpcEffect(flowRpc.killAll(), "Failed to stop the flows"),
         [WS_METHODS.flowTemplates]: () =>
           rpcEffect(flowRpc.templates(), "Failed to list templates"),
+        [WS_METHODS.flowSaveSpec]: (input) =>
+          rpcEffect(flowRpc.saveSpec(input), "Failed to save the flow"),
+        [WS_METHODS.flowSpecs]: (input) =>
+          rpcEffect(flowRpc.specs(input), "Failed to list the project's flows"),
         [WS_METHODS.ledgerList]: (input) =>
           rpcEffect(flowRpc.ledgerList(input), "Failed to read the ledger"),
         [WS_METHODS.ledgerVerify]: () =>

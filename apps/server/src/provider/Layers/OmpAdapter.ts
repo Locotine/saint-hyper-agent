@@ -904,6 +904,7 @@ export function makeOmpAdapter(
           });
 
           const acp = yield* makeOmpAcpRuntime({
+            ownerThreadId: input.threadId,
             ompSettings: effectiveOmpSettings,
             childProcessSpawner,
             cwd,

@@ -21,6 +21,8 @@ import {
 import {
   DEFAULT_ECONOMY_SETTINGS,
   admissionReason,
+  admissionRefuses,
+  attributeOwners,
   cpuPercents,
   economyLevel,
   hubServers,
@@ -28,6 +30,8 @@ import {
   pushSample,
   readHost,
 } from "../hostMetrics.ts";
+import { agentProcessOwners } from "../agentProcesses.ts";
+import { sharedMcpHub } from "../mcpHub.ts";
 import { Economy, EconomyError, setFlowAdmission, type EconomyShape } from "../Services/Economy.ts";
 
 const SettingsJson = Schema.fromJsonString(EconomySettings);
@@ -64,7 +68,12 @@ const make = Effect.gen(function* () {
           Effect.flatMap((rows) =>
             rows[0] ? decodeSettings(rows[0].valueJson) : Effect.succeed(DEFAULT_ECONOMY_SETTINGS),
           ),
-          Effect.tap((value) => Effect.sync(() => (cached = value))),
+          Effect.tap((value) =>
+            Effect.sync(() => {
+              cached = value;
+              sharedMcpHub.setShared(value.hubShared);
+            }),
+          ),
           Effect.mapError(toError("Could not read the economy settings.")),
         );
 
@@ -78,7 +87,10 @@ const make = Effect.gen(function* () {
   const refreshAdmission = Effect.gen(function* () {
     const value = yield* settings();
     const seats = (yield* liveBindings).length;
-    setFlowAdmission(admissionReason(level(), seats, value.seatCap));
+    setFlowAdmission(
+      admissionReason(level(), seats, value.seatCap),
+      admissionRefuses(level(), seats, value.seatCap),
+    );
   });
 
   const sample = Effect.gen(function* () {
@@ -88,9 +100,14 @@ const make = Effect.gen(function* () {
     const cpu = cpuPercents(reading.processes, cpuTicks, now - lastReadAt);
     cpuTicks = new Map(reading.processes.map((row) => [row.pid, row.cpu]));
     lastReadAt = now;
+    const owners = attributeOwners(
+      reading.processes,
+      agentProcessOwners(new Set(reading.processes.map((row) => row.pid))),
+    );
     processes = reading.processes
       .map((row) => ({
         pid: row.pid,
+        threadId: (owners.get(row.pid) as ThreadId | undefined) ?? null,
         label: row.label,
         rssMb: Math.round(row.rssKb / 1024),
         cpuPct: cpu.get(row.pid) ?? 0,
@@ -191,6 +208,16 @@ const make = Effect.gen(function* () {
     }
   });
 
+  const usage = (threadId: string) => {
+    const own = processes.filter((row) => row.threadId === threadId);
+    return own.length === 0
+      ? { rssMb: null, cpuPct: null }
+      : {
+          rssMb: own.reduce((sum, row) => sum + row.rssMb, 0),
+          cpuPct: Math.round(own.reduce((sum, row) => sum + row.cpuPct, 0) * 10) / 10,
+        };
+  };
+
   const status: EconomyShape["status"] = () =>
     Effect.gen(function* () {
       const value = yield* settings();
@@ -206,6 +233,7 @@ const make = Effect.gen(function* () {
         lastSeenAt: binding.lastSeenAt ?? null,
         hibernatedAt: null,
         resumable: binding.resumeCursor != null,
+        ...usage(binding.threadId),
       }));
       const rows = yield* sql<{ threadId: ThreadId; provider: string; hibernatedAt: string }>`
         SELECT thread_id AS "threadId", provider, hibernated_at AS "hibernatedAt"
@@ -220,6 +248,8 @@ const make = Effect.gen(function* () {
           lastSeenAt: null,
           hibernatedAt: row.hibernatedAt,
           resumable: true,
+          rssMb: null,
+          cpuPct: null,
         });
       }
       return {
@@ -230,7 +260,11 @@ const make = Effect.gen(function* () {
         admission: admissionReason(level(), bindings.length, value.seatCap),
         agents,
         processes,
-        hub: hubServers(processes, value.hubShared),
+        hub: hubServers(
+          processes,
+          value.hubShared,
+          (command) => sharedMcpHub.server(command)?.sessions.size ?? 0,
+        ),
       } satisfies EconomyStatus;
     });
 
@@ -274,6 +308,7 @@ const make = Effect.gen(function* () {
         Effect.mapError(toError("Could not save the economy settings.")),
       );
       cached = next;
+      sharedMcpHub.setShared(next.hubShared);
       yield* refreshAdmission;
       return yield* status();
     });
@@ -284,7 +319,13 @@ const make = Effect.gen(function* () {
         SELECT thread_id AS "threadId", hibernated_at AS "hibernatedAt" FROM economy_hibernation
       `.pipe(Effect.orElseSucceed(() => []));
       for (const row of rows) hibernated.set(row.threadId, row.hibernatedAt);
-      yield* Effect.addFinalizer(() => Effect.sync(() => setFlowAdmission(null)));
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          setFlowAdmission(null);
+          sharedMcpHub.stopAll();
+        }),
+      );
+      yield* settings().pipe(Effect.ignore);
       yield* Effect.forkScoped(
         Effect.forever(
           sample.pipe(

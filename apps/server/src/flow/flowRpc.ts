@@ -109,6 +109,10 @@ export function handleFlowRpc(input: {
       Effect.succeed({
         templates: FLOW_TEMPLATES.map(({ id, title, description }) => ({ id, title, description })),
       }),
+    saveSpec: (request: { readonly projectId: ProjectId; readonly yaml: string }) =>
+      flows.saveSpec({ ...request, by: USER }),
+    specs: (request: { readonly projectId: ProjectId }) =>
+      flows.listSpecs(request.projectId).pipe(Effect.map((specs) => ({ specs }))),
     ledgerList: (request: { readonly flowId: FlowRunId; readonly afterSeq?: number | undefined }) =>
       ledger
         .listByFlow(request.flowId, request.afterSeq)
