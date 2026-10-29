@@ -250,9 +250,16 @@ export function makeServerRuntimeServicesLayer(
     Layer.provideMerge(ServerSecretStoreLive),
     Layer.provideMerge(agentGatewayCredentialsLayer),
   );
+  const flowServiceLayer = FlowServiceLive.pipe(
+    Layer.provideMerge(FlowRepositoryLive),
+    Layer.provideMerge(agentGatewayCredentialsLayer),
+    Layer.provideMerge(LedgerLive.pipe(Layer.provide(ServerSecretStoreLive))),
+    Layer.provideMerge(runtimeServicesLayer),
+  );
   const agentGatewayLayer = AgentGatewayLive.pipe(
     Layer.provideMerge(
       Layer.mergeAll(
+        flowServiceLayer,
         ProjectionThreadMessageRepositoryLive,
         OrchestrationCommandReceiptRepositoryLive,
         // The same instance the todo.* RPCs use, so a to-do an agent adds reaches open windows.
@@ -295,11 +302,6 @@ export function makeServerRuntimeServicesLayer(
   const pullRequestAutoFixLayer = PullRequestAutoFixServiceLive.pipe(
     Layer.provideMerge(PullRequestAutoFixRepositoryLive),
     Layer.provideMerge(GitLayerLive),
-    Layer.provideMerge(runtimeServicesLayer),
-  );
-  const flowServiceLayer = FlowServiceLive.pipe(
-    Layer.provideMerge(FlowRepositoryLive),
-    Layer.provideMerge(LedgerLive.pipe(Layer.provide(ServerSecretStoreLive))),
     Layer.provideMerge(runtimeServicesLayer),
   );
   const keepAwakeLayer = KeepAwakeLive.pipe(

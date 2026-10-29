@@ -70,7 +70,7 @@ import {
   type AgentGatewayProviderAvailability,
   type AgentGatewayProviderInstanceAvailability,
 } from "../targetResolver.ts";
-import { mcpToolResultError, mcpToolResultJson } from "../protocol.ts";
+import { mcpToolResultError, mcpToolResultJson, type McpToolCallResult } from "../protocol.ts";
 import { gatewayIsoNow as isoNow, stableGatewayDigest } from "../creationUtils.ts";
 import {
   MODEL_SELECTION_INPUT_SCHEMA,
@@ -126,6 +126,8 @@ import { makeThreadReadTools } from "../threadReadTools.ts";
 import { makeThreadDiagnosticTools } from "../threadDiagnosticTools.ts";
 import { makeAgentGatewayKanbanTools } from "../kanbanTools.ts";
 import { makeAgentGatewayTodoTools } from "../todoTools.ts";
+import { makeAgentGatewayFlowTools } from "../flowTools.ts";
+import { FlowService } from "../../flow/Services/FlowService.ts";
 import { makeAgentGatewayInlineVisualTools } from "../inlineVisualTools.ts";
 import { TodoService } from "../../todo/Services/TodoService.ts";
 import { isServerBetaFeatureEnabled } from "../../betaFeatureGate.ts";
@@ -158,6 +160,20 @@ const providerInstanceAvailability = (
 const AGENT_GATEWAY_INSTRUCTIONS =
   "Saint tools are thread-scoped. Use browser_* only for Saint's shared in-app browser runtime; follow the provider-delivered <saint_host_context> for full policy.";
 
+/** Thread ids a successful `saint_create_threads` result reports; empty for errors. */
+function createdThreadIds(result: McpToolCallResult): ReadonlyArray<string> {
+  if (result.isError) return [];
+  const text = result.content.find((entry) => entry.type === "text");
+  try {
+    const parsed = JSON.parse(text?.type === "text" ? text.text : "{}") as { threadIds?: unknown };
+    return Array.isArray(parsed.threadIds)
+      ? parsed.threadIds.filter((id): id is string => typeof id === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function readThreadGoalArg(args: Record<string, unknown>): string {
   if (!("goal" in args)) {
     throw new ToolInputError(`Missing required argument "goal".`);
@@ -185,6 +201,7 @@ export const makeAgentGateway = Effect.gen(function* () {
   const automationService = yield* AutomationService;
   const projectAgentService = yield* ProjectAgentService;
   const todoService = yield* TodoService;
+  const flowService = Option.getOrUndefined(yield* Effect.serviceOption(FlowService));
   const git = yield* GitCore;
   const gitManager = yield* GitManager;
   const providerDiscovery = yield* ProviderDiscoveryService;
@@ -449,12 +466,18 @@ export const makeAgentGateway = Effect.gen(function* () {
     Effect.gen(function* () {
       const hubResult = hubGateway ? yield* hubGateway.submit(input, context) : null;
       if (hubResult) return hubResult;
-      return yield* runCreateThreads(input, {
+      const result = yield* runCreateThreads(input, {
         kind: "provider-session",
         callerThreadId: context.callerThreadId,
         callerTurnId: context.callerTurnId,
         assertAuthority: context.assertCallerTurnActive,
       });
+      // A child never holds more than the agent that created it. Its credential is issued
+      // when its first turn starts, so a live one is narrowed on its next request.
+      for (const threadId of createdThreadIds(result)) {
+        credentials.setCapabilityCeiling?.(threadId, context.callerCapabilities);
+      }
+      return result;
     });
   const contextMessageIdsSchema = {
     type: "array",
@@ -1658,6 +1681,7 @@ export const makeAgentGateway = Effect.gen(function* () {
     setThreadArchived,
     setThreadGoal,
     ...automationTools,
+    ...(flowService ? makeAgentGatewayFlowTools({ flows: flowService, requireThreadShell }) : []),
     ...browserTools,
     ...kanbanTools,
     // Same switch as the todo.* RPCs: a build without Tasks offers agents no to-do tools.

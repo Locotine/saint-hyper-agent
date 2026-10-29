@@ -246,6 +246,9 @@ import {
 } from "./wsSnapshotLiveStream";
 import { PullRequestService } from "./pullRequests/Services/PullRequestService";
 import { PullRequestAutoFixService } from "./pullRequestAutoFix/Services/PullRequestAutoFixService";
+import { handleFlowRpc } from "./flow/flowRpc";
+import { FlowService } from "./flow/Services/FlowService";
+import { Ledger } from "./ledger/Services/Ledger";
 import {
   GitHubInboxRateLimitedError,
   GitHubInboxService,
@@ -549,6 +552,7 @@ const makeWsRpcHandlersLayer = () =>
       const path = yield* Path.Path;
       const pullRequests = yield* PullRequestService;
       const pullRequestAutoFix = yield* PullRequestAutoFixService;
+      const flowRpc = handleFlowRpc({ flows: yield* FlowService, ledger: yield* Ledger });
       const githubInbox = yield* GitHubInboxService;
       const profileStatsQuery = yield* ProfileStatsQuery;
       const recapStatsQuery = yield* RecapStatsQuery;
@@ -2211,6 +2215,23 @@ const makeWsRpcHandlersLayer = () =>
           rpcEffect(pullRequestAutoFix.get(input), "Failed to read Auto-fix CI"),
         [WS_METHODS.pullRequestsSetAutoFix]: (input) =>
           rpcEffect(pullRequestAutoFix.set(input), "Failed to update Auto-fix CI"),
+        [WS_METHODS.flowList]: (input) => rpcEffect(flowRpc.list(input), "Failed to list flows"),
+        [WS_METHODS.flowGet]: (input) => rpcEffect(flowRpc.get(input), "Failed to read the flow"),
+        [WS_METHODS.flowStart]: (input) =>
+          rpcEffect(flowRpc.start(input), "Failed to start the flow"),
+        [WS_METHODS.flowAction]: (input) =>
+          rpcEffect(flowRpc.action(input), "Failed to update the flow"),
+        [WS_METHODS.flowKillAll]: () => rpcEffect(flowRpc.killAll(), "Failed to stop the flows"),
+        [WS_METHODS.flowTemplates]: () =>
+          rpcEffect(flowRpc.templates(), "Failed to list templates"),
+        [WS_METHODS.ledgerList]: (input) =>
+          rpcEffect(flowRpc.ledgerList(input), "Failed to read the ledger"),
+        [WS_METHODS.ledgerVerify]: () =>
+          rpcEffect(flowRpc.ledgerVerify(), "Failed to verify the ledger"),
+        [WS_METHODS.ledgerExport]: () =>
+          rpcEffect(flowRpc.ledgerExport(), "Failed to export the ledger"),
+        [WS_METHODS.ledgerHandle]: (input) =>
+          rpcEffect(flowRpc.ledgerHandle(input), "Failed to read the handle"),
         [WS_METHODS.gitListBranches]: (input) =>
           rpcEffect(git.listBranches(input), "Failed to list branches"),
         [WS_METHODS.gitListRecentCommits]: (input) =>

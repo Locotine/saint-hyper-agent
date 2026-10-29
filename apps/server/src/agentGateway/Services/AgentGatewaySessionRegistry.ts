@@ -8,7 +8,8 @@ export type AgentGatewayCapability =
   | "diagnostics:read"
   | "browser:control"
   | "device:control"
-  | "computer:control";
+  | "computer:control"
+  | "flow:write";
 
 export interface AgentGatewaySessionIdentity {
   readonly sessionKey: string;
@@ -77,6 +78,15 @@ export interface AgentGatewaySessionRegistryShape {
     threadId: string,
   ) => ReadonlyArray<AgentGatewayRetiredWriteAuthority>;
   readonly setComputerControlEnabled?: (threadId: string, enabled: boolean) => void;
+  /**
+   * Cap what any credential for this thread may ever hold: a child an agent created gets at
+   * most its parent's capabilities. Ceilings only narrow; a second call intersects.
+   */
+  readonly setCapabilityCeiling?: (
+    threadId: string,
+    capabilities: Iterable<AgentGatewayCapability>,
+  ) => void;
+  readonly capabilityCeiling?: (threadId: string) => ReadonlySet<AgentGatewayCapability> | null;
   readonly computerControlProvisioned?: (threadId: string, provider: ProviderKind) => boolean;
 }
 

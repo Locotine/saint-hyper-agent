@@ -105,6 +105,11 @@ export interface AgentGatewayCredentialsShape {
   ) => ReadonlyArray<AgentGatewayRetiredWriteAuthority>;
   /** Revoke exactly one provider session credential. */
   readonly revokeSessionToken: (token: string) => void;
+  /** Cap a thread's credentials at a set of capabilities (a child at its parent's). */
+  readonly setCapabilityCeiling?: (
+    threadId: string,
+    capabilities: Iterable<AgentGatewayCapability>,
+  ) => void;
   /** Convenience bundle used when injecting MCP config into provider sessions. */
   readonly connectionForThread: (
     threadId: ThreadId,

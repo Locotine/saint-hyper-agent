@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { flowNodeDepths, parseFlowSpecYaml, stringifyFlowSpecYaml } from "./flowSpec";
+import {
+  decodeFlowSpec,
+  flowNodeDepths,
+  parseFlowSpecYaml,
+  stringifyFlowSpecYaml,
+} from "./flowSpec";
+import { FLOW_TEMPLATES } from "./flowTemplates";
 
 const diamond = `
 version: flow-v1
@@ -51,4 +57,18 @@ describe("parseFlowSpecYaml", () => {
     );
     expect(parseFlowSpecYaml("nodes: [")._tag).toBe("invalid");
   });
+});
+
+describe("flow templates", () => {
+  it.each(FLOW_TEMPLATES.map((template) => [template.id, template] as const))(
+    "%s builds a valid flow with and without a gate",
+    (_id, template) => {
+      for (const gateCmd of [undefined, "bun run test"]) {
+        const result = decodeFlowSpec(
+          template.build({ goal: "Add a rate limit", ...(gateCmd ? { gateCmd } : {}) }),
+        );
+        expect(result._tag).toBe("ok");
+      }
+    },
+  );
 });

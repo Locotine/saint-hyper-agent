@@ -1,3 +1,15 @@
+import {
+  FlowActionInput,
+  FlowGetInput,
+  FlowKillAllInput,
+  FlowListInput,
+  FlowStartRpcInput,
+  FlowTemplatesInput,
+  LedgerExportInput,
+  LedgerHandleInput,
+  LedgerListInput,
+  LedgerVerifyInput,
+} from "./flow";
 import { EditorDebugStartInput, EditorDebugActionInput, EditorDebugPollInput } from "./editorDebug";
 import { Schema, Struct } from "effect";
 import { EditorIntelligenceInput } from "./editorIntelligence";
@@ -312,6 +324,18 @@ export const WS_METHODS = {
   pullRequestsGetAutoFix: "pullRequests.getAutoFix",
   pullRequestsSetAutoFix: "pullRequests.setAutoFix",
 
+  // Flows and the ledger
+  flowList: "flow.list",
+  flowGet: "flow.get",
+  flowStart: "flow.start",
+  flowAction: "flow.action",
+  flowKillAll: "flow.killAll",
+  flowTemplates: "flow.templates",
+  ledgerList: "ledger.list",
+  ledgerVerify: "ledger.verify",
+  ledgerExport: "ledger.export",
+  ledgerHandle: "ledger.handle",
+
   // Terminal methods
   terminalOpen: "terminal.open",
   terminalWrite: "terminal.write",
@@ -606,6 +630,18 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.pullRequestsSetPinned, PullRequestSetPinnedInput),
   tagRequestBody(WS_METHODS.pullRequestsGetAutoFix, PullRequestAutoFixGetInput),
   tagRequestBody(WS_METHODS.pullRequestsSetAutoFix, PullRequestAutoFixSetInput),
+
+  // Flows and the ledger
+  tagRequestBody(WS_METHODS.flowList, FlowListInput),
+  tagRequestBody(WS_METHODS.flowGet, FlowGetInput),
+  tagRequestBody(WS_METHODS.flowStart, FlowStartRpcInput),
+  tagRequestBody(WS_METHODS.flowAction, FlowActionInput),
+  tagRequestBody(WS_METHODS.flowKillAll, FlowKillAllInput),
+  tagRequestBody(WS_METHODS.flowTemplates, FlowTemplatesInput),
+  tagRequestBody(WS_METHODS.ledgerList, LedgerListInput),
+  tagRequestBody(WS_METHODS.ledgerVerify, LedgerVerifyInput),
+  tagRequestBody(WS_METHODS.ledgerExport, LedgerExportInput),
+  tagRequestBody(WS_METHODS.ledgerHandle, LedgerHandleInput),
 
   // GitHub inbox (pull requests and issues)
   tagRequestBody(WS_METHODS.githubInboxList, GitHubInboxListInput),

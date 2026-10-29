@@ -17,6 +17,7 @@ const PROVIDER_SESSION_CAPABILITIES = [
   "diagnostics:read",
   "browser:control",
   "device:control",
+  "flow:write",
 ] as const;
 
 export function makeAgentGatewaySessionRegistry(options?: {
@@ -33,16 +34,30 @@ export function makeAgentGatewaySessionRegistry(options?: {
   const sessionsByKey = new Map<string, RegisteredSession>();
 
   const disabledComputerThreads = new Set<string>();
-  const visibleIdentity = (identity: AgentGatewaySessionIdentity): AgentGatewaySessionIdentity =>
-    disabledComputerThreads.has(identity.threadId)
-      ? {
-          ...identity,
-          capabilities: new Set(
-            [...identity.capabilities].filter((capability) => capability !== "computer:control"),
-          ),
-        }
-      : identity;
+  // ponytail: ceilings live in memory; after a restart a child falls back to the default set,
+  // which every thread already has. Persist them if ceilings start granting less than that.
+  const ceilings = new Map<string, ReadonlySet<AgentGatewayCapability>>();
+  const allowed = (threadId: string, capability: AgentGatewayCapability) =>
+    (capability !== "computer:control" || !disabledComputerThreads.has(threadId)) &&
+    (ceilings.get(threadId)?.has(capability) ?? true);
+  const visibleIdentity = (identity: AgentGatewaySessionIdentity): AgentGatewaySessionIdentity => {
+    const capabilities = [...identity.capabilities].filter((capability) =>
+      allowed(identity.threadId, capability),
+    );
+    return capabilities.length === identity.capabilities.size
+      ? identity
+      : { ...identity, capabilities: new Set(capabilities) };
+  };
   return {
+    setCapabilityCeiling: (threadId, capabilities) => {
+      const next = new Set(capabilities);
+      const current = ceilings.get(threadId);
+      ceilings.set(
+        threadId,
+        current ? new Set([...next].filter((capability) => current.has(capability))) : next,
+      );
+    },
+    capabilityCeiling: (threadId) => ceilings.get(threadId) ?? null,
     setComputerControlEnabled: (threadId, enabled) => {
       if (enabled) disabledComputerThreads.delete(threadId);
       else {
@@ -79,13 +94,12 @@ export function makeAgentGatewaySessionRegistry(options?: {
         threadId,
         provider,
         issuedAt,
-        capabilities: new Set<AgentGatewayCapability>([
-          ...PROVIDER_SESSION_CAPABILITIES,
-          ...(issueOptions?.additionalCapabilities ?? []).filter(
-            (capability) =>
-              capability !== "computer:control" || !disabledComputerThreads.has(threadId),
-          ),
-        ]),
+        capabilities: new Set<AgentGatewayCapability>(
+          [
+            ...PROVIDER_SESSION_CAPABILITIES,
+            ...(issueOptions?.additionalCapabilities ?? []),
+          ].filter((capability) => allowed(threadId, capability)),
+        ),
       };
       const registered: RegisteredSession = {
         identity,

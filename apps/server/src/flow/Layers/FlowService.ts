@@ -16,6 +16,8 @@ import { Cause, Duration, Effect, Layer, Option, Schema, Stream } from "effect";
 import * as Semaphore from "effect/Semaphore";
 
 import { stableGatewayDigest } from "../../agentGateway/creationUtils.ts";
+import { AgentGatewayCredentials } from "../../agentGateway/Services/AgentGatewayCredentials.ts";
+import type { AgentGatewayCapability } from "../../agentGateway/Services/AgentGatewaySessionRegistry.ts";
 import { Ledger } from "../../ledger/Services/Ledger.ts";
 import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
@@ -78,6 +80,7 @@ const make = Effect.gen(function* () {
   const ledger = yield* Ledger;
   const orchestrationEngine = yield* OrchestrationEngineService;
   const snapshotQuery = yield* ProjectionSnapshotQuery;
+  const credentials = Option.getOrUndefined(yield* Effect.serviceOption(AgentGatewayCredentials));
   // ponytail: one lock for every flow mutation; per-flow locks if many flows run at once.
   const mutations = yield* Semaphore.make(1);
 
@@ -154,6 +157,12 @@ const make = Effect.gen(function* () {
         lastTurnId: null,
       });
       if (!claimed) return;
+      if (run.capabilityCeiling) {
+        credentials?.setCapabilityCeiling?.(
+          threadId,
+          run.capabilityCeiling as ReadonlyArray<AgentGatewayCapability>,
+        );
+      }
       const now = isoNow();
       yield* orchestrationEngine
         .dispatch({
@@ -276,6 +285,8 @@ const make = Effect.gen(function* () {
           runtimeMode: input.runtimeMode,
           consecutiveFailures: 0,
           startedBy: input.startedBy,
+          ...(input.capabilityCeiling ? { capabilityCeiling: [...input.capabilityCeiling] } : {}),
+          ...(input.nestingDepth ? { nestingDepth: input.nestingDepth } : {}),
           revision: 0,
           createdAt: now,
           updatedAt: now,
@@ -634,6 +645,45 @@ const make = Effect.gen(function* () {
       if (claimed) yield* runGateFor(flowId, nodeId);
     });
 
+  const nodeForThread: FlowServiceShape["nodeForThread"] = (threadId) =>
+    Effect.gen(function* () {
+      const node = yield* repository
+        .findNodeByThread(threadId)
+        .pipe(Effect.mapError(toError("Could not find the flow node.")));
+      if (!node) return null;
+      const { run } = yield* load(node.flowId);
+      return { run, node };
+    });
+
+  const submitHandoff: FlowServiceShape["submitHandoff"] = ({ threadId, handoff }) =>
+    locked(
+      Effect.gen(function* () {
+        const found = yield* nodeForThread(threadId);
+        if (!found) {
+          return yield* new FlowServiceError({ message: "This thread is not a flow node." });
+        }
+        const { run, node } = found;
+        if (node.status !== "running") {
+          return yield* new FlowServiceError({
+            message: `The node is ${node.status}; a handoff is only accepted while it runs.`,
+          });
+        }
+        const handle = yield* ledger
+          .putHandle({
+            kind: "h",
+            content: JSON.stringify(handoff, null, 2),
+            mime: "application/json",
+            provenance: `node:${node.nodeId}`,
+            taint: "internal",
+            createdBy: threadId,
+          })
+          .pipe(Effect.mapError(toError("Could not store the handoff.")));
+        yield* saveNode(node, { handoff });
+        yield* record(run, "handoff.submitted", threadId, { handle }, node.nodeId);
+        return (yield* load(run.id)).nodes.find((entry) => entry.nodeId === node.nodeId)!;
+      }),
+    );
+
   const killAll: FlowServiceShape["killAll"] = (by) =>
     Effect.gen(function* () {
       const runs = yield* list({ statuses: ["running", "paused"] });
@@ -722,6 +772,8 @@ const make = Effect.gen(function* () {
     retryNode,
     rerunGate,
     killAll,
+    submitHandoff,
+    nodeForThread,
     reconcileThread,
     startReactor,
   } satisfies FlowServiceShape;

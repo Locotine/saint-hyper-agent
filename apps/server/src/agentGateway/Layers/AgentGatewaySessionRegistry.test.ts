@@ -20,6 +20,25 @@ describe("AgentGatewaySessionRegistry", () => {
     registry.issue(thread, "codex");
     assert.isFalse(registry.computerControlProvisioned?.(thread, "codex"));
   });
+  it("caps a child thread at its parent's capabilities and only ever narrows", () => {
+    const registry = makeAgentGatewaySessionRegistry();
+    const child = ThreadId.makeUnsafe("child");
+    const live = registry.issue(child, "codex", { additionalCapabilities: ["computer:control"] });
+    assert.isTrue(live.capabilities.has("flow:write"));
+    registry.setCapabilityCeiling?.(child, ["thread:read", "thread:write", "flow:write"]);
+    assert.deepStrictEqual(
+      [...registry.verify(live.token)!.capabilities].toSorted(),
+      ["flow:write", "thread:read", "thread:write"],
+      "a live credential narrows at once",
+    );
+    registry.setCapabilityCeiling?.(child, ["thread:read", "computer:control"]);
+    const next = registry.issue(child, "codex", { additionalCapabilities: ["computer:control"] });
+    assert.deepStrictEqual([...next.capabilities], ["thread:read"], "a second ceiling intersects");
+    assert.isTrue(
+      registry.issue(ThreadId.makeUnsafe("other"), "codex").capabilities.has("automation:write"),
+    );
+  });
+
   it("allows independent legitimate sessions for the same thread", () => {
     let nextId = 0;
     const registry = makeAgentGatewaySessionRegistry({ randomId: () => String(++nextId) });

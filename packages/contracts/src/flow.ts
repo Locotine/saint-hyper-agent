@@ -23,6 +23,8 @@ export const FLOW_DEFAULT_MAX_REFIX = 3;
 export const FLOW_DEFAULT_MAX_PARALLEL = 3;
 export const FLOW_DEFAULT_BREAKER_FAILURES = 3;
 export const FLOW_DEFAULT_MAX_DEPTH = 8;
+/** How deep agents may nest flows: a node of a depth-2 flow cannot start another. */
+export const FLOW_MAX_NESTING_DEPTH = 2;
 
 const FlowNodeKey = TrimmedNonEmptyString.check(Schema.isPattern(FLOW_NODE_ID_PATTERN));
 
@@ -141,6 +143,10 @@ export const FlowRun = Schema.Struct({
   /** Node failures since the last node settled; trips the circuit breaker. */
   consecutiveFailures: NonNegativeInt,
   startedBy: TrimmedNonEmptyString,
+  /** Gateway capabilities every node thread is capped at (the starting agent's own). */
+  capabilityCeiling: Schema.optional(Schema.Array(Schema.String)),
+  /** 0 for a flow a person started; a flow started from a flow node is one deeper. */
+  nestingDepth: Schema.optional(NonNegativeInt),
   revision: NonNegativeInt,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
@@ -210,3 +216,91 @@ export const FlowNodeRun = Schema.Struct({
   updatedAt: IsoDateTime,
 });
 export type FlowNodeRun = typeof FlowNodeRun.Type;
+
+// ── RPC ───────────────────────────────────────────────────────────────────
+
+export const FlowRunView = Schema.Struct({
+  run: FlowRun,
+  nodes: Schema.Array(FlowNodeRun),
+  approvedEdges: Schema.Array(Schema.String),
+});
+export type FlowRunView = typeof FlowRunView.Type;
+
+export const FlowListInput = Schema.Struct({ projectId: Schema.optional(ProjectId) });
+export const FlowListResult = Schema.Struct({ runs: Schema.Array(FlowRun) });
+export const FlowGetInput = Schema.Struct({ flowId: FlowRunId });
+export const FlowGetResult = Schema.Struct({ view: Schema.NullOr(FlowRunView) });
+
+/** Start from a template (template + goal) or from flow-v1 YAML (spec). */
+export const FlowStartRpcInput = Schema.Struct({
+  projectId: ProjectId,
+  template: Schema.optional(TrimmedNonEmptyString),
+  goal: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(4_000))),
+  gateCmd: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(2_000))),
+  spec: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(100_000))),
+  modelSelection: ModelSelection,
+  runtimeMode: RuntimeMode,
+});
+export type FlowStartRpcInput = typeof FlowStartRpcInput.Type;
+
+export const FlowAction = Schema.Literals([
+  "pause",
+  "resume",
+  "cancel",
+  "approveEdge",
+  "approveNode",
+  "retryNode",
+  "rerunGate",
+]);
+export type FlowAction = typeof FlowAction.Type;
+
+export const FlowActionInput = Schema.Struct({
+  flowId: FlowRunId,
+  action: FlowAction,
+  /** approveNode / retryNode / rerunGate. */
+  nodeId: Schema.optional(TrimmedNonEmptyString),
+  /** approveEdge. */
+  from: Schema.optional(TrimmedNonEmptyString),
+  to: Schema.optional(TrimmedNonEmptyString),
+});
+export type FlowActionInput = typeof FlowActionInput.Type;
+export const FlowActionResult = Schema.Struct({ view: Schema.NullOr(FlowRunView) });
+
+export const FlowKillAllInput = Schema.Struct({});
+export const FlowKillAllResult = Schema.Struct({ cancelled: NonNegativeInt });
+
+export const FlowTemplateSummary = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  title: TrimmedNonEmptyString,
+  description: Schema.String,
+});
+export const FlowTemplatesInput = Schema.Struct({});
+export const FlowTemplatesResult = Schema.Struct({ templates: Schema.Array(FlowTemplateSummary) });
+
+export const LedgerListInput = Schema.Struct({
+  flowId: FlowRunId,
+  afterSeq: Schema.optional(NonNegativeInt),
+});
+export const LedgerListResult = Schema.Struct({ events: Schema.Array(LedgerEvent) });
+export const LedgerVerifyInput = Schema.Struct({});
+export const LedgerExportInput = Schema.Struct({});
+export const LedgerExportResult = Schema.Struct({ jsonl: Schema.String });
+export const LedgerHandleInput = Schema.Struct({
+  handle: LedgerHandle,
+  fromLine: Schema.optional(PositiveInt),
+  toLine: Schema.optional(PositiveInt),
+});
+export const LedgerHandleResult = Schema.Struct({
+  handle: Schema.NullOr(
+    Schema.Struct({
+      handle: LedgerHandle,
+      mime: Schema.String,
+      provenance: Schema.String,
+      taint: LedgerTaint,
+      createdAt: IsoDateTime,
+      size: NonNegativeInt,
+      content: Schema.String,
+      totalLines: NonNegativeInt,
+    }),
+  ),
+});

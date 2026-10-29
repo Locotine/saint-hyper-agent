@@ -4,6 +4,7 @@
 // Layer: Server service contract
 
 import type {
+  FlowHandoffV1,
   FlowNodeRun,
   FlowRun,
   FlowRunId,
@@ -29,6 +30,8 @@ export interface FlowStartInput {
   readonly modelSelection: ModelSelection;
   readonly runtimeMode: RuntimeMode;
   readonly startedBy: string;
+  readonly capabilityCeiling?: ReadonlyArray<string>;
+  readonly nestingDepth?: number;
 }
 
 export interface FlowRunView {
@@ -73,6 +76,18 @@ export interface FlowServiceShape {
   }) => Effect.Effect<void, FlowServiceError>;
   /** Cancels every running or paused flow and interrupts their nodes. Returns how many. */
   readonly killAll: (by: string) => Effect.Effect<number, FlowServiceError>;
+  /** Stores the handoff a node's agent submits for the steps after it. */
+  readonly submitHandoff: (input: {
+    readonly threadId: ThreadId;
+    readonly handoff: FlowHandoffV1;
+  }) => Effect.Effect<FlowNodeRun, FlowServiceError>;
+  /** The flow node a thread runs, if any. */
+  readonly nodeForThread: (
+    threadId: ThreadId,
+  ) => Effect.Effect<
+    { readonly run: FlowRun; readonly node: FlowNodeRun } | null,
+    FlowServiceError
+  >;
   /** Re-reads a node thread's latest turn and settles or fails its node. Idempotent. */
   readonly reconcileThread: (threadId: ThreadId) => Effect.Effect<void, FlowServiceError>;
   /** Recovers interrupted runs, then follows orchestration events. Call once at startup. */
