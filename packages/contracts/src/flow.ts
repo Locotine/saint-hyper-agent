@@ -251,13 +251,14 @@ export const FlowAction = Schema.Literals([
   "approveNode",
   "retryNode",
   "rerunGate",
+  "continueNode",
 ]);
 export type FlowAction = typeof FlowAction.Type;
 
 export const FlowActionInput = Schema.Struct({
   flowId: FlowRunId,
   action: FlowAction,
-  /** approveNode / retryNode / rerunGate. */
+  /** approveNode / retryNode / rerunGate / continueNode. */
   nodeId: Schema.optional(TrimmedNonEmptyString),
   /** approveEdge. */
   from: Schema.optional(TrimmedNonEmptyString),

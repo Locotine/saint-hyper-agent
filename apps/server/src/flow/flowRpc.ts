@@ -61,6 +61,14 @@ export function handleFlowRpc(input: {
           else yield* flows.rerunGate(target);
           break;
         }
+        case "continueNode":
+          yield* flows.continueNode({
+            flowId,
+            nodeId: yield* requireArg(request.nodeId, "nodeId"),
+            by: USER,
+            reason: "asked by the user",
+          });
+          break;
       }
       return yield* view(flowId);
     });

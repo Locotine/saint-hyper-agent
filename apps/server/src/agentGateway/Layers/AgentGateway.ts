@@ -130,6 +130,7 @@ import { makeAgentGatewayFlowTools } from "../flowTools.ts";
 import { FlowService } from "../../flow/Services/FlowService.ts";
 import { Ledger } from "../../ledger/Services/Ledger.ts";
 import { SapBus } from "../../sap/Services/SapBus.ts";
+import { ForkContinue } from "../../orchestration/Services/ForkContinue.ts";
 import { makeAgentGatewaySapTools } from "../sapTools.ts";
 import { makeAgentGatewayInlineVisualTools } from "../inlineVisualTools.ts";
 import { TodoService } from "../../todo/Services/TodoService.ts";
@@ -206,6 +207,7 @@ export const makeAgentGateway = Effect.gen(function* () {
   const todoService = yield* TodoService;
   const flowService = Option.getOrUndefined(yield* Effect.serviceOption(FlowService));
   const sapBus = Option.getOrUndefined(yield* Effect.serviceOption(SapBus));
+  const forkContinue = Option.getOrUndefined(yield* Effect.serviceOption(ForkContinue));
   const ledger = Option.getOrUndefined(yield* Effect.serviceOption(Ledger));
   const git = yield* GitCore;
   const gitManager = yield* GitManager;
@@ -1686,7 +1688,13 @@ export const makeAgentGateway = Effect.gen(function* () {
     setThreadArchived,
     setThreadGoal,
     ...automationTools,
-    ...(flowService ? makeAgentGatewayFlowTools({ flows: flowService, requireThreadShell }) : []),
+    ...(flowService
+      ? makeAgentGatewayFlowTools({
+          flows: flowService,
+          requireThreadShell,
+          ...(forkContinue ? { forkContinue } : {}),
+        })
+      : []),
     ...(sapBus && ledger ? makeAgentGatewaySapTools({ sap: sapBus, ledger }) : []),
     ...browserTools,
     ...kanbanTools,

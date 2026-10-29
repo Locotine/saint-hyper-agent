@@ -30,7 +30,8 @@ export function renderFlowNodePrompt(input: {
     readonly from: string;
     readonly handoff: FlowHandoffV1 | null;
   }>;
-  readonly failure?: string;
+  /** Fork & Continue snapshot of this step's earlier session. */
+  readonly continuation?: string;
 }): string {
   const { spec, node } = input;
   const handoffs = input.incoming.map(({ from, handoff }) =>
@@ -49,7 +50,9 @@ export function renderFlowNodePrompt(input: {
           `Saint runs the gate \`${node.gate.cmd}\` itself after you finish; do not report it as passed.`,
         ]
       : []),
-    ...(input.failure ? ["", "Your previous attempt failed the gate:", "", input.failure] : []),
+    ...(input.continuation
+      ? ["", "You continue an earlier session of this step:", "", input.continuation]
+      : []),
     "",
     "When you are done, call `saint_flow_done` with a handoff for the next step (target, change, constraints, ownership, acceptance, refs, open questions).",
   ].join("\n");

@@ -74,6 +74,15 @@ export interface FlowServiceShape {
     readonly nodeId: string;
     readonly by: string;
   }) => Effect.Effect<void, FlowServiceError>;
+  /** Fork & Continue: moves a running step into a clean session that starts from a snapshot. */
+  readonly continueNode: (input: {
+    readonly flowId: FlowRunId;
+    readonly nodeId: string;
+    readonly by: string;
+    readonly reason: string;
+    /** Appended to the snapshot, e.g. the failure that triggered the move. */
+    readonly note?: string;
+  }) => Effect.Effect<void, FlowServiceError>;
   /** Cancels every running or paused flow and interrupts their nodes. Returns how many. */
   readonly killAll: (by: string) => Effect.Effect<number, FlowServiceError>;
   /** Stores the handoff a node's agent submits for the steps after it. */

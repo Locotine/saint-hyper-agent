@@ -19,6 +19,11 @@ import { stableGatewayDigest } from "../../agentGateway/creationUtils.ts";
 import { AgentGatewayCredentials } from "../../agentGateway/Services/AgentGatewayCredentials.ts";
 import type { AgentGatewayCapability } from "../../agentGateway/Services/AgentGatewaySessionRegistry.ts";
 import { Ledger } from "../../ledger/Services/Ledger.ts";
+import {
+  FORK_CONTINUE_CONTEXT_THRESHOLD,
+  contextUsedFraction,
+} from "../../orchestration/forkContinue.ts";
+import { ForkContinue } from "../../orchestration/Services/ForkContinue.ts";
 import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { FlowRepository, type FlowRunState } from "../../persistence/Services/FlowRepository.ts";
@@ -81,6 +86,9 @@ const make = Effect.gen(function* () {
   const orchestrationEngine = yield* OrchestrationEngineService;
   const snapshotQuery = yield* ProjectionSnapshotQuery;
   const credentials = Option.getOrUndefined(yield* Effect.serviceOption(AgentGatewayCredentials));
+  const forkContinue = Option.getOrUndefined(yield* Effect.serviceOption(ForkContinue));
+  // Threads already moved to a clean session for a full context, so one fill level forks once.
+  const contextForked = new Set<string>();
   // ponytail: one lock for every flow mutation; per-flow locks if many flows run at once.
   const mutations = yield* Semaphore.make(1);
 
@@ -129,7 +137,7 @@ const make = Effect.gen(function* () {
       Effect.mapError(toError("Could not read the flow's project.")),
     );
 
-  const spawnNode = (state: FlowRunState, node: FlowNodeRun, failure?: string) =>
+  const spawnNode = (state: FlowRunState, node: FlowNodeRun, continuation?: string) =>
     Effect.gen(function* () {
       const { run } = state;
       const spec = run.spec.nodes.find((entry) => entry.id === node.nodeId)!;
@@ -193,7 +201,7 @@ const make = Effect.gen(function* () {
               spec: run.spec,
               node: spec,
               incoming,
-              ...(failure ? { failure } : {}),
+              ...(continuation ? { continuation } : {}),
             }),
             attachments: [],
           },
@@ -410,6 +418,30 @@ const make = Effect.gen(function* () {
           yield* record(run, "node.settled", "saint", null, nodeId);
           break;
         case "refix": {
+          // The same failing output twice (evidence is content-addressed) is a loop: carry the
+          // step into a clean session instead of asking the same session again.
+          const repeated =
+            forkContinue !== undefined &&
+            node.lastGate?.passed === false &&
+            extra.lastGate?.evidence === node.lastGate.evidence;
+          if (repeated) {
+            yield* saveNode(node, { ...extra, statusReason: "Same gate failure twice." });
+            yield* record(run, "node.loop", "saint", { evidence: node.lastGate!.evidence }, nodeId);
+            yield* Effect.forkDetach(
+              continueNode({
+                flowId,
+                nodeId,
+                by: "saint",
+                reason: "the same gate failure repeated",
+                note: `The gate still fails:\n\n${decision.failure}`,
+              }).pipe(
+                Effect.catchCause((cause) =>
+                  Effect.logWarning("flow fork & continue failed", { cause: Cause.pretty(cause) }),
+                ),
+              ),
+            );
+            break;
+          }
           const attempt = node.attempts + 1;
           const commandKey = `flow:${flowId}:${nodeId}:${attempt}:refix`;
           yield* saveNode(node, {
@@ -684,6 +716,68 @@ const make = Effect.gen(function* () {
       }),
     );
 
+  const continueNode: FlowServiceShape["continueNode"] = ({ flowId, nodeId, by, reason, note }) =>
+    Effect.gen(function* () {
+      if (!forkContinue) {
+        return yield* new FlowServiceError({ message: "Fork & Continue is not available." });
+      }
+      const continuable = (node: FlowNodeRun) =>
+        node.threadId !== null && (node.status === "running" || node.status === "needs_you");
+      const source = yield* locked(
+        Effect.gen(function* () {
+          const node = yield* requireNode(yield* load(flowId), nodeId);
+          if (!continuable(node)) {
+            return yield* new FlowServiceError({ message: `"${nodeId}" is not running.` });
+          }
+          return node.threadId!;
+        }),
+      );
+      // The snapshot may call the model for a summary, so it runs outside the lock.
+      const snapshot = yield* forkContinue
+        .snapshot(source, reason)
+        .pipe(Effect.mapError(toError("Could not snapshot the step's session.")));
+      yield* locked(
+        Effect.gen(function* () {
+          const state = yield* load(flowId);
+          const node = yield* requireNode(state, nodeId);
+          // Someone else moved the step on meanwhile.
+          if (node.threadId !== source || !continuable(node)) return;
+          yield* orchestrationEngine
+            .dispatch({
+              type: "thread.turn.interrupt",
+              commandId: CommandId.makeUnsafe(`flow:${flowId}:${nodeId}:${node.attempts}:continue`),
+              threadId: source,
+              requestedBy: "system",
+              createdAt: isoNow(),
+            })
+            .pipe(Effect.ignore);
+          yield* record(state.run, "node.continued", by, { reason, from: source }, nodeId);
+          yield* spawnNode(state, node, note ? `${snapshot}\n\n${note}` : snapshot);
+        }),
+      );
+    });
+
+  const continueForContext = (threadId: string, payload: unknown) =>
+    Effect.gen(function* () {
+      const used = contextUsedFraction(payload);
+      if (used === null || used < FORK_CONTINUE_CONTEXT_THRESHOLD || contextForked.has(threadId)) {
+        return;
+      }
+      contextForked.add(threadId);
+      const found = yield* nodeForThread(ThreadId.makeUnsafe(threadId));
+      if (!found) return;
+      yield* continueNode({
+        flowId: found.run.id,
+        nodeId: found.node.nodeId,
+        by: "saint",
+        reason: `context ${Math.round(used * 100)}% full`,
+      });
+    }).pipe(
+      Effect.catchCause((cause) =>
+        Effect.logWarning("flow context fork failed", { cause: Cause.pretty(cause) }),
+      ),
+    );
+
   const killAll: FlowServiceShape["killAll"] = (by) =>
     Effect.gen(function* () {
       const runs = yield* list({ statuses: ["running", "paused"] });
@@ -748,6 +842,15 @@ const make = Effect.gen(function* () {
         worker,
         Effect.forkScoped(
           Stream.runForEach(orchestrationEngine.streamDomainEvents, (event) => {
+            if (
+              event.type === "thread.activity-appended" &&
+              event.payload.activity.kind === "context-window.updated" &&
+              event.payload.threadId.startsWith("flow-")
+            ) {
+              return Effect.forkDetach(
+                continueForContext(event.payload.threadId, event.payload.activity.payload),
+              ).pipe(Effect.asVoid);
+            }
             if (!RECONCILE_EVENT_TYPES.has(event.type) || !("threadId" in event.payload)) {
               return Effect.void;
             }
@@ -775,6 +878,7 @@ const make = Effect.gen(function* () {
     submitHandoff,
     nodeForThread,
     reconcileThread,
+    continueNode,
     startReactor,
   } satisfies FlowServiceShape;
 });

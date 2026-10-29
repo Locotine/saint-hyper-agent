@@ -527,6 +527,7 @@ export const ThreadCreationSource = Schema.Literals([
   "provider_native",
   "automation_run",
   "flow_node",
+  "fork_continue",
 ]);
 export type ThreadCreationSource = typeof ThreadCreationSource.Type;
 export const ProviderReviewTarget = Schema.Union([

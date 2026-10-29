@@ -17,6 +17,7 @@ import { Cause, Effect, Schema } from "effect";
 
 import { FLOW_TEMPLATES, findFlowTemplate } from "../flow/flowTemplates.ts";
 import type { FlowServiceShape } from "../flow/Services/FlowService.ts";
+import type { ForkContinueShape } from "../orchestration/Services/ForkContinue.ts";
 import { mcpToolResultError, mcpToolResultJson } from "./protocol.ts";
 import { ToolInputError, errorText, readStringArg } from "./toolInput.ts";
 import {
@@ -27,6 +28,7 @@ import {
 
 export interface FlowToolsInput {
   readonly flows: FlowServiceShape;
+  readonly forkContinue?: ForkContinueShape;
   readonly requireThreadShell: (
     threadId: string,
   ) => Effect.Effect<OrchestrationThreadShell, unknown, never>;
@@ -74,7 +76,7 @@ export function flowStatusForAgent(run: FlowRun, nodes: ReadonlyArray<FlowNodeRu
 }
 
 export function makeAgentGatewayFlowTools(input: FlowToolsInput): ReadonlyArray<ToolEntry> {
-  const { flows, requireThreadShell } = input;
+  const { flows, requireThreadShell, forkContinue } = input;
 
   const listTemplates: ToolEntry = {
     requiredCapability: "thread:read",
@@ -281,5 +283,47 @@ export function makeAgentGatewayFlowTools(input: FlowToolsInput): ReadonlyArray<
       ),
   };
 
-  return [listTemplates, startFlow, flowStatus, flowDone];
+  const forkContinueTool: ToolEntry = {
+    requiredCapability: "thread:write",
+    definition: {
+      name: "saint_fork_continue",
+      description:
+        "Move this work into a clean session when your context is crowded or you are going in circles. Saint snapshots the goal, latest request, where you stand, changed files and handles, and starts a fresh thread from it (for a flow step, the step's next attempt). Stop after calling it; the new session carries on.",
+      inputSchema: {
+        type: "object",
+        properties: { reason: { type: "string", maxLength: 300 } },
+        additionalProperties: false,
+      },
+      annotations: { title: "Fork & Continue", ...WRITE_TOOL_ANNOTATIONS },
+    },
+    handler: (args, context) =>
+      asToolResult(
+        Effect.gen(function* () {
+          const reason =
+            (yield* readArgs(() => readStringArg(args, "reason"))) ?? "asked by the agent";
+          const threadId = ThreadId.makeUnsafe(context.callerThreadId);
+          const step = yield* flows.nodeForThread(threadId).pipe(Effect.mapError(toToolError));
+          if (step) {
+            yield* flows
+              .continueNode({
+                flowId: step.run.id,
+                nodeId: step.node.nodeId,
+                by: `thread:${threadId}`,
+                reason,
+              })
+              .pipe(Effect.mapError(toToolError));
+            return { continued: true, flowId: step.run.id, node: step.node.nodeId };
+          }
+          if (!forkContinue) {
+            return yield* Effect.fail(new ToolInputError("Fork & Continue is not available."));
+          }
+          const next = yield* forkContinue
+            .forkContinue({ threadId, reason })
+            .pipe(Effect.mapError(toToolError));
+          return { continued: true, threadId: next };
+        }),
+      ),
+  };
+
+  return [listTemplates, startFlow, flowStatus, flowDone, forkContinueTool];
 }
