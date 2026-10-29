@@ -29,7 +29,7 @@ describe("collectHostSearchThreads", () => {
           sidebarThreadSummaryById: {
             t1: summary("t1"),
             t2: summary("t2", { archivedAt: "2026-10-29T01:00:00.000Z" }),
-            t3: summary("t3", { parentThreadId: "t1" }),
+            child: summary("child", { parentThreadId: "t1" }),
           },
         } as never,
       },

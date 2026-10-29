@@ -13,7 +13,10 @@ import { expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 
 const { writeFile, notify } = vi.hoisted(() => ({ writeFile: vi.fn(), notify: vi.fn() }));
-vi.mock("~/nativeApi", () => ({ ensureLocalNativeApi: () => ({ projects: { writeFile } }) }));
+vi.mock("~/nativeApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("~/nativeApi")>()),
+  ensureLocalNativeApi: () => ({ projects: { writeFile } }),
+}));
 vi.mock("./ui/toast", () => ({ toastManager: { add: notify } }));
 import { EditorDirtyRouteGuard } from "./EditorDirtyRouteGuard";
 import { getWorkspaceEditorSession } from "~/lib/workspaceEditorSession";

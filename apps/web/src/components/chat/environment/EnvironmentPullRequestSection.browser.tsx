@@ -47,7 +47,8 @@ const {
   runPullRequestAction: vi.fn<NativeApi["pullRequests"]["action"]>(),
 }));
 
-vi.mock("~/nativeApi", () => ({
+vi.mock("~/nativeApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("~/nativeApi")>()),
   ensureLocalNativeApi: () => ({
     git: { status: getGitStatus, pullRequestSnapshot: getPullRequestSnapshot },
     pullRequests: {
