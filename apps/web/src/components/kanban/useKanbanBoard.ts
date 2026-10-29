@@ -11,6 +11,7 @@ import {
   type ScopedProjectId,
   type ScopedThreadId,
 } from "@saint/shared/hostId";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 
 import { useAppSettings } from "~/appSettings";
@@ -18,6 +19,7 @@ import { useNowMs } from "~/hooks/useNowMs";
 import { useStableValue } from "~/hooks/useStableValue";
 import { useThreadPullRequests } from "~/hooks/useThreadPullRequests";
 import { toastManager } from "~/components/ui/toast";
+import { economyStatusQueryOptions } from "~/lib/flowQueryOptions";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { useKanbanUiStore } from "../../kanbanUiStore";
 import { isHomeChatContainerProject } from "../../lib/chatProjects";
@@ -312,6 +314,17 @@ export function useKanbanBoard(): KanbanBoard {
     // snapshot the persisted "open" PR would keep the flag on stale evidence.
     requireLiveStatus: true,
   });
+  // Host Economy's hibernated agents fill the v2 "Idle · hibernated" column.
+  const economy = useQuery({ ...economyStatusQueryOptions(), enabled: kanbanViewMode === "v2" });
+  const hibernatedThreadIds = useMemo(
+    () =>
+      new Set<string>(
+        (economy.data?.agents ?? [])
+          .filter((agent) => agent.state === "hibernated")
+          .map((agent) => agent.threadId),
+      ),
+    [economy.data],
+  );
   const needsReviewByThreadId = useMemo(() => {
     const map: Record<string, boolean> = {};
     for (const thread of threads) {
@@ -352,6 +365,7 @@ export function useKanbanBoard(): KanbanBoard {
               // cap so the folded tail renders (H1).
               uncapped: hasRevealedReviewFold,
               lastActivityTimestampMsByThreadId,
+              hibernatedThreadIds,
             }
           : undefined,
       ),
@@ -370,6 +384,7 @@ export function useKanbanBoard(): KanbanBoard {
       kanbanNeedsReviewFilter,
       hasRevealedReviewFold,
       lastActivityTimestampMsByThreadId,
+      hibernatedThreadIds,
     ],
   );
   return board;

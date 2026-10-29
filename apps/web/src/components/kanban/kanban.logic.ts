@@ -38,7 +38,7 @@ import type { Project, SidebarThreadSummary } from "../../types";
  * maps stay untouched — this is vocabulary for the v2 boards only. `awaitingYou`
  * resolves from the shared v2 label map when a consumer spans both vocabularies.
  */
-export type KanbanColumnKey = KanbanClassicColumnKey | "awaitingYou";
+export type KanbanColumnKey = KanbanClassicColumnKey | "awaitingYou" | "hibernated";
 
 /** Classic 3-column vocabulary — kept for legacy board builds. */
 export type KanbanClassicColumnKey = "draft" | "inProgress" | "done";
@@ -196,6 +196,8 @@ export interface KanbanProjectBoard {
   inProgress: KanbanCard[];
   /** v2-path attention column — always present, empty in classic mode. */
   awaitingYou: KanbanCard[];
+  /** v2-path: idle sessions Host Economy stopped; empty in classic mode. */
+  hibernated: KanbanCard[];
   done: KanbanCard[];
   totalCount: number;
   /**
@@ -229,6 +231,8 @@ export interface KanbanV2BuildOptions {
    * count stays the pre-cap total either way (H1).
    */
   uncapped?: boolean;
+  /** Threads whose idle session Host Economy hibernated (S6 Idle · hibernated column). */
+  hibernatedThreadIds?: ReadonlySet<string>;
   /**
    * Durable last-activity stamp per thread (epoch ms), keyed by thread id. The
    * heartbeat takes the max of session/thread stamps and this so a busy-but-quiet
@@ -319,8 +323,10 @@ export function deriveKanbanColumn(thread: SidebarThreadSummary): KanbanClassicC
 function toKanbanThreadDerivationInput(
   thread: SidebarThreadSummary,
   lastActivityTimestampMs?: number | null,
+  hibernated?: boolean,
 ): KanbanThreadDerivationInput {
   return {
+    ...(hibernated ? { hibernated } : {}),
     latestTurn: thread.latestTurn
       ? {
           state: thread.latestTurn.state,
@@ -407,9 +413,10 @@ export function deriveKanbanColumnV2(
   thread: SidebarThreadSummary,
   now: number,
   lastActivityTimestampMs?: number | null,
+  hibernated?: boolean,
 ): KanbanColumnV2Key {
   return deriveKanbanColumnV2Shared(
-    toKanbanThreadDerivationInput(thread, lastActivityTimestampMs),
+    toKanbanThreadDerivationInput(thread, lastActivityTimestampMs, hibernated),
     { now },
   );
 }
@@ -476,7 +483,12 @@ function buildThreadCard(
 ): KanbanCard {
   const lastActivityTimestampMs = v2?.lastActivityTimestampMsByThreadId?.[thread.id] ?? null;
   const column = v2
-    ? deriveKanbanColumnV2(thread, v2.now, lastActivityTimestampMs)
+    ? deriveKanbanColumnV2(
+        thread,
+        v2.now,
+        lastActivityTimestampMs,
+        v2.hibernatedThreadIds?.has(thread.id),
+      )
     : deriveKanbanColumn(thread);
   const composerDraft = resolveComposerDraft(composerDraftByThreadId, thread.id);
   const timestamp = resolveThreadCardTimestamp(thread, column);
@@ -811,6 +823,7 @@ interface KanbanProjectBuckets {
   draft: KanbanCard[];
   inProgress: KanbanCard[];
   awaitingYou: KanbanCard[];
+  hibernated: KanbanCard[];
   done: KanbanCard[];
 }
 
@@ -818,6 +831,7 @@ const EMPTY_BUCKETS: KanbanProjectBuckets = {
   draft: [],
   inProgress: [],
   awaitingYou: [],
+  hibernated: [],
   done: [],
 };
 
@@ -840,7 +854,7 @@ export function buildKanbanBoard(
   const bucketFor = (projectId: ProjectId): KanbanProjectBuckets => {
     let bucket = cardsByProjectId.get(projectId);
     if (!bucket) {
-      bucket = { draft: [], inProgress: [], awaitingYou: [], done: [] };
+      bucket = { draft: [], inProgress: [], awaitingYou: [], hibernated: [], done: [] };
       cardsByProjectId.set(projectId, bucket);
     }
     return bucket;
@@ -953,6 +967,7 @@ export function buildKanbanBoard(
     ).slice(0, cap);
     const inProgress = bucket.inProgress.toSorted(compareByRecencyDesc).slice(0, cap);
     const awaitingYou = bucket.awaitingYou.toSorted(compareByRecencyDesc).slice(0, cap);
+    const hibernated = bucket.hibernated.toSorted(compareByRecencyDesc).slice(0, cap);
     const done = bucket.done.toSorted(compareByRecencyDesc).slice(0, cap);
     // The header count is the true pre-cap total of cards matching the current
     // filter — the capped columns only narrow what renders (H1).
@@ -960,6 +975,7 @@ export function buildKanbanBoard(
       bucket.draft.length +
       bucket.inProgress.length +
       bucket.awaitingYou.length +
+      bucket.hibernated.length +
       bucket.done.length;
     totalCount += projectTotalCount;
     return {
@@ -969,6 +985,7 @@ export function buildKanbanBoard(
       draft,
       inProgress,
       awaitingYou,
+      hibernated,
       done,
       totalCount: projectTotalCount,
       // v2 needs-review views expose the folded remainder behind their cap.
@@ -978,6 +995,7 @@ export function buildKanbanBoard(
           draft.length +
           (bucket.inProgress.length - inProgress.length) +
           (bucket.awaitingYou.length - awaitingYou.length) +
+          (bucket.hibernated.length - hibernated.length) +
           (bucket.done.length - done.length),
       ),
     };
@@ -1025,15 +1043,23 @@ export function overviewVisibleKanbanCards(
   const cappedDraft = board.draft.slice(0, OVERVIEW_RENDER_CAP);
   const cappedInProgress = board.inProgress.slice(0, OVERVIEW_RENDER_CAP);
   const cappedAwaitingYou = board.awaitingYou.slice(0, OVERVIEW_RENDER_CAP);
+  const cappedHibernated = board.hibernated.slice(0, OVERVIEW_RENDER_CAP);
   const cappedDone = board.done.slice(0, OVERVIEW_RENDER_CAP);
   const visibleCards = v2
-    ? [...cappedInProgress, ...cappedAwaitingYou, ...cappedDraft, ...cappedDone]
+    ? [
+        ...cappedInProgress,
+        ...cappedAwaitingYou,
+        ...cappedDraft,
+        ...cappedHibernated,
+        ...cappedDone,
+      ]
     : [...cappedInProgress, ...cappedDraft, ...cappedDone];
   const hiddenCount =
     board.draft.length -
     cappedDraft.length +
     (board.inProgress.length - cappedInProgress.length) +
     (board.awaitingYou.length - cappedAwaitingYou.length) +
+    (v2 ? board.hibernated.length - cappedHibernated.length : 0) +
     (board.done.length - cappedDone.length) +
     // Cards the needs-review filter already folded behind its 30-row column cap
     // are also invisible on the overview and must count toward its affordance.

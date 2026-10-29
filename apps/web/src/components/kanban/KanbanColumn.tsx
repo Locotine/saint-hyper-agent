@@ -37,6 +37,7 @@ export function parseKanbanColumnDropId(
     column !== "draft" &&
     column !== "inProgress" &&
     column !== "awaitingYou" &&
+    column !== "hibernated" &&
     column !== "done"
   ) {
     return null;

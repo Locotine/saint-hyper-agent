@@ -528,6 +528,9 @@ export function makeAgentGatewayKanbanTools(input: KanbanToolsInput): ReadonlyAr
             draft: [],
             inProgress: [],
             awaitingYou: [],
+            // ponytail: the read tool does not consult Host Economy, so hibernated threads stay in
+            // their usual column here; feed it EconomyStatus.agents if agents need the column.
+            hibernated: [],
             done: [],
           };
           for (const thread of snapshot.threads) {

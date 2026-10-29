@@ -986,6 +986,7 @@ describe("overviewVisibleKanbanCards", () => {
       draft,
       inProgress,
       awaitingYou,
+      hibernated: [],
       done,
       totalCount: draft.length + inProgress.length + awaitingYou.length + done.length,
       hiddenCount: 0,
