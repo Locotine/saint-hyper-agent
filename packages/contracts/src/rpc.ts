@@ -30,6 +30,12 @@ import {
   AegisUpdateInput,
 } from "./aegis";
 import {
+  EconomyAgentInput,
+  EconomyStatus,
+  EconomyStatusInput,
+  EconomyUpdateInput,
+} from "./hostEconomy";
+import {
   EditorDebugStartInput,
   EditorDebugStartResult,
   EditorDebugActionInput,
@@ -1393,6 +1399,22 @@ export const WsAegisUpdateRpc = Rpc.make(WS_METHODS.aegisUpdate, {
   error: WsRpcError,
 });
 
+export const WsEconomyStatusRpc = Rpc.make(WS_METHODS.economyStatus, {
+  payload: EconomyStatusInput,
+  success: EconomyStatus,
+  error: WsRpcError,
+});
+export const WsEconomyAgentRpc = Rpc.make(WS_METHODS.economyAgent, {
+  payload: EconomyAgentInput,
+  success: EconomyStatus,
+  error: WsRpcError,
+});
+export const WsEconomyUpdateRpc = Rpc.make(WS_METHODS.economyUpdate, {
+  payload: EconomyUpdateInput,
+  success: EconomyStatus,
+  error: WsRpcError,
+});
+
 export const WsGitListBranchesRpc = Rpc.make(WS_METHODS.gitListBranches, {
   payload: GitListBranchesInput,
   success: GitListBranchesResult,
@@ -2233,6 +2255,9 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsAegisAlertsRpc,
   WsAegisResolveRpc,
   WsAegisUpdateRpc,
+  WsEconomyStatusRpc,
+  WsEconomyAgentRpc,
+  WsEconomyUpdateRpc,
   WsGitListBranchesRpc,
   WsGitListRecentCommitsRpc,
   WsGitCreateWorktreeRpc,

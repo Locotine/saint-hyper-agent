@@ -47,6 +47,7 @@ export * from "./hubWork";
 export * from "./flow";
 export * from "./sap";
 export * from "./aegis";
+export * from "./hostEconomy";
 export * from "./projectImport";
 export * from "./studio";
 export * from "./inlineVisual";

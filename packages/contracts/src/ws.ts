@@ -12,6 +12,7 @@ import {
 } from "./flow";
 import { SapListInput } from "./sap";
 import { AegisAlertsInput, AegisResolveInput, AegisStatusInput, AegisUpdateInput } from "./aegis";
+import { EconomyAgentInput, EconomyStatusInput, EconomyUpdateInput } from "./hostEconomy";
 import { EditorDebugStartInput, EditorDebugActionInput, EditorDebugPollInput } from "./editorDebug";
 import { Schema, Struct } from "effect";
 import { EditorIntelligenceInput } from "./editorIntelligence";
@@ -342,6 +343,9 @@ export const WS_METHODS = {
   aegisAlerts: "aegis.alerts",
   aegisResolve: "aegis.resolve",
   aegisUpdate: "aegis.update",
+  economyStatus: "economy.status",
+  economyAgent: "economy.agent",
+  economyUpdate: "economy.update",
 
   // Terminal methods
   terminalOpen: "terminal.open",
@@ -654,6 +658,9 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.aegisAlerts, AegisAlertsInput),
   tagRequestBody(WS_METHODS.aegisResolve, AegisResolveInput),
   tagRequestBody(WS_METHODS.aegisUpdate, AegisUpdateInput),
+  tagRequestBody(WS_METHODS.economyStatus, EconomyStatusInput),
+  tagRequestBody(WS_METHODS.economyAgent, EconomyAgentInput),
+  tagRequestBody(WS_METHODS.economyUpdate, EconomyUpdateInput),
 
   // GitHub inbox (pull requests and issues)
   tagRequestBody(WS_METHODS.githubInboxList, GitHubInboxListInput),

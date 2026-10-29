@@ -251,6 +251,7 @@ import { FlowService } from "./flow/Services/FlowService";
 import { Ledger } from "./ledger/Services/Ledger";
 import { SapBus } from "./sap/Services/SapBus";
 import { Aegis } from "./aegis/Services/Aegis";
+import { Economy, EconomyError } from "./economy/Services/Economy";
 import {
   GitHubInboxRateLimitedError,
   GitHubInboxService,
@@ -557,6 +558,15 @@ const makeWsRpcHandlersLayer = () =>
       const flowRpc = handleFlowRpc({ flows: yield* FlowService, ledger: yield* Ledger });
       const sapBus = yield* SapBus;
       const aegis = yield* Aegis;
+      const economyService = Option.getOrUndefined(yield* Effect.serviceOption(Economy));
+      const economy = <A>(
+        run: (service: typeof Economy.Service) => Effect.Effect<A, EconomyError>,
+      ) =>
+        economyService
+          ? run(economyService)
+          : Effect.fail(
+              new EconomyError({ message: "Host economy is not running on this server." }),
+            );
       const githubInbox = yield* GitHubInboxService;
       const profileStatsQuery = yield* ProfileStatsQuery;
       const recapStatsQuery = yield* RecapStatsQuery;
@@ -2253,6 +2263,21 @@ const makeWsRpcHandlersLayer = () =>
           ),
         [WS_METHODS.aegisUpdate]: (input) =>
           rpcEffect(aegis.update(input, "user"), "Failed to update security settings"),
+        [WS_METHODS.economyStatus]: () =>
+          rpcEffect(
+            economy((service) => service.status()),
+            "Failed to read host economy",
+          ),
+        [WS_METHODS.economyAgent]: (input) =>
+          rpcEffect(
+            economy((service) => service.agent(input.threadId, input.action)),
+            "Failed to change the agent",
+          ),
+        [WS_METHODS.economyUpdate]: (input) =>
+          rpcEffect(
+            economy((service) => service.update(input)),
+            "Failed to update host economy",
+          ),
         [WS_METHODS.gitListBranches]: (input) =>
           rpcEffect(git.listBranches(input), "Failed to list branches"),
         [WS_METHODS.gitListRecentCommits]: (input) =>

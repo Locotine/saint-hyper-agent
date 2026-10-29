@@ -25,6 +25,7 @@ import {
 } from "../../orchestration/forkContinue.ts";
 import { ForkContinue } from "../../orchestration/Services/ForkContinue.ts";
 import { Aegis } from "../../aegis/Services/Aegis.ts";
+import { currentFlowAdmission } from "../../economy/Services/Economy.ts";
 import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { FlowRepository, type FlowRunState } from "../../persistence/Services/FlowRepository.ts";
@@ -283,6 +284,13 @@ const make = Effect.gen(function* () {
             const fresh = yield* load(flowId);
             const target = fresh.nodes.find((entry) => entry.nodeId === action.nodeId)!;
             if (target.status !== "ready") break;
+            // Host economy: under memory pressure or a full seat cap the step waits as ready;
+            // the minute clock below retries it.
+            const wait = currentFlowAdmission();
+            if (wait) {
+              if (target.statusReason !== wait) yield* saveNode(target, { statusReason: wait });
+              break;
+            }
             yield* spawnNode(fresh, target);
             changed = true;
             break;
@@ -994,14 +1002,16 @@ const make = Effect.gen(function* () {
           Effect.logWarning("flow recovery failed", { cause: Cause.pretty(cause) }),
         ),
       );
-      // Budgets with a wall-clock limit need a clock even when no event arrives.
+      // Budgets with a wall-clock limit, and steps held back by admission, need a clock even
+      // when no event arrives.
       yield* Effect.forkScoped(
         Effect.forever(
           Effect.sleep(Duration.minutes(1)).pipe(
             Effect.andThen(list({ statuses: ["running"] })),
             Effect.flatMap((runs) =>
               Effect.forEach(
-                runs.filter((run) => run.spec.budget?.wallMs !== undefined),
+                // ponytail: ticks every running flow each minute; filter by held steps if many.
+                runs,
                 (run) => locked(tick(run.id)),
                 { discard: true },
               ),

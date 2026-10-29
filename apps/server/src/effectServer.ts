@@ -3,7 +3,7 @@ import { ProviderSessionRuntimeRepositoryLive } from "./persistence/Layers/Provi
 import http from "node:http";
 
 import type { ServerSettingsError } from "@saint/contracts";
-import { Effect, Exit, FileSystem, Layer, Path, Schema, Scope, ServiceMap } from "effect";
+import { Effect, Exit, FileSystem, Layer, Option, Path, Schema, Scope, ServiceMap } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
@@ -12,6 +12,7 @@ import { AgentGatewayCredentials } from "./agentGateway/Services/AgentGatewayCre
 import { AutomationRunReactor } from "./automation/Services/AutomationRunReactor";
 import { FlowService } from "./flow/Services/FlowService";
 import { Aegis } from "./aegis/Services/Aegis";
+import { Economy } from "./economy/Services/Economy";
 import { AutomationScheduler } from "./automation/Services/AutomationScheduler";
 import { AutomationService } from "./automation/Services/AutomationService";
 import { TodoService } from "./todo/Services/TodoService";
@@ -195,6 +196,8 @@ export const createEffectServer = Effect.fn(function* (
   const automationRunReactor = yield* AutomationRunReactor;
   const flowService = yield* FlowService;
   const aegis = yield* Aegis;
+  // Optional so test servers built without the provider layer still start.
+  const economy = Option.getOrUndefined(yield* Effect.serviceOption(Economy));
   const automationScheduler = yield* AutomationScheduler;
   const keybindings = yield* Keybindings;
   const managedAttachmentCleanup = yield* ManagedAttachmentCleanup;
@@ -314,6 +317,7 @@ export const createEffectServer = Effect.fn(function* (
       // Aegis first so the egress proxy is up before flows spawn agents.
       { start: () => aegis.start() },
       { start: () => flowService.startReactor() },
+      ...(economy ? [{ start: () => economy.start() }] : []),
       threadDeletionReactor,
       threadSnoozeReactor,
       providerSessionReaper,
