@@ -203,6 +203,8 @@ export const UsersIcon: LucideIcon = centralIconWrapper("user-group");
 export const GlobeIcon: LucideIcon = centralIconWrapper("globe");
 // A remote SSH host, as opposed to this computer.
 export const ServerIcon: LucideIcon = centralIconWrapper("server");
+export const FlowsIcon: LucideIcon = centralIconWrapper("branch");
+export const ShieldCheckIcon: LucideIcon = centralIconWrapper("shield-check");
 export const WebSearchIcon: LucideIcon = GlobeIcon;
 // Handset glyph for the iOS Simulator dock pane.
 export const DeviceMobileIcon: LucideIcon = centralIconWrapper("phone");

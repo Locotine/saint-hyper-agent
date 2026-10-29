@@ -28,6 +28,9 @@ import {
   GiftIcon,
   InboxIcon,
   KanbanIcon,
+  FlowsIcon,
+  ShieldCheckIcon,
+  UsageGaugeIcon,
   TasksIcon,
   KeyboardIcon,
   BellIcon,
@@ -274,6 +277,9 @@ import {
 } from "./SidebarCustomizeList";
 import { AppRailMoreMenu } from "./AppRailMoreMenu";
 import { AppRailUsage } from "./AppRailUsage";
+import { HyperAgentRailStatus } from "./HyperAgentRailStatus";
+import { useFlowAttention } from "./flows/FlowAttention";
+import { aegisStatusQueryOptions } from "~/lib/flowQueryOptions";
 import { ProjectDisclosureChevron, ProjectSidebarIcon } from "./ProjectSidebarIcon";
 import { ThreadHoverCardContent } from "./ThreadHoverCardContent";
 import { ProjectHoverCardContent } from "./ProjectHoverCardContent";
@@ -1387,6 +1393,9 @@ export default function Sidebar() {
   const isOnKanban = pathname.startsWith("/kanban");
   const isOnTasks = pathname.startsWith("/tasks");
   const isOnAutomations = pathname.startsWith("/automations");
+  const isOnFlows = pathname.startsWith("/flows");
+  const isOnSecurity = pathname.startsWith("/security");
+  const isOnHostEconomy = pathname.startsWith("/host-economy");
   const isOnPullRequests = pathname.startsWith("/pull-requests");
   const isOnInbox = pathname.startsWith("/inbox");
   // Lightweight read of automations to drive the sidebar count badge. Shares the
@@ -1403,6 +1412,29 @@ export default function Sidebar() {
       );
     });
   }, [queryClient]);
+  // Held flow steps and open security alerts, the "needs you" counts of the HyperAgent screens.
+  const flowAttentionCount = useFlowAttention().length;
+  const openSecurityAlerts = useQuery(aegisStatusQueryOptions()).data?.openAlerts ?? 0;
+  const flowsBadge = useMemo(
+    () =>
+      flowAttentionCount > 0
+        ? {
+            text: String(flowAttentionCount),
+            accessibleLabel: `${flowAttentionCount} ${pluralize(flowAttentionCount, "flow step needs", "flow steps need")} you`,
+          }
+        : null,
+    [flowAttentionCount],
+  );
+  const securityBadge = useMemo(
+    () =>
+      openSecurityAlerts > 0
+        ? {
+            text: String(openSecurityAlerts),
+            accessibleLabel: `${openSecurityAlerts} open ${pluralize(openSecurityAlerts, "security alert")}`,
+          }
+        : null,
+    [openSecurityAlerts],
+  );
   const automationCountBadge = useMemo(
     () => resolveAutomationCountBadge(automationListQuery.data?.definitions.length),
     [automationListQuery.data],
@@ -4546,8 +4578,40 @@ export default function Sidebar() {
           void navigate({ to: "/automations" });
         },
       },
+      flows: {
+        icon: FlowsIcon,
+        label: "Flows",
+        active: isOnFlows,
+        badge: flowsBadge,
+        onClick: () => {
+          void navigate({ to: "/flows" });
+        },
+      },
+      security: {
+        icon: ShieldCheckIcon,
+        label: "Security",
+        active: isOnSecurity,
+        badge: securityBadge,
+        onClick: () => {
+          void navigate({ to: "/security" });
+        },
+      },
+      hostEconomy: {
+        icon: UsageGaugeIcon,
+        label: "Host Economy",
+        active: isOnHostEconomy,
+        badge: null,
+        onClick: () => {
+          void navigate({ to: "/host-economy" });
+        },
+      },
     }),
     [
+      flowsBadge,
+      securityBadge,
+      isOnFlows,
+      isOnSecurity,
+      isOnHostEconomy,
       automationCountBadge,
       handlePrimaryNewThread,
       inboxBadge,
@@ -7244,6 +7308,7 @@ export default function Sidebar() {
     bottomItems: railBottomItems,
     bottomSlot: (
       <>
+        <HyperAgentRailStatus onOpenSecurity={() => void navigate({ to: "/security" })} />
         <AppRailUsage
           onOpenUsageSettings={() => {
             void navigate({ to: "/settings", search: { section: "usage" } });

@@ -44,6 +44,7 @@ import { FeatureTourStep } from "./steps/FeatureTourStep";
 import { ProjectStep, type OnboardingProjectResult } from "./steps/ProjectStep";
 import { ProvidersStep } from "./steps/ProvidersStep";
 import { ThemeStep } from "./steps/ThemeStep";
+import { SampleFlowStep } from "./steps/SampleFlowStep";
 import { WelcomeStep } from "./steps/WelcomeStep";
 import { useProviderDetection } from "./useProviderDetection";
 
@@ -53,6 +54,7 @@ const STEP_TITLES: Record<OnboardingStep, string> = {
   providers: "Choose your agents",
   theme: "Pick an appearance",
   project: "Add your first project",
+  flow: "Run a sample flow",
   done: "You're all set",
 };
 
@@ -62,6 +64,7 @@ const STEP_DESCRIPTIONS: Record<Exclude<OnboardingStep, "done">, string> = {
   providers: `Detected on this machine. Uncheck any you don't want ${APP_BASE_NAME} to use.`,
   theme: "Applies live behind this window. Change it anytime in Settings → Appearance.",
   project: `A project is a folder ${APP_BASE_NAME} works in. Git repositories unlock branches, worktrees, diffs and pull requests.`,
+  flow: "A flow hands work from one agent to the next, and a check must pass before each hand-off.",
 };
 
 /** Welcome and Done are hero steps: centered header, no step counter, centered body. */
@@ -85,6 +88,7 @@ function OnboardingFlow(props: {
   const providerDetection = useProviderDetection();
   const { activeTheme } = useTheme();
 
+  const [sampleFlowStarted, setSampleFlowStarted] = useState(false);
   const goBack = () => setStep(previousOnboardingStep(step));
   const goNext = () => setStep(nextOnboardingStep(step));
 
@@ -114,6 +118,7 @@ function OnboardingFlow(props: {
     projectResults.length > 0
       ? `${plural(projectResults.length, "project")} added`
       : "No project yet",
+    ...(sampleFlowStarted ? ["Sample flow running"] : []),
   ].join(" · ");
 
   const description = step === "done" ? doneSummary : STEP_DESCRIPTIONS[step];
@@ -131,6 +136,10 @@ function OnboardingFlow(props: {
         return { label: "Continue", onPrimary: goNext };
       case "project":
         return projectResults.length > 0
+          ? { label: "Continue", onPrimary: goNext }
+          : { label: "Skip for now", onPrimary: goNext };
+      case "flow":
+        return sampleFlowStarted
           ? { label: "Continue", onPrimary: goNext }
           : { label: "Skip for now", onPrimary: goNext };
       case "done":
@@ -190,6 +199,13 @@ function OnboardingFlow(props: {
                   : [...current, result],
               )
             }
+          />
+        ) : null}
+        {step === "flow" ? (
+          <SampleFlowStep
+            projectId={projectResults[0]?.projectId ?? null}
+            started={sampleFlowStarted}
+            onStarted={() => setSampleFlowStarted(true)}
           />
         ) : null}
         {step === "done" ? <DoneStep /> : null}
