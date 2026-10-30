@@ -2826,7 +2826,7 @@ describe("ChatView transcript geometry (full app)", () => {
     { activation: "keyboard", scrollTakeover: false },
     { activation: "click", scrollTakeover: true },
   ])(
-    "keeps subagents out of the sidebar while navigating ($activation, scroll takeover: $scrollTakeover)",
+    "keeps nested subagents collapsed while navigating ($activation, scroll takeover: $scrollTakeover)",
     async ({ activation, scrollTakeover }) => {
       const base = createSnapshotForTargetUser({
         targetMessageId: MessageId.makeUnsafe("subagent-navigation-anchor"),

@@ -47,7 +47,7 @@ export function NestedThreadsToggle(props: { open: boolean; onToggle: () => void
   );
 }
 
-/** The line(s) below a parent row. `children` are the nested rows, shown while open. */
+/** The line(s) below a parent row. `children` are the nested rows, mounted only while open. */
 export function SidebarNestedThreads(props: {
   open: boolean;
   summary: { readonly count: number; readonly failed: number };
@@ -71,7 +71,7 @@ export function SidebarNestedThreads(props: {
       </DisclosureRegion>
       <DisclosureRegion open={open}>
         <ul className={cn("ml-5 flex flex-col gap-0.5 border-l border-border/40 pl-1.5")}>
-          {props.children}
+          {open ? props.children : null}
         </ul>
       </DisclosureRegion>
     </SidebarMenuSubItem>
