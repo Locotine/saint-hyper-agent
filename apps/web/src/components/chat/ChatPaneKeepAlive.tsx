@@ -5,6 +5,7 @@
 // Layer: Chat surface primitive
 // Exports: ChatPaneKeepAliveProvider, KeptChatPane, ChatPaneBody
 
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import {
   createContext,
   useContext,
@@ -293,7 +294,8 @@ export function KeptChatPane({
   children: ReactNode;
 }) {
   const keepAlive = useContext(ChatPaneKeepAliveContext);
-  // The pane renders from the provider, so it would read this computer's store; carry the slot's host in.
+  // The pane renders from the provider, so it would read this computer's store; carry another host in.
+  // This computer's scope is the default: its registry entry is `useStore` itself, which must not become the context value.
   const hostId = useHostId();
   const placeholderRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<KeptPane | null>(null);
@@ -320,7 +322,8 @@ export function KeptChatPane({
       return;
     }
     pane.threadId = threadId;
-    pane.content = <HostScope hostId={hostId}>{children}</HostScope>;
+    pane.content =
+      hostId === LOCAL_HOST_ID ? children : <HostScope hostId={hostId}>{children}</HostScope>;
     for (const listener of pane.listeners) {
       listener();
     }
