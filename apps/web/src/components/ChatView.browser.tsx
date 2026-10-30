@@ -572,10 +572,12 @@ function findThreadDetailFromFixtureSnapshot(
   return fixture.snapshot.threads.find((entry) => entry.id === threadId) ?? null;
 }
 
-/** The rows of the open fallback context menu. */
+/** The rows of the open context menu: the sidebar's React menu, or the DOM fallback. */
 function contextMenuRows() {
   return Array.from(
-    document.querySelectorAll<HTMLButtonElement>('[data-slot="context-menu-popup"] button'),
+    document.querySelectorAll<HTMLElement>(
+      '[data-slot="context-menu-popup"] button, [data-slot="menu-popup"] [role="menuitem"]',
+    ),
   );
 }
 
@@ -8456,7 +8458,7 @@ describe("ChatView transcript geometry (full app)", () => {
         new MouseEvent("contextmenu", { bubbles: true, clientX: 120, clientY: 160 }),
       );
       (
-        await waitForElement<HTMLButtonElement>(
+        await waitForElement<HTMLElement>(
           () =>
             contextMenuRows().find((button) =>
               button.textContent?.includes("Open Path in Terminal"),

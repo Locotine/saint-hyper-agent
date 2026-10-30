@@ -575,6 +575,8 @@ type DesktopUpdateErrorContext = DesktopUpdateState["errorContext"];
 
 let mainWindow: BrowserWindow | null = null;
 const REMOTE_SSH_ENABLED = isBetaFeatureEnabled(REMOTE_SSH_BETA_FEATURE, desktopFlavor);
+// Saved hosts reconnect once per app run, not each time the handlers are registered.
+let remoteSshAutoConnected = false;
 const REMOTE_SSH_HOSTS_PATH = Path.join(STATE_DIR, "remote-ssh-hosts.json");
 const REMOTE_SSH_CLIENT_ID_PATH = Path.join(STATE_DIR, "remote-ssh-client-id");
 // Shared by every desktop that reaches a host's account: holds installed versions.
@@ -5927,6 +5929,10 @@ function registerRemoteSshHandlers(): void {
     },
   });
   publishRemoteSshState = registration.publishState;
+  if (!remoteSshAutoConnected) {
+    remoteSshAutoConnected = true;
+    registration.autoConnectSavedHosts();
+  }
 }
 
 function createWindow(): BrowserWindow {

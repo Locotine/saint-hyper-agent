@@ -17,7 +17,30 @@ vi.mock("../nativeApi", () => ({
   }),
 }));
 
+const sshState = vi.hoisted(() => ({ current: null as unknown }));
+
+vi.mock("../hooks/useRemoteSshState", () => ({
+  useRemoteSshState: () => sshState.current,
+}));
+
 import { CreateProjectDialog } from "./CreateProjectDialog";
+
+const CONNECTED_HOST_STATE = {
+  configHosts: [],
+  savedHosts: [{ host: "devbox", remoteRoot: null, hostKey: "9093c8d3" }],
+  hosts: [
+    {
+      host: "devbox",
+      hostKey: "9093c8d3",
+      epoch: 1,
+      remoteRoot: ".saint-remote",
+      phase: "connected",
+      message: null,
+      localPort: 4100,
+    },
+  ],
+  defaultRemoteRoot: ".saint-remote",
+};
 
 describe("CreateProjectDialog GitHub source", () => {
   afterEach(() => {
@@ -231,5 +254,57 @@ describe("CreateProjectDialog multi-folder projects", () => {
       .toHaveTextContent("packages is inside web. Add only one of them.");
     expect(page.getByRole("button", { name: "Remove packages" }).query()).toBeNull();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+describe("CreateProjectDialog host", () => {
+  afterEach(() => {
+    sshState.current = null;
+  });
+
+  async function renderDialog() {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    await render(
+      <CreateProjectDialog
+        open
+        githubProvisioningAvailable
+        spaces={[]}
+        activeSpaceId={null}
+        defaultCloneParent="/Users/test/Developer"
+        onOpenChange={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    return onSubmit;
+  }
+
+  it("offers no host choice while no remote host is connected", async () => {
+    await renderDialog();
+    expect(document.body.textContent).not.toContain("This computer");
+    await expect.element(page.getByText("Space", { exact: true })).toBeInTheDocument();
+  });
+
+  it("creates the project on the chosen host, with no Space and no GitHub", async () => {
+    sshState.current = CONNECTED_HOST_STATE;
+    const onSubmit = await renderDialog();
+
+    await page.getByRole("combobox", { name: "Host" }).click();
+    await page.getByRole("option", { name: "devbox" }).click();
+
+    expect(document.body.textContent).not.toContain("Space");
+    expect(
+      (page.getByRole("radio", { name: "GitHub" }).element() as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    await page.getByLabelText("Project folder path").fill("/home/dev/app");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
+      source: "local",
+      hostId: "ssh:9093c8d3",
+      workspaceRoot: "/home/dev/app",
+      additionalFolders: [],
+      spaceId: null,
+    });
   });
 });

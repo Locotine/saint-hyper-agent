@@ -3,9 +3,14 @@
 // Layer: Sidebar support (read-only mirror of a host's shell snapshot)
 // Exports: buildRemoteCatalogProjects, remoteHostSidebarStatus, REMOTE_CATALOG_THREAD_LIMIT
 
-import type { DesktopRemoteSshHostState, OrchestrationShellSnapshot } from "@saint/contracts";
+import type {
+  DesktopRemoteSshHostState,
+  DesktopRemoteSshState,
+  OrchestrationShellSnapshot,
+} from "@saint/contracts";
+import { sshHostId, type HostId } from "@saint/shared/hostId";
 
-import { isRemoteHostBusy } from "../components/settings/remoteHostsSettingsModel";
+import { isRemoteHostBusy, remoteHostRows } from "../components/settings/remoteHostsSettingsModel";
 import type { AppState } from "../storeState";
 
 /** Threads listed per project before the sidebar shows a count instead. */
@@ -133,4 +138,15 @@ export function remoteHostSidebarStatus(
   if (state.phase === "connected") return "connected";
   if (state.phase === "error") return "error";
   return isRemoteHostBusy(state) ? "connecting" : "offline";
+}
+
+/** Hosts that are connected right now, by their SSH name and host id. */
+export function connectedRemoteHosts(
+  state: DesktopRemoteSshState | null,
+): ReadonlyArray<{ host: string; hostId: HostId }> {
+  return (state ? remoteHostRows(state) : []).flatMap((row) =>
+    row.state?.hostKey && remoteHostSidebarStatus(row.state) === "connected"
+      ? [{ host: row.host, hostId: sshHostId(row.state.hostKey) }]
+      : [],
+  );
 }

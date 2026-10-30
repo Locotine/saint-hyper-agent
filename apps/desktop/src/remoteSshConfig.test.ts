@@ -111,6 +111,22 @@ describe("saved remote hosts", () => {
     expect(updated[0]).toEqual({ host: "devbox", remoteRoot: "squad/saint", hostKey: "a1b2c3d4" });
   });
 
+  it("keeps the flag of a host the user disconnected, and drops anything else", () => {
+    const saved = parseSavedRemoteSshHosts(
+      JSON.stringify({
+        hosts: [
+          { host: "devbox", remoteRoot: null, hostKey: "a1b2c3d4", autoConnect: false },
+          { host: "k6", remoteRoot: null, autoConnect: true },
+        ],
+      }),
+    );
+    expect(saved).toEqual([
+      { host: "devbox", remoteRoot: null, hostKey: "a1b2c3d4", autoConnect: false },
+      { host: "k6", remoteRoot: null },
+    ]);
+    expect(parseSavedRemoteSshHosts(serializeSavedRemoteSshHosts(saved))).toEqual(saved);
+  });
+
   it("treats unreadable files as empty", () => {
     expect(parseSavedRemoteSshHosts("not json")).toEqual([]);
     expect(parseSavedRemoteSshHosts("null")).toEqual([]);

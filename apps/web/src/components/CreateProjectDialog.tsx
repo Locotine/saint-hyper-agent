@@ -7,22 +7,26 @@
 
 import { type GitHubProjectProvisionProgressEvent, type SpaceId } from "@saint/contracts";
 import { parseGitHubRepositoryInput } from "@saint/shared/githubRepository";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { findProjectFolderProblem } from "@saint/shared/projectFolders";
 import { normalizeProjectDirectoryName } from "@saint/shared/projectDirectoryName";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
 import { isElectron } from "../env";
+import { useRemoteSshState } from "../hooks/useRemoteSshState";
 import { useWindowFolderDrop } from "../hooks/useWindowFolderDrop";
 import { VOID_SPACE_KEY, spaceKey, toSpaceIconName } from "../lib/spaceGrouping";
 import { createSpace } from "../lib/spaces";
 import { readLocalNativeApi } from "../nativeApi";
+import { pickRemoteFolder } from "../remoteFolderPickerStore";
 import { randomUUID } from "../lib/utils";
 import { joinProjectPath } from "../lib/projectPaths";
+import { connectedRemoteHosts } from "../lib/remoteHostCatalog";
 import type { Space } from "../types";
 import { useVoidSpace } from "../voidSpaceStore";
 import { cn } from "~/lib/utils";
 
-import { FolderAddIcon, FolderIcon } from "~/lib/icons";
+import { FolderAddIcon, FolderIcon, MonitorIcon, ServerIcon } from "~/lib/icons";
 import {
   CreateGitHubProjectFields,
   PROJECT_DIALOG_FIELD_CONTROL_CLASS_NAME,
@@ -49,6 +53,8 @@ import { CentralIcon } from "~/lib/central-icons";
 
 interface CreateLocalProjectSubmitValue {
   readonly source: "local";
+  /** A connected remote host the folder lives on; omitted for this computer. */
+  readonly hostId?: HostId;
   readonly workspaceRoot: string;
   /** Extra source folders of a multi-folder project; `workspaceRoot` is the primary one. */
   readonly additionalFolders: ReadonlyArray<string>;
@@ -85,6 +91,7 @@ export function CreateProjectDialog(props: {
   onSubmit: (value: CreateProjectSubmitValue, options: CreateProjectSubmitOptions) => Promise<void>;
 }) {
   const [source, setSource] = useState<"local" | "github">("local");
+  const [selectedHostId, setSelectedHostId] = useState<HostId>(LOCAL_HOST_ID);
   const [path, setPath] = useState("");
   /** Extra folders after the primary `path`, in display order. */
   const [additionalFolders, setAdditionalFolders] = useState<ReadonlyArray<string>>([]);
@@ -124,6 +131,7 @@ export function CreateProjectDialog(props: {
   const submitButtonId = `${fieldId}-submit`;
   const sourceFolderLabelId = `${fieldId}-source-folder`;
   const spaceLabelId = `${fieldId}-space`;
+  const hostLabelId = `${fieldId}-host`;
   const errorId = `${fieldId}-error`;
 
   useEffect(() => {
@@ -132,6 +140,7 @@ export function CreateProjectDialog(props: {
     openedRef.current = props.open;
     if (!props.open) return;
     setSource("local");
+    setSelectedHostId(LOCAL_HOST_ID);
     setPath("");
     setAdditionalFolders([]);
     setAdditionalFolderInput("");
@@ -161,6 +170,10 @@ export function CreateProjectDialog(props: {
     }
   }, [props.githubProvisioningAvailable, source]);
 
+  const connectedHosts = connectedRemoteHosts(useRemoteSshState());
+  // A host that disconnected while the dialog was open falls back to this computer.
+  const remoteHost = connectedHosts.find((host) => host.hostId === selectedHostId) ?? null;
+  const isRemote = remoteHost !== null;
   const trimmedPath = path.trim();
   const parsedRepository = parseGitHubRepositoryInput(repositoryInput);
   const trimmedDestinationParent = destinationParent.trim();
@@ -262,6 +275,17 @@ export function CreateProjectDialog(props: {
 
   const handleBrowse = async () => {
     if (isPickingFolder || submitting) return;
+    if (remoteHost) {
+      setIsPickingFolder(true);
+      try {
+        const picked = await pickRemoteFolder(remoteHost.hostId, remoteHost.host);
+        if (picked) applyPickedFolder(picked);
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : "Unable to open the folder picker.");
+      }
+      setIsPickingFolder(false);
+      return;
+    }
     const api = readLocalNativeApi();
     if (!api) {
       setFormError("The app server is unavailable.");
@@ -284,7 +308,7 @@ export function CreateProjectDialog(props: {
   // While the dialog is open it is the only interactive surface, so a folder dropped
   // anywhere in the window counts (see useWindowFolderDrop).
   const isDropTarget = useWindowFolderDrop({
-    enabled: props.open && isElectron && source === "local",
+    enabled: props.open && isElectron && source === "local" && !isRemote,
     // With a primary folder in place, another dropped folder joins the project.
     onFolder: (dropped) => {
       if (trimmedPath) addAdditionalFolder(dropped);
@@ -352,9 +376,10 @@ export function CreateProjectDialog(props: {
         await props.onSubmit(
           {
             source: "local",
+            ...(remoteHost ? { hostId: remoteHost.hostId } : {}),
             workspaceRoot: trimmedPath,
-            additionalFolders,
-            spaceId,
+            additionalFolders: remoteHost ? [] : additionalFolders,
+            spaceId: remoteHost ? null : spaceId,
             createIfMissing: trimmedPath !== pickedPath,
           },
           { signal: abortController.signal },
@@ -421,6 +446,7 @@ export function CreateProjectDialog(props: {
   // switches to the list once another folder joins it. Browser builds list folders as soon
   // as a path is typed, since there is no picker to fall back on.
   const showFolderList =
+    !isRemote &&
     folders.length > 0 &&
     (!isElectron || pickedPath === trimmedPath || additionalFolders.length > 0);
 
@@ -435,7 +461,7 @@ export function CreateProjectDialog(props: {
             className="mt-4"
             value={source}
             disabled={submitting}
-            githubAvailable={props.githubProvisioningAvailable}
+            githubAvailable={props.githubProvisioningAvailable && !isRemote}
             onValueChange={(nextSource) => {
               setSource(nextSource);
               setFormError(null);
@@ -450,6 +476,62 @@ export function CreateProjectDialog(props: {
 
           {source === "local" ? (
             <>
+              {connectedHosts.length > 0 ? (
+                <div className="space-y-2">
+                  <span
+                    id={hostLabelId}
+                    className={cn("block", dialogFieldLabelClassName, "text-ui text-foreground")}
+                  >
+                    Host
+                  </span>
+                  <Select
+                    value={remoteHost?.hostId ?? LOCAL_HOST_ID}
+                    onValueChange={(next) => {
+                      if (typeof next !== "string") return;
+                      setSelectedHostId(next as HostId);
+                      // A folder on one host means nothing on another.
+                      setPath("");
+                      setPickedPath(null);
+                      setAdditionalFolders([]);
+                      setFormError(null);
+                    }}
+                  >
+                    <SelectTrigger
+                      aria-labelledby={hostLabelId}
+                      disabled={submitting}
+                      className={cn(PROJECT_DIALOG_FIELD_CONTROL_CLASS_NAME, "min-w-0")}
+                    >
+                      <SelectValue>
+                        <span className="flex items-center gap-2">
+                          {remoteHost ? (
+                            <ServerIcon aria-hidden className="size-3.5" />
+                          ) : (
+                            <MonitorIcon aria-hidden className="size-3.5" />
+                          )}
+                          {remoteHost?.host ?? "This computer"}
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <ComposerPickerSelectPopup align="start">
+                      <SelectItem value={LOCAL_HOST_ID}>
+                        <span className="flex items-center gap-2">
+                          <MonitorIcon aria-hidden className="size-3.5" />
+                          This computer
+                        </span>
+                      </SelectItem>
+                      {connectedHosts.map(({ host, hostId }) => (
+                        <SelectItem key={hostId} value={hostId}>
+                          <span className="flex items-center gap-2">
+                            <ServerIcon aria-hidden className="size-3.5" />
+                            {host}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </ComposerPickerSelectPopup>
+                  </Select>
+                </div>
+              ) : null}
+
               <InputGroup className={PROJECT_DIALOG_FIELD_CONTROL_CLASS_NAME}>
                 <InputGroupAddon className="w-10 self-stretch border-e border-foreground/12 ps-0">
                   <FolderIcon className="size-4 text-muted-foreground/70" aria-hidden="true" />
@@ -548,7 +630,7 @@ export function CreateProjectDialog(props: {
                     </p>
                   ) : null}
                 </div>
-              ) : isElectron ? (
+              ) : isElectron || isRemote ? (
                 <div className="space-y-2">
                   <span
                     id={sourceFolderLabelId}
@@ -621,63 +703,65 @@ export function CreateProjectDialog(props: {
             />
           )}
 
-          <div className="space-y-2">
-            <span
-              id={spaceLabelId}
-              className={cn("block", dialogFieldLabelClassName, "text-ui text-foreground")}
-            >
-              Space
-            </span>
-            <div className="flex items-center gap-2">
-              <Select
-                value={selectedSpaceKey}
-                onValueChange={(next) => {
-                  if (typeof next === "string") setSelectedSpaceKey(next);
-                }}
+          {isRemote ? null : (
+            <div className="space-y-2">
+              <span
+                id={spaceLabelId}
+                className={cn("block", dialogFieldLabelClassName, "text-ui text-foreground")}
               >
-                <SelectTrigger
-                  aria-labelledby={spaceLabelId}
-                  className={cn(PROJECT_DIALOG_FIELD_CONTROL_CLASS_NAME, "min-w-0 flex-1")}
+                Space
+              </span>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedSpaceKey}
+                  onValueChange={(next) => {
+                    if (typeof next === "string") setSelectedSpaceKey(next);
+                  }}
                 >
-                  <SelectValue>
-                    <span className="flex items-center gap-2">
-                      <SpaceIcon
-                        icon={selectedSpace?.icon ?? voidSpace.icon}
-                        className="size-3.5"
-                      />
-                      {selectedSpace?.name ?? voidSpace.name}
-                    </span>
-                  </SelectValue>
-                </SelectTrigger>
-                <ComposerPickerSelectPopup align="start">
-                  <SelectItem value={VOID_SPACE_KEY}>
-                    <span className="flex items-center gap-2">
-                      <SpaceIcon icon={voidSpace.icon} className="size-3.5" />
-                      {voidSpace.name}
-                    </span>
-                  </SelectItem>
-                  {spaces.map((space) => (
-                    <SelectItem key={space.id} value={space.id}>
+                  <SelectTrigger
+                    aria-labelledby={spaceLabelId}
+                    className={cn(PROJECT_DIALOG_FIELD_CONTROL_CLASS_NAME, "min-w-0 flex-1")}
+                  >
+                    <SelectValue>
                       <span className="flex items-center gap-2">
-                        <SpaceIcon icon={space.icon} className="size-3.5" />
-                        {space.name}
+                        <SpaceIcon
+                          icon={selectedSpace?.icon ?? voidSpace.icon}
+                          className="size-3.5"
+                        />
+                        {selectedSpace?.name ?? voidSpace.name}
+                      </span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <ComposerPickerSelectPopup align="start">
+                    <SelectItem value={VOID_SPACE_KEY}>
+                      <span className="flex items-center gap-2">
+                        <SpaceIcon icon={voidSpace.icon} className="size-3.5" />
+                        {voidSpace.name}
                       </span>
                     </SelectItem>
-                  ))}
-                </ComposerPickerSelectPopup>
-              </Select>
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="New space"
-                disabled={submitting}
-                className={cn(PROJECT_DIALOG_FIELD_CONTROL_CLASS_NAME, "w-9 shrink-0 sm:h-9")}
-                onClick={() => setSpaceEditorOpen(true)}
-              >
-                <CentralIcon name="plus-medium" className="size-4" aria-hidden="true" />
-              </Button>
+                    {spaces.map((space) => (
+                      <SelectItem key={space.id} value={space.id}>
+                        <span className="flex items-center gap-2">
+                          <SpaceIcon icon={space.icon} className="size-3.5" />
+                          {space.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </ComposerPickerSelectPopup>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="New space"
+                  disabled={submitting}
+                  className={cn(PROJECT_DIALOG_FIELD_CONTROL_CLASS_NAME, "w-9 shrink-0 sm:h-9")}
+                  onClick={() => setSpaceEditorOpen(true)}
+                >
+                  <CentralIcon name="plus-medium" className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           {formError ? (
             <div id={errorId} role="alert" className="space-y-1">

@@ -70,7 +70,7 @@ function parseHost(value: unknown): string {
 export function registerRemoteSshIpc(
   ipcMain: IpcMain,
   options: RemoteSshIpcOptions,
-): { readonly publishState: () => void } {
+): { readonly publishState: () => void; readonly autoConnectSavedHosts: () => void } {
   const snapshot = (): DesktopRemoteSshState => {
     let configHosts: string[] = [];
     try {
@@ -119,11 +119,24 @@ export function registerRemoteSshIpc(
     publishState();
     return options.manager.connect(saved);
   });
+  // Disconnecting or stopping a host is a choice: it stays saved but is not brought back at launch.
+  const skipAutoConnect = (host: string) => {
+    options.writeSavedHosts(
+      options
+        .readSavedHosts()
+        .map((saved) => (saved.host === host ? { ...saved, autoConnect: false as const } : saved)),
+    );
+    publishState();
+  };
   handle(IPC.disconnect, (payload) => {
-    options.manager.disconnect(parseHost(payload));
+    const host = parseHost(payload);
+    options.manager.disconnect(host);
+    skipAutoConnect(host);
   });
   handle(IPC.stopServer, async (payload) => {
-    await options.manager.stopServer(parseSavedHostInput(payload));
+    const input = parseSavedHostInput(payload);
+    await options.manager.stopServer(input);
+    skipAutoConnect(input.host);
   });
   // The renderer's per-host connections reach a connected host's server here.
   handle(IPC.wsUrl, (payload) => options.manager.wsUrl(parseHost(payload)));
@@ -144,5 +157,25 @@ export function registerRemoteSshIpc(
     publishState();
   });
 
-  return { publishState };
+  // Reconnects the hosts that were connected when the app last ran, i.e. every saved host the
+  // user did not disconnect. A failure shows on that host's row; it never blocks the others.
+  const autoConnectSavedHosts = () => {
+    if (!options.enabled) return;
+    const saved = options.readSavedHosts();
+    const targets = saved.filter((entry) => entry.autoConnect !== false);
+    if (targets.length === 0) return;
+    const keyed = saved.map((entry) => ({ ...entry, hostKey: entry.hostKey ?? generateHostKey() }));
+    if (keyed.some((entry, index) => entry.hostKey !== saved[index]?.hostKey)) {
+      options.writeSavedHosts(keyed);
+    }
+    for (const entry of keyed) {
+      if (entry.autoConnect === false) continue;
+      void options.manager
+        .connect({ host: entry.host, remoteRoot: entry.remoteRoot, hostKey: entry.hostKey })
+        .catch(() => undefined);
+    }
+    publishState();
+  };
+
+  return { publishState, autoConnectSavedHosts };
 }
