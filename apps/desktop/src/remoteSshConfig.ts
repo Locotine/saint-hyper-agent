@@ -93,6 +93,8 @@ export interface SavedRemoteSshHost {
   readonly remoteRoot: string | null;
   /** Stable identity (`@saint/shared/hostId`); absent in files written before multi-host. */
   readonly hostKey?: string;
+  /** False once the user disconnected the host: it stays saved but is not reconnected at launch. */
+  readonly autoConnect?: false;
 }
 
 /** Saved hosts from the desktop's JSON file; invalid entries are dropped. */
@@ -113,11 +115,13 @@ export function parseSavedRemoteSshHosts(contents: string): SavedRemoteSshHost[]
     if (saved.some((existing) => existing.host === host)) continue;
     const remoteRoot = typeof rawRoot === "string" ? normalizeRemoteRoot(rawRoot) : null;
     const rawKey = (entry as { hostKey?: unknown }).hostKey;
-    saved.push(
-      typeof rawKey === "string" && isHostKey(rawKey)
-        ? { host, remoteRoot, hostKey: rawKey }
-        : { host, remoteRoot },
-    );
+    const autoConnect = (entry as { autoConnect?: unknown }).autoConnect === false;
+    saved.push({
+      host,
+      remoteRoot,
+      ...(typeof rawKey === "string" && isHostKey(rawKey) ? { hostKey: rawKey } : {}),
+      ...(autoConnect ? { autoConnect: false as const } : {}),
+    });
   }
   return saved;
 }
