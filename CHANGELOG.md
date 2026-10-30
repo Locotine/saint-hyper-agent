@@ -2,14 +2,22 @@
 
 ## 1.1.2 — 2026-10-30
 
-**Delete a chat from its row, and download files from a remote host.**
+**Delete a chat or a project from its row, one menu for remote projects, and download files from a remote host.**
 
-This Stable release covers the commit after `v1.1.1`: `3bce18975` (#3). It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.2).
+This Stable release covers the commits after `v1.1.1`: `3bce18975` (#3) and `e3ff5f79c` (#4). It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.2).
 
 ### Added
 
 - A trash button on a chat row's hover strip, next to Pin and Archive, for this computer's chats and a remote host's. A remote chat's row also has **Delete** in its right-click menu. Both ask first unless **Delete confirmation** is off in Settings, and deleting the open remote chat returns to the start page.
 - Explorer **Download** works again for chats on a remote host: one file opens a Save dialog, several open a folder dialog. A taken name gets ` (1)` instead of being replaced, and one failed file does not stop the rest. Folders are skipped.
+- A trash **Remove project** button on a project row's hover strip, on this computer and on a remote host. It asks first and says the folder itself is not deleted.
+- A remote host's project rows open the same right-click menu as this computer's: Copy Path, Edit project (renames it on the host), Change project path…, Pin project and Remove. Open in Finder, Open in Kanban, dev runs and Move to space are left out because they need the folder on this computer.
+- **Create project** has a Host dropdown: this computer or a connected SSH host.
+- Saved SSH hosts reconnect when the app opens, except a host you disconnected or stopped.
+
+### Changed
+
+- The chat and multi-select right-click menus (also opened from the open-chat tabs) use the same popup as the project menu instead of the system menu.
 
 ### Fixed
 
