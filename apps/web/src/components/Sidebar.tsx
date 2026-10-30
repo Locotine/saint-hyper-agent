@@ -235,8 +235,9 @@ import {
   resolveThreadEnvironmentPresentation,
   type ForkThreadTarget,
 } from "../lib/threadEnvironment";
-import { canForkThread, dispatchThreadFork, FORK_THREAD_TARGET_LABELS } from "../lib/threadFork";
+import { canForkThread, dispatchThreadFork } from "../lib/threadFork";
 import { contextMenuGroup } from "../lib/contextMenuGroup";
+import { buildThreadContextMenuItems } from "../lib/threadContextMenuItems";
 import { registerThreadContextMenu, type ThreadContextMenuOptions } from "../lib/threadContextMenu";
 import { gitBranchesQueryOptions } from "../lib/gitReactQuery";
 import { resolveComposerSlashRootBranch } from "../composerSlashCommands";
@@ -3479,57 +3480,6 @@ export default function Sidebar() {
       const continueHandoffTargetById = new Map(
         continueHandoffTargets.map((target) => [`handoff-here:${target.instanceId}`, target]),
       );
-      const handoffItems = contextMenuGroup(
-        { id: "handoff", label: "Handoff", icon: THREAD_CONTEXT_MENU_ICONS.handoff },
-        [
-          ...continueHandoffTargets.map((target) => ({
-            id: `handoff-here:${target.instanceId}`,
-            label: `${target.label} in this thread`,
-            standaloneLabel: `Handoff to ${target.label} in this thread`,
-            icon: THREAD_CONTEXT_MENU_ICONS.handoff,
-          })),
-          ...handoffTargets.map((target, index) => ({
-            id: `handoff:${target.instanceId}`,
-            label:
-              continueHandoffTargets.length > 0 ? `${target.label} in a new thread` : target.label,
-            standaloneLabel: `Handoff to ${target.label}`,
-            icon: THREAD_CONTEXT_MENU_ICONS.handoff,
-            ...(index === 0 && continueHandoffTargets.length > 0 ? { separatorBefore: true } : {}),
-          })),
-          // Orca-style: a fresh session that reads the source transcript.
-          ...transcriptHandoffTargets.map((target, index) => ({
-            id: `handoff-transcript:${target.instanceId}`,
-            label: `${target.label}, fresh from transcript`,
-            standaloneLabel: `Handoff to ${target.label}, fresh from transcript`,
-            icon: THREAD_CONTEXT_MENU_ICONS.handoff,
-            ...(index === 0 && handoffTargets.length + continueHandoffTargets.length > 0
-              ? { separatorBefore: true }
-              : {}),
-          })),
-        ],
-      );
-      // Same action as `/fork`.
-      const canFork = canForkThread({ thread, handoffAvailability });
-      const forkItems = canFork
-        ? contextMenuGroup({ id: "fork", label: "Fork", icon: THREAD_CONTEXT_MENU_ICONS.fork }, [
-            {
-              id: "fork:local",
-              label: FORK_THREAD_TARGET_LABELS.local,
-              icon: THREAD_CONTEXT_MENU_ICONS.forkLocal,
-            },
-            {
-              id: "fork:worktree",
-              label: FORK_THREAD_TARGET_LABELS.worktree,
-              icon: THREAD_CONTEXT_MENU_ICONS.forkWorktree,
-            },
-          ])
-        : [];
-      if (forkItems[0] && handoffItems.length === 0) {
-        forkItems[0] = { ...forkItems[0], separatorBefore: true };
-      }
-      if (handoffItems[0]) {
-        handoffItems[0] = { ...handoffItems[0], separatorBefore: true };
-      }
       const threadWorkspacePath = resolveThreadWorkspaceCwd({
         projectCwd: projectCwdById.get(thread.projectId) ?? null,
         envMode: thread.envMode,
@@ -3587,113 +3537,20 @@ export default function Sidebar() {
           )
         : [];
       const clicked = await showReactContextMenu(
-        [
-          { id: "rename", label: "Rename thread", icon: THREAD_CONTEXT_MENU_ICONS.rename },
-          {
-            id: "toggle-pin",
-            label: pinActionLabel("thread", isPinned),
-            icon: THREAD_CONTEXT_MENU_ICONS.pin,
-          },
-          ...(threadStatus?.dismissible
-            ? [
-                {
-                  id: "clear-notification",
-                  label: "Clear notification",
-                  icon: THREAD_CONTEXT_MENU_ICONS.clearNotification,
-                },
-              ]
-            : []),
-          { id: "mark-unread", label: "Mark unread", icon: THREAD_CONTEXT_MENU_ICONS.markUnread },
-          ...(canSnooze
-            ? [
-                ...(threadSummary?.snoozedUntil != null
-                  ? [
-                      {
-                        id: "snooze-cancel",
-                        label: "Return now",
-                        icon: THREAD_CONTEXT_MENU_ICONS.snooze,
-                        separatorBefore: true,
-                      },
-                    ]
-                  : []),
-                ...contextMenuGroup(
-                  {
-                    id: "snooze",
-                    label: threadSummary?.snoozedUntil != null ? "Reschedule" : "Snooze",
-                    icon: THREAD_CONTEXT_MENU_ICONS.snooze,
-                    separatorBefore: threadSummary?.snoozedUntil == null,
-                  },
-                  [
-                    ...SNOOZE_PRESETS.map((preset) => ({
-                      id: preset.id,
-                      label: preset.label,
-                      icon: THREAD_CONTEXT_MENU_ICONS.snooze,
-                    })),
-                    {
-                      id: "snooze-custom",
-                      label: "Pick date & time…",
-                      icon: THREAD_CONTEXT_MENU_ICONS.snooze,
-                    },
-                  ],
-                ),
-              ]
-            : []),
-          ...handoffItems,
-          ...forkItems,
-          ...contextMenuGroup(
-            {
-              id: "copy",
-              label: "Copy",
-              icon: THREAD_CONTEXT_MENU_ICONS.copy,
-              separatorBefore: true,
-            },
-            [
-              {
-                id: "copy-path",
-                label: "Path",
-                standaloneLabel: "Copy Path",
-                icon: THREAD_CONTEXT_MENU_ICONS.copy,
-              },
-              {
-                id: "copy-thread-id",
-                label: "Thread ID",
-                standaloneLabel: "Copy Thread ID",
-                icon: THREAD_CONTEXT_MENU_ICONS.copy,
-              },
-            ],
-          ),
-          ...(threadWorkspacePath
-            ? [
-                {
-                  id: "open-path-in-terminal",
-                  label: "Open Path in Terminal",
-                  icon: THREAD_CONTEXT_MENU_ICONS.openInTerminal,
-                },
-              ]
-            : []),
-          ...extraItems,
-          ...hubItems,
-          // Subagent threads are archived and restored through their parent
-          // (thread.archive cascades); archiving one alone would strand it with
-          // no sidebar or Archived-panel row to restore it from.
-          ...(thread.parentThreadId
-            ? []
-            : [
-                {
-                  id: "archive",
-                  label: "Archive",
-                  icon: THREAD_CONTEXT_MENU_ICONS.archive,
-                  separatorBefore: true,
-                },
-              ]),
-          {
-            id: "delete",
-            label: "Delete",
-            icon: THREAD_CONTEXT_MENU_ICONS.delete,
-            destructive: true,
-            ...(thread.parentThreadId ? { separatorBefore: true } : {}),
-          },
-        ],
+        buildThreadContextMenuItems({
+          isPinned,
+          hasDismissibleNotification: threadStatus?.dismissible === true,
+          canSnooze,
+          isSnoozed: threadSummary?.snoozedUntil != null,
+          continueHandoffTargets,
+          handoffTargets,
+          transcriptHandoffTargets,
+          canFork: canForkThread({ thread, handoffAvailability }),
+          hasWorkspacePath: Boolean(threadWorkspacePath),
+          extraItems,
+          hubItems,
+          isSubagent: Boolean(thread.parentThreadId),
+        }),
         position,
       );
 
