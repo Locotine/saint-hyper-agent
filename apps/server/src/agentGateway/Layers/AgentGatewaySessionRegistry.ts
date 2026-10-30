@@ -35,8 +35,8 @@ export function makeAgentGatewaySessionRegistry(options?: {
   const sessionsByKey = new Map<string, RegisteredSession>();
 
   const disabledComputerThreads = new Set<string>();
-  // ponytail: ceilings live in memory; after a restart a child falls back to the default set,
-  // which every thread already has. Persist them if ceilings start granting less than that.
+  // ponytail: ceilings live in memory; FlowService.recover re-applies flow ceilings to step
+  // threads and their gateway children. Persist them if non-flow ceilings ever narrow too.
   const ceilings = new Map<string, ReadonlySet<AgentGatewayCapability>>();
   const allowed = (threadId: string, capability: AgentGatewayCapability) =>
     (capability !== "computer:control" || !disabledComputerThreads.has(threadId)) &&

@@ -1,7 +1,13 @@
 import type { FlowNodeStatus, FlowSpec } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
-import { decideFlow, decideNodeAfterTurn, flowEdgeKey, type FlowSnapshot } from "./flowDecision";
+import {
+  decideFlow,
+  decideNodeAfterTurn,
+  flowEdgeKey,
+  gatewayDescendants,
+  type FlowSnapshot,
+} from "./flowDecision";
 
 const node = (id: string) => ({ id, role: id, prompt: `do ${id}` });
 const spec: FlowSpec = {
@@ -134,5 +140,19 @@ describe("decideFlow spend budgets", () => {
     expect(run({ tokens: 0, toolCalls: 11, subAgents: 0 })?.type).toBe("fail");
     expect(run({ tokens: 0, toolCalls: 0, subAgents: 3 })?.type).toBe("fail");
     expect(run({ tokens: 1_000, toolCalls: 10, subAgents: 2 })?.type).toBe("promote");
+  });
+});
+
+describe("gatewayDescendants", () => {
+  it("finds threads created by step threads at any depth, and nothing else", () => {
+    const threads = [
+      { id: "step" },
+      { id: "child", sourceThreadId: "step" },
+      { id: "grandchild", sourceThreadId: "child" },
+      { id: "other", sourceThreadId: "elsewhere" },
+      { id: "plain", sourceThreadId: null },
+    ];
+    expect(gatewayDescendants(threads, ["step"])).toEqual(["child", "grandchild"]);
+    expect(gatewayDescendants(threads, [])).toEqual([]);
   });
 });

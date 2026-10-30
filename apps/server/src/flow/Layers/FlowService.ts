@@ -42,6 +42,7 @@ import {
   decideFlow,
   decideNodeAfterTurn,
   flowEdgeKey,
+  gatewayDescendants,
   type NodeDecision,
 } from "../flowDecision.ts";
 import {
@@ -278,7 +279,7 @@ const make = Effect.gen(function* () {
         );
       }
       const now = isoNow();
-      yield* orchestrationEngine
+      const launched = yield* orchestrationEngine
         .dispatch({
           type: "thread.create",
           commandId: CommandId.makeUnsafe(`${commandKey}:thread-create`),
@@ -294,30 +295,51 @@ const make = Effect.gen(function* () {
           worktreePath: ownWorktree ? stepCwd : null,
           createdAt: now,
         })
-        .pipe(Effect.mapError(toError(`Could not create the thread for "${spec.id}".`)));
-      yield* orchestrationEngine
-        .dispatch({
-          type: "thread.turn.start",
-          commandId: CommandId.makeUnsafe(`${commandKey}:turn-start`),
-          threadId,
-          message: {
-            messageId: MessageId.makeUnsafe(`${commandKey}:message`),
-            role: "user",
-            text: renderFlowNodePrompt({
-              spec: run.spec,
-              node: spec,
-              incoming,
-              ...(continuation ? { continuation } : {}),
-            }),
-            attachments: [],
-          },
-          modelSelection,
-          dispatchMode: "queue",
-          runtimeMode: stepRuntimeMode(run, node.nodeId, state.nodes),
-          interactionMode: "default",
-          createdAt: now,
-        })
-        .pipe(Effect.mapError(toError(`Could not start "${spec.id}".`)));
+        .pipe(
+          Effect.mapError(toError(`Could not create the thread for "${spec.id}".`)),
+          Effect.andThen(
+            orchestrationEngine
+              .dispatch({
+                type: "thread.turn.start",
+                commandId: CommandId.makeUnsafe(`${commandKey}:turn-start`),
+                threadId,
+                message: {
+                  messageId: MessageId.makeUnsafe(`${commandKey}:message`),
+                  role: "user",
+                  text: renderFlowNodePrompt({
+                    spec: run.spec,
+                    node: spec,
+                    incoming,
+                    ...(continuation ? { continuation } : {}),
+                  }),
+                  attachments: [],
+                },
+                modelSelection,
+                dispatchMode: "queue",
+                runtimeMode: stepRuntimeMode(run, node.nodeId, state.nodes),
+                interactionMode: "default",
+                createdAt: now,
+              })
+              .pipe(Effect.mapError(toError(`Could not start "${spec.id}".`))),
+          ),
+          Effect.as(true),
+          // The node is already claimed: hand it to the person with the reason instead of
+          // leaving it running with no thread.
+          Effect.catch((error: FlowServiceError) =>
+            applyNodeDecision(
+              run.id,
+              node.nodeId,
+              {
+                type: "needs_you",
+                reason:
+                  `${error.message} ${error.cause instanceof Error ? error.cause.message : ""}`.trim(),
+                countsAsFailure: true,
+              },
+              {},
+            ).pipe(Effect.as(false)),
+          ),
+        );
+      if (!launched) return;
       yield* record(run, "node.started", "saint", { attempt, threadId }, node.nodeId);
       yield* Effect.forEach(nodeStartedHandlers, (handler) => handler(run, node.nodeId), {
         discard: true,
@@ -519,6 +541,9 @@ const make = Effect.gen(function* () {
     );
 
   /** Interrupts every running step's turn and kills its provider process tree. */
+  // Threads this service is stopping itself, usually under the mutation lock: their kill must
+  // not come back through `onKill` and wait on that lock.
+  const stopping = new Set<string>();
   const stopRunningNodes = (state: FlowRunState, label: string, reason: string, by: string) =>
     Effect.gen(function* () {
       const running = state.nodes.filter(
@@ -542,15 +567,16 @@ const make = Effect.gen(function* () {
         { discard: true },
       );
       if (aegis && running.length > 0) {
-        yield* aegis
-          .kill({
-            threadIds: running.map((node) => node.threadId!),
-            flowId: state.run.id,
-            reason,
-            by,
-            revoke: false,
-          })
-          .pipe(Effect.ignore);
+        const threadIds = running.map((node) => node.threadId!);
+        for (const threadId of threadIds) stopping.add(threadId);
+        yield* aegis.kill({ threadIds, flowId: state.run.id, reason, by, revoke: false }).pipe(
+          Effect.ignore,
+          Effect.ensuring(
+            Effect.sync(() => {
+              for (const threadId of threadIds) stopping.delete(threadId);
+            }),
+          ),
+        );
       }
     });
 
@@ -678,8 +704,11 @@ const make = Effect.gen(function* () {
               const modelOverride = yield* decodeModelSelection({ provider: next }).pipe(
                 Effect.mapError(toError(`Unknown provider "${next}".`)),
               );
+              // Back to running: a gating step cannot be continued, and a later gate pass would
+              // find it still gating and hand it to the person anyway.
               yield* saveNode(node, {
                 ...extra,
+                status: "running",
                 refixExhausted: tried,
                 modelOverride,
                 freshRefixes: true,
@@ -1368,14 +1397,18 @@ const make = Effect.gen(function* () {
   const recover = Effect.gen(function* () {
     // Capability ceilings live in the credential registry's memory; the run keeps the ceiling,
     // so a restart puts it back on every step thread before any of them can call a tool.
+    // Threads a step created through the gateway get it too, at any depth.
     const live = yield* list({ statuses: ["running", "paused"] });
+    const threads = live.some((run) => run.capabilityCeiling)
+      ? (yield* orchestrationEngine.getReadModel()).threads
+      : [];
     for (const run of live) {
       if (!run.capabilityCeiling) continue;
       const state = yield* load(run.id);
-      for (const node of state.nodes) {
-        if (!node.threadId) continue;
+      const stepThreads = state.nodes.flatMap((node) => (node.threadId ? [node.threadId] : []));
+      for (const threadId of [...stepThreads, ...gatewayDescendants(threads, stepThreads)]) {
         credentials?.setCapabilityCeiling?.(
-          node.threadId,
+          threadId,
           run.capabilityCeiling as ReadonlyArray<AgentGatewayCapability>,
         );
       }
@@ -1432,7 +1465,7 @@ const make = Effect.gen(function* () {
       );
       // A tripwire on a step cancels its whole flow.
       aegis?.onKill((threadId) =>
-        nodeForThread(threadId).pipe(
+        (stopping.has(threadId) ? Effect.succeed(null) : nodeForThread(threadId)).pipe(
           Effect.flatMap((found) => (found ? cancel(found.run.id, "aegis:tripwire") : Effect.void)),
           Effect.ignore,
         ),

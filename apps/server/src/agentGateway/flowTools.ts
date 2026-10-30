@@ -157,9 +157,19 @@ export function makeAgentGatewayFlowTools(input: FlowToolsInput): ReadonlyArray<
           const caller = yield* requireThreadShell(context.callerThreadId).pipe(
             Effect.mapError(toToolError),
           );
-          const parent = yield* flows
-            .nodeForThread(ThreadId.makeUnsafe(context.callerThreadId))
-            .pipe(Effect.mapError(toToolError));
+          // A thread a step created through the gateway belongs to that step's flow, so nesting
+          // through child threads counts toward the depth limit too.
+          let parent = null as Effect.Success<ReturnType<FlowServiceShape["nodeForThread"]>>;
+          let shell: OrchestrationThreadShell | null = caller;
+          const visited = new Set<string>();
+          while (shell && !visited.has(shell.id)) {
+            visited.add(shell.id);
+            parent = yield* flows.nodeForThread(shell.id).pipe(Effect.mapError(toToolError));
+            if (parent || !shell.sourceThreadId) break;
+            shell = yield* requireThreadShell(shell.sourceThreadId).pipe(
+              Effect.orElseSucceed(() => null),
+            );
+          }
           const nestingDepth = parent ? (parent.run.nestingDepth ?? 0) + 1 : 0;
           if (nestingDepth > FLOW_MAX_NESTING_DEPTH) {
             return yield* Effect.fail(

@@ -193,3 +193,36 @@ export function decideNodeAfterTurn(input: {
     countsAsFailure: true,
   };
 }
+
+/**
+ * Threads the agents in `roots` created through the gateway, at any depth. Their capability
+ * ceilings live in memory, so a restart re-applies the flow's ceiling to them as well.
+ */
+export function gatewayDescendants(
+  threads: ReadonlyArray<{
+    readonly id: string;
+    readonly sourceThreadId?: string | null | undefined;
+  }>,
+  roots: Iterable<string>,
+): ReadonlyArray<string> {
+  const childrenOf = new Map<string, string[]>();
+  for (const thread of threads) {
+    if (!thread.sourceThreadId) continue;
+    childrenOf.set(thread.sourceThreadId, [
+      ...(childrenOf.get(thread.sourceThreadId) ?? []),
+      thread.id,
+    ]);
+  }
+  const seen = new Set<string>(roots);
+  const queue = [...seen];
+  const found: string[] = [];
+  while (queue.length > 0) {
+    for (const child of childrenOf.get(queue.shift()!) ?? []) {
+      if (seen.has(child)) continue;
+      seen.add(child);
+      found.push(child);
+      queue.push(child);
+    }
+  }
+  return found;
+}

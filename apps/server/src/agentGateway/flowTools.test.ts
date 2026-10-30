@@ -31,12 +31,20 @@ const run = (nestingDepth: number): FlowRun => ({
 });
 const node = { flowId: run(0).id, nodeId: "a", status: "running" } as FlowNodeRun;
 
-function harness(parentDepth: number | null) {
+function harness(
+  parentDepth: number | null,
+  // The step thread that runs the parent node, and who created which thread.
+  lineage?: { readonly stepThread: string; readonly createdBy: Record<string, string> },
+) {
   const starts: FlowStartInput[] = [];
   const handoffs: unknown[] = [];
   const flows = {
-    nodeForThread: () =>
-      Effect.succeed(parentDepth === null ? null : { run: run(parentDepth), node }),
+    nodeForThread: (threadId: string) =>
+      Effect.succeed(
+        parentDepth === null || (lineage && threadId !== lineage.stepThread)
+          ? null
+          : { run: run(parentDepth), node },
+      ),
     start: (input: FlowStartInput) =>
       Effect.sync(() => {
         starts.push(input);
@@ -50,8 +58,10 @@ function harness(parentDepth: number | null) {
   } as unknown as FlowServiceShape;
   const tools = makeAgentGatewayFlowTools({
     flows,
-    requireThreadShell: () =>
+    requireThreadShell: (threadId) =>
       Effect.succeed({
+        id: threadId,
+        sourceThreadId: lineage?.createdBy[threadId] ?? null,
         projectId: ProjectId.makeUnsafe("project-1"),
         modelSelection: { provider: "claudeAgent", model: "claude-sonnet-5-5" },
         runtimeMode: "approval-required",
@@ -109,6 +119,16 @@ describe("flow gateway tools", () => {
     expect(refused.isError).toBe(true);
     expect(text(refused)).toContain("nest at most");
     expect(tooDeep.starts).toHaveLength(0);
+  });
+
+  it("counts a step's gateway grandchildren toward the nesting limit", async () => {
+    const nested = harness(FLOW_MAX_NESTING_DEPTH, {
+      stepThread: "step",
+      createdBy: { caller: "child", child: "step" },
+    });
+    const refused = await nested.call("saint_flow_start", { template: "bugfix", goal: "x" });
+    expect(text(refused)).toContain("nest at most");
+    expect(nested.starts).toHaveLength(0);
   });
 
   it("rejects an incomplete handoff and stores a complete one", async () => {
