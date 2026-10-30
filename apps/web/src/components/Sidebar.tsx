@@ -320,6 +320,7 @@ import { SidebarSectionToolbar } from "./SidebarSectionToolbar";
 import { SidebarGlyph, sidebarGlyphClass, SIDEBAR_TRAILING_ICON_CLASS } from "./sidebarGlyphs";
 import { SidebarStatusTrailingGlyph } from "./SidebarStatusTrailingGlyph";
 import { ThreadArchiveActionButton } from "./ThreadArchiveActionButton";
+import { ThreadDeleteActionButton } from "./ThreadDeleteActionButton";
 import { ThreadPinToggleButton } from "./ThreadPinToggleButton";
 import {
   SidebarThreadRowContent,
@@ -5333,6 +5334,11 @@ export default function Sidebar() {
             />
           ) : null}
           {renderThreadArchiveAction(input.threadId, input.toneClassName)}
+          <ThreadDeleteActionButton
+            threadId={input.threadId}
+            toneClassName={input.toneClassName}
+            onDelete={() => void confirmAndDeleteThread(input.threadId)}
+          />
         </div>
       </SidebarRowHoverActions>
     );
@@ -5353,7 +5359,7 @@ export default function Sidebar() {
       slotOccupied: Boolean(input.threadJumpLabel),
     });
     return (
-      <div className="relative flex min-w-0 items-center justify-end gap-2 group-hover/thread-row:min-w-12 group-focus-within/thread-row:min-w-12">
+      <div className="relative flex min-w-0 items-center justify-end gap-2 group-hover/thread-row:min-w-19 group-focus-within/thread-row:min-w-19">
         {input.rightMetaChips.length > 0 ? (
           <div className={cn("shrink-0", THREAD_ROW_META_CHIP_HOVER_FADE_CLASS_NAME)}>
             <SidebarMetaChipStack chips={input.rightMetaChips} />

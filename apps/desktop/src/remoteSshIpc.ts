@@ -3,7 +3,11 @@
 // Layer: Desktop IPC (Electron main)
 // Exports: registerRemoteSshIpc, RemoteSshIpcOptions
 
-import type { DesktopRemoteSshSavedHost, DesktopRemoteSshState } from "@saint/contracts";
+import type {
+  DesktopRemoteSshSavedHost,
+  DesktopRemoteSshState,
+  DesktopWorkspaceDownloadResult,
+} from "@saint/contracts";
 import { generateHostKey } from "@saint/shared/hostId";
 import type { IpcMain, IpcMainEvent, IpcMainInvokeEvent } from "electron";
 
@@ -16,6 +20,10 @@ import {
   type SavedRemoteSshHost,
 } from "./remoteSshConfig";
 import type { RemoteSshManager } from "./remoteSshManager";
+import {
+  resolveWorkspaceDownloadRequests,
+  type WorkspaceDownloadRequest,
+} from "./workspaceDownloads";
 
 const IPC = DESKTOP_IPC_CHANNELS.remoteSsh;
 
@@ -30,6 +38,10 @@ export interface RemoteSshIpcOptions {
   readonly readSavedHosts: () => SavedRemoteSshHost[];
   readonly writeSavedHosts: (hosts: readonly SavedRemoteSshHost[]) => void;
   readonly broadcast: (state: DesktopRemoteSshState) => void;
+  /** Asks where to save (a Save or folder dialog), then fetches and writes the files. */
+  readonly saveDownloads: (
+    requests: readonly WorkspaceDownloadRequest[],
+  ) => Promise<DesktopWorkspaceDownloadResult>;
 }
 
 function parseSavedHostInput(value: unknown): { host: string; remoteRoot: string | null } {
@@ -115,6 +127,17 @@ export function registerRemoteSshIpc(
   });
   // The renderer's per-host connections reach a connected host's server here.
   handle(IPC.wsUrl, (payload) => options.manager.wsUrl(parseHost(payload)));
+  // Explorer "Download": built from the host's own tunnelled URL, never one the renderer chose.
+  handle(IPC.downloadFiles, async (payload) => {
+    const input = payload as { host?: unknown; items?: unknown } | null;
+    const requests = resolveWorkspaceDownloadRequests(
+      input?.items,
+      options.manager.wsUrl(parseHost(input?.host)),
+    );
+    if (!requests) throw new Error("This download request is not valid.");
+    if (requests.length === 0) return { canceled: false, saved: [], failures: [] };
+    return options.saveDownloads(requests);
+  });
   handle(IPC.forget, (payload) => {
     const host = parseHost(payload);
     options.writeSavedHosts(options.readSavedHosts().filter((saved) => saved.host !== host));

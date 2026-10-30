@@ -65,6 +65,7 @@ function getRemoteSshBridge(): DesktopBridge["remoteSsh"] {
       stopServer: (host) => ipcRenderer.invoke(IPC.remoteSsh.stopServer, host),
       forget: (host) => ipcRenderer.invoke(IPC.remoteSsh.forget, host),
       wsUrl: (host) => ipcRenderer.invoke(IPC.remoteSsh.wsUrl, host),
+      downloadFiles: (input) => ipcRenderer.invoke(IPC.remoteSsh.downloadFiles, input),
       onState: (listener) => {
         const wrappedListener = (_event: Electron.IpcRendererEvent, state: unknown) => {
           if (typeof state !== "object" || state === null) return;

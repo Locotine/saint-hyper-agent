@@ -45,6 +45,7 @@ export const DESKTOP_IPC_CHANNELS = {
     stopServer: "desktop:remote-ssh-stop-server",
     forget: "desktop:remote-ssh-forget",
     wsUrl: "desktop:remote-ssh-ws-url",
+    downloadFiles: "desktop:remote-ssh-download-files",
     state: "desktop:remote-ssh-state",
   },
   betaDiagnostics: {

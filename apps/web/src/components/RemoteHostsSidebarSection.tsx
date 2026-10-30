@@ -17,13 +17,14 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { useSyncExternalStore } from "react";
 
+import { useAppSettings } from "~/appSettings";
 import { toastManager } from "~/components/ui/toast";
 import { useRemoteHostCatalog } from "~/hooks/useRemoteHostCatalog";
 import { useRemoteHostStoreSync } from "~/hooks/useRemoteHostStoreSync";
 import { useRemoteSshState } from "~/hooks/useRemoteSshState";
 import { hostStores } from "~/hosts/hostStores";
 import { useHostThreadActions } from "~/hooks/useHostThreadActions";
-import { addHostProject, removeHostProject } from "~/hosts/hostThreadCreate";
+import { addHostProject, deleteHostThread, removeHostProject } from "~/hosts/hostThreadCreate";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { THREAD_CONTEXT_MENU_ICONS } from "~/lib/contextMenuIcons";
 import { readLocalNativeApi } from "~/nativeApi";
@@ -48,6 +49,8 @@ import { remoteHostRows, remoteHostStatus } from "./settings/remoteHostsSettings
 import { ComposerPickerMenuPopup } from "./chat/ComposerPickerMenuPopup";
 import { SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME } from "./sidebarContextMenuStyles";
 import { SidebarIconButton } from "./SidebarIconButton";
+import { SidebarRowHoverActions } from "./SidebarRowHoverActions";
+import { ThreadDeleteActionButton } from "./ThreadDeleteActionButton";
 import { Menu, MenuItem, MenuTrigger } from "./ui/menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
@@ -69,6 +72,34 @@ function StatusDot(props: { className: string }) {
   return <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", props.className)} />;
 }
 
+/** Confirms, then deletes a thread on its host; leaves the chat first when it is the open one. */
+async function confirmDeleteHostThread(input: {
+  hostId: HostId;
+  host: string | undefined;
+  thread: RemoteCatalogThread;
+  confirm: boolean;
+  onDeleted: () => void;
+}) {
+  const api = readLocalNativeApi();
+  if (input.confirm) {
+    const message = [
+      `Delete thread "${input.thread.title}"?`,
+      "This permanently clears conversation history for this thread.",
+    ].join("\n");
+    if (!(api ? await api.dialogs.confirm(message) : window.confirm(message))) return;
+  }
+  try {
+    await deleteHostThread(input.hostId, ThreadId.makeUnsafe(input.thread.id));
+    input.onDeleted();
+  } catch (error) {
+    toastManager.add({
+      type: "error",
+      title: `Could not delete the thread${input.host ? ` on ${input.host}` : ""}`,
+      description: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 /** A host's thread; it opens in this window by its host-qualified route id. */
 function RemoteThreadRow(props: {
   hostId: HostId;
@@ -80,24 +111,60 @@ function RemoteThreadRow(props: {
 }) {
   const { hostId, thread, activeThreadParam, host, indentClassName = "pl-5" } = props;
   const navigate = useNavigate();
+  const { settings } = useAppSettings();
   const param = scopeThread(hostId, ThreadId.makeUnsafe(thread.id));
+  const deleteThread = () =>
+    void confirmDeleteHostThread({
+      hostId,
+      host,
+      thread,
+      confirm: settings.confirmThreadDelete,
+      onDeleted: () => {
+        if (param === activeThreadParam) void navigate({ to: "/" });
+      },
+    });
   return (
-    <SidebarMenuButton
-      size="sm"
-      isActive={param === activeThreadParam}
-      className={cn(
-        SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
-        "gap-1.5",
-        indentClassName,
-        SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
-        SIDEBAR_ROW_HOVER_CLASS_NAME,
-      )}
-      onClick={() => void navigate({ to: "/$threadId", params: { threadId: param } })}
-    >
-      <span className="min-w-0 flex-1 truncate">{thread.title}</span>
-      {host ? <HostLabel host={host} /> : null}
-      <StatusDot className={THREAD_DOT_CLASS_NAME[thread.state]} />
-    </SidebarMenuButton>
+    <div className="group/thread-row relative w-full">
+      <SidebarMenuButton
+        size="sm"
+        isActive={param === activeThreadParam}
+        className={cn(
+          SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
+          "gap-1.5",
+          indentClassName,
+          SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
+          SIDEBAR_ROW_HOVER_CLASS_NAME,
+        )}
+        onClick={() => void navigate({ to: "/$threadId", params: { threadId: param } })}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          const api = readLocalNativeApi();
+          if (!api) return;
+          void api.contextMenu
+            .show(
+              [
+                {
+                  id: "delete",
+                  label: "Delete",
+                  icon: THREAD_CONTEXT_MENU_ICONS.delete,
+                  destructive: true,
+                },
+              ],
+              { x: event.clientX, y: event.clientY },
+            )
+            .then((clicked) => {
+              if (clicked === "delete") deleteThread();
+            });
+        }}
+      >
+        <span className="min-w-0 flex-1 truncate">{thread.title}</span>
+        {host ? <HostLabel host={host} /> : null}
+        <StatusDot className={THREAD_DOT_CLASS_NAME[thread.state]} />
+      </SidebarMenuButton>
+      <SidebarRowHoverActions threadId={param}>
+        <ThreadDeleteActionButton threadId={param} onDelete={deleteThread} />
+      </SidebarRowHoverActions>
+    </div>
   );
 }
 
