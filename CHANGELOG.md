@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 — 2026-10-30
+
+**Remote chats open again.**
+
+### Fixed
+
+- A chat on a remote host showed "Select a thread or create a new one to get started" instead of its messages. The chat pane is kept alive outside the remote host's scope, so it read this computer's store and never found the thread; it now reads the host it belongs to.
+
 ## 1.1.0 — 2026-10-30
 
 **HyperAgent: flows of agents, with gates, security and host economy.**

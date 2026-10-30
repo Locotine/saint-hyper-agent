@@ -125,7 +125,7 @@ Configure the shell to match the way you work with light and dark themes, typogr
 
 ### Desktop application
 
-The current release is **1.1.0**. Download it from [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
+The current release is **1.1.1**. Download it from [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
 
 | Platform              | Artifact                          | Install                                                                                                                                  |
 | --------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -173,9 +173,9 @@ the root `typecheck` command also ensures that patch is applied before checking.
 ```console
 bun install --frozen-lockfile
 bun run build:desktop
-bun run dist:desktop:linux -- --flavor production --build-version 1.1.0
-bun run dist:desktop:win -- --flavor production --build-version 1.1.0
-bun run dist:desktop:dmg:arm64 -- --flavor production --build-version 1.1.0   # macOS only
+bun run dist:desktop:linux -- --flavor production --build-version 1.1.1
+bun run dist:desktop:win -- --flavor production --build-version 1.1.1
+bun run dist:desktop:dmg:arm64 -- --flavor production --build-version 1.1.1   # macOS only
 ```
 
 `--build-version` defaults to the package version. Releases are published by the `Release Desktop` GitHub Actions workflow when a `vX.Y.Z` tag is pushed; set `SAINT_DESKTOP_UPDATE_REPOSITORY=Locotine/saint-hyper-agent` for a local build that should update from GitHub Releases. See [Updates from GitHub Releases](./BETA.md#updates-from-github-releases).
