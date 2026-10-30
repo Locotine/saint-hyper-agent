@@ -104,6 +104,24 @@ runs:
         name: ${{ inputs.prepared-artifact }}
         path: ${{ runner.temp }}/cua-artifact
 
+    # The macos-15 pool can mix runner images, and the key covers macOS and Xcode, so a Cua
+    # prepared on one image does not match a packaging job on another. Build the same pinned
+    # source here instead of failing the release.
+    - name: Rebuild when the prepared Cua came from another runner image
+      if: inputs.benchmark-baseline == '' && inputs.prepared-artifact != ''
+      shell: bash
+      env:
+        CACHE_KEY: ${{ steps.key.outputs.key }}
+      run: |
+        set -euo pipefail
+        prepared_key="$(cat "$RUNNER_TEMP/cua-artifact/build-key.txt" 2>/dev/null || true)"
+        if [[ "$prepared_key" == "$CACHE_KEY" ]]; then exit 0; fi
+        echo "::warning::Prepared Cua key $prepared_key does not match this runner ($CACHE_KEY); rebuilding from the pinned source."
+        rm -rf "$RUNNER_TEMP/cua-artifact"
+        unset SAINT_CUA_ARTIFACT_DIR SAINT_CUA_SIGN_IDENTITY
+        node apps/desktop/scripts/provision-cua-driver.mjs --arch "$SAINT_CUA_TARGET_ARCH" --destination "$RUNNER_TEMP/cua-artifact"
+        printf '%s\n' "$CACHE_KEY" > "$RUNNER_TEMP/cua-artifact/build-key.txt"
+
     - name: Build on a valid cache miss
       if: inputs.benchmark-baseline == '' && inputs.prepared-artifact == '' && steps.cache.outputs.cache-hit != 'true' && steps.persistent.outputs.artifact-id == ''
       shell: bash
