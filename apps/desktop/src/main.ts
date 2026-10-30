@@ -304,6 +304,7 @@ import {
 } from "./remoteSshConfig";
 import { registerRemoteSshIpc } from "./remoteSshIpc";
 import { RemoteSshManager } from "./remoteSshManager";
+import { downloadWorkspaceFiles, type WorkspaceDownloadRequest } from "./workspaceDownloads";
 import { showInFileManager } from "./showInFileManager";
 import { BrowserCookieImport } from "./browserAutomation/browserCookieImport";
 import { shutdownBrowserServices } from "./browserAutomation/browserShutdown";
@@ -5890,6 +5891,39 @@ function registerRemoteSshHandlers(): void {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(IPC.remoteSsh.state, state);
       }
+    },
+    saveDownloads: async (requests: readonly WorkspaceDownloadRequest[]) => {
+      const [first] = requests;
+      const downloadsPath = app.getPath("downloads");
+      const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+      if (requests.length === 1 && first) {
+        const options = { defaultPath: Path.join(downloadsPath, first.fileName) };
+        const result = parent
+          ? await dialog.showSaveDialog(parent, options)
+          : await dialog.showSaveDialog(options);
+        if (result.canceled || !result.filePath) return { canceled: true, saved: [], failures: [] };
+        return downloadWorkspaceFiles({
+          requests,
+          destination: { kind: "file", path: result.filePath },
+        });
+      }
+      const options = {
+        title: `Download ${requests.length} files`,
+        buttonLabel: "Download",
+        defaultPath: downloadsPath,
+        properties: ["openDirectory", "createDirectory"] as Array<
+          "openDirectory" | "createDirectory"
+        >,
+      };
+      const result = parent
+        ? await dialog.showOpenDialog(parent, options)
+        : await dialog.showOpenDialog(options);
+      const directory = result.filePaths[0];
+      if (result.canceled || !directory) return { canceled: true, saved: [], failures: [] };
+      return downloadWorkspaceFiles({
+        requests,
+        destination: { kind: "directory", path: directory },
+      });
     },
   });
   publishRemoteSshState = registration.publishState;

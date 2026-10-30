@@ -1053,8 +1053,10 @@ export interface DesktopRemoteSshState {
 
 /** One host workspace file to save on this computer (Explorer "Download"). */
 export interface DesktopWorkspaceDownloadItem {
-  /** The window's own `/api/workspace/download` URL; main refuses any other. */
-  readonly url: string;
+  /** Workspace folder on the host. */
+  readonly cwd: string;
+  /** File path inside `cwd`. */
+  readonly path: string;
   /** Plain file name to save as. */
   readonly fileName: string;
 }
@@ -1198,6 +1200,15 @@ export interface DesktopBridge {
     forget: (host: string) => Promise<void>;
     /** The loopback WebSocket URL of a connected host's server, or null while it is down. */
     wsUrl: (host: string) => Promise<string | null>;
+    /**
+     * Saves files from a connected host's workspace on this computer: one Save dialog for a
+     * single file, a folder dialog for several. Main fetches only that host's own tunnelled
+     * download route.
+     */
+    downloadFiles: (input: {
+      readonly host: string;
+      readonly items: readonly DesktopWorkspaceDownloadItem[];
+    }) => Promise<DesktopWorkspaceDownloadResult>;
     onState: (listener: (state: DesktopRemoteSshState) => void) => () => void;
   };
   /** Stable→Beta opt-in surface. Absent on builds that do not ship it. */
