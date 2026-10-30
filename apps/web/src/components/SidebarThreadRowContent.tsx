@@ -116,6 +116,7 @@ export function SidebarThreadRowContent({
   variant,
   pendingStatusColorClass,
   suffix,
+  titleAdornment,
 }: {
   thread: SidebarThreadSummary;
   terminalEntryPoint: boolean;
@@ -125,6 +126,8 @@ export function SidebarThreadRowContent({
   variant: "pinned" | "standard";
   pendingStatusColorClass?: string | null | undefined;
   suffix?: ReactNode;
+  /** Sits right after the title, e.g. the toggle for a parent's nested sessions. */
+  titleAdornment?: ReactNode;
 }) {
   const showThreadProviderAvatar = !isGenericChatThreadTitle(thread.title);
   const hasPendingDraft = useThreadHasPendingDraft(scopeLocalThread(thread.id));
@@ -145,13 +148,15 @@ export function SidebarThreadRowContent({
           className={cn(
             // Pinned rows size the title from its text so the suffix yields width first.
             "min-w-0 truncate-fade text-ui leading-5",
-            variant === "pinned" ? "flex-auto" : "flex-1",
+            variant === "pinned" ? "flex-auto" : titleAdornment ? "flex-initial" : "flex-1",
             isActive ? "text-foreground" : SIDEBAR_ROW_LABEL_TEXT_CLASS_NAME,
           )}
           data-testid={variant === "pinned" ? `thread-title-${thread.id}` : undefined}
         >
           {thread.title}
         </span>
+        {titleAdornment}
+        {titleAdornment ? <span className="flex-1" /> : null}
         {hasPendingDraft ? <SidebarDraftGlyph /> : null}
         {pendingStatusColorClass ? (
           <span

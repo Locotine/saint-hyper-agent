@@ -413,8 +413,9 @@ It replaces the duplicate floating running-card chip. In a child thread, it coun
 nested agents, not its siblings. Background commands and monitors remain in the transcript
 and sidebar background-work status; they do not count as agents. Stop all stays visible on a live header;
 expanded rows show per-child controls, with Message on hover or keyboard focus. The header counts direct children and labels additional nested
-subagents separately; their rows start collapsed. The sidebar lists top-level threads only;
-child threads are reached from the card, Environment and the Subagents dock. Child threads link back to
+subagents separately; their rows start collapsed. The sidebar lists a parent's child threads on
+their own lines under its row, collapsed behind a chevron with a "N nested sessions · K failed"
+summary; they are also reached from the card, Environment and the Subagents dock. Child threads link back to
 their launcher, show agent-sent briefs as cards and mark the completed answer delivered to it.
 
 After a successfully completed Codex turn, Saint retires that turn's internal tool credential.

@@ -34,6 +34,13 @@ const snapshot = (projects: ShellProject[], threads: ShellThread[]): Orchestrati
   ({ projects, threads, spaces: [], snapshotSequence: 1 }) as unknown as OrchestrationShellSnapshot;
 
 describe("buildRemoteCatalogProjects", () => {
+  it("lists pinned projects first", () => {
+    const pinned = { ...project("b", "Beta"), isPinned: true } as ShellProject;
+    const result = buildRemoteCatalogProjects(snapshot([project("a", "Alpha"), pinned], []));
+    expect(result.map((entry) => entry.title)).toEqual(["Beta", "Alpha"]);
+    expect(result[0]?.isPinned).toBe(true);
+  });
+
   it("lists standard projects by title with newest threads first", () => {
     const result = buildRemoteCatalogProjects(
       snapshot(
@@ -46,7 +53,7 @@ describe("buildRemoteCatalogProjects", () => {
     expect(result[0]?.workspaceRoot).toBe("/srv/a");
   });
 
-  it("drops archived and sub-agent threads", () => {
+  it("drops archived threads and nests sub-agent threads under their parent", () => {
     const result = buildRemoteCatalogProjects(
       snapshot(
         [project("a", "Alpha")],
@@ -58,6 +65,7 @@ describe("buildRemoteCatalogProjects", () => {
       ),
     );
     expect(result[0]?.threads.map((entry) => entry.id)).toEqual(["10"]);
+    expect(result[0]?.threads[0]?.children.map((entry) => entry.id)).toEqual(["12"]);
   });
 
   it("marks running and attention threads", () => {

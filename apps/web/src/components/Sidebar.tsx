@@ -56,6 +56,7 @@ import {
 } from "~/lib/composerSendOwnership";
 import { autoAnimate } from "@formkit/auto-animate";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useEffectEvent,
@@ -68,6 +69,7 @@ import {
   Suspense,
   useState,
   type DragEvent as ReactDragEvent,
+  type ComponentProps,
   type ComponentType,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -242,7 +244,7 @@ import { registerThreadContextMenu, type ThreadContextMenuOptions } from "../lib
 import { gitBranchesQueryOptions } from "../lib/gitReactQuery";
 import { resolveComposerSlashRootBranch } from "../composerSlashCommands";
 import { dispatchThreadRename } from "../lib/threadRename";
-import { quotePosixShellArgument } from "../lib/shellQuote";
+import { openPathInThreadTerminal } from "../lib/openPathInThreadTerminal";
 import { useStableValue } from "~/hooks/useStableValue";
 import { DEFAULT_THREAD_TERMINAL_ID, type SidebarThreadSummary, type Thread } from "../types";
 import {
@@ -310,6 +312,11 @@ import { SidebarPrimaryAction } from "./SidebarPrimaryAction";
 import { RailAutomationsPanel } from "./RailAutomationsPanel";
 import { SIDEBAR_PANEL_TITLE_CLASS_NAME, SidebarPanelTitle } from "./SidebarPanelTitle";
 import { SidebarMetaChipStack } from "./SidebarMetaChip";
+import { ThreadRowTrailingCluster } from "./ThreadRowTrailingCluster";
+import { RemoteThreadRow, useRemotePinnedThreads } from "./RemoteThreadRow";
+import { NestedThreadsToggle, SidebarNestedThreads } from "./SidebarNestedThreads";
+import { groupNestedThreads, summarizeNestedThreads } from "../lib/nestedThreads";
+import { useNestedThreadsStore } from "../nestedThreadsStore";
 import { SidebarRowHoverActions } from "./SidebarRowHoverActions";
 import { SidebarSectionToolbar } from "./SidebarSectionToolbar";
 import { SidebarGlyph, sidebarGlyphClass, SIDEBAR_TRAILING_ICON_CLASS } from "./sidebarGlyphs";
@@ -713,22 +720,8 @@ function ProjectRunIndicatorDot({ className }: { className?: string }) {
   );
 }
 
-/** Meta chips fade on row hover so pin/archive actions can occupy the same slot. */
-const THREAD_ROW_META_CHIP_HOVER_FADE_CLASS_NAME = cn(
-  "flex shrink-0 items-center",
-  sidebarHoverRevealHideClassName("thread-row"),
-);
-
-/** Status glyph slot; matches the 15px meta-chip column so trailing icons stay compact. */
-function threadRowStatusSlotClassName(toneClassName?: string): string {
-  return cn(
-    "flex w-[15px] shrink-0 items-center justify-center leading-none tabular-nums",
-    sidebarHoverRevealHideClassName("thread-row"),
-    // Nudge the timestamp a hair above the meta scale while still tracking the user's
-    // typography setting (the CSS var is always set; the 11px is just an SSR fallback).
-    "text-[length:calc(var(--app-font-size-ui-meta,11px)+0.5px)]",
-    toneClassName ?? "text-muted-foreground/38",
-  );
+function renderThreadRowTrailingCluster(input: ComponentProps<typeof ThreadRowTrailingCluster>) {
+  return <ThreadRowTrailingCluster {...input} />;
 }
 
 function resolveWorktreeBadgeLabel(
@@ -1303,6 +1296,7 @@ export default function Sidebar() {
   // With hosts saved, the Projects list splits into this computer's area and one per host.
   const hasRemoteHosts = remoteSshState ? remoteHostRows(remoteSshState).length > 0 : false;
   const remoteChatNeedsAnswer = useRemoteChatNeedsAnswer();
+  const remotePinnedThreads = useRemotePinnedThreads();
   const projects = useStore((store) => store.projects);
   const spaces = useStore((store) => store.spaces);
   // Selection state only; the handlers and sync effects live in useSpacesController.
@@ -1805,6 +1799,17 @@ export default function Sidebar() {
     visibleNonGroupThreads: visibleNonGroupSidebarThreads,
     activityNonGroupThreads: activityNonGroupSidebarThreads,
   } = useActivityThreads({ hideAutomationRunThreads });
+  // Subagent sessions nest under their parent row instead of listing on their own.
+  const nestedThreadsByParentId = useMemo(
+    () =>
+      groupNestedThreads(
+        displaySidebarThreads.filter(
+          (thread) => !isSidechatThread(thread) && thread.snoozedUntil == null,
+        ),
+      ),
+    [displaySidebarThreads],
+  );
+  const nestedOpenThreadIds = useNestedThreadsStore((store) => store.openThreadIds);
   const displaySidebarTreeThreads = useMemo(
     () => excludeHiddenProjectAgentCoordinatorThreads(sidebarTreeThreads, coordinatorThreadIds),
     [coordinatorThreadIds, sidebarTreeThreads],
@@ -3631,71 +3636,12 @@ export default function Sidebar() {
           return;
         }
         await navigate({ to: "/$threadId", params: { threadId } });
-        const terminalStore = useTerminalStateStore.getState();
-        const currentTerminalState = selectThreadTerminalState(
-          terminalStore.terminalStateByThreadId,
-          scopeLocalThread(threadId),
-        );
-
-        const targetTerminalId = currentTerminalState.activeTerminalId;
-        if (currentTerminalState.runningTerminalIds.includes(targetTerminalId)) {
-          toastManager.add({
-            type: "error",
-            title: "Terminal is busy",
-            description: "Stop its command before opening another path.",
-          });
-          return;
-        }
-        const shouldCreateNewTerminal = !currentTerminalState.terminalOpen;
-
-        const previousTerminalOpen = currentTerminalState.terminalOpen;
-        const previousPresentationMode = currentTerminalState.presentationMode;
-        const previousActiveTerminalId = currentTerminalState.activeTerminalId;
-
-        terminalStore.setTerminalPresentationMode(scopeLocalThread(threadId), "workspace");
-        terminalStore.setTerminalOpen(scopeLocalThread(threadId), true);
-        terminalStore.setActiveTerminal(scopeLocalThread(threadId), targetTerminalId);
-
-        const cdCommand = `cd ${quotePosixShellArgument(threadWorkspacePath)}\r`;
-        try {
-          if (shouldCreateNewTerminal) {
-            // A brand new PTY needs an explicit cwd so that the shell's first
-            // prompt already shows the workspace path. The follow-up `cd` write
-            // makes the navigation visible in the scrollback (it's effectively
-            // a no-op since the shell is already there, but it matches the
-            // user-typed-it experience).
-            await api.terminal.open({
-              threadId,
-              terminalId: targetTerminalId,
-              cwd: threadWorkspacePath,
-            });
-          }
-          // Existing PTYs keep their launch cwd/env on reattach; writing `cd`
-          // navigates in place without replacing shell state.
-          await api.terminal.write({
-            threadId,
-            terminalId: targetTerminalId,
-            data: cdCommand,
-            onlyIfIdle: true,
-          });
-        } catch (error) {
-          // Open may already have created a PTY, even if navigation or its
-          // acknowledgement failed. Keep its identity available for reattach.
-          terminalStore.setTerminalPresentationMode(
-            scopeLocalThread(threadId),
-            previousPresentationMode,
-          );
-          terminalStore.setTerminalOpen(scopeLocalThread(threadId), previousTerminalOpen);
-          if (previousActiveTerminalId) {
-            terminalStore.setActiveTerminal(scopeLocalThread(threadId), previousActiveTerminalId);
-          }
-          toastManager.add({
-            type: "error",
-            title: "Unable to open terminal",
-            description:
-              error instanceof Error ? error.message : "The terminal could not be opened.",
-          });
-        }
+        await openPathInThreadTerminal({
+          api,
+          scopedThreadId: scopeLocalThread(threadId),
+          threadId,
+          path: threadWorkspacePath,
+        });
         return;
       }
       if (clicked === "copy-thread-id") {
@@ -5185,55 +5131,6 @@ export default function Sidebar() {
     );
   }
 
-  function renderThreadRowTrailingCluster(input: {
-    threadJumpLabel: string | null;
-    rightMetaChips: ThreadMetaChip[];
-    prChip: ThreadMetaChip | null;
-    threadStatus: ReturnType<typeof resolveThreadStatusForSidebar>;
-    timestampToneClassName?: string;
-    hoverActions: ReactNode;
-  }) {
-    // The jump shortcut owns the slot while it is visible; otherwise the shared
-    // rule decides which status glyph shows here.
-    const trailingStatus = resolveThreadStatusTrailingIndicator({
-      status: input.threadStatus,
-      slotOccupied: Boolean(input.threadJumpLabel),
-    });
-    return (
-      <div className="relative flex min-w-0 items-center justify-end gap-2 group-hover/thread-row:min-w-19 group-focus-within/thread-row:min-w-19">
-        {input.rightMetaChips.length > 0 ? (
-          <div className={cn("shrink-0", THREAD_ROW_META_CHIP_HOVER_FADE_CLASS_NAME)}>
-            <SidebarMetaChipStack chips={input.rightMetaChips} />
-          </div>
-        ) : null}
-        {input.threadJumpLabel ? (
-          <ShortcutKbd
-            shortcutLabel={input.threadJumpLabel}
-            title={input.threadJumpLabel}
-            groupClassName={cn(THREAD_ROW_META_CHIP_HOVER_FADE_CLASS_NAME, "shrink")}
-          />
-        ) : null}
-        {trailingStatus ? (
-          // The relative time now lives in the row hover card, so the trailing
-          // slot only carries the live status/loader glyph; when idle it
-          // collapses and the hover action icons sit flush at the end.
-          <span
-            title={trailingStatus.label}
-            className={threadRowStatusSlotClassName(input.timestampToneClassName)}
-          >
-            <SidebarStatusTrailingGlyph status={trailingStatus} />
-          </span>
-        ) : null}
-        {input.prChip ? (
-          <div className={cn("shrink-0", THREAD_ROW_META_CHIP_HOVER_FADE_CLASS_NAME)}>
-            <SidebarMetaChipStack chips={[input.prChip]} />
-          </div>
-        ) : null}
-        {input.hoverActions}
-      </div>
-    );
-  }
-
   // Section header (label + hover-revealed toolbar) shared by the Threads and Groups surfaces,
   // so spacing/typography stay in lockstep; only the label and toolbar contents vary.
   function renderListSectionHeader(label: string, toolbar: ReactNode) {
@@ -5256,7 +5153,9 @@ export default function Sidebar() {
   // Identical "Pinned" header + rows block shared by the Threads and Groups surfaces.
   // `pinnedThreads` is already the surface-appropriate list, so a single helper keeps both in sync.
   function renderPinnedThreadsSection() {
-    if (pinnedThreads.length === 0) {
+    // Connected hosts' pinned threads list after this computer's, on the Threads surface.
+    const hostPinnedThreads = isOnGroups ? [] : remotePinnedThreads;
+    if (pinnedThreads.length === 0 && hostPinnedThreads.length === 0) {
       return null;
     }
     return (
@@ -5266,6 +5165,16 @@ export default function Sidebar() {
         </div>
         <div className="flex flex-col gap-0.5">
           {pinnedThreads.map((thread) => renderPinnedThreadRow(thread))}
+          {hostPinnedThreads.map(({ hostId, thread }) => (
+            <RemoteThreadRow
+              key={`${hostId}:${thread.id}`}
+              hostId={hostId}
+              host={remoteHostAlias(remoteSshState, hostId) ?? "Remote host"}
+              thread={thread}
+              activeThreadParam={routeThreadId}
+              variant="pinned"
+            />
+          ))}
         </div>
       </div>
     );
@@ -5520,7 +5429,43 @@ export default function Sidebar() {
     );
   }
 
+  // A thread row, followed by its subagent sessions (opened and closed from the row).
   function renderThreadRow(
+    thread: SidebarThreadSummary,
+    orderedProjectThreadIds: readonly ThreadId[],
+    topLevel = false,
+    projectContextLabel?: string,
+  ) {
+    const nested = nestedThreadsByParentId.get(thread.id);
+    if (!nested) {
+      return renderThreadRowItem(thread, orderedProjectThreadIds, topLevel, projectContextLabel);
+    }
+    const scopedId = scopeLocalThread(thread.id);
+    const nestedOpen = nestedOpenThreadIds.includes(scopedId);
+    const toggleNested = () => useNestedThreadsStore.getState().toggleNestedThreads(scopedId);
+    return (
+      <Fragment key={thread.id}>
+        {renderThreadRowItem(
+          thread,
+          orderedProjectThreadIds,
+          topLevel,
+          projectContextLabel,
+          <NestedThreadsToggle open={nestedOpen} onToggle={toggleNested} />,
+        )}
+        <SidebarNestedThreads
+          open={nestedOpen}
+          summary={summarizeNestedThreads(nestedThreadsByParentId, thread.id)}
+          onToggle={toggleNested}
+        >
+          {nested.map((child) =>
+            renderThreadRow(child, orderedProjectThreadIds, false, projectContextLabel),
+          )}
+        </SidebarNestedThreads>
+      </Fragment>
+    );
+  }
+
+  function renderThreadRowItem(
     thread: SidebarThreadSummary,
     orderedProjectThreadIds: readonly ThreadId[],
     // Chat rows sit directly under the "Chats" header (no project nesting), so
@@ -5530,6 +5475,7 @@ export default function Sidebar() {
     // A group member thread dispatched into a linked repo shows where it runs —
     // same small-label treatment as pinned rows' project name.
     projectContextLabel?: string,
+    titleAdornment?: ReactNode,
   ) {
     const threadTerminalState = selectThreadTerminalState(
       terminalStateByThreadId,
@@ -5643,6 +5589,7 @@ export default function Sidebar() {
               terminalCount={terminalCount}
               isActive={isActive}
               variant="standard"
+              titleAdornment={titleAdornment}
               pendingStatusColorClass={
                 threadStatus?.label === "Pending Approval" ? threadStatus.colorClass : null
               }

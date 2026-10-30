@@ -5,7 +5,7 @@
 // Exports: SNOOZE_PRESETS, resolveSnoozeDeadline, formatSnoozeDeadline,
 //          toDateTimeLocalValue, parseFutureDateTimeLocalValue, dispatchThreadSnoozedUntil
 
-import type { ThreadId } from "@saint/contracts";
+import type { NativeApi, ThreadId } from "@saint/contracts";
 
 import { toastManager } from "../components/ui/toast";
 import { readLocalNativeApi } from "../nativeApi";
@@ -68,8 +68,10 @@ export function parseFutureDateTimeLocalValue(value: string, nowMs: number): Dat
 export function dispatchThreadSnoozedUntil(
   threadId: ThreadId,
   snoozedUntil: string | null,
+  // The API of the machine the thread lives on; this computer's by default.
+  hostApi?: NativeApi,
 ): Promise<boolean> {
-  const api = readLocalNativeApi();
+  const api = hostApi ?? readLocalNativeApi();
   if (!api) {
     toastManager.add({ type: "error", title: "Unable to connect to the app server." });
     return Promise.resolve(false);

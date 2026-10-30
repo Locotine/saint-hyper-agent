@@ -10,6 +10,8 @@ import type {
 } from "@saint/contracts";
 import { sshHostId, type HostId } from "@saint/shared/hostId";
 
+import { groupNestedThreads } from "./nestedThreads";
+
 import { isRemoteHostBusy, remoteHostRows } from "../components/settings/remoteHostsSettingsModel";
 import type { AppState } from "../storeState";
 
@@ -23,6 +25,8 @@ export interface RemoteCatalogThread {
   readonly title: string;
   readonly state: RemoteCatalogThreadState;
   readonly updatedAt: string;
+  /** Its subagent sessions (and theirs), oldest first; they list under it, not on their own. */
+  readonly children: readonly RemoteCatalogThread[];
 }
 
 export interface RemoteCatalogProject {
@@ -30,6 +34,7 @@ export interface RemoteCatalogProject {
   readonly title: string;
   /** Folder on the host, never on this computer. */
   readonly workspaceRoot: string;
+  readonly isPinned: boolean;
   readonly threads: readonly RemoteCatalogThread[];
   /** Threads beyond `REMOTE_CATALOG_THREAD_LIMIT`. */
   readonly hiddenThreadCount: number;
@@ -41,6 +46,7 @@ interface CatalogProjectInput {
   readonly title: string;
   readonly kind?: string | undefined;
   readonly workspaceRoot: string;
+  readonly isPinned?: boolean | undefined;
 }
 
 interface CatalogThreadInput {
@@ -50,6 +56,7 @@ interface CatalogThreadInput {
   readonly updatedAt?: string | undefined;
   readonly archivedAt?: string | null | undefined;
   readonly parentThreadId?: string | null | undefined;
+  readonly createdAt?: string | undefined;
   readonly session?: { readonly status?: string } | null | undefined;
   readonly hasPendingApprovals?: boolean | undefined;
   readonly hasPendingUserInput?: boolean | undefined;
@@ -65,34 +72,41 @@ function buildCatalog(
   allProjects: readonly CatalogProjectInput[],
   allThreads: readonly CatalogThreadInput[],
 ): RemoteCatalogProject[] {
+  const live = allThreads.filter((thread) => !thread.archivedAt);
+  const nestedByParent = groupNestedThreads(live);
+  const toEntry = (thread: CatalogThreadInput): RemoteCatalogThread => ({
+    id: thread.id,
+    title: thread.title,
+    state: threadState(thread),
+    updatedAt: thread.updatedAt ?? "",
+    children: (nestedByParent.get(thread.id) ?? []).map(toEntry),
+  });
   const threadsByProject = new Map<string, RemoteCatalogThread[]>();
-  for (const thread of allThreads) {
-    if (thread.archivedAt || thread.parentThreadId) continue;
-    const entry: RemoteCatalogThread = {
-      id: thread.id,
-      title: thread.title,
-      state: threadState(thread),
-      updatedAt: thread.updatedAt ?? "",
-    };
+  for (const thread of live) {
+    if (thread.parentThreadId) continue;
     const list = threadsByProject.get(thread.projectId);
-    if (list) list.push(entry);
-    else threadsByProject.set(thread.projectId, [entry]);
+    if (list) list.push(toEntry(thread));
+    else threadsByProject.set(thread.projectId, [toEntry(thread)]);
   }
-  return allProjects
-    .filter((project) => project.kind === "project")
-    .map((project) => {
-      const threads = (threadsByProject.get(project.id) ?? []).toSorted((a, b) =>
-        b.updatedAt.localeCompare(a.updatedAt),
-      );
-      return {
-        id: project.id,
-        title: project.title,
-        workspaceRoot: project.workspaceRoot,
-        threads: threads.slice(0, REMOTE_CATALOG_THREAD_LIMIT),
-        hiddenThreadCount: Math.max(0, threads.length - REMOTE_CATALOG_THREAD_LIMIT),
-      };
-    })
-    .toSorted((a, b) => a.title.localeCompare(b.title));
+  return (
+    allProjects
+      .filter((project) => project.kind === "project")
+      .map((project) => {
+        const threads = (threadsByProject.get(project.id) ?? []).toSorted((a, b) =>
+          b.updatedAt.localeCompare(a.updatedAt),
+        );
+        return {
+          id: project.id,
+          title: project.title,
+          workspaceRoot: project.workspaceRoot,
+          isPinned: project.isPinned === true,
+          threads: threads.slice(0, REMOTE_CATALOG_THREAD_LIMIT),
+          hiddenThreadCount: Math.max(0, threads.length - REMOTE_CATALOG_THREAD_LIMIT),
+        };
+      })
+      // Pinned projects first, like this computer's list.
+      .toSorted((a, b) => Number(b.isPinned) - Number(a.isPinned) || a.title.localeCompare(b.title))
+  );
 }
 
 /**
@@ -108,6 +122,7 @@ export function buildRemoteCatalogProjects(
       title: project.title,
       kind: project.kind,
       workspaceRoot: project.workspaceRoot,
+      isPinned: project.isPinned,
     })),
     snapshot.threads,
   );
@@ -123,6 +138,7 @@ export function buildRemoteCatalogFromState(
       title: project.name,
       kind: project.kind,
       workspaceRoot: project.cwd,
+      isPinned: project.isPinned,
     })),
     Object.values(state.sidebarThreadSummaryById),
   );

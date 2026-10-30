@@ -4,7 +4,7 @@
 //          created on the host right away and opened, and the first message names it as usual.
 // Layer: Web host connections
 // Exports: createHostThread, addHostProject, addHostProjectAtPath, removeHostProject,
-//          renameHostProject, setHostProjectPinned, deleteHostThread
+//          renameHostProject, setHostProjectPinned, deleteHostThread, updateHostThreadMeta
 
 import type { ProjectId, ThreadId } from "@saint/contracts";
 import { GENERIC_CHAT_THREAD_TITLE } from "@saint/shared/chatThreads";
@@ -134,4 +134,20 @@ export async function setHostProjectPinned(
     projectId,
     isPinned,
   });
+}
+
+/** Renames or pins a thread on its host; the host's shell stream carries the change back. */
+export async function updateHostThreadMeta(
+  hostId: HostId,
+  threadId: ThreadId,
+  patch: { readonly title: string } | { readonly isPinned: boolean },
+): Promise<void> {
+  await hostHandle(hostId)
+    .requireApi()
+    .orchestration.dispatchCommand({
+      type: "thread.meta.update",
+      commandId: newCommandId(),
+      threadId,
+      ...patch,
+    });
 }

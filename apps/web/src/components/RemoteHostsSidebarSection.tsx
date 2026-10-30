@@ -8,34 +8,30 @@
 
 import {
   ProjectId,
-  ThreadId,
   type DesktopRemoteSshHostState,
   type DesktopRemoteSshState,
 } from "@saint/contracts";
 import { MAX_PINNED_PROJECTS } from "@saint/contracts";
 import { scopeProject, scopeThread, sshHostId, type HostId } from "@saint/shared/hostId";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { useState, useSyncExternalStore } from "react";
 
-import { useAppSettings } from "~/appSettings";
 import { toastManager } from "~/components/ui/toast";
 import { useRemoteHostCatalog } from "~/hooks/useRemoteHostCatalog";
 import { useRemoteHostStoreSync } from "~/hooks/useRemoteHostStoreSync";
 import { useRemoteSshState } from "~/hooks/useRemoteSshState";
-import { hostHandle } from "~/hosts/hostScope";
 import { hostStores } from "~/hosts/hostStores";
 import { useHostThreadActions } from "~/hooks/useHostThreadActions";
 import {
   addHostProject,
-  deleteHostThread,
   removeHostProject,
   renameHostProject,
   setHostProjectPinned,
 } from "~/hosts/hostThreadCreate";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useCopyPathToClipboard } from "~/hooks/useCopyToClipboard";
-import { pinActionLabel } from "~/lib/pin";
+import { PinStatusIcon, pinActionLabel } from "~/lib/pin";
 import { usePinnedProjectsStore } from "~/pinnedProjectsStore";
 import { readLocalNativeApi } from "~/nativeApi";
 import { DisclosureChevron } from "./ui/DisclosureChevron";
@@ -58,29 +54,24 @@ import {
   type RemoteHostSidebarStatus,
 } from "~/lib/remoteHostCatalog";
 import {
+  SIDEBAR_HEADER_LEADING_ACTION_CLASS_NAME,
+  SIDEBAR_HEADER_LEADING_ACTION_REVEAL_CLASS_NAME,
+  SIDEBAR_ROW_LABEL_TEXT_CLASS_NAME,
+  sidebarHoverRevealHideClassName,
   SIDEBAR_HEADER_ROW_CLASS_NAME,
   SIDEBAR_NESTED_LIST_GAP_CLASS_NAME,
   SIDEBAR_ROW_HOVER_CLASS_NAME,
   SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
-  SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
 } from "~/sidebarRowStyles";
 import { remoteHostRows, remoteHostStatus } from "./settings/remoteHostsSettingsModel";
 import { ComposerPickerMenuPopup } from "./chat/ComposerPickerMenuPopup";
-import {
-  ProjectContextMenu,
-  SidebarRowContextMenu,
-  type ProjectContextMenuId,
-} from "./ProjectContextMenu";
+import { ProjectContextMenu, type ProjectContextMenuId } from "./ProjectContextMenu";
 import { RelocateProjectDialog } from "./RelocateProjectDialog";
 import { RenameDialog } from "./RenameDialog";
-import {
-  SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME,
-  SidebarContextMenuIcon,
-} from "./sidebarContextMenuStyles";
+import { RemoteThreadRow } from "./RemoteThreadRow";
+import { SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME } from "./sidebarContextMenuStyles";
 import { SidebarSectionToolbar } from "./SidebarSectionToolbar";
 import { SidebarIconButton } from "./SidebarIconButton";
-import { SidebarRowHoverActions } from "./SidebarRowHoverActions";
-import { ThreadDeleteActionButton } from "./ThreadDeleteActionButton";
 import { Menu, MenuItem, MenuTrigger } from "./ui/menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
@@ -92,118 +83,8 @@ const STATUS_DOT_CLASS_NAME: Record<RemoteHostSidebarStatus, string> = {
   offline: "bg-muted-foreground/40",
 };
 
-const THREAD_DOT_CLASS_NAME: Record<RemoteCatalogThreadState, string> = {
-  running: "bg-info animate-pulse",
-  attention: "bg-warning",
-  idle: "bg-transparent",
-};
-
 function StatusDot(props: { className: string }) {
   return <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", props.className)} />;
-}
-
-/** Confirms, then deletes a thread on its host; leaves the chat first when it is the open one. */
-async function confirmDeleteHostThread(input: {
-  hostId: HostId;
-  host: string | undefined;
-  thread: RemoteCatalogThread;
-  confirm: boolean;
-  onDeleted: () => void;
-}) {
-  const api = readLocalNativeApi();
-  if (input.confirm) {
-    const message = [
-      `Delete thread "${input.thread.title}"?`,
-      "This permanently clears conversation history for this thread.",
-    ].join("\n");
-    if (!(api ? await api.dialogs.confirm(message) : window.confirm(message))) return;
-  }
-  try {
-    await deleteHostThread(input.hostId, ThreadId.makeUnsafe(input.thread.id));
-    input.onDeleted();
-  } catch (error) {
-    toastManager.add({
-      type: "error",
-      title: `Could not delete the thread${input.host ? ` on ${input.host}` : ""}`,
-      description: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-/** A host's thread; it opens in this window by its host-qualified route id. */
-function RemoteThreadRow(props: {
-  hostId: HostId;
-  thread: RemoteCatalogThread;
-  activeThreadParam: string | null;
-  /** Names the host on the row, for lists that do not group by host. */
-  host?: string;
-  indentClassName?: string;
-}) {
-  const { hostId, thread, activeThreadParam, host, indentClassName = "pl-5" } = props;
-  const navigate = useNavigate();
-  const { settings } = useAppSettings();
-  const param = scopeThread(hostId, ThreadId.makeUnsafe(thread.id));
-  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
-  const deleteThread = () =>
-    void confirmDeleteHostThread({
-      hostId,
-      host,
-      thread,
-      confirm: settings.confirmThreadDelete,
-      onDeleted: () => {
-        if (param === activeThreadParam) void navigate({ to: "/" });
-      },
-    });
-  return (
-    <div className="group/thread-row relative w-full">
-      <SidebarMenuButton
-        size="sm"
-        isActive={param === activeThreadParam}
-        className={cn(
-          SIDEBAR_THREAD_ROW_BASE_CLASS_NAME,
-          "gap-1.5",
-          indentClassName,
-          SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
-          SIDEBAR_ROW_HOVER_CLASS_NAME,
-        )}
-        onClick={() => void navigate({ to: "/$threadId", params: { threadId: param } })}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          setMenuPosition({ x: event.clientX, y: event.clientY });
-        }}
-      >
-        <span className="min-w-0 flex-1 truncate">{thread.title}</span>
-        {host ? <HostLabel host={host} /> : null}
-        <StatusDot className={THREAD_DOT_CLASS_NAME[thread.state]} />
-      </SidebarMenuButton>
-      <SidebarRowHoverActions threadId={param}>
-        <ThreadDeleteActionButton threadId={param} onDelete={deleteThread} />
-      </SidebarRowHoverActions>
-      {menuPosition ? (
-        <SidebarRowContextMenu position={menuPosition} onClose={() => setMenuPosition(null)}>
-          <MenuItem
-            className={SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME}
-            onClick={() => {
-              setMenuPosition(null);
-              deleteThread();
-            }}
-          >
-            <SidebarContextMenuIcon icon={TrashCanIcon} />
-            <span>Delete</span>
-          </MenuItem>
-        </SidebarRowContextMenu>
-      ) : null}
-    </div>
-  );
-}
-
-function HostLabel(props: { host: string }) {
-  return (
-    <span className="flex min-w-0 shrink items-center gap-1 text-ui-xs text-muted-foreground/79">
-      <ServerIcon aria-hidden className="size-3 shrink-0" />
-      <span className="truncate">{props.host}</span>
-    </span>
-  );
 }
 
 const COLLAPSED_STORAGE_KEY = "saint:sidebar:remote-collapsed";
@@ -270,10 +151,12 @@ function RemoteProjectRow(props: {
   const projectId = ProjectId.makeUnsafe(project.id);
   const projectCollapseKey = `project:${hostKey}:${project.id}`;
   const projectOpen = !collapsed.isCollapsed(projectCollapseKey);
-  const isPinned = () =>
-    hostHandle(hostId)
-      .store.getState()
-      .projects.some((entry) => entry.id === projectId && entry.isPinned === true);
+  const scopedProjectId = scopeProject(hostId, projectId);
+  // Pinned here, or on the host itself; both the store and the host's flag are reactive.
+  const pinned = usePinnedProjectsStore((store) =>
+    store.pinnedProjectIds.includes(scopedProjectId),
+  );
+  const isPinned = pinned || project.isPinned;
   const fail = (title: string, error: unknown) =>
     toastManager.add({
       type: "error",
@@ -281,8 +164,8 @@ function RemoteProjectRow(props: {
       description: error instanceof Error ? error.message : String(error),
     });
   const togglePin = async () => {
-    const scoped = scopeProject(hostId, projectId);
-    const pinned = isPinned();
+    const scoped = scopedProjectId;
+    const pinned = isPinned;
     const pins = usePinnedProjectsStore.getState();
     if (pinned) pins.unpinProject(scoped);
     else if (!pins.pinProject(scoped)) {
@@ -344,11 +227,45 @@ function RemoteProjectRow(props: {
               />
             }
           >
-            <FolderIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
+            <FolderIcon
+              aria-hidden
+              className={cn(
+                "size-3.5 shrink-0 text-muted-foreground/79",
+                isPinned ? "opacity-0" : sidebarHoverRevealHideClassName("project-header"),
+              )}
+            />
             <span className="min-w-0 flex-1 truncate">{project.title}</span>
           </TooltipTrigger>
           <TooltipPopup side="right">{`${host}:${project.workspaceRoot}`}</TooltipPopup>
         </Tooltip>
+        {offline ? null : (
+          // The pin covers a pinned project's folder; unpinned, it shows on hover in its place.
+          <button
+            type="button"
+            aria-label={pinActionLabel(project.title, isPinned)}
+            aria-pressed={isPinned}
+            title={pinActionLabel(project.title, isPinned)}
+            className={cn(
+              SIDEBAR_HEADER_LEADING_ACTION_CLASS_NAME,
+              "left-4",
+              SIDEBAR_ROW_LABEL_TEXT_CLASS_NAME,
+              isPinned
+                ? "pointer-events-auto opacity-100"
+                : SIDEBAR_HEADER_LEADING_ACTION_REVEAL_CLASS_NAME,
+            )}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void togglePin();
+            }}
+          >
+            <PinStatusIcon pinned={isPinned} className="size-3.5" />
+          </button>
+        )}
         {offline ? null : (
           <SidebarSectionToolbar placement="overlay" revealOnHover>
             <SidebarIconButton
@@ -374,7 +291,7 @@ function RemoteProjectRow(props: {
           position={menuPosition}
           onClose={() => setMenuPosition(null)}
           onAction={onAction}
-          pinLabel={pinActionLabel("project", isPinned())}
+          pinLabel={pinActionLabel("project", isPinned)}
         />
       ) : null}
       {dialog === "rename" ? (
@@ -413,9 +330,9 @@ function RemoteProjectRow(props: {
             <RemoteThreadRow
               key={thread.id}
               hostId={hostId}
+              host={host}
               thread={thread}
               activeThreadParam={activeThreadParam}
-              indentClassName="pl-8"
             />
           ))}
           {project.hiddenThreadCount > 0 ? (
@@ -566,6 +483,11 @@ export function useRemoteChatNeedsAnswer(): boolean {
   return useSyncExternalStore(hostStores.subscribe, () => remoteChatNeedsAnswer(activeThreadParam));
 }
 
+/** A thread and its subagent sessions, which each list on their own in Activity. */
+function withNestedThreads(thread: RemoteCatalogThread): RemoteCatalogThread[] {
+  return [thread, ...thread.children.flatMap(withNestedThreads)];
+}
+
 const ACTIVITY_ORDER: Record<RemoteCatalogThreadState, number> = {
   attention: 0,
   running: 1,
@@ -585,21 +507,21 @@ function RemoteHostActivityRows(props: {
   if (!connected) return null;
   const hostId = sshHostId(hostKey);
   const threads = catalog.projects
-    .flatMap((project) => project.threads)
+    .flatMap((project) => project.threads.flatMap(withNestedThreads))
     .filter((thread) => thread.state !== "idle")
     .toSorted(
       (a, b) =>
         ACTIVITY_ORDER[a.state] - ACTIVITY_ORDER[b.state] || b.updatedAt.localeCompare(a.updatedAt),
     );
   return threads.map((thread) => (
-    <SidebarMenuItem key={`${hostKey}:${thread.id}`} className="rounded-md">
-      <RemoteThreadRow
-        hostId={hostId}
-        thread={thread}
-        activeThreadParam={activeThreadParam}
-        host={host}
-      />
-    </SidebarMenuItem>
+    <RemoteThreadRow
+      key={`${hostKey}:${thread.id}`}
+      hostId={hostId}
+      host={host}
+      thread={thread}
+      activeThreadParam={activeThreadParam}
+      variant="pinned"
+    />
   ));
 }
 
