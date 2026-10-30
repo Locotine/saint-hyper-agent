@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.4 — 2026-10-30
+
+**Remote threads and projects match this computer's, and subagent sessions nest under their parent.**
+
+This Stable release covers the commits after `v1.1.3`: `a0fda47e4` and `d1867f3a4`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.4).
+
+### Changed
+
+- A remote host's threads use the same rows and right-click menu as this computer's: rename, pin, mark unread, snooze, handoff, fork, copy, open path in terminal, archive and delete. Hub actions are left out, because a hub links a project on this computer.
+- A remote project that is pinned shows the pin in place of its folder icon, has the hover pin button and sorts first in its host; pinned remote threads list under **Pinned**.
+- A parent thread's subagent sessions list on their own lines under its row, behind a chevron, with an "N nested sessions · K failed" summary while closed. This applies to this computer's threads and to remote hosts'.
+
 ## 1.1.3 — 2026-10-30
 
 **Home opens a new chat, and closing the last tab leaves a remote chat.**

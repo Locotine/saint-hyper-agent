@@ -5,7 +5,7 @@ application that installs and updates side-by-side with stable Saint, and it nev
 shares stable's data directory or update feed.
 
 > [!NOTE]
-> Saint Beta is retired from Stable 1.0.11 (current release: 1.1.3). `BETA_ONLY_FEATURES` is empty, Stable no longer offers to install Beta or copy data into it, and GitHub Releases publishes Stable only. To move Beta data into Stable once, quit both apps and run `scripts/copy-saint-beta-data.sh` or `scripts/copy-saint-beta-data.ps1` (shipped with each release); the Stable data it replaces is kept as a backup. The rest of this file stays as the reference for the Beta flavor, which can still be built with `--flavor beta`.
+> Saint Beta is retired from Stable 1.0.11 (current release: 1.1.4). `BETA_ONLY_FEATURES` is empty, Stable no longer offers to install Beta or copy data into it, and GitHub Releases publishes Stable only. To move Beta data into Stable once, quit both apps and run `scripts/copy-saint-beta-data.sh` or `scripts/copy-saint-beta-data.ps1` (shipped with each release); the Stable data it replaces is kept as a backup. The rest of this file stays as the reference for the Beta flavor, which can still be built with `--flavor beta`.
 
 ## The short version
 
