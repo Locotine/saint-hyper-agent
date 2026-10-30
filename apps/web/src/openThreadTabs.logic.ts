@@ -170,18 +170,20 @@ export function buildOpenThreadTabs(input: {
 /**
  * Where to go after closing a tab. Closing a background tab keeps the current thread
  * (`null`); closing the active one moves to the tab that slides into its slot, else the
- * one before it (`{ threadId: null }` when it was the last tab).
+ * one before it (`{ threadId: null }` when it was the last tab). The last tab also gives
+ * way when the thread on screen has no tab of its own (a host's chat): closing every tab
+ * must not leave a conversation behind.
  */
 export function resolveOpenThreadTabCloseTarget(input: {
   tabs: readonly Pick<OpenThreadTab, "threadId">[];
   closedThreadId: ThreadId;
   activeThreadId: ThreadId | null;
 }): { threadId: ThreadId | null } | null {
-  if (input.closedThreadId !== input.activeThreadId) {
-    return null;
-  }
   const closedIndex = input.tabs.findIndex((tab) => tab.threadId === input.closedThreadId);
   const remaining = input.tabs.filter((tab) => tab.threadId !== input.closedThreadId);
+  if (input.closedThreadId !== input.activeThreadId) {
+    return input.activeThreadId !== null && remaining.length === 0 ? { threadId: null } : null;
+  }
   return { threadId: resolveTabAfterClose(remaining, closedIndex)?.threadId ?? null };
 }
 

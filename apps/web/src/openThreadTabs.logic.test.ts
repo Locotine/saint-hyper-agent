@@ -300,6 +300,14 @@ describe("closeOpenThreadTab", () => {
     expect(openTab).not.toHaveBeenCalled();
   });
 
+  it("replaces the last tab even when the thread on screen has no tab of its own", async () => {
+    const { close, closeTab, openFreshChat } = harness({ active: "remote-chat" });
+
+    await close(["a"], "a");
+    expect(openFreshChat).toHaveBeenCalledOnce();
+    expect(closeTab).toHaveBeenCalledWith("a");
+  });
+
   it("moves to the successor before closing the active tab", async () => {
     const { close, closeTab, openTab } = harness({ active: "b" });
 
