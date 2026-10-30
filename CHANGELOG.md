@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.5 — 2026-10-30
+
+**Open Path in Terminal works on a remote host's thread.**
+
+This Stable release covers the commit after `v1.1.4`: `577e7f127`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.5).
+
+### Fixed
+
+- **Open Path in Terminal** on a remote thread failed with "Terminal is not running" when the drawer was open with no shell behind it; it now starts a shell at the folder first.
+
 ## 1.1.4 — 2026-10-30
 
 **Remote threads and projects match this computer's, and subagent sessions nest under their parent.**
