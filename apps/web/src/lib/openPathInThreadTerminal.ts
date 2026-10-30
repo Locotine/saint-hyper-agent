@@ -65,7 +65,8 @@ export async function openPathInThreadTerminal(input: {
       });
     // The drawer can be marked open with no shell behind it (a remote host reconnected, or
     // the thread's view had not mounted yet); start one there, then write.
-    await write().catch(async () => {
+    await write().catch(async (error: unknown) => {
+      if (!(error instanceof Error) || !/not running/i.test(error.message)) throw error;
       await api.terminal.open({ threadId, terminalId: targetTerminalId, cwd: path });
       await write();
     });
