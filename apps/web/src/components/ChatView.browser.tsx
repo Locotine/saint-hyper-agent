@@ -3922,6 +3922,48 @@ describe("ChatView transcript geometry (full app)", () => {
     }
   });
 
+  it("opens a new chat from the rail's Home button instead of the last thread", async () => {
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: withHomeChatProject(
+        createSnapshotForTargetUser({
+          targetMessageId: MessageId.makeUnsafe("rail-home"),
+          targetText: "Completed conversation",
+        }),
+      ),
+      configureFixture: (nextFixture) => {
+        nextFixture.welcome = {
+          ...nextFixture.welcome,
+          homeDir: "/Users/tester",
+          chatWorkspaceRoot: "/Users/tester/Documents/Saint",
+        };
+      },
+    });
+    try {
+      await waitForLayout();
+      await waitForURL(
+        mounted.router,
+        (path) => path === `/${THREAD_ID}`,
+        "The saved thread should be open before Home is pressed.",
+      );
+      await page
+        .getByRole("navigation", { name: "Primary" })
+        .getByRole("button", { name: "Home", exact: true })
+        .click();
+      await vi.waitFor(() => {
+        const nextId = mounted.router.state.location.pathname.slice(1) as ThreadId;
+        expect(nextId).not.toBe("");
+        expect(nextId).not.toBe(THREAD_ID);
+        expect(
+          useComposerDraftStore.getState().getDraftThread(scopeLocalThread(nextId))?.projectId,
+        ).toBe(HOME_PROJECT_ID);
+      });
+    } finally {
+      await mounted.cleanup();
+      setOpenTabs([]);
+    }
+  });
+
   it("carries the rail inside the sidebar sheet at phone width", async () => {
     const mounted = await mountChatView({
       viewport: { ...DEFAULT_VIEWPORT, width: 540 },

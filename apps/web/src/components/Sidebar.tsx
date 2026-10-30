@@ -7066,6 +7066,11 @@ export default function Sidebar() {
           // only the Spaces drill-in replaces it.
           if (id === "spaces") setActivityViewEnabledSmoothly(false);
           selectRailPanelItem(id);
+          // Home opens a new chat (reusing an unsent draft), not the last thread visited.
+          if (id === "home") {
+            void handleCreateHomeChat();
+            return;
+          }
           // Projects live next to the threads only: from another section, Home and
           // Spaces go back to the thread view instead of opening over that section.
           if (!isOnThreadsSection) handleSidebarViewChange("threads");
