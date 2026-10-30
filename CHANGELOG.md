@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-10-30
 
 **HyperAgent: flows of agents, with gates, security and host economy.**
+
+This Stable release covers the commits after `v1.0.16`: `b9d4a9b8e` (HyperAgent, #2). It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.0).
 
 ### Added
 
@@ -11,6 +13,25 @@
 - Kanban (v2) lists flow steps and hand-offs waiting for approval, riskiest first, with **Approve all**, and an **Idle · hibernated** column while Host Economy has put an agent to sleep.
 - The rail shows a status chip (autonomy, open alerts, host memory, agent seats, flows waiting) and, while flows run, a **Kill** button that stops every flow after a confirm.
 - Onboarding gains a **Run a sample flow** step after adding a project.
+- **Gates and hand-offs**: a step settles only when its gate command passes in the flow's own worktree. Saint re-runs a share of passes, holds a step that edits the files its gate protects, and asks for a structured hand-off before the next step starts. Steps run `manual`, `gate_hold`, `auto_refix` or `autopilot`, with budgets for wall time, tokens, tool calls and sub-agents.
+- **Agents talk through Saint (SAP)**: `saint_ask`, `saint_tell` and `saint_reply` between flow steps; Saint answers status questions itself, and mail to a step that has not started waits for it.
+- **Fork & continue**: a step whose context passes 70 %, or one you fork, continues in a fresh session from a snapshot without using a refix.
+- **Quota failover**: per step, switch to another allowed provider (never one with weaker data terms), ask you, or wait for the reset. Autopilot steps that use up their refixes move to the next allowed agent before asking you.
+- **Aegis security**: an autonomy ladder (L0–L4); Cedar policies for tool calls, egress and protected zones; an OS sandbox for provider processes at L2 and above (`bwrap` on Linux, `sandbox-exec` on macOS) with a decoy home and an egress proxy that asks before reaching a new domain; tripwires on decoy credentials; and a Kill switch that stops the process tree, revokes the agent's tools and freezes its worktree in under 2 s, with Unfreeze.
+- **Signed ledger**: every flow event and gate evidence is hash-chained and signed; Security verifies the chain and exports it as JSONL.
+- **Host Economy**: agent seats and memory admission, and idle agents hibernate and wake on the next message.
+
+### Changed
+
+- Projects are grouped by machine in the sidebar: a **Local** area and a **Remote** area with one collapsible group per host. **Remove from Saint** unregisters a project without touching its folder, and a project whose folder was deleted is removed with its chats, locally and on remote hosts.
+- Remote chats get the same right dock as local ones (Explorer, Browser, terminal, diff, Git actions, scripts, handoff and New thread).
+- Explorer: the folder tree is resizable, files open in preview tabs, and each tab has a close button.
+
+### Known limitations
+
+- Codex inside the Aegis sandbox has not been verified end to end. Windows has no OS sandbox, so L2 and above are unavailable there.
+- At L2 each MCP server a provider loads raises one New domain alert until you allow it.
+- Quota failover switches provider, not account.
 
 ## 1.0.16 — 2026-10-29
 
