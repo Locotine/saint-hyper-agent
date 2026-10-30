@@ -13,6 +13,8 @@ import { DEFAULT_EGRESS_ALLOWLIST } from "./rules";
 import { SANDBOX_RELAY_SCRIPT, detectSandbox, prepareDecoys, sandboxLauncher } from "./sandbox";
 
 // bwrap's tmpfs hides /tmp inside the sandbox, so the fixture lives under the home cache.
+// A fresh CI home has no ~/.cache yet.
+mkdirSync(path.join(os.homedir(), ".cache"), { recursive: true });
 const base = mkdtempSync(path.join(os.homedir(), ".cache", "saint-aegis-test-"));
 afterAll(() => rmSync(base, { recursive: true, force: true }));
 
