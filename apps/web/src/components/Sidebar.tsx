@@ -320,6 +320,7 @@ import { SidebarSectionToolbar } from "./SidebarSectionToolbar";
 import { SidebarGlyph, sidebarGlyphClass, SIDEBAR_TRAILING_ICON_CLASS } from "./sidebarGlyphs";
 import { SidebarStatusTrailingGlyph } from "./SidebarStatusTrailingGlyph";
 import { ThreadArchiveActionButton } from "./ThreadArchiveActionButton";
+import { ThreadDeleteActionButton } from "./ThreadDeleteActionButton";
 import { ThreadPinToggleButton } from "./ThreadPinToggleButton";
 import {
   SidebarThreadRowContent,
@@ -5333,6 +5334,11 @@ export default function Sidebar() {
             />
           ) : null}
           {renderThreadArchiveAction(input.threadId, input.toneClassName)}
+          <ThreadDeleteActionButton
+            threadId={input.threadId}
+            toneClassName={input.toneClassName}
+            onDelete={() => void confirmAndDeleteThread(input.threadId)}
+          />
         </div>
       </SidebarRowHoverActions>
     );

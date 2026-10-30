@@ -87,3 +87,12 @@ export async function removeHostProject(hostId: HostId, projectId: ProjectId): P
     removeDeletedProjectFromClientState: () => undefined,
   });
 }
+
+/** Deletes one thread on a host; the host's shell stream drops it from its sidebar. */
+export async function deleteHostThread(hostId: HostId, threadId: ThreadId): Promise<void> {
+  await hostHandle(hostId).requireApi().orchestration.dispatchCommand({
+    type: "thread.delete",
+    commandId: newCommandId(),
+    threadId,
+  });
+}
