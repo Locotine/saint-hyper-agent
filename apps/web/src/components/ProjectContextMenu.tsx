@@ -48,6 +48,8 @@ export type ProjectContextMenuId =
 export function SidebarRowContextMenu(props: {
   position: { x: number; y: number };
   onClose: () => void;
+  /** Replaces the project menu's fixed width, for menus with longer labels. */
+  className?: string;
   children: ReactNode;
 }) {
   const { position, onClose } = props;
@@ -65,7 +67,7 @@ export function SidebarRowContextMenu(props: {
         align="start"
         side="bottom"
         sideOffset={0}
-        className={SIDEBAR_CONTEXT_MENU_PANEL_CLASS_NAME}
+        className={props.className ?? SIDEBAR_CONTEXT_MENU_PANEL_CLASS_NAME}
       >
         <MenuGroup>{props.children}</MenuGroup>
       </ComposerPickerMenuPopup>

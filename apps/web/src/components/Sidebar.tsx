@@ -332,6 +332,7 @@ import { useProjectAgentSummaries } from "./chat/project/useProjectAgentSummarie
 import { RenameDialog } from "./RenameDialog";
 import { EditProjectDialog, type EditProjectValue } from "./EditProjectDialog";
 import { ProjectContextMenu, type ProjectContextMenuId } from "./ProjectContextMenu";
+import { ReactContextMenuHost, showReactContextMenu } from "./ReactContextMenu";
 import { RelocateProjectDialog } from "./RelocateProjectDialog";
 import { RenameThreadDialog } from "./RenameThreadDialog";
 import { SnoozeUntilDialog } from "./SnoozeUntilDialog";
@@ -3585,7 +3586,7 @@ export default function Sidebar() {
             ],
           )
         : [];
-      const clicked = await api.contextMenu.show(
+      const clicked = await showReactContextMenu(
         [
           { id: "rename", label: "Rename thread", icon: THREAD_CONTEXT_MENU_ICONS.rename },
           {
@@ -3911,7 +3912,7 @@ export default function Sidebar() {
       if (ids.length === 0) return;
       const count = ids.length;
 
-      const clicked = await api.contextMenu.show(
+      const clicked = await showReactContextMenu(
         [
           {
             id: "mark-unread",
@@ -7875,6 +7876,8 @@ export default function Sidebar() {
           return handleBulkMoveProjects(projectIds, spaceProjectPickerTarget.id);
         }}
       />
+
+      <ReactContextMenuHost />
 
       {projectContextMenuState && projectContextMenuProject ? (
         <ProjectContextMenu
