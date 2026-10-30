@@ -133,6 +133,13 @@ it.each(
     await page.viewport(1200, 800);
     const view = await mount(diff, "const value = 1;\nconsole.log(value);\n");
     const editor = await ready();
+    if (diff) {
+      await expect.poll(() => monaco.editor.getDiffEditors()[0]?.getLineChanges()).not.toBeNull();
+      // Diff alignment inserts view zones asynchronously; a tooltip placed before that layout
+      // lands can end up a couple of pixels off the button it was measured against.
+      for (let frame = 0; frame < 2; frame++)
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    }
     await editor.getAction("actions.find")?.run();
     await page.getByRole("textbox", { name: "Find", exact: true }).fill("value");
     const close = page.getByRole("button", { name: /^Close(?:\s|$)/ });
