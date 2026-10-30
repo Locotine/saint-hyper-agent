@@ -21,7 +21,9 @@ import type { ChatFileReference } from "~/lib/chatReferences";
 import { showFileReferenceContextMenu } from "~/lib/fileReferenceContextMenu";
 import { projectQueryKeys } from "~/lib/projectReactQuery";
 import { isMacPlatform, getNavigatorPlatform } from "~/lib/utils";
+import { useRemoteSshState } from "~/hooks/useRemoteSshState";
 import { canDownloadWorkspaceFiles, downloadWorkspaceFiles } from "~/lib/workspaceDownload";
+import { remoteHostAlias } from "../settings/remoteHostsSettingsModel";
 import { ensureLocalNativeApi } from "~/nativeApi";
 import { RenameDialog } from "../RenameDialog";
 import { toastManager } from "../ui/toast";
@@ -108,7 +110,7 @@ export function useExplorerEntryActions(input: {
   readonly openRootMenu: (position: { x: number; y: number }) => void;
   readonly selection: ExplorerTreeSelection;
   readonly moveEntries: (paths: string[], directory: string) => void;
-  /** The header's Download button; null where downloading does not apply (local windows). */
+  /** The header's Download button; null where downloading does not apply (this computer's files). */
   readonly downloadSelection: { readonly fileCount: number; readonly download: () => void } | null;
   readonly dialog: ReactNode;
 } {
@@ -116,6 +118,7 @@ export function useExplorerEntryActions(input: {
   // File operations act on the machine the files live on (a connected host's chat: that host);
   // dialogs and menus stay on this computer.
   const hostId = useHostId();
+  const hostAlias = remoteHostAlias(useRemoteSshState(), hostId);
   const hostProjectsApi = () => {
     const api = apiFor(hostId);
     if (!api) throw new Error("This host is not connected.");
@@ -245,7 +248,7 @@ export function useExplorerEntryActions(input: {
   };
 
   const downloadEntries = async (targets: readonly ExplorerSelectableEntry[]) => {
-    if (!workspaceRoot) return;
+    if (!workspaceRoot || !hostAlias) return;
     const paths = targets.filter((entry) => entry.kind === "file").map((entry) => entry.path);
     const skipped = targets.length - paths.length;
     if (skipped > 0) {
@@ -266,7 +269,7 @@ export function useExplorerEntryActions(input: {
       timeout: 0,
     });
     try {
-      const result = await downloadWorkspaceFiles({ cwd: workspaceRoot, paths });
+      const result = await downloadWorkspaceFiles({ host: hostAlias, cwd: workspaceRoot, paths });
       toastManager.close(toastId);
       if (!result) {
         toastManager.add({ type: "error", title: "Downloading needs the Saint desktop app" });
@@ -344,7 +347,7 @@ export function useExplorerEntryActions(input: {
     forgetSelected(movedFrom);
   };
 
-  const canDownload = canDownloadWorkspaceFiles();
+  const canDownload = hostAlias !== null && canDownloadWorkspaceFiles(hostId);
 
   const openEntryMenu = (
     entry: Pick<ProjectFileSystemEntry, "path" | "kind">,

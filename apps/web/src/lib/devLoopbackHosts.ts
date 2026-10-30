@@ -96,6 +96,9 @@ function loopbackBridge(): RemoteSshBridge | undefined {
       hosts.some((state) => state.host === host && state.phase === "connected")
         ? (urls.get(host) ?? null)
         : null,
+    downloadFiles: async () => {
+      throw new Error("Downloading needs the Saint desktop app.");
+    },
     onState: (listener) => {
       listeners.add(listener);
       return () => {
