@@ -18,9 +18,10 @@ const transport = vi.hoisted(() => ({
   getThreadState: vi.fn(),
 }));
 
-vi.mock("~/nativeApi", () => ({
-  ensureLocalNativeApi: () => ({ device: { getThreadState: transport.getThreadState } }),
-}));
+vi.mock("~/nativeApi", () => {
+  const api = () => ({ device: { getThreadState: transport.getThreadState } });
+  return { ensureLocalNativeApi: api, readLocalNativeApi: api };
+});
 vi.mock("~/lib/deviceFrameSource", () => ({
   createDeviceFrameSource: (options: DeviceFrameSourceOptions) => {
     const close = vi.fn();
