@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.3 — 2026-10-30
+
+**Home opens a new chat, and closing the last tab leaves a remote chat.**
+
+This Stable release covers the commits after `v1.1.2`: `e17d53f0b` and `33711f0a8`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.3).
+
+### Changed
+
+- The rail's **Home** button opens the new-chat screen (reusing an unsent draft, like **New thread**) instead of restoring the last thread you visited, which could be one you closed long ago.
+
+### Fixed
+
+- Closing the last tab while a remote host's chat is open left that conversation on screen under an empty tab strip. A remote chat has no tab of its own, so the close counted as closing a background tab; it now leaves for a new chat.
+
 ## 1.1.2 — 2026-10-30
 
 **Delete a chat or a project from its row, one menu for remote projects, and download files from a remote host.**
