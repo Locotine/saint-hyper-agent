@@ -4,8 +4,10 @@
 
 import { useState } from "react";
 import type { ProjectId } from "@saint/contracts";
+import type { HostId } from "@saint/shared/hostId";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { hostHandle } from "../hosts/hostScope";
 import { ensureLocalNativeApi } from "../nativeApi";
 import { relocateProjectFromClient } from "../lib/projectRelocation";
 import { hasUnsavedWorkspaceEditors } from "../lib/workspaceEditorSession";
@@ -15,6 +17,8 @@ import { toastManager } from "./ui/toast";
 export function RelocateProjectDialog(props: {
   projectId: ProjectId;
   workspaceRoot: string;
+  /** The host whose project this is; this computer when omitted. */
+  hostId?: HostId;
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
@@ -32,11 +36,15 @@ export function RelocateProjectDialog(props: {
           if (hasUnsavedWorkspaceEditors(queryClient)) {
             throw new Error("Save or discard unsaved file edits before changing a project path.");
           }
-          await relocateProjectFromClient(ensureLocalNativeApi().orchestration, {
-            projectId: props.projectId,
-            previousWorkspaceRoot: originalWorkspaceRoot,
-            workspaceRoot,
-          });
+          await relocateProjectFromClient(
+            (props.hostId ? hostHandle(props.hostId).requireApi() : ensureLocalNativeApi())
+              .orchestration,
+            {
+              projectId: props.projectId,
+              previousWorkspaceRoot: originalWorkspaceRoot,
+              workspaceRoot,
+            },
+          );
           toastManager.add({
             type: "success",
             title: "Project path updated",

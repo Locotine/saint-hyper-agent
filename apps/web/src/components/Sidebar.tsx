@@ -15,16 +15,12 @@ import { useProjectImportDialogStore } from "~/projectImport/projectImportDialog
 
 import {
   AddPlusIcon,
-  ArchiveIcon,
   BotIcon,
   CircleQuestionIcon,
   ClockIcon,
   CodeReviewIcon,
-  CopyIcon,
   CustomizeIcon,
   GitBranchIcon,
-  ExternalLinkIcon,
-  FolderOpenIcon,
   GiftIcon,
   InboxIcon,
   KanbanIcon,
@@ -36,17 +32,14 @@ import {
   BellIcon,
   type LucideIcon,
   NewThreadIcon,
-  PencilIcon,
   PinIcon,
   PlayIcon,
   SearchIcon,
-  StopFilledIcon,
+  TrashCanIcon,
   TemporaryThreadIcon,
   TerminalIcon,
-  Trash2,
   TriangleAlertIcon,
   WorktreeIcon,
-  XIcon,
 } from "~/lib/icons";
 import { createCentralIconComponent } from "~/lib/central-icons";
 import {
@@ -338,6 +331,7 @@ import {
 import { useProjectAgentSummaries } from "./chat/project/useProjectAgentSummaries";
 import { RenameDialog } from "./RenameDialog";
 import { EditProjectDialog, type EditProjectValue } from "./EditProjectDialog";
+import { ProjectContextMenu, type ProjectContextMenuId } from "./ProjectContextMenu";
 import { RelocateProjectDialog } from "./RelocateProjectDialog";
 import { RenameThreadDialog } from "./RenameThreadDialog";
 import { SnoozeUntilDialog } from "./SnoozeUntilDialog";
@@ -616,22 +610,6 @@ const DebugFeatureFlagsMenu = import.meta.env.DEV
     )
   : null;
 
-type ProjectContextMenuId =
-  | "open-in-finder"
-  | "open-in-kanban"
-  | "copy-path"
-  | "relocate"
-  | "start-dev"
-  | "stop-dev"
-  | "open-dev-server"
-  | "rename"
-  | "edit-project-agent"
-  | "toggle-pin-project-agent"
-  | "toggle-pin"
-  | "archive-threads"
-  | "delete-threads"
-  | "delete";
-
 type ProjectContextMenuState = {
   projectId: ProjectId;
   position: { x: number; y: number };
@@ -639,7 +617,6 @@ type ProjectContextMenuState = {
 
 // Sidebar right-click menus (project rows, Space tabs) share one chrome; see
 // sidebarContextMenuStyles.
-const PROJECT_CONTEXT_MENU_PANEL_CLASS_NAME = SIDEBAR_CONTEXT_MENU_PANEL_CLASS_NAME;
 const PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME = SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME;
 const PROJECT_CONTEXT_MENU_ICON_CLASS_NAME = SIDEBAR_CONTEXT_MENU_ICON_CLASS_NAME;
 
@@ -4374,9 +4351,9 @@ export default function Sidebar() {
         projectThreads.length > 0
           ? [
               `Remove project "${project.name}"?`,
-              `This will delete ${projectThreads.length} ${pluralize(projectThreads.length, "thread")} in this folder and remove the project.`,
+              `This will delete ${projectThreads.length} ${pluralize(projectThreads.length, "thread")} in this folder and remove the project. The folder itself is not deleted.`,
             ].join("\n")
-          : `Remove project "${project.name}"?`,
+          : `Remove project "${project.name}"?\nThe folder itself is not deleted.`,
       );
       if (!confirmed) return;
 
@@ -5905,6 +5882,18 @@ export default function Sidebar() {
             void handleNewThread(project.id);
           }}
         />
+        <SidebarIconButton
+          icon={TrashCanIcon}
+          label={`Remove project ${project.name}`}
+          tooltip="Remove project"
+          tooltipSide="top"
+          className="hover:text-destructive"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void handleProjectContextMenuAction(project.id, "delete");
+          }}
+        />
       </>
     );
   }
@@ -5994,13 +5983,13 @@ export default function Sidebar() {
     const isProjectRunning = isSidebarProjectRunning(project.id);
     const collapsedProjectStatus = project.expanded ? null : projectStatus;
     // The "open dev server" affordance now lives in the project context menu, so
-    // the hover toolbar always reserves space for the three thread actions. The
+    // the hover toolbar always reserves space for the three thread actions and Remove. The
     // reserve lives on the *name* container (not the button) so only the truncating
     // name yields to the overlay toolbar; the trailing run dot stays put and fades
     // in place instead of sliding left. Focus is read from the group because the
     // name container itself is not focusable — the row's button is.
     const projectToolbarReserveClassName =
-      "group-hover/project-header:pr-[4.75rem] project-header-focus:pr-[4.75rem]";
+      "group-hover/project-header:pr-[6.5rem] project-header-focus:pr-[6.5rem]";
     // Configured display name only — folder identity lives in the hover card (#1000).
     const projectRowLabel = resolveSidebarProjectRowLabel(project);
 
@@ -7292,13 +7281,6 @@ export default function Sidebar() {
         : [],
     [displaySidebarThreads, projectContextMenuState],
   );
-  const projectContextMenuAnchor = useMemo(
-    () =>
-      projectContextMenuState
-        ? createClientPointMenuAnchor(projectContextMenuState.position)
-        : null,
-    [projectContextMenuState],
-  );
   const projectContextMenuHasAnyThreads = projectContextMenuThreads.length > 0;
   const projectContextMenuHasArchivableThreads = projectContextMenuThreads.some(
     (thread) => thread.archivedAt == null,
@@ -7894,102 +7876,20 @@ export default function Sidebar() {
         }}
       />
 
-      {projectContextMenuState && projectContextMenuProject && projectContextMenuAnchor ? (
-        <Menu
-          keepOpenOnSubmenuInteraction
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setProjectContextMenuState(null);
-            }
-          }}
-        >
-          <ComposerPickerMenuPopup
-            anchor={projectContextMenuAnchor}
-            align="start"
-            side="bottom"
-            sideOffset={0}
-            className={PROJECT_CONTEXT_MENU_PANEL_CLASS_NAME}
-          >
-            <MenuGroup>
-              <MenuItem
-                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                onClick={() =>
-                  void handleProjectContextMenuAction(
-                    projectContextMenuState.projectId,
-                    "open-in-finder",
-                  )
-                }
-              >
-                <ProjectContextMenuIcon icon={FolderOpenIcon} />
-                <span>Open in Finder</span>
-              </MenuItem>
-              <MenuItem
-                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                onClick={() =>
-                  void handleProjectContextMenuAction(
-                    projectContextMenuState.projectId,
-                    "open-in-kanban",
-                  )
-                }
-              >
-                <ProjectContextMenuIcon icon={KanbanIcon} />
-                <span>Open in Kanban</span>
-              </MenuItem>
-              <MenuItem
-                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                onClick={() =>
-                  void handleProjectContextMenuAction(
-                    projectContextMenuState.projectId,
-                    "copy-path",
-                  )
-                }
-              >
-                <ProjectContextMenuIcon icon={CopyIcon} />
-                <span>Copy Path</span>
-              </MenuItem>
-              <MenuSeparator />
-              {projectContextMenuIsRunning ? (
-                <MenuItem
-                  className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                  onClick={() =>
-                    void handleProjectContextMenuAction(
-                      projectContextMenuState.projectId,
-                      "stop-dev",
-                    )
-                  }
-                >
-                  <ProjectContextMenuIcon icon={StopFilledIcon} />
-                  <span>Stop dev</span>
-                </MenuItem>
-              ) : (
-                <MenuItem
-                  className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                  onClick={() =>
-                    void handleProjectContextMenuAction(
-                      projectContextMenuState.projectId,
-                      "start-dev",
-                    )
-                  }
-                >
-                  <ProjectContextMenuIcon icon={PlayIcon} />
-                  <span>Start dev</span>
-                </MenuItem>
-              )}
-              {projectContextMenuHasOpenServer ? (
-                <MenuItem
-                  className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                  onClick={() =>
-                    void handleProjectContextMenuAction(
-                      projectContextMenuState.projectId,
-                      "open-dev-server",
-                    )
-                  }
-                >
-                  <ProjectContextMenuIcon icon={ExternalLinkIcon} />
-                  <span>Open dev server</span>
-                </MenuItem>
-              ) : null}
+      {projectContextMenuState && projectContextMenuProject ? (
+        <ProjectContextMenu
+          position={projectContextMenuState.position}
+          onClose={() => setProjectContextMenuState(null)}
+          onAction={(id) =>
+            void handleProjectContextMenuAction(projectContextMenuState.projectId, id)
+          }
+          pinLabel={pinActionLabel("project", projectContextMenuIsPinned)}
+          local={{
+            isRunning: projectContextMenuIsRunning,
+            hasOpenServer: projectContextMenuHasOpenServer,
+            hasArchivableThreads: projectContextMenuHasArchivableThreads,
+            hasAnyThreads: projectContextMenuHasAnyThreads,
+            moveToSpace: (
               <MenuSub keepOpenOnFocusOut>
                 <MenuSubTrigger className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}>
                   {/* The glyph is the project's current space, so the row doubles as a
@@ -8039,17 +7939,9 @@ export default function Sidebar() {
                   </MenuItem>
                 </ComposerPickerMenuSubPopup>
               </MenuSub>
-              <MenuSeparator />
-              <MenuItem
-                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                onClick={() =>
-                  void handleProjectContextMenuAction(projectContextMenuState.projectId, "rename")
-                }
-              >
-                <ProjectContextMenuIcon icon={PencilIcon} />
-                <span>Edit project</span>
-              </MenuItem>
-              {isGroupContainerProject(projectContextMenuProject, {
+            ),
+            coordinator:
+              isGroupContainerProject(projectContextMenuProject, {
                 homeDir,
                 chatWorkspaceRoot,
                 studioWorkspaceRoot,
@@ -8086,72 +7978,9 @@ export default function Sidebar() {
                     </span>
                   </MenuItem>
                 </>
-              ) : null}
-              <MenuItem
-                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                onClick={() =>
-                  void handleProjectContextMenuAction(projectContextMenuState.projectId, "relocate")
-                }
-              >
-                <ProjectContextMenuIcon icon={FolderOpenIcon} />
-                <span>Change project path…</span>
-              </MenuItem>
-              <MenuItem
-                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                onClick={() =>
-                  void handleProjectContextMenuAction(
-                    projectContextMenuState.projectId,
-                    "toggle-pin",
-                  )
-                }
-              >
-                <ProjectContextMenuIcon icon={PinIcon} />
-                <span>{pinActionLabel("project", projectContextMenuIsPinned)}</span>
-              </MenuItem>
-              {projectContextMenuHasArchivableThreads || projectContextMenuHasAnyThreads ? (
-                <MenuSeparator />
-              ) : null}
-              {projectContextMenuHasArchivableThreads ? (
-                <MenuItem
-                  className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                  onClick={() =>
-                    void handleProjectContextMenuAction(
-                      projectContextMenuState.projectId,
-                      "archive-threads",
-                    )
-                  }
-                >
-                  <ProjectContextMenuIcon icon={ArchiveIcon} />
-                  <span>Archive threads</span>
-                </MenuItem>
-              ) : null}
-              {projectContextMenuHasAnyThreads ? (
-                <MenuItem
-                  className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                  onClick={() =>
-                    void handleProjectContextMenuAction(
-                      projectContextMenuState.projectId,
-                      "delete-threads",
-                    )
-                  }
-                >
-                  <ProjectContextMenuIcon icon={Trash2} />
-                  <span>Delete threads</span>
-                </MenuItem>
-              ) : null}
-              <MenuSeparator />
-              <MenuItem
-                className={PROJECT_CONTEXT_MENU_ITEM_CLASS_NAME}
-                onClick={() =>
-                  void handleProjectContextMenuAction(projectContextMenuState.projectId, "delete")
-                }
-              >
-                <ProjectContextMenuIcon icon={XIcon} />
-                <span>Remove</span>
-              </MenuItem>
-            </MenuGroup>
-          </ComposerPickerMenuPopup>
-        </Menu>
+              ) : null,
+          }}
+        />
       ) : null}
 
       {navCustomizeMenuPosition && navCustomizeMenuAnchor ? (

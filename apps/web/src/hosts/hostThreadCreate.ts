@@ -3,7 +3,8 @@
 //          This computer's new threads go through composer drafts first; a host's thread is
 //          created on the host right away and opened, and the first message names it as usual.
 // Layer: Web host connections
-// Exports: createHostThread, addHostProject, addHostProjectAtPath
+// Exports: createHostThread, addHostProject, addHostProjectAtPath, removeHostProject,
+//          renameHostProject, setHostProjectPinned, deleteHostThread
 
 import type { ProjectId, ThreadId } from "@saint/contracts";
 import { GENERIC_CHAT_THREAD_TITLE } from "@saint/shared/chatThreads";
@@ -104,5 +105,33 @@ export async function deleteHostThread(hostId: HostId, threadId: ThreadId): Prom
     type: "thread.delete",
     commandId: newCommandId(),
     threadId,
+  });
+}
+
+/** Renames a project on its host: the host's own title, not a label kept on this computer. */
+export async function renameHostProject(
+  hostId: HostId,
+  projectId: ProjectId,
+  title: string,
+): Promise<void> {
+  await hostHandle(hostId).requireApi().orchestration.dispatchCommand({
+    type: "project.meta.update",
+    commandId: newCommandId(),
+    projectId,
+    title,
+  });
+}
+
+/** Pins or unpins a project on its host; the host's shell stream carries the flag back. */
+export async function setHostProjectPinned(
+  hostId: HostId,
+  projectId: ProjectId,
+  isPinned: boolean,
+): Promise<void> {
+  await hostHandle(hostId).requireApi().orchestration.dispatchCommand({
+    type: "project.meta.update",
+    commandId: newCommandId(),
+    projectId,
+    isPinned,
   });
 }
