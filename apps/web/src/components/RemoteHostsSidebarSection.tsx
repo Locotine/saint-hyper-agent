@@ -32,6 +32,7 @@ import { DisclosureChevron } from "./ui/DisclosureChevron";
 import { AddPlusIcon, FolderIcon, MonitorIcon, NewThreadIcon, ServerIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
 import {
+  connectedRemoteHosts,
   remoteHostSidebarStatus,
   threadState,
   type RemoteCatalogThread,
@@ -487,11 +488,7 @@ export function AddProjectOnHostButton(props: {
   state: DesktopRemoteSshState | null;
   onAddLocal: () => void;
 }) {
-  const hosts = (props.state ? remoteHostRows(props.state) : []).flatMap((row) =>
-    row.state?.hostKey && remoteHostSidebarStatus(row.state) === "connected"
-      ? [{ host: row.host, hostId: sshHostId(row.state.hostKey) }]
-      : [],
-  );
+  const hosts = connectedRemoteHosts(props.state);
   if (hosts.length === 0) {
     return (
       <SidebarIconButton

@@ -3,7 +3,7 @@
 //          This computer's new threads go through composer drafts first; a host's thread is
 //          created on the host right away and opened, and the first message names it as usual.
 // Layer: Web host connections
-// Exports: createHostThread, addHostProject
+// Exports: createHostThread, addHostProject, addHostProjectAtPath
 
 import type { ProjectId, ThreadId } from "@saint/contracts";
 import { GENERIC_CHAT_THREAD_TITLE } from "@saint/shared/chatThreads";
@@ -57,11 +57,21 @@ export async function createHostThread(hostId: HostId, projectId: ProjectId): Pr
 export async function addHostProject(hostId: HostId, hostName: string): Promise<ProjectId | null> {
   const workspaceRoot = await pickRemoteFolder(hostId, hostName);
   if (!workspaceRoot) return null;
+  return addHostProjectAtPath(hostId, workspaceRoot);
+}
+
+/** Adds a folder on the host as a project; `createIfMissing` makes a typed path that is not there. */
+export async function addHostProjectAtPath(
+  hostId: HostId,
+  workspaceRoot: string,
+  options: { readonly createIfMissing?: boolean } = {},
+): Promise<ProjectId> {
   const api = hostHandle(hostId).requireApi();
   const { projectId } = await createOrRecoverProjectFromPath({
     api,
     workspaceRoot,
     spaceId: null,
+    ...(options.createIfMissing ? { createIfMissing: true } : {}),
     loadSnapshot: () => api.orchestration.getShellSnapshot().catch(() => null),
   });
   return projectId;

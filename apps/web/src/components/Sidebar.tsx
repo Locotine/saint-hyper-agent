@@ -150,6 +150,7 @@ import {
 import { useRailShellStore } from "../railShellStore";
 import { isElectron } from "../env";
 import { useRemoteSshState } from "../hooks/useRemoteSshState";
+import { addHostProjectAtPath } from "../hosts/hostThreadCreate";
 import { useHostSearchThreads } from "../hosts/hostSearchThreads";
 import { remoteHostAlias, remoteHostRows } from "./settings/remoteHostsSettingsModel";
 import { formatRelativeTime } from "../lib/relativeTime";
@@ -4164,7 +4165,7 @@ export default function Sidebar() {
     async (value: CreateProjectSubmitValue, options: CreateProjectSubmitOptions) => {
       const previousSpaceId = activeSpaceId;
       const existingProject =
-        value.source === "local"
+        value.source === "local" && !value.hostId
           ? findWorkspaceRootMatch(projects, value.workspaceRoot, (project) => project.cwd)
           : null;
       // Reopening an existing project must follow the Space where that project
@@ -4238,6 +4239,11 @@ export default function Sidebar() {
                 "The GitHub project was added, but it has not synced into the sidebar yet. Try again in a moment.",
               );
             }
+          });
+        } else if (value.hostId) {
+          // The host's project list shows it under that host's group, not in a Space here.
+          await addHostProjectAtPath(value.hostId, value.workspaceRoot, {
+            createIfMissing: value.createIfMissing,
           });
         } else {
           handleSelectSpaceForIncomingProject(destinationSpaceId);
