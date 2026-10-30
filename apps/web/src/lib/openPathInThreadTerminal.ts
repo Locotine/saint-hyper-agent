@@ -56,11 +56,18 @@ export async function openPathInThreadTerminal(input: {
     }
     // Existing PTYs keep their launch cwd/env on reattach; writing `cd`
     // navigates in place without replacing shell state.
-    await api.terminal.write({
-      threadId,
-      terminalId: targetTerminalId,
-      data: cdCommand,
-      onlyIfIdle: true,
+    const write = () =>
+      api.terminal.write({
+        threadId,
+        terminalId: targetTerminalId,
+        data: cdCommand,
+        onlyIfIdle: true,
+      });
+    // The drawer can be marked open with no shell behind it (a remote host reconnected, or
+    // the thread's view had not mounted yet); start one there, then write.
+    await write().catch(async () => {
+      await api.terminal.open({ threadId, terminalId: targetTerminalId, cwd: path });
+      await write();
     });
   } catch (error) {
     // Open may already have created a PTY, even if navigation or its
