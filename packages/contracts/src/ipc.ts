@@ -411,6 +411,15 @@ import type {
   StatsGetRecapResult,
 } from "./stats";
 import type { BrowserAnnotationMethods } from "./browserAnnotations";
+import type * as FlowContracts from "./flow";
+import type * as SapContracts from "./sap";
+import type * as AegisContracts from "./aegis";
+import type * as EconomyContracts from "./hostEconomy";
+
+/** Request/response pair of a schema-backed RPC. */
+type SchemaRpc<I extends { readonly Type: unknown }, O extends { readonly Type: unknown }> = (
+  input: I["Type"],
+) => Promise<O["Type"]>;
 import { type KeybindingCommand, MAX_KEYBINDING_VALUE_LENGTH } from "./keybindings";
 
 export interface ContextMenuItem<T extends string = string> {
@@ -1407,6 +1416,73 @@ export interface NativeApi {
     onWorktreeSetupProgress: (
       callback: (event: GitWorktreeSetupProgressEvent) => void,
     ) => () => void;
+  };
+  flows: {
+    list: SchemaRpc<typeof FlowContracts.FlowListInput, typeof FlowContracts.FlowListResult>;
+    get: SchemaRpc<typeof FlowContracts.FlowGetInput, typeof FlowContracts.FlowGetResult>;
+    start: SchemaRpc<typeof FlowContracts.FlowStartRpcInput, typeof FlowContracts.FlowRunView>;
+    action: SchemaRpc<typeof FlowContracts.FlowActionInput, typeof FlowContracts.FlowActionResult>;
+    killAll: SchemaRpc<
+      typeof FlowContracts.FlowKillAllInput,
+      typeof FlowContracts.FlowKillAllResult
+    >;
+    templates: SchemaRpc<
+      typeof FlowContracts.FlowTemplatesInput,
+      typeof FlowContracts.FlowTemplatesResult
+    >;
+    saveSpec: SchemaRpc<
+      typeof FlowContracts.FlowSaveSpecInput,
+      typeof FlowContracts.FlowSaveSpecResult
+    >;
+    specs: SchemaRpc<typeof FlowContracts.FlowSpecsInput, typeof FlowContracts.FlowSpecsResult>;
+  };
+  ledger: {
+    list: SchemaRpc<typeof FlowContracts.LedgerListInput, typeof FlowContracts.LedgerListResult>;
+    verify: SchemaRpc<
+      typeof FlowContracts.LedgerVerifyInput,
+      typeof FlowContracts.LedgerVerifyResult
+    >;
+    export: SchemaRpc<
+      typeof FlowContracts.LedgerExportInput,
+      typeof FlowContracts.LedgerExportResult
+    >;
+    handle: SchemaRpc<
+      typeof FlowContracts.LedgerHandleInput,
+      typeof FlowContracts.LedgerHandleResult
+    >;
+  };
+  sap: {
+    list: SchemaRpc<typeof SapContracts.SapListInput, typeof SapContracts.SapListResult>;
+  };
+  aegis: {
+    status: SchemaRpc<typeof AegisContracts.AegisStatusInput, typeof AegisContracts.AegisStatus>;
+    alerts: SchemaRpc<
+      typeof AegisContracts.AegisAlertsInput,
+      typeof AegisContracts.AegisAlertsResult
+    >;
+    resolve: SchemaRpc<
+      typeof AegisContracts.AegisResolveInput,
+      typeof AegisContracts.AegisAlertsResult
+    >;
+    update: SchemaRpc<typeof AegisContracts.AegisUpdateInput, typeof AegisContracts.AegisStatus>;
+    unfreeze: SchemaRpc<
+      typeof AegisContracts.AegisUnfreezeInput,
+      typeof AegisContracts.AegisStatus
+    >;
+  };
+  economy: {
+    status: SchemaRpc<
+      typeof EconomyContracts.EconomyStatusInput,
+      typeof EconomyContracts.EconomyStatus
+    >;
+    agent: SchemaRpc<
+      typeof EconomyContracts.EconomyAgentInput,
+      typeof EconomyContracts.EconomyStatus
+    >;
+    update: SchemaRpc<
+      typeof EconomyContracts.EconomyUpdateInput,
+      typeof EconomyContracts.EconomyStatus
+    >;
   };
   githubInbox: {
     list: (input: GitHubInboxListInput) => Promise<GitHubInboxListResult>;

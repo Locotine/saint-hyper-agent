@@ -27,6 +27,7 @@ import {
 } from "@saint/shared/runtimeMode";
 import { Cause, Effect, Option, Semaphore } from "effect";
 
+import { currentSpawnRefusal } from "../economy/Services/Economy.ts";
 import type { ServerConfigShape } from "../config.ts";
 import type { GitCoreShape } from "../git/Services/GitCore.ts";
 import type { OrchestrationEngineShape } from "../orchestration/Services/OrchestrationEngine.ts";
@@ -130,6 +131,8 @@ export type GatewayCreationContext =
       readonly callerThreadId: string;
       readonly callerTurnId: string | null;
       readonly assertAuthority: () => Effect.Effect<void, GatewayToolError>;
+      /** Runs before each child's thread exists, so its capability ceiling is in place first. */
+      readonly beforeCreateThread?: (threadId: ThreadId) => void;
     }
   | {
       readonly kind: "hub-work";
@@ -348,6 +351,11 @@ export const makeCreateThreadsHandler = Effect.fn(function* (
             "Thread creation requires an active caller turn.",
           ),
         );
+      }
+      // Host economy: an agent may not add threads while memory is critical or seats are full.
+      const refusal = context.kind === "provider-session" ? currentSpawnRefusal() : null;
+      if (refusal) {
+        return yield* Effect.fail(new GatewayToolError("host_busy", refusal));
       }
       if (context.kind === "external-client" && input.threads.length !== 1) {
         return yield* Effect.fail(
@@ -1175,6 +1183,9 @@ export const makeCreateThreadsHandler = Effect.fn(function* (
                       callerThreadId: context.callerThreadId,
                       targetProjectId: entry.projectId,
                     });
+                  }
+                  if (context.kind === "provider-session") {
+                    context.beforeCreateThread?.(entry.ids.threadId);
                   }
                   yield* orchestrationEngine
                     .dispatch({

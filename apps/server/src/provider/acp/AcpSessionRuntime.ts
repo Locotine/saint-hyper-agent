@@ -3,6 +3,7 @@
 // Layer: Provider ACP runtime
 // Exports: AcpSessionRuntime and its typed runtime factory contracts.
 
+import { recordAgentProcess } from "../../economy/agentProcesses.ts";
 import { randomUUID } from "node:crypto";
 import type * as Acp from "@agentclientprotocol/sdk";
 import { resolveExecutionWorkingDirectory } from "@saint/shared/wslBridge";
@@ -21,7 +22,8 @@ import {
   Stream,
 } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
-import { spawnProviderProcess } from "../../platform/effectProcessRuntime.ts";
+import { effectLaunchedChild, spawnProviderProcess } from "../../platform/effectProcessRuntime.ts";
+import { planProviderLaunch } from "../../aegis/providerLaunch.ts";
 import * as AcpErrors from "./AcpErrors.ts";
 import { makeAcpLoadReplayGate, type AcpLoadReplayGate } from "./AcpLoadReplayGate.ts";
 import { loadAcpSdk, type AcpSdkModule } from "./AcpSdk.ts";
@@ -376,6 +378,8 @@ export interface AcpSessionRuntimeOptions {
     metadata: Record<string, unknown> | undefined,
   ) => string | undefined;
   readonly spawn: AcpSpawnInput;
+  /** The thread this process serves, for per-agent RSS/CPU; unset for discovery runs. */
+  readonly ownerThreadId?: string;
   readonly cwd: string;
   readonly resumeSessionId?: string;
   readonly clientCapabilities?: Acp.InitializeRequest["clientCapabilities"];
@@ -1499,9 +1503,21 @@ const makeAcpSessionRuntime = (
       try: () => buildAcpSpawnProcessEnv(options.spawn),
       catch: (cause) => new AcpErrors.AcpSpawnError({ command: options.spawn.command, cause }),
     });
+    const ownerThreadId = options.ownerThreadId;
+    const launch = ownerThreadId
+      ? yield* Effect.promise(() =>
+          planProviderLaunch({
+            threadId: ownerThreadId,
+            provider: "acp",
+            cwd: options.spawn.cwd,
+            env,
+          }),
+        )
+      : null;
     const child = yield* spawnProviderProcess(spawner, options.spawn.command, options.spawn.args, {
       ...(options.spawn.cwd ? { cwd: options.spawn.cwd } : {}),
-      env,
+      env: launch ? { ...env, ...launch.env } : env,
+      ...(launch?.sandbox ? { sandbox: launch.sandbox } : {}),
     }).pipe(
       Effect.provideService(Scope.Scope, runtimeScope),
       Effect.mapError(
@@ -1513,6 +1529,8 @@ const makeAcpSessionRuntime = (
       ),
     );
 
+    if (options.ownerThreadId) recordAgentProcess(options.ownerThreadId, child.pid);
+    launch?.attach(effectLaunchedChild(child));
     yield* Effect.addFinalizer(() => teardownAcpChildProcess(child, options.teardownProcessTree));
     // Registered after child teardown so LIFO scope closure releases any first
     // prompt/fork waiter before waiting for the child process to exit.

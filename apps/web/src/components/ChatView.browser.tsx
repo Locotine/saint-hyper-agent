@@ -1280,6 +1280,10 @@ function resolveWsRpc(body: WsRequestEnvelope["body"]): unknown {
   if (tag === WS_METHODS.todoList) {
     return { todos: [] };
   }
+  // The sidebar's Flows badge and rail status poll the flow list.
+  if (tag === WS_METHODS.flowList) {
+    return { runs: [] };
+  }
   // The Code review badge shares the inbox list; keep its background read contract-valid.
   if (tag === WS_METHODS.githubInboxList) {
     return {

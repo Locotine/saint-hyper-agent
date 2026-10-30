@@ -49,6 +49,7 @@ vi.mock("../RouteSurface", () => ({
   RouteSurfaceHeader: ({ children }: { children: React.ReactNode }) => children,
 }));
 vi.mock("./KanbanNewTaskDialog", () => ({ KanbanNewTaskDialog: () => null }));
+vi.mock("../flows/FlowAttention", () => ({ FlowAttentionStrip: () => null }));
 vi.mock("./useKanbanCardContextMenu", () => ({
   useKanbanCardContextMenu: () => ({ onCardContextMenu: vi.fn(), renameDialog: null }),
 }));
@@ -124,6 +125,7 @@ const board = {
   awaitingYou: [
     makeCard("awaiting-1", "awaitingYou", { attention: ["awaiting-approval"], needsReview: true }),
   ],
+  hibernated: [],
   done: [makeCard("done-1", "done")],
   totalCount: 4,
   hiddenCount: 0,
@@ -320,6 +322,23 @@ describe("KanbanProjectBoardView v2 (browser)", () => {
     }
   });
 
+  it("shows the Idle · hibernated column with its cards", async () => {
+    await render(
+      <KanbanProjectBoardView
+        board={{ ...board, hibernated: [makeCard("sleep-1", "hibernated")], totalCount: 5 }}
+        onOpenCard={vi.fn()}
+        onNewTask={vi.fn()}
+        prByThreadId={new Map()}
+        nowMs={NOW_MS}
+        viewMode="v2"
+      />,
+    );
+    await expect
+      .element(page.getByRole("heading", { name: KANBAN_COLUMN_V2_LABELS.hibernated }))
+      .toBeVisible();
+    await expect.element(page.getByText("Card sleep-1")).toBeVisible();
+  });
+
   it("renders the four-column attention-first layout with pills and filter", async () => {
     await render(
       <KanbanProjectBoardView
@@ -332,9 +351,12 @@ describe("KanbanProjectBoardView v2 (browser)", () => {
       />,
     );
 
-    for (const label of Object.values(KANBAN_COLUMN_V2_LABELS)) {
+    const { hibernated: hibernatedLabel, ...shownLabels } = KANBAN_COLUMN_V2_LABELS;
+    for (const label of Object.values(shownLabels)) {
       await expect.element(page.getByRole("heading", { name: label })).toBeVisible();
     }
+    // The Idle · hibernated column appears only while Host Economy has a sleeping agent.
+    expect(document.body.textContent).not.toContain(hibernatedLabel);
     for (const cardTitle of ["Card draft-1", "Card live-1", "Card awaiting-1", "Card done-1"]) {
       await expect.element(page.getByText(cardTitle)).toBeVisible();
     }

@@ -144,3 +144,14 @@ describe("desktop bundle file selection", () => {
     expect(excluded("node_modules/node-pty/prebuilds/darwin-arm64/pty.node", win)).toBe(true);
   });
 });
+
+describe("Cedar WASM", () => {
+  it("keeps only the Node build", () => {
+    const patterns = createDesktopBundleFilePatterns("linux");
+    const excluded = (file: string) =>
+      patterns.some((pattern) => pattern.startsWith("!") && matchesGlob(file, pattern.slice(1)));
+    expect(excluded("node_modules/@cedar-policy/cedar-wasm/web/cedar_wasm_bg.wasm")).toBe(true);
+    expect(excluded("node_modules/@cedar-policy/cedar-wasm/esm/cedar_wasm_bg.wasm")).toBe(true);
+    expect(excluded("node_modules/@cedar-policy/cedar-wasm/nodejs/cedar_wasm_bg.wasm")).toBe(false);
+  });
+});

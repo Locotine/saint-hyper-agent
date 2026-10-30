@@ -4,6 +4,9 @@
 // Exports: useDeviceVideoStream
 // Depends on: DevicePanel.logic frame gate, deviceFrameSource transport
 
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
+import { hostConnections } from "~/hosts/hostConnectionRegistry";
+import { useHostId } from "~/hosts/hostScope";
 import type { DeviceUdid } from "@saint/contracts";
 import type { DeviceFrame } from "@saint/shared/deviceFrame";
 import { useEffect, useRef, useState } from "react";
@@ -98,6 +101,8 @@ export function useDeviceVideoStream(input: {
   readonly enabled: boolean;
 }): { readonly status: DeviceVideoStatus; readonly dimensions: DeviceVideoDimensions | null } {
   const { canvasRef, udid, enabled } = input;
+  // A connected host's simulator streams from that host's server.
+  const hostId = useHostId();
   const [status, setStatus] = useState<DeviceVideoStatus>({ kind: "idle" });
   const [dimensions, setDimensions] = useState<DeviceVideoDimensions | null>(null);
 
@@ -130,6 +135,9 @@ export function useDeviceVideoStream(input: {
       createDeviceFrameSource({
         udid,
         handlers: { onFrame: handleFrame, onReset: handleReset },
+        ...(hostId === LOCAL_HOST_ID
+          ? {}
+          : { explicitUrl: hostConnections.peek(hostId)?.explicitUrl ?? null }),
       });
     // The codec-config frame carries SPS/PPS only, with no slice data, so it
     // cannot itself be decoded as a key chunk — WebCodecs rejects it with "a key
@@ -350,7 +358,7 @@ export function useDeviceVideoStream(input: {
       source?.close();
       teardownDecoder();
     };
-  }, [canvasRef, udid, enabled]);
+  }, [canvasRef, udid, enabled, hostId]);
 
   return { status, dimensions };
 }

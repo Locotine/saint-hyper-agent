@@ -48,6 +48,18 @@ export function KanbanStatusIcon({
       </svg>
     );
   }
+  if (column === "hibernated") {
+    // Crescent: asleep, wakes on the next message.
+    return (
+      <svg
+        viewBox="0 0 14 14"
+        className={cn("size-3.5 shrink-0 text-muted-foreground", className)}
+        aria-hidden
+      >
+        <path d="M9.5 2.2a5 5 0 1 0 2.3 7.6A4.2 4.2 0 0 1 9.5 2.2Z" fill="currentColor" />
+      </svg>
+    );
+  }
   if (column === "awaitingYou") {
     // Raised-hand glyph — the human's ball is in play, distinct from the draft
     // dashed circle and the in-progress pie. Attention-colored (amber) like the

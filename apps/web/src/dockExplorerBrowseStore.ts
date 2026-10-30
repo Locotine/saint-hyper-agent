@@ -13,6 +13,8 @@ import { create } from "zustand";
 
 export interface DockExplorerBrowseState {
   selectedFilePath: string | null;
+  /** Files open as preview tabs, in tab order; the selected one is among them. */
+  openFilePaths: readonly string[];
   expandedDirectories: ReadonlySet<string>;
   searchQuery: string;
 }
@@ -21,15 +23,20 @@ export interface DockExplorerBrowseState {
 // selector never hands React a fresh object per render.
 export const EMPTY_DOCK_EXPLORER_BROWSE_STATE: DockExplorerBrowseState = {
   selectedFilePath: null,
+  openFilePaths: [],
   expandedDirectories: new Set<string>(),
   searchQuery: "",
 };
 Object.freeze(EMPTY_DOCK_EXPLORER_BROWSE_STATE);
 Object.freeze(EMPTY_DOCK_EXPLORER_BROWSE_STATE.expandedDirectories);
+Object.freeze(EMPTY_DOCK_EXPLORER_BROWSE_STATE.openFilePaths);
 
 interface DockExplorerBrowseStore {
   browseStateByThreadId: Record<string, DockExplorerBrowseState>;
+  /** Shows a file, opening a tab for it when it has none. */
   selectFile: (threadId: ThreadId, path: string | null) => void;
+  /** Closes a file's tab; closing the shown one shows its neighbour, or nothing. */
+  closeFile: (threadId: ThreadId, path: string) => void;
   setSearchQuery: (threadId: ThreadId, query: string) => void;
   toggleDirectory: (threadId: ThreadId, path: string) => void;
   expandDirectories: (threadId: ThreadId, paths: readonly string[]) => void;
@@ -59,7 +66,24 @@ export const useDockExplorerBrowseStore = create<DockExplorerBrowseStore>()((set
 
   return {
     browseStateByThreadId: {},
-    selectFile: (threadId, path) => update(threadId, () => ({ selectedFilePath: path })),
+    selectFile: (threadId, path) =>
+      update(threadId, (current) => ({
+        selectedFilePath: path,
+        ...(path !== null && !current.openFilePaths.includes(path)
+          ? { openFilePaths: [...current.openFilePaths, path] }
+          : {}),
+      })),
+    closeFile: (threadId, path) =>
+      update(threadId, (current) => {
+        const index = current.openFilePaths.indexOf(path);
+        if (index === -1) return {};
+        const openFilePaths = current.openFilePaths.filter((entry) => entry !== path);
+        if (current.selectedFilePath !== path) return { openFilePaths };
+        return {
+          openFilePaths,
+          selectedFilePath: openFilePaths[Math.min(index, openFilePaths.length - 1)] ?? null,
+        };
+      }),
     setSearchQuery: (threadId, query) => update(threadId, () => ({ searchQuery: query })),
     toggleDirectory: (threadId, path) =>
       update(threadId, (current) => {

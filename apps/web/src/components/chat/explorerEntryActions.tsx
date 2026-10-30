@@ -7,6 +7,7 @@
 // Layer: Chat workspace-browsing UI behavior
 // Exports: useExplorerEntryActions, ExplorerTreeSelection
 
+import { apiFor, useHostId } from "~/hosts/hostScope";
 import type { ProjectFileSystemEntry } from "@saint/contracts";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -112,6 +113,14 @@ export function useExplorerEntryActions(input: {
   readonly dialog: ReactNode;
 } {
   const queryClient = useQueryClient();
+  // File operations act on the machine the files live on (a connected host's chat: that host);
+  // dialogs and menus stay on this computer.
+  const hostId = useHostId();
+  const hostProjectsApi = () => {
+    const api = apiFor(hostId);
+    if (!api) throw new Error("This host is not connected.");
+    return api.projects;
+  };
   // The request outlives `open` so the dialog keeps its title while closing.
   const [nameRequest, setNameRequestState] = useState<NameRequest | null>(null);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
@@ -175,7 +184,7 @@ export function useExplorerEntryActions(input: {
     );
     if (!confirmed) return;
     try {
-      await api.projects.deleteEntry({ cwd: workspaceRoot, relativePath: entry.path });
+      await hostProjectsApi().deleteEntry({ cwd: workspaceRoot, relativePath: entry.path });
       await refreshDirectory(explorerParentDirectory(entry.path));
       toastManager.add({ type: "success", title: `Deleted ${entry.path}` });
       forgetSelected([entry.path]);
@@ -211,7 +220,7 @@ export function useExplorerEntryActions(input: {
     const deleted: string[] = [];
     for (const entry of entries) {
       try {
-        await api.projects.deleteEntry({ cwd: workspaceRoot, relativePath: entry.path });
+        await hostProjectsApi().deleteEntry({ cwd: workspaceRoot, relativePath: entry.path });
         deleted.push(entry.path);
       } catch (error) {
         toastManager.add({
@@ -301,7 +310,7 @@ export function useExplorerEntryActions(input: {
     const changedDirectories = new Set([directory]);
     for (const path of paths) {
       try {
-        const result = await api.projects.moveEntry({
+        const result = await hostProjectsApi().moveEntry({
           cwd: workspaceRoot,
           relativePath: path,
           destinationDirectory: directory,
@@ -398,7 +407,7 @@ export function useExplorerEntryActions(input: {
   ) => {
     const relativePath = request.directory ? `${request.directory}/${name}` : name;
     try {
-      const result = await ensureLocalNativeApi().projects.createEntry({
+      const result = await hostProjectsApi().createEntry({
         cwd: root,
         relativePath,
         kind: request.kind,
@@ -419,7 +428,7 @@ export function useExplorerEntryActions(input: {
   const rename = async (entry: ExplorerSelectableEntry, root: string, name: string) => {
     if (name === fileNameOf(entry.path)) return;
     try {
-      const result = await ensureLocalNativeApi().projects.renameEntry({
+      const result = await hostProjectsApi().renameEntry({
         cwd: root,
         relativePath: entry.path,
         newName: name,

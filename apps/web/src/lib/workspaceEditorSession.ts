@@ -2,9 +2,11 @@ import type { ProjectReadFileResult } from "@saint/contracts";
 import { isWorkspaceFileWriteConflictError } from "@saint/shared/workspaceFileWrite";
 import type { QueryClient } from "@tanstack/react-query";
 
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { apiFor } from "~/hosts/hostApi";
 import { ensureLocalNativeApi } from "~/nativeApi";
 import { refreshGitAfterFileWrite } from "./gitReactQuery";
-import { projectQueryKeys, projectReadFileQueryOptions } from "./projectReactQuery";
+import { projectReadFileQueryOptions } from "./projectReactQuery";
 import {
   INITIAL_WORKSPACE_FILE_EDITOR_STATE,
   isWorkspaceFileEditorDirty,
@@ -33,6 +35,8 @@ export class WorkspaceEditorSession {
     readonly cwd: string,
     readonly relativePath: string,
     private readonly release: () => void,
+    /** The machine the file lives on: this computer unless it is a connected host's. */
+    readonly hostId: HostId = LOCAL_HOST_ID,
   ) {}
 
   getSnapshot = () => this.state;
@@ -121,7 +125,10 @@ export class WorkspaceEditorSession {
           if (!format) return false;
           this.dispatch({ type: "saveStarted" });
           try {
-            const result = await ensureLocalNativeApi().projects.writeFile({
+            const api =
+              this.hostId === LOCAL_HOST_ID ? ensureLocalNativeApi() : apiFor(this.hostId);
+            if (!api) throw new Error("This host is not connected.");
+            const result = await api.projects.writeFile({
               cwd: this.cwd,
               relativePath: this.relativePath,
               contents: value,
@@ -134,9 +141,11 @@ export class WorkspaceEditorSession {
             const queries = this.client.getQueryCache().findAll({
               queryKey: ["projects", "read-file", this.cwd],
               predicate: (query) =>
-                query.queryKey[3] === this.relativePath ||
-                (query.state.data as ProjectReadFileResult | undefined)?.relativePath ===
-                  this.relativePath,
+                // Same machine only: a host's reads carry its id after the usual key.
+                query.queryKey[4] === (this.hostId === LOCAL_HOST_ID ? undefined : this.hostId) &&
+                (query.queryKey[3] === this.relativePath ||
+                  (query.state.data as ProjectReadFileResult | undefined)?.relativePath ===
+                    this.relativePath),
             });
             await Promise.all(
               queries.map((query) =>
@@ -180,10 +189,14 @@ export class WorkspaceEditorSession {
     if (this.writing) await this.writing;
     const generation = this.editGeneration;
     try {
-      const queryKey = projectQueryKeys.readFile(this.cwd, this.relativePath);
-      await this.client.cancelQueries({ queryKey, exact: true });
+      const readOptions = projectReadFileQueryOptions({
+        cwd: this.cwd,
+        relativePath: this.relativePath,
+        hostId: this.hostId,
+      });
+      await this.client.cancelQueries({ queryKey: readOptions.queryKey, exact: true });
       const file = await this.client.fetchQuery({
-        ...projectReadFileQueryOptions({ cwd: this.cwd, relativePath: this.relativePath }),
+        ...readOptions,
         staleTime: 0,
       });
       const format = resolveWorkspaceFileEditorFormat(file);
@@ -217,19 +230,33 @@ export class WorkspaceEditorSession {
   };
 }
 
-export function getWorkspaceEditorSession(client: QueryClient, cwd: string, relativePath: string) {
+export function getWorkspaceEditorSession(
+  client: QueryClient,
+  cwd: string,
+  relativePath: string,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   let entries = sessions.get(client);
   if (!entries) {
     entries = new Map();
     sessions.set(client, entries);
   }
-  const key = workspaceFileEditorKey(cwd, relativePath)!;
+  const key =
+    hostId === LOCAL_HOST_ID
+      ? workspaceFileEditorKey(cwd, relativePath)!
+      : `${hostId}\0${workspaceFileEditorKey(cwd, relativePath)!}`;
   let session = entries.get(key);
   if (!session) {
     const ownedEntries = entries;
-    session = new WorkspaceEditorSession(client, cwd, relativePath, () => {
-      if (ownedEntries.get(key) === session) ownedEntries.delete(key);
-    });
+    session = new WorkspaceEditorSession(
+      client,
+      cwd,
+      relativePath,
+      () => {
+        if (ownedEntries.get(key) === session) ownedEntries.delete(key);
+      },
+      hostId,
+    );
     entries.set(key, session);
   }
   return session;

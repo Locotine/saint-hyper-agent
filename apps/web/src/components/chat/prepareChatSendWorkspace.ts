@@ -5,6 +5,7 @@ import {
   type ModelSelection,
   type ProjectId,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import type { DraftThreadMutationOptions } from "../../composerDraftDomain";
 import {
   GENERIC_CHAT_THREAD_TITLE,
@@ -41,6 +42,8 @@ import type { Project } from "../../types";
 import { type Thread } from "../../types";
 import { formatPastedTextTitleSeed } from "./queuedComposerPreview";
 interface Input {
+  /** The machine the chat runs on: this computer unless it is a connected host\'s. */
+  hostId?: HostId;
   activeThread: Thread;
   isServerThread: boolean;
   hasNativeUserMessages: boolean;
@@ -114,6 +117,7 @@ export async function prepareChatSendWorkspace({
   gitBranchSourceCwd,
   setStoreThreadError,
   queryClient,
+  hostId = LOCAL_HOST_ID,
 }: Input) {
   const threadIdForSend = activeThread.id;
   const isFirstMessage = !isServerThread || !hasNativeUserMessages;
@@ -309,7 +313,7 @@ export async function prepareChatSendWorkspace({
 
     try {
       const gitStatus = await queryClient.fetchQuery({
-        ...gitStatusQueryOptions(gitBranchSourceCwd),
+        ...gitStatusQueryOptions(gitBranchSourceCwd, true, hostId),
         staleTime: 0,
       });
       currentActiveGitBranchForSend = gitStatus.branch;

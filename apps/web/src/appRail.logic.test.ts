@@ -31,6 +31,9 @@ describe("rail item order", () => {
       "tasks",
       "pullRequests",
       "studio",
+      "flows",
+      "security",
+      "hostEconomy",
     ]);
   });
 
@@ -44,6 +47,9 @@ describe("rail item order", () => {
       "pullRequests",
       "automations",
       "studio",
+      "flows",
+      "security",
+      "hostEconomy",
     ]);
     expect(normalizeRailItemOrder(["home", "spaces", "inbox"]).slice(0, 3)).toEqual([
       "home",
@@ -66,7 +72,16 @@ describe("rail item order", () => {
         studioAvailable: false,
         inboxAvailable: false,
       }),
-    ).toEqual(["home", "kanban", "tasks", "pullRequests", "automations"]);
+    ).toEqual([
+      "home",
+      "kanban",
+      "tasks",
+      "pullRequests",
+      "automations",
+      "flows",
+      "security",
+      "hostEconomy",
+    ]);
     expect(
       buildRailItemOrder({
         order,
@@ -87,6 +102,9 @@ describe("rail item order", () => {
       "tasks",
       "pullRequests",
       "automations",
+      "flows",
+      "security",
+      "hostEconomy",
     ]);
     expect(isRailItemAvailable("inbox", { studioAvailable: false, inboxAvailable: true })).toBe(
       true,

@@ -1,3 +1,26 @@
+import {
+  FlowActionInput,
+  FlowGetInput,
+  FlowKillAllInput,
+  FlowListInput,
+  FlowStartRpcInput,
+  FlowTemplatesInput,
+  FlowSaveSpecInput,
+  FlowSpecsInput,
+  LedgerExportInput,
+  LedgerHandleInput,
+  LedgerListInput,
+  LedgerVerifyInput,
+} from "./flow";
+import { SapListInput } from "./sap";
+import {
+  AegisAlertsInput,
+  AegisResolveInput,
+  AegisStatusInput,
+  AegisUnfreezeInput,
+  AegisUpdateInput,
+} from "./aegis";
+import { EconomyAgentInput, EconomyStatusInput, EconomyUpdateInput } from "./hostEconomy";
 import { EditorDebugStartInput, EditorDebugActionInput, EditorDebugPollInput } from "./editorDebug";
 import { Schema, Struct } from "effect";
 import { EditorIntelligenceInput } from "./editorIntelligence";
@@ -312,6 +335,29 @@ export const WS_METHODS = {
   pullRequestsGetAutoFix: "pullRequests.getAutoFix",
   pullRequestsSetAutoFix: "pullRequests.setAutoFix",
 
+  // Flows and the ledger
+  flowList: "flow.list",
+  flowGet: "flow.get",
+  flowStart: "flow.start",
+  flowAction: "flow.action",
+  flowKillAll: "flow.killAll",
+  flowTemplates: "flow.templates",
+  flowSaveSpec: "flow.saveSpec",
+  flowSpecs: "flow.specs",
+  ledgerList: "ledger.list",
+  ledgerVerify: "ledger.verify",
+  ledgerExport: "ledger.export",
+  ledgerHandle: "ledger.handle",
+  sapList: "sap.list",
+  aegisStatus: "aegis.status",
+  aegisAlerts: "aegis.alerts",
+  aegisResolve: "aegis.resolve",
+  aegisUpdate: "aegis.update",
+  aegisUnfreeze: "aegis.unfreeze",
+  economyStatus: "economy.status",
+  economyAgent: "economy.agent",
+  economyUpdate: "economy.update",
+
   // Terminal methods
   terminalOpen: "terminal.open",
   terminalWrite: "terminal.write",
@@ -606,6 +652,29 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.pullRequestsSetPinned, PullRequestSetPinnedInput),
   tagRequestBody(WS_METHODS.pullRequestsGetAutoFix, PullRequestAutoFixGetInput),
   tagRequestBody(WS_METHODS.pullRequestsSetAutoFix, PullRequestAutoFixSetInput),
+
+  // Flows and the ledger
+  tagRequestBody(WS_METHODS.flowList, FlowListInput),
+  tagRequestBody(WS_METHODS.flowGet, FlowGetInput),
+  tagRequestBody(WS_METHODS.flowStart, FlowStartRpcInput),
+  tagRequestBody(WS_METHODS.flowAction, FlowActionInput),
+  tagRequestBody(WS_METHODS.flowKillAll, FlowKillAllInput),
+  tagRequestBody(WS_METHODS.flowTemplates, FlowTemplatesInput),
+  tagRequestBody(WS_METHODS.flowSaveSpec, FlowSaveSpecInput),
+  tagRequestBody(WS_METHODS.flowSpecs, FlowSpecsInput),
+  tagRequestBody(WS_METHODS.ledgerList, LedgerListInput),
+  tagRequestBody(WS_METHODS.ledgerVerify, LedgerVerifyInput),
+  tagRequestBody(WS_METHODS.ledgerExport, LedgerExportInput),
+  tagRequestBody(WS_METHODS.ledgerHandle, LedgerHandleInput),
+  tagRequestBody(WS_METHODS.sapList, SapListInput),
+  tagRequestBody(WS_METHODS.aegisStatus, AegisStatusInput),
+  tagRequestBody(WS_METHODS.aegisAlerts, AegisAlertsInput),
+  tagRequestBody(WS_METHODS.aegisResolve, AegisResolveInput),
+  tagRequestBody(WS_METHODS.aegisUpdate, AegisUpdateInput),
+  tagRequestBody(WS_METHODS.aegisUnfreeze, AegisUnfreezeInput),
+  tagRequestBody(WS_METHODS.economyStatus, EconomyStatusInput),
+  tagRequestBody(WS_METHODS.economyAgent, EconomyAgentInput),
+  tagRequestBody(WS_METHODS.economyUpdate, EconomyUpdateInput),
 
   // GitHub inbox (pull requests and issues)
   tagRequestBody(WS_METHODS.githubInboxList, GitHubInboxListInput),

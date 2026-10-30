@@ -8,6 +8,7 @@
 // Layer: Pull request presentation
 // Exports: PullRequestDetailPanel
 
+import { useHostId } from "~/hosts/hostScope";
 import type {
   PullRequestAction,
   PullRequestDetailInput,
@@ -154,6 +155,7 @@ export function PullRequestDetailPanel({
   /** Page layout: pin, side chat threads, and the floating composer, from the code review page. */
   pageHost?: GitHubItemPageHost;
 }) {
+  const hostId = useHostId();
   const initialTab = initialTabProp ?? "summary";
   const layout = layoutProp ?? "dock";
   const pollingEnabled = pollingEnabledProp ?? true;
@@ -192,8 +194,8 @@ export function PullRequestDetailPanel({
   const setConfirmAction = (next: "merge" | "close" | null) =>
     patchPanelState({ confirmAction: next });
   const actionInFlightRef = useRef(false);
-  const detailQuery = useQuery(pullRequestDetailQueryOptions(input, { pollingEnabled }));
-  const actionMutation = useMutation(pullRequestActionMutationOptions(queryClient));
+  const detailQuery = useQuery(pullRequestDetailQueryOptions(input, { pollingEnabled, hostId }));
+  const actionMutation = useMutation(pullRequestActionMutationOptions(queryClient, hostId));
   const detail = detailQuery.data;
   const detailErrorState = pullRequestQueryErrorState(detailQuery);
   // Fix findings, Resolve conflicts, and Send to agent all hand the pull request to a fresh

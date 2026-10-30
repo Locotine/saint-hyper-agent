@@ -40,10 +40,11 @@ import { resolveSingleProjectId } from "./-chatThreadRoute.logic";
 function ChatThreadRouteView() {
   const param = Route.useParams({ select: (params) => params.threadId });
   const remote = useMemo(() => remoteThreadRef(param), [param]);
+  const search = Route.useSearch();
   return (
     <ChatPaneKeepAliveProvider>
       {remote ? (
-        <RemoteThreadSurface hostId={remote.hostId} threadId={remote.threadId} />
+        <RemoteThreadSurface hostId={remote.hostId} threadId={remote.threadId} search={search} />
       ) : (
         <ChatThreadRouteContent />
       )}

@@ -13,6 +13,7 @@ export const ONBOARDING_STEPS = [
   "providers",
   "theme",
   "project",
+  "flow",
   "done",
 ] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];

@@ -72,6 +72,12 @@ import { ThreadDiagnosticsQueryLive } from "./diagnostics/Layers/ThreadDiagnosti
 import { ManagedAttachmentCleanupLive } from "./managedAttachmentCleanup";
 import { PullRequestServiceLive } from "./pullRequests/Layers/PullRequestService";
 import { PullRequestAutoFixRepositoryLive } from "./persistence/Layers/PullRequestAutoFixRepository";
+import { FlowRepositoryLive } from "./persistence/Layers/FlowRepository";
+import { FlowServiceLive } from "./flow/Layers/FlowService";
+import { SapBusLive } from "./sap/Layers/SapBus";
+import { ForkContinueLive } from "./orchestration/Layers/ForkContinue";
+import { AegisLive } from "./aegis/Layers/Aegis";
+import { LedgerLive } from "./ledger/Layers/Ledger";
 import { PullRequestAutoFixServiceLive } from "./pullRequestAutoFix/Layers/PullRequestAutoFixService";
 import { GitHubInboxServiceLive } from "./githubInbox/Layers/GitHubInboxService";
 import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
@@ -247,9 +253,31 @@ export function makeServerRuntimeServicesLayer(
     Layer.provideMerge(ServerSecretStoreLive),
     Layer.provideMerge(agentGatewayCredentialsLayer),
   );
+  const ledgerLayer = LedgerLive.pipe(Layer.provide(ServerSecretStoreLive));
+  // SAP rides on the flow service: it messages between the nodes of a flow.
+  const flowServiceLayer = SapBusLive.pipe(
+    Layer.provideMerge(
+      FlowServiceLive.pipe(
+        Layer.provideMerge(FlowRepositoryLive),
+        Layer.provideMerge(agentGatewayCredentialsLayer),
+        Layer.provideMerge(ledgerLayer),
+        Layer.provideMerge(ForkContinueLive),
+        // Aegis records kills in the same ledger instance the flow service writes to.
+        Layer.provideMerge(
+          AegisLive.pipe(
+            Layer.provideMerge(agentGatewayCredentialsLayer),
+            Layer.provideMerge(ledgerLayer),
+          ),
+        ),
+        Layer.provideMerge(GitCoreLive),
+        Layer.provideMerge(runtimeServicesLayer),
+      ),
+    ),
+  );
   const agentGatewayLayer = AgentGatewayLive.pipe(
     Layer.provideMerge(
       Layer.mergeAll(
+        flowServiceLayer,
         ProjectionThreadMessageRepositoryLive,
         OrchestrationCommandReceiptRepositoryLive,
         // The same instance the todo.* RPCs use, so a to-do an agent adds reaches open windows.
@@ -321,6 +349,7 @@ export function makeServerRuntimeServicesLayer(
     ProjectPullRequestPinsLive,
     pullRequestServiceLayer,
     pullRequestAutoFixLayer,
+    flowServiceLayer,
     orchestrationReactorLayer,
     providerCommandReactorLayer,
     sidechatExpiryReactorLayer,

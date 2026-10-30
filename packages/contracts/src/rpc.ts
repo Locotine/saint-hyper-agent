@@ -1,4 +1,46 @@
 import {
+  FlowActionInput,
+  FlowActionResult,
+  FlowGetInput,
+  FlowGetResult,
+  FlowKillAllInput,
+  FlowKillAllResult,
+  FlowListInput,
+  FlowListResult,
+  FlowRunView,
+  FlowStartRpcInput,
+  FlowTemplatesInput,
+  FlowSaveSpecInput,
+  FlowSaveSpecResult,
+  FlowSpecsInput,
+  FlowSpecsResult,
+  FlowTemplatesResult,
+  LedgerExportInput,
+  LedgerExportResult,
+  LedgerHandleInput,
+  LedgerHandleResult,
+  LedgerListInput,
+  LedgerListResult,
+  LedgerVerifyInput,
+  LedgerVerifyResult,
+} from "./flow";
+import { SapListInput, SapListResult } from "./sap";
+import {
+  AegisAlertsInput,
+  AegisAlertsResult,
+  AegisResolveInput,
+  AegisStatus,
+  AegisStatusInput,
+  AegisUnfreezeInput,
+  AegisUpdateInput,
+} from "./aegis";
+import {
+  EconomyAgentInput,
+  EconomyStatus,
+  EconomyStatusInput,
+  EconomyUpdateInput,
+} from "./hostEconomy";
+import {
   EditorDebugStartInput,
   EditorDebugStartResult,
   EditorDebugActionInput,
@@ -1275,6 +1317,126 @@ export const WsPullRequestsSetAutoFixRpc = Rpc.make(WS_METHODS.pullRequestsSetAu
   error: WsRpcError,
 });
 
+export const WsFlowListRpc = Rpc.make(WS_METHODS.flowList, {
+  payload: FlowListInput,
+  success: FlowListResult,
+  error: WsRpcError,
+});
+
+export const WsFlowGetRpc = Rpc.make(WS_METHODS.flowGet, {
+  payload: FlowGetInput,
+  success: FlowGetResult,
+  error: WsRpcError,
+});
+
+export const WsFlowStartRpc = Rpc.make(WS_METHODS.flowStart, {
+  payload: FlowStartRpcInput,
+  success: FlowRunView,
+  error: WsRpcError,
+});
+
+export const WsFlowActionRpc = Rpc.make(WS_METHODS.flowAction, {
+  payload: FlowActionInput,
+  success: FlowActionResult,
+  error: WsRpcError,
+});
+
+export const WsFlowKillAllRpc = Rpc.make(WS_METHODS.flowKillAll, {
+  payload: FlowKillAllInput,
+  success: FlowKillAllResult,
+  error: WsRpcError,
+});
+
+export const WsFlowTemplatesRpc = Rpc.make(WS_METHODS.flowTemplates, {
+  payload: FlowTemplatesInput,
+  success: FlowTemplatesResult,
+  error: WsRpcError,
+});
+
+export const WsFlowSaveSpecRpc = Rpc.make(WS_METHODS.flowSaveSpec, {
+  payload: FlowSaveSpecInput,
+  success: FlowSaveSpecResult,
+  error: WsRpcError,
+});
+
+export const WsFlowSpecsRpc = Rpc.make(WS_METHODS.flowSpecs, {
+  payload: FlowSpecsInput,
+  success: FlowSpecsResult,
+  error: WsRpcError,
+});
+
+export const WsLedgerListRpc = Rpc.make(WS_METHODS.ledgerList, {
+  payload: LedgerListInput,
+  success: LedgerListResult,
+  error: WsRpcError,
+});
+
+export const WsLedgerVerifyRpc = Rpc.make(WS_METHODS.ledgerVerify, {
+  payload: LedgerVerifyInput,
+  success: LedgerVerifyResult,
+  error: WsRpcError,
+});
+
+export const WsLedgerExportRpc = Rpc.make(WS_METHODS.ledgerExport, {
+  payload: LedgerExportInput,
+  success: LedgerExportResult,
+  error: WsRpcError,
+});
+
+export const WsLedgerHandleRpc = Rpc.make(WS_METHODS.ledgerHandle, {
+  payload: LedgerHandleInput,
+  success: LedgerHandleResult,
+  error: WsRpcError,
+});
+
+export const WsSapListRpc = Rpc.make(WS_METHODS.sapList, {
+  payload: SapListInput,
+  success: SapListResult,
+  error: WsRpcError,
+});
+
+export const WsAegisStatusRpc = Rpc.make(WS_METHODS.aegisStatus, {
+  payload: AegisStatusInput,
+  success: AegisStatus,
+  error: WsRpcError,
+});
+export const WsAegisAlertsRpc = Rpc.make(WS_METHODS.aegisAlerts, {
+  payload: AegisAlertsInput,
+  success: AegisAlertsResult,
+  error: WsRpcError,
+});
+export const WsAegisResolveRpc = Rpc.make(WS_METHODS.aegisResolve, {
+  payload: AegisResolveInput,
+  success: AegisAlertsResult,
+  error: WsRpcError,
+});
+export const WsAegisUpdateRpc = Rpc.make(WS_METHODS.aegisUpdate, {
+  payload: AegisUpdateInput,
+  success: AegisStatus,
+  error: WsRpcError,
+});
+export const WsAegisUnfreezeRpc = Rpc.make(WS_METHODS.aegisUnfreeze, {
+  payload: AegisUnfreezeInput,
+  success: AegisStatus,
+  error: WsRpcError,
+});
+
+export const WsEconomyStatusRpc = Rpc.make(WS_METHODS.economyStatus, {
+  payload: EconomyStatusInput,
+  success: EconomyStatus,
+  error: WsRpcError,
+});
+export const WsEconomyAgentRpc = Rpc.make(WS_METHODS.economyAgent, {
+  payload: EconomyAgentInput,
+  success: EconomyStatus,
+  error: WsRpcError,
+});
+export const WsEconomyUpdateRpc = Rpc.make(WS_METHODS.economyUpdate, {
+  payload: EconomyUpdateInput,
+  success: EconomyStatus,
+  error: WsRpcError,
+});
+
 export const WsGitListBranchesRpc = Rpc.make(WS_METHODS.gitListBranches, {
   payload: GitListBranchesInput,
   success: GitListBranchesResult,
@@ -2228,4 +2390,30 @@ export const WsProjectAgentRpcGroup = RpcGroup.make(
   WsProjectAgentLibraryStatusRpc,
   WsProjectAgentResolveWorkerRpc,
   WsSubscribeProjectAgentEventsRpc,
+);
+
+// HyperAgent RPCs (flows, ledger, SAP, Aegis, host economy) are a satellite group for the same
+// reason as the project-agent group: WsFeatureRpcGroup's inferred type hits the emit limit.
+export const WsHyperAgentRpcGroup = RpcGroup.make(
+  WsFlowListRpc,
+  WsFlowGetRpc,
+  WsFlowStartRpc,
+  WsFlowActionRpc,
+  WsFlowKillAllRpc,
+  WsFlowTemplatesRpc,
+  WsFlowSaveSpecRpc,
+  WsFlowSpecsRpc,
+  WsLedgerListRpc,
+  WsLedgerVerifyRpc,
+  WsLedgerExportRpc,
+  WsLedgerHandleRpc,
+  WsSapListRpc,
+  WsAegisStatusRpc,
+  WsAegisAlertsRpc,
+  WsAegisResolveRpc,
+  WsAegisUpdateRpc,
+  WsAegisUnfreezeRpc,
+  WsEconomyStatusRpc,
+  WsEconomyAgentRpc,
+  WsEconomyUpdateRpc,
 );

@@ -64,6 +64,10 @@
       "types": "./src/git.ts",
       "import": "./src/git.ts"
     },
+    "./flowSpec": {
+      "types": "./src/flowSpec.ts",
+      "import": "./src/flowSpec.ts"
+    },
     "./kanban": {
       "types": "./src/kanban.ts",
       "import": "./src/kanban.ts"
@@ -489,7 +493,8 @@
   },
   "dependencies": {
     "@saint/contracts": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "yaml": "^2.8.3"
   },
   "devDependencies": {
     "@effect/language-service": "catalog:",

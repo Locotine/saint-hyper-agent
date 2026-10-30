@@ -48,6 +48,7 @@ import {
   type KanbanProjectBoard,
 } from "./kanban.logic";
 import { useKanbanUiStore } from "../../kanbanUiStore";
+import { FlowAttentionStrip } from "../flows/FlowAttention";
 import type { KanbanCardContextMenuController } from "./useKanbanCardContextMenu";
 
 function resolveDropColumn(board: KanbanProjectBoard, overId: string): KanbanColumnKey | null {
@@ -341,6 +342,7 @@ export function KanbanProjectBoardView({
             ) : null}
           </div>
         ) : null}
+        {viewMode === "v2" ? <FlowAttentionStrip projectId={board.projectId} /> : null}
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto px-4 pb-4">
           <KanbanColumn
             projectId={board.projectId}
@@ -377,6 +379,18 @@ export function KanbanProjectBoardView({
               // Droppable so a drop onto it produces the explaining toast rather
               // than silently falling through to empty space (L1).
               droppable
+              activeCard={activeCard}
+              prByThreadId={prByThreadId}
+              {...nowMsProps}
+            />
+          ) : null}
+          {viewMode === "v2" && board.hibernated.length > 0 ? (
+            <KanbanColumn
+              projectId={board.projectId}
+              columnKey="hibernated"
+              cards={board.hibernated}
+              onOpenCard={handleOpenCard}
+              onCardContextMenu={handleCardContextMenu}
               activeCard={activeCard}
               prByThreadId={prByThreadId}
               {...nowMsProps}

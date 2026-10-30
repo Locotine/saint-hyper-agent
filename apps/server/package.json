@@ -29,6 +29,7 @@
     "@agentclientprotocol/sdk": "1.2.1",
     "@anthropic-ai/claude-agent-sdk": "0.3.296",
     "@anthropic-ai/sdk": "^0.100.0",
+    "@cedar-policy/cedar-wasm": "4.13.0",
     "@earendil-works/pi-agent-core": "^0.87.1",
     "@earendil-works/pi-ai": "^0.87.1",
     "@earendil-works/pi-coding-agent": "^0.87.1",

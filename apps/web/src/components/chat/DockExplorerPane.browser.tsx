@@ -400,3 +400,36 @@ it("opens a collapsed folder held under a drag", async () => {
     .toHaveAttribute("aria-expanded", "true");
   source.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }));
 });
+
+it("opens each clicked file as a tab and closes the preview with the tab's X", async () => {
+  await renderExplorer("/repo/app", flatWorkspace());
+  await page.getByTitle("a.txt", { exact: true }).click();
+  await page.getByTitle("b.txt", { exact: true }).click();
+  const tabs = page.getByRole("tab");
+  await expect
+    .poll(() => tabs.elements().map((tab) => tab.textContent))
+    .toEqual(["a.txt", "b.txt"]);
+  await expect.element(page.getByTestId("file-preview")).toHaveTextContent("b.txt");
+
+  // Switching tabs shows that file; closing the shown tab shows its neighbour.
+  await page.getByRole("tab", { name: "a.txt" }).click();
+  await expect.element(page.getByTestId("file-preview")).toHaveTextContent("a.txt");
+  await page.getByRole("button", { name: "Close a.txt" }).click();
+  await expect.element(page.getByTestId("file-preview")).toHaveTextContent("b.txt");
+
+  // Closing the last tab closes the preview.
+  await page.getByRole("button", { name: "Close b.txt" }).click();
+  await expect.poll(() => tabs.elements().length).toBe(0);
+  await expect.element(page.getByTestId("file-preview")).toHaveTextContent("");
+});
+
+it("resizes the file tree with the separator's arrow keys", async () => {
+  await page.viewport(1000, 700);
+  await renderExplorer("/repo/app", flatWorkspace());
+  const separator = page.getByRole("separator", { name: "Resize file tree" });
+  const column = () => separator.element().parentElement!.getBoundingClientRect().width;
+  const before = column();
+  (separator.element() as HTMLElement).focus();
+  await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+  await expect.poll(column).toBeGreaterThan(before);
+});

@@ -2,6 +2,7 @@
 // Purpose: Shared types and stable identity helpers for persistent terminal runtimes.
 // Layer: Terminal runtime infrastructure
 
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -22,12 +23,21 @@ export interface TerminalRuntimeCallbacks {
   onTerminalRuntimeStatusChange?: (terminalId: string, status: TerminalRuntimeStatus) => void;
 }
 
-export function buildTerminalRuntimeKey(threadId: string, terminalId: string): string {
-  return `${threadId}::${terminalId}`;
+export function buildTerminalRuntimeKey(
+  threadId: string,
+  terminalId: string,
+  hostId: HostId = LOCAL_HOST_ID,
+): string {
+  // A connected host's terminal runs on that host; its key never meets this computer's.
+  return hostId === LOCAL_HOST_ID
+    ? `${threadId}::${terminalId}`
+    : `${hostId}::${threadId}::${terminalId}`;
 }
 
 export interface TerminalRuntimeConfig {
   runtimeKey: string;
+  /** The machine the terminal session runs on: this computer unless the chat is a host's. */
+  hostId?: HostId;
   threadId: string;
   terminalId: string;
   terminalLabel: string;
@@ -53,6 +63,7 @@ export type TerminalRuntimeStatus = "connecting" | "replaying" | "ready" | "exit
 
 export interface TerminalRuntimeEntry {
   runtimeKey: string;
+  hostId: HostId;
   threadId: string;
   terminalId: string;
   terminalLabel: string;

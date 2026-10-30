@@ -1,4 +1,5 @@
 import { providerProcessPriorityEnabled } from "./providerProcessPriority";
+import { recordAgentProcess } from "./economy/agentProcesses.ts";
 import type { ChildProcess, ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
@@ -124,6 +125,8 @@ import {
   parseCodexPluginReadResponse,
   parseCodexSkillsListResponse,
 } from "./provider/codexDiscoveryCatalog.ts";
+import { planProviderLaunch } from "./aegis/providerLaunch.ts";
+import type { ProcessSandboxLauncher } from "@saint/shared/platformProcess";
 
 const log = createLogger("codex");
 
@@ -896,6 +899,8 @@ function spawnCodexAppServer(input: {
   readonly binaryPath: string;
   readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
+  /** Aegis OS sandbox the app-server runs inside. */
+  readonly sandbox?: ProcessSandboxLauncher | undefined;
 }): ChildProcessWithoutNullStreams {
   const sourceHomePath = input.env.CODEX_SQLITE_HOME?.trim();
   if (!sourceHomePath) {
@@ -910,6 +915,7 @@ function spawnCodexAppServer(input: {
       cwd: input.cwd,
       env: input.env,
       stdio: ["pipe", "pipe", "pipe"],
+      ...(input.sandbox ? { sandbox: input.sandbox } : {}),
     },
   );
 }
@@ -1491,12 +1497,21 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         input.expectedCodexContinuationGeneration,
       );
       const launchAuthFingerprint = processLaunch.authFingerprint;
+      const launch = await planProviderLaunch({
+        threadId,
+        provider: "codex",
+        cwd: resolvedCwd,
+        env: processLaunch.env,
+      });
       const child = this.spawnAppServer({
         lowerPriority: (await this.runPromise(providerProcessPriorityEnabled)) as boolean,
         binaryPath: codexBinaryPath,
         cwd: resolvedCwd,
-        env: processLaunch.env,
+        env: { ...processLaunch.env, ...launch.env },
+        sandbox: launch.sandbox,
       });
+      launch.attach(child);
+      recordAgentProcess(threadId, child.pid);
 
       context = {
         autoApproveSaintTools: input.autoApproveSaintTools === true,
@@ -2524,12 +2539,22 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       const launchAuthFingerprint = processLaunch.authFingerprint;
       const lowerPriority = (await this.runPromise(providerProcessPriorityEnabled)) as boolean;
       signal?.throwIfAborted();
+      const launch = await planProviderLaunch({
+        threadId,
+        provider: "codex",
+        cwd: resolvedCwd,
+        env: processLaunch.env,
+      });
+      signal?.throwIfAborted();
       const child = this.spawnAppServer({
         lowerPriority,
         binaryPath: codexBinaryPath,
         cwd: resolvedCwd,
-        env: processLaunch.env,
+        env: { ...processLaunch.env, ...launch.env },
+        sandbox: launch.sandbox,
       });
+      launch.attach(child);
+      recordAgentProcess(threadId, child.pid);
 
       context = {
         ...(gatewaySessionLease ? { gatewaySessionLease } : {}),

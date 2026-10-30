@@ -13,7 +13,8 @@ import { useRemoteSshState } from "~/hooks/useRemoteSshState";
 import { HostScope } from "~/hosts/hostScope";
 import { hostStores } from "~/hosts/hostStores";
 import { useHostThreadDetail } from "~/hosts/hostThreadDetail";
-import ChatView from "../ChatView";
+import type { DiffRouteSearch } from "~/diffRouteSearch";
+import { SingleChatSurface } from "./SingleChatSurface";
 import { remoteHostAlias } from "../settings/remoteHostsSettingsModel";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
@@ -24,8 +25,16 @@ function useHostAlias(hostId: HostId): string {
   return remoteHostAlias(useRemoteSshState(), hostId) ?? "This host";
 }
 
-export function RemoteThreadSurface(props: { hostId: HostId; threadId: ThreadId }) {
+export function RemoteThreadSurface(props: {
+  hostId: HostId;
+  threadId: ThreadId;
+  search: DiffRouteSearch;
+}) {
   const { hostId, threadId } = props;
+  const projectId = useSyncExternalStore(
+    hostStores.subscribe,
+    () => hostStores.get(hostId).getState().sidebarThreadSummaryById[threadId]?.projectId ?? null,
+  );
   useHostThreadDetail(hostId, threadId);
   const live = useSyncExternalStore(
     hostStores.subscribe,
@@ -56,7 +65,8 @@ export function RemoteThreadSurface(props: { hostId: HostId; threadId: ThreadId 
             <AlertDescription>{`${alias} is offline, so this chat is read-only. ${RECONNECT_HINT}`}</AlertDescription>
           </Alert>
         )}
-        <ChatView threadId={threadId} />
+        {/* The same surface as this computer's chats: right dock, Explorer and Browser included. */}
+        <SingleChatSurface threadId={threadId} search={props.search} projectId={projectId} />
       </div>
     </HostScope>
   );

@@ -95,7 +95,7 @@ type WindowsTeardownProcessSnapshotObserverOptions = Omit<
   "retryBackoffBaseMs" | "retryBackoffMaxMs"
 >;
 
-function powershellExecutablePath(): string {
+export function powershellExecutablePath(): string {
   return path.win32.join(
     resolveWindowsSystemRoot(),
     "System32",

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const { api } = vi.hoisted(() => ({
   api: { projects: { readFile: vi.fn(), writeFile: vi.fn() } },
 }));
-vi.mock("~/nativeApi", () => ({ ensureLocalNativeApi: () => api }));
+vi.mock("~/nativeApi", () => ({ ensureLocalNativeApi: () => api, readLocalNativeApi: () => api }));
 vi.mock("~/lib/gitReactQuery", () => ({
   refreshGitAfterFileWrite: vi.fn().mockResolvedValue(undefined),
 }));

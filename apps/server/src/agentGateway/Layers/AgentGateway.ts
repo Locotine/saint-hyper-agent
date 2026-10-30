@@ -70,7 +70,7 @@ import {
   type AgentGatewayProviderAvailability,
   type AgentGatewayProviderInstanceAvailability,
 } from "../targetResolver.ts";
-import { mcpToolResultError, mcpToolResultJson } from "../protocol.ts";
+import { mcpToolResultError, mcpToolResultJson, type McpToolCallResult } from "../protocol.ts";
 import { gatewayIsoNow as isoNow, stableGatewayDigest } from "../creationUtils.ts";
 import {
   MODEL_SELECTION_INPUT_SCHEMA,
@@ -126,6 +126,13 @@ import { makeThreadReadTools } from "../threadReadTools.ts";
 import { makeThreadDiagnosticTools } from "../threadDiagnosticTools.ts";
 import { makeAgentGatewayKanbanTools } from "../kanbanTools.ts";
 import { makeAgentGatewayTodoTools } from "../todoTools.ts";
+import { makeAgentGatewayFlowTools } from "../flowTools.ts";
+import { FlowService } from "../../flow/Services/FlowService.ts";
+import { Aegis } from "../../aegis/Services/Aegis.ts";
+import { Ledger } from "../../ledger/Services/Ledger.ts";
+import { SapBus } from "../../sap/Services/SapBus.ts";
+import { ForkContinue } from "../../orchestration/Services/ForkContinue.ts";
+import { makeAgentGatewaySapTools } from "../sapTools.ts";
 import { makeAgentGatewayInlineVisualTools } from "../inlineVisualTools.ts";
 import { TodoService } from "../../todo/Services/TodoService.ts";
 import { isServerBetaFeatureEnabled } from "../../betaFeatureGate.ts";
@@ -185,6 +192,11 @@ export const makeAgentGateway = Effect.gen(function* () {
   const automationService = yield* AutomationService;
   const projectAgentService = yield* ProjectAgentService;
   const todoService = yield* TodoService;
+  const flowService = Option.getOrUndefined(yield* Effect.serviceOption(FlowService));
+  const sapBus = Option.getOrUndefined(yield* Effect.serviceOption(SapBus));
+  const forkContinue = Option.getOrUndefined(yield* Effect.serviceOption(ForkContinue));
+  const ledger = Option.getOrUndefined(yield* Effect.serviceOption(Ledger));
+  const aegis = Option.getOrUndefined(yield* Effect.serviceOption(Aegis));
   const git = yield* GitCore;
   const gitManager = yield* GitManager;
   const providerDiscovery = yield* ProviderDiscoveryService;
@@ -449,12 +461,17 @@ export const makeAgentGateway = Effect.gen(function* () {
     Effect.gen(function* () {
       const hubResult = hubGateway ? yield* hubGateway.submit(input, context) : null;
       if (hubResult) return hubResult;
-      return yield* runCreateThreads(input, {
+      const result = yield* runCreateThreads(input, {
         kind: "provider-session",
         callerThreadId: context.callerThreadId,
         callerTurnId: context.callerTurnId,
         assertAuthority: context.assertCallerTurnActive,
+        // A child never holds more than the agent that created it: the ceiling is set before
+        // its thread exists, so no credential is ever issued wider.
+        beforeCreateThread: (threadId) =>
+          credentials.setCapabilityCeiling?.(threadId, context.callerCapabilities),
       });
+      return result;
     });
   const contextMessageIdsSchema = {
     type: "array",
@@ -1658,6 +1675,14 @@ export const makeAgentGateway = Effect.gen(function* () {
     setThreadArchived,
     setThreadGoal,
     ...automationTools,
+    ...(flowService
+      ? makeAgentGatewayFlowTools({
+          flows: flowService,
+          requireThreadShell,
+          ...(forkContinue ? { forkContinue } : {}),
+        })
+      : []),
+    ...(sapBus && ledger ? makeAgentGatewaySapTools({ sap: sapBus, ledger }) : []),
     ...browserTools,
     ...kanbanTools,
     // Same switch as the todo.* RPCs: a build without Tasks offers agents no to-do tools.
@@ -1703,6 +1728,12 @@ export const makeAgentGateway = Effect.gen(function* () {
       snapshotQuery,
       tools,
       onCapabilityDenied: surfaceCapabilityDenial,
+      ...(aegis
+        ? {
+            authorizeToolCall: ({ toolName, callerThreadId }) =>
+              aegis.authorizeTool({ threadId: callerThreadId, tool: toolName }),
+          }
+        : {}),
       // Namespace-insensitive: a session that never saw the catalog reaches
       // for prefixed spellings (saint_computer_click,
       // mcp__saint__computer_click). Those must deny with the card, never die

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+**HyperAgent: flows of agents, with gates, security and host economy.**
+
+### Added
+
+- **Flows** (sidebar): draw a flow on the Canvas (drag steps, drag a step's dot onto another to connect) or edit its `flow-v1` YAML, kept in sync both ways; **Save** writes `flows/<name>.yaml` in the project and **Run** starts it. Start from a template with a goal and a gate command. A running flow shows each step's state, gate evidence and hand-off, with Approve, Retry, Re-run gate and Fork & continue; **Mission Control** follows the live hand-off and the flow's SAP messages.
+- **Security** and **Host Economy** screens, and sidebar entries for both. Flows and Security show a count of what needs you.
+- Kanban (v2) lists flow steps and hand-offs waiting for approval, riskiest first, with **Approve all**, and an **Idle · hibernated** column while Host Economy has put an agent to sleep.
+- The rail shows a status chip (autonomy, open alerts, host memory, agent seats, flows waiting) and, while flows run, a **Kill** button that stops every flow after a confirm.
+- Onboarding gains a **Run a sample flow** step after adding a project.
+
 ## 1.0.16 — 2026-10-29
 
 **Remote SSH hosts open in the app window.**

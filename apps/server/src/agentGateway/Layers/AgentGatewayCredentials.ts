@@ -215,6 +215,9 @@ export const makeAgentGatewayCredentials = Effect.gen(function* () {
     retireSessionTurn,
     listRetiredWriteAuthorities: sessionRegistry.listRetiredWriteAuthorities,
     revokeSessionToken,
+    ...(sessionRegistry.setCapabilityCeiling
+      ? { setCapabilityCeiling: sessionRegistry.setCapabilityCeiling }
+      : {}),
     connectionForThread: (threadId, provider, options) => {
       const bearerToken = issueSessionToken(threadId, provider, options);
       const granted = connectors.grant(bearerToken, provider).map((registration) => ({

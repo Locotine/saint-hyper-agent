@@ -839,6 +839,7 @@ export function makeCursorAdapter(
           };
 
           const acp = yield* makeCursorAcpRuntime({
+            ownerThreadId: input.threadId,
             cursorSettings: effectiveCursorSettings,
             childProcessSpawner,
             cwd,

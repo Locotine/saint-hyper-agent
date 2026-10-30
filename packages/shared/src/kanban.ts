@@ -5,12 +5,13 @@
 
 import type { OrchestrationSessionStatus } from "@saint/contracts";
 
-export type KanbanColumnV2Key = "draft" | "inProgress" | "awaitingYou" | "done";
+export type KanbanColumnV2Key = "draft" | "inProgress" | "awaitingYou" | "hibernated" | "done";
 
 export const KANBAN_COLUMN_V2_LABELS: Record<KanbanColumnV2Key, string> = {
   draft: "Draft",
   inProgress: "In Progress",
   awaitingYou: "Awaiting you",
+  hibernated: "Idle · hibernated",
   done: "Done",
 };
 
@@ -57,6 +58,8 @@ export interface KanbanThreadDerivationInput {
   hasPendingApprovals?: boolean;
   hasPendingUserInput?: boolean;
   hasLiveTailWork?: boolean;
+  /** Host Economy stopped the idle session to free memory; it wakes on the next message. */
+  hibernated?: boolean;
 }
 
 /** Default warn threshold for a stale session heartbeat (20 min). */
@@ -224,7 +227,7 @@ export function deriveKanbanAwaitingYouReason(
 
 /**
  * Column classification: awaitingYou wins over live work; then inProgress,
- * draft (never ran a turn), done (settled).
+ * hibernated, draft (never ran a turn), done (settled).
  */
 export function deriveKanbanColumnV2(
   t: KanbanThreadDerivationInput,
@@ -238,6 +241,9 @@ export function deriveKanbanColumnV2(
   }
   if (hasKanbanLiveWork(t)) {
     return "inProgress";
+  }
+  if (t.hibernated === true) {
+    return "hibernated";
   }
   if (!t.latestTurn) {
     return "draft";

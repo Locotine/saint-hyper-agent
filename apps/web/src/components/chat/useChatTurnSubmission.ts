@@ -737,6 +737,7 @@ export function useChatTurnSubmission({
         return true;
       }
       const workspace = await prepareChatSendWorkspace({
+        hostId: chatHost.hostId,
         store: chatHost.store,
         activeThread,
         isServerThread,

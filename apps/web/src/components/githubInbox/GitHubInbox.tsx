@@ -11,15 +11,7 @@
 
 import type { GitHubInboxItem, GitHubInboxListError, ProjectId, ThreadId } from "@saint/contracts";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
-  type RefObject,
-  useDeferredValue,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 
 import {
   type GitHubInboxInvolvementFilter,
@@ -54,11 +46,7 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { toastManager } from "~/components/ui/toast";
 import { useIsMobile } from "~/hooks/useMediaQuery";
 import { GitPullRequestIcon } from "~/lib/icons";
-import {
-  attachPanelPointerOverlaySession,
-  createPanelResizeOverlay,
-  removePanelResizeOverlay,
-} from "~/lib/panelResize";
+import { ColumnResizeHandle } from "~/components/ui/ColumnResizeHandle";
 import {
   githubInboxListQueryOptions,
   pullRequestMutationKeys,
@@ -109,7 +97,6 @@ const DETAIL_MIN_WIDTH = 18 * 16;
 // without it the list stays a slim column and the detail gets the room for its info column.
 const LIST_DEFAULT_WIDTH_DOCK_OPEN = `clamp(${LIST_MIN_WIDTH}px, 50%, calc(100% - ${DETAIL_PREFERRED_MIN_WIDTH}px))`;
 const LIST_DEFAULT_WIDTH_DOCK_CLOSED = `clamp(${LIST_MIN_WIDTH}px, 32%, 26rem)`;
-const LIST_KEYBOARD_RESIZE_STEP = 16;
 
 function clampListWidth(width: number, containerWidth: number): number {
   const max = Math.max(LIST_MIN_WIDTH, containerWidth - DETAIL_MIN_WIDTH);
@@ -133,76 +120,6 @@ function rateLimitedWarningText(
   return error.showingCachedData
     ? `GitHub rate limit reached. Showing the last loaded items. ${refresh}`
     : `GitHub rate limit reached. Some repositories could not be loaded. ${refresh}`;
-}
-
-/**
- * Drag or arrow-key handle on the list column's right edge. The width it sets holds until the Ask
- * dock opens or closes, which returns the columns to their fractions.
- */
-function ListColumnResizeHandle({
-  percent,
-  columnRef,
-  onResize,
-}: {
-  percent: number;
-  columnRef: RefObject<HTMLElement | null>;
-  onResize: (width: number, percent: number) => void;
-}) {
-  const resizeTo = (width: number) => {
-    const containerWidth = columnRef.current?.parentElement?.clientWidth;
-    if (!containerWidth) return;
-    const clamped = clampListWidth(width, containerWidth);
-    onResize(clamped, Math.round((clamped / containerWidth) * 100));
-  };
-  const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const column = columnRef.current;
-    if (!column || event.button !== 0) return;
-    event.preventDefault();
-    const startX = event.clientX;
-    const startWidth = column.getBoundingClientRect().width;
-    const overlay = createPanelResizeOverlay();
-    let detach: (() => void) | null = null;
-    const finish = () => {
-      detach?.();
-      removePanelResizeOverlay(overlay);
-      document.body.style.removeProperty("cursor");
-      document.body.style.removeProperty("user-select");
-    };
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    detach = attachPanelPointerOverlaySession(overlay, {
-      onMove: (moveEvent) => resizeTo(startWidth + moveEvent.clientX - startX),
-      onRelease: finish,
-      onAbort: finish,
-    });
-  };
-  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step =
-      event.key === "ArrowLeft"
-        ? -LIST_KEYBOARD_RESIZE_STEP
-        : event.key === "ArrowRight"
-          ? LIST_KEYBOARD_RESIZE_STEP
-          : 0;
-    const column = columnRef.current;
-    if (step === 0 || !column) return;
-    event.preventDefault();
-    resizeTo(column.getBoundingClientRect().width + step);
-  };
-  return (
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize code review list"
-      aria-valuenow={percent}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuetext={`List takes ${percent}% of the width`}
-      tabIndex={0}
-      onPointerDown={startResize}
-      onKeyDown={handleKeyDown}
-      className="absolute inset-y-0 right-0 z-20 w-2 translate-x-1/2 cursor-col-resize bg-transparent before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-[var(--app-surface-divider)] focus-visible:outline-none focus-visible:before:w-0.5 focus-visible:before:bg-ring"
-    />
-  );
 }
 
 function ListSkeleton() {
@@ -637,9 +554,11 @@ export function GitHubInbox({
             </div>
           </div>
           {isMobile ? null : (
-            <ListColumnResizeHandle
+            <ColumnResizeHandle
+              label="Resize code review list"
               percent={draggedListWidth?.percent ?? (dockOpen ? 50 : 32)}
               columnRef={columnRef}
+              clampWidth={clampListWidth}
               onResize={(width, percent) => setDraggedList({ dockOpen, width, percent })}
             />
           )}

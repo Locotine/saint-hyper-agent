@@ -109,6 +109,9 @@ const RAIL_HUGEICON_GLYPHS: Record<HugeiconRailItemId, AppRailGlyphs> = {
 const RAIL_ITEM_GLYPH_NAMES: Record<Exclude<RailItemId, HugeiconRailItemId>, string> = {
   kanban: "columns-3-wide",
   settings: "settings-gear-4",
+  flows: "branch",
+  security: "shield-check",
+  hostEconomy: "gauge",
 };
 
 function isHugeiconRailItem(id: RailItemId): id is HugeiconRailItemId {

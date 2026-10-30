@@ -26,6 +26,7 @@ import {
   WsDeviceRpcGroup,
   WsFeatureRpcGroup,
   WsProjectAgentRpcGroup,
+  WsHyperAgentRpcGroup,
   WsRpcError,
   PullRequestsUnavailableError,
   type DeviceEvent,
@@ -246,6 +247,12 @@ import {
 } from "./wsSnapshotLiveStream";
 import { PullRequestService } from "./pullRequests/Services/PullRequestService";
 import { PullRequestAutoFixService } from "./pullRequestAutoFix/Services/PullRequestAutoFixService";
+import { handleFlowRpc } from "./flow/flowRpc";
+import { FlowService } from "./flow/Services/FlowService";
+import { Ledger } from "./ledger/Services/Ledger";
+import { SapBus } from "./sap/Services/SapBus";
+import { Aegis } from "./aegis/Services/Aegis";
+import { Economy, EconomyError } from "./economy/Services/Economy";
 import {
   GitHubInboxRateLimitedError,
   GitHubInboxService,
@@ -281,6 +288,7 @@ class WsRequestAdmissionMiddleware extends RpcMiddleware.Service<WsRequestAdmiss
 const AdmittedWsFeatureRpcGroup = WsFeatureRpcGroup.merge(WsDeviceRpcGroup)
   .merge(WsComputerRpcGroup)
   .merge(WsProjectAgentRpcGroup)
+  .merge(WsHyperAgentRpcGroup)
   .middleware(WsRequestAdmissionMiddleware);
 
 const wsRequestAdmissionMiddlewareLayer = Layer.effect(
@@ -549,6 +557,18 @@ const makeWsRpcHandlersLayer = () =>
       const path = yield* Path.Path;
       const pullRequests = yield* PullRequestService;
       const pullRequestAutoFix = yield* PullRequestAutoFixService;
+      const flowRpc = handleFlowRpc({ flows: yield* FlowService, ledger: yield* Ledger });
+      const sapBus = yield* SapBus;
+      const aegis = yield* Aegis;
+      const economyService = Option.getOrUndefined(yield* Effect.serviceOption(Economy));
+      const economy = <A>(
+        run: (service: typeof Economy.Service) => Effect.Effect<A, EconomyError>,
+      ) =>
+        economyService
+          ? run(economyService)
+          : Effect.fail(
+              new EconomyError({ message: "Host economy is not running on this server." }),
+            );
       const githubInbox = yield* GitHubInboxService;
       const profileStatsQuery = yield* ProfileStatsQuery;
       const recapStatsQuery = yield* RecapStatsQuery;
@@ -2211,6 +2231,61 @@ const makeWsRpcHandlersLayer = () =>
           rpcEffect(pullRequestAutoFix.get(input), "Failed to read Auto-fix CI"),
         [WS_METHODS.pullRequestsSetAutoFix]: (input) =>
           rpcEffect(pullRequestAutoFix.set(input), "Failed to update Auto-fix CI"),
+        [WS_METHODS.flowList]: (input) => rpcEffect(flowRpc.list(input), "Failed to list flows"),
+        [WS_METHODS.flowGet]: (input) => rpcEffect(flowRpc.get(input), "Failed to read the flow"),
+        [WS_METHODS.flowStart]: (input) =>
+          rpcEffect(flowRpc.start(input), "Failed to start the flow"),
+        [WS_METHODS.flowAction]: (input) =>
+          rpcEffect(flowRpc.action(input), "Failed to update the flow"),
+        [WS_METHODS.flowKillAll]: () => rpcEffect(flowRpc.killAll(), "Failed to stop the flows"),
+        [WS_METHODS.flowTemplates]: () =>
+          rpcEffect(flowRpc.templates(), "Failed to list templates"),
+        [WS_METHODS.flowSaveSpec]: (input) =>
+          rpcEffect(flowRpc.saveSpec(input), "Failed to save the flow"),
+        [WS_METHODS.flowSpecs]: (input) =>
+          rpcEffect(flowRpc.specs(input), "Failed to list the project's flows"),
+        [WS_METHODS.ledgerList]: (input) =>
+          rpcEffect(flowRpc.ledgerList(input), "Failed to read the ledger"),
+        [WS_METHODS.ledgerVerify]: () =>
+          rpcEffect(flowRpc.ledgerVerify(), "Failed to verify the ledger"),
+        [WS_METHODS.ledgerExport]: () =>
+          rpcEffect(flowRpc.ledgerExport(), "Failed to export the ledger"),
+        [WS_METHODS.ledgerHandle]: (input) =>
+          rpcEffect(flowRpc.ledgerHandle(input), "Failed to read the handle"),
+        [WS_METHODS.sapList]: (input) =>
+          rpcEffect(sapBus.list(input.flowId), "Failed to read the flow's messages"),
+        [WS_METHODS.aegisStatus]: () => rpcEffect(aegis.status(), "Failed to read security status"),
+        [WS_METHODS.aegisAlerts]: (input) =>
+          rpcEffect(
+            aegis.alerts(input.includeResolved ?? false).pipe(Effect.map((alerts) => ({ alerts }))),
+            "Failed to read alerts",
+          ),
+        [WS_METHODS.aegisResolve]: (input) =>
+          rpcEffect(
+            aegis
+              .resolve(input.ids, input.decision, "user")
+              .pipe(Effect.map((alerts) => ({ alerts }))),
+            "Failed to resolve alerts",
+          ),
+        [WS_METHODS.aegisUnfreeze]: (input) =>
+          rpcEffect(aegis.unfreeze(input.id, "user"), "Failed to unfreeze the worktree"),
+        [WS_METHODS.aegisUpdate]: (input) =>
+          rpcEffect(aegis.update(input, "user"), "Failed to update security settings"),
+        [WS_METHODS.economyStatus]: () =>
+          rpcEffect(
+            economy((service) => service.status()),
+            "Failed to read host economy",
+          ),
+        [WS_METHODS.economyAgent]: (input) =>
+          rpcEffect(
+            economy((service) => service.agent(input.threadId, input.action)),
+            "Failed to change the agent",
+          ),
+        [WS_METHODS.economyUpdate]: (input) =>
+          rpcEffect(
+            economy((service) => service.update(input)),
+            "Failed to update host economy",
+          ),
         [WS_METHODS.gitListBranches]: (input) =>
           rpcEffect(git.listBranches(input), "Failed to list branches"),
         [WS_METHODS.gitListRecentCommits]: (input) =>

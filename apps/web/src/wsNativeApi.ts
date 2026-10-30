@@ -765,6 +765,37 @@ function buildNativeApi(
       onActionProgress: gitActionProgressListeners.subscribe,
       onWorktreeSetupProgress: gitWorktreeSetupProgressListeners.subscribe,
     },
+    flows: {
+      list: (input) => transport.request(WS_METHODS.flowList, input),
+      get: (input) => transport.request(WS_METHODS.flowGet, input),
+      start: (input) => transport.request(WS_METHODS.flowStart, input),
+      action: (input) => transport.request(WS_METHODS.flowAction, input),
+      killAll: (input) => transport.request(WS_METHODS.flowKillAll, input),
+      templates: (input) => transport.request(WS_METHODS.flowTemplates, input),
+      saveSpec: (input) => transport.request(WS_METHODS.flowSaveSpec, input),
+      specs: (input) => transport.request(WS_METHODS.flowSpecs, input),
+    },
+    ledger: {
+      list: (input) => transport.request(WS_METHODS.ledgerList, input),
+      verify: (input) => transport.request(WS_METHODS.ledgerVerify, input),
+      export: (input) => transport.request(WS_METHODS.ledgerExport, input),
+      handle: (input) => transport.request(WS_METHODS.ledgerHandle, input),
+    },
+    sap: {
+      list: (input) => transport.request(WS_METHODS.sapList, input),
+    },
+    aegis: {
+      status: (input) => transport.request(WS_METHODS.aegisStatus, input),
+      alerts: (input) => transport.request(WS_METHODS.aegisAlerts, input),
+      resolve: (input) => transport.request(WS_METHODS.aegisResolve, input),
+      update: (input) => transport.request(WS_METHODS.aegisUpdate, input),
+      unfreeze: (input) => transport.request(WS_METHODS.aegisUnfreeze, input),
+    },
+    economy: {
+      status: (input) => transport.request(WS_METHODS.economyStatus, input),
+      agent: (input) => transport.request(WS_METHODS.economyAgent, input),
+      update: (input) => transport.request(WS_METHODS.economyUpdate, input),
+    },
     githubInbox: {
       list: (input) => transport.request(WS_METHODS.githubInboxList, input),
       issueDetail: (input) => transport.request(WS_METHODS.githubInboxIssueDetail, input),

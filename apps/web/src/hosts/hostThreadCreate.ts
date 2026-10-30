@@ -9,6 +9,7 @@ import type { ProjectId, ThreadId } from "@saint/contracts";
 import { GENERIC_CHAT_THREAD_TITLE } from "@saint/shared/chatThreads";
 import type { HostId } from "@saint/shared/hostId";
 
+import { deleteProjectFromClient } from "../lib/projectDelete";
 import { createOrRecoverProjectFromPath } from "../lib/projectCreation";
 import { pickRemoteFolder } from "../remoteFolderPickerStore";
 import { getThreadFromState } from "../threadDerivation";
@@ -64,4 +65,25 @@ export async function addHostProject(hostId: HostId, hostName: string): Promise<
     loadSnapshot: () => api.orchestration.getShellSnapshot().catch(() => null),
   });
   return projectId;
+}
+
+/**
+ * Removes a project from a host's Saint, like removing it here: its chats go, its folder on the
+ * host stays untouched.
+ */
+export async function removeHostProject(hostId: HostId, projectId: ProjectId): Promise<void> {
+  const api = hostHandle(hostId).requireApi();
+  const snapshot = await api.orchestration.getShellSnapshot();
+  for (const thread of snapshot.threads.filter((entry) => entry.projectId === projectId)) {
+    await api.orchestration.dispatchCommand({
+      type: "thread.delete",
+      commandId: newCommandId(),
+      threadId: thread.id,
+    });
+  }
+  await deleteProjectFromClient({
+    api: api.orchestration,
+    projectId,
+    removeDeletedProjectFromClientState: () => undefined,
+  });
 }
