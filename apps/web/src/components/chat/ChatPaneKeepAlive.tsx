@@ -19,6 +19,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { HostScope, useHostId } from "~/hosts/hostScope";
 import { type WorkspaceFileOpener, WorkspaceFileOpenerContext } from "~/lib/workspaceFileOpener";
 import { ChatPaneDropOverlay } from "../chat-drop-overlay/ChatPaneDropOverlay";
 import { SidebarInset } from "../ui/sidebar";
@@ -292,6 +293,8 @@ export function KeptChatPane({
   children: ReactNode;
 }) {
   const keepAlive = useContext(ChatPaneKeepAliveContext);
+  // The pane renders from the provider, so it would read this computer's store; carry the slot's host in.
+  const hostId = useHostId();
   const placeholderRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<KeptPane | null>(null);
   const threadIdRef = useRef(threadId);
@@ -317,7 +320,7 @@ export function KeptChatPane({
       return;
     }
     pane.threadId = threadId;
-    pane.content = children;
+    pane.content = <HostScope hostId={hostId}>{children}</HostScope>;
     for (const listener of pane.listeners) {
       listener();
     }
