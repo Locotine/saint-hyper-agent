@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LOCAL_HOST_ID, sshHostId } from "@saint/shared/hostId";
 
 import { hostConnections } from "../hosts/hostConnectionRegistry";
-import { resolveHostHttpUrl, resolveWsHttpUrl } from "./wsHttpUrl";
+import { hostAttachmentPreviewUrl, resolveHostHttpUrl, resolveWsHttpUrl } from "./wsHttpUrl";
 
 describe("resolveWsHttpUrl", () => {
   afterEach(() => {
@@ -75,5 +75,38 @@ describe("resolveHostHttpUrl", () => {
     vi.spyOn(hostConnections, "peek").mockReturnValue(undefined);
 
     expect(() => resolveHostHttpUrl(sshHostId("a1b2c3d4"), "/api/x")).toThrow(/not connected/);
+  });
+});
+
+describe("hostAttachmentPreviewUrl", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const stored = "http://127.0.0.1:4111/attachments/att_1?token=local";
+
+  it("leaves this computer's images alone", () => {
+    vi.stubGlobal("window", { location: { origin: "http://fallback.test" } });
+    expect(hostAttachmentPreviewUrl(LOCAL_HOST_ID, stored)).toBe(stored);
+  });
+
+  it("loads a remote host's image from that host with its own token, not this computer's", () => {
+    vi.stubGlobal("window", { location: { origin: "http://fallback.test" } });
+    vi.spyOn(hostConnections, "peek").mockReturnValue({
+      explicitUrl: "ws://127.0.0.1:5222/ws?token=remote",
+    } as never);
+
+    expect(hostAttachmentPreviewUrl(sshHostId("a1b2c3d4"), stored)).toBe(
+      "http://127.0.0.1:5222/attachments/att_1?token=remote",
+    );
+  });
+
+  it("keeps the stored URL for other sources or a host with no live connection", () => {
+    vi.stubGlobal("window", { location: { origin: "http://fallback.test" } });
+    const hostId = sshHostId("a1b2c3d4");
+    vi.spyOn(hostConnections, "peek").mockReturnValue(undefined);
+    expect(hostAttachmentPreviewUrl(hostId, stored)).toBe(stored);
+    expect(hostAttachmentPreviewUrl(hostId, "blob:http://x/1")).toBe("blob:http://x/1");
   });
 });

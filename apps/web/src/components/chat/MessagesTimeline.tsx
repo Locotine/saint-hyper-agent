@@ -76,6 +76,8 @@ import {
   Undo2Icon,
   WorktreeIcon,
 } from "~/lib/icons";
+import { useHostId } from "~/hosts/hostScope";
+import { hostAttachmentPreviewUrl } from "~/lib/wsHttpUrl";
 import { pinActionLabel } from "~/lib/pin";
 import { syncAnimationsToTimelineOrigin } from "~/lib/animationTimelineSync";
 import { useStableCallback } from "~/hooks/useStableCallback";
@@ -3711,6 +3713,10 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
   onTimelineImageLoad: () => void;
   resolvedTheme: "light" | "dark";
 }) {
+  const hostId = useHostId();
+  const previewUrl = props.image.previewUrl
+    ? hostAttachmentPreviewUrl(hostId, props.image.previewUrl)
+    : undefined;
   return (
     <button
       type="button"
@@ -3718,14 +3724,23 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
       aria-label={`Preview ${props.image.name}`}
       title={props.image.name}
       onClick={() => {
-        const preview = buildExpandedImagePreview(props.userImages, props.image.id);
+        const preview = buildExpandedImagePreview(
+          props.userImages.map((image) => ({
+            id: image.id,
+            name: image.name,
+            ...(image.previewUrl
+              ? { previewUrl: hostAttachmentPreviewUrl(hostId, image.previewUrl) }
+              : {}),
+          })),
+          props.image.id,
+        );
         if (!preview) return;
         props.onImageExpand(preview);
       }}
     >
-      {props.image.previewUrl ? (
+      {previewUrl ? (
         <img
-          src={props.image.previewUrl}
+          src={previewUrl}
           alt={props.image.name}
           className="size-full object-cover"
           onLoad={props.onTimelineImageLoad}

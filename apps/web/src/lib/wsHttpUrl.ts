@@ -2,7 +2,7 @@
 // Purpose: Resolves server HTTP URLs from the active WebSocket bridge so desktop <img>/download
 // requests carry the same legacy startup token already used for the WS connection.
 // Layer: Web utility
-// Exports: resolveWsHttpUrl, resolveHostHttpUrl, toAttachmentPreviewUrl
+// Exports: resolveWsHttpUrl, resolveHostHttpUrl, toAttachmentPreviewUrl, hostAttachmentPreviewUrl
 
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 
@@ -63,4 +63,19 @@ export function toAttachmentPreviewUrl(rawUrl: string): string {
     return resolveWsHttpUrl(rawUrl);
   }
   return rawUrl;
+}
+
+/**
+ * A message image's `previewUrl` is built when the message reaches its store, against this
+ * computer's server. A chat on another host keeps its images on that host's server, so the image
+ * is fetched from there (its token included); with no live transport the stored URL stays.
+ */
+export function hostAttachmentPreviewUrl(hostId: HostId, previewUrl: string): string {
+  if (hostId === LOCAL_HOST_ID) return previewUrl;
+  try {
+    const { pathname } = new URL(previewUrl, window.location.origin);
+    return pathname.startsWith("/attachments/") ? resolveHostHttpUrl(hostId, pathname) : previewUrl;
+  } catch {
+    return previewUrl;
+  }
 }
