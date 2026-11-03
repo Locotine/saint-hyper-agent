@@ -28,6 +28,10 @@ import {
 import { FlowRepositoryLive } from "../../persistence/Layers/FlowRepository.ts";
 import { SqlitePersistenceMemory } from "../../persistence/Layers/Sqlite.ts";
 import { Aegis, type AegisShape } from "../../aegis/Services/Aegis.ts";
+import {
+  ProviderDiscoveryService,
+  type ProviderDiscoveryServiceShape,
+} from "../../provider/Services/ProviderDiscoveryService.ts";
 import { FlowService } from "../Services/FlowService.ts";
 import { FlowServiceLive } from "./FlowService.ts";
 
@@ -84,9 +88,17 @@ const snapshotQuery = {
   getProjectShellById: () => Effect.succeed(Option.some({ workspaceRoot: projectDir })),
 } as unknown as ProjectionSnapshotQueryShape;
 
+const discovery = {
+  listModels: () =>
+    Effect.succeed({
+      models: [{ slug: "claude-sonnet-5", name: "Sonnet 5", supportsAutoMode: true }],
+    }),
+} as unknown as ProviderDiscoveryServiceShape;
+
 const seed = Uint8Array.from({ length: 32 }, (_, index) => index);
 const layer = it.layer(
   FlowServiceLive.pipe(
+    Layer.provideMerge(Layer.succeed(ProviderDiscoveryService, discovery)),
     Layer.provideMerge(FlowRepositoryLive),
     Layer.provideMerge(LedgerLive),
     Layer.provideMerge(Layer.succeed(OrchestrationEngineService, engine)),
@@ -325,6 +337,23 @@ edges: [{ from: coder, to: docs }]
       assert.isAtLeast(yield* flows.killAll("user"), 1);
       assert.strictEqual((yield* flows.get(run.id))!.run.status, "cancelled");
       assert.isEmpty(yield* flows.list({ statuses: ["running", "paused"] }));
+    }),
+  );
+
+  it.effect("a Claude step takes its Auto flag from discovery, not the saved selection", () =>
+    Effect.gen(function* () {
+      const flows = yield* FlowService;
+      dispatched.length = 0;
+      yield* flows.start({
+        projectId: ProjectId.makeUnsafe("project-1"),
+        spec,
+        modelSelection: { provider: "claudeAgent", model: "claude-sonnet-5" },
+        runtimeMode: "auto",
+        startedBy: "user",
+      });
+      const create = dispatched.find((command) => command.type === "thread.create");
+      assert.deepInclude(create?.modelSelection ?? {}, { supportsAutoMode: true });
+      yield* flows.killAll("user");
     }),
   );
 

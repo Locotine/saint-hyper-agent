@@ -37,6 +37,7 @@ import { GitCore } from "../../git/Services/GitCore.ts";
 import { currentFlowAdmission } from "../../economy/Services/Economy.ts";
 import { OrchestrationEngineService } from "../../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { ProviderDiscoveryService } from "../../provider/Services/ProviderDiscoveryService.ts";
 import { FlowRepository, type FlowRunState } from "../../persistence/Services/FlowRepository.ts";
 import {
   decideFlow,
@@ -139,6 +140,7 @@ const make = Effect.gen(function* () {
   const credentials = Option.getOrUndefined(yield* Effect.serviceOption(AgentGatewayCredentials));
   const forkContinue = Option.getOrUndefined(yield* Effect.serviceOption(ForkContinue));
   const aegis = Option.getOrUndefined(yield* Effect.serviceOption(Aegis));
+  const discovery = Option.getOrUndefined(yield* Effect.serviceOption(ProviderDiscoveryService));
   const nodeStartedHandlers: Array<(run: FlowRun, nodeId: string) => Effect.Effect<void>> = [];
   const git = Option.getOrUndefined(yield* Effect.serviceOption(GitCore));
   const worktreesDir = Option.getOrUndefined(
@@ -182,15 +184,40 @@ const make = Effect.gen(function* () {
       .saveRun({ ...run, ...patch, revision: run.revision + 1, updatedAt: isoNow() })
       .pipe(Effect.mapError(toError("Could not save the flow.")));
 
+  // Saved selections (project defaults, flow specs) rarely carry Claude's Auto flag, and
+  // thread.create fails closed without it. Take the flag from discovery, never from the input.
+  const withClaudeAutoMode = (selection: ModelSelection) =>
+    selection.provider !== "claudeAgent" ||
+    selection.supportsAutoMode !== undefined ||
+    discovery === undefined
+      ? Effect.succeed(selection)
+      : discovery
+          .listModels({
+            provider: "claudeAgent",
+            ...(selection.instanceId !== undefined ? { instanceId: selection.instanceId } : {}),
+          })
+          .pipe(
+            Effect.map(({ models }) => {
+              const match =
+                models.find((model) => model.slug === selection.model) ??
+                models.find((model) => model.resolvedModel === selection.model);
+              return match?.supportsAutoMode === undefined
+                ? selection
+                : { ...selection, supportsAutoMode: match.supportsAutoMode };
+            }),
+            Effect.orElseSucceed(() => selection),
+          );
+
   const nodeModelSelection = (run: FlowRun, spec: FlowNodeSpec, node: FlowNodeRun) =>
-    node.modelOverride
+    (node.modelOverride
       ? Effect.succeed(node.modelOverride)
       : spec.provider || spec.model
         ? decodeModelSelection({
             provider: spec.provider ?? run.modelSelection.provider,
             model: spec.model ?? (spec.provider ? undefined : run.modelSelection.model),
           }).pipe(Effect.mapError(toError(`Node "${spec.id}" names an unknown provider or model.`)))
-        : Effect.succeed(run.modelSelection);
+        : Effect.succeed(run.modelSelection)
+    ).pipe(Effect.flatMap(withClaudeAutoMode));
 
   const projectFolder = (run: FlowRun) =>
     snapshotQuery.getProjectShellById(run.projectId).pipe(
