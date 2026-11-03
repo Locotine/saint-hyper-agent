@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
 import { Button } from "~/components/ui/button";
+import { useViewedHostId } from "~/hosts/viewedHost";
 import { toastManager } from "~/components/ui/toast";
 import { showConfirmDialogFallback } from "~/confirmDialogFallback";
 import {
@@ -39,6 +40,7 @@ export function ProviderUsageResetCredits({
 }) {
   const { accountId, availableCount, canUse, credits } = resetCredits;
   const queryClient = useQueryClient();
+  const hostId = useViewedHostId();
   const locked = useRef(false);
   const [confirming, setConfirming] = useState(false);
   let pendingAttempt: ServerConsumeCodexResetCreditInput | null = null;
@@ -49,7 +51,8 @@ export function ProviderUsageResetCredits({
     storageUnavailable = true;
   }
   const consumeMutation = useMutation({
-    mutationFn: consumeCodexResetCredit,
+    mutationFn: (attempt: ServerConsumeCodexResetCreditInput) =>
+      consumeCodexResetCredit(attempt, hostId),
     onSuccess: (result, attempt) => {
       // Every recognized outcome completes the attempt, even if the subsequent usage read fails.
       try {
@@ -91,7 +94,7 @@ export function ProviderUsageResetCredits({
           error instanceof Error ? error.message : "Retry this reset to check the same attempt.",
       });
     } finally {
-      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.allProviderUsage() });
+      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.allProviderUsage(hostId) });
       locked.current = false;
       setConfirming(false);
     }

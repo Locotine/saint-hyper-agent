@@ -26,10 +26,21 @@ export const serverQueryKeys = {
   settings: () => ["server", "settings"] as const,
   worktrees: () => ["server", "worktrees"] as const,
   localServers: () => ["server", "localServers"] as const,
-  providerUsage: (provider: ProviderKind | null | undefined, homePath?: string | null) =>
-    ["server", "providerUsage", provider ?? null, homePath ?? null] as const,
+  // Another host's usage never shares a cache entry with this computer's: its key ends in the
+  // host id, while this computer's keeps its original shape.
+  providerUsage: (
+    provider: ProviderKind | null | undefined,
+    homePath?: string | null,
+    hostId: HostId = LOCAL_HOST_ID,
+  ) =>
+    hostId === LOCAL_HOST_ID
+      ? (["server", "providerUsage", provider ?? null, homePath ?? null] as const)
+      : (["server", "providerUsage", provider ?? null, homePath ?? null, hostId] as const),
   providerUsageRoot: () => ["server", "providerUsage"] as const,
-  allProviderUsage: () => ["server", "allProviderUsage"] as const,
+  allProviderUsage: (hostId: HostId = LOCAL_HOST_ID) =>
+    hostId === LOCAL_HOST_ID
+      ? (["server", "allProviderUsage"] as const)
+      : (["server", "allProviderUsage", hostId] as const),
   profileStats: (utcOffsetMinutes: number) =>
     ["server", "profileStats", "peak-hour-v2", utcOffsetMinutes] as const,
   profileTokenStats: (utcOffsetMinutes: number) =>
@@ -416,13 +427,22 @@ export function serverStopLocalServerMutationOptions(input: { queryClient: Query
   });
 }
 
+/** This computer's API, or a connected host's; throws while that host has no live connection. */
+function usageApi(hostId: HostId) {
+  const api = hostId === LOCAL_HOST_ID ? ensureLocalNativeApi() : apiFor(hostId);
+  if (!api) throw new Error("This host is not connected.");
+  return api;
+}
+
 export function serverProviderUsageSnapshotQueryOptions(input: {
   provider: ProviderKind | null | undefined;
   homePath?: string | null;
   enabled?: boolean;
+  hostId?: HostId;
 }) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: serverQueryKeys.providerUsage(input.provider, input.homePath),
+    queryKey: serverQueryKeys.providerUsage(input.provider, input.homePath, hostId),
     enabled: (input.enabled ?? true) && input.provider !== null && input.provider !== undefined,
     staleTime: 30_000,
     refetchInterval: 30_000,
@@ -430,8 +450,7 @@ export function serverProviderUsageSnapshotQueryOptions(input: {
     retry: false,
     queryFn: async () => {
       if (!input.provider) return null;
-      const api = ensureLocalNativeApi();
-      return api.server.getProviderUsageSnapshot({
+      return usageApi(hostId).server.getProviderUsageSnapshot({
         provider: input.provider,
         ...(input.homePath ? { homePath: input.homePath } : {}),
       });
@@ -439,14 +458,18 @@ export function serverProviderUsageSnapshotQueryOptions(input: {
   });
 }
 
-export async function fetchAllProviderUsage(input: ServerListProviderUsageInput = {}) {
-  const api = ensureLocalNativeApi();
-  return api.server.listProviderUsage(input);
+export async function fetchAllProviderUsage(
+  input: ServerListProviderUsageInput = {},
+  hostId: HostId = LOCAL_HOST_ID,
+) {
+  return usageApi(hostId).server.listProviderUsage(input);
 }
 
-export async function consumeCodexResetCredit(input: ServerConsumeCodexResetCreditInput) {
-  const api = ensureLocalNativeApi();
-  return api.server.consumeCodexResetCredit(input);
+export async function consumeCodexResetCredit(
+  input: ServerConsumeCodexResetCreditInput,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
+  return usageApi(hostId).server.consumeCodexResetCredit(input);
 }
 
 /** Provider enablement changes alter the membership of the batch and invalidate any
@@ -531,16 +554,18 @@ export function serverAllProviderUsageQueryOptions(
     | boolean
     | {
         enabled?: boolean;
+        hostId?: HostId;
       } = true,
 ) {
   const enabled = typeof input === "boolean" ? input : (input.enabled ?? true);
+  const hostId = typeof input === "boolean" ? LOCAL_HOST_ID : (input.hostId ?? LOCAL_HOST_ID);
   return queryOptions({
-    queryKey: serverQueryKeys.allProviderUsage(),
+    queryKey: serverQueryKeys.allProviderUsage(hostId),
     enabled,
     staleTime: 60_000,
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,
     retry: false,
-    queryFn: async () => fetchAllProviderUsage(),
+    queryFn: async () => fetchAllProviderUsage({}, hostId),
   });
 }

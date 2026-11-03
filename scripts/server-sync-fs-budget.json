@@ -9,7 +9,7 @@
     }
   },
   "apps/server/src/aegis/sandbox.ts": {
-    "reason": "Aegis launch planning: builds the bwrap/sandbox-exec argv and decoy HOME once per provider process launch, off the streaming path; HOME is walked one level deep.",
+    "reason": "Aegis launch planning: builds the bwrap/sandbox-exec argv and decoy HOME once per provider process launch, off the streaming path; HOME is walked one level deep; one stat per read-only path decides whether the macOS profile protects a folder or a file.",
     "references": {
       "mkdirSync": 4,
       "writeFileSync": 2,
@@ -18,6 +18,7 @@
       "readdirSync": 2,
       "readlinkSync": 1,
       "existsSync": 5,
+      "statSync": 1,
       "symlinkSync": 1
     }
   },

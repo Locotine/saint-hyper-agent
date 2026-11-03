@@ -26,6 +26,7 @@ import {
   KanbanIcon,
   FlowsIcon,
   ShieldCheckIcon,
+  ShieldCodeIcon,
   UsageGaugeIcon,
   TasksIcon,
   KeyboardIcon,
@@ -1372,6 +1373,7 @@ export default function Sidebar() {
   const isOnAutomations = pathname.startsWith("/automations");
   const isOnFlows = pathname.startsWith("/flows");
   const isOnSecurity = pathname.startsWith("/security");
+  const isOnCyberSecurity = pathname.startsWith("/cyber-security");
   const isOnHostEconomy = pathname.startsWith("/host-economy");
   const isOnPullRequests = pathname.startsWith("/pull-requests");
   const isOnInbox = pathname.startsWith("/inbox");
@@ -4386,6 +4388,15 @@ export default function Sidebar() {
           void navigate({ to: "/security" });
         },
       },
+      cyberSecurity: {
+        icon: ShieldCodeIcon,
+        label: "Cyber Security",
+        active: isOnCyberSecurity,
+        badge: null,
+        onClick: () => {
+          void navigate({ to: "/cyber-security" });
+        },
+      },
       hostEconomy: {
         icon: UsageGaugeIcon,
         label: "Host Economy",
@@ -4401,6 +4412,7 @@ export default function Sidebar() {
       securityBadge,
       isOnFlows,
       isOnSecurity,
+      isOnCyberSecurity,
       isOnHostEconomy,
       automationCountBadge,
       handlePrimaryNewThread,

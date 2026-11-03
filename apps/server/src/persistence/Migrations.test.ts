@@ -687,6 +687,8 @@ managedAttachmentsLegacyLayer("managed attachment migration after private migrat
         [138, "SapMessages"],
         [139, "Aegis"],
         [140, "Hibernation"],
+        [141, "CyberSecurity"],
+        [142, "CyberSecurityScanners"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -779,6 +781,8 @@ managedAttachmentsLegacyLayer("managed attachment migration after private migrat
           { migration_id: 138, name: "SapMessages" },
           { migration_id: 139, name: "Aegis" },
           { migration_id: 140, name: "Hibernation" },
+          { migration_id: 141, name: "CyberSecurity" },
+          { migration_id: 142, name: "CyberSecurityScanners" },
         ],
       );
       const groupConfigColumns = yield* sql<{ readonly name: string }>`
@@ -951,6 +955,8 @@ agentGatewayRetentionLegacyLayer(
           [138, "SapMessages"],
           [139, "Aegis"],
           [140, "Hibernation"],
+          [141, "CyberSecurity"],
+          [142, "CyberSecurityScanners"],
         ]);
 
         const columns = yield* sql<{ readonly name: string }>`
@@ -1086,6 +1092,8 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [138, "SapMessages"],
         [139, "Aegis"],
         [140, "Hibernation"],
+        [141, "CyberSecurity"],
+        [142, "CyberSecurityScanners"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -1162,6 +1170,8 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
           [138, "SapMessages"],
           [139, "Aegis"],
           [140, "Hibernation"],
+          [141, "CyberSecurity"],
+          [142, "CyberSecurityScanners"],
         ],
       );
 
@@ -1292,6 +1302,8 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [138, "SapMessages"],
         [139, "Aegis"],
         [140, "Hibernation"],
+        [141, "CyberSecurity"],
+        [142, "CyberSecurityScanners"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -1364,6 +1376,8 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
           [138, "SapMessages"],
           [139, "Aegis"],
           [140, "Hibernation"],
+          [141, "CyberSecurity"],
+          [142, "CyberSecurityScanners"],
         ],
       );
       const preservedSpaces = yield* sql<{ readonly spaceId: string }>`

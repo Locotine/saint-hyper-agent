@@ -49,6 +49,7 @@ export const RAIL_ORDERABLE_ITEM_IDS = [
   "studio",
   "flows",
   "security",
+  "cyberSecurity",
   "hostEconomy",
 ] as const;
 export type RailOrderableItemId = (typeof RAIL_ORDERABLE_ITEM_IDS)[number];
@@ -198,6 +199,7 @@ export function railItemShowsPanel(id: RailItemId): boolean {
     id !== "inbox" &&
     id !== "flows" &&
     id !== "security" &&
+    id !== "cyberSecurity" &&
     id !== "hostEconomy"
   );
 }
@@ -215,6 +217,7 @@ export function railItemForPathname(pathname: string): RailRouteItemId | null {
   if (matchesRoute(pathname, "/automations")) return "automations";
   if (matchesRoute(pathname, "/flows")) return "flows";
   if (matchesRoute(pathname, "/security")) return "security";
+  if (matchesRoute(pathname, "/cyber-security")) return "cyberSecurity";
   if (matchesRoute(pathname, "/host-economy")) return "hostEconomy";
   // The rail item keeps its stored id "studio"; Hubs live at /hubs with legacy redirects.
   if (

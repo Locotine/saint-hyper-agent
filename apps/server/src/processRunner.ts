@@ -1,6 +1,6 @@
 import type { ChildProcess as ChildProcessHandle } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
-import { isCommandNotFoundExit } from "@saint/shared/platformProcess";
+import { isCommandNotFoundExit, type ProcessSandboxLauncher } from "@saint/shared/platformProcess";
 import { spawnProcess } from "@saint/shared/processRuntime";
 
 import { signalOwnedChildProcess } from "./platform/processTreeController.ts";
@@ -18,6 +18,8 @@ export interface ProcessRunOptions {
   onStderrChunk?: ((chunk: string) => void) | undefined;
   /** Sees the spawned child, e.g. so Aegis can track its pid for the kill switch. */
   onSpawn?: ((child: import("node:child_process").ChildProcess) => void) | undefined;
+  /** POSIX OS sandbox the command runs inside (see `sandboxLauncher`); ignored on Windows. */
+  sandbox?: ProcessSandboxLauncher | undefined;
 }
 
 export interface ProcessRunResult {
@@ -139,6 +141,7 @@ export async function runProcess(
       env: options.env,
       stdio: "pipe",
       requireExecutable: true,
+      ...(options.sandbox !== undefined ? { sandbox: options.sandbox } : {}),
     });
     options.onSpawn?.(child);
 

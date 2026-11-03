@@ -26,9 +26,11 @@ import { Route as ChatKanbanIndexRouteImport } from './routes/_chat.kanban.index
 import { Route as ChatHubsIndexRouteImport } from './routes/_chat.hubs.index'
 import { Route as ChatGroupsIndexRouteImport } from './routes/_chat.groups.index'
 import { Route as ChatFlowsIndexRouteImport } from './routes/_chat.flows.index'
+import { Route as ChatCyberSecurityIndexRouteImport } from './routes/_chat.cyber-security.index'
 import { Route as ChatAutomationsIndexRouteImport } from './routes/_chat.automations.index'
 import { Route as ChatKanbanProjectIdRouteImport } from './routes/_chat.kanban.$projectId'
 import { Route as ChatFlowsFlowIdRouteImport } from './routes/_chat.flows.$flowId'
+import { Route as ChatCyberSecurityProjectIdRouteImport } from './routes/_chat.cyber-security.$projectId'
 import { Route as ChatAutomationsAutomationIdRouteImport } from './routes/_chat.automations.$automationId'
 
 const ChatRoute = ChatRouteImport.update({
@@ -115,6 +117,11 @@ const ChatFlowsIndexRoute = ChatFlowsIndexRouteImport.update({
   path: '/flows/',
   getParentRoute: () => ChatRoute,
 } as any)
+const ChatCyberSecurityIndexRoute = ChatCyberSecurityIndexRouteImport.update({
+  id: '/cyber-security/',
+  path: '/cyber-security/',
+  getParentRoute: () => ChatRoute,
+} as any)
 const ChatAutomationsIndexRoute = ChatAutomationsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -130,6 +137,12 @@ const ChatFlowsFlowIdRoute = ChatFlowsFlowIdRouteImport.update({
   path: '/flows/$flowId',
   getParentRoute: () => ChatRoute,
 } as any)
+const ChatCyberSecurityProjectIdRoute =
+  ChatCyberSecurityProjectIdRouteImport.update({
+    id: '/cyber-security/$projectId',
+    path: '/cyber-security/$projectId',
+    getParentRoute: () => ChatRoute,
+  } as any)
 const ChatAutomationsAutomationIdRoute =
   ChatAutomationsAutomationIdRouteImport.update({
     id: '/$automationId',
@@ -148,9 +161,11 @@ export interface FileRoutesByFullPath {
   '/security': typeof ChatSecurityRoute
   '/settings': typeof ChatSettingsRoute
   '/automations/$automationId': typeof ChatAutomationsAutomationIdRoute
+  '/cyber-security/$projectId': typeof ChatCyberSecurityProjectIdRoute
   '/flows/$flowId': typeof ChatFlowsFlowIdRoute
   '/kanban/$projectId': typeof ChatKanbanProjectIdRoute
   '/automations/': typeof ChatAutomationsIndexRoute
+  '/cyber-security/': typeof ChatCyberSecurityIndexRoute
   '/flows/': typeof ChatFlowsIndexRoute
   '/groups/': typeof ChatGroupsIndexRoute
   '/hubs/': typeof ChatHubsIndexRoute
@@ -168,9 +183,11 @@ export interface FileRoutesByTo {
   '/settings': typeof ChatSettingsRoute
   '/': typeof ChatIndexRoute
   '/automations/$automationId': typeof ChatAutomationsAutomationIdRoute
+  '/cyber-security/$projectId': typeof ChatCyberSecurityProjectIdRoute
   '/flows/$flowId': typeof ChatFlowsFlowIdRoute
   '/kanban/$projectId': typeof ChatKanbanProjectIdRoute
   '/automations': typeof ChatAutomationsIndexRoute
+  '/cyber-security': typeof ChatCyberSecurityIndexRoute
   '/flows': typeof ChatFlowsIndexRoute
   '/groups': typeof ChatGroupsIndexRoute
   '/hubs': typeof ChatHubsIndexRoute
@@ -192,9 +209,11 @@ export interface FileRoutesById {
   '/_chat/settings': typeof ChatSettingsRoute
   '/_chat/': typeof ChatIndexRoute
   '/_chat/automations/$automationId': typeof ChatAutomationsAutomationIdRoute
+  '/_chat/cyber-security/$projectId': typeof ChatCyberSecurityProjectIdRoute
   '/_chat/flows/$flowId': typeof ChatFlowsFlowIdRoute
   '/_chat/kanban/$projectId': typeof ChatKanbanProjectIdRoute
   '/_chat/automations/': typeof ChatAutomationsIndexRoute
+  '/_chat/cyber-security/': typeof ChatCyberSecurityIndexRoute
   '/_chat/flows/': typeof ChatFlowsIndexRoute
   '/_chat/groups/': typeof ChatGroupsIndexRoute
   '/_chat/hubs/': typeof ChatHubsIndexRoute
@@ -216,9 +235,11 @@ export interface FileRouteTypes {
     | '/security'
     | '/settings'
     | '/automations/$automationId'
+    | '/cyber-security/$projectId'
     | '/flows/$flowId'
     | '/kanban/$projectId'
     | '/automations/'
+    | '/cyber-security/'
     | '/flows/'
     | '/groups/'
     | '/hubs/'
@@ -236,9 +257,11 @@ export interface FileRouteTypes {
     | '/settings'
     | '/'
     | '/automations/$automationId'
+    | '/cyber-security/$projectId'
     | '/flows/$flowId'
     | '/kanban/$projectId'
     | '/automations'
+    | '/cyber-security'
     | '/flows'
     | '/groups'
     | '/hubs'
@@ -259,9 +282,11 @@ export interface FileRouteTypes {
     | '/_chat/settings'
     | '/_chat/'
     | '/_chat/automations/$automationId'
+    | '/_chat/cyber-security/$projectId'
     | '/_chat/flows/$flowId'
     | '/_chat/kanban/$projectId'
     | '/_chat/automations/'
+    | '/_chat/cyber-security/'
     | '/_chat/flows/'
     | '/_chat/groups/'
     | '/_chat/hubs/'
@@ -396,6 +421,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatFlowsIndexRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/_chat/cyber-security/': {
+      id: '/_chat/cyber-security/'
+      path: '/cyber-security'
+      fullPath: '/cyber-security/'
+      preLoaderRoute: typeof ChatCyberSecurityIndexRouteImport
+      parentRoute: typeof ChatRoute
+    }
     '/_chat/automations/': {
       id: '/_chat/automations/'
       path: '/'
@@ -415,6 +447,13 @@ declare module '@tanstack/react-router' {
       path: '/flows/$flowId'
       fullPath: '/flows/$flowId'
       preLoaderRoute: typeof ChatFlowsFlowIdRouteImport
+      parentRoute: typeof ChatRoute
+    }
+    '/_chat/cyber-security/$projectId': {
+      id: '/_chat/cyber-security/$projectId'
+      path: '/cyber-security/$projectId'
+      fullPath: '/cyber-security/$projectId'
+      preLoaderRoute: typeof ChatCyberSecurityProjectIdRouteImport
       parentRoute: typeof ChatRoute
     }
     '/_chat/automations/$automationId': {
@@ -462,8 +501,10 @@ interface ChatRouteChildren {
   ChatSecurityRoute: typeof ChatSecurityRoute
   ChatSettingsRoute: typeof ChatSettingsRoute
   ChatIndexRoute: typeof ChatIndexRoute
+  ChatCyberSecurityProjectIdRoute: typeof ChatCyberSecurityProjectIdRoute
   ChatFlowsFlowIdRoute: typeof ChatFlowsFlowIdRoute
   ChatKanbanProjectIdRoute: typeof ChatKanbanProjectIdRoute
+  ChatCyberSecurityIndexRoute: typeof ChatCyberSecurityIndexRoute
   ChatFlowsIndexRoute: typeof ChatFlowsIndexRoute
   ChatGroupsIndexRoute: typeof ChatGroupsIndexRoute
   ChatHubsIndexRoute: typeof ChatHubsIndexRoute
@@ -482,8 +523,10 @@ const ChatRouteChildren: ChatRouteChildren = {
   ChatSecurityRoute: ChatSecurityRoute,
   ChatSettingsRoute: ChatSettingsRoute,
   ChatIndexRoute: ChatIndexRoute,
+  ChatCyberSecurityProjectIdRoute: ChatCyberSecurityProjectIdRoute,
   ChatFlowsFlowIdRoute: ChatFlowsFlowIdRoute,
   ChatKanbanProjectIdRoute: ChatKanbanProjectIdRoute,
+  ChatCyberSecurityIndexRoute: ChatCyberSecurityIndexRoute,
   ChatFlowsIndexRoute: ChatFlowsIndexRoute,
   ChatGroupsIndexRoute: ChatGroupsIndexRoute,
   ChatHubsIndexRoute: ChatHubsIndexRoute,

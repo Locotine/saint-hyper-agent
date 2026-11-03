@@ -33,6 +33,7 @@ describe("rail item order", () => {
       "studio",
       "flows",
       "security",
+      "cyberSecurity",
       "hostEconomy",
     ]);
   });
@@ -49,6 +50,7 @@ describe("rail item order", () => {
       "studio",
       "flows",
       "security",
+      "cyberSecurity",
       "hostEconomy",
     ]);
     expect(normalizeRailItemOrder(["home", "spaces", "inbox"]).slice(0, 3)).toEqual([
@@ -80,6 +82,7 @@ describe("rail item order", () => {
       "automations",
       "flows",
       "security",
+      "cyberSecurity",
       "hostEconomy",
     ]);
     expect(
@@ -104,6 +107,7 @@ describe("rail item order", () => {
       "automations",
       "flows",
       "security",
+      "cyberSecurity",
       "hostEconomy",
     ]);
     expect(isRailItemAvailable("inbox", { studioAvailable: false, inboxAvailable: true })).toBe(

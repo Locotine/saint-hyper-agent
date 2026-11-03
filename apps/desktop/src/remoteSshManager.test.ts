@@ -100,6 +100,8 @@ const tunnels = (calls: readonly FakeChild[]) => calls.filter((call) => call.arg
 function scriptKind(stdin: string): string {
   if (stdin.includes('report "{\\"kind\\":\\"probe')) return "probe";
   if (stdin.includes("Unpacking the dependencies")) return "install";
+  if (stdin.includes(`report '{"kind":"scanners"}'`)) return "scanners-install";
+  if (stdin === "scanner-pack") return "scanner-upload";
   if (stdin.includes("tmux new-session")) return "start";
   if (stdin.includes(`report '{"kind":"stopped"}'`)) return "stop";
   return stdin === "bundle" ? "upload" : "unknown";
@@ -483,6 +485,97 @@ describe("RemoteSshManager", () => {
       phase: "connected",
     });
     expect(createInstallBundle).toHaveBeenCalledWith(true);
+  });
+
+  describe("scanner pack", () => {
+    const withScanners = {
+      installIdentity: () => ({
+        version: "1.2.3",
+        depsHash: "0123456789ab",
+        scannersVersion: "fedcba987654",
+      }),
+    };
+    const probeFor = (fields: string) => PROBE_FRESH.replace('"tar":true', `"tar":true,${fields}`);
+    const connectWith = async (
+      probe: string,
+      overrides: Partial<RemoteSshManagerDependencies> = {},
+      failScannerInstall = false,
+    ) => {
+      const seen: string[] = [];
+      const createScannerPack = vi.fn(() => Readable.from([Buffer.from("scanner-pack")]));
+      const { spawn } = fakeSpawn((args, stdin) => {
+        if (args.includes("-N")) return "tunnel";
+        const kind = scriptKind(stdin);
+        seen.push(kind);
+        if (kind === "probe") return { stdout: probe };
+        if (kind === "install") return { stdout: 'SAINT_REMOTE {"kind":"installed"}' };
+        if (kind === "scanners-install") {
+          return failScannerInstall
+            ? { code: 1, stderr: "disk full" }
+            : { stdout: 'SAINT_REMOTE {"kind":"scanners"}' };
+        }
+        if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
+        return {};
+      });
+      const { manager } = makeManager(spawn, { ...withScanners, createScannerPack, ...overrides });
+      const state = await manager.connect({ host: "devbox" });
+      return { seen, createScannerPack, state };
+    };
+
+    it("uploads only the host's own pack, after the install and before the start", async () => {
+      const { seen, createScannerPack } = await connectWith(
+        probeFor('"platform":"linux-arm64","scanners":false'),
+      );
+      expect(seen).toEqual([
+        "probe",
+        "upload",
+        "install",
+        "scanner-upload",
+        "scanners-install",
+        "start",
+      ]);
+      expect(createScannerPack).toHaveBeenCalledTimes(1);
+      expect(createScannerPack).toHaveBeenCalledWith("linux-arm64");
+    });
+
+    it("uploads nothing when the host already holds this pack version", async () => {
+      const { seen, createScannerPack } = await connectWith(
+        probeFor('"platform":"linux-x64","scanners":true'),
+      );
+      expect(seen).toEqual(["probe", "upload", "install", "start"]);
+      expect(createScannerPack).not.toHaveBeenCalled();
+    });
+
+    it("uploads the pack for an already installed version too", async () => {
+      const { seen } = await connectWith(
+        probeFor('"platform":"linux-x64","scanners":false').replace(
+          '"installed":false',
+          '"installed":true',
+        ),
+      );
+      expect(seen).toEqual(["probe", "scanner-upload", "scanners-install", "start"]);
+    });
+
+    it("skips a build that ships no scanner pack for the host, or none at all", async () => {
+      const probe = probeFor('"platform":"linux-x64","scanners":false');
+      const none = await connectWith(probe, { createScannerPack: () => null });
+      expect(none.seen).toEqual(["probe", "upload", "install", "start"]);
+      const noPack = await connectWith(probe, {
+        installIdentity: () => ({ version: "1.2.3", depsHash: "0123456789ab" }),
+      });
+      expect(noPack.seen).toEqual(["probe", "upload", "install", "start"]);
+      expect(noPack.createScannerPack).not.toHaveBeenCalled();
+    });
+
+    it("still starts the server when the scanner pack cannot be installed", async () => {
+      const { state, seen } = await connectWith(
+        probeFor('"platform":"linux-x64","scanners":false'),
+        {},
+        true,
+      );
+      expect(state).toMatchObject({ phase: "connected" });
+      expect(seen.at(-1)).toBe("start");
+    });
   });
 
   it("refuses to install when this build ships no dependency pack", async () => {

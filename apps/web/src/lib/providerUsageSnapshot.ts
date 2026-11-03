@@ -3,6 +3,7 @@
 // same shapes consumed by the shared usage/rate-limit UI in the web app.
 
 import type { ServerGetProviderUsageSnapshotResult } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 
 import type { OpenUsageUsageLine } from "./openUsageRateLimits";
 import type { ProviderRateLimit } from "./rateLimits";
@@ -11,6 +12,20 @@ export function isProviderUsageSnapshotNonOk(
   snapshot: ServerGetProviderUsageSnapshotResult | null | undefined,
 ): boolean {
   return snapshot?.status !== undefined && snapshot.status !== "ok";
+}
+
+/**
+ * Another host shows only usage read from it successfully: a failed read (including a host that
+ * is not connected), a missing snapshot or a non-ok one hides it rather than fall back to numbers
+ * that may belong to another machine. This computer's usage renders as before.
+ */
+export function isHostUsageHidden(input: {
+  hostId: HostId;
+  isError: boolean;
+  snapshot: ServerGetProviderUsageSnapshotResult | null | undefined;
+}): boolean {
+  if (input.hostId === LOCAL_HOST_ID) return false;
+  return input.isError || !input.snapshot || isProviderUsageSnapshotNonOk(input.snapshot);
 }
 
 export function normalizeServerProviderUsageRateLimit(

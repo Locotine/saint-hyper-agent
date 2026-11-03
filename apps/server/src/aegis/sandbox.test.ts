@@ -44,6 +44,99 @@ describe("sandbox-exec profile", () => {
   });
 });
 
+describe("sandbox-exec profile for a scanner", () => {
+  // What `runScanner` asks for: the project read-only, its own scratch and cache folders
+  // writable, and one loopback port (the egress proxy or the app under test), nothing else.
+  const project = path.join(base, "project");
+  const scratch = path.join(base, "scratch");
+  const cache = path.join(base, "cache");
+  mkdirSync(project, { recursive: true });
+  const profileOf = (extra: Partial<Parameters<typeof sandboxLauncher>[0]> = {}) =>
+    sandboxLauncher({
+      kind: "sandbox-exec",
+      home: "/Users/me",
+      cwd: scratch,
+      sessionDir: scratch,
+      writable: [cache],
+      readOnly: [project],
+      decoys: [],
+      ports: [{ port: 4300, socketPath: "", direction: "out" }],
+      relay: null,
+      ...extra,
+    }).args[1]!;
+  const lines = (profile: string) => profile.split("\n");
+
+  it("covers everything inside the project folder, not just the folder itself", () => {
+    const profile = profileOf();
+    expect(profile).toContain(`(deny file-write* (subpath "${project}"))`);
+    expect(profile).not.toContain(`(literal "${project}")`);
+  });
+
+  it("makes a read-only folder readable again after the masked folders, then unwritable", () => {
+    // A scanner's executable lives under Saint's own (masked) state folder.
+    const profile = profileOf();
+    const rows = lines(profile);
+    const mask = rows.findIndex((line) => line.startsWith("(deny file-read* file-write*"));
+    const reread = rows.findIndex((line) => line === `(allow file-read* (subpath "${project}"))`);
+    const protect = rows.findIndex((line) => line === `(deny file-write* (subpath "${project}"))`);
+    expect(mask).toBeGreaterThan(-1);
+    // Later rules win: masked, then readable, then not writable.
+    expect(reread).toBeGreaterThan(mask);
+    expect(protect).toBeGreaterThan(reread);
+  });
+
+  it("keeps a protected file literal, and a folder that does not exist yet too", () => {
+    const file = path.join(project, "pinned.txt");
+    writeFileSync(file, "x");
+    const profile = profileOf({ readOnly: [file, path.join(base, "not-yet")] });
+    expect(profile).toContain(`(literal "${file}")`);
+    expect(profile).toContain(`(literal "${path.join(base, "not-yet")}")`);
+  });
+
+  it("denies the project last, so a project under a writable temp folder stays read-only", () => {
+    const all = lines(profileOf());
+    const denyProject = all.findIndex((line) => line.includes(`(subpath "${project}")`));
+    const allowWrites = all.findIndex((line) => line.startsWith("(allow file-write*"));
+    expect(denyProject).toBeGreaterThan(allowWrites);
+    expect(all.at(-1)).toContain("localhost:4300");
+  });
+
+  it("opens the scratch folder and the explicit cache folder again after the credential masks", () => {
+    const all = lines(profileOf());
+    const masks = all.findIndex((line) => line.startsWith("(deny file-read* file-write*"));
+    const reopen = all.findIndex(
+      (line) =>
+        line.startsWith("(allow file-read* file-write*") &&
+        line.includes(`(subpath "${scratch}")`) &&
+        line.includes(`(subpath "${cache}")`),
+    );
+    expect(masks).toBeGreaterThan(-1);
+    expect(reopen).toBeGreaterThan(masks);
+  });
+
+  it("allows the network to one loopback port and unix sockets only", () => {
+    const profile = profileOf();
+    expect(profile).toContain("(deny network*)");
+    expect(profile).toContain("(allow network* (remote unix-socket))");
+    expect(profile.match(/\(allow network-outbound/g)).toHaveLength(1);
+    expect(profile).toContain('(allow network-outbound (remote ip "localhost:4300"))');
+    expect(profile).not.toContain("network-bind");
+  });
+
+  it("allows no port at all for a scanner that needs no network", () => {
+    const profile = profileOf({ ports: [] });
+    expect(profile).toContain("(deny network*)");
+    expect(profile).not.toContain("network-outbound");
+  });
+
+  it("makes both nuclei's read-only inputs (project and templates) unwritable", () => {
+    const templates = path.join(base, "templates");
+    mkdirSync(templates, { recursive: true });
+    const profile = profileOf({ readOnly: [project, templates] });
+    expect(profile).toContain(`(subpath "${project}") (subpath "${templates}")`);
+  });
+});
+
 describe("per-session egress proxy", () => {
   it("decides by the principal its port belongs to", async () => {
     const policy = {

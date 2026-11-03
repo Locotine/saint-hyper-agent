@@ -9,7 +9,10 @@ import type {
   ServerCodexResetCredits,
   ServerGetProviderUsageSnapshotResult,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { useQuery } from "@tanstack/react-query";
+
+import { useViewedHostId } from "~/hosts/viewedHost";
 
 import {
   normalizeOpenUsageSnapshot,
@@ -110,11 +113,14 @@ export function useProviderUsageSummary(input: {
   fetchOpenUsageData?: boolean | undefined;
 }) {
   const provider = input.provider ?? null;
+  const hostId = useViewedHostId();
+  const isLocalHost = hostId === LOCAL_HOST_ID;
   const instanceId = input.instanceId ?? input.providerSnapshot?.instanceId;
   const shouldFetchLiveProviderUsage = provider !== null && input.providerSnapshot === undefined;
   const allProviderUsageQuery = useQuery(
     serverAllProviderUsageQueryOptions({
       enabled: shouldFetchLiveProviderUsage,
+      hostId,
     }),
   );
   const liveProviderSnapshot = (allProviderUsageQuery.data ?? []).find(
@@ -132,13 +138,16 @@ export function useProviderUsageSummary(input: {
   const localUsageSnapshotQuery = useQuery(
     serverProviderUsageSnapshotQueryOptions({
       provider,
-      homePath: provider === "codex" ? input.codexHomePath || null : null,
+      // The Codex home path is a path on this computer; another host reads its own.
+      homePath: provider === "codex" && isLocalHost ? input.codexHomePath || null : null,
       enabled: shouldFetchLocalProviderUsage,
+      hostId,
     }),
   );
   const openUsageSnapshotQuery = useQuery(
     openUsageProviderSnapshotQueryOptions(provider, {
-      enabled: !accountScoped && (input.fetchOpenUsageData ?? true),
+      // OpenUsage reads this computer's apps, so another host never falls back to it.
+      enabled: isLocalHost && !accountScoped && (input.fetchOpenUsageData ?? true),
     }),
   );
   const accountRateLimits = accountScoped

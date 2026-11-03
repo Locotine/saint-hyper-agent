@@ -32,7 +32,7 @@ import {
   projectReadFileQueryOptions,
   projectSearchEntriesQueryOptions,
 } from "~/lib/projectReactQuery";
-import { DownloadIcon } from "~/lib/icons";
+import { DownloadIcon, RefreshCwIcon } from "~/lib/icons";
 import { getSyntaxHighlighterPromise, getSyntaxLanguageForPath } from "~/lib/syntaxHighlighting";
 import { cn } from "~/lib/utils";
 import { Skeleton } from "../ui/skeleton";
@@ -47,6 +47,7 @@ import {
   EXPLORER_DROP_TARGET_CLASS_NAME,
   endExplorerEntriesDrag,
   explorerDropDirectoryFor,
+  invalidateExplorerDirectories,
   useExplorerFileDrop,
 } from "./explorerFileDrop";
 import { EXPLORER_TREE_ATTRIBUTE, explorerEntryRowAttributes } from "./explorerSelection";
@@ -377,7 +378,8 @@ function WorkspaceFilesTreeBody(props: {
   onRootContextMenu: (position: { x: number; y: number }) => void;
   onMoveEntries: (paths: string[], directory: string) => void;
 }) {
-  const fileDrop = useExplorerFileDrop(props.workspaceRoot, props.onMoveEntries);
+  const hostId = useHostId();
+  const fileDrop = useExplorerFileDrop(props.workspaceRoot, props.onMoveEntries, hostId);
   const { dropDirectory } = fileDrop;
   // Read at fire time, so parent re-renders during the drag do not restart the wait.
   const expandHeldDirectory = useEffectEvent((directory: string) => {
@@ -569,7 +571,7 @@ function WorkspaceSearchInputHeader(props: {
   query: string;
   search: WorkspaceFileSearchState;
   autoFocus?: boolean;
-  /** Controls beside the search box (the remote window's Download button). */
+  /** Controls beside the search box (Download, Refresh). */
   trailing?: ReactNode;
   onQueryChange: (query: string) => void;
   onSelectFile: (path: string) => void;
@@ -640,6 +642,23 @@ function ExplorerDownloadButton(props: { fileCount: number; onDownload: () => vo
       }}
     >
       <DownloadIcon className="size-3.5" />
+    </IconButton>
+  );
+}
+
+// Refetches every folder listing of the workspace on the host the Explorer shows.
+function ExplorerRefreshButton(props: { workspaceRoot: string }) {
+  const queryClient = useQueryClient();
+  const hostId = useHostId();
+  return (
+    <IconButton
+      label="Refresh files"
+      tooltip="Refresh files"
+      tooltipSide="bottom"
+      className="shrink-0 text-muted-foreground hover:text-foreground"
+      onClick={() => void invalidateExplorerDirectories(queryClient, props.workspaceRoot, hostId)}
+    >
+      <RefreshCwIcon className="size-3.5" />
     </IconButton>
   );
 }
@@ -792,12 +811,17 @@ export function WorkspaceExplorerSidebar(props: {
         query={props.query}
         search={search}
         trailing={
-          downloadSelection ? (
-            <ExplorerDownloadButton
-              fileCount={downloadSelection.fileCount}
-              onDownload={downloadSelection.download}
-            />
-          ) : undefined
+          <>
+            {downloadSelection ? (
+              <ExplorerDownloadButton
+                fileCount={downloadSelection.fileCount}
+                onDownload={downloadSelection.download}
+              />
+            ) : null}
+            {props.workspaceRoot ? (
+              <ExplorerRefreshButton workspaceRoot={props.workspaceRoot} />
+            ) : null}
+          </>
         }
         onQueryChange={props.onQueryChange}
         onSelectFile={props.onSelectFile}

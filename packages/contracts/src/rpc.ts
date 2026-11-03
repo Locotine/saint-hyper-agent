@@ -35,6 +35,14 @@ import {
   AegisUpdateInput,
 } from "./aegis";
 import {
+  CyberFinding,
+  CyberSecuritySetFindingStatusInput,
+  CyberSecurityStartInput,
+  CyberSecurityStatus,
+  CyberSecurityStatusInput,
+  CyberAssessment,
+} from "./cyberSecurity";
+import {
   EconomyAgentInput,
   EconomyStatus,
   EconomyStatusInput,
@@ -1421,6 +1429,25 @@ export const WsAegisUnfreezeRpc = Rpc.make(WS_METHODS.aegisUnfreeze, {
   error: WsRpcError,
 });
 
+export const WsCyberSecurityStatusRpc = Rpc.make(WS_METHODS.cyberSecurityStatus, {
+  payload: CyberSecurityStatusInput,
+  success: CyberSecurityStatus,
+  error: WsRpcError,
+});
+export const WsCyberSecurityStartRpc = Rpc.make(WS_METHODS.cyberSecurityStart, {
+  payload: CyberSecurityStartInput,
+  success: CyberAssessment,
+  error: WsRpcError,
+});
+export const WsCyberSecuritySetFindingStatusRpc = Rpc.make(
+  WS_METHODS.cyberSecuritySetFindingStatus,
+  {
+    payload: CyberSecuritySetFindingStatusInput,
+    success: CyberFinding,
+    error: WsRpcError,
+  },
+);
+
 export const WsEconomyStatusRpc = Rpc.make(WS_METHODS.economyStatus, {
   payload: EconomyStatusInput,
   success: EconomyStatus,
@@ -2413,6 +2440,9 @@ export const WsHyperAgentRpcGroup = RpcGroup.make(
   WsAegisResolveRpc,
   WsAegisUpdateRpc,
   WsAegisUnfreezeRpc,
+  WsCyberSecurityStatusRpc,
+  WsCyberSecurityStartRpc,
+  WsCyberSecuritySetFindingStatusRpc,
   WsEconomyStatusRpc,
   WsEconomyAgentRpc,
   WsEconomyUpdateRpc,

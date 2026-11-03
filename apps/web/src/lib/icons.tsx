@@ -205,6 +205,7 @@ export const GlobeIcon: LucideIcon = centralIconWrapper("globe");
 export const ServerIcon: LucideIcon = centralIconWrapper("server");
 export const FlowsIcon: LucideIcon = centralIconWrapper("branch");
 export const ShieldCheckIcon: LucideIcon = centralIconWrapper("shield-check");
+export const ShieldCodeIcon: LucideIcon = centralIconWrapper("shield-code");
 export const WebSearchIcon: LucideIcon = GlobeIcon;
 // Handset glyph for the iOS Simulator dock pane.
 export const DeviceMobileIcon: LucideIcon = centralIconWrapper("phone");

@@ -10,6 +10,8 @@ import { deriveProviderInstances } from "@saint/shared/providerInstances";
 import { useQuery } from "@tanstack/react-query";
 
 import { useAppSettings, type RailUsageWindow } from "~/appSettings";
+import { useViewedHostId } from "~/hosts/viewedHost";
+import { isHostUsageHidden } from "~/lib/providerUsageSnapshot";
 import {
   serverAllProviderUsageQueryOptions,
   serverSettingsQueryOptions,
@@ -213,7 +215,10 @@ export function AppRailUsage({ onOpenUsageSettings }: { onOpenUsageSettings: () 
       settings.disabledProviders,
     ),
   );
-  const usageQuery = useQuery(serverAllProviderUsageQueryOptions({ enabled: accounts.length > 0 }));
+  const hostId = useViewedHostId();
+  const usageQuery = useQuery(
+    serverAllProviderUsageQueryOptions({ enabled: accounts.length > 0, hostId }),
+  );
 
   if (accounts.length === 0) {
     return null;
@@ -221,19 +226,24 @@ export function AppRailUsage({ onOpenUsageSettings }: { onOpenUsageSettings: () 
 
   return (
     <>
-      {accounts.map((account) => (
-        <AppRailUsageRing
-          key={account.instance.instanceId}
-          account={account}
-          snapshot={(usageQuery.data ?? []).find(
-            (entry) =>
-              entry.provider === account.instance.driver &&
-              (entry.instanceId ?? entry.provider) === account.instance.instanceId,
-          )}
-          window={settings.railUsageWindow}
-          onOpenUsageSettings={onOpenUsageSettings}
-        />
-      ))}
+      {accounts.map((account) => {
+        const snapshot = (usageQuery.data ?? []).find(
+          (entry) =>
+            entry.provider === account.instance.driver &&
+            (entry.instanceId ?? entry.provider) === account.instance.instanceId,
+        );
+        // Another host's ring appears only once that host answered with this account's usage.
+        if (isHostUsageHidden({ hostId, isError: usageQuery.isError, snapshot })) return null;
+        return (
+          <AppRailUsageRing
+            key={account.instance.instanceId}
+            account={account}
+            snapshot={snapshot}
+            window={settings.railUsageWindow}
+            onOpenUsageSettings={onOpenUsageSettings}
+          />
+        );
+      })}
     </>
   );
 }

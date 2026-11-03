@@ -19,6 +19,8 @@ import { isValidSshTarget, normalizeRemoteRoot } from "./remoteSshConfig";
 import {
   buildRemoteInstallScript,
   buildRemoteProbeScript,
+  buildRemoteScannerInstallScript,
+  buildRemoteScannerUploadCommand,
   buildRemoteStartScript,
   buildRemoteStopScript,
   buildRemoteUploadCommand,
@@ -28,6 +30,7 @@ import {
   parseRemoteStartReport,
   REMOTE_SSH_LOGIN_SHELL_COMMAND,
   REMOTE_SSH_NODE_REQUIREMENT,
+  type RemoteSshProbeReport,
   type RemoteSshScriptTarget,
 } from "./remoteSshScripts";
 
@@ -55,6 +58,11 @@ export interface RemoteSshManagerDependencies {
   readonly createInstallBundle: (withDepsPack: boolean) => Readable;
   /** Whether this build ships the dependency pack (`apps/server/remote-deps`). */
   readonly hasDepsPack: () => boolean;
+  /**
+   * Gzipped tar of the scanner executables for a host's `<platform>-<arch>`, or null
+   * when this build ships none for it. Uploaded on its own, never with the bundle.
+   */
+  readonly createScannerPack?: (platform: string) => Readable | null;
   readonly reserveLocalPort: () => Promise<number>;
   readonly waitForHttpReady: (baseUrl: string, signal: AbortSignal) => Promise<void>;
   readonly createToken: () => string;
@@ -94,6 +102,8 @@ function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
 export interface RemoteInstallIdentity {
   readonly version: string;
   readonly depsHash: string;
+  /** Version of the scanner pack this build ships, absent when it ships none. */
+  readonly scannersVersion?: string | undefined;
 }
 
 /** Non-interactive ssh: never prompt for a password or host key inside the app. */
@@ -330,6 +340,7 @@ export class RemoteSshManager {
       storeRoot: this.deps.storeRoot,
       version: identity.version,
       depsHash: identity.depsHash,
+      scannersVersion: identity.scannersVersion,
     };
   }
 
@@ -423,6 +434,7 @@ export class RemoteSshManager {
             throw new RemoteSshError(this.failureMessage("install the server", install));
           }
         }
+        await this.installScanners(host, target, probe, signal);
         step("starting");
         token = this.deps.createToken();
         const start = await this.runScript(
@@ -458,6 +470,48 @@ export class RemoteSshManager {
       this.deps.log(`[remote-ssh] ${host} failed +${Date.now() - startedAt}ms: ${message}`);
       if (!signal.aborted && !reconnecting) this.update(record, "error", message);
       throw error instanceof RemoteSshError ? error : new RemoteSshError(message);
+    }
+  }
+
+  /**
+   * Uploads this host's scanner pack when the host lacks this pack version, once;
+   * later connects only see it in the probe. The scanners are optional, so a failure
+   * is logged and the server still starts without them.
+   */
+  private async installScanners(
+    host: string,
+    target: RemoteSshScriptTarget,
+    probe: RemoteSshProbeReport,
+    signal: AbortSignal,
+  ): Promise<void> {
+    if (!target.scannersVersion || probe.scannersInstalled || !probe.platform) return;
+    const pack = this.deps.createScannerPack?.(probe.platform);
+    if (!pack) return;
+    try {
+      this.deps.log(`[remote-ssh] ${host} uploading the scanner pack (${probe.platform})`);
+      const upload = await this.runSsh(
+        host,
+        buildRemoteScannerUploadCommand(target, probe.platform),
+        pack,
+        UPLOAD_TIMEOUT_MS,
+        signal,
+      );
+      if (upload.code !== 0) throw new RemoteSshError(this.failureMessage("upload", upload));
+      const install = await this.runScript(
+        host,
+        buildRemoteScannerInstallScript(target, probe.platform),
+        INSTALL_TIMEOUT_MS,
+        signal,
+      );
+      if (!hasRemoteReport(install.stdout, "scanners")) {
+        throw new RemoteSshError(this.failureMessage("install", install));
+      }
+    } catch (error) {
+      if (signal.aborted) throw error;
+      pack.destroy();
+      this.deps.log(
+        `[remote-ssh] ${host} scanner pack skipped: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

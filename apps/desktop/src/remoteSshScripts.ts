@@ -33,6 +33,11 @@ export interface RemoteSshScriptTarget {
    * platform and Node ABI it names the `deps/` folder versions share.
    */
   readonly depsHash: string;
+  /**
+   * Version of the security-scanner pack this build ships (see `scannerPackVersion`),
+   * absent when it ships none. The host keeps it in its own folder, apart from `deps/`.
+   */
+  readonly scannersVersion?: string | undefined;
 }
 
 export interface RemoteSshProbeReport {
@@ -42,6 +47,10 @@ export interface RemoteSshProbeReport {
   readonly installed: boolean;
   /** This build's dependency pack is unpacked for the host's platform and Node ABI. */
   readonly depsInstalled: boolean;
+  /** `<platform>-<arch>` of the host's `node`, the scanner pack to upload; null when unknown. */
+  readonly platform: string | null;
+  /** This build's scanner pack is unpacked on the host. */
+  readonly scannersInstalled: boolean;
   /** Present when a server from this install folder is alive on the remote. */
   readonly server: {
     readonly port: number;
@@ -71,6 +80,24 @@ function assertSafeDepsHash(depsHash: string): void {
   }
 }
 
+/**
+ * Absolute directory of the scanner executables, read by the server
+ * (`<root>/scanners/<platform>-<arch>/`). The desktop sets it for its own server too.
+ */
+export const SAINT_SCANNER_DIR_ENV = "SAINT_SCANNER_DIR";
+
+function assertSafeScannersVersion(version: string): void {
+  if (!/^[0-9a-f]{8,64}$/u.test(version)) {
+    throw new Error(`Unsupported scanner pack version for a remote install: ${version}`);
+  }
+}
+
+function assertSafeScannerPlatform(platform: string): void {
+  if (!/^(darwin|linux)-(arm64|x64)$/u.test(platform)) {
+    throw new Error(`Unsupported scanner platform for a remote install: ${platform}`);
+  }
+}
+
 /** Restarts each idle agent runtime sooner than a desktop does, freeing its CLI's memory. */
 export const REMOTE_PROVIDER_RUNTIME_IDLE_STOP_MS = 3 * 60_000;
 /**
@@ -91,6 +118,18 @@ export const REMOTE_SERVER_NODE_FLAGS = ["--max-old-space-size=1024", "--max-sem
  * login shell's environment; clients only read it and never remove from it.
  */
 export const REMOTE_SHARED_STORE_ENV = "SAINT_REMOTE_SHARED_STORE";
+
+// The scanner pack lives in the shared store next to versions/ and deps/, one folder per
+// pack version, so it uploads once per host and every install folder reuses it.
+function scannerPreambleLines(target: RemoteSshScriptTarget): string[] {
+  if (!target.scannersVersion) return [];
+  assertSafeScannersVersion(target.scannersVersion);
+  return [
+    "scanner_pa=$(node -p 'process.platform + \"-\" + process.arch' 2>/dev/null || echo none)",
+    `scanner_root="$store_root/scanners/${target.scannersVersion}"`,
+    'scanner_dir="$scanner_root/scanners/$scanner_pa"',
+  ];
+}
 
 function preamble(target: RemoteSshScriptTarget): string {
   assertSafeVersion(target.version);
@@ -120,6 +159,7 @@ function preamble(target: RemoteSshScriptTarget): string {
     '  [ "$(readlink "$1/versions/$version/node_modules" 2>/dev/null)" = "$deps_link" ] || return 1',
     '  [ -f "$1/deps/$deps_key/.installed" ]',
     "}",
+    ...scannerPreambleLines(target),
     'install_dir="$store/$version"',
     'if [ -n "$shared" ] && version_ready "$shared"; then install_dir="$shared/versions/$version"; fi',
   ].join("\n");
@@ -153,11 +193,14 @@ installed=false
 if [ "$install_dir" != "$store/$version" ] || version_ready "$store_root"; then installed=true; fi
 deps=false
 if [ -f "$deps_store/$deps_key/.installed" ]; then deps=true; fi
+host_platform=$(node -p 'process.platform + "-" + process.arch' 2>/dev/null || true)
+scanners=false
+${target.scannersVersion ? 'if [ -f "$scanner_root/.installed" ] && [ -d "$scanner_dir" ]; then scanners=true; fi' : ""}
 server=null
 if server_alive && [ -f "$run_dir/server.json" ] && [ -f "$run_dir/token" ]; then
   server="{\\"info\\":$(cat "$run_dir/server.json"),\\"token\\":\\"$(cat "$run_dir/token")\\"}"
 fi
-report "{\\"kind\\":\\"probe\\",\\"node\\":\\"$node_version\\",\\"tar\\":$tar_ok,\\"installed\\":$installed,\\"deps\\":$deps,\\"server\\":$server}"
+report "{\\"kind\\":\\"probe\\",\\"node\\":\\"$node_version\\",\\"tar\\":$tar_ok,\\"installed\\":$installed,\\"deps\\":$deps,\\"platform\\":\\"$host_platform\\",\\"scanners\\":$scanners,\\"server\\":$server}"
 `;
 }
 
@@ -263,6 +306,52 @@ report '{"kind":"installed"}'
 `;
 }
 
+/**
+ * Shell command that unpacks one `scanner-<platform>-<arch>.tar.gz` from stdin into
+ * this install folder's staging. Only the host's own pack is ever sent.
+ */
+export function buildRemoteScannerUploadCommand(
+  target: RemoteSshScriptTarget,
+  platform: string,
+): string {
+  assertSafeScannersVersion(target.scannersVersion ?? "");
+  assertSafeScannerPlatform(platform);
+  const staging = `"$HOME/"${quoteShell(`${target.remoteRoot}/staging/scanners-${target.scannersVersion}`)}`;
+  const dir = `${staging}/${quoteShell(`scanners/${platform}`)}`;
+  return `sh -c ${quoteShell(`set -eu; rm -rf ${staging}; mkdir -p ${dir}; tar -xzf - -C ${dir}`)}`;
+}
+
+/**
+ * Publishes the uploaded scanner pack to `scanners/<version>/` in the shared store
+ * with one atomic rename (a pack another install folder published first is kept).
+ * The server finds it through SAINT_SCANNER_DIR, written by the start script.
+ */
+export function buildRemoteScannerInstallScript(
+  target: RemoteSshScriptTarget,
+  platform: string,
+): string {
+  assertSafeScannersVersion(target.scannersVersion ?? "");
+  assertSafeScannerPlatform(platform);
+  return `${preamble(target)}
+${PUBLISH_FUNCTION}
+scanner_staging="$root/staging/scanners-${target.scannersVersion}"
+if [ ! -d "$scanner_staging/scanners/${platform}" ] || [ -z "$(ls -A "$scanner_staging/scanners/${platform}")" ]; then
+  echo "Saint did not upload its scanner pack." >&2
+  exit 1
+fi
+if [ "$scanner_pa" != ${quoteShell(platform)} ]; then
+  echo "The scanner pack is for ${platform}, this host is $scanner_pa." >&2
+  exit 1
+fi
+mkdir -p "$store_root/scanners"
+chmod -R go-w "$scanner_staging"
+: >"$scanner_staging/.installed"
+publish "$scanner_staging" "$scanner_root"
+rmdir "$root/staging" 2>/dev/null || true
+report '{"kind":"scanners"}'
+`;
+}
+
 export interface RemoteStartOptions {
   readonly token: string;
   /** Development renderer origin the remote server must trust (Vite dev server). */
@@ -308,6 +397,7 @@ quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\\\\\''/g")"; }
   echo 'export ${SAINT_PROVIDERS_ENV}=${REMOTE_SERVER_PROVIDERS.join(",")}'
   echo 'export SAINT_PROVIDER_RUNTIME_IDLE_STOP_MS=${REMOTE_PROVIDER_RUNTIME_IDLE_STOP_MS}'
   echo 'export SAINT_IDLE_EXIT_MS=${REMOTE_SERVER_IDLE_EXIT_MS}'
+${scannerEnvLines(target)}
   echo "echo \\$\\$ >$(quote "$run_dir/server.pid")"
   echo "exec node ${REMOTE_SERVER_NODE_FLAGS.join(" ")} $(quote "$install_dir/dist/index.mjs") --mode web --host 127.0.0.1 --port $port --home-dir $(quote "$root/home") --no-browser${devUrlFlag} >>$(quote "$run_dir/server.log") 2>&1"
 } >"$run_dir/server.sh"
@@ -352,10 +442,31 @@ for deps_dir in "$deps_store"/*; do
   [ -n "$(find "$deps_dir" -maxdepth 0 -mmin -60 2>/dev/null)" ] && continue
   rm -rf "$deps_dir"
 done
+${scannerCleanupLines(target)}
 # Folders installed before the shared store kept their own versions.
 if [ "$root/versions" != "$store" ]; then rm -rf "$root/versions"; fi
 report "{\\"kind\\":\\"started\\",\\"port\\":$port}"
 `;
+}
+
+// Without the pack on this host the server starts without the variable and the scanner
+// runner reports its scanners as unavailable.
+function scannerEnvLines(target: RemoteSshScriptTarget): string {
+  if (!target.scannersVersion) return "";
+  return `  if [ -f "$scanner_root/.installed" ] && [ -d "$scanner_dir" ]; then
+    echo "export ${SAINT_SCANNER_DIR_ENV}=$(quote "$scanner_dir")"
+  fi`;
+}
+
+// Scanner packs of older builds go a day after they stop being current, long after
+// the servers that used them have exited.
+function scannerCleanupLines(target: RemoteSshScriptTarget): string {
+  if (!target.scannersVersion) return "";
+  return `for old in "$store_root"/scanners/*; do
+  [ -d "$old" ] || continue
+  [ "$old" = "$scanner_root" ] && continue
+  [ -n "$(find "$old" -maxdepth 0 -mmin +1440 2>/dev/null)" ] && rm -rf "$old"
+done`;
 }
 
 function stopServerLines(): string {
@@ -425,6 +536,8 @@ export function parseRemoteProbeReport(stdout: string): RemoteSshProbeReport | n
     tar: report.tar === true,
     installed: report.installed === true,
     depsInstalled: report.deps === true,
+    platform: typeof report.platform === "string" && report.platform ? report.platform : null,
+    scannersInstalled: report.scanners === true,
     server,
   };
 }
@@ -434,7 +547,10 @@ export function parseRemoteStartReport(stdout: string): { readonly port: number 
   return report && isPort(report.port) ? { port: report.port } : null;
 }
 
-export function hasRemoteReport(stdout: string, kind: "installed" | "stopped"): boolean {
+export function hasRemoteReport(
+  stdout: string,
+  kind: "installed" | "stopped" | "scanners",
+): boolean {
   return findReport(stdout, kind) !== null;
 }
 

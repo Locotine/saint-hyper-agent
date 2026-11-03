@@ -791,6 +791,12 @@ function buildNativeApi(
       update: (input) => transport.request(WS_METHODS.aegisUpdate, input),
       unfreeze: (input) => transport.request(WS_METHODS.aegisUnfreeze, input),
     },
+    cyberSecurity: {
+      status: (input) => transport.request(WS_METHODS.cyberSecurityStatus, input),
+      start: (input) => transport.request(WS_METHODS.cyberSecurityStart, input),
+      setFindingStatus: (input) =>
+        transport.request(WS_METHODS.cyberSecuritySetFindingStatus, input),
+    },
     economy: {
       status: (input) => transport.request(WS_METHODS.economyStatus, input),
       agent: (input) => transport.request(WS_METHODS.economyAgent, input),

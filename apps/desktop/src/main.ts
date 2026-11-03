@@ -293,7 +293,11 @@ import {
   remoteDepsPackPath,
   remoteInstallDepsHash,
   remoteInstallVersion,
+  scannerLockPath,
+  scannerPackPath,
+  scannerPackVersion,
 } from "./remoteSshBundle";
+import { SAINT_SCANNER_DIR_ENV } from "./remoteSshScripts";
 import {
   clientRemoteRoot,
   createRemoteClientId,
@@ -4171,10 +4175,22 @@ async function startCuaHost(): Promise<void> {
   }
 }
 
+/**
+ * Scanner executables of this app for its own platform, staged outside app.asar by
+ * the desktop build (extraResources). A checkout has none; the runner then reports
+ * its scanners as unavailable.
+ */
+function localScannerDir(): string | null {
+  if (!app.isPackaged) return null;
+  const dir = Path.join(process.resourcesPath, "scanners", `${process.platform}-${process.arch}`);
+  return FS.existsSync(dir) ? dir : null;
+}
+
 function backendEnv(): NodeJS.ProcessEnv {
   const servedStaticRoot = resolveServedStaticRoot();
   const migrationSourceDigest = embeddedDesktopMigrationRuntimeSourceDigest();
   const migrationDivergenceConsent = migrationConsentHandoff.take();
+  const scannerDir = localScannerDir();
   const env: NodeJS.ProcessEnv = {
     ...resolveBrowserHostPipeBackendEnv(
       process.env,
@@ -4187,6 +4203,7 @@ function backendEnv(): NodeJS.ProcessEnv {
     ...(app.isPackaged
       ? { [DEVICE_HELPER_SOURCE_DIR_ENV]: Path.join(process.resourcesPath, "device-helper") }
       : {}),
+    ...(scannerDir ? { [SAINT_SCANNER_DIR_ENV]: scannerDir } : {}),
     ...(migrationSourceDigest
       ? { [MIGRATION_RUNTIME_SOURCE_DIGEST_ENV]: migrationSourceDigest }
       : {}),
@@ -5829,6 +5846,15 @@ function readSavedRemoteSshHosts() {
   }
 }
 
+/** The scanner pack's version, or undefined when this build ships none (it is then optional). */
+function readScannerPackVersion(appRoot: string): string | undefined {
+  try {
+    return scannerPackVersion(FS.readFileSync(scannerLockPath(appRoot), "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
 function registerRemoteSshHandlers(): void {
   const remoteSshDefaultRoot = resolveRemoteSshDefaultRoot();
   remoteSshManager ??= new RemoteSshManager({
@@ -5840,6 +5866,7 @@ function registerRemoteSshHandlers(): void {
       return {
         version: remoteInstallVersion(app.getVersion(), entries),
         depsHash: remoteInstallDepsHash(FS.readFileSync(remoteDepsDescriptorPath(appRoot), "utf8")),
+        scannersVersion: readScannerPackVersion(appRoot),
       };
     },
     defaultRemoteRoot: remoteSshDefaultRoot,
@@ -5856,6 +5883,10 @@ function registerRemoteSshHandlers(): void {
       return createTarGzStream(entries);
     },
     hasDepsPack: () => FS.existsSync(remoteDepsPackPath(resolveAppRoot())),
+    createScannerPack: (platform) => {
+      const path = scannerPackPath(resolveAppRoot(), platform);
+      return path ? FS.createReadStream(path) : null;
+    },
     reserveLocalPort: () =>
       Effect.service(NetService).pipe(
         Effect.flatMap((net) => net.reserveLoopbackPort()),

@@ -14,6 +14,7 @@ import {
   readFileSync,
   readdirSync,
   readlinkSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -174,6 +175,26 @@ const seatbeltString = (value: string) => `"${value.replace(/\\/g, "\\\\").repla
 const seatbeltPaths = (filter: "subpath" | "literal", paths: ReadonlyArray<string>) =>
   paths.map((value) => `(${filter} ${seatbeltString(value)})`).join(" ");
 
+const isDirectory = (target: string) => {
+  try {
+    return statSync(target).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Seatbelt's `literal` matches one path only, so a protected folder needs `subpath` to cover what
+ * is inside it. A file (or a path that does not exist yet) stays `literal`.
+ */
+const seatbeltReadOnlyRule = (paths: ReadonlyArray<string>) => {
+  const folders = paths.filter(isDirectory);
+  const rest = paths.filter((target) => !folders.includes(target));
+  return [seatbeltPaths("subpath", folders), seatbeltPaths("literal", rest)]
+    .filter(Boolean)
+    .join(" ");
+};
+
 /** The launcher argv; the process to sandbox is appended to `args`. */
 export function sandboxLauncher(spec: SandboxSpec): ProcessSandboxLauncher {
   const tmp = path.join(spec.sessionDir, "tmp");
@@ -239,10 +260,16 @@ export function sandboxLauncher(spec: SandboxSpec): ProcessSandboxLauncher {
     "(deny file-write*)",
     `(allow file-write* ${seatbeltPaths("subpath", [...writable, "/private/tmp", "/private/var/folders"])} (literal "/dev/null") (regex #"^/dev/tty"))`,
     `(deny file-read* file-write* ${seatbeltPaths("subpath", masked)})`,
-    // The session dir sits under ~/.saint; later rules win, so it is opened again here.
-    `(allow file-read* file-write* ${seatbeltPaths("subpath", [spec.sessionDir])})`,
+    // The session dir sits under ~/.saint; later rules win, so it is opened again here, and so are
+    // the extra folders the caller granted explicitly (a scanner's own cache folder, for one).
+    `(allow file-read* file-write* ${seatbeltPaths("subpath", [spec.sessionDir, ...spec.writable])})`,
+    // A read-only path the caller granted may sit under a masked folder (a scanner's executable in
+    // Saint's own state folder). It is readable again here, and stays unwritable right after.
     ...(spec.readOnly.length > 0
-      ? [`(deny file-write* ${seatbeltPaths("literal", spec.readOnly)})`]
+      ? [
+          `(allow file-read* ${seatbeltReadOnlyRule(spec.readOnly)})`,
+          `(deny file-write* ${seatbeltReadOnlyRule(spec.readOnly)})`,
+        ]
       : []),
     "(deny network*)",
     "(allow network* (remote unix-socket))",

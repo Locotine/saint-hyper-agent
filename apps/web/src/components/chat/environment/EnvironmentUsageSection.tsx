@@ -18,6 +18,8 @@ import {
   useProviderUsageMenuModel,
 } from "~/components/ProviderUsageMenuControl";
 import { ProviderIcon } from "~/components/ProviderIcon";
+import { useViewedHostId } from "~/hosts/viewedHost";
+import { isHostUsageHidden } from "~/lib/providerUsageSnapshot";
 import { MenuTrigger } from "~/components/ui/menu";
 import {
   serverAllProviderUsageQueryOptions,
@@ -104,7 +106,8 @@ function EnvironmentUsageAccountRow({
 }
 
 export function EnvironmentUsageSection({ provider }: { provider: ProviderKind }) {
-  const usageQuery = useQuery(serverAllProviderUsageQueryOptions());
+  const hostId = useViewedHostId();
+  const usageQuery = useQuery(serverAllProviderUsageQueryOptions({ hostId }));
   const settingsQuery = useQuery(serverSettingsQueryOptions());
   const providerInstances = deriveProviderInstances(
     settingsQuery.data ?? DEFAULT_SERVER_SETTINGS_VIEW,
@@ -114,7 +117,8 @@ export function EnvironmentUsageSection({ provider }: { provider: ProviderKind }
       (entry) =>
         entry.provider === provider && (entry.instanceId ?? entry.provider) === instance.instanceId,
     );
-    if (!snapshot) return [];
+    if (!snapshot || isHostUsageHidden({ hostId, isError: usageQuery.isError, snapshot }))
+      return [];
     const hasUsage =
       snapshot.limits.length > 0 ||
       snapshot.usageLines.length > 0 ||

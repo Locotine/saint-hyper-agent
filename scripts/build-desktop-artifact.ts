@@ -28,6 +28,7 @@ import {
   MAC_ICON_ASSET_NAME,
   MAC_ICON_COMPOSER_DEPLOYMENT_TARGET,
   MAC_WINDOW_MATERIAL_ADDON_STAGE_PATH,
+  SCANNER_STAGE_DIR,
   validateDesktopNativeBuildHost,
 } from "./lib/desktop-platform-build-config.ts";
 import { stageDesktopRuntimeResources } from "./lib/desktop-runtime-resources.ts";
@@ -47,6 +48,16 @@ import {
   REMOTE_DEPS_PACK_FILE,
   REMOTE_DEPS_REBUILD_HINT,
 } from "./lib/remote-deps-pack.ts";
+import {
+  checkScannerPack,
+  readScannerPackFiles,
+  SCANNER_LOCK_FILE,
+  SCANNER_PACK_DIR,
+  SCANNER_PACK_REBUILD_HINT,
+  SCANNER_REMOTE_HOSTS,
+  scannerHostsForBuild,
+  scannerPackFileName,
+} from "./lib/scanner-pack.ts";
 import { parseBooleanEnvValue } from "./lib/env-bool.ts";
 import { finalizeSignedMacDmg, rebuildUnsignedMacDmg } from "./lib/mac-dmg-finalize.ts";
 import { finalizeMacUpdateZip } from "./lib/mac-update-zip-finalize.ts";
@@ -855,6 +866,56 @@ const stageRemoteServerInstall = Effect.fn("stageRemoteServerInstall")(function*
   }
 });
 
+// An optional scanner pack (apps/server/scanner-pack, built with `scanners:pack --all`) ships twice: every remote-capable host's tarball
+// (darwin and linux; remote Windows is not supported) next to the dependency pack, for uploads
+// to remote SSH hosts, and this build's own executables
+// unpacked outside app.asar (extraResources), where the local server runs them by path.
+const stageScannerPack = Effect.fn("stageScannerPack")(function* (
+  repoRoot: string,
+  stageAppDir: string,
+  platform: "linux" | "mac" | "win",
+  arch: "arm64" | "x64" | "universal",
+) {
+  const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
+  // No committed pack is the normal case: each scanner is then fetched the first time it is needed
+  // (pinned official release, cached per machine), so nothing ships in the installer. A pack that
+  // is present must still be current.
+  if (!(yield* fs.exists(path.join(repoRoot, SCANNER_PACK_DIR, SCANNER_LOCK_FILE)))) return false;
+  const problems = yield* Effect.try({
+    try: () => checkScannerPack(repoRoot),
+    catch: (cause) =>
+      new BuildScriptError({ message: "Could not check the security-scanner pack.", cause }),
+  });
+  if (problems.length > 0) {
+    return yield* new BuildScriptError({
+      message: `The committed security-scanner pack is stale. ${problems.join(" ")} ${SCANNER_PACK_REBUILD_HINT}`,
+    });
+  }
+  const packDir = path.join(repoRoot, SCANNER_PACK_DIR);
+  const stageDir = path.join(stageAppDir, "apps/server/remote-install");
+  yield* fs.makeDirectory(stageDir, { recursive: true });
+  for (const file of [SCANNER_LOCK_FILE, ...SCANNER_REMOTE_HOSTS.map(scannerPackFileName)]) {
+    yield* fs.copyFile(path.join(packDir, file), path.join(stageDir, file));
+  }
+  for (const host of scannerHostsForBuild(platform, arch)) {
+    const hostDir = path.join(stageAppDir, SCANNER_STAGE_DIR, host);
+    yield* fs.makeDirectory(hostDir, { recursive: true });
+    const files = yield* Effect.try({
+      try: () => readScannerPackFiles(packDir, host),
+      catch: (cause) =>
+        new BuildScriptError({ message: `Could not unpack the ${host} scanners.`, cause }),
+    });
+    for (const [name, contents] of Object.entries(files)) {
+      const target = path.join(hostDir, name);
+      yield* fs.makeDirectory(path.dirname(target), { recursive: true });
+      // Root files are the executables; the nuclei templates under folders are data.
+      yield* fs.writeFile(target, contents, { mode: name.includes("/") ? 0o644 : 0o755 });
+    }
+  }
+  return true;
+});
+
 const installFrozenStageDependencies = Effect.fn("installFrozenStageDependencies")(function* (
   repoRoot: string,
   stageAppDir: string,
@@ -945,6 +1006,8 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   mockUpdates: boolean,
   mockUpdateServerPort: string | undefined,
   flavor: SaintPackagedDesktopFlavor,
+  arch: typeof BuildArch.Type,
+  scannerPackStaged: boolean,
 ) {
   const buildConfig: Record<string, unknown> = {
     ...artifactIdentity.buildConfig,
@@ -992,6 +1055,8 @@ const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     // that into "cannot verify", which Privacy & Security → Open Anyway accepts.
     adHocSign: !signed,
     flavor,
+    // Nothing is bundled when no pack was staged: scanners are fetched on first use instead.
+    scannerHosts: scannerPackStaged ? scannerHostsForBuild(platform, arch) : [],
     ...(windowsAzureSignOptions ? { windowsAzureSignOptions } : {}),
   } as const;
 
@@ -1315,6 +1380,12 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   yield* fs.copy(distDirs.desktopResources, stageResourcesDir);
   yield* fs.copy(distDirs.serverDist, path.join(stageAppDir, "apps/server/dist"));
   yield* stageRemoteServerInstall(repoRoot, stageAppDir, appVersion);
+  const scannerPackStaged = yield* stageScannerPack(
+    repoRoot,
+    stageAppDir,
+    options.platform,
+    options.arch,
+  );
   yield* stageClientFavicons(stageAppDir, options.flavor);
 
   yield* timedBuildStage(
@@ -1381,6 +1452,8 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     options.mockUpdates,
     options.mockUpdateServerPort,
     options.flavor,
+    options.arch,
+    scannerPackStaged,
   );
 
   const stagePackageJson: StagePackageJson = {

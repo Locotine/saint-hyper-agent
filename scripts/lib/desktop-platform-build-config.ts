@@ -15,6 +15,7 @@ import {
   createDesktopBundleFilePatterns,
   preserveDependencyDiagnostics,
 } from "./desktop-bundle-files.ts";
+import { SCANNER_NAMES } from "./scanner-pack.ts";
 
 export const MICROPHONE_USAGE_DESCRIPTION =
   "Saint needs microphone access so you can record voice notes and transcribe them into the chat composer, and, if you turn it on, to move the chat message trail with your voice.";
@@ -73,7 +74,15 @@ export interface CreateDesktopPlatformBuildConfigInput {
   readonly adHocSign?: boolean;
   readonly windowsAzureSignOptions?: Record<string, string>;
   readonly flavor?: SaintPackagedDesktopFlavor | undefined;
+  /**
+   * Security-scanner hosts (`darwin-arm64`, ...) whose executables are staged under
+   * SCANNER_STAGE_DIR and shipped outside app.asar as `Resources/scanners/<host>`.
+   */
+  readonly scannerHosts?: ReadonlyArray<string> | undefined;
 }
+
+/** Where the desktop build stages the scanner executables, relative to the staged app. */
+export const SCANNER_STAGE_DIR = "apps/server/scanner-install/scanners";
 
 export interface DesktopNativeBuildHostInput {
   readonly arch: "arm64" | "x64" | "universal";
@@ -104,6 +113,40 @@ export function validateDesktopNativeBuildHost(input: DesktopNativeBuildHostInpu
 }
 
 export function createDesktopPlatformBuildConfig(
+  input: CreateDesktopPlatformBuildConfigInput,
+): DesktopPlatformBuildConfig {
+  const config = createBasePlatformBuildConfig(input);
+  if (!input.scannerHosts?.length) return config;
+  // Executables run by path, so they stay outside app.asar like the Cua driver.
+  const mac = config.mac as { binaries?: string[] } | undefined;
+  return {
+    ...config,
+    files: [...(config.files ?? []), `!${SCANNER_STAGE_DIR}/**`],
+    extraResources: [
+      ...(config.extraResources ?? []),
+      ...input.scannerHosts.map((host) => ({
+        from: `${SCANNER_STAGE_DIR}/${host}`,
+        to: `scanners/${host}`,
+      })),
+    ],
+    ...(mac
+      ? {
+          mac: {
+            ...mac,
+            // Notarization needs every Mach-O file signed, and these live in Resources.
+            binaries: [
+              ...(mac.binaries ?? []),
+              ...input.scannerHosts.flatMap((host) =>
+                SCANNER_NAMES.map((name) => `Contents/Resources/scanners/${host}/${name}`),
+              ),
+            ],
+          },
+        }
+      : {}),
+  };
+}
+
+function createBasePlatformBuildConfig(
   input: CreateDesktopPlatformBuildConfigInput,
 ): DesktopPlatformBuildConfig {
   const report =

@@ -20,6 +20,11 @@ import {
   AegisUnfreezeInput,
   AegisUpdateInput,
 } from "./aegis";
+import {
+  CyberSecuritySetFindingStatusInput,
+  CyberSecurityStartInput,
+  CyberSecurityStatusInput,
+} from "./cyberSecurity";
 import { EconomyAgentInput, EconomyStatusInput, EconomyUpdateInput } from "./hostEconomy";
 import { EditorDebugStartInput, EditorDebugActionInput, EditorDebugPollInput } from "./editorDebug";
 import { Schema, Struct } from "effect";
@@ -354,6 +359,9 @@ export const WS_METHODS = {
   aegisResolve: "aegis.resolve",
   aegisUpdate: "aegis.update",
   aegisUnfreeze: "aegis.unfreeze",
+  cyberSecurityStatus: "cyberSecurity.status",
+  cyberSecurityStart: "cyberSecurity.start",
+  cyberSecuritySetFindingStatus: "cyberSecurity.setFindingStatus",
   economyStatus: "economy.status",
   economyAgent: "economy.agent",
   economyUpdate: "economy.update",
@@ -672,6 +680,9 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.aegisResolve, AegisResolveInput),
   tagRequestBody(WS_METHODS.aegisUpdate, AegisUpdateInput),
   tagRequestBody(WS_METHODS.aegisUnfreeze, AegisUnfreezeInput),
+  tagRequestBody(WS_METHODS.cyberSecurityStatus, CyberSecurityStatusInput),
+  tagRequestBody(WS_METHODS.cyberSecurityStart, CyberSecurityStartInput),
+  tagRequestBody(WS_METHODS.cyberSecuritySetFindingStatus, CyberSecuritySetFindingStatusInput),
   tagRequestBody(WS_METHODS.economyStatus, EconomyStatusInput),
   tagRequestBody(WS_METHODS.economyAgent, EconomyAgentInput),
   tagRequestBody(WS_METHODS.economyUpdate, EconomyUpdateInput),

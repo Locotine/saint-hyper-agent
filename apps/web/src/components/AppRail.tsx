@@ -111,6 +111,7 @@ const RAIL_ITEM_GLYPH_NAMES: Record<Exclude<RailItemId, HugeiconRailItemId>, str
   settings: "settings-gear-4",
   flows: "branch",
   security: "shield-check",
+  cyberSecurity: "shield-code",
   hostEconomy: "gauge",
 };
 

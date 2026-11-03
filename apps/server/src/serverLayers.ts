@@ -77,6 +77,7 @@ import { FlowServiceLive } from "./flow/Layers/FlowService";
 import { SapBusLive } from "./sap/Layers/SapBus";
 import { ForkContinueLive } from "./orchestration/Layers/ForkContinue";
 import { AegisLive } from "./aegis/Layers/Aegis";
+import { CyberSecurityLive } from "./cyberSecurity/Layers/CyberSecurity";
 import { LedgerLive } from "./ledger/Layers/Ledger";
 import { PullRequestAutoFixServiceLive } from "./pullRequestAutoFix/Layers/PullRequestAutoFixService";
 import { GitHubInboxServiceLive } from "./githubInbox/Layers/GitHubInboxService";
@@ -274,6 +275,12 @@ export function makeServerRuntimeServicesLayer(
       ),
     ),
   );
+  // The audit runs as a flow, so the assessment service rides on the flow service layer.
+  // A confirmed dynamic scan starts the project's dev server through the shared manager.
+  const cyberSecurityLayer = CyberSecurityLive.pipe(
+    Layer.provideMerge(flowServiceLayer),
+    Layer.provide(devServerManagerLayer),
+  );
   const agentGatewayLayer = AgentGatewayLive.pipe(
     Layer.provideMerge(
       Layer.mergeAll(
@@ -350,6 +357,7 @@ export function makeServerRuntimeServicesLayer(
     pullRequestServiceLayer,
     pullRequestAutoFixLayer,
     flowServiceLayer,
+    cyberSecurityLayer,
     orchestrationReactorLayer,
     providerCommandReactorLayer,
     sidechatExpiryReactorLayer,

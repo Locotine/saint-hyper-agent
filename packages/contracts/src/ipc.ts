@@ -414,6 +414,7 @@ import type { BrowserAnnotationMethods } from "./browserAnnotations";
 import type * as FlowContracts from "./flow";
 import type * as SapContracts from "./sap";
 import type * as AegisContracts from "./aegis";
+import type * as CyberSecurityContracts from "./cyberSecurity";
 import type * as EconomyContracts from "./hostEconomy";
 
 /** Request/response pair of a schema-backed RPC. */
@@ -1479,6 +1480,20 @@ export interface NativeApi {
     unfreeze: SchemaRpc<
       typeof AegisContracts.AegisUnfreezeInput,
       typeof AegisContracts.AegisStatus
+    >;
+  };
+  cyberSecurity: {
+    status: SchemaRpc<
+      typeof CyberSecurityContracts.CyberSecurityStatusInput,
+      typeof CyberSecurityContracts.CyberSecurityStatus
+    >;
+    start: SchemaRpc<
+      typeof CyberSecurityContracts.CyberSecurityStartInput,
+      typeof CyberSecurityContracts.CyberAssessment
+    >;
+    setFindingStatus: SchemaRpc<
+      typeof CyberSecurityContracts.CyberSecuritySetFindingStatusInput,
+      typeof CyberSecurityContracts.CyberFinding
     >;
   };
   economy: {

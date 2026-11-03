@@ -1,12 +1,19 @@
 // FILE: explorerFileDrop.ts
-// Purpose: Drops onto the Explorer tree: the tree's own rows are moved into the
-//          folder under the pointer.
+// Purpose: Drops onto the Explorer tree: local files dragged in from the OS are
+//          uploaded into the folder under the pointer (on the host the Explorer
+//          shows), and the tree's own rows are moved into that folder.
 // Layer: Chat workspace-browsing UI behavior
 // Exports: useExplorerFileDrop, setExplorerEntriesDragData, endExplorerEntriesDrag,
-//          EXPLORER_DROP_DIRECTORY_ATTRIBUTE, EXPLORER_DROP_TARGET_CLASS_NAME
+//          EXPLORER_DROP_DIRECTORY_ATTRIBUTE, EXPLORER_DROP_TARGET_CLASS_NAME,
+//          invalidateExplorerDirectories
 
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type DragEvent as ReactDragEvent, useState } from "react";
 
+import { CHAT_FILE_REFERENCE_DRAG_TYPE } from "~/lib/chatReferences";
+import { uploadFilesToWorkspace } from "~/lib/workspaceUpload";
+import { toastManager } from "../ui/toast";
 import { explorerMovableEntries } from "./explorerSelection";
 
 /**
@@ -74,6 +81,32 @@ function isExplorerEntriesDrag(event: ReactDragEvent): boolean {
   return event.dataTransfer.types.includes(EXPLORER_ENTRIES_DRAG_TYPE);
 }
 
+// OS file drags carry "Files"; rows dragged out of the Explorer itself carry a
+// file reference and must keep going to the composer.
+function isOsFileDrag(event: ReactDragEvent): boolean {
+  const types = event.dataTransfer.types;
+  return types.includes("Files") && !types.includes(CHAT_FILE_REFERENCE_DRAG_TYPE);
+}
+
+/**
+ * Refetches every cached directory listing of `cwd` on `hostId`. Listings are keyed
+ * ["projects", "list-directories", cwd, folder, includeFiles] with the host id appended for
+ * remote hosts, so a local refresh must not touch a remote host's listing of the same path.
+ */
+export function invalidateExplorerDirectories(
+  queryClient: QueryClient,
+  cwd: string,
+  hostId: HostId,
+): Promise<void> {
+  return queryClient.invalidateQueries({
+    predicate: ({ queryKey }) =>
+      queryKey[0] === "projects" &&
+      queryKey[1] === "list-directories" &&
+      queryKey[2] === cwd &&
+      (hostId === LOCAL_HOST_ID ? queryKey.length === 5 : queryKey[5] === hostId),
+  });
+}
+
 function dropDirectoryAt(event: ReactDragEvent): string {
   const row = (event.target as Element | null)?.closest?.(`[${EXPLORER_DROP_DIRECTORY_ATTRIBUTE}]`);
   return row?.getAttribute(EXPLORER_DROP_DIRECTORY_ATTRIBUTE) ?? "";
@@ -87,8 +120,11 @@ function dropDirectoryAt(event: ReactDragEvent): string {
 export function useExplorerFileDrop(
   workspaceRoot: string | null,
   onMoveEntries?: (paths: string[], directory: string) => void,
+  hostId: HostId = LOCAL_HOST_ID,
 ) {
+  const queryClient = useQueryClient();
   const [dropDirectory, setDropDirectory] = useState<string | null>(null);
+  const uploadEnabled = workspaceRoot !== null;
   const moveEnabled = workspaceRoot !== null && onMoveEntries !== undefined;
 
   const onDragOver = (event: ReactDragEvent<HTMLElement>) => {
@@ -104,11 +140,19 @@ export function useExplorerFileDrop(
       event.dataTransfer.dropEffect = moves ? "move" : "none";
       const target = moves ? next : null;
       if (target !== dropDirectory) setDropDirectory(target);
+      return;
     }
+    if (!uploadEnabled || !isOsFileDrag(event)) return;
+    // Handled here so the chat pane underneath does not also attach the file.
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "copy";
+    const next = dropDirectoryAt(event);
+    if (next !== dropDirectory) setDropDirectory(next);
   };
 
   const onDragLeave = (event: ReactDragEvent<HTMLElement>) => {
-    if (!moveEnabled) return;
+    if (!uploadEnabled) return;
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
       setDropDirectory(null);
     }
@@ -125,11 +169,39 @@ export function useExplorerFileDrop(
       const directory = dropDirectoryAt(event);
       const paths = explorerMovableEntries(drag.paths, directory);
       if (paths.length > 0) onMoveEntries?.(paths, directory);
+      return;
     }
+    if (!workspaceRoot || !isOsFileDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setDropDirectory(null);
+    const directory = dropDirectoryAt(event) || null;
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length === 0) return;
+    const target = directory ? `${directory}/` : "the workspace root";
+    void uploadFilesToWorkspace({ cwd: workspaceRoot, directory, files, hostId }).then((result) => {
+      void invalidateExplorerDirectories(queryClient, workspaceRoot, hostId);
+      if (result.uploaded.length > 0) {
+        toastManager.add({
+          type: "success",
+          title:
+            result.uploaded.length === 1
+              ? `Uploaded ${result.uploaded[0]}`
+              : `Uploaded ${result.uploaded.length} files to ${target}`,
+        });
+      }
+      for (const failure of result.failures) {
+        toastManager.add({
+          type: "error",
+          title: `Could not upload ${failure.name}`,
+          description: failure.message,
+        });
+      }
+    });
   };
 
   return {
     dropDirectory,
-    handlers: moveEnabled ? { onDragOver, onDragLeave, onDrop } : {},
+    handlers: uploadEnabled ? { onDragOver, onDragLeave, onDrop } : {},
   };
 }

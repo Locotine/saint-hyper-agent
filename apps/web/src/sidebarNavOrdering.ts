@@ -13,6 +13,7 @@ export const SIDEBAR_NAV_ITEM_IDS = [
   "automations",
   "flows",
   "security",
+  "cyberSecurity",
   "hostEconomy",
 ] as const;
 

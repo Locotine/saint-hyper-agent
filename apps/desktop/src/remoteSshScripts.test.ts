@@ -10,6 +10,8 @@ import { createTarGzStream } from "./remoteSshBundle";
 import {
   buildRemoteInstallScript,
   buildRemoteProbeScript,
+  buildRemoteScannerInstallScript,
+  buildRemoteScannerUploadCommand,
   buildRemoteStartScript,
   buildRemoteStopScript,
   buildRemoteUploadCommand,
@@ -27,6 +29,7 @@ const target = {
   version: "1.2.3",
   depsHash: "0123456789ab",
 };
+const scannerTarget = { ...target, scannersVersion: "fedcba987654" };
 
 describe("remote script builders", () => {
   it("quotes shell values", () => {
@@ -64,6 +67,9 @@ describe("remote script builders", () => {
       buildRemoteInstallScript(target),
       buildRemoteStartScript(target, { token: "abc123", devUrl: "http://localhost:5733" }),
       buildRemoteStopScript(target),
+      buildRemoteProbeScript(scannerTarget),
+      buildRemoteScannerInstallScript(scannerTarget, "linux-x64"),
+      buildRemoteStartScript(scannerTarget, { token: "abc123" }),
     ]) {
       const result = spawnSync("sh", ["-n"], { input: script, encoding: "utf8" });
       expect(result.stderr).toBe("");
@@ -83,6 +89,8 @@ describe("report parsers", () => {
       tar: true,
       installed: false,
       depsInstalled: false,
+      platform: null,
+      scannersInstalled: false,
       server: { port: 4100, version: "1.2.3", token: "abc" },
     });
   });
@@ -97,9 +105,19 @@ describe("report parsers", () => {
       tar: false,
       installed: true,
       depsInstalled: false,
+      platform: null,
+      scannersInstalled: false,
       server: null,
     });
     expect(parseRemoteProbeReport("no report")).toBeNull();
+  });
+
+  it("reads the host platform and whether the scanner pack is there", () => {
+    expect(
+      parseRemoteProbeReport(
+        'SAINT_REMOTE {"kind":"probe","node":"v24.17.0","tar":true,"installed":true,"deps":true,"platform":"linux-x64","scanners":true,"server":null}',
+      ),
+    ).toMatchObject({ platform: "linux-x64", scannersInstalled: true });
   });
 
   it("reads start and completion reports", () => {
@@ -266,6 +284,87 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     expect(hasRemoteReport(run(buildRemoteStopScript(target)).stdout, "stopped")).toBe(true);
     expect(parseRemoteProbeReport(run(buildRemoteProbeScript(target)).stdout)?.server).toBeNull();
   }, 90_000);
+
+  const hostPlatform = `${process.platform}-${process.arch}`;
+  const scannerNames = ["gitleaks", "osv-scanner", "trivy", "hadolint", "nuclei"];
+
+  it.runIf(/^(darwin|linux)-(arm64|x64)$/u.test(hostPlatform))(
+    "uploads the host's scanner pack once, exports its directory, and skips it when absent",
+    async () => {
+      const probe = () => parseRemoteProbeReport(run(buildRemoteProbeScript(scannerTarget)).stdout);
+      expect(probe()).toMatchObject({ platform: hostPlatform, scannersInstalled: false });
+
+      const upload = run(
+        buildRemoteScannerUploadCommand(scannerTarget, hostPlatform),
+        await bundle(scannerNames.map((name) => ({ path: name, contents: `${name}\n` }))),
+      );
+      expect(upload.stderr).toBe("");
+      expect(upload.status).toBe(0);
+      const install = run(buildRemoteScannerInstallScript(scannerTarget, hostPlatform));
+      expect(install.stderr).toBe("");
+      expect(hasRemoteReport(install.stdout, "scanners")).toBe(true);
+      const scannerDir = Path.join(
+        home,
+        target.storeRoot,
+        "scanners",
+        scannerTarget.scannersVersion,
+        "scanners",
+        hostPlatform,
+      );
+      expect(FS.readdirSync(scannerDir).toSorted()).toEqual([...scannerNames].toSorted());
+      expect(FS.existsSync(Path.join(home, target.remoteRoot, "staging"))).toBe(false);
+      expect(probe()).toMatchObject({ scannersInstalled: true });
+      // The bare target never reports or exports the pack.
+      expect(
+        parseRemoteProbeReport(run(buildRemoteProbeScript(target)).stdout)?.scannersInstalled,
+      ).toBe(false);
+
+      // An install of the same version from another folder keeps the published pack.
+      expect(
+        run(
+          buildRemoteScannerUploadCommand(scannerTarget, hostPlatform),
+          await bundle([{ path: "gitleaks", contents: "other\n" }]),
+        ).status,
+      ).toBe(0);
+      expect(
+        hasRemoteReport(
+          run(buildRemoteScannerInstallScript(scannerTarget, hostPlatform)).stdout,
+          "scanners",
+        ),
+      ).toBe(true);
+      expect(FS.readFileSync(Path.join(scannerDir, "gitleaks"), "utf8")).toBe("gitleaks\n");
+
+      // The server script carries the directory only for a build that ships the pack.
+      const runDir = Path.join(home, target.remoteRoot, "run");
+      FS.mkdirSync(Path.join(home, target.storeRoot, "versions", target.version, "dist"), {
+        recursive: true,
+      });
+      FS.writeFileSync(
+        Path.join(home, target.storeRoot, "versions", target.version, "dist/index.mjs"),
+        'import { createServer } from "node:http";\nconst port = Number(process.argv[process.argv.indexOf("--port") + 1]);\ncreateServer((_, res) => res.end("ok")).listen(port, "127.0.0.1");\n',
+      );
+      const start = run(buildRemoteStartScript(scannerTarget, { token: "tok123" }));
+      expect(start.stderr).toBe("");
+      expect(FS.readFileSync(Path.join(runDir, "server.sh"), "utf8")).toContain(
+        `export SAINT_SCANNER_DIR='${scannerDir}'`,
+      );
+      run(buildRemoteStopScript(scannerTarget));
+      const bareStart = run(buildRemoteStartScript(target, { token: "tok123" }));
+      expect(bareStart.stderr).toBe("");
+      expect(FS.readFileSync(Path.join(runDir, "server.sh"), "utf8")).not.toContain(
+        "SAINT_SCANNER_DIR",
+      );
+    },
+    60_000,
+  );
+
+  it("rejects an unsafe scanner platform or version", () => {
+    expect(() => buildRemoteScannerUploadCommand(scannerTarget, "linux-x64; rm -rf /")).toThrow();
+    expect(() => buildRemoteScannerUploadCommand(target, "linux-x64")).toThrow();
+    expect(() =>
+      buildRemoteScannerInstallScript({ ...target, scannersVersion: "x'; echo" }, "linux-x64"),
+    ).toThrow();
+  });
 
   it("fails the install when the dependency pack was not uploaded", async () => {
     const upload = run(

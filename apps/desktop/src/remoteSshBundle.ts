@@ -3,7 +3,8 @@
 //          committed dependency pack, into a gzipped tar stream for upload to a remote SSH host.
 // Layer: Desktop remote SSH utility
 // Exports: loadRemoteInstallPackageJson, collectRemoteInstallEntries, remoteInstallVersion,
-//          remoteDepsPackPath, remoteInstallDepsHash, createTarGzStream
+//          remoteDepsPackPath, remoteInstallDepsHash, createTarGzStream, scannerPackVersion,
+//          scannerPackPath
 
 import * as Crypto from "node:crypto";
 import * as FS from "node:fs";
@@ -46,6 +47,42 @@ export function remoteDepsPackPath(appRoot: string): string {
 
 export function remoteDepsDescriptorPath(appRoot: string): string {
   return Path.join(remoteDepsDir(appRoot), REMOTE_DEPS_DESCRIPTOR_FILE);
+}
+
+/**
+ * The security-scanner pack (scripts/lib/scanner-pack.ts): one `scanner-<platform>-<arch>.tar.gz`
+ * per host plus the `scanners.json` lock. Kept apart from the dependency pack; a host
+ * receives only its own tarball, and only when it lacks this pack version.
+ */
+export const SCANNER_PACK_REPO_DIR = "apps/server/scanner-pack";
+export const SCANNER_LOCK_FILE = "scanners.json";
+
+/** The staged pack in a packaged app, otherwise the one committed in the checkout. */
+function scannerPackDir(appRoot: string): string {
+  const staged = Path.join(appRoot, REMOTE_INSTALL_STAGE_DIR);
+  return FS.existsSync(Path.join(staged, SCANNER_LOCK_FILE))
+    ? staged
+    : Path.join(appRoot, SCANNER_PACK_REPO_DIR);
+}
+
+export function scannerLockPath(appRoot: string): string {
+  return Path.join(scannerPackDir(appRoot), SCANNER_LOCK_FILE);
+}
+
+/** The tarball for a host's `<platform>-<arch>`, or null when this build ships none. */
+export function scannerPackPath(appRoot: string, platform: string): string | null {
+  if (!/^(darwin|linux)-(arm64|x64)$/u.test(platform)) return null;
+  const path = Path.join(scannerPackDir(appRoot), `scanner-${platform}.tar.gz`);
+  return FS.existsSync(path) ? path : null;
+}
+
+/** Names the host's `scanners/<version>/` folder after the pack content (`scanners.json`). */
+export function scannerPackVersion(lockJson: string): string {
+  const lock = JSON.parse(lockJson) as { version?: unknown };
+  if (typeof lock.version !== "string" || !/^[0-9a-f]{12}$/u.test(lock.version)) {
+    throw new Error("The scanner pack lock has no version.");
+  }
+  return lock.version;
 }
 
 export interface RemoteInstallEntry {

@@ -252,6 +252,7 @@ import { FlowService } from "./flow/Services/FlowService";
 import { Ledger } from "./ledger/Services/Ledger";
 import { SapBus } from "./sap/Services/SapBus";
 import { Aegis } from "./aegis/Services/Aegis";
+import { CyberSecurity } from "./cyberSecurity/Services/CyberSecurity";
 import { Economy, EconomyError } from "./economy/Services/Economy";
 import {
   GitHubInboxRateLimitedError,
@@ -560,6 +561,7 @@ const makeWsRpcHandlersLayer = () =>
       const flowRpc = handleFlowRpc({ flows: yield* FlowService, ledger: yield* Ledger });
       const sapBus = yield* SapBus;
       const aegis = yield* Aegis;
+      const cyberSecurity = yield* CyberSecurity;
       const economyService = Option.getOrUndefined(yield* Effect.serviceOption(Economy));
       const economy = <A>(
         run: (service: typeof Economy.Service) => Effect.Effect<A, EconomyError>,
@@ -2271,6 +2273,18 @@ const makeWsRpcHandlersLayer = () =>
           rpcEffect(aegis.unfreeze(input.id, "user"), "Failed to unfreeze the worktree"),
         [WS_METHODS.aegisUpdate]: (input) =>
           rpcEffect(aegis.update(input, "user"), "Failed to update security settings"),
+        [WS_METHODS.cyberSecurityStatus]: (input) =>
+          rpcEffect(
+            cyberSecurity.status(input.projectId),
+            "Failed to read the security assessment",
+          ),
+        [WS_METHODS.cyberSecurityStart]: (input) =>
+          rpcEffect(
+            cyberSecurity.start({ ...input, startedBy: "user" }),
+            "Failed to start the security assessment",
+          ),
+        [WS_METHODS.cyberSecuritySetFindingStatus]: (input) =>
+          rpcEffect(cyberSecurity.setFindingStatus(input), "Failed to update the finding"),
         [WS_METHODS.economyStatus]: () =>
           rpcEffect(
             economy((service) => service.status()),

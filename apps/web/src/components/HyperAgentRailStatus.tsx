@@ -5,6 +5,7 @@
 // Layer: Web shell
 // Exports: HyperAgentRailStatus
 
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -29,15 +30,16 @@ import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "./ui/preview-
 import { StatusDot } from "./ui/status-chip";
 import { toastManager } from "./ui/toast";
 import { UsageProgressTrack } from "./UsageProgressTrack";
+import { useViewedHostId } from "~/hosts/viewedHost";
 import {
   aegisStatusQueryOptions,
   economyStatusQueryOptions,
   flowListQueryOptions,
   flowQueryKeys,
+  hostApi,
 } from "~/lib/flowQueryOptions";
 import { ShieldCheckIcon, StopFilledIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
-import { ensureLocalNativeApi } from "~/nativeApi";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -49,10 +51,16 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function HyperAgentRailStatus({ onOpenSecurity }: { onOpenSecurity: () => void }) {
-  const aegis = useQuery(aegisStatusQueryOptions()).data;
-  const economy = useQuery(economyStatusQueryOptions()).data;
-  const runs = useQuery(flowListQueryOptions()).data?.runs ?? [];
-  const waiting = useFlowAttention().length;
+  const hostId = useViewedHostId();
+  const aegisQuery = useQuery(aegisStatusQueryOptions(hostId));
+  const economyQuery = useQuery(economyStatusQueryOptions(hostId));
+  const flowsQuery = useQuery(flowListQueryOptions(hostId));
+  const aegis = aegisQuery.data;
+  const economy = economyQuery.data;
+  const runs = flowsQuery.data?.runs ?? [];
+  // Flow attention is read from this computer only; another host shows no count rather than ours.
+  const attention = useFlowAttention().length;
+  const waiting = hostId === LOCAL_HOST_ID ? attention : null;
   const running = runs.filter((run) => run.status === "running" || run.status === "paused").length;
   const latest = economy?.latest ?? null;
   const usedPct = latest && latest.totalMb > 0 ? (latest.usedMb / latest.totalMb) * 100 : 0;
@@ -60,9 +68,18 @@ export function HyperAgentRailStatus({ onOpenSecurity }: { onOpenSecurity: () =>
   const tone =
     latest?.level === "critical" || openAlerts > 0
       ? "bg-destructive"
-      : latest?.level === "warn" || waiting > 0
+      : latest?.level === "warn" || (waiting ?? 0) > 0
         ? "bg-warning"
         : null;
+
+  // Another host's status appears only once that host answered; a failed read hides the block
+  // instead of showing this computer's numbers.
+  if (
+    hostId !== LOCAL_HOST_ID &&
+    (!aegis || !economy || aegisQuery.isError || economyQuery.isError)
+  ) {
+    return null;
+  }
 
   return (
     <>
@@ -93,7 +110,7 @@ export function HyperAgentRailStatus({ onOpenSecurity }: { onOpenSecurity: () =>
           <div className="space-y-2 p-2.5">
             <Row label="Autonomy" value={aegis?.settings.autonomy ?? "—"} />
             <Row label="Open alerts" value={String(openAlerts)} />
-            <Row label="Flows waiting for you" value={String(waiting)} />
+            <Row label="Flows waiting for you" value={waiting === null ? "—" : String(waiting)} />
             <Row label="Flows running" value={String(running)} />
             <Row
               label="Host memory"
@@ -125,16 +142,16 @@ export function HyperAgentRailStatus({ onOpenSecurity }: { onOpenSecurity: () =>
           </div>
         </PreviewCardPopup>
       </PreviewCard>
-      {running > 0 ? <KillAllButton running={running} /> : null}
+      {running > 0 ? <KillAllButton hostId={hostId} running={running} /> : null}
     </>
   );
 }
 
-function KillAllButton({ running }: { running: number }) {
+function KillAllButton({ hostId, running }: { hostId: HostId; running: number }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const kill = useMutation({
-    mutationFn: () => ensureLocalNativeApi().flows.killAll({}),
+    mutationFn: () => hostApi(hostId).flows.killAll({}),
     onSuccess: ({ cancelled }) => {
       setOpen(false);
       toastManager.add({

@@ -12,6 +12,10 @@
       "types": "./src/diagnosticIssue.ts",
       "import": "./src/diagnosticIssue.ts"
     },
+    "./scannerRelease": {
+      "types": "./src/scannerRelease.ts",
+      "import": "./src/scannerRelease.ts"
+    },
     "./hostId": {
       "types": "./src/hostId.ts",
       "import": "./src/hostId.ts"

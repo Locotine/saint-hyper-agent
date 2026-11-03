@@ -3,6 +3,7 @@ import { basename } from "node:path";
 import { createRequire } from "node:module";
 import { SAINT_PACKAGED_DESKTOP_FLAVORS } from "@saint/shared/desktopIdentity";
 import { desktopIconAssetPaths } from "./lib/brand-assets.ts";
+import { scannerHostsForBuild } from "./lib/scanner-pack.ts";
 
 import {
   createDesktopPlatformBuildConfig,
@@ -19,6 +20,7 @@ import {
   MAC_WINDOW_MATERIAL_ADDON_ASAR_EXCLUSION,
   AUDIO_CAPTURE_USAGE_DESCRIPTION,
   MICROPHONE_USAGE_DESCRIPTION,
+  SCANNER_STAGE_DIR,
   validateDesktopNativeBuildHost,
   WINDOWS_INSTALLER_GUID,
 } from "./lib/desktop-platform-build-config.ts";
@@ -245,6 +247,53 @@ describe("createDesktopPlatformBuildConfig", () => {
       publisherName: "Saint",
       azureSignOptions: { publisherName: "Saint" },
     });
+  });
+
+  it("ships only the build's own scanner executables outside app.asar", () => {
+    const hosts = scannerHostsForBuild("mac", "universal");
+    assert.deepStrictEqual(hosts, ["darwin-arm64", "darwin-x64"]);
+    assert.deepStrictEqual(scannerHostsForBuild("linux", "x64"), ["linux-x64"]);
+    assert.deepStrictEqual(scannerHostsForBuild("win", "x64"), ["win32-x64"]);
+    assert.deepStrictEqual(scannerHostsForBuild("win", "arm64"), ["win32-arm64"]);
+
+    const mac = createDesktopPlatformBuildConfig({
+      platform: "mac",
+      target: "dmg",
+      scannerHosts: hosts,
+    });
+    assert.deepStrictEqual(mac.extraResources, [
+      { from: `${SCANNER_STAGE_DIR}/darwin-arm64`, to: "scanners/darwin-arm64" },
+      { from: `${SCANNER_STAGE_DIR}/darwin-x64`, to: "scanners/darwin-x64" },
+    ]);
+    assert.ok(mac.files?.includes(`!${SCANNER_STAGE_DIR}/**`));
+    const binaries = (mac.mac as { binaries: string[] }).binaries;
+    assert.ok(binaries.includes("Contents/Resources/cua-driver/cua-driver"));
+    assert.ok(binaries.includes("Contents/Resources/scanners/darwin-x64/trivy"));
+
+    const linux = createDesktopPlatformBuildConfig({
+      platform: "linux",
+      target: "AppImage",
+      scannerHosts: ["linux-x64"],
+    });
+    assert.deepStrictEqual(linux.extraResources, [
+      { from: "apps/desktop/resources/cua-driver", to: "cua-driver" },
+      { from: `${SCANNER_STAGE_DIR}/linux-x64`, to: "scanners/linux-x64" },
+    ]);
+
+    // Windows ships its own `.exe` scanners the same way, so the installer is not Linux-only.
+    const win = createDesktopPlatformBuildConfig({
+      platform: "win",
+      target: "nsis",
+      scannerHosts: ["win32-x64"],
+    });
+    assert.ok(
+      win.extraResources?.some(
+        (entry) =>
+          (entry as { to?: string }).to === "scanners/win32-x64" &&
+          (entry as { from?: string }).from === `${SCANNER_STAGE_DIR}/win32-x64`,
+      ),
+    );
+    assert.ok(win.files?.includes(`!${SCANNER_STAGE_DIR}/**`));
   });
 
   it("omits Azure signing options for unsigned build-only artifacts", () => {
