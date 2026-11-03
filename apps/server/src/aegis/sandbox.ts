@@ -224,6 +224,11 @@ export function sandboxLauncher(spec: SandboxSpec): ProcessSandboxLauncher {
         // Writable mounts go on top of the read-only HOME entries.
         ...writable.flatMap((dir) => ["--bind", dir, dir]),
         ...(relayDir ? ["--bind", relayDir, relayDir] : []),
+        // The relay runs on Saint's own executable; an AppImage mounts it under /tmp, which the
+        // tmpfs above hides.
+        ...(spec.relay && path.isAbsolute(spec.relay.command)
+          ? ["--ro-bind-try", path.dirname(spec.relay.command), path.dirname(spec.relay.command)]
+          : []),
         // The relay script lives in Saint's state dir, which the decoy HOME hides.
         ...(spec.relay?.args ?? [])
           .filter((arg) => path.isAbsolute(arg) && existsSync(arg))

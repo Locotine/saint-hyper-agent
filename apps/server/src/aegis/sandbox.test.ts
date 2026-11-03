@@ -44,6 +44,29 @@ describe("sandbox-exec profile", () => {
   });
 });
 
+describe("bwrap launcher", () => {
+  it("keeps the relay's executable folder visible under the /tmp tmpfs (AppImage mount)", () => {
+    const appDir = path.join(base, ".mount_saint");
+    mkdirSync(appDir, { recursive: true });
+    const { args } = sandboxLauncher({
+      kind: "bwrap",
+      home: "/home/me",
+      cwd: base,
+      sessionDir: base,
+      writable: [],
+      readOnly: [],
+      decoys: [],
+      ports: [],
+      relay: { command: path.join(appDir, "saint"), args: [] },
+    });
+    const tmpfs = args.indexOf("/tmp", args.indexOf("--tmpfs"));
+    const bind = args.findIndex(
+      (arg, index) => arg === "--ro-bind-try" && args[index + 1] === appDir,
+    );
+    expect(bind).toBeGreaterThan(tmpfs);
+  });
+});
+
 describe("sandbox-exec profile for a scanner", () => {
   // What `runScanner` asks for: the project read-only, its own scratch and cache folders
   // writable, and one loopback port (the egress proxy or the app under test), nothing else.
