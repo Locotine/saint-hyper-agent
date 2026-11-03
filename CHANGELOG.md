@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.7 — 2026-11-03
+
+**Claude chats start again on the Linux AppImage, and the Cyber Security audit starts with a Claude model.**
+
+This Stable release covers the commits after `v1.1.6`: `6b76d4301` and `553fddc64`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.7).
+
+### Fixed
+
+- On the Linux AppImage, sandboxed Claude chats stopped at once with "Claude Code process exited with code 1". The sandbox hid `/tmp`, where the AppImage runs Saint from, so its network relay could not start. That folder now stays visible, read-only.
+- Flows in Auto mode with a Claude model, such as the Cyber Security audit, failed with "has not been verified to support Auto mode". Flow steps now take Auto support from the model list Claude reports.
+
 ## 1.1.6 — 2026-11-03
 
 **Cyber Security checks a project on this computer before it goes to production.**
