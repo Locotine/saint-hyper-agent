@@ -190,7 +190,11 @@ export function diffRemoteDepsDescriptor(
  * missing file, a descriptor that no longer matches the checkout, or a pack
  * whose sha256 differs from its descriptor. Empty when the pack is current.
  */
-export function checkRemoteDepsPack(repoRoot: string, packDir = join(repoRoot, REMOTE_DEPS_DIR)) {
+export function checkRemoteDepsPack(
+  repoRoot: string,
+  packDir = join(repoRoot, REMOTE_DEPS_DIR),
+  options: { readonly recomputeTrees?: boolean } = {},
+) {
   const packPath = join(packDir, REMOTE_DEPS_PACK_FILE);
   const lockPath = join(packDir, REMOTE_DEPS_DESCRIPTOR_FILE);
   if (!existsSync(packPath) || !existsSync(lockPath)) {
@@ -205,7 +209,20 @@ export function checkRemoteDepsPack(repoRoot: string, packDir = join(repoRoot, R
     problems.push(
       `${REMOTE_DEPS_PACK_FILE} sha256 is ${actualSha}, ${REMOTE_DEPS_DESCRIPTOR_FILE} records ${lock.sha256}.`,
     );
-  } else if (stableJson(computeRemoteDepsTrees(packPath)) !== stableJson(lock.trees ?? null)) {
+    return problems;
+  }
+  // Every host needs its tree hash. Recomputing them unpacks the pack with the host's tar, which
+  // needs POSIX paths and symlinks, so only the unit test does it (never the Windows build).
+  const trees = lock.trees ?? {};
+  const missing = REMOTE_PACK_HOSTS.filter((host) => !/^[0-9a-f]{64}$/u.test(trees[host] ?? ""));
+  if (missing.length > 0) {
+    problems.push(
+      `${REMOTE_DEPS_DESCRIPTOR_FILE} has no tree hash for ${missing.join(", ")}; run build-remote-deps-pack.`,
+    );
+  } else if (
+    options.recomputeTrees &&
+    stableJson(computeRemoteDepsTrees(packPath)) !== stableJson(trees)
+  ) {
     problems.push(
       `${REMOTE_DEPS_DESCRIPTOR_FILE} trees do not match ${REMOTE_DEPS_PACK_FILE}; run build-remote-deps-pack.`,
     );

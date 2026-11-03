@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,7 +22,9 @@ afterEach(() => {
 
 describe("committed remote dependency pack", () => {
   it("matches this checkout's remote dependencies, patches and lockfile versions", () => {
-    const problems = checkRemoteDepsPack(repoRoot);
+    const problems = checkRemoteDepsPack(repoRoot, undefined, {
+      recomputeTrees: process.platform !== "win32",
+    });
     expect(problems, `${problems.join("\n")}\n${REMOTE_DEPS_REBUILD_HINT}`).toEqual([]);
     // Unpacks the 85 MB pack and hashes it once per host, which a shared CI runner needs a while for.
   }, 60_000);
@@ -34,6 +36,35 @@ describe("committed remote dependency pack", () => {
       else expect(spec, name).toMatch(/^\d+\.\d+\.\d+/u);
     }
   });
+});
+
+describe("checkRemoteDepsPack tree hashes", () => {
+  const packFixture = (trees: Record<string, string> | undefined) => {
+    const dir = mkdtempSync(join(tmpdir(), "saint-remote-deps-check-"));
+    temporaryDirs.push(dir);
+    const committed = join(repoRoot, "apps/server/remote-deps");
+    writeFileSync(join(dir, "deps.tar.gz"), readFileSync(join(committed, "deps.tar.gz")));
+    const lock = JSON.parse(readFileSync(join(committed, "deps.json"), "utf8"));
+    writeFileSync(join(dir, "deps.json"), JSON.stringify({ ...lock, trees }));
+    return dir;
+  };
+
+  it("needs a tree hash for every host, without unpacking the pack", () => {
+    const problems = checkRemoteDepsPack(repoRoot, packFixture(undefined));
+    expect(problems).toEqual([expect.stringContaining("has no tree hash for darwin-arm64")]);
+    const partial = checkRemoteDepsPack(repoRoot, packFixture({ "linux-x64": "a".repeat(64) }));
+    expect(partial[0]).toContain("darwin-arm64, darwin-x64, linux-arm64");
+  });
+
+  it("notices a tree hash that no longer matches the pack when asked to recompute", () => {
+    const hosts = ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"];
+    const wrong = Object.fromEntries(hosts.map((host) => [host, "0".repeat(64)]));
+    const dir = packFixture(wrong);
+    expect(checkRemoteDepsPack(repoRoot, dir)).toEqual([]);
+    expect(checkRemoteDepsPack(repoRoot, dir, { recomputeTrees: true })).toEqual([
+      expect.stringContaining("trees do not match"),
+    ]);
+  }, 60_000);
 });
 
 describe("diffRemoteDepsDescriptor", () => {
