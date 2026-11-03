@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.8 — 2026-11-03
+
+**Remote SSH hosts install Saint once for every account, and chats with images work on them.**
+
+This Stable release covers the commits after `v1.1.7`: `549828d44`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.8).
+
+### Added
+
+- Remote SSH hosts keep one Saint install for the whole machine (`/Users/Shared/saint-remote` on macOS, `/var/tmp/saint-remote` elsewhere, or `SAINT_REMOTE_AUTO_STORE`). The first account to need a version installs it and every other account reuses it, but only after its files hash to exactly what the desktop ships; a changed copy is ignored and that account installs its own. A starting server clears the old versions it owns.
+- Every desktop of one remote account now shares one server and one folder (`~/.saint-remote`), so a second computer shows the same chats. The first connect moves the chats from the desktop's older folder (`clients/<id>`) into it; where the shared folder already has chats, the older folder keeps being used and nothing is merged.
+- Cyber Security can run only the audit areas and scanners you pick, and keeps which steps a run covered.
+
+### Fixed
+
+- Sending an image or file in a chat on a remote host failed with "Managed attachment … is unavailable, expired, or owned by another session/thread". It was uploaded to this computer's server instead of the host's.
+- A remote SSH key file that other users could read made every connect fail with "bad permissions". Saint now sets a key that the host's ssh config names to owner-only and connects again.
+- A desktop older than the server it connects to no longer restarts that server on its own version, which dropped the other desktop mid-session. It asks to update Saint instead.
+
 ## 1.1.7 — 2026-11-03
 
 **Claude chats start again on the Linux AppImage, and the Cyber Security audit starts with a Claude model.**
