@@ -6,6 +6,9 @@
 // Exports: RemoteSshManager, RemoteSshManagerDependencies
 
 import type { ChildProcess } from "node:child_process";
+import { chmod } from "node:fs/promises";
+import { homedir } from "node:os";
+import { resolve as resolvePath } from "node:path";
 import type { Readable } from "node:stream";
 
 import type {
@@ -15,9 +18,10 @@ import type {
 } from "@saint/contracts";
 import type { RuntimeSpawnOptions } from "@saint/shared/processRuntime";
 
-import { isValidSshTarget, normalizeRemoteRoot } from "./remoteSshConfig";
+import { compareInstallVersions, isValidSshTarget, normalizeRemoteRoot } from "./remoteSshConfig";
 import {
   buildRemoteInstallScript,
+  buildRemoteMigrateRootScript,
   buildRemoteProbeScript,
   buildRemoteScannerInstallScript,
   buildRemoteScannerUploadCommand,
@@ -46,8 +50,13 @@ export interface RemoteSshManagerDependencies {
    * the hash of its dependency pack (see `remoteInstallDepsHash`); called once.
    */
   readonly installIdentity: () => RemoteInstallIdentity;
-  /** Install folder of hosts with none of their own; this client's folder (see `clientRemoteRoot`). */
+  /** Install folder of hosts with none of their own: one per remote account, shared by its desktops. */
   readonly defaultRemoteRoot: string;
+  /**
+   * This client's own folder from before the default was shared (see `clientRemoteRoot`). A host
+   * where it still holds threads keeps using it instead of the default, so nothing is orphaned.
+   */
+  readonly legacyRemoteRoot?: string | null | undefined;
   /** Folder whose `versions/` every install folder on a host shares. */
   readonly storeRoot: string;
   /**
@@ -102,6 +111,9 @@ function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
 export interface RemoteInstallIdentity {
   readonly version: string;
   readonly depsHash: string;
+  /** Full hash of the shipped bundle files and per-host hash of the unpacked dependency pack. */
+  readonly bundleTree?: string | undefined;
+  readonly depsTrees?: Readonly<Record<string, string>> | undefined;
   /** Version of the scanner pack this build ships, absent when it ships none. */
   readonly scannersVersion?: string | undefined;
 }
@@ -133,6 +145,8 @@ const CONTROL_PERSIST_SECONDS = 120;
 /** sun_path is 104 bytes on macOS; `%C` expands to 40 hex digits. */
 const MAX_CONTROL_PATH_LENGTH = 100;
 const CONTROL_MASTER_TIMEOUT_MS = 20_000;
+/** Stopping the older server and renaming its data folder. */
+const MIGRATE_TIMEOUT_MS = 90_000;
 /** A connected host whose server stopped (idle exit) answers no /health within this. */
 const CONNECTED_HEALTH_TIMEOUT_MS = 5_000;
 
@@ -184,6 +198,7 @@ function tail(text: string): string {
 export class RemoteSshManager {
   private readonly hosts = new Map<string, HostRecord>();
   private cachedInstallIdentity: RemoteInstallIdentity | null = null;
+  private readonly defaultRoots = new Map<string, string>();
 
   constructor(private readonly deps: RemoteSshManagerDependencies) {}
 
@@ -219,16 +234,47 @@ export class RemoteSshManager {
     return `ws://127.0.0.1:${record.localPort}/?token=${encodeURIComponent(record.token)}`;
   }
 
-  connect(input: DesktopRemoteSshSavedHost): Promise<DesktopRemoteSshHostState> {
+  /**
+   * The folder a connect uses: the one asked for, else this host's default, shared by every desktop
+   * of the remote account. This desktop's own older folder is moved into it by the first connect;
+   * where that cannot be done (the shared folder already has data) it keeps being used instead.
+   * Settled once per host and remembered.
+   */
+  private async resolveRoot(host: string, requested: string | null | undefined) {
+    if (requested !== null && requested !== undefined) return normalizeRemoteRoot(requested);
+    const known = this.defaultRoots.get(host);
+    if (known) return known;
+    let root = normalizeRemoteRoot(this.deps.defaultRemoteRoot);
+    const legacy = this.deps.legacyRemoteRoot
+      ? normalizeRemoteRoot(this.deps.legacyRemoteRoot)
+      : null;
+    if (root && legacy && legacy !== root) {
+      await this.ensureControlMaster(host);
+      const result = await this.runScript(
+        host,
+        buildRemoteMigrateRootScript(this.targetFor(legacy)),
+        MIGRATE_TIMEOUT_MS,
+      );
+      if (result.code !== 0)
+        throw new RemoteSshError(this.failureMessage("reach the host", result));
+      if (hasRemoteReport(result.stdout, "migrated")) {
+        this.deps.log(`[remote-ssh] ${host} moved ${legacy}/home into ${root}/home`);
+      } else if (hasRemoteReport(result.stdout, "legacy")) {
+        root = legacy;
+      }
+    }
+    if (root) this.defaultRoots.set(host, root);
+    return root;
+  }
+
+  async connect(input: DesktopRemoteSshSavedHost): Promise<DesktopRemoteSshHostState> {
     const host = input.host.trim();
     if (!isValidSshTarget(host)) {
-      return Promise.reject(new RemoteSshError(`'${input.host}' is not a valid SSH host.`));
+      throw new RemoteSshError(`'${input.host}' is not a valid SSH host.`);
     }
-    const remoteRoot = normalizeRemoteRoot(input.remoteRoot ?? this.deps.defaultRemoteRoot);
+    const remoteRoot = await this.resolveRoot(host, input.remoteRoot);
     if (!remoteRoot) {
-      return Promise.reject(
-        new RemoteSshError("The remote folder must be a relative path inside the home folder."),
-      );
+      throw new RemoteSshError("The remote folder must be a relative path inside the home folder.");
     }
     const record = this.record(host, remoteRoot);
     if (input.hostKey) record.hostKey = input.hostKey;
@@ -273,7 +319,9 @@ export class RemoteSshManager {
   /** Closes the tunnel and stops the remote server; installed files and data stay. */
   async stopServer(input: DesktopRemoteSshSavedHost): Promise<void> {
     const host = input.host.trim();
-    const remoteRoot = normalizeRemoteRoot(input.remoteRoot ?? this.deps.defaultRemoteRoot);
+    const remoteRoot = isValidSshTarget(host)
+      ? await this.resolveRoot(host, input.remoteRoot)
+      : null;
     if (!isValidSshTarget(host) || !remoteRoot) {
       throw new RemoteSshError(`'${input.host}' is not a valid SSH host and folder.`);
     }
@@ -334,12 +382,18 @@ export class RemoteSshManager {
   }
 
   private target(record: HostRecord): RemoteSshScriptTarget {
+    return this.targetFor(record.remoteRoot);
+  }
+
+  private targetFor(remoteRoot: string): RemoteSshScriptTarget {
     const identity = this.installIdentity();
     return {
-      remoteRoot: record.remoteRoot,
+      remoteRoot,
       storeRoot: this.deps.storeRoot,
       version: identity.version,
       depsHash: identity.depsHash,
+      bundleTree: identity.bundleTree,
+      depsTrees: identity.depsTrees,
       scannersVersion: identity.scannersVersion,
     };
   }
@@ -395,6 +449,14 @@ export class RemoteSshManager {
 
       let port: number;
       let token: string;
+      if (probe.server && compareInstallVersions(probe.server.version, this.installVersion()) > 0) {
+        // Never downgrade a server another desktop of this account already runs: that desktop
+        // would reconnect, find the older one and restart it again, forever. The older desktop
+        // updates instead.
+        throw new RemoteSshError(
+          `${host} already runs Saint ${probe.server.version}, newer than this computer's ${this.installVersion()}. Update Saint on this computer to connect.`,
+        );
+      }
       if (probe.server && probe.server.version === this.installVersion()) {
         this.deps.log(`[remote-ssh] reusing server on ${host} port=${probe.server.port}`);
         port = probe.server.port;
@@ -722,7 +784,79 @@ export class RemoteSshManager {
     return this.runSsh(host, REMOTE_SSH_LOGIN_SHELL_COMMAND, script, timeoutMs, signal);
   }
 
-  private runSsh(
+  private async runSsh(
+    host: string,
+    remoteCommand: string,
+    stdin: string | Readable,
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ): Promise<SshRunResult> {
+    const result = await this.runSshOnce(host, remoteCommand, stdin, timeoutMs, signal);
+    // A stream cannot be replayed; the probe (a string) always runs first and fixes the key.
+    if (typeof stdin !== "string" || !(await this.fixKeyPermissions(host, result.stderr))) {
+      return result;
+    }
+    return this.runSshOnce(host, remoteCommand, stdin, timeoutMs, signal);
+  }
+
+  /**
+   * ssh refuses a private key that others can read ("bad permissions") and then fails every
+   * connect; a replaced key file often arrives that way. Owner-only is what ssh needs, so
+   * tighten it. Only a key this host's own ssh config names is touched: stderr can carry a
+   * server banner, which must not choose the file.
+   */
+  private async fixKeyPermissions(host: string, stderr: string): Promise<boolean> {
+    const keyPath = /Load key "([^"]+)": bad permissions/u.exec(stderr)?.[1];
+    if (!keyPath) return false;
+    const configured = (await this.sshConfigIdentityFiles(host)).map((file) =>
+      resolvePath(file.startsWith("~/") ? `${homedir()}${file.slice(1)}` : file),
+    );
+    if (!configured.includes(resolvePath(keyPath))) return false;
+    try {
+      await chmod(keyPath, 0o600);
+    } catch (error) {
+      this.deps.log(`[remote-ssh] could not fix permissions of ${keyPath}: ${String(error)}`);
+      return false;
+    }
+    this.deps.log(`[remote-ssh] set ${keyPath} to owner-only (ssh refused it as too open)`);
+    return true;
+  }
+
+  /** `IdentityFile` entries ssh resolves for `host` (`ssh -G`), unexpanded as ssh prints them. */
+  private sshConfigIdentityFiles(host: string): Promise<string[]> {
+    return new Promise((resolve) => {
+      let output = "";
+      let child: ChildProcess;
+      try {
+        child = this.deps.spawn("ssh", ["-G", "--", host], {
+          stdio: ["ignore", "pipe", "ignore"],
+        });
+      } catch {
+        resolve([]);
+        return;
+      }
+      child.stdout?.setEncoding("utf8");
+      child.stdout?.on("data", (chunk: string) => {
+        output += chunk;
+      });
+      const timer = setTimeout(() => {
+        child.kill();
+        resolve([]);
+      }, 5_000);
+      child.once("error", () => {
+        clearTimeout(timer);
+        resolve([]);
+      });
+      child.once("close", () => {
+        clearTimeout(timer);
+        resolve(
+          output.split("\n").flatMap((line) => /^identityfile (.+)$/u.exec(line.trim())?.[1] ?? []),
+        );
+      });
+    });
+  }
+
+  private runSshOnce(
     host: string,
     remoteCommand: string,
     stdin: string | Readable,

@@ -2,7 +2,7 @@
 // Purpose: Validates SSH remote targets and lists host aliases from the user's ssh config.
 // Layer: Desktop remote SSH utility
 // Exports: parseSshConfigHosts, isValidSshTarget, normalizeRemoteRoot, defaultRemoteRoot,
-//          createRemoteClientId, parseRemoteClientId, clientRemoteRoot,
+//          createRemoteClientId, parseRemoteClientId, clientRemoteRoot, compareInstallVersions,
 //          saved-host parse/remember/serialize helpers
 
 import { isHostKey } from "@saint/shared/hostId";
@@ -79,10 +79,8 @@ export function parseRemoteClientId(contents: string): string | null {
 }
 
 /**
- * The install folder a host uses when none is set: this client's own folder
- * under the shared one, so people who reach the same remote account through
- * different desktops get separate servers and data (threads, settings), while
- * the installed versions in `<storeRoot>/versions` stay shared.
+ * This client's own folder under the shared one, which a desktop used by default before the
+ * default became the shared folder itself. Hosts where it still holds data keep using it.
  */
 export function clientRemoteRoot(storeRoot: string, clientId: string): string {
   return `${storeRoot}/clients/${clientId}`;
@@ -140,4 +138,36 @@ export function rememberRemoteSshHost(
 
 export function serializeSavedRemoteSshHosts(saved: readonly SavedRemoteSshHost[]): string {
   return `${JSON.stringify({ version: 1, hosts: saved }, null, 2)}\n`;
+}
+
+function splitInstallVersion(version: string) {
+  const core = version.replace(/-[0-9a-f]{12}$/u, "");
+  const dash = core.indexOf("-");
+  const numbers = (dash === -1 ? core : core.slice(0, dash)).split(".").map(Number);
+  return { numbers, pre: dash === -1 ? null : core.slice(dash + 1).split(".") };
+}
+
+/**
+ * Orders two remote install folder names (`<app version>-<12 hex of the bundle>`): negative when `a`
+ * is older than `b`. Only the app version counts, so two builds of one version compare equal.
+ */
+export function compareInstallVersions(a: string, b: string): number {
+  const left = splitInstallVersion(a);
+  const right = splitInstallVersion(b);
+  for (let index = 0; index < 3; index += 1) {
+    const diff = (left.numbers[index] ?? 0) - (right.numbers[index] ?? 0);
+    if (Number.isNaN(diff)) return 0;
+    if (diff !== 0) return diff;
+  }
+  if (!left.pre || !right.pre) return left.pre ? -1 : right.pre ? 1 : 0;
+  for (let index = 0; index < Math.max(left.pre.length, right.pre.length); index += 1) {
+    const x = left.pre[index];
+    const y = right.pre[index];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    const bothNumeric = /^\d+$/u.test(x) && /^\d+$/u.test(y);
+    const diff = bothNumeric ? Number(x) - Number(y) : x < y ? -1 : x > y ? 1 : 0;
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }

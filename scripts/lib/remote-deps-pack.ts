@@ -22,6 +22,7 @@ import {
   createRemoteServerInstallManifest,
   type RemoteServerPatch,
 } from "@saint/shared/remoteServerInstall";
+import { REMOTE_TREE_HASH_SCRIPT } from "@saint/shared/remoteTreeHash";
 
 /** Folder of the committed pack and its descriptor, relative to the repository root. */
 export const REMOTE_DEPS_DIR = "apps/server/remote-deps";
@@ -49,9 +50,42 @@ export interface RemoteDepsDescriptor {
   readonly nodePtyHosts: readonly string[];
 }
 
-/** `deps.json`: the descriptor plus the sha256 of `deps.tar.gz`. */
+/**
+ * `deps.json`: the descriptor, the sha256 of `deps.tar.gz`, and per host the hash of the tree a
+ * host unpacks from it (see `computeRemoteDepsTrees`). A host that reuses dependencies another
+ * account unpacked runs them only when their tree hashes to this.
+ */
 export interface RemoteDepsLock extends RemoteDepsDescriptor {
   readonly sha256: string;
+  readonly trees: Record<string, string>;
+}
+
+/**
+ * The tree each host in `hosts` has after unpacking the pack: every file, symlink and `.installed`
+ * excluded, and only that host's node-pty binary kept (the install script drops the others).
+ */
+export function computeRemoteDepsTrees(
+  packPath: string,
+  hosts: readonly string[] = REMOTE_PACK_HOSTS,
+): Record<string, string> {
+  const dir = mkdtempSync(join(tmpdir(), "saint-deps-tree-"));
+  try {
+    execFileSync("tar", ["-xzf", packPath, "-C", dir], { stdio: ["ignore", "ignore", "inherit"] });
+    const trees: Record<string, string> = {};
+    for (const host of hosts) {
+      const others = hosts
+        .filter((other) => other !== host)
+        .map((other) => `node_modules/${REMOTE_PACK_NODE_PTY}-${other}`);
+      trees[host] = execFileSync(
+        process.execPath,
+        ["-e", REMOTE_TREE_HASH_SCRIPT, dir, ".installed", ...others],
+        { encoding: "utf8" },
+      );
+    }
+    return trees;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 interface WorkspaceManifests {
@@ -171,6 +205,10 @@ export function checkRemoteDepsPack(repoRoot: string, packDir = join(repoRoot, R
     problems.push(
       `${REMOTE_DEPS_PACK_FILE} sha256 is ${actualSha}, ${REMOTE_DEPS_DESCRIPTOR_FILE} records ${lock.sha256}.`,
     );
+  } else if (stableJson(computeRemoteDepsTrees(packPath)) !== stableJson(lock.trees ?? null)) {
+    problems.push(
+      `${REMOTE_DEPS_DESCRIPTOR_FILE} trees do not match ${REMOTE_DEPS_PACK_FILE}; run build-remote-deps-pack.`,
+    );
   }
   return problems;
 }
@@ -287,7 +325,11 @@ export function buildRemoteDepsPack(
     mkdirSync(outDir, { recursive: true });
     const packPath = join(outDir, REMOTE_DEPS_PACK_FILE);
     run("tar", ["-czf", packPath, "node_modules"], work);
-    const lock: RemoteDepsLock = { sha256: sha256(readFileSync(packPath)), ...descriptor };
+    const lock: RemoteDepsLock = {
+      sha256: sha256(readFileSync(packPath)),
+      ...descriptor,
+      trees: computeRemoteDepsTrees(packPath),
+    };
     writeFileSync(join(outDir, REMOTE_DEPS_DESCRIPTOR_FILE), `${JSON.stringify(lock, null, 2)}\n`);
     return lock;
   } finally {

@@ -6,9 +6,12 @@ import * as Zlib from "node:zlib";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { hashRemoteTreeEntries } from "@saint/shared/remoteTreeHash";
+
 import { createTarGzStream } from "./remoteSshBundle";
 import {
   buildRemoteInstallScript,
+  buildRemoteMigrateRootScript,
   buildRemoteProbeScript,
   buildRemoteScannerInstallScript,
   buildRemoteScannerUploadCommand,
@@ -148,6 +151,8 @@ describe("report parsers", () => {
 // Runs the real scripts with `sh` against a throwaway HOME. tmux is a stub, npm
 // a trap that records any call (none may happen); node is the test runner's own
 // binary, serving a fake server bundle.
+const days = (count: number) => new Date(Date.now() - count * 24 * 3600_000);
+
 describe.runIf(process.platform !== "win32")("remote scripts end to end", () => {
   let home: string;
   let bin: string;
@@ -564,6 +569,190 @@ describe.runIf(process.platform !== "win32")("remote scripts end to end", () => 
     ).toBe(false);
     run(buildRemoteStopScript(target), undefined, env);
   }, 90_000);
+
+  it("shares one verified install across accounts through the machine-wide folder", async () => {
+    const auto = Path.join(home, "machine-wide");
+    const serverEntries = [
+      { path: "dist/index.mjs", contents: Buffer.from(okServer) },
+      { path: "package.json", contents: Buffer.from("{}") },
+    ];
+    // What the miniature pack unpacks to on this host: the other host's binary is dropped.
+    const depsEntries = [
+      {
+        path: "node_modules/node-pty/package.json",
+        contents: Buffer.from('{"name":"@lydell/node-pty"}'),
+      },
+      { path: `node_modules/${hostPty}/package.json`, contents: Buffer.from("{}") },
+      { path: "node_modules/open/index.js", contents: Buffer.from("patched\n") },
+    ];
+    const shared = {
+      ...target,
+      bundleTree: hashRemoteTreeEntries(serverEntries),
+      depsTrees: { [`${process.platform}-${process.arch}`]: hashRemoteTreeEntries(depsEntries) },
+    };
+    const account = () => FS.mkdtempSync(Path.join(OS.tmpdir(), "saint-remote-acct-"));
+    const envFor = (accountHome: string) => ({ HOME: accountHome, SAINT_REMOTE_AUTO_STORE: auto });
+    const installAs = async (accountHome: string, scriptTarget: typeof shared) => {
+      const env = envFor(accountHome);
+      const upload = run(
+        buildRemoteUploadCommand(scriptTarget),
+        await bundle([
+          ...serverEntries.map((entry) => ({ path: entry.path, contents: entry.contents })),
+          { path: "deps.tar.gz", contents: await depsPack() },
+        ]),
+        env,
+      );
+      expect(upload.status).toBe(0);
+      return run(buildRemoteInstallScript(scriptTarget), undefined, env);
+    };
+    const probeAs = (accountHome: string) =>
+      parseRemoteProbeReport(
+        run(buildRemoteProbeScript(shared), undefined, envFor(accountHome)).stdout,
+      );
+    const homes = [account(), account(), account()];
+    try {
+      // The first account to need the version publishes it for everyone.
+      const first = await installAs(homes[0]!, shared);
+      expect(first.status).toBe(0);
+      expect(first.stderr).toContain("for every account of this host");
+      const published = Path.join(auto, "versions", target.version);
+      expect(FS.existsSync(Path.join(published, ".installed"))).toBe(true);
+      expect(FS.existsSync(Path.join(homes[0]!, target.storeRoot, "versions"))).toBe(false);
+      expect(FS.statSync(auto).mode & 0o1777).toBe(0o1777);
+      expect(FS.statSync(published).mode & 0o022).toBe(0);
+
+      // Another account finds it ready, with nothing to upload, and runs it from there.
+      expect(probeAs(homes[1]!)).toMatchObject({ installed: true, server: null });
+      const start = run(
+        buildRemoteStartScript(shared, { token: "tok" }),
+        undefined,
+        envFor(homes[1]!),
+      );
+      expect(parseRemoteStartReport(start.stdout)).not.toBeNull();
+      const serverScript = FS.readFileSync(
+        Path.join(homes[1]!, target.remoteRoot, "run", "server.sh"),
+        "utf8",
+      );
+      expect(serverScript).toContain(`${auto}/versions/${target.version}/dist/index.mjs`);
+      expect(FS.existsSync(Path.join(homes[1]!, target.storeRoot, "versions"))).toBe(false);
+      run(buildRemoteStopScript(shared), undefined, envFor(homes[1]!));
+
+      // A starting server clears what it owns that is old and unused, and nothing else.
+      const makeVersion = (name: string, age: Date) => {
+        const dir = Path.join(auto, "versions", name);
+        FS.mkdirSync(dir, { recursive: true });
+        FS.writeFileSync(Path.join(dir, ".installed"), "");
+        FS.utimesSync(dir, age, age);
+      };
+      makeVersion("old-unused", days(2));
+      makeVersion("recent-unused", days(0));
+      const orphanDeps = Path.join(auto, "deps", "orphan-key");
+      FS.mkdirSync(orphanDeps, { recursive: true });
+      FS.utimesSync(orphanDeps, days(1), days(1));
+      const leftover = Path.join(auto, ".tmp-1000-1-x");
+      FS.mkdirSync(leftover);
+      FS.utimesSync(leftover, days(2), days(2));
+      const cleaning = run(
+        buildRemoteStartScript(shared, { token: "tok" }),
+        undefined,
+        envFor(homes[1]!),
+      );
+      expect(parseRemoteStartReport(cleaning.stdout)).not.toBeNull();
+      run(buildRemoteStopScript(shared), undefined, envFor(homes[1]!));
+      expect(FS.existsSync(Path.join(auto, "versions", "old-unused"))).toBe(false);
+      expect(FS.existsSync(Path.join(auto, "versions", "recent-unused"))).toBe(true);
+      expect(FS.existsSync(published)).toBe(true);
+      expect(FS.existsSync(orphanDeps)).toBe(false);
+      expect(FS.existsSync(leftover)).toBe(false);
+      expect(FS.readdirSync(Path.join(auto, "deps"))).toHaveLength(1);
+
+      // A file changed after the install: nobody trusts the folder, and the next account installs
+      // its own copy instead.
+      FS.chmodSync(Path.join(published, "package.json"), 0o644);
+      FS.writeFileSync(Path.join(published, "package.json"), '{"tampered":true}');
+      expect(probeAs(homes[2]!)).toMatchObject({ installed: false });
+      const fallback = await installAs(homes[2]!, shared);
+      expect(fallback.status).toBe(0);
+      expect(fallback.stderr).toContain("Could not use the shared Saint folder");
+      expect(
+        FS.existsSync(
+          Path.join(homes[2]!, target.storeRoot, "versions", target.version, ".installed"),
+        ),
+      ).toBe(true);
+      expect(probeAs(homes[2]!)).toMatchObject({ installed: true });
+
+      // Hashes that do not describe what was uploaded also keep the shared folder untouched.
+      FS.rmSync(auto, { recursive: true, force: true });
+      const wrong = await installAs(homes[0]!, { ...shared, bundleTree: "0".repeat(64) });
+      expect(wrong.status).toBe(0);
+      expect(wrong.stderr).toContain("differ from what Saint ships");
+      expect(FS.existsSync(Path.join(auto, "versions", target.version))).toBe(false);
+    } finally {
+      for (const accountHome of homes) FS.rmSync(accountHome, { recursive: true, force: true });
+    }
+  }, 120_000);
+
+  describe("moving a desktop's older folder into the shared one", () => {
+    const older = {
+      ...target,
+      remoteRoot: ".saint-remote/clients/me-1",
+      storeRoot: ".saint-remote",
+    };
+    const oldHome = () => Path.join(home, older.remoteRoot, "home");
+    const sharedHome = () => Path.join(home, older.storeRoot, "home");
+    const migrate = () => run(buildRemoteMigrateRootScript(older));
+    const writeThread = (dir: string, contents: string) => {
+      FS.mkdirSync(dir, { recursive: true });
+      FS.writeFileSync(Path.join(dir, "state.sqlite"), contents);
+    };
+
+    it("does nothing when the older folder holds no data", () => {
+      const result = migrate();
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("");
+      expect(FS.existsSync(sharedHome())).toBe(false);
+    });
+
+    it("moves the data when the shared folder has none", () => {
+      writeThread(oldHome(), "threads");
+      const result = migrate();
+      expect(result.status).toBe(0);
+      expect(hasRemoteReport(result.stdout, "migrated")).toBe(true);
+      expect(FS.readFileSync(Path.join(sharedHome(), "state.sqlite"), "utf8")).toBe("threads");
+      expect(FS.existsSync(oldHome())).toBe(false);
+      expect(FS.existsSync(Path.join(home, older.storeRoot, ".migrating"))).toBe(false);
+      // A second run finds nothing left to move.
+      expect(migrate().stdout).toBe("");
+    });
+
+    it("keeps both folders when the shared one already holds data", () => {
+      writeThread(oldHome(), "mine");
+      writeThread(sharedHome(), "theirs");
+      const result = migrate();
+      expect(hasRemoteReport(result.stdout, "legacy")).toBe(true);
+      expect(FS.readFileSync(Path.join(oldHome(), "state.sqlite"), "utf8")).toBe("mine");
+      expect(FS.readFileSync(Path.join(sharedHome(), "state.sqlite"), "utf8")).toBe("theirs");
+    });
+
+    it("leaves the data alone while another desktop is moving, but not behind a stale lock", () => {
+      writeThread(oldHome(), "mine");
+      const lock = Path.join(home, older.storeRoot, ".migrating");
+      FS.mkdirSync(lock, { recursive: true });
+      expect(hasRemoteReport(migrate().stdout, "legacy")).toBe(true);
+      expect(FS.existsSync(oldHome())).toBe(true);
+      const longAgo = new Date(Date.now() - 3600_000);
+      FS.utimesSync(lock, longAgo, longAgo);
+      expect(hasRemoteReport(migrate().stdout, "migrated")).toBe(true);
+      expect(FS.existsSync(Path.join(sharedHome(), "state.sqlite"))).toBe(true);
+    });
+  });
+
+  it("keeps every account's own install without the desktop's hashes", async () => {
+    const auto = Path.join(home, "machine-wide");
+    await install(target);
+    expect(FS.existsSync(auto)).toBe(false);
+    expect(FS.existsSync(Path.join(home, target.storeRoot, "versions", target.version))).toBe(true);
+  }, 60_000);
 
   it("treats a pid file whose process is not a Saint server as no server", async () => {
     await install(target);

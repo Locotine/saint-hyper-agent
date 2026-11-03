@@ -64,7 +64,7 @@ describe("providerModelCatalogCache", () => {
   });
 
   it("does not restore pre-provenance catalogs that could contain an unmarked fallback", async () => {
-    mkdirSync(path.dirname(filePath()), { recursive: true });
+    mkdirSync(path.dirname(filePath()), { recursive: true, mode: 0o700 });
     writeFileSync(
       filePath(),
       JSON.stringify({
@@ -83,13 +83,13 @@ describe("providerModelCatalogCache", () => {
   });
 
   it("ignores a malformed file instead of failing", async () => {
-    mkdirSync(path.dirname(filePath()), { recursive: true });
+    mkdirSync(path.dirname(filePath()), { recursive: true, mode: 0o700 });
     writeFileSync(filePath(), "{not-json", { encoding: "utf8" });
     expect(await run(readProviderModelCatalogCache(filePath()))).toEqual([]);
   });
 
   it("ignores entries whose result fails schema decode", async () => {
-    mkdirSync(path.dirname(filePath()), { recursive: true });
+    mkdirSync(path.dirname(filePath()), { recursive: true, mode: 0o700 });
     writeFileSync(
       filePath(),
       JSON.stringify({
@@ -120,7 +120,7 @@ describe("providerModelCatalogCache", () => {
       { key: "omp-key", result: ompCatalog, storedAt: 1 },
       { key: "other-provider-key", result: CATALOG, storedAt: 2 },
     ];
-    mkdirSync(path.dirname(filePath()), { recursive: true });
+    mkdirSync(path.dirname(filePath()), { recursive: true, mode: 0o700 });
     writeFileSync(
       filePath(),
       JSON.stringify({

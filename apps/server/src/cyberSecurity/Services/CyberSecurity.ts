@@ -28,6 +28,8 @@ export interface CyberSecurityStartInput {
   readonly threshold?: CyberSeverity | undefined;
   /** Set only when the person confirmed an attack on the running app for this run. */
   readonly dynamicScan?: CyberDynamicScanRequest | undefined;
+  /** Only these steps (`audit:<area>`, `scanner:<id>`); absent runs all of them. */
+  readonly steps?: ReadonlyArray<string> | undefined;
   readonly startedBy: string;
 }
 

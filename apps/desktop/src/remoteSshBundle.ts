@@ -3,6 +3,7 @@
 //          committed dependency pack, into a gzipped tar stream for upload to a remote SSH host.
 // Layer: Desktop remote SSH utility
 // Exports: loadRemoteInstallPackageJson, collectRemoteInstallEntries, remoteInstallVersion,
+//          remoteInstallBundleTree, remoteInstallDepsTrees,
 //          remoteDepsPackPath, remoteInstallDepsHash, createTarGzStream, scannerPackVersion,
 //          scannerPackPath
 
@@ -13,6 +14,7 @@ import { Readable } from "node:stream";
 import * as Zlib from "node:zlib";
 
 import { createRemoteServerInstallManifest } from "@saint/shared/remoteServerInstall";
+import { hashRemoteTreeEntries } from "@saint/shared/remoteTreeHash";
 
 /**
  * Folder the desktop artifact build stages next to `apps/server/dist` with the
@@ -197,6 +199,24 @@ export function remoteInstallDepsHash(descriptorJson: string): string {
     throw new Error("The remote dependency pack descriptor has no sha256.");
   }
   return descriptor.sha256.slice(0, 12);
+}
+
+/**
+ * Hash of the files `collectRemoteInstallEntries` ships, as a host computes it over a published
+ * version folder; a host reuses a version another account installed only when it matches.
+ */
+export function remoteInstallBundleTree(entries: readonly RemoteInstallEntry[]): string {
+  return hashRemoteTreeEntries(entries);
+}
+
+/** Per-host hash of the unpacked dependency pack (`trees` in its descriptor). */
+export function remoteInstallDepsTrees(descriptorJson: string): Record<string, string> {
+  const { trees } = JSON.parse(descriptorJson) as { trees?: unknown };
+  const result: Record<string, string> = {};
+  for (const [host, tree] of Object.entries(trees && typeof trees === "object" ? trees : {})) {
+    if (typeof tree === "string" && /^[0-9a-f]{64}$/u.test(tree)) result[host] = tree;
+  }
+  return result;
 }
 
 const TAR_BLOCK = 512;

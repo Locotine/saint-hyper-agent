@@ -3,13 +3,14 @@
 //          findings "Fix all" takes, and the prompt a Fix chat starts with.
 // Layer: Web cyber security view
 // Exports: FINDING_COLUMNS, groupFindings, fixAllTargets, buildFixPrompt, sourceLabel,
-//          pickDynamicScript
+//          pickDynamicScript, stepOptions
 
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import type {
   CyberDynamicScanRequest,
   CyberFinding,
   CyberFindingStatus,
+  CyberScannerRun,
   CyberSeverity,
   ProjectDiscoveredScriptTarget,
 } from "@saint/contracts";
@@ -99,16 +100,17 @@ export type DynamicScriptChoice =
   | { readonly ok: false; readonly reason: string };
 
 /**
- * The one script that starts the app for a dynamic scan: `dev`, else `start`, and only when a
- * single package has it. With none or several, nothing is guessed and the option stays off.
+ * The one script that starts the app for a dynamic scan: `dev`, else `start`. When several packages
+ * have it, the project root's own script wins (it is the one that starts the whole app); with none
+ * or several and no root script, nothing is guessed and the option stays off.
  */
 export function pickDynamicScript(
   targets: ReadonlyArray<ProjectDiscoveredScriptTarget>,
 ): DynamicScriptChoice {
   for (const name of ["dev", "start"] as const) {
-    const matches = targets.filter((target) =>
-      target.scripts.some((script) => script.name === name),
-    );
+    const found = targets.filter((target) => target.scripts.some((script) => script.name === name));
+    const root = found.find((target) => target.relativePath.replace(/^\/+|\/+$/g, "") === "");
+    const matches = found.length > 1 && root ? [root] : found;
     if (matches.length > 1) {
       return { ok: false, reason: `Several packages have a "${name}" script; none is guessed.` };
     }
@@ -142,3 +144,20 @@ export function attentionItems(
 
 /** Cyber Security runs on this computer's projects only for now; a remote host is added later. */
 export const cyberSecurityHostSupported = (hostId: HostId): boolean => hostId === LOCAL_HOST_ID;
+
+export interface StepOption {
+  /** What `cyberSecurity.start` takes in `steps`. */
+  readonly id: string;
+  readonly label: string;
+}
+
+/** The steps of the last run, each of which can be run on its own: audit areas, then scanners. */
+export function stepOptions(
+  categories: ReadonlyArray<string>,
+  scanners: ReadonlyArray<Pick<CyberScannerRun, "id" | "label">>,
+): StepOption[] {
+  return [
+    ...categories.map((category) => ({ id: `audit:${category}`, label: `Audit: ${category}` })),
+    ...scanners.map((scanner) => ({ id: `scanner:${scanner.id}`, label: scanner.label })),
+  ];
+}

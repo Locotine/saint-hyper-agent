@@ -484,6 +484,10 @@
       "types": "./src/remoteServerInstall.ts",
       "import": "./src/remoteServerInstall.ts"
     },
+    "./remoteTreeHash": {
+      "types": "./src/remoteTreeHash.ts",
+      "import": "./src/remoteTreeHash.ts"
+    },
     "./serverProviders": {
       "types": "./src/serverProviders.ts",
       "import": "./src/serverProviders.ts"

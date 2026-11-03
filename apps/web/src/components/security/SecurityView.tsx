@@ -193,13 +193,14 @@ function AlertFeed() {
           ))}
         </div>
       </div>
-      <label className="flex items-center gap-2 text-ui-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-ui-sm text-muted-foreground">
         <Switch
+          aria-label="Show resolved"
           checked={showResolved}
           onCheckedChange={(checked) => setShowResolved(Boolean(checked))}
         />
         Show resolved
-      </label>
+      </div>
       {sorted.length === 0 ? (
         <Empty>
           <EmptyHeader>
@@ -255,13 +256,14 @@ function AutonomyLadder({ status }: { status: AegisStatus }) {
         })}
       </ButtonGroup>
       <p className="text-ui-sm text-muted-foreground">{currentDetail}</p>
-      <label className="flex items-center gap-2 text-ui-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-ui-sm text-muted-foreground">
         <Switch
+          aria-label="Tech lead sign-off for unattended runs (L3)"
           checked={status.settings.unattendedSignedOffBy !== null}
           onCheckedChange={(checked) => update.mutate({ signOffUnattended: Boolean(checked) })}
         />
         Tech lead sign-off for unattended runs (L3)
-      </label>
+      </div>
     </section>
   );
 }

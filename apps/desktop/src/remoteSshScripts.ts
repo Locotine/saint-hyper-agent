@@ -4,6 +4,7 @@
 // Layer: Desktop remote SSH utility
 // Exports: remote script builders, report parsers, REMOTE_SSH_LOGIN_SHELL_COMMAND
 
+import { REMOTE_TREE_HASH_SCRIPT } from "@saint/shared/remoteTreeHash";
 import { REMOTE_SERVER_PROVIDERS, SAINT_PROVIDERS_ENV } from "@saint/shared/serverProviders";
 
 /** Report lines carry this prefix so login-shell banners on stdout never parse as data. */
@@ -33,6 +34,14 @@ export interface RemoteSshScriptTarget {
    * platform and Node ABI it names the `deps/` folder versions share.
    */
   readonly depsHash: string;
+  /**
+   * Hash of the bundle files this build ships and, per `<platform>-<arch>`, of the unpacked
+   * dependency pack (see `REMOTE_TREE_HASH_SCRIPT`). With both, a version one account installed
+   * into the machine-wide store is reused by every account whose files hash to these, and the
+   * first account to need a version publishes it there. Without them every account keeps its own.
+   */
+  readonly bundleTree?: string | undefined;
+  readonly depsTrees?: Readonly<Record<string, string>> | undefined;
   /**
    * Version of the security-scanner pack this build ships (see `scannerPackVersion`),
    * absent when it ships none. The host keeps it in its own folder, apart from `deps/`.
@@ -119,6 +128,12 @@ export const REMOTE_SERVER_NODE_FLAGS = ["--max-old-space-size=1024", "--max-sem
  */
 export const REMOTE_SHARED_STORE_ENV = "SAINT_REMOTE_SHARED_STORE";
 
+/**
+ * Overrides where accounts share installs when no administrator store is set (default
+ * `/Users/Shared/saint-remote` on macOS, `/var/tmp/saint-remote` elsewhere). Absolute path.
+ */
+export const REMOTE_AUTO_STORE_ENV = "SAINT_REMOTE_AUTO_STORE";
+
 // The scanner pack lives in the shared store next to versions/ and deps/, one folder per
 // pack version, so it uploads once per host and every install folder reuses it.
 function scannerPreambleLines(target: RemoteSshScriptTarget): string[] {
@@ -152,6 +167,7 @@ function preamble(target: RemoteSshScriptTarget): string {
     'deps_link="../../deps/$deps_key/node_modules"',
     `shared="\${${REMOTE_SHARED_STORE_ENV}:-}"`,
     'case "$shared" in /*) ;; *) shared="" ;; esac',
+    ...autoStorePreambleLines(target),
     // A version is ready when it is installed and links to dependencies built
     // for this host's ABI. $1 is a store root holding versions/ and deps/.
     "version_ready() {",
@@ -162,7 +178,66 @@ function preamble(target: RemoteSshScriptTarget): string {
     ...scannerPreambleLines(target),
     'install_dir="$store/$version"',
     'if [ -n "$shared" ] && version_ready "$shared"; then install_dir="$shared/versions/$version"; fi',
+    ...autoStoreFunctionLines(),
   ].join("\n");
+}
+
+/**
+ * Where accounts without an administrator's SAINT_REMOTE_SHARED_STORE share installs: a folder
+ * any account may create entries in (sticky, like /tmp), so the first to need a version publishes
+ * it and nobody can replace or delete another account's. Off unless the desktop sent the hashes
+ * it expects, and on hosts whose platform has no expected dependency hash.
+ */
+function autoStorePreambleLines(target: RemoteSshScriptTarget): string[] {
+  const depsTrees = target.depsTrees ?? {};
+  if (!target.bundleTree || Object.keys(depsTrees).length === 0) return ['auto_shared=""'];
+  if (!/^[0-9a-f]{64}$/u.test(target.bundleTree)) {
+    throw new Error("The bundle tree hash must be 64 hex digits.");
+  }
+  for (const tree of Object.values(depsTrees)) {
+    if (!/^[0-9a-f]{64}$/u.test(tree))
+      throw new Error("A dependency tree hash must be 64 hex digits.");
+  }
+  return [
+    `bundle_tree=${quoteShell(target.bundleTree)}`,
+    `deps_tree=$(node -p 'JSON.parse(process.argv[1])[process.platform + "-" + process.arch] || ""' ${quoteShell(JSON.stringify(depsTrees))} 2>/dev/null || true)`,
+    'auto_shared=""',
+    'if [ -z "$shared" ] && [ -n "$deps_tree" ]; then',
+    `  auto_shared="\${${REMOTE_AUTO_STORE_ENV}:-}"`,
+    '  case "$auto_shared" in /*) ;; *)',
+    '    case "$(uname -s)" in Darwin) auto_shared=/Users/Shared/saint-remote ;; *) auto_shared=/var/tmp/saint-remote ;; esac',
+    "  ;; esac",
+    "fi",
+  ];
+}
+
+function autoStoreFunctionLines(): string[] {
+  return [
+    `tree_hash() { node -e ${quoteShell(REMOTE_TREE_HASH_SCRIPT)} "$@"; }`,
+    // Ready AND byte-identical to what this desktop ships: another account's install is trusted
+    // only after hashing every file, never by its name or marker.
+    "auto_ready() {",
+    '  version_ready "$1" || return 1',
+    '  [ "$(tree_hash "$1/versions/$version" .installed node_modules 2>/dev/null)" = "$bundle_tree" ] || return 1',
+    '  [ "$(tree_hash "$1/deps/$deps_key" .installed 2>/dev/null)" = "$deps_tree" ]',
+    "}",
+    // This account's own install wins when it has one; otherwise a verified shared one is used.
+    "pick_install_dir() {",
+    '  [ "$install_dir" = "$store/$version" ] || return 0',
+    '  version_ready "$store_root" && return 0',
+    '  if [ -n "$auto_shared" ] && auto_ready "$auto_shared"; then install_dir="$auto_shared/versions/$version"; fi',
+    "  return 0",
+    "}",
+    // Folders other accounts may add to but not replace from: sticky and world-writable, set only
+    // by the account that creates them.
+    "auto_prepare() {",
+    '  mkdir -p "$1/versions" "$1/deps" 2>/dev/null || return 1',
+    '  for auto_dir in "$1" "$1/versions" "$1/deps"; do',
+    '    if [ -O "$auto_dir" ]; then chmod 1777 "$auto_dir" 2>/dev/null || true; fi',
+    '    [ -w "$auto_dir" ] || return 1',
+    "  done",
+    "}",
+  ];
 }
 
 /** One tmux session per install folder, so Stable, Beta and custom folders never collide. */
@@ -186,6 +261,7 @@ const SERVER_ALIVE_FUNCTION = `server_alive() {
 export function buildRemoteProbeScript(target: RemoteSshScriptTarget): string {
   return `${preamble(target)}
 ${SERVER_ALIVE_FUNCTION}
+pick_install_dir
 node_version=$(node --version 2>/dev/null || true)
 tar_ok=false
 if command -v tar >/dev/null 2>&1; then tar_ok=true; fi
@@ -254,7 +330,7 @@ try {
 export function buildRemoteInstallScript(target: RemoteSshScriptTarget): string {
   return `${preamble(target)}
 ${PUBLISH_FUNCTION}
-mkdir -p "$store" "$deps_store" "$root/staging"
+mkdir -p "$root/staging"
 # Killing the local ssh (timeout, Cancel) sends the remote shell no signal, so an
 # earlier install of this folder can still be running in the staging below.
 pid_file="$root/staging/install.pid"
@@ -270,36 +346,82 @@ if [ -n "$old_pid" ] && [ "$old_pid" != "$$" ] && kill -0 "$old_pid" 2>/dev/null
   esac
 fi
 echo "$$" >"$pid_file"
-if [ ! -f "$deps_store/$deps_key/.installed" ]; then
-  if [ ! -f "$staging/deps.tar.gz" ]; then
-    echo "Saint did not upload its dependency pack; connect again to upload it." >&2
-    exit 1
+# The pack leaves the version's staging at once so it never ships inside the version folder, and
+# stays put until an install succeeds so a fallback can use it too.
+pack_file="$root/staging/deps-pack-$version.tgz"
+if [ -f "$staging/deps.tar.gz" ]; then mv -f "$staging/deps.tar.gz" "$pack_file"; fi
+deps_staging="$root/staging/deps-$deps_key"
+# Publishes $1 as $2 (and, for a version, links its node_modules as $3). The shared store may
+# sit on another filesystem than $HOME, so it gets a copy others can read but not write.
+publish_to() {
+  if [ "$shared_install" = true ]; then
+    shared_tmp="$auto_shared/.tmp-$(id -u)-$$-\${2##*/}"
+    rm -rf "$shared_tmp"
+    cp -RP "$1" "$shared_tmp" || return 1
+    chmod -R go+rX,go-w "$shared_tmp" || return 1
+    publish "$shared_tmp" "$2" "$3" || return 1
+    rm -rf "$shared_tmp"
+  else
+    publish "$1" "$2" "$3"
   fi
-  deps_staging="$root/staging/deps-$deps_key"
-  rm -rf "$deps_staging"
-  mkdir -p "$deps_staging"
-  cd "$deps_staging"
-  echo "Unpacking the dependencies Saint uploaded." >&2
-  tar -xzf "$staging/deps.tar.gz"
-  prebuild=$(node -p 'process.platform + "-" + process.arch')
-  if [ ! -d "node_modules/@lydell/node-pty-$prebuild" ]; then
-    echo "Saint ships no terminal (node-pty) binary for $prebuild." >&2
-    exit 1
+}
+# Installs into the store folder $1 (versions/ and deps/ live in it). Every step checks its own
+# status: with the shared store a failure falls back to this account's store.
+install_into() {
+  t_root="$1"
+  mkdir -p "$t_root/versions" "$t_root/deps" || return 1
+  if [ ! -f "$t_root/deps/$deps_key/.installed" ]; then
+    if [ ! -f "$pack_file" ]; then
+      echo "Saint did not upload its dependency pack; connect again to upload it." >&2
+      return 1
+    fi
+    rm -rf "$deps_staging"
+    mkdir -p "$deps_staging" || return 1
+    echo "Unpacking the dependencies Saint uploaded." >&2
+    tar -xzf "$pack_file" -C "$deps_staging" || return 1
+    prebuild=$(node -p 'process.platform + "-" + process.arch') || return 1
+    if [ ! -d "$deps_staging/node_modules/@lydell/node-pty-$prebuild" ]; then
+      echo "Saint ships no terminal (node-pty) binary for $prebuild." >&2
+      return 1
+    fi
+    for platform_dir in "$deps_staging"/node_modules/@lydell/node-pty-*; do
+      [ -e "$platform_dir" ] || continue
+      [ "\${platform_dir##*/node-pty-}" = "$prebuild" ] || rm -rf "$platform_dir"
+    done
+    if [ "$shared_install" = true ] && [ "$(tree_hash "$deps_staging" .installed)" != "$deps_tree" ]; then
+      echo "The unpacked dependencies differ from what Saint ships." >&2
+      return 1
+    fi
+    : >"$deps_staging/.installed"
+    publish_to "$deps_staging" "$t_root/deps/$deps_key" "" || return 1
   fi
-  for platform_dir in node_modules/@lydell/node-pty-*; do
-    [ -e "$platform_dir" ] || continue
-    [ "\${platform_dir##*/node-pty-}" = "$prebuild" ] || rm -rf "$platform_dir"
-  done
-  : >.installed
-  cd "$HOME"
-  publish "$deps_staging" "$deps_store/$deps_key"
+  rm -rf "$staging/node_modules"
+  ln -s "$deps_link" "$staging/node_modules" || return 1
+  if [ "$shared_install" = true ] && [ "$(tree_hash "$staging" .installed node_modules)" != "$bundle_tree" ]; then
+    echo "The uploaded Saint files differ from what Saint ships." >&2
+    return 1
+  fi
+  : >"$staging/.installed"
+  publish_to "$staging" "$t_root/versions/$version" "$deps_link" || return 1
+  # Another account may have published this version first, or squatted its name: only a tree that
+  # hashes right counts.
+  if [ "$shared_install" = true ]; then auto_ready "$t_root" || return 1; fi
+  return 0
+}
+shared_install=false
+if [ -n "$auto_shared" ] && auto_prepare "$auto_shared"; then
+  shared_install=true
+  if install_into "$auto_shared"; then
+    echo "Installed Saint for every account of this host in $auto_shared." >&2
+  else
+    shared_install=false
+    echo "Could not use the shared Saint folder $auto_shared; installing for this account." >&2
+    install_into "$store_root"
+  fi
+else
+  install_into "$store_root"
 fi
-cd "$staging"
-rm -rf node_modules deps.tar.gz
-ln -s "$deps_link" node_modules
-: >.installed
-cd "$HOME"
-publish "$staging" "$store/$version" "$deps_link"
+rm -rf "$staging" "$deps_staging" "$pack_file"
 rm -f "$pid_file"
 rmdir "$root/staging" 2>/dev/null || true
 report '{"kind":"installed"}'
@@ -382,6 +504,7 @@ export function buildRemoteStartScript(
   const devUrlFlag = options.devUrl ? ` --dev-url ${options.devUrl}` : "";
   return `${preamble(target)}
 ${SERVER_ALIVE_FUNCTION}
+pick_install_dir
 ${stopServerLines()}
 mkdir -p "$run_dir" "$root/home"
 chmod 700 "$root" "$run_dir"
@@ -443,10 +566,44 @@ for deps_dir in "$deps_store"/*; do
   rm -rf "$deps_dir"
 done
 ${scannerCleanupLines(target)}
+${autoStoreCleanupLines()}
 # Folders installed before the shared store kept their own versions.
 if [ "$root/versions" != "$store" ]; then rm -rf "$root/versions"; fi
 report "{\\"kind\\":\\"started\\",\\"port\\":$port}"
 `;
+}
+
+// The machine-wide folder keeps every version any account published, and an account can delete
+// only what it owns (the folder is sticky). A starting server removes the old versions it owns that
+// no process runs and that are a day old, the dependency folders no version links any more, and
+// copies a failed install left behind. Without the folder there is nothing to do.
+function autoStoreCleanupLines(): string {
+  return `if [ -n "$auto_shared" ] && [ -d "$auto_shared/versions" ]; then
+  for other in "$auto_shared"/versions/*; do
+    [ -d "$other" ] || continue
+    [ "$other" = "$install_dir" ] && continue
+    [ "$other" = "$auto_shared/versions/$version" ] && continue
+    [ -O "$other" ] || continue
+    [ -n "$(find "$other" -maxdepth 0 -mmin -1440 2>/dev/null)" ] && continue
+    in_use "$other" || rm -rf "$other"
+  done
+  for deps_dir in "$auto_shared"/deps/*; do
+    [ -d "$deps_dir" ] || continue
+    [ -O "$deps_dir" ] || continue
+    linked=false
+    for other in "$auto_shared"/versions/*; do
+      [ "$(readlink "$other/node_modules" 2>/dev/null)" = "../../deps/\${deps_dir##*/}/node_modules" ] && linked=true
+    done
+    [ "$linked" = true ] && continue
+    [ -n "$(find "$deps_dir" -maxdepth 0 -mmin -60 2>/dev/null)" ] && continue
+    rm -rf "$deps_dir"
+  done
+  for leftover in "$auto_shared"/.tmp-*; do
+    [ -d "$leftover" ] || continue
+    [ -O "$leftover" ] || continue
+    [ -n "$(find "$leftover" -maxdepth 0 -mmin +1440 2>/dev/null)" ] && rm -rf "$leftover"
+  done
+fi`;
 }
 
 // Without the pack on this host the server starts without the variable and the scanner
@@ -478,6 +635,37 @@ function stopServerLines(): string {
 fi
 if command -v tmux >/dev/null 2>&1; then tmux kill-session -t "$session" 2>/dev/null || true; fi
 rm -f "$run_dir/server.pid" "$run_dir/server.json"`;
+}
+
+/**
+ * Moves this desktop's own older folder's data (`<remoteRoot>/home`, where `target.remoteRoot` is
+ * that older folder) into the account's shared folder, stopping its server first. The first
+ * desktop to connect does it; nothing happens when there is no older data. When the shared folder
+ * already holds data (another desktop got there first) or another desktop is moving right now, the
+ * older data stays where it is: two databases are never merged. Reports `migrated` or `legacy`
+ * (the older folder keeps being used), and nothing when there was nothing to move.
+ */
+export function buildRemoteMigrateRootScript(target: RemoteSshScriptTarget): string {
+  return `${preamble(target)}
+${SERVER_ALIVE_FUNCTION}
+shared_home="$store_root/home"
+if [ ! -d "$root/home" ]; then exit 0; fi
+lock="$store_root/.migrating"
+mkdir -p "$store_root"
+# A lock a crashed move left behind must not block every later desktop.
+[ -n "$(find "$lock" -maxdepth 0 -mmin +10 2>/dev/null)" ] && rmdir "$lock" 2>/dev/null || true
+if [ -e "$shared_home" ] || ! mkdir "$lock" 2>/dev/null; then
+  report '{"kind":"legacy"}'
+  exit 0
+fi
+trap 'rmdir "$lock" 2>/dev/null || true' EXIT
+${stopServerLines()}
+if mv "$root/home" "$shared_home"; then
+  report '{"kind":"migrated"}'
+else
+  report '{"kind":"legacy"}'
+fi
+`;
 }
 
 /** Stops the server from this install folder; installed files and data stay. */
@@ -549,7 +737,7 @@ export function parseRemoteStartReport(stdout: string): { readonly port: number 
 
 export function hasRemoteReport(
   stdout: string,
-  kind: "installed" | "stopped" | "scanners",
+  kind: "installed" | "stopped" | "scanners" | "legacy" | "migrated",
 ): boolean {
   return findReport(stdout, kind) !== null;
 }

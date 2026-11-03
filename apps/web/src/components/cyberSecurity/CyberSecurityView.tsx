@@ -37,6 +37,8 @@ import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { BUTTON_GROUP_ACTIVE_CLASS_NAME, ButtonGroup } from "~/components/ui/button-group";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "~/components/ui/empty";
+import { ComposerPickerMenuPopup } from "~/components/chat/ComposerPickerMenuPopup";
+import { Menu, MenuItem, MenuTrigger } from "~/components/ui/menu";
 import { Spinner } from "~/components/ui/spinner";
 import { StatusChip, StatusDot } from "~/components/ui/status-chip";
 import { toastManager } from "~/components/ui/toast";
@@ -51,6 +53,7 @@ import {
   fixAllTargets,
   pickDynamicScript,
   SEVERITY_ORDER,
+  stepOptions,
 } from "./cyberSecurity.logic";
 import { FindingsBoard } from "./FindingsBoard";
 import { LocalOnlyNotice } from "./LocalOnlyNotice";
@@ -89,6 +92,9 @@ function VerdictBanner({ status }: { status: CyberSecurityStatus }) {
                 ? "Nothing in this repo matches an area the assessment covers."
                 : `No unresolved finding at or above ${assessment.threshold}.${assessment.error ? ` Note: ${assessment.error}` : ""}`}
       </span>
+      {assessment.steps && assessment.verdict !== "running" ? (
+        <span className="text-ui-sm">Partial run: {assessment.steps.join(", ")}.</span>
+      ) : null}
     </div>
   );
 }
@@ -196,9 +202,11 @@ export function CyberSecurityView({ projectId }: { projectId: ProjectId }) {
   const dynamicScript = pickDynamicScript(scripts.data?.targets ?? []);
   const [scanApp, setScanApp] = useState(false);
   const [confirmingScan, setConfirmingScan] = useState(false);
+  // The steps the confirmed scan was asked for: absent means the whole assessment.
+  const [scanSteps, setScanSteps] = useState<string[] | undefined>(undefined);
 
   const start = useMutation({
-    mutationFn: (dynamicScan?: CyberDynamicScanRequest) => {
+    mutationFn: (run: { dynamicScan?: CyberDynamicScanRequest; steps?: string[] }) => {
       const modelSelection: ModelSelection = project?.defaultModelSelection ?? {
         provider: "codex",
         model: getDefaultModel("codex"),
@@ -206,7 +214,8 @@ export function CyberSecurityView({ projectId }: { projectId: ProjectId }) {
       return api().cyberSecurity.start({
         projectId,
         modelSelection,
-        ...(dynamicScan ? { dynamicScan } : {}),
+        ...(run.dynamicScan ? { dynamicScan: run.dynamicScan } : {}),
+        ...(run.steps ? { steps: run.steps } : {}),
       });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
@@ -273,6 +282,7 @@ export function CyberSecurityView({ projectId }: { projectId: ProjectId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the turn states
   }, [fixTurnStates]);
   const running = assessment?.verdict === "running";
+  const steps = assessment ? stepOptions(assessment.categories, status?.scanners ?? []) : [];
   const targets = status && assessment ? fixAllTargets(status.findings, assessment.threshold) : [];
 
   if (!hostSupported) {
@@ -342,14 +352,57 @@ export function CyberSecurityView({ projectId }: { projectId: ProjectId }) {
                   <Button
                     size="sm"
                     disabled={running || start.isPending}
-                    onClick={() =>
-                      scanApp && dynamicScript.ok
-                        ? setConfirmingScan(true)
-                        : start.mutate(undefined)
-                    }
+                    onClick={() => {
+                      if (scanApp && dynamicScript.ok) {
+                        setScanSteps(undefined);
+                        setConfirmingScan(true);
+                      } else {
+                        start.mutate({});
+                      }
+                    }}
                   >
                     {running || start.isPending ? "Running…" : "Run assessment"}
                   </Button>
+                  {steps.length > 0 ? (
+                    <Menu>
+                      <MenuTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={running || start.isPending}
+                          />
+                        }
+                      >
+                        Run one step
+                      </MenuTrigger>
+                      <ComposerPickerMenuPopup align="end" className="min-w-56" sideOffset={8}>
+                        {steps.map((step) => {
+                          const needsApp = step.id === "scanner:nuclei";
+                          const blocked = needsApp && !dynamicScript.ok;
+                          return (
+                            <MenuItem
+                              key={step.id}
+                              disabled={blocked}
+                              title={
+                                blocked && !dynamicScript.ok ? dynamicScript.reason : undefined
+                              }
+                              onClick={() => {
+                                if (needsApp) {
+                                  setScanSteps([step.id]);
+                                  setConfirmingScan(true);
+                                } else {
+                                  start.mutate({ steps: [step.id] });
+                                }
+                              }}
+                            >
+                              {step.label}
+                            </MenuItem>
+                          );
+                        })}
+                      </ComposerPickerMenuPopup>
+                    </Menu>
+                  ) : null}
                 </div>
               ) : null}
             </header>
@@ -378,7 +431,10 @@ export function CyberSecurityView({ projectId }: { projectId: ProjectId }) {
                       size="sm"
                       onClick={() => {
                         setConfirmingScan(false);
-                        start.mutate(dynamicScript.request);
+                        start.mutate({
+                          dynamicScan: dynamicScript.request,
+                          ...(scanSteps ? { steps: scanSteps } : {}),
+                        });
                       }}
                     >
                       Start scan

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   clientRemoteRoot,
+  compareInstallVersions,
   createRemoteClientId,
   defaultRemoteRoot,
   isValidSshTarget,
@@ -152,5 +153,19 @@ describe("remote client ids", () => {
     expect(parseRemoteClientId("")).toBeNull();
     expect(parseRemoteClientId("../x-0a1b2c3d")).toBeNull();
     expect(parseRemoteClientId("anh")).toBeNull();
+  });
+});
+
+describe("compareInstallVersions", () => {
+  it.each([
+    ["1.2.3-0123456789ab", "1.2.4-0123456789ab", -1],
+    ["1.10.0-0123456789ab", "1.9.9-0123456789ab", 1],
+    ["1.2.3-0123456789ab", "1.2.3-ba9876543210", 0],
+    ["1.2.3-beta.1-0123456789ab", "1.2.3-0123456789ab", -1],
+    ["1.2.3-beta.2-0123456789ab", "1.2.3-beta.10-0123456789ab", -1],
+    ["1.2.3", "1.2.3", 0],
+    ["dev", "1.2.3", 0],
+  ])("orders %s against %s", (a, b, expected) => {
+    expect(Math.sign(compareInstallVersions(a, b))).toBe(expected);
   });
 });

@@ -24,7 +24,12 @@ import { DevServerManager } from "../../devServerManager.ts";
 import { FlowService } from "../../flow/Services/FlowService.ts";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import { discoverProjectScripts } from "../../workspaceEntries.ts";
-import { buildAssessmentFlow, matchCategories, REPORT_NODE_ID } from "../assessmentFlow.ts";
+import {
+  buildAssessmentFlow,
+  matchCategories,
+  narrowSteps,
+  REPORT_NODE_ID,
+} from "../assessmentFlow.ts";
 import { countUnresolved, parseFindingRefs, verdictFor, type ParsedFinding } from "../findings.ts";
 import { detectRepoInventory } from "../repoInventory.ts";
 import {
@@ -64,6 +69,8 @@ interface AssessmentRow {
   readonly threshold: string;
   readonly inventoryJson: string;
   readonly categoriesJson: string;
+  /** The steps a partial run was limited to, as JSON; null for a full run. */
+  readonly stepsJson: string | null;
   readonly error: string | null;
   readonly startedAt: string;
   readonly finishedAt: string | null;
@@ -146,7 +153,7 @@ const make = Effect.gen(function* () {
     sql<AssessmentRow>`
       SELECT assessment_id AS "assessmentId", project_id AS "projectId", flow_id AS "flowId",
         verdict, threshold, inventory_json AS "inventoryJson", categories_json AS "categoriesJson",
-        error, started_at AS "startedAt", finished_at AS "finishedAt", ingested
+        steps_json AS "stepsJson", error, started_at AS "startedAt", finished_at AS "finishedAt", ingested
       FROM cyber_security_assessments WHERE project_id = ${projectId}
       ORDER BY started_at DESC LIMIT 1
     `.pipe(Effect.mapError(toError("Could not read the assessments.")));
@@ -155,7 +162,7 @@ const make = Effect.gen(function* () {
     sql<AssessmentRow>`
       SELECT assessment_id AS "assessmentId", project_id AS "projectId", flow_id AS "flowId",
         verdict, threshold, inventory_json AS "inventoryJson", categories_json AS "categoriesJson",
-        error, started_at AS "startedAt", finished_at AS "finishedAt", ingested
+        steps_json AS "stepsJson", error, started_at AS "startedAt", finished_at AS "finishedAt", ingested
       FROM cyber_security_assessments WHERE assessment_id = ${assessmentId}
     `.pipe(
       Effect.map((rows) => rows[0] ?? null),
@@ -183,6 +190,7 @@ const make = Effect.gen(function* () {
     threshold: row.threshold as CyberSeverity,
     inventory: JSON.parse(row.inventoryJson) as CyberRepoInventory,
     categories: JSON.parse(row.categoriesJson) as string[],
+    steps: row.stepsJson ? (JSON.parse(row.stepsJson) as string[]) : null,
     counts: countUnresolved(findings),
     error: row.error ?? note,
     startedAt: row.startedAt as CyberAssessment["startedAt"],
@@ -557,8 +565,15 @@ const make = Effect.gen(function* () {
         try: () => detectRepoInventory(root),
         catch: toError("Could not scan the repository."),
       });
-      const matched = matchCategories(inventory);
-      const scanners = applicableScanners(inventory);
+      const applicable = applicableScanners(inventory);
+      const narrowed = narrowSteps(
+        input.steps,
+        matchCategories(inventory),
+        applicable.map((scanner) => scanner.id),
+      );
+      if ("error" in narrowed) return yield* new CyberSecurityError({ message: narrowed.error });
+      const matched = narrowed.categories;
+      const scanners = applicable.filter((scanner) => narrowed.scannerIds.includes(scanner.id));
       const assessmentId = randomUUID();
       const threshold = input.threshold ?? DEFAULT_THRESHOLD;
       const startedAt = new Date().toISOString();
@@ -587,10 +602,11 @@ const make = Effect.gen(function* () {
 
       yield* sql`
         INSERT INTO cyber_security_assessments (assessment_id, project_id, flow_id, verdict,
-          threshold, inventory_json, categories_json, error, started_at, finished_at, ingested)
+          threshold, inventory_json, categories_json, steps_json, error, started_at, finished_at,
+          ingested)
         VALUES (${assessmentId}, ${input.projectId}, ${flowId},
           ${hasWork ? "running" : "pass"}, ${threshold}, ${JSON.stringify(inventory)},
-          ${JSON.stringify(matched)}, NULL, ${startedAt}, ${hasWork ? null : startedAt},
+          ${JSON.stringify(matched)}, ${input.steps ? JSON.stringify(input.steps) : null}, NULL, ${startedAt}, ${hasWork ? null : startedAt},
           ${hasWork ? 0 : 1})
       `.pipe(Effect.mapError(toError("Could not save the assessment.")));
 

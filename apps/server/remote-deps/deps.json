@@ -33,5 +33,11 @@
     "darwin-x64",
     "linux-arm64",
     "linux-x64"
-  ]
+  ],
+  "trees": {
+    "darwin-arm64": "60698553c4a62094b0fcf88fd3fde9b0cecc3a58ea7e07dd35ede4c2c016e4a5",
+    "darwin-x64": "f891fed670138867a6d90c4cee82b6da9d7bf55f083aae67cfc9f335331750c2",
+    "linux-arm64": "0316dc805f986aefe4d1fb6ce58f5bf8557b3ec578250a958b47f92e6966872b",
+    "linux-x64": "a93310e1b67705009ca72382be0b2f4a683de419c90664edecf87d45502fc549"
+  }
 }

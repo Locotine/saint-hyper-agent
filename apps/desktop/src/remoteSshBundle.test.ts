@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest";
 import {
   remoteDepsDescriptorPath,
   remoteDepsPackPath,
+  remoteInstallBundleTree,
   remoteInstallDepsHash,
+  remoteInstallDepsTrees,
   remoteInstallVersion,
 } from "./remoteSshBundle";
 
@@ -54,5 +56,37 @@ describe("remoteInstallDepsHash", () => {
     const descriptor = FS.readFileSync(remoteDepsDescriptorPath(appRoot), "utf8");
     expect(remoteInstallDepsHash(descriptor)).toMatch(/^[0-9a-f]{12}$/u);
     expect(FS.existsSync(remoteDepsPackPath(appRoot))).toBe(true);
+  });
+});
+
+describe("remote install tree hashes", () => {
+  it("hashes the shipped files regardless of their order", () => {
+    const a = entry("dist/index.mjs", "main");
+    const b = entry("package.json", "{}");
+    expect(remoteInstallBundleTree([a, b])).toBe(remoteInstallBundleTree([b, a]));
+    expect(remoteInstallBundleTree([a, b])).not.toBe(
+      remoteInstallBundleTree([entry("dist/index.mjs", "other"), b]),
+    );
+  });
+
+  it("reads per-host dependency trees and drops malformed ones", () => {
+    const good = "a".repeat(64);
+    expect(
+      remoteInstallDepsTrees(
+        JSON.stringify({ trees: { "linux-x64": good, "darwin-arm64": "xyz" } }),
+      ),
+    ).toEqual({ "linux-x64": good });
+    expect(remoteInstallDepsTrees("{}")).toEqual({});
+  });
+
+  it("has a tree for every host in the committed dependency descriptor", () => {
+    const appRoot = Path.resolve(import.meta.dirname, "../../..");
+    const descriptor = FS.readFileSync(remoteDepsDescriptorPath(appRoot), "utf8");
+    expect(Object.keys(remoteInstallDepsTrees(descriptor)).toSorted()).toEqual([
+      "darwin-arm64",
+      "darwin-x64",
+      "linux-arm64",
+      "linux-x64",
+    ]);
   });
 });

@@ -1,4 +1,7 @@
 import { EventEmitter } from "node:events";
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough, Readable } from "node:stream";
 import type { ChildProcess } from "node:child_process";
 
@@ -59,9 +62,13 @@ function fakeSpawn(
       setImmediate(() => emitter.emit("close", answer.code ?? 0));
     });
     // Connection-sharing runs (`-O check`, the forked `-f` master) take no stdin.
-    if (args.includes("-O") || args.includes("-f")) {
+    if (args.includes("-O") || args.includes("-f") || args.includes("-G")) {
       const answer = respond(args, "");
-      setImmediate(() => record.exit(answer === "tunnel" ? 0 : (answer.code ?? 0)));
+      if (args.includes("-G") && answer !== "tunnel") stdout.end(answer.stdout ?? "");
+      setImmediate(() => {
+        record.exit(answer === "tunnel" ? 0 : (answer.code ?? 0));
+        emitter.emit("close", answer === "tunnel" ? 0 : (answer.code ?? 0));
+      });
       return emitter;
     }
     if (args.includes("-N")) respond(args, "");
@@ -107,7 +114,161 @@ function scriptKind(stdin: string): string {
   return stdin === "bundle" ? "upload" : "unknown";
 }
 
+const tooOpen = (key: string) =>
+  `Permissions 0664 for '${key}' are too open.\nLoad key "${key}": bad permissions\n`;
+const keyIn = (dir: string, mode: number) => {
+  const key = join(dir, "host.pem");
+  writeFileSync(key, "key", { mode });
+  return key;
+};
+
+const asked = (calls: readonly FakeChild[]) =>
+  calls.filter((call) => call.stdin.join("").includes(".migrating")).length;
+
+describe("RemoteSshManager default folder", () => {
+  const legacyRoot = ".saint-remote/clients/me-1";
+  const reply = {
+    migrated: 'SAINT_REMOTE {"kind":"migrated"}\n',
+    legacy: 'SAINT_REMOTE {"kind":"legacy"}\n',
+    none: "",
+  } as const;
+  const connectedRoots = (outcome: keyof typeof reply) => {
+    const { spawn, calls } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      if (stdin.includes(".migrating")) return { stdout: reply[outcome] };
+      const kind = scriptKind(stdin);
+      if (kind === "probe") return { stdout: PROBE_FRESH };
+      if (kind === "install") return { stdout: 'SAINT_REMOTE {"kind":"installed"}' };
+      if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
+      if (kind === "stop") return { stdout: 'SAINT_REMOTE {"kind":"stopped"}' };
+      return {};
+    });
+    const { manager } = makeManager(spawn, {
+      defaultRemoteRoot: ".saint-remote",
+      legacyRemoteRoot: legacyRoot,
+    });
+    return { manager, calls };
+  };
+  const rootOfProbe = (calls: readonly FakeChild[]) =>
+    calls.some((call) => {
+      const script = call.stdin.join("");
+      return (
+        script.includes('"kind\\":\\"probe') && script.includes(`root="$HOME/"'${legacyRoot}'`)
+      );
+    })
+      ? legacyRoot
+      : ".saint-remote";
+
+  it("uses the shared folder when this desktop has no older folder there", async () => {
+    const { manager, calls } = connectedRoots("none");
+    await manager.connect({ host: "devbox" });
+    expect(rootOfProbe(calls)).toBe(".saint-remote");
+  });
+
+  it("uses the shared folder once the older folder's data was moved into it", async () => {
+    const { manager, calls } = connectedRoots("migrated");
+    await manager.connect({ host: "devbox" });
+    expect(rootOfProbe(calls)).toBe(".saint-remote");
+  });
+
+  it("keeps this desktop's older folder where the shared one already has data", async () => {
+    const { manager, calls } = connectedRoots("legacy");
+    await manager.connect({ host: "devbox" });
+    expect(rootOfProbe(calls)).toBe(legacyRoot);
+  });
+
+  it("asks the host once and never overrides an explicit folder", async () => {
+    const { manager, calls } = connectedRoots("legacy");
+    await manager.connect({ host: "devbox", remoteRoot: "custom/folder" });
+    expect(asked(calls)).toBe(0);
+    await manager.connect({ host: "other" });
+    await manager.stopServer({ host: "other" });
+    expect(asked(calls)).toBe(1);
+  });
+});
+
+describe("RemoteSshManager server version", () => {
+  const withServer = (serverVersion: string) => {
+    const { spawn, calls } = fakeSpawn((args, stdin) => {
+      if (args.includes("-N")) return "tunnel";
+      const kind = scriptKind(stdin);
+      if (kind === "probe") {
+        return {
+          stdout: `SAINT_REMOTE {"kind":"probe","node":"v24.13.1","tar":true,"installed":true,"server":{"info":{"port":4100,"version":"${serverVersion}"},"token":"tok"}}`,
+        };
+      }
+      if (kind === "start") return { stdout: 'SAINT_REMOTE {"kind":"started","port":4100}' };
+      return {};
+    });
+    const { manager } = makeManager(spawn);
+    return { manager, calls };
+  };
+  const starts = (calls: readonly FakeChild[]) =>
+    calls.filter((call) => scriptKind(call.stdin.join("")) === "start").length;
+
+  it("does not downgrade a newer server another desktop runs", async () => {
+    const { manager, calls } = withServer("1.2.4");
+    await expect(manager.connect({ host: "devbox" })).rejects.toThrow(/Update Saint/u);
+    expect(starts(calls)).toBe(0);
+  });
+
+  it("restarts an older server with this desktop's version", async () => {
+    const { manager, calls } = withServer("1.2.2");
+    await manager.connect({ host: "devbox" });
+    expect(starts(calls)).toBe(1);
+  });
+
+  it("reuses a server already on this version", async () => {
+    const { manager, calls } = withServer("1.2.3");
+    await manager.connect({ host: "devbox" });
+    expect(starts(calls)).toBe(0);
+  });
+});
+
 describe("RemoteSshManager", () => {
+  describe("key permissions", () => {
+    it("sets a too-open key from the host's ssh config to owner-only and retries", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "saint-key-"));
+      try {
+        const key = keyIn(dir, 0o664);
+        let stopRuns = 0;
+        const { spawn } = fakeSpawn((args, stdin) => {
+          if (args.includes("-G")) return { stdout: `hostname h\nidentityfile ${key}\n` };
+          if (scriptKind(stdin) !== "stop") return {};
+          stopRuns += 1;
+          return stopRuns === 1
+            ? { code: 255, stderr: tooOpen(key) }
+            : { stdout: 'SAINT_REMOTE {"kind":"stopped"}' };
+        });
+        const { manager } = makeManager(spawn);
+
+        await manager.stopServer({ host: "devbox" });
+
+        expect(stopRuns).toBe(2);
+        expect(statSync(key).mode & 0o777).toBe(0o600);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("leaves a key the host's ssh config does not name alone", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "saint-key-"));
+      try {
+        const key = keyIn(dir, 0o664);
+        const { spawn } = fakeSpawn((args, stdin) => {
+          if (args.includes("-G")) return { stdout: "identityfile /elsewhere/id\n" };
+          return scriptKind(stdin) === "stop" ? { code: 255, stderr: tooOpen(key) } : {};
+        });
+        const { manager } = makeManager(spawn);
+
+        await expect(manager.stopServer({ host: "devbox" })).rejects.toThrow(/bad permissions/);
+        expect(statSync(key).mode & 0o777).toBe(0o664);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
   it("installs, starts and tunnels a fresh host", async () => {
     const seen: string[] = [];
     const { spawn, calls } = fakeSpawn((args, stdin) => {

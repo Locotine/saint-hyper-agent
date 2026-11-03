@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAssessmentFlow,
   matchCategories,
+  narrowSteps,
   REPORT_NODE_ID,
   SURFACE_CATEGORY,
 } from "./assessmentFlow.ts";
@@ -65,5 +66,22 @@ describe("buildAssessmentFlow", () => {
     for (const category of new Set(Object.values(SURFACE_CATEGORY))) {
       expect(CHECKLISTS[category]?.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("narrowSteps", () => {
+  const all = (steps?: string[]) => narrowSteps(steps, ["web", "auth"], ["gitleaks", "trivy"]);
+
+  it("keeps everything when no step is picked", () => {
+    expect(all()).toEqual({ categories: ["web", "auth"], scannerIds: ["gitleaks", "trivy"] });
+  });
+
+  it("keeps only the picked audit areas and scanners", () => {
+    expect(all(["audit:auth"])).toEqual({ categories: ["auth"], scannerIds: [] });
+    expect(all(["scanner:trivy"])).toEqual({ categories: [], scannerIds: ["trivy"] });
+  });
+
+  it("rejects a step the repo does not have", () => {
+    expect(all(["audit:cloud"])).toEqual({ error: "This repo has no step: audit:cloud." });
   });
 });

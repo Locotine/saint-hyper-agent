@@ -689,6 +689,7 @@ managedAttachmentsLegacyLayer("managed attachment migration after private migrat
         [140, "Hibernation"],
         [141, "CyberSecurity"],
         [142, "CyberSecurityScanners"],
+        [143, "CyberSecurityPartialRuns"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -783,6 +784,7 @@ managedAttachmentsLegacyLayer("managed attachment migration after private migrat
           { migration_id: 140, name: "Hibernation" },
           { migration_id: 141, name: "CyberSecurity" },
           { migration_id: 142, name: "CyberSecurityScanners" },
+          { migration_id: 143, name: "CyberSecurityPartialRuns" },
         ],
       );
       const groupConfigColumns = yield* sql<{ readonly name: string }>`
@@ -957,6 +959,7 @@ agentGatewayRetentionLegacyLayer(
           [140, "Hibernation"],
           [141, "CyberSecurity"],
           [142, "CyberSecurityScanners"],
+          [143, "CyberSecurityPartialRuns"],
         ]);
 
         const columns = yield* sql<{ readonly name: string }>`
@@ -1094,6 +1097,7 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [140, "Hibernation"],
         [141, "CyberSecurity"],
         [142, "CyberSecurityScanners"],
+        [143, "CyberSecurityPartialRuns"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -1172,6 +1176,7 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
           [140, "Hibernation"],
           [141, "CyberSecurity"],
           [142, "CyberSecurityScanners"],
+          [143, "CyberSecurityPartialRuns"],
         ],
       );
 
@@ -1304,6 +1309,7 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [140, "Hibernation"],
         [141, "CyberSecurity"],
         [142, "CyberSecurityScanners"],
+        [143, "CyberSecurityPartialRuns"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -1378,6 +1384,7 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
           [140, "Hibernation"],
           [141, "CyberSecurity"],
           [142, "CyberSecurityScanners"],
+          [143, "CyberSecurityPartialRuns"],
         ],
       );
       const preservedSpaces = yield* sql<{ readonly spaceId: string }>`

@@ -872,6 +872,7 @@ export function useChatTurnSubmission({
         selectedComposerMentionsForSend,
       );
       const turnAttachmentsPromise = stageUploadComposerAttachments({
+        hostId: chatHost.hostId,
         threadId: threadIdForSend,
         images: composerImagesSnapshot,
         files: composerFilesSnapshot,

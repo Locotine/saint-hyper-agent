@@ -9,6 +9,7 @@ import {
   fixAllTargets,
   groupFindings,
   pickDynamicScript,
+  stepOptions,
   sourceLabel,
 } from "./cyberSecurity.logic";
 
@@ -106,6 +107,13 @@ describe("pickDynamicScript", () => {
     });
   });
 
+  it("takes the root script when several packages have one", () => {
+    expect(pickDynamicScript([pkg("apps/web", ["dev"]), pkg("", ["dev"])])).toMatchObject({
+      ok: true,
+      request: { packagePath: "", script: "dev" },
+    });
+  });
+
   it("guesses nothing when the script is missing or in several packages", () => {
     expect(pickDynamicScript([])).toMatchObject({ ok: false });
     expect(pickDynamicScript([pkg("", ["build", "test"])])).toMatchObject({ ok: false });
@@ -137,5 +145,14 @@ describe("cyberSecurityHostSupported", () => {
   it("accepts this computer and no remote host", () => {
     expect(cyberSecurityHostSupported(LOCAL_HOST_ID)).toBe(true);
     expect(cyberSecurityHostSupported("ac-ubuntu-3" as HostId)).toBe(false);
+  });
+});
+
+describe("stepOptions", () => {
+  it("lists the audit areas, then the scanners, with the ids start takes", () => {
+    expect(stepOptions(["web"], [{ id: "trivy", label: "trivy · config" }])).toEqual([
+      { id: "audit:web", label: "Audit: web" },
+      { id: "scanner:trivy", label: "trivy · config" },
+    ]);
   });
 });

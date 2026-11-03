@@ -291,7 +291,9 @@ import {
   REMOTE_DEPS_PACK_FILE,
   remoteDepsDescriptorPath,
   remoteDepsPackPath,
+  remoteInstallBundleTree,
   remoteInstallDepsHash,
+  remoteInstallDepsTrees,
   remoteInstallVersion,
   scannerLockPath,
   scannerPackPath,
@@ -300,7 +302,6 @@ import {
 import { SAINT_SCANNER_DIR_ENV } from "./remoteSshScripts";
 import {
   clientRemoteRoot,
-  createRemoteClientId,
   defaultRemoteRoot,
   parseRemoteClientId,
   parseSavedRemoteSshHosts,
@@ -5796,31 +5797,26 @@ function getDesktopCustomTitleBarState() {
 }
 
 /**
- * This desktop's folder on remote hosts. Desktops that share one remote
- * account (and its default folder) would otherwise share one server and see
- * each other's threads; the id persists so reconnects find the same data.
+ * The folder a remote account's desktops share by default: one server per account, so opening
+ * Saint from a second computer shows the same threads. Each remote account is one person's.
  */
 function resolveRemoteSshDefaultRoot(): string {
+  return REMOTE_SSH_STORE_ROOT;
+}
+
+/**
+ * This desktop's own folder from before the default was shared (`<store>/clients/<id>`), or null
+ * when it never connected to a remote host. A host where it still holds threads keeps using it.
+ */
+function resolveRemoteSshLegacyRoot(): string | null {
   // Stable refuses remote hosts; leave no state behind for them.
-  if (!REMOTE_SSH_ENABLED) return REMOTE_SSH_STORE_ROOT;
-  let clientId: string | null = null;
+  if (!REMOTE_SSH_ENABLED) return null;
   try {
-    clientId = parseRemoteClientId(FS.readFileSync(REMOTE_SSH_CLIENT_ID_PATH, "utf8"));
+    const clientId = parseRemoteClientId(FS.readFileSync(REMOTE_SSH_CLIENT_ID_PATH, "utf8"));
+    return clientId ? clientRemoteRoot(REMOTE_SSH_STORE_ROOT, clientId) : null;
   } catch {
-    clientId = null;
+    return null;
   }
-  if (!clientId) {
-    let userName = "";
-    try {
-      userName = OS.userInfo().username;
-    } catch {
-      // No passwd entry: the random part alone keeps the id unique.
-    }
-    clientId = createRemoteClientId(userName, Crypto.randomBytes(4).toString("hex"));
-    FS.mkdirSync(STATE_DIR, { recursive: true });
-    FS.writeFileSync(REMOTE_SSH_CLIENT_ID_PATH, `${clientId}\n`);
-  }
-  return clientRemoteRoot(REMOTE_SSH_STORE_ROOT, clientId);
 }
 
 /**
@@ -5863,13 +5859,17 @@ function registerRemoteSshHandlers(): void {
     installIdentity: () => {
       const appRoot = resolveAppRoot();
       const entries = collectRemoteInstallEntries(appRoot);
+      const depsDescriptor = FS.readFileSync(remoteDepsDescriptorPath(appRoot), "utf8");
       return {
         version: remoteInstallVersion(app.getVersion(), entries),
-        depsHash: remoteInstallDepsHash(FS.readFileSync(remoteDepsDescriptorPath(appRoot), "utf8")),
+        depsHash: remoteInstallDepsHash(depsDescriptor),
+        bundleTree: remoteInstallBundleTree(entries),
+        depsTrees: remoteInstallDepsTrees(depsDescriptor),
         scannersVersion: readScannerPackVersion(appRoot),
       };
     },
     defaultRemoteRoot: remoteSshDefaultRoot,
+    legacyRemoteRoot: resolveRemoteSshLegacyRoot(),
     storeRoot: REMOTE_SSH_STORE_ROOT,
     createInstallBundle: (withDepsPack) => {
       const appRoot = resolveAppRoot();

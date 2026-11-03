@@ -3,7 +3,7 @@
 //          contains to the skill categories that apply, then builds a report-only flow with one
 //          audit step per matched category and one report step that ranks the findings.
 // Layer: Server cyber security (pure)
-// Exports: matchCategories, buildAssessmentFlow, SURFACE_CATEGORY, REPORT_NODE_ID, auditNodeId
+// Exports: matchCategories, narrowSteps, buildAssessmentFlow, SURFACE_CATEGORY, REPORT_NODE_ID, auditNodeId
 
 import type { CyberRepoInventory, FlowNodeSpec, FlowSpec } from "@saint/contracts";
 
@@ -46,6 +46,28 @@ export function matchCategories(inventory: CyberRepoInventory): string[] {
     if (category && !categories.includes(category)) categories.push(category);
   }
   return categories;
+}
+
+export const auditStepId = (category: string) => `audit:${category}`;
+export const scannerStepId = (scannerId: string) => `scanner:${scannerId}`;
+
+/**
+ * Keeps only the audit areas and scanners the person picked. `steps` absent means everything; a
+ * step the repo does not have is an error, never silently dropped.
+ */
+export function narrowSteps(
+  steps: ReadonlyArray<string> | undefined,
+  categories: ReadonlyArray<string>,
+  scannerIds: ReadonlyArray<string>,
+): { categories: string[]; scannerIds: string[] } | { error: string } {
+  if (!steps) return { categories: [...categories], scannerIds: [...scannerIds] };
+  const known = new Set([...categories.map(auditStepId), ...scannerIds.map(scannerStepId)]);
+  const unknown = steps.filter((step) => !known.has(step));
+  if (unknown.length > 0) return { error: `This repo has no step: ${unknown.join(", ")}.` };
+  return {
+    categories: categories.filter((category) => steps.includes(auditStepId(category))),
+    scannerIds: scannerIds.filter((id) => steps.includes(scannerStepId(id))),
+  };
 }
 
 const FINDING_SHAPE =

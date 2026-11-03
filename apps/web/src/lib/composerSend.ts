@@ -20,6 +20,7 @@ import {
 } from "@saint/shared/binaryTransfer";
 import { applyClaudePromptEffortPrefix, getModelCapabilities } from "@saint/shared/model";
 import { parseComputerInvocation } from "@saint/shared/computerInvocation";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 
 import {
   cloneComposerImageAttachment,
@@ -36,7 +37,7 @@ import {
 } from "./composerImagePreparation";
 import { appSnapUploadName, normalizeComposerImageSource } from "./composerImageSource";
 import { randomUUID } from "./utils";
-import { resolveWsHttpUrl } from "./wsHttpUrl";
+import { resolveHostHttpUrl } from "./wsHttpUrl";
 
 const ATTACHMENT_CANCEL_CONCURRENCY = 2;
 const ATTACHMENT_CANCEL_BODY_MAX_BYTES = 512;
@@ -266,7 +267,10 @@ function isManagedAttachmentId(value: unknown): value is string {
   );
 }
 
-async function cancelManagedAttachments(attachmentIds: readonly string[]): Promise<void> {
+async function cancelManagedAttachments(
+  hostId: HostId,
+  attachmentIds: readonly string[],
+): Promise<void> {
   let nextIndex = 0;
   const worker = async () => {
     while (nextIndex < attachmentIds.length) {
@@ -276,7 +280,7 @@ async function cancelManagedAttachments(attachmentIds: readonly string[]): Promi
       const body = JSON.stringify({ attachmentId });
       if (new TextEncoder().encode(body).byteLength > ATTACHMENT_CANCEL_BODY_MAX_BYTES) continue;
       try {
-        await fetch(resolveWsHttpUrl(ATTACHMENT_CANCEL_ROUTE_PATH), {
+        await fetch(resolveHostHttpUrl(hostId, ATTACHMENT_CANCEL_ROUTE_PATH), {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -297,6 +301,8 @@ async function cancelManagedAttachments(attachmentIds: readonly string[]): Promi
 }
 
 export async function stageUploadComposerAttachments(input: {
+  // The host that owns the thread: a managed attachment must be staged on the server that runs the turn.
+  hostId?: HostId;
   threadId: string;
   images: ReadonlyArray<ComposerImageAttachment>;
   files?: ReadonlyArray<ComposerFileAttachment>;
@@ -310,6 +316,7 @@ export async function stageUploadComposerAttachments(input: {
 
   // Upload sequentially so selecting several maximum-size files never creates a
   // burst of concurrent body buffers. The RPC turn then carries only short ids.
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   const managedAttachmentIds: string[] = [];
   try {
     for (const attachment of [...input.images, ...(input.files ?? [])]) {
@@ -325,7 +332,7 @@ export async function stageUploadComposerAttachments(input: {
         mimeType: appSnapSource ? uploadFile.type : attachment.mimeType,
       });
       const response = await fetch(
-        resolveWsHttpUrl(`${ATTACHMENT_UPLOAD_ROUTE_PATH}?${params.toString()}`),
+        resolveHostHttpUrl(hostId, `${ATTACHMENT_UPLOAD_ROUTE_PATH}?${params.toString()}`),
         {
           method: "POST",
           credentials: "include",
@@ -348,7 +355,7 @@ export async function stageUploadComposerAttachments(input: {
       attachments.push(payload);
     }
   } catch (error) {
-    await cancelManagedAttachments(managedAttachmentIds);
+    await cancelManagedAttachments(hostId, managedAttachmentIds);
     throw error;
   }
 
@@ -356,7 +363,7 @@ export async function stageUploadComposerAttachments(input: {
   const cleanup = async () => {
     if (disposition !== "pending") return;
     disposition = "cleaned";
-    await cancelManagedAttachments(managedAttachmentIds);
+    await cancelManagedAttachments(hostId, managedAttachmentIds);
   };
   const commit = () => {
     if (disposition === "pending") disposition = "committed";

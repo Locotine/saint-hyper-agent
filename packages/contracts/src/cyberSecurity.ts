@@ -54,6 +54,8 @@ export const CyberAssessment = Schema.Struct({
   inventory: CyberRepoInventory,
   /** The skill categories the audit ran: only those that match the inventory. */
   categories: Schema.Array(TrimmedNonEmptyString),
+  /** The steps a partial run was limited to (`audit:<area>`, `scanner:<id>`); null for a full run. */
+  steps: Schema.NullOr(Schema.Array(TrimmedNonEmptyString)),
   counts: CyberSeverityCounts,
   error: Schema.NullOr(Schema.String),
   startedAt: IsoDateTime,
@@ -134,6 +136,10 @@ export const CyberSecurityStartInput = Schema.Struct({
   threshold: Schema.optional(CyberSeverity),
   /** Absent unless the person confirmed a dynamic scan of this run. */
   dynamicScan: Schema.optional(CyberDynamicScanRequest),
+  /**
+   * Run only these steps: `audit:<area>` and `scanner:<id>`. Absent runs every step the repo has.
+   */
+  steps: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
 });
 
 export const CyberSecuritySetFindingStatusInput = Schema.Struct({
