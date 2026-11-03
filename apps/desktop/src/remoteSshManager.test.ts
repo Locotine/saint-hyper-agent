@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Readable } from "node:stream";
@@ -118,7 +118,9 @@ const tooOpen = (key: string) =>
   `Permissions 0664 for '${key}' are too open.\nLoad key "${key}": bad permissions\n`;
 const keyIn = (dir: string, mode: number) => {
   const key = join(dir, "host.pem");
-  writeFileSync(key, "key", { mode });
+  writeFileSync(key, "key");
+  // Not through writeFileSync's mode: the umask (022 on CI) would clear the group-write bit.
+  chmodSync(key, mode);
   return key;
 };
 
