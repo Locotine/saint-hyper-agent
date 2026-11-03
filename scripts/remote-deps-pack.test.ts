@@ -24,7 +24,8 @@ describe("committed remote dependency pack", () => {
   it("matches this checkout's remote dependencies, patches and lockfile versions", () => {
     const problems = checkRemoteDepsPack(repoRoot);
     expect(problems, `${problems.join("\n")}\n${REMOTE_DEPS_REBUILD_HINT}`).toEqual([]);
-  });
+    // Unpacks the 85 MB pack and hashes it once per host, which a shared CI runner needs a while for.
+  }, 60_000);
 
   it("pins every remote dependency to an exact version", () => {
     const { dependencies } = expectedRemoteDepsDescriptor(repoRoot);
