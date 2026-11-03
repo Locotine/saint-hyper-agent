@@ -114,6 +114,12 @@ export function localThreadIdFromKey(key: string): ThreadId | null {
   return scoped === null ? null : localThreadId(scoped);
 }
 
+/** A thread route param that names another host's thread; this computer's server does not know it. */
+export function isRemoteThreadParam(value: string): boolean {
+  const scoped = parseScopedThreadId(value);
+  return scoped !== null && localThreadId(scoped) === null;
+}
+
 /** A thread route param: this computer's host-qualified ids are shortened to the bare id; others pass through. */
 export function bareLocalThreadParam(value: string): string {
   const scoped = parseScopedThreadId(value);

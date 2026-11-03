@@ -121,7 +121,16 @@ import { hasActiveComposerSend, runComposerSendOnce } from "../lib/composerSendO
 import { useProjectAgentSummariesStore } from "./chat/project/useProjectAgentSummaries";
 import { useThreadDispatchStore } from "./chat/useChatLocalDispatch";
 import { hasUnseenSnoozeReturn } from "./Sidebar.logic";
-import { LOCAL_HOST_ID, scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
+import {
+  LOCAL_HOST_ID,
+  scopeLocalThread,
+  scopeLocalProject,
+  scopeThread,
+  sshHostId,
+} from "@saint/shared/hostId";
+import { hostConnections } from "~/hosts/hostConnectionRegistry";
+import { createHostShellPump } from "~/hosts/hostShellPump";
+import { hostStores } from "~/hosts/hostStores";
 import { localOpenThreadIds } from "../openThreadTabs.logic";
 // Pre-transform the compiler-heavy component outside the first case's timeout.
 // The router's auto-split route otherwise requests this module on first mount.
@@ -2307,6 +2316,78 @@ async function mountChatView(options: {
 }
 
 describe("ChatView transcript geometry (full app)", () => {
+  it("opens a remote host's chat without asking this computer's server for it", async () => {
+    const snapshot = createSnapshotForTargetUser({
+      targetMessageId: "msg-user-bootstrap" as MessageId,
+      targetText: "remote chat text",
+      targetAttachmentCount: 1,
+    });
+    const hostId = sshHostId("a1b2c3d4");
+    fixture = buildFixture(snapshot);
+    // The real remote flow: a transport to the host and the shell pump filling its store.
+    const lease = hostConnections.acquire(hostId, 1, "ws://127.0.0.1:5222/ws?token=remote");
+    const stopPump = createHostShellPump({
+      store: hostStores.get(hostId),
+      transport: lease.transport,
+      onStatus: (status, message) => hostStores.setStatus(hostId, status, message),
+    });
+    const consoleErrors: string[] = [];
+    const originalConsoleError = console.error;
+    console.error = (...args: unknown[]) => {
+      consoleErrors.push(args.map(String).join(" ").slice(0, 600));
+    };
+    await setViewport(DEFAULT_VIEWPORT);
+    await waitForProductionStyles();
+    const host = createFullscreenTestHost();
+    const router = getRouter(createMemoryHistory({ initialEntries: [`/${THREAD_ID}`] }));
+    const screen = await render(<RouterProvider router={router} />, { container: host });
+    try {
+      await vi.waitFor(
+        () => expect(document.querySelector("[data-chat-composer-form='true']")).toBeTruthy(),
+        { timeout: 60_000, interval: 50 },
+      );
+      const remoteId = scopeThread(hostId, THREAD_ID);
+      const crashed: string[] = [];
+      for (let hop = 0; hop < 3; hop += 1) {
+        await router.navigate({ to: "/$threadId", params: { threadId: remoteId } });
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const remoteState = `state=${hostStores.get(hostId).getState().threadDetailSyncById?.[THREAD_ID]} msgs=${(hostStores.get(hostId).getState().messageIdsByThreadId?.[THREAD_ID] ?? []).length} offline=${document.body.textContent?.includes("is offline")}`;
+        await vi.waitFor(
+          () =>
+            expect(
+              document.body.textContent?.includes("filler user message"),
+              `remote chat did not render its messages: ${remoteState}`,
+            ).toBe(true),
+          { timeout: 10_000, interval: 100 },
+        );
+        if (document.body.textContent?.includes("Something went wrong"))
+          crashed.push(`remote ${hop}`);
+        await router.navigate({ to: "/$threadId", params: { threadId: THREAD_ID } });
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        if (document.body.textContent?.includes("Something went wrong"))
+          crashed.push(`local ${hop}`);
+      }
+      expect(
+        consoleErrors.filter((line) => /getSnapshot|Maximum update|infinite loop/u.test(line)),
+      ).toEqual([]);
+      expect(crashed).toEqual([]);
+      // Another host's chat is leased on that host's transport, never on this computer's server.
+      expect(
+        wsRequests.filter(
+          (request) =>
+            request._tag === ORCHESTRATION_WS_METHODS.subscribeThread &&
+            JSON.stringify(request).includes(remoteId),
+        ),
+      ).toEqual([]);
+    } finally {
+      console.error = originalConsoleError;
+      stopPump();
+      lease.release();
+      await screen.unmount();
+      if (host.isConnected) host.remove();
+    }
+  });
+
   it("keeps the active chat explicitly unread until the next visit", async () => {
     const snapshot = createSnapshotWithInlineToolOverflow({ active: false });
     const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });

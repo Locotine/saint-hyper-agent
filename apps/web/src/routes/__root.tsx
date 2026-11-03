@@ -1,4 +1,9 @@
-import { LOCAL_HOST_ID, localThreadIdFromKey, scopeLocalThread } from "@saint/shared/hostId";
+import {
+  isRemoteThreadParam,
+  LOCAL_HOST_ID,
+  localThreadIdFromKey,
+  scopeLocalThread,
+} from "@saint/shared/hostId";
 import { EditorDirtyRouteGuard } from "../components/EditorDirtyRouteGuard";
 import {
   ORCHESTRATION_STREAM_OVERFLOW_CODE,
@@ -1224,9 +1229,14 @@ function EventRouter() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const pathname = useCommittedPathname();
+  // Another host's chat is not one of this computer's threads: leasing its scoped id here asks
+  // this computer's server for a thread it has never had, on every visit.
   const routeThreadId = useParams({
     strict: false,
-    select: (params) => (params.threadId ? ThreadId.makeUnsafe(params.threadId) : null),
+    select: (params) =>
+      params.threadId && !isRemoteThreadParam(params.threadId)
+        ? ThreadId.makeUnsafe(params.threadId)
+        : null,
   });
   const routeSearch = useDiffRouteSearch();
   const activeSplitView = useSplitViewStore(

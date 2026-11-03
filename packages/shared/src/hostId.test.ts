@@ -6,6 +6,7 @@ import {
   generateHostKey,
   hostIdOf,
   isHostKey,
+  isRemoteThreadParam,
   LOCAL_HOST_ID,
   localThreadIdFromKey,
   parseHostId,
@@ -92,5 +93,13 @@ describe("localThreadIdFromKey", () => {
     expect(localThreadIdFromKey(scopeLocalThread(thread))).toBe(thread);
     expect(localThreadIdFromKey(scopeThread(remote, thread))).toBeNull();
     expect(localThreadIdFromKey("")).toBeNull();
+  });
+});
+
+describe("isRemoteThreadParam", () => {
+  it("is true only for another host's scoped thread", () => {
+    expect(isRemoteThreadParam(scopeThread(remote, thread))).toBe(true);
+    expect(isRemoteThreadParam(scopeLocalThread(thread))).toBe(false);
+    expect(isRemoteThreadParam(thread)).toBe(false);
   });
 });
