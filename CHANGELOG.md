@@ -10,6 +10,7 @@ This Stable release covers the commits after `v1.1.8`: `26ff4f8c1` and `beb32dde
 
 - Images in a chat on a remote host showed as a broken picture. They were requested from this computer's server instead of the host's.
 - Opening a chat on a remote host asked this computer's server to subscribe to that chat, which it has never had, on every visit.
+- Remote chats were saved in the recent views and last route with a second `local~` scope in front of the host's id. Ids are no longer scoped twice, and the ones already saved are read as the host's chat.
 
 ## 1.1.8 — 2026-11-03
 

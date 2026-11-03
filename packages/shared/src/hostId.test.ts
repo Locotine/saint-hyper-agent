@@ -103,3 +103,22 @@ describe("isRemoteThreadParam", () => {
     expect(isRemoteThreadParam(thread)).toBe(false);
   });
 });
+
+describe("a host's id scoped twice", () => {
+  const remoteScoped = scopeThread(remote, thread);
+
+  it("is not nested by scopeLocalThread", () => {
+    expect(scopeLocalThread(remoteScoped as unknown as ThreadId)).toBe(remoteScoped);
+    expect(scopeLocalThread(scopeLocalThread(thread) as unknown as ThreadId)).toBe(
+      scopeLocalThread(thread),
+    );
+  });
+
+  it("belongs to the innermost host when read back from persisted state", () => {
+    const nested = `local~${remoteScoped}` as ReturnType<typeof scopeLocalThread>;
+    expect(unscopeThread(nested)).toEqual({ hostId: remote, threadId: thread });
+    expect(localThreadIdFromKey(nested)).toBeNull();
+    expect(isRemoteThreadParam(nested)).toBe(true);
+    expect(hostIdOf(nested)).toBe(remote);
+  });
+});

@@ -67,7 +67,10 @@ function unscope(value: string): { hostId: HostId; rawId: string } | null {
   if (at <= 0) return null;
   const hostId = parseHostId(value.slice(0, at));
   const rawId = value.slice(at + 1);
-  return hostId && rawId.length > 0 ? { hostId, rawId } : null;
+  if (!hostId || rawId.length === 0) return null;
+  // `local~ssh:<key>~<id>` is a host's id that was scoped a second time (persisted by older
+  // builds); the innermost host owns it.
+  return unscope(rawId) ?? { hostId, rawId };
 }
 
 export function scopeThread(hostId: HostId, threadId: ThreadId): ScopedThreadId {
@@ -76,7 +79,10 @@ export function scopeThread(hostId: HostId, threadId: ThreadId): ScopedThreadId 
 
 /** This computer's thread. Stands in until a call site knows its host (P4/P5). */
 export function scopeLocalThread(threadId: ThreadId): ScopedThreadId {
-  return scopeThread(LOCAL_HOST_ID, threadId);
+  // A route param can already name another host's thread: never nest one scope in another.
+  return unscope(threadId)
+    ? (threadId as string as ScopedThreadId)
+    : scopeThread(LOCAL_HOST_ID, threadId);
 }
 
 export function scopeProject(hostId: HostId, projectId: ProjectId): ScopedProjectId {
@@ -128,7 +134,9 @@ export function bareLocalThreadParam(value: string): string {
 
 /** This computer's project. Stands in until a call site knows its host (P4/P5). */
 export function scopeLocalProject(projectId: ProjectId): ScopedProjectId {
-  return scopeProject(LOCAL_HOST_ID, projectId);
+  return unscope(projectId)
+    ? (projectId as string as ScopedProjectId)
+    : scopeProject(LOCAL_HOST_ID, projectId);
 }
 
 /** The raw id of a project on this computer; `null` for another host's project. */
