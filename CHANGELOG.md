@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.6 — 2026-11-03
+
+**Cyber Security checks a project on this computer before it goes to production.**
+
+This Stable release covers the commit after `v1.1.5`: `297ec9f81`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.6).
+
+### Added
+
+- **Cyber Security** in the left rail: pick a project and run an assessment. Saint detects what the repo contains, reviews only the areas that apply with a read-only audit, and runs scanners: gitleaks (secrets), osv-scanner (dependency advisories from the OSV API), trivy (Dockerfile, infrastructure and Kubernetes misconfiguration, with no vulnerability database) and hadolint (Dockerfile). Findings land on a board (Open, Triaging, Fixing, Resolved); **Fix** and **Fix all** open a chat, and a finding moves to Triaging when its chat finishes. Unresolved findings at or above high block production.
+- **Scan the running app** is opt-in for each run and asks for confirmation: nuclei sends its safe HTTP checks to the localhost address of your own dev server, which Saint starts from the project's `dev` or `start` script and stops again.
+- Scanners are downloaded the first time they are needed, from their pinned official GitHub release and checked against a pinned sha256, then cached on that computer. A dialog lists anything only you can fix, such as no access to github.com or bubblewrap missing on a Linux host.
+- Files can be dragged from outside the app into the Explorer, and the Explorer has a refresh button.
+
+### Changed
+
+- Cyber Security works on projects on this computer only for now; projects on a remote host show a notice and run nothing.
+- The usage rings and the environment usage section show the numbers of the host you are viewing.
+
 ## 1.1.5 — 2026-10-30
 
 **Open Path in Terminal works on a remote host's thread.**
