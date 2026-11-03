@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.9 — 2026-11-03
+
+**Images in chats on remote hosts load, and opening one no longer queries this computer's server.**
+
+This Stable release covers the commits after `v1.1.8`: `26ff4f8c1` and `beb32ddef`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.9).
+
+### Fixed
+
+- Images in a chat on a remote host showed as a broken picture. They were requested from this computer's server instead of the host's.
+- Opening a chat on a remote host asked this computer's server to subscribe to that chat, which it has never had, on every visit.
+
 ## 1.1.8 — 2026-11-03
 
 **Remote SSH hosts install Saint once for every account, and chats with images work on them.**
@@ -15,7 +26,6 @@ This Stable release covers the commits after `v1.1.7`: `549828d44`. It is publis
 ### Fixed
 
 - Sending an image or file in a chat on a remote host failed with "Managed attachment … is unavailable, expired, or owned by another session/thread". It was uploaded to this computer's server instead of the host's.
-- Images in a chat on a remote host showed as a broken picture. They were requested from this computer's server instead of the host's.
 - A remote SSH key file that other users could read made every connect fail with "bad permissions". Saint now sets a key that the host's ssh config names to owner-only and connects again.
 - A desktop older than the server it connects to no longer restarts that server on its own version, which dropped the other desktop mid-session. It asks to update Saint instead.
 
