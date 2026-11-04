@@ -14,6 +14,7 @@ import type { TodoServiceError } from "../Errors.ts";
 export interface TodoServiceShape {
   readonly list: () => Effect.Effect<TodoListResult, TodoServiceError>;
   /** Idempotent per id: retrying a create returns the stored to-do unchanged. */
+  /** Owned by the caller's `CurrentClientScope`; list, update and delete honor it too. */
   readonly create: (input: TodoCreateInput) => Effect.Effect<Todo, TodoServiceError>;
   readonly update: (input: TodoUpdateInput) => Effect.Effect<Todo, TodoServiceError>;
   readonly delete: (input: TodoDeleteInput) => Effect.Effect<void, TodoServiceError>;

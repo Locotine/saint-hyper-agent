@@ -86,6 +86,7 @@ import {
 } from "../toolInput.ts";
 import { WRITE_TOOL_ANNOTATIONS, type ToolContext, type ToolEntry } from "../toolRuntime.ts";
 import { makeAgentGatewayMcpTransport } from "../mcpTransport.ts";
+import { makeClientScopedSnapshotQuery } from "../clientScopedSnapshotQuery.ts";
 import {
   FOLLOW_UP_DISPATCH_DESCRIPTION,
   FOLLOW_UP_MODE_DESCRIPTION,
@@ -187,7 +188,13 @@ function readThreadGoalArg(args: Record<string, unknown>): string {
 
 export const makeAgentGateway = Effect.gen(function* () {
   const credentials = yield* AgentGatewayCredentials;
-  const snapshotQuery = yield* ProjectionSnapshotQuery;
+  // Tools run with the caller desktop's scope (mcpTransport); reads honor it.
+  const snapshotQuery = makeClientScopedSnapshotQuery(yield* ProjectionSnapshotQuery);
+  const projectVisible = (projectId: ProjectId) =>
+    snapshotQuery.getProjectShellById(projectId).pipe(
+      Effect.map(Option.isSome),
+      Effect.catch(() => Effect.succeed(false)),
+    );
   const orchestrationEngine = yield* OrchestrationEngineService;
   const automationService = yield* AutomationService;
   const projectAgentService = yield* ProjectAgentService;
@@ -1132,6 +1139,7 @@ export const makeAgentGateway = Effect.gen(function* () {
 
   const automationTools = makeAgentGatewayAutomationTools({
     automationService,
+    projectVisible,
     requireThreadShell,
     assertCallerMayDriveThread,
     resolveAutomationTarget,
@@ -1678,6 +1686,7 @@ export const makeAgentGateway = Effect.gen(function* () {
     ...(flowService
       ? makeAgentGatewayFlowTools({
           flows: flowService,
+          projectVisible: (projectId) => projectVisible(ProjectId.makeUnsafe(projectId)),
           requireThreadShell,
           ...(forkContinue ? { forkContinue } : {}),
         })
@@ -1726,6 +1735,7 @@ export const makeAgentGateway = Effect.gen(function* () {
     handleMcpPost: makeAgentGatewayMcpTransport({
       credentials,
       snapshotQuery,
+      clientScoped: serverConfig.clientScoped,
       tools,
       onCapabilityDenied: surfaceCapabilityDenial,
       ...(aegis

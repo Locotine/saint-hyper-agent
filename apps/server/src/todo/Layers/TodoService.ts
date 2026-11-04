@@ -2,6 +2,7 @@ import type { Todo, TodoStreamEvent } from "@saint/contracts";
 import { applyTodoPatch } from "@saint/shared/todo";
 import { Effect, Layer, Option, PubSub, Stream } from "effect";
 
+import { CurrentClientScope, isVisibleToClient } from "../../clientScope.ts";
 import { TodoRepository } from "../../persistence/Services/TodoRepository.ts";
 import { TodoServiceError } from "../Errors.ts";
 import { TodoService, type TodoServiceShape } from "../Services/TodoService.ts";
@@ -50,14 +51,22 @@ export const TodoServiceLive = Layer.effect(
     const events = yield* PubSub.unbounded<TodoStreamEvent>();
     const publish = (event: TodoStreamEvent) => PubSub.publish(events, event).pipe(Effect.asVoid);
 
+    // A scoped caller (a remote desktop or its agents) sees and changes only its own to-dos.
+    const visibleToCaller = (todo: Todo) =>
+      Effect.map(CurrentClientScope.asEffect(), (scope) =>
+        isVisibleToClient(scope, todo.ownerClientId),
+      );
     const list: TodoServiceShape["list"] = () =>
-      repository.list().pipe(
-        Effect.map((todos) => ({ todos })),
+      Effect.all([repository.list(), CurrentClientScope.asEffect()]).pipe(
+        Effect.map(([todos, scope]) => ({
+          todos: todos.filter((todo) => isVisibleToClient(scope, todo.ownerClientId)),
+        })),
         Effect.mapError(toServiceError("Failed to list tasks.")),
       );
 
     const create: TodoServiceShape["create"] = (input) =>
       Effect.gen(function* () {
+        const ownerClientId = yield* CurrentClientScope;
         const now = isoNow();
         const todo: Todo = {
           id: input.id,
@@ -72,6 +81,7 @@ export const TodoServiceLive = Layer.effect(
           completedAt: null,
           createdAt: now,
           updatedAt: now,
+          ownerClientId,
         };
         const inserted = yield* repository.insert(todo);
         if (Option.isSome(inserted)) {
@@ -80,7 +90,7 @@ export const TodoServiceLive = Layer.effect(
         }
         // A retried create: the id is already stored, so return that row unchanged.
         const existing = yield* repository.getById({ id: input.id });
-        if (Option.isNone(existing)) {
+        if (Option.isNone(existing) || !(yield* visibleToCaller(existing.value))) {
           return yield* new TodoServiceError({ message: "The task was not saved." });
         }
         return existing.value;
@@ -96,7 +106,7 @@ export const TodoServiceLive = Layer.effect(
       Effect.gen(function* () {
         for (let attempt = 0; attempt < TODO_UPDATE_MAX_ATTEMPTS; attempt += 1) {
           const current = yield* repository.getById({ id: input.id });
-          if (Option.isNone(current)) {
+          if (Option.isNone(current) || !(yield* visibleToCaller(current.value))) {
             return yield* new TodoServiceError({ message: "This task no longer exists." });
           }
           if (
@@ -166,12 +176,12 @@ export const TodoServiceLive = Layer.effect(
       );
 
     const deleteTodo: TodoServiceShape["delete"] = (input) =>
-      repository
-        .delete(input)
-        .pipe(
-          Effect.andThen(publish({ type: "todo-deleted", todoId: input.id })),
-          Effect.mapError(toServiceError("Failed to delete the task.")),
-        );
+      Effect.gen(function* () {
+        const current = yield* repository.getById({ id: input.id });
+        if (Option.isSome(current) && !(yield* visibleToCaller(current.value))) return;
+        yield* repository.delete(input);
+        yield* publish({ type: "todo-deleted", todoId: input.id });
+      }).pipe(Effect.mapError(toServiceError("Failed to delete the task.")));
 
     const streamChanges: TodoServiceShape["streamChanges"] = Stream.unwrap(
       Effect.gen(function* () {

@@ -28,6 +28,8 @@ import {
 
 export interface FlowToolsInput {
   readonly flows: FlowServiceShape;
+  /** False for another desktop's project on a shared server; omitted means every project. */
+  readonly projectVisible?: (projectId: string) => Effect.Effect<boolean>;
   readonly forkContinue?: ForkContinueShape;
   readonly requireThreadShell: (
     threadId: string,
@@ -77,6 +79,7 @@ export function flowStatusForAgent(run: FlowRun, nodes: ReadonlyArray<FlowNodeRu
 
 export function makeAgentGatewayFlowTools(input: FlowToolsInput): ReadonlyArray<ToolEntry> {
   const { flows, requireThreadShell, forkContinue } = input;
+  const projectVisible = input.projectVisible ?? (() => Effect.succeed(true));
 
   const listTemplates: ToolEntry = {
     requiredCapability: "thread:read",
@@ -227,7 +230,7 @@ export function makeAgentGatewayFlowTools(input: FlowToolsInput): ReadonlyArray<
             );
           }
           const view = yield* flows.get(flowId).pipe(Effect.mapError(toToolError));
-          if (!view)
+          if (!view || !(yield* projectVisible(view.run.projectId)))
             return yield* Effect.fail(new ToolInputError(`Flow "${flowId}" was not found.`));
           return flowStatusForAgent(view.run, view.nodes);
         }),

@@ -1,5 +1,5 @@
 /**
- * Records which remote desktop (client id) a project or space belongs to on a server shared by
+ * Records which remote desktop (client id) a project, space or task belongs to on a server shared by
  * several desktops (`apps/server/src/clientScope.ts`). Additive: null rows are unowned, which an
  * unscoped server ignores and a scoped one hides.
  */
@@ -16,5 +16,8 @@ export default Effect.gen(function* () {
   }
   if (!(yield* columnExists(sql, "projection_spaces", "owner_client_id"))) {
     yield* sql`ALTER TABLE projection_spaces ADD COLUMN owner_client_id TEXT`;
+  }
+  if (!(yield* columnExists(sql, "todos", "owner_client_id"))) {
+    yield* sql`ALTER TABLE todos ADD COLUMN owner_client_id TEXT`;
   }
 });

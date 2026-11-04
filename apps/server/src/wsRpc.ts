@@ -29,6 +29,8 @@ import {
   WsHyperAgentRpcGroup,
   WsRpcError,
   PullRequestsUnavailableError,
+  type AutomationListResult,
+  type AutomationStreamEvent,
   type DeviceEvent,
   type ComputerEvent,
   type GitRemoveWorktreeInput,
@@ -49,6 +51,8 @@ import {
   type ServerDiagnosticsResult,
   type ServerLifecycleStreamEvent,
   type ServerSettings,
+  type TerminalEvent,
+  type TodoStreamEvent,
 } from "@saint/contracts";
 import { clamp } from "effect/Number";
 import { Effect, FileSystem, Layer, Option, Path, Queue, Schema, Scope, Stream } from "effect";
@@ -232,6 +236,7 @@ import {
 import { clientScopeFromUpgrade, CurrentClientScope } from "./clientScope";
 import {
   clientMayRunCommand,
+  projectOwner,
   makeClientEventFilter,
   scopeSnapshotToClient,
   threadOwner,
@@ -992,6 +997,200 @@ const makeWsRpcHandlersLayer = () =>
           }),
         );
 
+      // What one client owns, read fresh each call (projects are created while streams run).
+      const clientView = Effect.gen(function* () {
+        const scope = yield* CurrentClientScope;
+        if (scope === null) return null;
+        const readModel = yield* orchestrationEngine.getReadModel();
+        return {
+          scope,
+          projectOwnerOf: (projectId: string) => projectOwner(readModel, projectId as ProjectId),
+          ownsProject: (projectId: string) =>
+            projectOwner(readModel, projectId as ProjectId) === scope,
+          threadOwnerOf: (threadId: string) => threadOwner(readModel, threadId as ThreadId),
+          ownsThread: (threadId: string) => threadOwner(readModel, threadId as ThreadId) === scope,
+        };
+      });
+      type ClientView = NonNullable<Effect.Success<typeof clientView>>;
+      const deniedForClient = () =>
+        new WsRpcError({ message: "That item does not belong to this computer." });
+      /** Fails when the project exists but belongs to another client; unknown ids pass. */
+      const requireClientProject = (projectId: string | null | undefined) =>
+        Effect.flatMap(clientView, (view) => {
+          if (view === null || projectId == null) return Effect.void;
+          const owner = view.projectOwnerOf(projectId);
+          return owner === undefined || owner === view.scope
+            ? Effect.void
+            : Effect.fail(deniedForClient());
+        });
+      /** Fails when the thread exists but belongs to another client; unknown ids pass. */
+      const requireClientThread = (threadId: string | null | undefined) =>
+        Effect.flatMap(clientView, (view) => {
+          if (view === null || threadId == null) return Effect.void;
+          const owner = view.threadOwnerOf(threadId);
+          return owner === undefined || owner === view.scope
+            ? Effect.void
+            : Effect.fail(deniedForClient());
+        });
+      /** Hub (project agent) calls: the hub project, a linked project and a thread must be this client's. */
+      const requireClientHub = (input: {
+        readonly projectId: string;
+        readonly linkedProjectId?: string | undefined;
+        readonly threadId?: string | undefined;
+      }) =>
+        requireClientProject(input.projectId).pipe(
+          Effect.andThen(requireClientProject(input.linkedProjectId)),
+          Effect.andThen(requireClientThread(input.threadId)),
+        );
+      const requireClientCommand = (command: Parameters<typeof clientMayRunCommand>[1]) =>
+        Effect.gen(function* () {
+          const scope = yield* CurrentClientScope;
+          if (
+            scope !== null &&
+            !clientMayRunCommand(scope, command, yield* orchestrationEngine.getReadModel())
+          ) {
+            return yield* Effect.fail(deniedForClient());
+          }
+        });
+      // A draft chat's terminal opens before its thread exists, so the opener stands in as its
+      // owner until the thread is created.
+      // ponytail: entries live until restart (one short string per draft thread opened).
+      const terminalOpeners = new Map<string, string>();
+      const terminalOwnerFor = (view: ClientView, threadId: string) =>
+        view.threadOwnerOf(threadId) ?? terminalOpeners.get(threadId);
+      const requireClientTerminal = (threadId: string) =>
+        Effect.flatMap(clientView, (view) => {
+          if (view === null) return Effect.void;
+          const owner = terminalOwnerFor(view, threadId);
+          return owner === undefined || owner === view.scope
+            ? Effect.void
+            : Effect.fail(deniedForClient());
+        });
+      const rememberTerminalOpener = (threadId: string) =>
+        Effect.map(clientView, (view) => {
+          if (view !== null && view.threadOwnerOf(threadId) === undefined) {
+            terminalOpeners.set(threadId, view.scope);
+          }
+        });
+      /** Runs `transform` on each stream item for a scoped client (None drops it). */
+      const scopeStream = <A, E, R>(
+        stream: Stream.Stream<A, E, R>,
+        transform: (view: ClientView, item: A) => Option.Option<A>,
+      ) =>
+        stream.pipe(
+          Stream.mapEffect((item) =>
+            Effect.map(clientView, (view) =>
+              view === null ? Option.some(item) : transform(view, item),
+            ),
+          ),
+          Stream.flatMap((item) =>
+            Option.isSome(item) ? Stream.succeed(item.value) : Stream.empty,
+          ),
+        );
+      const scopedList = <A>(
+        items: ReadonlyArray<A>,
+        projectIdOf: (item: A) => string | null | undefined,
+      ) =>
+        Effect.map(clientView, (view) =>
+          view === null
+            ? items
+            : items.filter((item) => {
+                const id = projectIdOf(item);
+                return id != null && view.ownsProject(id);
+              }),
+        );
+      const flowProjectId = (flowId: string) =>
+        flowRpc
+          .list({})
+          .pipe(Effect.map(({ runs }) => runs.find((run) => run.id === flowId)?.projectId));
+      const automationProjectId = (automationId: string) =>
+        automationService
+          .list({})
+          .pipe(
+            Effect.map(
+              ({ definitions }) => definitions.find((d) => d.id === automationId)?.projectId,
+            ),
+          );
+      const automationRunProjectId = (runId: string) =>
+        automationService
+          .list({})
+          .pipe(Effect.map(({ runs }) => runs.find((run) => run.id === runId)?.projectId));
+      const requireOwnFlow = (flowId: string) =>
+        flowProjectId(flowId).pipe(Effect.flatMap(requireClientProject));
+      const refuseSharedForClient = Effect.flatMap(clientView, (view) =>
+        view === null
+          ? Effect.void
+          : Effect.fail(
+              new WsRpcError({ message: "This is only available to the server's owner." }),
+            ),
+      );
+      const requireOwnAutomation = (automationId: string) =>
+        automationProjectId(automationId).pipe(Effect.flatMap(requireClientProject));
+      const requireOwnAutomationRun = (runId: string) =>
+        automationRunProjectId(runId).pipe(Effect.flatMap(requireClientProject));
+      const automationsForClient = (view: ClientView, result: AutomationListResult) => {
+        const definitions = result.definitions.filter((d) => view.ownsProject(d.projectId));
+        const ids = new Set<string>(definitions.map((d) => d.id));
+        return {
+          definitions,
+          runs: result.runs.filter((run) => view.ownsProject(run.projectId)),
+          memories: (result.memories ?? []).filter((m) => ids.has(m.automationId)),
+        };
+      };
+      const scopeAutomationList = (result: AutomationListResult) =>
+        Effect.map(clientView, (view) =>
+          view === null ? result : { ...result, ...automationsForClient(view, result) },
+        );
+      // Deletes carry only an id, so each subscription remembers which ids it has shown.
+      const scopeAutomationEvents = <E, R>(stream: Stream.Stream<AutomationStreamEvent, E, R>) =>
+        Stream.suspend(() => {
+          const shown = new Set<string>();
+          return scopeStream(stream, (view, event): Option.Option<AutomationStreamEvent> => {
+            switch (event.type) {
+              case "snapshot": {
+                const scoped = automationsForClient(view, event);
+                shown.clear();
+                for (const d of scoped.definitions) shown.add(d.id);
+                return Option.some({ ...event, ...scoped });
+              }
+              case "definition-upserted":
+                if (view.ownsProject(event.definition.projectId)) {
+                  shown.add(event.definition.id);
+                  return Option.some(event);
+                }
+                return shown.delete(event.definition.id)
+                  ? Option.some({ type: "definition-deleted", automationId: event.definition.id })
+                  : Option.none();
+              case "definition-deleted":
+                return shown.delete(event.automationId) ? Option.some(event) : Option.none();
+              case "run-upserted":
+                return view.ownsProject(event.run.projectId) ? Option.some(event) : Option.none();
+              case "memory-upserted":
+                return shown.has(event.memory.automationId) ? Option.some(event) : Option.none();
+            }
+          });
+        });
+      const scopeTodoEvents = <E, R>(stream: Stream.Stream<TodoStreamEvent, E, R>) =>
+        Stream.suspend(() => {
+          const shown = new Set<string>();
+          return scopeStream(stream, (view, event): Option.Option<TodoStreamEvent> => {
+            switch (event.type) {
+              case "snapshot": {
+                const todos = event.todos.filter((todo) => todo.ownerClientId === view.scope);
+                shown.clear();
+                for (const todo of todos) shown.add(todo.id);
+                return Option.some({ ...event, todos });
+              }
+              case "todo-upserted":
+                if (event.todo.ownerClientId !== view.scope) return Option.none();
+                shown.add(event.todo.id);
+                return Option.some(event);
+              case "todo-deleted":
+                return shown.delete(event.todoId) ? Option.some(event) : Option.none();
+            }
+          });
+        });
+
       // Terminal-first threads are created with the generic "New terminal" placeholder.
       // The tracker buffers per-terminal input and, once a meaningful command is submitted,
       // surfaces a safe title used to auto-rename the thread on its first command.
@@ -1314,6 +1513,7 @@ const makeWsRpcHandlersLayer = () =>
           if (!isServerGroupsEnabled()) {
             return yield* new WsRpcError({ message: GROUPS_BETA_ONLY_MESSAGE });
           }
+          yield* requireClientProject(projectId);
           const shell = yield* projectionReadModelQuery
             .getProjectShellById(projectId)
             .pipe(Effect.mapError(() => new WsRpcError({ message: "Failed to load project." })));
@@ -1428,6 +1628,7 @@ const makeWsRpcHandlersLayer = () =>
         [ORCHESTRATION_WS_METHODS.settleTurnDispatch]: ({ command }) =>
           rpcEffect(
             Effect.gen(function* () {
+              yield* requireClientCommand(command);
               const { command: normalizedCommand } = yield* normalizeDispatchCommand({ command });
               const attachmentPrincipal = yield* CurrentManagedAttachmentPrincipal;
               return yield* runtimeStartup
@@ -1453,19 +1654,7 @@ const makeWsRpcHandlersLayer = () =>
               if (!isServerGroupsEnabled() && isGroupProjectCommand(command)) {
                 return yield* Effect.fail(new WsRpcError({ message: GROUPS_BETA_ONLY_MESSAGE }));
               }
-              const commandScope = yield* CurrentClientScope;
-              if (
-                commandScope !== null &&
-                !clientMayRunCommand(
-                  commandScope,
-                  command,
-                  yield* orchestrationEngine.getReadModel(),
-                )
-              ) {
-                return yield* Effect.fail(
-                  new WsRpcError({ message: "That item does not belong to this computer." }),
-                );
-              }
+              yield* requireClientCommand(command);
               const { command: normalizedCommand, prepareWorkspaceRoot } =
                 yield* normalizeDispatchCommand({ command });
               // A paused/archived group's coordinator must not run turns —
@@ -1501,9 +1690,13 @@ const makeWsRpcHandlersLayer = () =>
         [ORCHESTRATION_WS_METHODS.importProject]: (input) =>
           rpcEffect(projectImports.importProject(input), "Failed to import project"),
         [ORCHESTRATION_WS_METHODS.regenerateThreadTitle]: (input) =>
-          rpcEffect(
-            providerCommandReactor.regenerateThreadTitle(input),
-            "Failed to regenerate thread title",
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                providerCommandReactor.regenerateThreadTitle(input),
+                "Failed to regenerate thread title",
+              ),
+            ),
           ),
         [ORCHESTRATION_WS_METHODS.getSnapshot]: () =>
           rpcEffect(
@@ -1544,72 +1737,88 @@ const makeWsRpcHandlersLayer = () =>
         [ORCHESTRATION_WS_METHODS.repairState]: () =>
           rpcEffect(orchestrationEngine.repairState(), "Failed to repair orchestration state"),
         [ORCHESTRATION_WS_METHODS.getThreadTranscript]: (input) =>
-          rpcEffect(
-            Effect.gen(function* () {
-              const binding = yield* providerSessionDirectory.getBinding(input.threadId);
-              if (Option.isNone(binding)) return { provider: null, transcriptPath: null };
-              const settings = yield* serverSettings.getSettings;
-              const claudeHome = settings.providers.claudeAgent.homePath.trim();
-              const codex = settings.providers.codex;
-              const transcriptPath = yield* Effect.promise(() =>
-                resolveProviderTranscriptPath({
-                  provider: binding.value.provider,
-                  resumeCursor: binding.value.resumeCursor,
-                  homes: {
-                    // An isolated Claude home keeps its config in `<home>/.claude`.
-                    claudeConfigDirs: claudeHome ? [`${claudeHome}/.claude`] : [],
-                    codexHomes: [
-                      codex.homePath,
-                      ...codex.accounts.flatMap((account) => [
-                        account.homePath,
-                        account.shadowHomePath,
-                      ]),
-                    ],
-                  },
-                }).catch(() => null),
-              );
-              return { provider: binding.value.provider, transcriptPath };
-            }),
-            "Failed to locate the thread transcript",
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                Effect.gen(function* () {
+                  const binding = yield* providerSessionDirectory.getBinding(input.threadId);
+                  if (Option.isNone(binding)) return { provider: null, transcriptPath: null };
+                  const settings = yield* serverSettings.getSettings;
+                  const claudeHome = settings.providers.claudeAgent.homePath.trim();
+                  const codex = settings.providers.codex;
+                  const transcriptPath = yield* Effect.promise(() =>
+                    resolveProviderTranscriptPath({
+                      provider: binding.value.provider,
+                      resumeCursor: binding.value.resumeCursor,
+                      homes: {
+                        // An isolated Claude home keeps its config in `<home>/.claude`.
+                        claudeConfigDirs: claudeHome ? [`${claudeHome}/.claude`] : [],
+                        codexHomes: [
+                          codex.homePath,
+                          ...codex.accounts.flatMap((account) => [
+                            account.homePath,
+                            account.shadowHomePath,
+                          ]),
+                        ],
+                      },
+                    }).catch(() => null),
+                  );
+                  return { provider: binding.value.provider, transcriptPath };
+                }),
+                "Failed to locate the thread transcript",
+              ),
+            ),
           ),
         [ORCHESTRATION_WS_METHODS.getTurnDiff]: (input) =>
-          rpcEffect(checkpointDiffQuery.getTurnDiff(input), "Failed to load turn diff"),
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(checkpointDiffQuery.getTurnDiff(input), "Failed to load turn diff"),
+            ),
+          ),
         [ORCHESTRATION_WS_METHODS.getFullThreadDiff]: (input) =>
-          rpcEffect(
-            checkpointDiffQuery.getFullThreadDiff(input),
-            "Failed to load full thread diff",
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                checkpointDiffQuery.getFullThreadDiff(input),
+                "Failed to load full thread diff",
+              ),
+            ),
           ),
         [ORCHESTRATION_WS_METHODS.getInlineVisual]: (input) =>
-          inlineVisualsEnabled
-            ? rpcEffect(
-                Effect.tryPromise(() =>
-                  readInlineVisual({
-                    attachmentsDir: config.attachmentsDir,
-                    threadId: input.threadId,
-                    visualId: input.visualId,
-                  }),
-                ),
-                "Failed to load visual",
-              ).pipe(
-                Effect.flatMap((html) =>
-                  html === null
-                    ? Effect.fail(
-                        new WsRpcError({
-                          message: "This visual is no longer available.",
-                          code: "inline-visual-missing",
-                          retryable: false,
-                        }),
-                      )
-                    : Effect.succeed({ visualId: input.visualId, html }),
-                ),
-              )
-            : Effect.fail(
-                new WsRpcError({
-                  message: "Inline visuals are unavailable on this server.",
-                  code: "inline-visuals-unavailable",
-                  retryable: false,
-                }),
-              ),
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              inlineVisualsEnabled
+                ? rpcEffect(
+                    Effect.tryPromise(() =>
+                      readInlineVisual({
+                        attachmentsDir: config.attachmentsDir,
+                        threadId: input.threadId,
+                        visualId: input.visualId,
+                      }),
+                    ),
+                    "Failed to load visual",
+                  ).pipe(
+                    Effect.flatMap((html) =>
+                      html === null
+                        ? Effect.fail(
+                            new WsRpcError({
+                              message: "This visual is no longer available.",
+                              code: "inline-visual-missing",
+                              retryable: false,
+                            }),
+                          )
+                        : Effect.succeed({ visualId: input.visualId, html }),
+                    ),
+                  )
+                : Effect.fail(
+                    new WsRpcError({
+                      message: "Inline visuals are unavailable on this server.",
+                      code: "inline-visuals-unavailable",
+                      retryable: false,
+                    }),
+                  ),
+            ),
+          ),
         [ORCHESTRATION_WS_METHODS.replayEvents]: (input) => {
           const fromSequenceExclusive = clamp(input.fromSequenceExclusive, {
             maximum: Number.MAX_SAFE_INTEGER,
@@ -1631,12 +1840,26 @@ const makeWsRpcHandlersLayer = () =>
           );
         },
         [ORCHESTRATION_WS_METHODS.listProviderDeliveryBlockers]: (input) =>
-          rpcEffect(
-            providerCommandReactor.listBlockingDeliveries({
-              ...(input.threadId === undefined ? {} : { threadId: input.threadId }),
-              limit: input.limit ?? 50,
-            }),
-            "Failed to load provider delivery blockers",
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                providerCommandReactor
+                  .listBlockingDeliveries({
+                    ...(input.threadId === undefined ? {} : { threadId: input.threadId }),
+                    limit: input.limit ?? 50,
+                  })
+                  .pipe(
+                    Effect.flatMap((blockers) =>
+                      Effect.map(clientView, (view) =>
+                        view === null
+                          ? blockers
+                          : blockers.filter((b) => view.ownsThread(b.threadId)),
+                      ),
+                    ),
+                  ),
+                "Failed to load provider delivery blockers",
+              ),
+            ),
           ),
         [ORCHESTRATION_WS_METHODS.prepareQuitResume]: (input) =>
           rpcEffect(
@@ -1653,28 +1876,32 @@ const makeWsRpcHandlersLayer = () =>
             "Failed to prepare chats for resume after quit",
           ),
         [ORCHESTRATION_WS_METHODS.reconcileProviderDelivery]: (input) =>
-          rpcEffect(
-            Effect.gen(function* () {
-              const principal = yield* CurrentManagedAttachmentPrincipal;
-              const result = yield* providerCommandReactor.reconcileDelivery({
-                eventSequence: input.eventSequence,
-                threadId: input.threadId,
-                expectedState: input.expectedState,
-                outcome: input.outcome,
-                reconciledBy: `${principal.ownerKind}:${principal.ownerId}`,
-                ...(input.note === undefined ? {} : { note: input.note }),
-              });
-              if (result === null) {
-                return yield* new WsRpcError({
-                  message:
-                    "Provider delivery no longer matches the requested thread and blocking state.",
-                  code: "PROVIDER_DELIVERY_RECONCILIATION_CONFLICT",
-                  retryable: false,
-                });
-              }
-              return result;
-            }),
-            "Failed to reconcile provider delivery",
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                Effect.gen(function* () {
+                  const principal = yield* CurrentManagedAttachmentPrincipal;
+                  const result = yield* providerCommandReactor.reconcileDelivery({
+                    eventSequence: input.eventSequence,
+                    threadId: input.threadId,
+                    expectedState: input.expectedState,
+                    outcome: input.outcome,
+                    reconciledBy: `${principal.ownerKind}:${principal.ownerId}`,
+                    ...(input.note === undefined ? {} : { note: input.note }),
+                  });
+                  if (result === null) {
+                    return yield* new WsRpcError({
+                      message:
+                        "Provider delivery no longer matches the requested thread and blocking state.",
+                      code: "PROVIDER_DELIVERY_RECONCILIATION_CONFLICT",
+                      retryable: false,
+                    });
+                  }
+                  return result;
+                }),
+                "Failed to reconcile provider delivery",
+              ),
+            ),
           ),
         [ORCHESTRATION_WS_METHODS.subscribeShell]: (_, { clientId }) =>
           streamAdmission.guard(
@@ -2182,53 +2409,57 @@ const makeWsRpcHandlersLayer = () =>
             { label: "projects.github-provision" },
           ),
         [WS_METHODS.studioListThreadOutputs]: (input) =>
-          rpcEffect(
-            Effect.gen(function* () {
-              // Self-heal the container folder tree: an accepted create whose deferred scaffold
-              // failed (crash, transient FS error) must not leave the workspace without its Outbox
-              // forever. mkdir -p is idempotent and cheap, and this endpoint only fires while
-              // a group/studio chat's environment panel is actually open. Failures degrade to the
-              // empty-list behavior.
-              yield* prepareStudioWorkspaceRoot(config.studioWorkspaceRoot).pipe(
-                Effect.catch(() => Effect.void),
-              );
-              // Checkpoints cover Git workspaces; file-change activities preserve the same
-              // attribution in the default non-Git container root. Unknown/non-container ids
-              // stay empty.
-              const context = yield* projectionReadModelQuery.getThreadCheckpointContext(
-                input.threadId,
-                { includeFileChangeActivityPayloads: true },
-              );
-              if (Option.isNone(context) || !isGroupContainerKind(context.value.projectKind)) {
-                return { entries: [] };
-              }
-              const workspaceCwd = resolveThreadWorkspaceCwd({
-                thread: {
-                  projectId: context.value.projectId,
-                  envMode: context.value.envMode,
-                  worktreePath: context.value.worktreePath,
-                  workingDirectory: context.value.workingDirectory,
-                },
-                projects: [
-                  {
-                    id: context.value.projectId,
-                    kind: context.value.projectKind,
-                    workspaceRoot: context.value.workspaceRoot,
-                  },
-                ],
-              });
-              if (!workspaceCwd) {
-                return { entries: [] };
-              }
-              return yield* listStudioThreadOutputs({
-                workspaceRoot: workspaceCwd,
-                checkpoints: context.value.checkpoints,
-                ...(context.value.fileChangeActivityPayloads
-                  ? { fileChangeActivityPayloads: context.value.fileChangeActivityPayloads }
-                  : {}),
-              });
-            }),
-            "Failed to list studio thread outputs",
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                Effect.gen(function* () {
+                  // Self-heal the container folder tree: an accepted create whose deferred scaffold
+                  // failed (crash, transient FS error) must not leave the workspace without its Outbox
+                  // forever. mkdir -p is idempotent and cheap, and this endpoint only fires while
+                  // a group/studio chat's environment panel is actually open. Failures degrade to the
+                  // empty-list behavior.
+                  yield* prepareStudioWorkspaceRoot(config.studioWorkspaceRoot).pipe(
+                    Effect.catch(() => Effect.void),
+                  );
+                  // Checkpoints cover Git workspaces; file-change activities preserve the same
+                  // attribution in the default non-Git container root. Unknown/non-container ids
+                  // stay empty.
+                  const context = yield* projectionReadModelQuery.getThreadCheckpointContext(
+                    input.threadId,
+                    { includeFileChangeActivityPayloads: true },
+                  );
+                  if (Option.isNone(context) || !isGroupContainerKind(context.value.projectKind)) {
+                    return { entries: [] };
+                  }
+                  const workspaceCwd = resolveThreadWorkspaceCwd({
+                    thread: {
+                      projectId: context.value.projectId,
+                      envMode: context.value.envMode,
+                      worktreePath: context.value.worktreePath,
+                      workingDirectory: context.value.workingDirectory,
+                    },
+                    projects: [
+                      {
+                        id: context.value.projectId,
+                        kind: context.value.projectKind,
+                        workspaceRoot: context.value.workspaceRoot,
+                      },
+                    ],
+                  });
+                  if (!workspaceCwd) {
+                    return { entries: [] };
+                  }
+                  return yield* listStudioThreadOutputs({
+                    workspaceRoot: workspaceCwd,
+                    checkpoints: context.value.checkpoints,
+                    ...(context.value.fileChangeActivityPayloads
+                      ? { fileChangeActivityPayloads: context.value.fileChangeActivityPayloads }
+                      : {}),
+                  });
+                }),
+                "Failed to list studio thread outputs",
+              ),
+            ),
           ),
         [WS_METHODS.filesystemBrowse]: (input) =>
           rpcEffect(workspaceEntries.browse(input), "Failed to browse filesystem"),
@@ -2293,50 +2524,145 @@ const makeWsRpcHandlersLayer = () =>
           ),
         [WS_METHODS.githubInboxList]: (input) =>
           pullRequestsEffect(
-            githubInbox.list(input),
+            githubInbox.list(input).pipe(
+              Effect.flatMap((result) =>
+                Effect.map(clientView, (view) =>
+                  view === null
+                    ? result
+                    : {
+                        ...result,
+                        items: result.items.filter((item) => view.ownsProject(item.projectId)),
+                        errors: result.errors.filter((error) => view.ownsProject(error.projectId)),
+                        repositoryBatches: result.repositoryBatches.flatMap((batch) => {
+                          const projectIds = batch.projectIds.filter((id) => view.ownsProject(id));
+                          return projectIds.length > 0 ? [{ ...batch, projectIds }] : [];
+                        }),
+                      },
+                ),
+              ),
+            ),
             "Failed to load GitHub pull requests and issues",
           ),
         [WS_METHODS.githubInboxIssueDetail]: (input) =>
-          pullRequestsEffect(githubInbox.issueDetail(input), "Failed to load issue"),
+          pullRequestsEffect(
+            requireClientProject(input.projectId).pipe(
+              Effect.andThen(githubInbox.issueDetail(input)),
+            ),
+            "Failed to load issue",
+          ),
         [WS_METHODS.githubInboxIssueComment]: (input) =>
-          pullRequestsEffect(githubInbox.issueComment(input), "Could not post the comment"),
+          pullRequestsEffect(
+            requireClientProject(input.projectId).pipe(
+              Effect.andThen(githubInbox.issueComment(input)),
+            ),
+            "Could not post the comment",
+          ),
         [WS_METHODS.pullRequestsDetail]: (input) =>
-          pullRequestsEffect(pullRequests.detail(input), "Failed to load pull request"),
+          pullRequestsEffect(
+            requireClientProject(input.projectId).pipe(Effect.andThen(pullRequests.detail(input))),
+            "Failed to load pull request",
+          ),
         [WS_METHODS.pullRequestsDiff]: (input) =>
-          pullRequestsEffect(pullRequests.diff(input), "Failed to load pull request diff"),
+          pullRequestsEffect(
+            requireClientProject(input.projectId).pipe(Effect.andThen(pullRequests.diff(input))),
+            "Failed to load pull request diff",
+          ),
         [WS_METHODS.pullRequestsAction]: (input) =>
-          pullRequestsEffect(pullRequests.action(input), "Pull request action failed"),
+          pullRequestsEffect(
+            requireClientProject(input.projectId).pipe(Effect.andThen(pullRequests.action(input))),
+            "Pull request action failed",
+          ),
         [WS_METHODS.pullRequestsComment]: (input) =>
-          pullRequestsEffect(pullRequests.comment(input), "Could not post the comment"),
+          pullRequestsEffect(
+            requireClientProject(input.projectId).pipe(Effect.andThen(pullRequests.comment(input))),
+            "Could not post the comment",
+          ),
         [WS_METHODS.pullRequestsSetPinned]: (input) =>
-          rpcEffect(pullRequests.setPinned(input), "Failed to update pull request pin"),
+          rpcEffect(
+            requireClientProject(input.projectId).pipe(
+              Effect.andThen(pullRequests.setPinned(input)),
+            ),
+            "Failed to update pull request pin",
+          ),
         [WS_METHODS.pullRequestsGetAutoFix]: (input) =>
-          rpcEffect(pullRequestAutoFix.get(input), "Failed to read Auto-fix CI"),
+          rpcEffect(
+            requireClientThread(input.threadId).pipe(Effect.andThen(pullRequestAutoFix.get(input))),
+            "Failed to read Auto-fix CI",
+          ),
         [WS_METHODS.pullRequestsSetAutoFix]: (input) =>
-          rpcEffect(pullRequestAutoFix.set(input), "Failed to update Auto-fix CI"),
-        [WS_METHODS.flowList]: (input) => rpcEffect(flowRpc.list(input), "Failed to list flows"),
-        [WS_METHODS.flowGet]: (input) => rpcEffect(flowRpc.get(input), "Failed to read the flow"),
+          rpcEffect(
+            requireClientThread(input.threadId).pipe(Effect.andThen(pullRequestAutoFix.set(input))),
+            "Failed to update Auto-fix CI",
+          ),
+        [WS_METHODS.flowList]: (input) =>
+          rpcEffect(
+            flowRpc.list(input).pipe(
+              Effect.flatMap((result) =>
+                Effect.map(
+                  scopedList(result.runs, (run) => run.projectId),
+                  (runs) => ({
+                    ...result,
+                    runs,
+                  }),
+                ),
+              ),
+            ),
+            "Failed to list flows",
+          ),
+        [WS_METHODS.flowGet]: (input) =>
+          rpcEffect(
+            requireOwnFlow(input.flowId).pipe(Effect.andThen(flowRpc.get(input))),
+            "Failed to read the flow",
+          ),
         [WS_METHODS.flowStart]: (input) =>
-          rpcEffect(flowRpc.start(input), "Failed to start the flow"),
+          rpcEffect(
+            requireClientProject(input.projectId).pipe(Effect.andThen(flowRpc.start(input))),
+            "Failed to start the flow",
+          ),
         [WS_METHODS.flowAction]: (input) =>
-          rpcEffect(flowRpc.action(input), "Failed to update the flow"),
-        [WS_METHODS.flowKillAll]: () => rpcEffect(flowRpc.killAll(), "Failed to stop the flows"),
+          rpcEffect(
+            requireOwnFlow(input.flowId).pipe(Effect.andThen(flowRpc.action(input))),
+            "Failed to update the flow",
+          ),
+        [WS_METHODS.flowKillAll]: () =>
+          rpcEffect(
+            refuseSharedForClient.pipe(Effect.andThen(flowRpc.killAll())),
+            "Failed to stop the flows",
+          ),
         [WS_METHODS.flowTemplates]: () =>
           rpcEffect(flowRpc.templates(), "Failed to list templates"),
         [WS_METHODS.flowSaveSpec]: (input) =>
-          rpcEffect(flowRpc.saveSpec(input), "Failed to save the flow"),
+          rpcEffect(
+            requireClientProject(input.projectId).pipe(Effect.andThen(flowRpc.saveSpec(input))),
+            "Failed to save the flow",
+          ),
         [WS_METHODS.flowSpecs]: (input) =>
-          rpcEffect(flowRpc.specs(input), "Failed to list the project's flows"),
+          rpcEffect(
+            requireClientProject(input.projectId).pipe(Effect.andThen(flowRpc.specs(input))),
+            "Failed to list the project's flows",
+          ),
         [WS_METHODS.ledgerList]: (input) =>
-          rpcEffect(flowRpc.ledgerList(input), "Failed to read the ledger"),
+          rpcEffect(
+            requireOwnFlow(input.flowId).pipe(Effect.andThen(flowRpc.ledgerList(input))),
+            "Failed to read the ledger",
+          ),
         [WS_METHODS.ledgerVerify]: () =>
-          rpcEffect(flowRpc.ledgerVerify(), "Failed to verify the ledger"),
+          rpcEffect(
+            refuseSharedForClient.pipe(Effect.andThen(flowRpc.ledgerVerify())),
+            "Failed to verify the ledger",
+          ),
         [WS_METHODS.ledgerExport]: () =>
-          rpcEffect(flowRpc.ledgerExport(), "Failed to export the ledger"),
+          rpcEffect(
+            refuseSharedForClient.pipe(Effect.andThen(flowRpc.ledgerExport())),
+            "Failed to export the ledger",
+          ),
         [WS_METHODS.ledgerHandle]: (input) =>
           rpcEffect(flowRpc.ledgerHandle(input), "Failed to read the handle"),
         [WS_METHODS.sapList]: (input) =>
-          rpcEffect(sapBus.list(input.flowId), "Failed to read the flow's messages"),
+          rpcEffect(
+            requireOwnFlow(input.flowId).pipe(Effect.andThen(sapBus.list(input.flowId))),
+            "Failed to read the flow's messages",
+          ),
         [WS_METHODS.aegisStatus]: () => rpcEffect(aegis.status(), "Failed to read security status"),
         [WS_METHODS.aegisAlerts]: (input) =>
           rpcEffect(
@@ -2355,26 +2681,42 @@ const makeWsRpcHandlersLayer = () =>
         [WS_METHODS.aegisUpdate]: (input) =>
           rpcEffect(aegis.update(input, "user"), "Failed to update security settings"),
         [WS_METHODS.cyberSecurityStatus]: (input) =>
-          rpcEffect(
-            cyberSecurity.status(input.projectId),
-            "Failed to read the security assessment",
+          requireClientProject(input.projectId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                cyberSecurity.status(input.projectId),
+                "Failed to read the security assessment",
+              ),
+            ),
           ),
         [WS_METHODS.cyberSecurityStart]: (input) =>
-          rpcEffect(
-            cyberSecurity.start({ ...input, startedBy: "user" }),
-            "Failed to start the security assessment",
+          requireClientProject(input.projectId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                cyberSecurity.start({ ...input, startedBy: "user" }),
+                "Failed to start the security assessment",
+              ),
+            ),
           ),
         [WS_METHODS.cyberSecuritySetFindingStatus]: (input) =>
-          rpcEffect(cyberSecurity.setFindingStatus(input), "Failed to update the finding"),
+          requireClientProject(input.projectId).pipe(
+            Effect.andThen(
+              rpcEffect(cyberSecurity.setFindingStatus(input), "Failed to update the finding"),
+            ),
+          ),
         [WS_METHODS.economyStatus]: () =>
           rpcEffect(
             economy((service) => service.status()),
             "Failed to read host economy",
           ),
         [WS_METHODS.economyAgent]: (input) =>
-          rpcEffect(
-            economy((service) => service.agent(input.threadId, input.action)),
-            "Failed to change the agent",
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                economy((service) => service.agent(input.threadId, input.action)),
+                "Failed to change the agent",
+              ),
+            ),
           ),
         [WS_METHODS.economyUpdate]: (input) =>
           rpcEffect(
@@ -2530,53 +2872,63 @@ const makeWsRpcHandlersLayer = () =>
             "Failed to unstage files",
           ),
         [WS_METHODS.gitHandoffThread]: (input) =>
-          rpcEffect(
-            Effect.gen(function* () {
-              const { commandId, threadId, ...gitInput } = input;
-              const operation = yield* beginGitHandoff(input);
-              if (operation.phase === "pending" || operation.phase === "uncertain") {
-                return yield* new WsRpcError({
-                  message:
-                    operation.phase === "pending"
-                      ? "This Git handoff is already running."
-                      : "This Git handoff was interrupted before its filesystem result became durable; inspect the repository before retrying.",
-                });
-              }
-              if (operation.phase === "completed") return operation.result;
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(
+                Effect.gen(function* () {
+                  const { commandId, threadId, ...gitInput } = input;
+                  const operation = yield* beginGitHandoff(input);
+                  if (operation.phase === "pending" || operation.phase === "uncertain") {
+                    return yield* new WsRpcError({
+                      message:
+                        operation.phase === "pending"
+                          ? "This Git handoff is already running."
+                          : "This Git handoff was interrupted before its filesystem result became durable; inspect the repository before retrying.",
+                    });
+                  }
+                  if (operation.phase === "completed") return operation.result;
 
-              const result =
-                operation.phase === "git_applied"
-                  ? operation.result
-                  : yield* refreshGitStatusAfter(
-                      input.cwd,
-                      gitManager.handoffThread(gitInput).pipe(
-                        Effect.catch((error) =>
-                          discardPendingGitHandoff(commandId).pipe(
-                            Effect.catch(() => Effect.void),
-                            Effect.andThen(Effect.fail(error)),
+                  const result =
+                    operation.phase === "git_applied"
+                      ? operation.result
+                      : yield* refreshGitStatusAfter(
+                          input.cwd,
+                          gitManager.handoffThread(gitInput).pipe(
+                            Effect.catch((error) =>
+                              discardPendingGitHandoff(commandId).pipe(
+                                Effect.catch(() => Effect.void),
+                                Effect.andThen(Effect.fail(error)),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ).pipe(Effect.tap((gitResult) => recordGitHandoffResult(commandId, gitResult)));
-              yield* dispatchOrchestrationCommand(
-                gitHandoffMetadataCommand({ commandId, threadId }, result),
-              );
-              yield* completeGitHandoff(commandId);
-              return result;
-            }),
-            "Failed to hand off thread",
+                        ).pipe(
+                          Effect.tap((gitResult) => recordGitHandoffResult(commandId, gitResult)),
+                        );
+                  yield* dispatchOrchestrationCommand(
+                    gitHandoffMetadataCommand({ commandId, threadId }, result),
+                  );
+                  yield* completeGitHandoff(commandId);
+                  return result;
+                }),
+                "Failed to hand off thread",
+              ),
+            ),
           ),
-
         [WS_METHODS.terminalOpen]: (input) =>
           rpcEffect(
-            resetTerminalTitleBuffer(input.threadId, input.terminalId ?? DEFAULT_TERMINAL_ID).pipe(
+            requireClientTerminal(input.threadId).pipe(
+              Effect.andThen(
+                resetTerminalTitleBuffer(input.threadId, input.terminalId ?? DEFAULT_TERMINAL_ID),
+              ),
+              Effect.andThen(rememberTerminalOpener(input.threadId)),
               Effect.andThen(terminalManager.open(input)),
             ),
             "Failed to open terminal",
           ),
         [WS_METHODS.terminalWrite]: (input) =>
           rpcEffect(
-            terminalManager.write(input).pipe(
+            requireClientTerminal(input.threadId).pipe(
+              Effect.andThen(terminalManager.write(input)),
               Effect.tap(() =>
                 maybeAutoRenameTerminalThread({
                   threadId: input.threadId,
@@ -2588,21 +2940,41 @@ const makeWsRpcHandlersLayer = () =>
             "Failed to write terminal",
           ),
         [WS_METHODS.terminalAckOutput]: (input) =>
-          rpcEffect(terminalManager.ackOutput(input), "Failed to acknowledge terminal output"),
+          rpcEffect(
+            requireClientTerminal(input.threadId).pipe(
+              Effect.andThen(terminalManager.ackOutput(input)),
+            ),
+            "Failed to acknowledge terminal output",
+          ),
         [WS_METHODS.terminalResize]: (input) =>
-          rpcEffect(terminalManager.resize(input), "Failed to resize terminal"),
+          rpcEffect(
+            requireClientTerminal(input.threadId).pipe(
+              Effect.andThen(terminalManager.resize(input)),
+            ),
+            "Failed to resize terminal",
+          ),
         [WS_METHODS.terminalClear]: (input) =>
-          rpcEffect(terminalManager.clear(input), "Failed to clear terminal"),
+          rpcEffect(
+            requireClientTerminal(input.threadId).pipe(
+              Effect.andThen(terminalManager.clear(input)),
+            ),
+            "Failed to clear terminal",
+          ),
         [WS_METHODS.terminalRestart]: (input) =>
           rpcEffect(
-            resetTerminalTitleBuffer(input.threadId, input.terminalId ?? DEFAULT_TERMINAL_ID).pipe(
+            requireClientTerminal(input.threadId).pipe(
+              Effect.andThen(
+                resetTerminalTitleBuffer(input.threadId, input.terminalId ?? DEFAULT_TERMINAL_ID),
+              ),
+              Effect.andThen(rememberTerminalOpener(input.threadId)),
               Effect.andThen(terminalManager.restart(input)),
             ),
             "Failed to restart terminal",
           ),
         [WS_METHODS.terminalClose]: (input) =>
           rpcEffect(
-            resetTerminalTitleBuffer(input.threadId, input.terminalId ?? null).pipe(
+            requireClientTerminal(input.threadId).pipe(
+              Effect.andThen(resetTerminalTitleBuffer(input.threadId, input.terminalId ?? null)),
               Effect.andThen(terminalManager.close(input)),
             ),
             "Failed to close terminal",
@@ -2613,13 +2985,19 @@ const makeWsRpcHandlersLayer = () =>
           streamAdmission.guard(
             clientId,
             { key: "terminal.events" },
-            Stream.callback((queue) =>
-              Effect.gen(function* () {
-                const unsubscribe = yield* terminalManager.subscribe((event) => {
-                  Effect.runFork(Queue.offer(queue, event).pipe(Effect.asVoid));
-                });
-                yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
-              }),
+            scopeStream(
+              Stream.callback<TerminalEvent>((queue) =>
+                Effect.gen(function* () {
+                  const unsubscribe = yield* terminalManager.subscribe((event) => {
+                    Effect.runFork(Queue.offer(queue, event).pipe(Effect.asVoid));
+                  });
+                  yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
+                }),
+              ),
+              (view, event) =>
+                terminalOwnerFor(view, event.threadId) === view.scope
+                  ? Option.some(event)
+                  : Option.none(),
             ),
           ),
 
@@ -2997,7 +3375,11 @@ const makeWsRpcHandlersLayer = () =>
             "Failed to get composer capabilities",
           ),
         [WS_METHODS.providerCompactThread]: (input) =>
-          rpcEffect(providerService.compactThread(input), "Failed to compact thread"),
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              rpcEffect(providerService.compactThread(input), "Failed to compact thread"),
+            ),
+          ),
         [WS_METHODS.providerListCommands]: (input) =>
           rpcEffect(providerDiscoveryService.listCommands(input), "Failed to list commands"),
         [WS_METHODS.providerListSkills]: (input) =>
@@ -3028,36 +3410,92 @@ const makeWsRpcHandlersLayer = () =>
         [WS_METHODS.providerListAgents]: (input) =>
           rpcEffect(providerDiscoveryService.listAgents(input), "Failed to list agents"),
         [WS_METHODS.automationList]: (input) =>
-          rpcEffect(automationService.list(input), "Failed to list automations"),
+          rpcEffect(
+            automationService.list(input).pipe(Effect.flatMap(scopeAutomationList)),
+            "Failed to list automations",
+          ),
         [WS_METHODS.automationGetMemory]: ({ automationId }) =>
-          rpcEffect(automationService.getMemory(automationId), "Failed to load automation memory"),
+          rpcEffect(
+            requireOwnAutomation(automationId).pipe(
+              Effect.andThen(automationService.getMemory(automationId)),
+            ),
+            "Failed to load automation memory",
+          ),
         [WS_METHODS.automationCreate]: (input) =>
-          rpcEffect(automationService.create(input), "Failed to create automation"),
+          rpcEffect(
+            requireClientProject(input.projectId).pipe(
+              Effect.andThen(automationService.create(input)),
+            ),
+            "Failed to create automation",
+          ),
         [WS_METHODS.automationUpdate]: (input) =>
-          rpcEffect(automationService.update(input), "Failed to update automation"),
+          rpcEffect(
+            requireOwnAutomation(input.id).pipe(
+              Effect.andThen(requireClientProject(input.projectId)),
+              Effect.andThen(automationService.update(input)),
+            ),
+            "Failed to update automation",
+          ),
         [WS_METHODS.automationDelete]: (input) =>
-          rpcEffect(automationService.delete(input), "Failed to delete automation"),
+          rpcEffect(
+            requireOwnAutomation(input.id).pipe(Effect.andThen(automationService.delete(input))),
+            "Failed to delete automation",
+          ),
         [WS_METHODS.automationRunNow]: (input) =>
-          rpcEffect(automationService.runNow(input), "Failed to run automation"),
+          rpcEffect(
+            requireOwnAutomation(input.automationId).pipe(
+              Effect.andThen(automationService.runNow(input)),
+            ),
+            "Failed to run automation",
+          ),
         [WS_METHODS.automationCancelRun]: (input) =>
-          rpcEffect(automationService.cancelRun(input), "Failed to cancel automation run"),
+          rpcEffect(
+            requireOwnAutomationRun(input.runId).pipe(
+              Effect.andThen(automationService.cancelRun(input)),
+            ),
+            "Failed to cancel automation run",
+          ),
         [WS_METHODS.automationMarkRunRead]: (input) =>
-          rpcEffect(automationService.markRunRead(input), "Failed to update automation run"),
+          rpcEffect(
+            requireOwnAutomationRun(input.runId).pipe(
+              Effect.andThen(automationService.markRunRead(input)),
+            ),
+            "Failed to update automation run",
+          ),
         [WS_METHODS.automationArchiveRun]: (input) =>
-          rpcEffect(automationService.archiveRun(input), "Failed to update automation run"),
+          rpcEffect(
+            requireOwnAutomationRun(input.runId).pipe(
+              Effect.andThen(automationService.archiveRun(input)),
+            ),
+            "Failed to update automation run",
+          ),
         [WS_METHODS.automationResolveProposal]: (input) =>
           rpcEffect(
-            automationService.resolveProposal(input),
+            requireOwnAutomation(input.automationId).pipe(
+              Effect.andThen(automationService.resolveProposal(input)),
+            ),
             "Failed to resolve automation proposal",
           ),
         [WS_METHODS.projectAgentGetOverview]: (input) =>
           rpcEffect(
-            projectAgentService.getOverview(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.getOverview(input, { kind: "user" })),
+            ),
             "Failed to load project overview",
           ),
         [WS_METHODS.projectAgentListSummaries]: (input) =>
           rpcEffect(
-            projectAgentService.listSummaries(input, { kind: "user" }),
+            projectAgentService.listSummaries(input, { kind: "user" }).pipe(
+              Effect.flatMap((result) =>
+                Effect.map(
+                  scopedList(result.summaries, (summary) => summary.projectId),
+                  (summaries) => ({
+                    ...result,
+                    summaries,
+                  }),
+                ),
+              ),
+            ),
             "Failed to list project agents",
           ),
         [WS_METHODS.projectAgentConfigure]: (input) =>
@@ -3071,26 +3509,34 @@ const makeWsRpcHandlersLayer = () =>
           ).pipe(
             Effect.andThen(
               rpcEffect(
-                projectAgentService.configure(input, { kind: "user" }),
+                requireClientHub(input).pipe(
+                  Effect.andThen(projectAgentService.configure(input, { kind: "user" })),
+                ),
                 "Failed to configure project coordinator",
               ),
             ),
           ),
         [WS_METHODS.projectAgentLinkProject]: (input) =>
           rpcEffect(
-            projectAgentService.linkProject(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.linkProject(input, { kind: "user" })),
+            ),
             "Failed to link repository",
           ),
         [WS_METHODS.projectAgentUnlinkProject]: (input) =>
           rpcEffect(
-            projectAgentService.unlinkProject(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.unlinkProject(input, { kind: "user" })),
+            ),
             "Failed to unlink repository",
           ),
         [WS_METHODS.projectAgentPauseGroup]: (input) =>
           requireWsOwnerSession.pipe(
             Effect.andThen(
               rpcEffect(
-                projectAgentService.pauseGroup(input, { kind: "user" }),
+                requireClientHub(input).pipe(
+                  Effect.andThen(projectAgentService.pauseGroup(input, { kind: "user" })),
+                ),
                 "Failed to pause hub",
               ),
             ),
@@ -3099,7 +3545,9 @@ const makeWsRpcHandlersLayer = () =>
           requireWsOwnerSession.pipe(
             Effect.andThen(
               rpcEffect(
-                projectAgentService.resumeGroup(input, { kind: "user" }),
+                requireClientHub(input).pipe(
+                  Effect.andThen(projectAgentService.resumeGroup(input, { kind: "user" })),
+                ),
                 "Failed to resume hub",
               ),
             ),
@@ -3108,7 +3556,9 @@ const makeWsRpcHandlersLayer = () =>
           requireWsOwnerSession.pipe(
             Effect.andThen(
               rpcEffect(
-                projectAgentService.archiveGroup(input, { kind: "user" }),
+                requireClientHub(input).pipe(
+                  Effect.andThen(projectAgentService.archiveGroup(input, { kind: "user" })),
+                ),
                 "Failed to archive hub",
               ),
             ),
@@ -3117,7 +3567,9 @@ const makeWsRpcHandlersLayer = () =>
           requireWsOwnerSession.pipe(
             Effect.andThen(
               rpcEffect(
-                projectAgentService.unarchiveGroup(input, { kind: "user" }),
+                requireClientHub(input).pipe(
+                  Effect.andThen(projectAgentService.unarchiveGroup(input, { kind: "user" })),
+                ),
                 "Failed to unarchive hub",
               ),
             ),
@@ -3126,7 +3578,9 @@ const makeWsRpcHandlersLayer = () =>
           requireWsOwnerSession.pipe(
             Effect.andThen(
               rpcEffect(
-                projectAgentService.restartCoordinator(input, { kind: "user" }),
+                requireClientHub(input).pipe(
+                  Effect.andThen(projectAgentService.restartCoordinator(input, { kind: "user" })),
+                ),
                 "Failed to restart coordinator",
               ),
             ),
@@ -3135,99 +3589,137 @@ const makeWsRpcHandlersLayer = () =>
           requireWsOwnerSession.pipe(
             Effect.andThen(
               rpcEffect(
-                projectAgentService.deleteGroup(input, { kind: "user" }),
+                requireClientHub(input).pipe(
+                  Effect.andThen(projectAgentService.deleteGroup(input, { kind: "user" })),
+                ),
                 "Failed to delete hub",
               ),
             ),
           ),
         [WS_METHODS.projectAgentStartGoal]: (input) =>
           rpcEffect(
-            projectAgentService.startGoal(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.startGoal(input, { kind: "user" })),
+            ),
             "Failed to start project goal",
           ),
         [WS_METHODS.projectAgentUpdateGoal]: (input) =>
           rpcEffect(
-            projectAgentService.updateGoal(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.updateGoal(input, { kind: "user" })),
+            ),
             "Failed to update project goal",
           ),
         [WS_METHODS.projectAgentPauseGoal]: (input) =>
           rpcEffect(
-            projectAgentService.pauseGoal(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.pauseGoal(input, { kind: "user" })),
+            ),
             "Failed to pause project goal",
           ),
         [WS_METHODS.projectAgentResumeGoal]: (input) =>
           rpcEffect(
-            projectAgentService.resumeGoal(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.resumeGoal(input, { kind: "user" })),
+            ),
             "Failed to resume project goal",
           ),
         [WS_METHODS.projectAgentStopGoal]: (input) =>
           rpcEffect(
-            projectAgentService.stopGoal(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.stopGoal(input, { kind: "user" })),
+            ),
             "Failed to stop project goal",
           ),
         [WS_METHODS.projectAgentListTasks]: (input) =>
           rpcEffect(
-            projectAgentService.listTasks(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.listTasks(input, { kind: "user" })),
+            ),
             "Failed to list project tasks",
           ),
         [WS_METHODS.projectAgentCreateTask]: (input) =>
           rpcEffect(
-            projectAgentService.createTask(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.createTask(input, { kind: "user" })),
+            ),
             "Failed to create project task",
           ),
         [WS_METHODS.projectAgentUpdateTask]: (input) =>
           rpcEffect(
-            projectAgentService.updateTask(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.updateTask(input, { kind: "user" })),
+            ),
             "Failed to update project task",
           ),
         [WS_METHODS.projectAgentListEvidence]: (input) =>
           rpcEffect(
-            projectAgentService.listEvidence(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.listEvidence(input, { kind: "user" })),
+            ),
             "Failed to list task evidence",
           ),
         [WS_METHODS.projectAgentListThreadIndex]: (input) =>
           rpcEffect(
-            projectAgentService.listThreadIndex(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.listThreadIndex(input, { kind: "user" })),
+            ),
             "Failed to list project threads",
           ),
         [WS_METHODS.projectAgentExcludeThread]: (input) =>
           rpcEffect(
-            projectAgentService.excludeThread(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.excludeThread(input, { kind: "user" })),
+            ),
             "Failed to update thread coverage",
           ),
         [WS_METHODS.projectAgentBackfillSummaries]: (input) =>
           rpcEffect(
-            projectAgentService.backfillSummaries(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.backfillSummaries(input, { kind: "user" })),
+            ),
             "Failed to backfill project summaries",
           ),
         [WS_METHODS.projectAgentListActivity]: (input) =>
           rpcEffect(
-            projectAgentService.listActivity(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.listActivity(input, { kind: "user" })),
+            ),
             "Failed to list project activity",
           ),
         [WS_METHODS.projectAgentListDocuments]: (input) =>
           rpcEffect(
-            projectAgentService.listDocuments(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.listDocuments(input, { kind: "user" })),
+            ),
             "Failed to list project documents",
           ),
         [WS_METHODS.projectAgentReadDocument]: (input) =>
           rpcEffect(
-            projectAgentService.readDocument(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.readDocument(input, { kind: "user" })),
+            ),
             "Failed to read project document",
           ),
         [WS_METHODS.projectAgentWriteDocument]: (input) =>
           rpcEffect(
-            projectAgentService.writeDocument(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.writeDocument(input, { kind: "user" })),
+            ),
             "Failed to write project document",
           ),
         [WS_METHODS.projectAgentExportDocuments]: (input) =>
           rpcEffect(
-            projectAgentService.exportDocuments(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.exportDocuments(input, { kind: "user" })),
+            ),
             "Failed to export project documents",
           ),
         [WS_METHODS.projectAgentRefreshDigest]: (input) =>
           rpcEffect(
-            projectAgentService.refreshDigest(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.refreshDigest(input, { kind: "user" })),
+            ),
             "Failed to refresh project digest",
           ),
         [WS_METHODS.projectAgentLibraryList]: (input) =>
@@ -3424,44 +3916,66 @@ const makeWsRpcHandlersLayer = () =>
           ),
         [WS_METHODS.projectAgentResolveWorker]: (input) =>
           rpcEffect(
-            projectAgentService.resolveWorkerAlert(input, { kind: "user" }),
+            requireClientHub(input).pipe(
+              Effect.andThen(projectAgentService.resolveWorkerAlert(input, { kind: "user" })),
+            ),
             "Failed to resolve worker alert",
           ),
         [WS_METHODS.subscribeProjectAgentEvents]: (input, { clientId }) =>
           streamAdmission.guard(
             clientId,
             { key: `projectAgent.events:${input.projectId}` },
-            projectAgentService
-              .streamEvents(input)
-              .pipe(Stream.mapError((cause) => toWsRpcError(cause, "Project event stream failed"))),
+            Stream.unwrap(
+              requireClientHub(input).pipe(Effect.as(projectAgentService.streamEvents(input))),
+            ).pipe(Stream.mapError((cause) => toWsRpcError(cause, "Project event stream failed"))),
           ),
         [WS_METHODS.subscribeAutomationEvents]: (_, { clientId }) =>
           streamAdmission.guard(
             clientId,
             { key: "automation.events" },
-            Stream.merge(
-              Stream.fromEffect(
-                automationService.list({}).pipe(
-                  Effect.map(({ definitions, runs, memories }) => ({
-                    type: "snapshot" as const,
-                    definitions,
-                    runs,
-                    memories,
-                  })),
+            scopeAutomationEvents(
+              Stream.merge(
+                Stream.fromEffect(
+                  automationService.list({}).pipe(
+                    Effect.map(
+                      ({ definitions, runs, memories }): AutomationStreamEvent => ({
+                        type: "snapshot",
+                        definitions,
+                        runs,
+                        memories,
+                      }),
+                    ),
+                  ),
                 ),
+                automationService.streamEvents,
               ),
-              automationService.streamEvents,
             ).pipe(
               Stream.mapError((cause) => toWsRpcError(cause, "Automation event stream failed")),
             ),
           ),
         // Keep refusal handling for hosts that do not offer Tasks.
         [WS_METHODS.todoList]: () =>
-          whenTasksEnabled(rpcEffect(todoService.list(), "Failed to list tasks")),
+          whenTasksEnabled(
+            // TodoService scopes to-dos to the caller itself.
+            rpcEffect(todoService.list(), "Failed to list tasks"),
+          ),
         [WS_METHODS.todoCreate]: (input) =>
-          whenTasksEnabled(rpcEffect(todoService.create(input), "Failed to create task")),
+          whenTasksEnabled(
+            rpcEffect(
+              requireClientProject(input.projectId).pipe(Effect.andThen(todoService.create(input))),
+              "Failed to create task",
+            ),
+          ),
         [WS_METHODS.todoUpdate]: (input) =>
-          whenTasksEnabled(rpcEffect(todoService.update(input), "Failed to update task")),
+          whenTasksEnabled(
+            rpcEffect(
+              requireClientProject(input.projectId).pipe(
+                Effect.andThen(requireClientThread(input.threadId)),
+                Effect.andThen(todoService.update(input)),
+              ),
+              "Failed to update task",
+            ),
+          ),
         [WS_METHODS.todoDelete]: (input) =>
           whenTasksEnabled(rpcEffect(todoService.delete(input), "Failed to delete task")),
         [WS_METHODS.subscribeTodoEvents]: (_, { clientId }) =>
@@ -3469,7 +3983,7 @@ const makeWsRpcHandlersLayer = () =>
             ? streamAdmission.guard(
                 clientId,
                 { key: "todo.events" },
-                todoService.streamChanges.pipe(
+                scopeTodoEvents(todoService.streamChanges).pipe(
                   Stream.mapError((cause) => toWsRpcError(cause, "Task event stream failed")),
                 ),
               )
@@ -3519,13 +4033,17 @@ const makeWsRpcHandlersLayer = () =>
             Effect.andThen(computerHandlers[COMPUTER_WS_METHODS.getAuditHistory](input)),
           ),
         [COMPUTER_WS_METHODS.getThreadState]: (input, { headers }) =>
-          Effect.suspend(() => {
-            computerInterests.watch(
-              Headers.get(headers, WS_CONNECTION_SESSION_HEADER),
-              input.threadId,
-            );
-            return computerHandlers[COMPUTER_WS_METHODS.getThreadState](input);
-          }),
+          requireClientThread(input.threadId).pipe(
+            Effect.andThen(
+              Effect.suspend(() => {
+                computerInterests.watch(
+                  Headers.get(headers, WS_CONNECTION_SESSION_HEADER),
+                  input.threadId,
+                );
+                return computerHandlers[COMPUTER_WS_METHODS.getThreadState](input);
+              }),
+            ),
+          ),
         [COMPUTER_WS_METHODS.subscribeEvents]: (_, { clientId, headers }) =>
           streamAdmission.guard(
             clientId,

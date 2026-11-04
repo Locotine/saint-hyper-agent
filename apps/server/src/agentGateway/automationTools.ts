@@ -138,6 +138,8 @@ const COMPLETION_POLICY_INPUT_SCHEMA = {
 
 interface AutomationToolDependencies {
   readonly automationService: AutomationServiceShape;
+  /** False for another desktop's project on a shared server; omitted means every project. */
+  readonly projectVisible?: (projectId: ProjectId) => Effect.Effect<boolean>;
   readonly requireThreadShell: (
     threadId: string,
   ) => Effect.Effect<OrchestrationThreadShell, ToolInputError>;
@@ -262,6 +264,7 @@ export function makeAgentGatewayAutomationTools(
 ): ReadonlyArray<ToolEntry> {
   const {
     automationService,
+    projectVisible = () => Effect.succeed(true),
     requireThreadShell,
     assertCallerMayDriveThread,
     resolveAutomationTarget,
@@ -273,9 +276,14 @@ export function makeAgentGatewayAutomationTools(
       Effect.mapError((error) => new ToolInputError(errorText(error))),
       Effect.flatMap((result) => {
         const definition = result.definitions.find((entry) => entry.id === automationId);
+        const notFound = new ToolInputError(`Automation "${automationId}" was not found.`);
         return definition
-          ? Effect.succeed({ definition, listed: result })
-          : Effect.fail(new ToolInputError(`Automation "${automationId}" was not found.`));
+          ? projectVisible(definition.projectId).pipe(
+              Effect.flatMap((visible) =>
+                visible ? Effect.succeed({ definition, listed: result }) : Effect.fail(notFound),
+              ),
+            )
+          : Effect.fail(notFound);
       }),
     );
 
@@ -611,8 +619,11 @@ export function makeAgentGatewayAutomationTools(
         const result = yield* automationService
           .list(projectIdArg ? { projectId: ProjectId.makeUnsafe(projectIdArg) } : undefined)
           .pipe(Effect.mapError((error) => new ToolInputError(errorText(error))));
+        const definitions = yield* Effect.filter(result.definitions, (definition) =>
+          projectVisible(definition.projectId),
+        );
         return mcpToolResultJson({
-          automations: result.definitions.map((definition) => ({
+          automations: definitions.map((definition) => ({
             automationId: definition.id,
             name: definition.name,
             mode: definition.mode,

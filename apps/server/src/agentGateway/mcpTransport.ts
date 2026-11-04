@@ -5,6 +5,7 @@ import type { ProjectionSnapshotQueryShape } from "../orchestration/Services/Pro
 import type { AgentGatewayShape } from "./Services/AgentGateway.ts";
 import type { AgentGatewayCredentialsShape } from "./Services/AgentGatewayCredentials.ts";
 import type { AgentGatewayCapability } from "./Services/AgentGatewaySessionRegistry.ts";
+import { CurrentClientScope } from "../clientScope.ts";
 import { extractBearerToken } from "./bearerToken.ts";
 import {
   buildMcpInitializeResult,
@@ -94,6 +95,8 @@ function requestIdKey(id: JsonRpcId): string {
 export function makeAgentGatewayMcpTransport(input: {
   readonly credentials: AgentGatewayCredentialsShape;
   readonly snapshotQuery: ProjectionSnapshotQueryShape;
+  /** A server shared by several desktops: tools act for the desktop owning the caller's project. */
+  readonly clientScoped?: boolean | undefined;
   readonly tools: ReadonlyArray<ToolEntry>;
   readonly instructions: string;
   readonly requireThreadShell: (
@@ -314,6 +317,15 @@ export function makeAgentGatewayMcpTransport(input: {
           "re-lease",
         );
       }
+      // ponytail: unowned (pre-scoping) projects stay unscoped; no client can open them anyway.
+      const callerClientScope = input.clientScoped
+        ? yield* input.snapshotQuery.getProjectShellById(callerThread.value.projectId).pipe(
+            Effect.map((project) =>
+              Option.isSome(project) ? (project.value.ownerClientId ?? null) : null,
+            ),
+            Effect.catch(() => Effect.succeed(null)),
+          )
+        : null;
       const callerWriteAuthority =
         callerThread.value.latestTurn?.state === "running"
           ? input.credentials.bindWriteAuthority(token, callerThread.value.latestTurn.turnId)
@@ -431,7 +443,11 @@ export function makeAgentGatewayMcpTransport(input: {
             let requestStarted = false;
             let cancellationRequested = false;
             const requestEffect = Deferred.await(registered).pipe(
-              Effect.andThen(handleRequest(parsed.request, context)),
+              Effect.andThen(
+                handleRequest(parsed.request, context).pipe(
+                  Effect.provideService(CurrentClientScope, callerClientScope),
+                ),
+              ),
               Effect.catch((error) =>
                 Effect.succeed(
                   jsonRpcResult(parsed.request.id, mcpToolResultError(errorText(error))),

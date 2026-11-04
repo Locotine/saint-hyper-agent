@@ -30,7 +30,8 @@ const makeTodoRepository = Effect.gen(function* () {
         linked_at AS "linkedAt",
         completed_at AS "completedAt",
         created_at AS "createdAt",
-        updated_at AS "updatedAt"
+        updated_at AS "updatedAt",
+        owner_client_id AS "ownerClientId"
       FROM todos
       ORDER BY created_at ASC, todo_id ASC
     `,
@@ -52,7 +53,8 @@ const makeTodoRepository = Effect.gen(function* () {
         linked_at AS "linkedAt",
         completed_at AS "completedAt",
         created_at AS "createdAt",
-        updated_at AS "updatedAt"
+        updated_at AS "updatedAt",
+        owner_client_id AS "ownerClientId"
       FROM todos
       WHERE todo_id = ${id}
     `,
@@ -74,7 +76,8 @@ const makeTodoRepository = Effect.gen(function* () {
         linked_at,
         completed_at,
         created_at,
-        updated_at
+        updated_at,
+        owner_client_id
       )
       VALUES (
         ${todo.id},
@@ -88,7 +91,8 @@ const makeTodoRepository = Effect.gen(function* () {
         ${todo.linkedAt},
         ${todo.completedAt},
         ${todo.createdAt},
-        ${todo.updatedAt}
+        ${todo.updatedAt},
+        ${todo.ownerClientId ?? null}
       )
       ON CONFLICT (todo_id) DO NOTHING
       RETURNING
@@ -103,7 +107,8 @@ const makeTodoRepository = Effect.gen(function* () {
         linked_at AS "linkedAt",
         completed_at AS "completedAt",
         created_at AS "createdAt",
-        updated_at AS "updatedAt"
+        updated_at AS "updatedAt",
+        owner_client_id AS "ownerClientId"
     `,
   });
 
@@ -136,7 +141,8 @@ const makeTodoRepository = Effect.gen(function* () {
         linked_at AS "linkedAt",
         completed_at AS "completedAt",
         created_at AS "createdAt",
-        updated_at AS "updatedAt"
+        updated_at AS "updatedAt",
+        owner_client_id AS "ownerClientId"
     `,
   });
 

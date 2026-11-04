@@ -26,6 +26,7 @@ import {
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { type ClientScope, CurrentClientScope } from "../../clientScope.ts";
+import { clientMayRunCommand } from "../clientOwnership.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import {
@@ -1760,10 +1761,16 @@ const makeOrchestrationEngine = Effect.gen(function* () {
 
   const dispatch: OrchestrationEngineShape["dispatch"] = (requestedCommand, context) =>
     Effect.gen(function* () {
-      const command = withCreatorClient(
-        requestedCommand,
-        context?.clientScope !== undefined ? context.clientScope : yield* CurrentClientScope,
-      );
+      const scope =
+        context?.clientScope !== undefined ? context.clientScope : yield* CurrentClientScope;
+      // Covers every scoped caller (WebSocket and MCP tools); reactors dispatch unscoped.
+      if (scope !== null && !clientMayRunCommand(scope, requestedCommand, commandReadModel)) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: requestedCommand.type,
+          detail: "That item does not belong to this computer.",
+        });
+      }
+      const command = withCreatorClient(requestedCommand, scope);
       const result = yield* Deferred.make<{ sequence: number }, OrchestrationDispatchError>();
       const executionState = yield* Ref.make<CommandExecutionState>("queued");
       const envelope: CommandEnvelope = {

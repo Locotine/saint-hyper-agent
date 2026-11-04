@@ -64,6 +64,10 @@ export const Todo = Schema.Struct({
   completedAt: Schema.NullOr(TodoIsoDateTime),
   createdAt: TodoIsoDateTime,
   updatedAt: TodoIsoDateTime,
+  /** Remote desktop the task belongs to on a shared server; null when unscoped. Server-set. */
+  ownerClientId: Schema.optional(Schema.NullOr(Schema.String)).pipe(
+    Schema.withDecodingDefault(() => null),
+  ),
 });
 export type Todo = typeof Todo.Type;
 
