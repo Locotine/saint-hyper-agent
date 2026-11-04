@@ -43,7 +43,7 @@ import { type SplitViewId } from "../splitViewStore";
 import { useRightDockStore } from "../rightDockStore";
 import { registerSidechatCreator } from "../lib/sidechatCreatorRegistry";
 import { downloadUrlAsBlob } from "../lib/browserDownload";
-import { resolveWsHttpUrl } from "../lib/wsHttpUrl";
+import { resolveHostHttpUrl } from "../lib/wsHttpUrl";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
@@ -829,18 +829,24 @@ export function useComposerSlashCommands(input: {
       return;
     }
     const params = new URLSearchParams({ threadId: threadId });
-    void downloadUrlAsBlob({
-      url: resolveWsHttpUrl(`/api/thread-export?${params.toString()}`),
-      filename: `saint-thread-${threadId}.zip`,
-    }).catch((error: unknown) => {
-      toastManager.add({
-        type: "error",
-        title: "Could not export thread",
-        description:
-          error instanceof Error ? error.message : "An error occurred while exporting the thread.",
+    void Promise.resolve()
+      .then(() =>
+        downloadUrlAsBlob({
+          url: resolveHostHttpUrl(hostId, `/api/thread-export?${params.toString()}`),
+          filename: `saint-thread-${threadId}.zip`,
+        }),
+      )
+      .catch((error: unknown) => {
+        toastManager.add({
+          type: "error",
+          title: "Could not export thread",
+          description:
+            error instanceof Error
+              ? error.message
+              : "An error occurred while exporting the thread.",
+        });
       });
-    });
-  }, [canOfferExportCommand, threadId]);
+  }, [canOfferExportCommand, hostId, threadId]);
 
   const handleStandaloneSlashCommand = useCallback(
     async (trimmed: string): Promise<boolean> => {

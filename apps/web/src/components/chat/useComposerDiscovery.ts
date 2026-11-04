@@ -11,6 +11,7 @@ import {
 } from "@saint/contracts";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useQuery } from "@tanstack/react-query";
+import { useHostId } from "~/hosts/hostScope";
 import { useMemo } from "react";
 import { isLocalFolderMentionQuery } from "~/lib/localFolderMentions";
 import { projectSearchEntriesQueryOptions } from "~/lib/projectReactQuery";
@@ -67,6 +68,7 @@ export function useComposerDiscovery({
   ompAgentDir,
   discoverNativeCompaction,
 }: ComposerDiscoveryInput) {
+  const hostId = useHostId();
   const composerTriggerKind = composerTrigger?.kind ?? null;
   const mentionTriggerQuery = composerTrigger?.kind === "mention" ? composerTrigger.query : "";
   const isMentionTrigger = composerTriggerKind === "mention";
@@ -88,6 +90,7 @@ export function useComposerDiscovery({
   );
   const providerCommandsQuery = useQuery(
     providerCommandsQueryOptions({
+      hostId,
       provider: selectedProvider,
       instanceId: selectedProviderInstanceId,
       cwd: composerSkillCwd,
@@ -126,6 +129,7 @@ export function useComposerDiscovery({
     supportsSkillDiscovery(providerComposerCapabilitiesQuery.data);
   const providerSkillsQuery = useQuery(
     providerSkillsQueryOptions({
+      hostId,
       provider: selectedProvider,
       instanceId: selectedProviderInstanceId,
       cwd: composerSkillCwd,
@@ -147,6 +151,7 @@ export function useComposerDiscovery({
   );
   const providerPluginsQuery = useQuery(
     providerPluginsQueryOptions({
+      hostId,
       provider: selectedProvider,
       instanceId: selectedProviderInstanceId,
       cwd: composerSkillCwd,
@@ -158,6 +163,7 @@ export function useComposerDiscovery({
   );
   const workspaceEntriesQuery = useQuery(
     projectSearchEntriesQueryOptions({
+      hostId,
       cwd: gitCwd,
       query: effectiveMentionQuery,
       enabled: isMentionTrigger && !isLocalFolderBrowserOpen,

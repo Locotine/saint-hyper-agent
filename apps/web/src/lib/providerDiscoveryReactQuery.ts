@@ -11,6 +11,8 @@ import type {
 } from "@saint/contracts";
 import { queryOptions } from "@tanstack/react-query";
 import { ensureLocalNativeApi } from "~/nativeApi";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { projectApiFor, withHostKey } from "./projectReactQuery";
 import {
   expensiveReadErrorRefetchInterval,
   isRpcCapacityExceededError,
@@ -380,16 +382,21 @@ export function providerSkillsQueryOptions(input: {
   threadId?: string | null;
   agentDir?: string | null;
   enabled?: boolean;
+  // The host the chat lives on; this computer by default.
+  hostId?: HostId;
 }) {
   return queryOptions({
-    queryKey: providerDiscoveryQueryKeys.skills(
-      input.provider,
-      input.cwd,
-      input.agentDir ?? null,
-      input.instanceId ?? null,
+    queryKey: withHostKey(
+      providerDiscoveryQueryKeys.skills(
+        input.provider,
+        input.cwd,
+        input.agentDir ?? null,
+        input.instanceId ?? null,
+      ),
+      input.hostId ?? LOCAL_HOST_ID,
     ),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(input.hostId ?? LOCAL_HOST_ID);
       if (!input.cwd) {
         throw new Error("Skill discovery is unavailable.");
       }
@@ -435,7 +442,10 @@ export function providerCommandsQueryOptions(input: {
   experimentalWebSockets?: boolean | undefined;
   agentDir?: string | null;
   enabled?: boolean;
+  // The host the chat lives on; this computer by default.
+  hostId?: HostId;
 }) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   const connectionKey = JSON.stringify({
     binaryPath: input.binaryPath ?? null,
     serverUrl: input.serverUrl ?? null,
@@ -445,15 +455,18 @@ export function providerCommandsQueryOptions(input: {
     threadId: input.provider === "claudeAgent" ? (input.threadId ?? null) : null,
   });
   return queryOptions({
-    queryKey: providerDiscoveryQueryKeys.commands(
-      input.provider,
-      input.cwd,
-      input.agentDir ?? null,
-      connectionKey,
-      input.instanceId ?? null,
+    queryKey: withHostKey(
+      providerDiscoveryQueryKeys.commands(
+        input.provider,
+        input.cwd,
+        input.agentDir ?? null,
+        connectionKey,
+        input.instanceId ?? null,
+      ),
+      hostId,
     ),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!input.cwd) {
         throw new Error("Command discovery is unavailable.");
       }
@@ -647,16 +660,21 @@ export function providerPluginsQueryOptions(input: {
   cwd: string | null;
   threadId?: string | null;
   enabled?: boolean;
+  // The host the chat lives on; this computer by default.
+  hostId?: HostId;
 }) {
   return queryOptions({
-    queryKey: providerDiscoveryQueryKeys.plugins(
-      input.provider,
-      input.cwd,
-      input.threadId ?? null,
-      input.instanceId ?? null,
+    queryKey: withHostKey(
+      providerDiscoveryQueryKeys.plugins(
+        input.provider,
+        input.cwd,
+        input.threadId ?? null,
+        input.instanceId ?? null,
+      ),
+      input.hostId ?? LOCAL_HOST_ID,
     ),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(input.hostId ?? LOCAL_HOST_ID);
       return api.provider.listPlugins({
         provider: input.provider,
         ...(input.instanceId ? { instanceId: input.instanceId } : {}),

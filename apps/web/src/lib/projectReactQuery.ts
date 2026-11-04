@@ -52,11 +52,11 @@ export const projectQueryKeys = {
  * key, so a host path never shares a cache entry with the same path here and prefix
  * invalidations still reach it. This computer's keys are unchanged.
  */
-function withHostKey<const Key extends readonly unknown[]>(key: Key, hostId: HostId) {
+export function withHostKey<const Key extends readonly unknown[]>(key: Key, hostId: HostId) {
   return hostId === LOCAL_HOST_ID ? key : ([...key, hostId] as const);
 }
 
-function projectApiFor(hostId: HostId) {
+export function projectApiFor(hostId: HostId) {
   if (hostId === LOCAL_HOST_ID) return ensureLocalNativeApi();
   const api = apiFor(hostId);
   if (!api) throw new Error("This host is not connected.");
