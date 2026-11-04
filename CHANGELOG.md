@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.12 — 2026-11-04
+
+**Same fix as 1.1.11, with the version, the format check and the release source aligned.**
+
+This Stable release covers the commit after `v1.1.11`: `b7db54f8c`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.12).
+
+### Fixed
+
+- The 1.1.11 source failed the format check on a new test file. The code is unchanged: opening a chat on a remote host no longer stops the app on "Something went wrong".
+
 ## 1.1.11 — 2026-11-04
 
 **Opening a chat on a remote host no longer crashes the app with "Something went wrong".**
