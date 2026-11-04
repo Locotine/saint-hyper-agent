@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.11 — 2026-11-04
+
+**Opening a chat on a remote host no longer crashes the app with "Something went wrong".**
+
+This Stable release covers the commit after `v1.1.10`: `85739e3d6`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.11).
+
+### Fixed
+
+- Opening a chat on a remote host could stop the app on "Something went wrong" (React error 185), and only Reload app cleared it, until the next time. The usage rings in the rail and the usage chip in that chat shared one cached selector across this computer's data and the host's, so once both had rate-limit activity they kept re-rendering each other. Each now has its own.
+
 ## 1.1.10 — 2026-11-03
 
 **Chats on remote hosts are no longer remembered under the wrong computer.**
