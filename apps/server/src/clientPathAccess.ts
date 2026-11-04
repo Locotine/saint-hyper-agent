@@ -62,8 +62,15 @@ function isUnclaimedWorktree(
   readModel: Pick<OrchestrationReadModel, "threads">,
   worktreesDir: string,
   candidate: string,
+  scope: string,
+  reserved: ReadonlyMap<string, string>,
 ): boolean {
   if (!isPathWithin(worktreesDir, candidate) || isPathWithin(candidate, worktreesDir)) return false;
+  for (const [path, creator] of reserved) {
+    if (creator !== scope && (isPathWithin(path, candidate) || isPathWithin(candidate, path))) {
+      return false;
+    }
+  }
   return !readModel.threads.some((thread) =>
     [thread.worktreePath, thread.workingDirectory, thread.associatedWorktreePath].some(
       (path) => path && (isPathWithin(path, candidate) || isPathWithin(candidate, path)),
@@ -77,14 +84,20 @@ export function clientMayUsePath(
   scope: Exclude<ClientScope, null>,
   worktreesDir: string,
   candidate: string,
+  reserved: ReadonlyMap<string, string> = new Map(),
 ): boolean {
   return (
     isPathWithinRoots(clientRoots(readModel, scope), candidate) ||
-    (nodePath.isAbsolute(candidate) && isUnclaimedWorktree(readModel, worktreesDir, candidate))
+    (nodePath.isAbsolute(candidate) &&
+      isUnclaimedWorktree(readModel, worktreesDir, candidate, scope, reserved))
   );
 }
 
 const CWD = ["cwd"] as const;
+const CREATES_WORKTREE = new Set<string>([
+  WS_METHODS.gitCreateWorktree,
+  WS_METHODS.gitCreateDetachedWorktree,
+]);
 
 /**
  * RPCs held to the client's roots, and the input fields that name a path. Left out on purpose:
@@ -155,6 +168,13 @@ export function guardClientPaths<H extends object, E>(
     readonly denied: () => E;
   },
 ): H {
+  // Worktrees this server created, by creating client, until a thread claims them.
+  // ponytail: entries live until restart (one short string per worktree created).
+  const reserved = new Map<string, string>();
+  const reserve = (value: unknown, scope: string | null) => {
+    const path = (value as { worktree?: { path?: unknown } } | null)?.worktree?.path;
+    if (scope !== null && typeof path === "string") reserved.set(path, scope);
+  };
   const check = (method: string, input: Record<string, unknown>) =>
     Effect.gen(function* () {
       const scope = yield* CurrentClientScope;
@@ -163,7 +183,7 @@ export function guardClientPaths<H extends object, E>(
       for (const field of CLIENT_PATH_FIELDS[method] ?? []) {
         const value = input[field];
         if (typeof value !== "string" || value.length === 0) continue;
-        if (!clientMayUsePath(readModel, scope, deps.worktreesDir, value)) {
+        if (!clientMayUsePath(readModel, scope, deps.worktreesDir, value, reserved)) {
           return yield* Effect.fail(deps.denied());
         }
       }
@@ -177,9 +197,33 @@ export function guardClientPaths<H extends object, E>(
     guarded[method] = (input: Record<string, unknown>, options: unknown) => {
       const allowed = check(method, input);
       const result = handler(input, options);
+      if (!CREATES_WORKTREE.has(method)) {
+        return Stream.isStream(result)
+          ? Stream.unwrap(Effect.as(allowed, result))
+          : Effect.andThen(allowed, result as Effect.Effect<unknown, unknown, unknown>);
+      }
+      const remember = <A>(created: unknown, value: A) =>
+        Effect.map(CurrentClientScope.asEffect(), (scope) => {
+          reserve(created, scope);
+          return value;
+        });
       return Stream.isStream(result)
-        ? Stream.unwrap(Effect.as(allowed, result))
-        : Effect.andThen(allowed, result as Effect.Effect<unknown, unknown, unknown>);
+        ? Stream.unwrap(
+            Effect.as(
+              allowed,
+              Stream.mapEffect(
+                result as Stream.Stream<{ kind?: string; result?: unknown }>,
+                (event) =>
+                  event.kind === "completed"
+                    ? remember(event.result, event)
+                    : Effect.succeed(event),
+              ),
+            ),
+          )
+        : Effect.andThen(
+            allowed,
+            Effect.flatMap(result as Effect.Effect<unknown>, (value) => remember(value, value)),
+          );
     };
   }
   return guarded as H;

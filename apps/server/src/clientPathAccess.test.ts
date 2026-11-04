@@ -89,6 +89,11 @@ describe("clientPathAccess", () => {
     expect(may("/wt")).toBe(false);
     expect(may("/theirs")).toBe(false);
     expect(may("/etc")).toBe(false);
+    const reserved = new Map([["/wt/repo/new", "bob-00000002"]]);
+    expect(clientMayUsePath(readModel, "alice-00000001", "/wt", "/wt/repo/new", reserved)).toBe(
+      false,
+    );
+    expect(clientMayUsePath(readModel, "bob-00000002", "/wt", "/wt/repo/new", reserved)).toBe(true);
   });
 });
 
