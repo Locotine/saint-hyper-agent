@@ -1,4 +1,4 @@
-import { LOCAL_HOST_ID, scopeThread, scopeProject } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeThread, scopeProject, threadRouteParam } from "@saint/shared/hostId";
 import { useHostHandle } from "~/hosts/hostScope";
 import { useStore } from "../store";
 import { type LegendListRef } from "@legendapp/list/react";
@@ -5499,13 +5499,13 @@ export default function ChatView({
     (nextThreadId: ThreadId) =>
       navigate({
         to: "/$threadId",
-        params: { threadId: nextThreadId },
+        params: { threadId: threadRouteParam(chatHost.hostId, nextThreadId) },
         search: (previous) =>
           isEditorRail
             ? { ...stripDiffSearchParams(previous), view: "editor" }
             : stripDiffSearchParams(previous),
       }),
-    [isEditorRail, navigate],
+    [chatHost, isEditorRail, navigate],
   );
   // What the transcript's subagent cards read from this chat. Stop and
   // background go through the same per-row dispatches the keyboard uses.
@@ -5556,13 +5556,13 @@ export default function ChatView({
         activeProjectId;
       if (!ownerProjectId) return;
       const splitViewId = useSplitViewStore.getState().createFromThread({
-        hostId: LOCAL_HOST_ID,
+        hostId: chatHost.hostId,
         sourceThreadId: nextThreadId,
         ownerProjectId,
       });
       void navigate({
         to: "/$threadId",
-        params: { threadId: nextThreadId },
+        params: { threadId: threadRouteParam(chatHost.hostId, nextThreadId) },
         replace: true,
         search: () => ({ splitViewId }),
       });

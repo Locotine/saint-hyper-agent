@@ -8,6 +8,7 @@ import { terminalScopeIdsForThread } from "@saint/shared/terminalThreads";
 import { collectSubagentDescendants } from "@saint/shared/threadHierarchy";
 
 import { toastManager } from "../components/ui/toast";
+import type { HostHandle } from "../hosts/hostScope";
 import { readLocalNativeApi } from "../nativeApi";
 import { useStore } from "../store";
 import { getThreadFromState, getThreadsFromState } from "../threadDerivation";
@@ -38,6 +39,8 @@ async function disposeThreadTerminalRuntimes(threadId: ThreadId): Promise<void> 
 
 export async function deleteActiveThreadFromClient<TPrepared = undefined>(input: {
   readonly threadId: ThreadId;
+  /** The host the thread lives on; this computer by default. */
+  readonly host?: HostHandle;
   /** Delete native descendants before their parent, invoking callbacks for each accepted delete. */
   readonly includeSubagentDescendants?: boolean;
   readonly deletedThreadIds?: ReadonlySet<ThreadId>;
@@ -55,9 +58,12 @@ export async function deleteActiveThreadFromClient<TPrepared = undefined>(input:
   }) => Promise<unknown>;
   readonly unknownWorktreeErrorMessage?: string;
 }): Promise<void> {
-  const api = readLocalNativeApi();
+  const api = input.host ? input.host.api() : readLocalNativeApi();
   if (!api) return;
-  const state = useStore.getState();
+  // Dialogs belong to this computer's window, whichever host owns the thread.
+  const dialogApi = readLocalNativeApi() ?? api;
+  const store = input.host?.store ?? useStore;
+  const state = store.getState();
   const thread = getThreadFromState(state, input.threadId);
   if (!thread) return;
   const project = state.projects.find((candidate) => candidate.id === thread.projectId) ?? null;
@@ -80,7 +86,7 @@ export async function deleteActiveThreadFromClient<TPrepared = undefined>(input:
     (input.worktreeCleanupMode ?? "prompt") === "prompt" &&
     orphanedWorktreePath !== null &&
     project !== null &&
-    (await api.dialogs.confirm(
+    (await dialogApi.dialogs.confirm(
       [
         "This thread is the only one linked to this worktree:",
         displayWorktreePath ?? orphanedWorktreePath,
@@ -105,7 +111,7 @@ export async function deleteActiveThreadFromClient<TPrepared = undefined>(input:
     if (input.reconcileDeletedThread ?? true) {
       void reconcileDeletedThreadFromClient({
         threadId: deletedThread.id,
-        removeDeletedThreadFromClientState: useStore.getState().removeDeletedThreadFromClientState,
+        removeDeletedThreadFromClientState: store.getState().removeDeletedThreadFromClientState,
       });
     }
     await input.onDeleted({ thread: deletedThread, prepared });

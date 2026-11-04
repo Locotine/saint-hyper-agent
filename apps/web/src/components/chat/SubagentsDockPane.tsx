@@ -9,6 +9,7 @@
 // Exports: SubagentsDockPane, SubagentsList (the presentational list it renders)
 
 import type { ThreadId } from "@saint/contracts";
+import { threadRouteParam } from "@saint/shared/hostId";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -16,6 +17,7 @@ import { DisclosureRegion } from "~/components/ui/DisclosureRegion";
 import { DisclosureChevron } from "~/components/ui/DisclosureChevron";
 import { IconButton } from "~/components/ui/icon-button";
 import { stripDiffSearchParams } from "~/diffRouteSearch";
+import { useHostId } from "~/hosts/hostScope";
 import { useNowMs } from "~/hooks/useNowMs";
 import { BackgroundTrayIcon, BackToParentIcon, StopIcon } from "~/lib/icons";
 import { formatRelativeTime } from "~/lib/relativeTime";
@@ -302,6 +304,7 @@ export function SubagentsDockPane({
 }) {
   const { roster, source } = useThreadSubagentRoster(hostThreadId);
   const { backgroundSubagent, stopSubagent } = useSubagentRunControls(source.stripSourceThreadId);
+  const hostId = useHostId();
   const navigate = useNavigate();
   const openRightDockPane = useRightDockStore((store) => store.openPane);
   const nowMs = useNowMs(
@@ -319,7 +322,7 @@ export function SubagentsDockPane({
     }
     void navigate({
       to: "/$threadId",
-      params: { threadId },
+      params: { threadId: threadRouteParam(hostId, threadId) },
       search: (previousSearch) => stripDiffSearchParams(previousSearch),
     });
   };

@@ -8,8 +8,8 @@
 //          use floating overlay only. The card surface and content are identical either way.
 // Layer: Environment panel container
 
-import { useHostId } from "~/hosts/hostScope";
-import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
+import { useHostHandle, useHostId } from "~/hosts/hostScope";
+import { scopeThread } from "@saint/shared/hostId";
 import { SidePanelOverlay } from "~/components/chat/SidePanelOverlay";
 import type {
   AutomationDefinition,
@@ -280,6 +280,7 @@ export function EnvironmentPanel({
   railBottom,
 }: EnvironmentPanelProps) {
   const hostId = useHostId();
+  const chatHost = useHostHandle();
   const githubRepository = githubRepositoryProp ?? null;
   const githubRepositories = githubRepositoriesProp ?? [];
   const groupFolderPath = groupFolderPathProp ?? null;
@@ -447,15 +448,16 @@ export function EnvironmentPanel({
               // helper prompts only if this side chat is now the last owner of its worktree.
               // An open dock pane is pruned once the thread disappears.
               await deleteActiveThreadFromClient({
+                host: chatHost,
                 threadId: sidechat.id,
                 includeSubagentDescendants: true,
                 onDeleted: ({ thread }) => {
-                  usePinnedThreadsStore.getState().unpinThread(scopeLocalThread(thread.id));
+                  usePinnedThreadsStore.getState().unpinThread(scopeThread(hostId, thread.id));
                   const drafts = useComposerDraftStore.getState();
-                  drafts.clearDraftThread(scopeLocalThread(thread.id));
-                  drafts.clearProjectDraftThreadById(thread.projectId, scopeLocalThread(thread.id));
-                  useTerminalStateStore.getState().clearTerminalState(scopeLocalThread(thread.id));
-                  useSplitViewStore.getState().removeThreadFromSplitViews(LOCAL_HOST_ID, thread.id);
+                  drafts.clearDraftThread(scopeThread(hostId, thread.id));
+                  drafts.clearProjectDraftThreadById(thread.projectId, scopeThread(hostId, thread.id));
+                  useTerminalStateStore.getState().clearTerminalState(scopeThread(hostId, thread.id));
+                  useSplitViewStore.getState().removeThreadFromSplitViews(hostId, thread.id);
                   useTemporaryThreadStore.getState().clearTemporaryThread(thread.id);
                 },
                 removeWorktree: (worktree) => removeWorktreeMutation.mutateAsync(worktree),
