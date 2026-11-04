@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.13 — 2026-11-04
+
+**Several desktops can share one remote host, each seeing only its own projects, chats and data, and chats on a remote host use that host's features.**
+
+This Stable release covers the commits after `v1.1.12`, up to `f04b8a04f`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.13).
+
+### Added
+
+- A remote host started for several desktops keeps each desktop's projects, chats, automations, to-dos, terminals and agent tools separate. Folder reads, writes, git, downloads, uploads, images and attachments are limited to the desktop's own projects and worktrees. A local server is unchanged.
+- Folders on a remote host can be downloaded as ZIP files.
+- New chats can pin a default model and effort.
+
+### Fixed
+
+- Chats on a remote host now use that host for terminals, files and previews, rename, compact and export, slash commands and @-mentions, model picker, pull requests and branches, queued turns, side chats and selection chats, instead of this computer's server. Computer control, worktree mode and the local folder browser stay off in those chats.
+
 ## 1.1.12 — 2026-11-04
 
 **Same fix as 1.1.11, with the version, the format check and the release source aligned.**
