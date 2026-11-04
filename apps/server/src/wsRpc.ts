@@ -231,6 +231,12 @@ import {
 } from "./wsConnectionSessions";
 import { clientScopeFromUpgrade, CurrentClientScope } from "./clientScope";
 import {
+  clientMayRunCommand,
+  makeClientEventFilter,
+  scopeSnapshotToClient,
+  threadOwner,
+} from "./orchestration/clientOwnership";
+import {
   negotiateWsCompatibility,
   parseWsNegotiateSearchParams,
   validateWsFeatureCompatibility,
@@ -962,6 +968,30 @@ const makeWsRpcHandlersLayer = () =>
           );
         });
 
+      // Per-desktop data partitioning (see clientScope.ts). A null scope is an unscoped server and
+      // every helper below passes data through untouched.
+      const clientVisibleThread = (threadId: ThreadId) =>
+        Effect.gen(function* () {
+          const scope = yield* CurrentClientScope;
+          if (scope === null) return true;
+          return threadOwner(yield* orchestrationEngine.getReadModel(), threadId) === scope;
+        });
+      const scopeSnapshot = <S extends Parameters<typeof scopeSnapshotToClient>[0]>(snapshot: S) =>
+        Effect.map(CurrentClientScope.asEffect(), (scope) =>
+          scope === null ? snapshot : scopeSnapshotToClient(snapshot, scope),
+        );
+      // Reads the read model only when the stream runs, after its live subscription is open, so
+      // every creation is either in the seed or still ahead in the stream.
+      const keepClientEvents = <E, R>(stream: Stream.Stream<OrchestrationEvent, E, R>) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const scope = yield* CurrentClientScope;
+            if (scope === null) return stream;
+            const keep = makeClientEventFilter(yield* orchestrationEngine.getReadModel(), scope);
+            return stream.pipe(Stream.filter(keep));
+          }),
+        );
+
       // Terminal-first threads are created with the generic "New terminal" placeholder.
       // The tracker buffers per-terminal input and, once a meaningful command is submitted,
       // surfaces a safe title used to auto-rename the thread on its first command.
@@ -1423,6 +1453,15 @@ const makeWsRpcHandlersLayer = () =>
               if (!isServerGroupsEnabled() && isGroupProjectCommand(command)) {
                 return yield* Effect.fail(new WsRpcError({ message: GROUPS_BETA_ONLY_MESSAGE }));
               }
+              const commandScope = yield* CurrentClientScope;
+              if (
+                commandScope !== null &&
+                !clientMayRunCommand(commandScope, command, yield* orchestrationEngine.getReadModel())
+              ) {
+                return yield* Effect.fail(
+                  new WsRpcError({ message: "That item does not belong to this computer." }),
+                );
+              }
               const { command: normalizedCommand, prepareWorkspaceRoot } =
                 yield* normalizeDispatchCommand({ command });
               // A paused/archived group's coordinator must not run turns —
@@ -1464,23 +1503,40 @@ const makeWsRpcHandlersLayer = () =>
           ),
         [ORCHESTRATION_WS_METHODS.getSnapshot]: () =>
           rpcEffect(
-            projectionReadModelQuery.getSnapshot(),
+            projectionReadModelQuery.getSnapshot().pipe(Effect.flatMap(scopeSnapshot)),
             "Failed to load orchestration snapshot",
           ),
         [ORCHESTRATION_WS_METHODS.getShellSnapshot]: () =>
           rpcEffect(
-            projectionReadModelQuery.getShellSnapshot(),
+            projectionReadModelQuery.getShellSnapshot().pipe(Effect.flatMap(scopeSnapshot)),
             "Failed to load orchestration shell snapshot",
           ),
         [ORCHESTRATION_WS_METHODS.getThreadDetailSnapshot]: (input) =>
           rpcEffect(
-            projectionReadModelQuery
-              .getThreadDetailSnapshotById(input.threadId)
-              .pipe(Effect.map(Option.getOrNull)),
+            Effect.gen(function* () {
+              if (!(yield* clientVisibleThread(input.threadId))) return null;
+              return yield* projectionReadModelQuery
+                .getThreadDetailSnapshotById(input.threadId)
+                .pipe(Effect.map(Option.getOrNull));
+            }),
             "Failed to load orchestration thread detail snapshot",
           ),
         [ORCHESTRATION_WS_METHODS.searchThreads]: (input) =>
-          rpcEffect(threadSearchQuery.searchThreads(input), "Failed to search threads"),
+          rpcEffect(
+            Effect.gen(function* () {
+              const result = yield* threadSearchQuery.searchThreads(input);
+              const scope = yield* CurrentClientScope;
+              if (scope === null) return result;
+              const readModel = yield* orchestrationEngine.getReadModel();
+              return {
+                ...result,
+                matches: result.matches.filter(
+                  (match) => threadOwner(readModel, match.threadId) === scope,
+                ),
+              };
+            }),
+            "Failed to search threads",
+          ),
         [ORCHESTRATION_WS_METHODS.repairState]: () =>
           rpcEffect(orchestrationEngine.repairState(), "Failed to repair orchestration state"),
         [ORCHESTRATION_WS_METHODS.getThreadTranscript]: (input) =>
@@ -1565,7 +1621,7 @@ const makeWsRpcHandlersLayer = () =>
                 );
           return rpcEffect(
             Stream.runCollect(
-              replay.pipe(Stream.map(sanitizeOrchestrationEventProviderOptions)),
+              keepClientEvents(replay).pipe(Stream.map(sanitizeOrchestrationEventProviderOptions)),
             ).pipe(Effect.map((events) => Array.from(events))),
             "Failed to replay orchestration events",
           );
@@ -1628,7 +1684,9 @@ const makeWsRpcHandlersLayer = () =>
                 tracker: resnapshotEscalationTracker,
               },
               subscribeLive: orchestrationEngine.subscribeDomainEvents.pipe(
-                Effect.map((stream) => stream.pipe(Stream.filter(isShellRelevantEvent))),
+                Effect.map((stream) =>
+                  keepClientEvents(stream.pipe(Stream.filter(isShellRelevantEvent))),
+                ),
               ),
               liveBufferOptions: {
                 label: "orchestration.shell",
@@ -1637,6 +1695,7 @@ const makeWsRpcHandlersLayer = () =>
               snapshot: projectionReadModelQuery
                 .getShellSnapshot()
                 .pipe(
+                  Effect.flatMap(scopeSnapshot),
                   Effect.mapError((cause) => toWsRpcError(cause, "Failed to load shell snapshot")),
                 ),
               snapshotSequence: (snapshot) => snapshot.snapshotSequence,
@@ -1646,6 +1705,7 @@ const makeWsRpcHandlersLayer = () =>
                   .readEventsThrough(fromSequenceExclusive, throughSequenceInclusive)
                   .pipe(
                     Stream.filter(isShellRelevantEvent),
+                    keepClientEvents,
                     Stream.mapError((cause) =>
                       toWsRpcError(cause, "Failed to replay shell events"),
                     ),
@@ -1671,7 +1731,17 @@ const makeWsRpcHandlersLayer = () =>
           ),
         [ORCHESTRATION_WS_METHODS.unsubscribeShell]: () => Effect.void,
         [ORCHESTRATION_WS_METHODS.subscribeThread]: (input, { clientId }) =>
-          streamAdmission.guard(
+          Stream.unwrap(
+            Effect.map(clientVisibleThread(input.threadId), (visible) =>
+              !visible
+                ? Stream.fail(
+                    new WsRpcError({
+                      message: `Thread detail snapshot not found for thread ${input.threadId}.`,
+                      code: "THREAD_SNAPSHOT_NOT_FOUND",
+                      retryable: false,
+                    }),
+                  )
+                : streamAdmission.guard(
             clientId,
             {
               key: `orchestration.thread:${input.threadId}`,
@@ -1787,13 +1857,15 @@ const makeWsRpcHandlersLayer = () =>
               trackSidechatVisibility(input.threadId),
             ),
           ),
+            ),
+          ),
         [ORCHESTRATION_WS_METHODS.unsubscribeThread]: () => Effect.void,
         [WS_METHODS.subscribeOrchestrationDomainEvents]: (_, { clientId }) =>
           streamAdmission.guard(
             clientId,
             { key: "orchestration.domain-events" },
             bufferLiveUiStream(
-              orchestrationEngine.streamDomainEvents.pipe(
+              keepClientEvents(orchestrationEngine.streamDomainEvents).pipe(
                 Stream.map(sanitizeOrchestrationEventProviderOptions),
               ),
               {

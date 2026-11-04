@@ -5,6 +5,7 @@
 // owner. Null is "unowned": everything on an unscoped server, and data from before scoping.
 import type {
   OrchestrationCommand,
+  OrchestrationEvent,
   OrchestrationReadModel,
   ProjectId,
   SpaceId,
@@ -37,27 +38,111 @@ function spaceOwner(
   return space ? (space.ownerClientId ?? null) : undefined;
 }
 
-/**
- * The client a command acts within: the creator for project/space creation, else the owner of the
- * thread, project or space it targets. Undefined when its target does not exist yet.
- */
-export function commandOwner(
-  command: OrchestrationCommand,
+/** Any command, including the client-sendable subset. */
+type CommandLike = { readonly type: string };
+
+/** Owners of every thread, project and space a command names that already exists. */
+export function commandTargetOwners(
+  command: CommandLike,
   readModel: OrchestrationReadModel,
-): ClientOwner | undefined {
-  if (command.type === "project.create" || command.type === "space.create") {
-    return command.ownerClientId ?? null;
-  }
+): ClientOwner[] {
   const target = command as {
     readonly threadId?: ThreadId;
     readonly projectId?: ProjectId;
     readonly spaceId?: SpaceId | null;
+    readonly projectIds?: ReadonlyArray<ProjectId>;
+    readonly parentThreadId?: ThreadId | null;
+    readonly sourceThreadId?: ThreadId | null;
+    readonly sidechatSourceThreadId?: ThreadId | null;
   };
-  return (
-    (target.threadId !== undefined ? threadOwner(readModel, target.threadId) : undefined) ??
-    (target.projectId !== undefined ? projectOwner(readModel, target.projectId) : undefined) ??
-    (target.spaceId != null ? spaceOwner(readModel, target.spaceId) : undefined)
-  );
+  const found: Array<ClientOwner | undefined> = [
+    target.threadId !== undefined ? threadOwner(readModel, target.threadId) : undefined,
+    target.projectId !== undefined ? projectOwner(readModel, target.projectId) : undefined,
+    target.spaceId != null ? spaceOwner(readModel, target.spaceId) : undefined,
+    ...(target.projectIds ?? []).map((id) => projectOwner(readModel, id)),
+    ...[target.parentThreadId, target.sourceThreadId, target.sidechatSourceThreadId].map((id) =>
+      id != null ? threadOwner(readModel, id) : undefined,
+    ),
+  ];
+  return found.filter((owner): owner is ClientOwner => owner !== undefined);
+}
+
+/**
+ * The client a command acts within: the creator for project/space creation, else the owner of the
+ * first existing thread, project or space it targets. Unowned when it targets nothing yet.
+ */
+export function commandOwner(
+  command: OrchestrationCommand,
+  readModel: OrchestrationReadModel,
+): ClientOwner {
+  if (command.type === "project.create" || command.type === "space.create") {
+    return command.ownerClientId ?? null;
+  }
+  return commandTargetOwners(command, readModel)[0] ?? null;
+}
+
+/** Whether `scope` may run `command`: everything it names must belong to that client. */
+export function clientMayRunCommand(
+  scope: ClientOwner,
+  command: CommandLike,
+  readModel: OrchestrationReadModel,
+): boolean {
+  return commandTargetOwners(command, readModel).every((owner) => owner === scope);
+}
+
+/**
+ * Narrows a read model or shell snapshot to one client's projects, spaces and their threads.
+ */
+export function scopeSnapshotToClient<
+  S extends {
+    readonly projects: ReadonlyArray<{ readonly id: ProjectId; readonly ownerClientId?: string | null | undefined }>;
+    readonly spaces: ReadonlyArray<{ readonly ownerClientId?: string | null | undefined }>;
+    readonly threads: ReadonlyArray<{ readonly projectId: ProjectId }>;
+  },
+>(snapshot: S, scope: ClientOwner): S {
+  const projects = snapshot.projects.filter((entry) => (entry.ownerClientId ?? null) === scope);
+  const projectIds = new Set(projects.map((project) => project.id));
+  return {
+    ...snapshot,
+    projects,
+    spaces: snapshot.spaces.filter((entry) => (entry.ownerClientId ?? null) === scope),
+    threads: snapshot.threads.filter((thread) => projectIds.has(thread.projectId)),
+  };
+}
+
+/**
+ * A stateful filter for one event stream: keeps events of the client's own projects, spaces and
+ * threads. It learns owners as creations pass by, so it needs the stream's events in order and
+ * the read model read after the stream was subscribed.
+ */
+export function makeClientEventFilter(
+  readModel: OrchestrationReadModel,
+  scope: ClientOwner,
+): (event: OrchestrationEvent) => boolean {
+  const owners = new Map<string, ClientOwner>();
+  const projectOwners = new Map<string, ClientOwner>();
+  for (const space of readModel.spaces) owners.set(space.id, space.ownerClientId ?? null);
+  for (const project of readModel.projects) {
+    projectOwners.set(project.id, project.ownerClientId ?? null);
+    owners.set(project.id, project.ownerClientId ?? null);
+  }
+  for (const thread of readModel.threads) {
+    owners.set(thread.id, projectOwners.get(thread.projectId) ?? null);
+  }
+  return (event) => {
+    const id = event.aggregateId as string;
+    const payload = event.payload as { ownerClientId?: string | null; projectId?: string };
+    if (!owners.has(id)) {
+      if (event.aggregateKind === "thread" && payload.projectId !== undefined) {
+        owners.set(id, projectOwners.get(payload.projectId) ?? null);
+      } else if (event.aggregateKind !== "thread") {
+        owners.set(id, payload.ownerClientId ?? null);
+        if (event.aggregateKind === "project") projectOwners.set(id, payload.ownerClientId ?? null);
+      }
+    }
+    // An aggregate whose creation was never seen (purged) has no known owner: hidden.
+    return owners.has(id) && owners.get(id) === scope;
+  };
 }
 
 /**

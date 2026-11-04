@@ -617,7 +617,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
   // client sees only its own projects, spaces and threads. Ids stay unique server-wide.
   const readModel = readModelForOwner(
     fullReadModel,
-    commandOwner(command, fullReadModel) ?? null,
+    commandOwner(command, fullReadModel),
   );
   switch (command.type) {
     case "space.create": {
