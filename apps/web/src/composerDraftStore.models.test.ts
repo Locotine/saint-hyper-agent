@@ -6,7 +6,7 @@ import {
   resolvePreferredComposerModelSelection,
   useComposerDraftStore,
 } from "./composerDraftStore";
-import { normalizeModelSelection } from "./composerDraftModels";
+import { normalizeModelSelection, resolveDefaultModelSelection } from "./composerDraftModels";
 import {
   modelSelection,
   providerModelOptions,
@@ -1091,6 +1091,34 @@ describe("composerDraftStore sticky composer settings", () => {
       activeProvider: "claudeAgent",
     });
   });
+  it("starts a new draft on the pinned default model and effort instead of the last used one", () => {
+    const store = useComposerDraftStore.getState();
+    const threadId = ThreadId.makeUnsafe("thread-pinned-default");
+    store.setStickyModelSelection(modelSelection("codex", "gpt-5.4", { reasoningEffort: "low" }));
+    const pinned = modelSelection("claudeAgent", "claude-opus-4-6", { effort: "high" });
+
+    store.applyStickyState(scopeLocalThread(threadId), pinned);
+
+    const draft = useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)];
+    expect(draft?.activeProvider).toBe("claudeAgent");
+    expect(draft?.modelSelectionByProvider.claudeAgent).toEqual(pinned);
+    // The last-used selection stays available when the user switches provider by hand.
+    expect(draft?.modelSelectionByProvider.codex).toEqual(
+      modelSelection("codex", "gpt-5.4", { reasoningEffort: "low" }),
+    );
+  });
+
+  it("keeps a pinned default working when nothing was used yet", () => {
+    const threadId = ThreadId.makeUnsafe("thread-pinned-no-sticky");
+    const pinned = modelSelection("codex", "gpt-5.4", { reasoningEffort: "high" });
+
+    useComposerDraftStore.getState().applyStickyState(scopeLocalThread(threadId), pinned);
+
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeLocalThread(threadId)],
+    ).toMatchObject({ activeProvider: "codex", modelSelectionByProvider: { codex: pinned } });
+  });
+
   it("overrides a sticky activeProvider with the saved default provider on a fresh draft", () => {
     const store = useComposerDraftStore.getState();
     const threadId = ThreadId.makeUnsafe("thread-sticky-saved-default");
@@ -1272,5 +1300,51 @@ describe("composerDraftStore provider-scoped option updates", () => {
         reasoningEffort: "high",
       }),
     );
+  });
+});
+
+describe("resolveDefaultModelSelection", () => {
+  it("builds a Claude selection with the pinned effort", () => {
+    expect(
+      resolveDefaultModelSelection({
+        defaultProvider: "claudeAgent",
+        defaultModel: "claude-opus-4-6",
+        defaultEffort: "high",
+      }),
+    ).toMatchObject({
+      provider: "claudeAgent",
+      model: "claude-opus-4-6",
+      options: { effort: "high" },
+    });
+  });
+
+  it("builds a Codex selection with the pinned reasoning effort", () => {
+    expect(
+      resolveDefaultModelSelection({
+        defaultProvider: "codex",
+        defaultModel: "gpt-5.4",
+        defaultEffort: "high",
+      }),
+    ).toMatchObject({ provider: "codex", model: "gpt-5.4", options: { reasoningEffort: "high" } });
+  });
+
+  it("pins nothing without a model, for other providers, or for a model the provider lacks", () => {
+    expect(resolveDefaultModelSelection({ defaultProvider: "claudeAgent" })).toBeNull();
+    expect(
+      resolveDefaultModelSelection({ defaultProvider: "pi", defaultModel: "claude-opus-4-6" }),
+    ).toBeNull();
+    expect(
+      resolveDefaultModelSelection({ defaultProvider: "codex", defaultModel: "claude-opus-4-6" }),
+    ).toBeNull();
+  });
+
+  it("drops an effort the model does not support but keeps the model", () => {
+    const selection = resolveDefaultModelSelection({
+      defaultProvider: "claudeAgent",
+      defaultModel: "claude-opus-4-6",
+      defaultEffort: "not-an-effort",
+    });
+    expect(selection?.model).toBe("claude-opus-4-6");
+    expect(selection?.options).toBeUndefined();
   });
 });

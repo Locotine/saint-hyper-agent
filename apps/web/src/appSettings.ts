@@ -607,6 +607,10 @@ export const AppSettingsSchema = Schema.Struct({
   sourceControlCustomInstructions: SourceControlCustomInstructions.pipe(withDefaults(() => "")),
   uiFontFamily: Schema.String.check(Schema.isMaxLength(256)).pipe(withDefaults(() => "")),
   defaultProvider: PersistedProviderKind.pipe(withDefaults(() => "codex" as const)),
+  // Model and effort every new chat starts with (Claude and Codex only). Unset: new chats reuse
+  // the most recent model and options.
+  defaultModel: Schema.optional(TrimmedNonEmptyString),
+  defaultEffort: Schema.optional(TrimmedNonEmptyString),
   // Local-only UI preference: providers explicitly hidden from the composer picker.
   // The active/locked provider for a thread is always shown regardless, so users
   // never get stuck on a thread whose provider they later chose to hide.

@@ -19,6 +19,7 @@ import {
 import {
   type ComposerThreadDraftState,
   type DraftThreadState,
+  resolveDefaultModelSelection,
   resolvePreferredComposerModelSelection,
   useComposerDraftStore,
 } from "../composerDraftStore";
@@ -222,8 +223,16 @@ export function useHandleNewThread() {
     const projectDefaultModelSelection =
       useStore.getState().projects.find((project) => project.id === projectId)
         ?.defaultModelSelection ?? null;
+    // The model pinned in Settings wins over the last-used one, unless this chat names its own provider.
+    const pinnedModelSelection = options?.provider
+      ? null
+      : resolveDefaultModelSelection({
+          defaultProvider: settings.defaultProvider,
+          defaultModel: settings.defaultModel,
+          defaultEffort: settings.defaultEffort,
+        });
     const applyUsableStickyState = (threadId: ThreadId) => {
-      applyStickyState(scopeLocalThread(threadId));
+      applyStickyState(scopeLocalThread(threadId), pinnedModelSelection);
       if (options?.provider || !hasReconciledServerProviderStatuses(queryClient)) {
         return;
       }
@@ -432,8 +441,8 @@ export function useHandleNewThread() {
         stage: () => {
           registerDraftThread(scopeLocalThread(threadId), { projectId, ...draftSeed });
           activateThreadEntryPoint(threadId);
-          // Seed the draft from the sticky (last-used) selection so a new chat
-          // reopens with the model and options used most recently.
+          // Seed the draft from the model pinned in Settings, else the sticky (last-used)
+          // selection, so a new chat opens without re-picking the model and effort.
           applyUsableStickyState(threadId);
           if (containerDefaults) {
             applyGroupWorkerRoutingDefaults({

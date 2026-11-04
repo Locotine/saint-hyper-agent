@@ -376,7 +376,11 @@ export interface ComposerDraftStoreState {
     threadId: ScopedThreadId,
     modelOptions: ProviderModelOptions | null | undefined,
   ) => void;
-  applyStickyState: (threadId: ScopedThreadId) => void;
+  /**
+   * Seeds a fresh draft with the last-used model per provider. `pinned` (Settings' default model)
+   * wins over those: it becomes the active selection of its provider.
+   */
+  applyStickyState: (threadId: ScopedThreadId, pinned?: ModelSelection | null) => void;
   setProviderModelOptions: (
     threadId: ScopedThreadId,
     provider: ProviderKind,

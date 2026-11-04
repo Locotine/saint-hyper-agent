@@ -22,6 +22,9 @@ import * as Schema from "effect/Schema";
 
 import {
   getDefaultModel,
+  getModelCapabilities,
+  getModelOptions,
+  hasEffortLevel,
   normalizeGrokModelOptions,
   normalizeModelSlug,
   normalizeOmpModelOptions,
@@ -34,6 +37,7 @@ import type {
   ModelSelectionByProviderInstance,
 } from "./composerDraftDomain";
 import { classifyProviderReasoningEffortSupport } from "./lib/codexReasoningEffort";
+import { buildModelSelection } from "./providerModelOptions";
 
 export const COMPOSER_PROVIDER_KINDS = [
   "codex",
@@ -890,6 +894,43 @@ export function deriveEffectiveComposerModelState(input: {
     selectedModel,
     modelOptions,
   };
+}
+
+/** Providers whose default model and effort Settings can pin for every new chat. */
+export const DEFAULT_MODEL_PROVIDERS = ["claudeAgent", "codex"] as const;
+export type DefaultModelProvider = (typeof DEFAULT_MODEL_PROVIDERS)[number];
+
+export function isDefaultModelProvider(provider: ProviderKind): provider is DefaultModelProvider {
+  return (DEFAULT_MODEL_PROVIDERS as readonly ProviderKind[]).includes(provider);
+}
+
+/**
+ * The model selection every new chat starts with, from Settings' default provider, model and
+ * effort; null when none is pinned (new chats then reuse the most recent model). A model the
+ * provider does not offer, or an effort the model does not support, is dropped rather than
+ * sent, so a stale setting cannot start a chat on something invalid.
+ */
+export function resolveDefaultModelSelection(input: {
+  defaultProvider: ProviderKind;
+  defaultModel?: string | null | undefined;
+  defaultEffort?: string | null | undefined;
+}): ModelSelection | null {
+  const provider = input.defaultProvider;
+  if (!isDefaultModelProvider(provider) || !input.defaultModel) return null;
+  const model = input.defaultModel;
+  if (!getModelOptions(provider).some((option) => option.slug === model)) return null;
+  const effort =
+    input.defaultEffort &&
+    hasEffortLevel(getModelCapabilities(provider, model), input.defaultEffort)
+      ? input.defaultEffort
+      : null;
+  return provider === "claudeAgent"
+    ? buildModelSelection(
+        "claudeAgent",
+        model,
+        effort ? { effort: effort as ClaudeCodeEffort } : null,
+      )
+    : buildModelSelection("codex", model, effort ? { reasoningEffort: effort } : null);
 }
 
 export function resolvePreferredComposerModelSelection(input: {

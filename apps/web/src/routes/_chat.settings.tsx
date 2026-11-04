@@ -11,6 +11,8 @@ import {
 } from "@saint/contracts";
 import { GROUPS_ON, VISIBLE_PROVIDER_DESCRIPTORS } from "../betaFeatures";
 import { sameAppSnapShortcut } from "@saint/shared/appSnapShortcut";
+import { getModelCapabilities, getModelOptions } from "@saint/shared/model";
+import { isDefaultModelProvider } from "~/composerDraftModels";
 import { SafariAccessSetupButton } from "../components/SafariAccessOnboarding";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -137,6 +139,10 @@ import { SETTINGS_PAGE_BACKGROUND_CLASS_NAME } from "../settingsPanelStyles";
 import { isAudioLevelAvailable } from "../lib/audioLevel";
 
 // ── Settings taxonomy ──────────────────────────────────────────────────────
+
+// Select values standing for "no pinned model" and "no pinned effort".
+const LAST_USED_MODEL_VALUE = "__last-used";
+const MODEL_DEFAULT_EFFORT_VALUE = "__model-default";
 
 const UI_DENSITY_OPTIONS = [
   {
@@ -460,6 +466,8 @@ function SettingsRouteView() {
     ...(theme !== "system" ? ["Theme"] : []),
     ...(!isDefaultActiveTheme ? [`${resolvedTheme === "dark" ? "Dark" : "Light"} theme pack`] : []),
     ...(settings.defaultProvider !== defaults.defaultProvider ? ["Default provider"] : []),
+    ...(settings.defaultModel !== undefined ? ["Default model"] : []),
+    ...(settings.defaultEffort !== undefined ? ["Default effort"] : []),
     ...(settings.defaultThreadEnvMode !== defaults.defaultThreadEnvMode ? ["New thread mode"] : []),
     ...(settings.anchorSentMessagesToTop !== defaults.anchorSentMessagesToTop
       ? ["Move sent messages to top"]
@@ -652,6 +660,19 @@ function SettingsRouteView() {
     );
   };
 
+  // The pinned default model and its effort levels (Claude and Codex only).
+  const defaultModelOption = isDefaultModelProvider(settings.defaultProvider)
+    ? getModelOptions(settings.defaultProvider).find(
+        (option) => option.slug === settings.defaultModel,
+      )
+    : undefined;
+  const defaultEffortLevels = defaultModelOption
+    ? getModelCapabilities(settings.defaultProvider, defaultModelOption.slug).reasoningEffortLevels
+    : [];
+  const defaultEffortLevel = defaultEffortLevels.find(
+    (level) => level.value === settings.defaultEffort,
+  );
+
   const renderGeneralPanel = () => (
     <div className="space-y-6">
       <SafariAccessSetupButton />
@@ -659,7 +680,7 @@ function SettingsRouteView() {
       <SettingsSection title="Core defaults">
         <SettingsRow
           title="Default provider"
-          description="Provider used for new chats until you pick a model. New chats then reuse your most recent model and options."
+          description="Provider used for new chats. Without a default model below, new chats reuse your most recent model and options."
           resetAction={
             settings.defaultProvider !== defaults.defaultProvider ? (
               <SettingResetButton
@@ -679,7 +700,13 @@ function SettingsRouteView() {
               onValueChange={(value) => {
                 if (!isProviderSelectOption(value) || settings.disabledProviders.includes(value))
                   return;
-                updateSettings({ defaultProvider: value });
+                // The pinned model and effort belong to the previous provider.
+                updateSettings({
+                  defaultProvider: value,
+                  ...(value !== settings.defaultProvider
+                    ? { defaultModel: undefined, defaultEffort: undefined }
+                    : {}),
+                });
               }}
               ariaLabel="Default provider"
               valueContent={
@@ -704,6 +731,83 @@ function SettingsRouteView() {
             </SettingsSelectControl>
           }
         />
+
+        {isDefaultModelProvider(settings.defaultProvider) ? (
+          <>
+            <SettingsRow
+              title="Default model"
+              description="Model every new chat starts with, so you do not pick it again. Last used keeps the model you chose most recently."
+              resetAction={
+                settings.defaultModel !== undefined ? (
+                  <SettingResetButton
+                    label="default model"
+                    onClick={() =>
+                      updateSettings({ defaultModel: undefined, defaultEffort: undefined })
+                    }
+                  />
+                ) : null
+              }
+              control={
+                <SettingsSelectControl
+                  value={defaultModelOption?.slug ?? LAST_USED_MODEL_VALUE}
+                  onValueChange={(value) =>
+                    updateSettings({
+                      defaultModel: value === LAST_USED_MODEL_VALUE ? undefined : value,
+                      // Effort levels differ per model.
+                      defaultEffort: undefined,
+                    })
+                  }
+                  ariaLabel="Default model"
+                  valueContent={defaultModelOption?.name ?? "Last used"}
+                >
+                  <SelectItem hideIndicator value={LAST_USED_MODEL_VALUE}>
+                    Last used
+                  </SelectItem>
+                  {getModelOptions(settings.defaultProvider).map((option) => (
+                    <SelectItem hideIndicator key={option.slug} value={option.slug}>
+                      {option.name}
+                    </SelectItem>
+                  ))}
+                </SettingsSelectControl>
+              }
+            />
+            {defaultModelOption && defaultEffortLevels.length > 0 ? (
+              <SettingsRow
+                title="Default effort"
+                description="Reasoning effort every new chat starts with. Model default leaves it to the model."
+                resetAction={
+                  settings.defaultEffort !== undefined ? (
+                    <SettingResetButton
+                      label="default effort"
+                      onClick={() => updateSettings({ defaultEffort: undefined })}
+                    />
+                  ) : null
+                }
+                control={
+                  <SettingsSelectControl
+                    value={defaultEffortLevel?.value ?? MODEL_DEFAULT_EFFORT_VALUE}
+                    onValueChange={(value) =>
+                      updateSettings({
+                        defaultEffort: value === MODEL_DEFAULT_EFFORT_VALUE ? undefined : value,
+                      })
+                    }
+                    ariaLabel="Default effort"
+                    valueContent={defaultEffortLevel?.label ?? "Model default"}
+                  >
+                    <SelectItem hideIndicator value={MODEL_DEFAULT_EFFORT_VALUE}>
+                      Model default
+                    </SelectItem>
+                    {defaultEffortLevels.map((level) => (
+                      <SelectItem hideIndicator key={level.value} value={level.value}>
+                        {level.label}
+                      </SelectItem>
+                    ))}
+                  </SettingsSelectControl>
+                }
+              />
+            ) : null}
+          </>
+        ) : null}
 
         <SettingsRow
           title="New threads"
