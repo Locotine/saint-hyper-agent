@@ -32,6 +32,10 @@ export const ProjectionProject = Schema.Struct({
   additionalFolders: Schema.optional(ProjectAdditionalFolders).pipe(
     Schema.withDecodingDefault(() => []),
   ),
+  /** See `apps/server/src/clientScope.ts`. */
+  ownerClientId: Schema.optional(Schema.NullOr(Schema.String)).pipe(
+    Schema.withDecodingDefault(() => null),
+  ),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
   deletedAt: Schema.NullOr(IsoDateTime),

@@ -25,6 +25,7 @@ import {
 } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
+import { type ClientScope, CurrentClientScope } from "../../clientScope.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import {
@@ -122,6 +123,16 @@ type CommittedCommandResult = {
   readonly lastSequence: number;
   readonly nextCommandReadModel: OrchestrationReadModel;
 };
+
+/**
+ * Projects and spaces belong to the client that creates them; the server sets the owner, never the
+ * command's sender.
+ */
+function withCreatorClient(command: OrchestrationCommand, scope: ClientScope): OrchestrationCommand {
+  return command.type === "project.create" || command.type === "space.create"
+    ? { ...command, ownerClientId: scope }
+    : command;
+}
 
 function commandToAggregateRef(command: OrchestrationCommand): {
   readonly aggregateKind: "space" | "project" | "thread";
@@ -1744,8 +1755,12 @@ const makeOrchestrationEngine = Effect.gen(function* () {
   const refreshCommandReadModel: OrchestrationEngineShape["refreshCommandReadModel"] = () =>
     maintenanceLock.withPermits(1)(refreshCommandReadModelFromProjectionState);
 
-  const dispatch: OrchestrationEngineShape["dispatch"] = (command, context) =>
+  const dispatch: OrchestrationEngineShape["dispatch"] = (requestedCommand, context) =>
     Effect.gen(function* () {
+      const command = withCreatorClient(
+        requestedCommand,
+        context?.clientScope !== undefined ? context.clientScope : yield* CurrentClientScope,
+      );
       const result = yield* Deferred.make<{ sequence: number }, OrchestrationDispatchError>();
       const executionState = yield* Ref.make<CommandExecutionState>("queued");
       const envelope: CommandEnvelope = {

@@ -48,6 +48,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           is_pinned,
           space_id,
           additional_folders_json,
+          owner_client_id,
           created_at,
           updated_at,
           deleted_at
@@ -62,6 +63,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           ${row.isPinned ? 1 : 0},
           ${row.spaceId},
           ${JSON.stringify(row.additionalFolders ?? [])},
+          ${row.ownerClientId ?? null},
           ${row.createdAt},
           ${row.updatedAt},
           ${row.deletedAt}
@@ -76,6 +78,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           is_pinned = excluded.is_pinned,
           space_id = excluded.space_id,
           additional_folders_json = excluded.additional_folders_json,
+          owner_client_id = excluded.owner_client_id,
           created_at = excluded.created_at,
           updated_at = excluded.updated_at,
           deleted_at = excluded.deleted_at
@@ -97,6 +100,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           is_pinned AS "isPinned",
           space_id AS "spaceId",
           additional_folders_json AS "additionalFolders",
+          owner_client_id AS "ownerClientId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"
@@ -120,6 +124,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
           is_pinned AS "isPinned",
           space_id AS "spaceId",
           additional_folders_json AS "additionalFolders",
+          owner_client_id AS "ownerClientId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"

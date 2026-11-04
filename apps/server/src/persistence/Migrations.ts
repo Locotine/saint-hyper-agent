@@ -159,6 +159,7 @@ import Migration0140 from "./Migrations/140_Hibernation.ts";
 import Migration0141 from "./Migrations/141_CyberSecurity.ts";
 import Migration0142 from "./Migrations/142_CyberSecurityScanners.ts";
 import Migration0143 from "./Migrations/143_CyberSecurityPartialRuns.ts";
+import Migration0144 from "./Migrations/144_ClientOwnership.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -318,6 +319,7 @@ export const migrationEntries = [
   [141, "CyberSecurity", Migration0141],
   [142, "CyberSecurityScanners", Migration0142],
   [143, "CyberSecurityPartialRuns", Migration0143],
+  [144, "ClientOwnership", Migration0144],
 ] as const;
 
 export const makeMigrationLoader = (throughId?: number) =>

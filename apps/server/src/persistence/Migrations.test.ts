@@ -690,6 +690,7 @@ managedAttachmentsLegacyLayer("managed attachment migration after private migrat
         [141, "CyberSecurity"],
         [142, "CyberSecurityScanners"],
         [143, "CyberSecurityPartialRuns"],
+        [144, "ClientOwnership"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -785,6 +786,7 @@ managedAttachmentsLegacyLayer("managed attachment migration after private migrat
           { migration_id: 141, name: "CyberSecurity" },
           { migration_id: 142, name: "CyberSecurityScanners" },
           { migration_id: 143, name: "CyberSecurityPartialRuns" },
+          { migration_id: 144, name: "ClientOwnership" },
         ],
       );
       const groupConfigColumns = yield* sql<{ readonly name: string }>`
@@ -960,6 +962,7 @@ agentGatewayRetentionLegacyLayer(
           [141, "CyberSecurity"],
           [142, "CyberSecurityScanners"],
           [143, "CyberSecurityPartialRuns"],
+          [144, "ClientOwnership"],
         ]);
 
         const columns = yield* sql<{ readonly name: string }>`
@@ -1098,6 +1101,7 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [141, "CyberSecurity"],
         [142, "CyberSecurityScanners"],
         [143, "CyberSecurityPartialRuns"],
+        [144, "ClientOwnership"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -1177,6 +1181,7 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
           [141, "CyberSecurity"],
           [142, "CyberSecurityScanners"],
           [143, "CyberSecurityPartialRuns"],
+          [144, "ClientOwnership"],
         ],
       );
 
@@ -1310,6 +1315,7 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [141, "CyberSecurity"],
         [142, "CyberSecurityScanners"],
         [143, "CyberSecurityPartialRuns"],
+        [144, "ClientOwnership"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -1385,6 +1391,7 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
           [141, "CyberSecurity"],
           [142, "CyberSecurityScanners"],
           [143, "CyberSecurityPartialRuns"],
+          [144, "ClientOwnership"],
         ],
       );
       const preservedSpaces = yield* sql<{ readonly spaceId: string }>`

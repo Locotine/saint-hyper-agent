@@ -538,6 +538,7 @@ function toProjectedProject(row: ProjectionProjectDbRow): OrchestrationProject {
     isPinned: row.isPinned > 0,
     spaceId: row.spaceId,
     additionalFolders: row.additionalFolders,
+    ownerClientId: row.ownerClientId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     deletedAt: row.deletedAt,
@@ -550,6 +551,7 @@ function toProjectedSpace(row: ProjectionSpaceDbRow) {
     name: row.name,
     icon: row.icon,
     sortOrder: row.sortOrder,
+    ownerClientId: row.ownerClientId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     deletedAt: row.deletedAt,
@@ -562,6 +564,7 @@ function toProjectedSpaceShell(row: ProjectionSpaceDbRow): OrchestrationSpaceShe
     name: row.name,
     icon: row.icon,
     sortOrder: row.sortOrder,
+    ownerClientId: row.ownerClientId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -728,6 +731,7 @@ function toProjectedProjectShell(row: ProjectionProjectDbRow): OrchestrationProj
     isPinned: row.isPinned > 0,
     spaceId: row.spaceId,
     additionalFolders: row.additionalFolders,
+    ownerClientId: row.ownerClientId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -996,6 +1000,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           name,
           icon,
           sort_order AS "sortOrder",
+          owner_client_id AS "ownerClientId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"
@@ -1019,6 +1024,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           is_pinned AS "isPinned",
           space_id AS "spaceId",
           additional_folders_json AS "additionalFolders",
+          owner_client_id AS "ownerClientId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"
@@ -1735,6 +1741,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           is_pinned AS "isPinned",
           space_id AS "spaceId",
           additional_folders_json AS "additionalFolders",
+          owner_client_id AS "ownerClientId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"
@@ -1756,6 +1763,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           name,
           icon,
           sort_order AS "sortOrder",
+          owner_client_id AS "ownerClientId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"
@@ -1796,6 +1804,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           is_pinned AS "isPinned",
           space_id AS "spaceId",
           additional_folders_json AS "additionalFolders",
+          owner_client_id AS "ownerClientId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"
@@ -1821,6 +1830,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           is_pinned AS "isPinned",
           space_id AS "spaceId",
           additional_folders_json AS "additionalFolders",
+          owner_client_id AS "ownerClientId",
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           deleted_at AS "deletedAt"
@@ -3336,6 +3346,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
               isPinned: row.isPinned > 0,
               spaceId: row.spaceId,
               additionalFolders: row.additionalFolders,
+              ownerClientId: row.ownerClientId,
               createdAt: row.createdAt,
               updatedAt: row.updatedAt,
               deletedAt: row.deletedAt,

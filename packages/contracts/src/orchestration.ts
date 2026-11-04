@@ -709,11 +709,21 @@ export type SpaceIconName = typeof SpaceIconName.Type;
 export const SpaceName = TrimmedNonEmptyString.check(Schema.isMaxLength(SPACE_NAME_MAX_LENGTH));
 export type SpaceName = typeof SpaceName.Type;
 
+/**
+ * The remote desktop (client id) a project or space belongs to on a server shared by several
+ * desktops; null on an unscoped server and for data created before scoping. Set by the server,
+ * never by a client.
+ */
+const OwnerClientIdField = Schema.optional(Schema.NullOr(TrimmedNonEmptyString)).pipe(
+  Schema.withDecodingDefault(() => null),
+);
+
 export const OrchestrationSpace = Schema.Struct({
   id: SpaceId,
   name: SpaceName,
   icon: SpaceIconName,
   sortOrder: NonNegativeInt,
+  ownerClientId: OwnerClientIdField,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
   deletedAt: Schema.NullOr(IsoDateTime),
@@ -725,6 +735,7 @@ export const OrchestrationSpaceShell = Schema.Struct({
   name: SpaceName,
   icon: SpaceIconName,
   sortOrder: NonNegativeInt,
+  ownerClientId: OwnerClientIdField,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -756,6 +767,7 @@ export const OrchestrationProject = Schema.Struct({
   isPinned: Schema.optional(Schema.Boolean).pipe(Schema.withDecodingDefault(() => false)),
   spaceId: Schema.optional(Schema.NullOr(SpaceId)).pipe(Schema.withDecodingDefault(() => null)),
   additionalFolders: ProjectAdditionalFoldersField,
+  ownerClientId: OwnerClientIdField,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
   deletedAt: Schema.NullOr(IsoDateTime),
@@ -772,6 +784,7 @@ export const OrchestrationProjectShell = Schema.Struct({
   isPinned: Schema.optional(Schema.Boolean).pipe(Schema.withDecodingDefault(() => false)),
   spaceId: Schema.optional(Schema.NullOr(SpaceId)).pipe(Schema.withDecodingDefault(() => null)),
   additionalFolders: ProjectAdditionalFoldersField,
+  ownerClientId: OwnerClientIdField,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -1350,6 +1363,8 @@ export const SpaceCreateCommand = Schema.Struct({
   spaceId: SpaceId,
   name: SpaceName,
   icon: SpaceIconName,
+  /** Overwritten by the server from the connection's client scope. */
+  ownerClientId: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   createdAt: IsoDateTime,
 });
 
@@ -1414,6 +1429,8 @@ export const ProjectCreateCommand = Schema.Struct({
    * folder. Only ordinary projects accept them, and each one must already exist.
    */
   additionalFolders: Schema.optional(ProjectAdditionalFolders),
+  /** Overwritten by the server from the connection's client scope. */
+  ownerClientId: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   createdAt: IsoDateTime,
 });
 
@@ -2181,6 +2198,7 @@ export const SpaceCreatedPayload = Schema.Struct({
   name: SpaceName,
   icon: SpaceIconName,
   sortOrder: NonNegativeInt,
+  ownerClientId: OwnerClientIdField,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -2213,6 +2231,7 @@ export const ProjectCreatedPayload = Schema.Struct({
   isPinned: Schema.optional(Schema.Boolean).pipe(Schema.withDecodingDefault(() => false)),
   spaceId: Schema.optional(Schema.NullOr(SpaceId)).pipe(Schema.withDecodingDefault(() => null)),
   additionalFolders: ProjectAdditionalFoldersField,
+  ownerClientId: OwnerClientIdField,
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });

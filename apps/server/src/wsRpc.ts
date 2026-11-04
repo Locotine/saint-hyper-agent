@@ -229,7 +229,7 @@ import {
   WsConnectionSessionsLive,
   type WsConnectionSession,
 } from "./wsConnectionSessions";
-import { clientScopeFromUpgrade } from "./clientScope";
+import { clientScopeFromUpgrade, CurrentClientScope } from "./clientScope";
 import {
   negotiateWsCompatibility,
   parseWsNegotiateSearchParams,
@@ -956,8 +956,9 @@ const makeWsRpcHandlersLayer = () =>
       const dispatchOrchestrationCommand = (command: OrchestrationCommand) =>
         Effect.gen(function* () {
           const attachmentPrincipal = yield* CurrentManagedAttachmentPrincipal;
+          const clientScope = yield* CurrentClientScope;
           return yield* runtimeStartup.enqueueCommand(
-            orchestrationEngine.dispatch(command, { attachmentPrincipal }),
+            orchestrationEngine.dispatch(command, { attachmentPrincipal, clientScope }),
           );
         });
 

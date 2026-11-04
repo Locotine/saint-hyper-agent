@@ -41,6 +41,7 @@ import { Effect } from "effect";
 import { computerActivationMetadata } from "../computer/computerActivation.ts";
 
 import { OrchestrationCommandInvariantError } from "./Errors.ts";
+import { commandOwner, readModelForOwner } from "./clientOwnership.ts";
 import { withProjectRelocationEvents } from "./projectRelocation.ts";
 import { buildForkThreadTitle } from "./forkThreadTitle.ts";
 import { hasNativeHandoffMessages } from "./handoff.ts";
@@ -601,7 +602,7 @@ function deriveConversationRollbackTarget(
 
 export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand")(function* ({
   command,
-  readModel,
+  readModel: fullReadModel,
   workspacePaths,
 }: {
   readonly command: OrchestrationCommand;
@@ -612,9 +613,15 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
   Omit<OrchestrationEvent, "sequence"> | ReadonlyArray<Omit<OrchestrationEvent, "sequence">>,
   OrchestrationCommandInvariantError
 > {
+  // Invariants (one project per folder, pin and space limits, names) hold per client: each
+  // client sees only its own projects, spaces and threads. Ids stay unique server-wide.
+  const readModel = readModelForOwner(
+    fullReadModel,
+    commandOwner(command, fullReadModel) ?? null,
+  );
   switch (command.type) {
     case "space.create": {
-      yield* requireSpaceAbsent({ readModel, command, spaceId: command.spaceId });
+      yield* requireSpaceAbsent({ readModel: fullReadModel, command, spaceId: command.spaceId });
       if (command.spaceId === RESERVED_VOID_SPACE_ID) {
         return yield* new OrchestrationCommandInvariantError({
           commandType: command.type,
@@ -646,6 +653,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           name: command.name,
           icon: command.icon,
           sortOrder,
+          ownerClientId: command.ownerClientId ?? null,
           createdAt: command.createdAt,
           updatedAt: command.createdAt,
         },
@@ -796,7 +804,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
 
     case "project.create": {
       yield* requireProjectAbsent({
-        readModel,
+        readModel: fullReadModel,
         command,
         projectId: command.projectId,
       });
@@ -931,6 +939,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           isPinned: command.isPinned,
           spaceId: creationSpaceId,
           additionalFolders,
+          ownerClientId: command.ownerClientId ?? null,
           createdAt: command.createdAt,
           updatedAt: command.createdAt,
         },
@@ -1131,7 +1140,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         projectId: command.projectId,
       });
       yield* requireThreadAbsent({
-        readModel,
+        readModel: fullReadModel,
         command,
         threadId: command.threadId,
       });
@@ -1208,7 +1217,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         threadId: command.sourceThreadId,
       });
       yield* requireThreadAbsent({
-        readModel,
+        readModel: fullReadModel,
         command,
         threadId: command.threadId,
       });
@@ -1311,7 +1320,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         threadId: command.sourceThreadId,
       });
       yield* requireThreadAbsent({
-        readModel,
+        readModel: fullReadModel,
         command,
         threadId: command.threadId,
       });

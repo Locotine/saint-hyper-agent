@@ -10,6 +10,10 @@ export const ProjectionSpace = Schema.Struct({
   name: SpaceName,
   icon: SpaceIconName,
   sortOrder: NonNegativeInt,
+  /** See `apps/server/src/clientScope.ts`. */
+  ownerClientId: Schema.optional(Schema.NullOr(Schema.String)).pipe(
+    Schema.withDecodingDefault(() => null),
+  ),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
   deletedAt: Schema.NullOr(IsoDateTime),

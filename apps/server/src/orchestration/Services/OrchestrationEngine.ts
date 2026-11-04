@@ -23,10 +23,15 @@ import type {
   OrchestrationEventStoreError,
   ProjectionRepositoryError,
 } from "../../persistence/Errors.ts";
+import type { ClientScope } from "../../clientScope.ts";
 import type { ManagedAttachmentPrincipal } from "../../managedAttachmentPrincipal.ts";
 
 export interface OrchestrationDispatchContext {
   readonly attachmentPrincipal?: ManagedAttachmentPrincipal;
+  /**
+   * Client a new project or space is created for. Absent: the caller fiber's `CurrentClientScope`.
+   */
+  readonly clientScope?: ClientScope;
   /** Resolve an uncertain turn start, durably rejecting it if it has not committed. Never execute it. */
   readonly settleOnly?: boolean;
 }

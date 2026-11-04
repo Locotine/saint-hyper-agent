@@ -23,6 +23,7 @@ export const applySpaceMetadataProjection = (input: {
           name: input.event.payload.name,
           icon: input.event.payload.icon,
           sortOrder: input.event.payload.sortOrder,
+          ownerClientId: input.event.payload.ownerClientId ?? null,
           createdAt: input.event.payload.createdAt,
           updatedAt: input.event.payload.updatedAt,
           deletedAt: null,
