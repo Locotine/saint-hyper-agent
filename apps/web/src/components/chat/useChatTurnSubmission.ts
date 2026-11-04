@@ -1,4 +1,4 @@
-import { scopeThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeThread } from "@saint/shared/hostId";
 import { useHostHandle } from "~/hosts/hostScope";
 import type { ThreadId } from "@saint/contracts";
 import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
@@ -389,10 +389,14 @@ export function useChatTurnSubmission({
       if (queuedChatTurn === null) {
         // Read the live editor snapshot, not an earlier React render. A queued
         // command already froze its mode and generation and must not be inferred again.
-        const mode = resolveComputerInvocationMode({
-          messageText: promptForSend,
-          enableComputerControl: settings.computerControlEnabled,
-        });
+        // Computer control drives this computer's screen, never a connected host's.
+        const mode =
+          chatHost.hostId !== LOCAL_HOST_ID
+            ? "off"
+            : resolveComputerInvocationMode({
+                messageText: promptForSend,
+                enableComputerControl: settings.computerControlEnabled,
+              });
         dispatchSettings = {
           ...dispatchSettings,
           computerControlMode: mode,

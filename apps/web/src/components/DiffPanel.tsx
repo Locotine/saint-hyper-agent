@@ -3,7 +3,7 @@
 // Layer: Diff panel container
 
 import { useHostId } from "~/hosts/hostScope";
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { scopeThread } from "@saint/shared/hostId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { ThreadId, type ResolvedKeybindingsConfig, type TurnId } from "@saint/contracts";
@@ -527,14 +527,14 @@ export default function DiffPanel({
   const activeThreadId = controlledThreadId ?? routeThreadId;
   const diffRenderMode = useDiffRenderModeStore((store) =>
     store.getModeForThread(
-      activeThreadId ? scopeLocalThread(activeThreadId) : null,
+      activeThreadId ? scopeThread(hostId, activeThreadId) : null,
       defaultDiffRenderMode,
     ),
   );
   const setModeForThread = useDiffRenderModeStore((store) => store.setModeForThread);
   const setDiffRenderMode = useCallback(
     (nextMode: DiffRenderMode) => {
-      if (activeThreadId) setModeForThread(scopeLocalThread(activeThreadId), nextMode);
+      if (activeThreadId) setModeForThread(scopeThread(hostId, activeThreadId), nextMode);
       else setDefaultDiffRenderMode(nextMode);
     },
     [activeThreadId, setDefaultDiffRenderMode, setModeForThread],
@@ -547,7 +547,7 @@ export default function DiffPanel({
   );
   const draftThread = useComposerDraftStore((store) =>
     activeThreadId
-      ? (store.draftThreadsByThreadId[scopeLocalThread(activeThreadId)] ?? null)
+      ? (store.draftThreadsByThreadId[scopeThread(hostId, activeThreadId)] ?? null)
       : null,
   );
   const fallbackDraftProjectId = draftThread?.projectId ?? null;
@@ -879,6 +879,7 @@ export default function DiffPanel({
     void refreshGitAfterFileWrite(queryClient, activeCwd);
   }, [activeCwd, queryClient]);
   useProjectFileChangeSubscription({
+    hostId,
     cwd: activeCwd,
     relativePath: watchedRepoFilePath,
     enabled: diffQueriesEnabled && liveRefreshEnabled && watchedRepoFilePath !== null,
@@ -1110,10 +1111,10 @@ export default function DiffPanel({
       activeThreadId
         ? {
             onReferenceInChat: (filePath: string) => {
-              appendChatFileReference(activeThreadId, { path: filePath });
+              appendChatFileReference(activeThreadId, { path: filePath }, hostId);
             },
             onAskWhyChanged: (filePath: string) => {
-              appendComposerPromptText(activeThreadId, buildWhyChangedPrompt(filePath));
+              appendComposerPromptText(activeThreadId, buildWhyChangedPrompt(filePath), hostId);
             },
             ...(openFileInEditor ? { onEditFile: openFileInEditor } : {}),
           }
@@ -1142,13 +1143,14 @@ export default function DiffPanel({
     () =>
       activeThreadId
         ? (target: DiffLineBlameTarget) => {
-            appendChatFileReference(activeThreadId, {
-              path: target.filePath,
-              startLine: target.line,
-            });
+            appendChatFileReference(
+              activeThreadId,
+              { path: target.filePath, startLine: target.line },
+              hostId,
+            );
           }
         : undefined,
-    [activeThreadId],
+    [activeThreadId, hostId],
   );
 
   // Highlight diff code -> floating "Add to chat" -> mention + quoted snippet.
@@ -1179,10 +1181,11 @@ export default function DiffPanel({
         appendComposerPromptText(
           activeThreadId,
           buildDiffSelectionReference(payload.filePath, payload.text),
+          hostId,
         );
       }
     },
-    [activeThreadId],
+    [activeThreadId, hostId],
   );
   const diffSelectionAction = useCodeSelectionAction({
     enabled: activeThreadId !== null,

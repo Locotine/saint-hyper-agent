@@ -1533,10 +1533,12 @@ export default function ChatView({
   });
   // A command enables only this draft's turn. Settings remains a separate
   // explicit default; clearing the draft removes request activation.
-  const computerControlMode = resolveComputerInvocationMode({
-    messageText: prompt,
-    enableComputerControl: settings.computerControlEnabled,
-  });
+  const computerControlMode = isRemoteHost
+    ? "off"
+    : resolveComputerInvocationMode({
+        messageText: prompt,
+        enableComputerControl: settings.computerControlEnabled,
+      });
   const enableComputerControl = computerControlMode !== "off";
   const featureFlags = useFeatureFlags();
   const showDebugTaskBanner = import.meta.env.DEV && featureFlags["show-debug-task-banner"];
