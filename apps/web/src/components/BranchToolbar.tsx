@@ -1,7 +1,7 @@
 // FILE: BranchToolbar.tsx
 // Purpose: Renders the chat thread's compact workspace controls, including the
 // local usage popover, inline workspace handoff actions, and runtime access toggle.
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 import type {
   ProviderKind,
   ProviderModelDescriptor,
@@ -458,7 +458,10 @@ export default function BranchToolbar({
     ],
   );
 
+  // Worktree mode is not offered on a connected host.
+  const isRemoteHost = chatHost.hostId !== LOCAL_HOST_ID;
   const canHandoffToWorktree = Boolean(
+    !isRemoteHost &&
     !usesFixedLocalWorkspace &&
     hasServerThread &&
     envLocked &&
@@ -469,7 +472,11 @@ export default function BranchToolbar({
     !usesFixedLocalWorkspace && hasServerThread && activeWorktreePath,
   );
   const canSwitchToWorktree = Boolean(
-    !usesFixedLocalWorkspace && !envLocked && !activeWorktreePath && effectiveEnvMode === "local",
+    !isRemoteHost &&
+    !usesFixedLocalWorkspace &&
+    !envLocked &&
+    !activeWorktreePath &&
+    effectiveEnvMode === "local",
   );
   const canSwitchToLocal = Boolean(
     !usesFixedLocalWorkspace && !envLocked && effectiveEnvMode === "worktree",

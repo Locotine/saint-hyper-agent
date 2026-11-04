@@ -7454,7 +7454,7 @@ export default function ChatView({
           key={threadId}
           action={pendingTranscriptSelectionAction}
           defaultEnvMode={selectionChatEnvMode ?? settings.defaultThreadEnvMode}
-          canUseWorktree={isGitRepo && !isContainerLandingProject}
+          canUseWorktree={isGitRepo && !isContainerLandingProject && !isRemoteHost}
           canAddToSide={isServerThread && !isSidechatThread(activeThread)}
           onDismiss={dismissTranscriptSelectionAction}
           onAddToChat={commitTranscriptAssistantSelection}

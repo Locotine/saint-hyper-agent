@@ -83,9 +83,6 @@ export async function startSelectionChat(
 
   let branch: string | null = null;
   if (input.envMode === "worktree") {
-    // A host's new chat starts in the project folder; a worktree for it is not set up here yet.
-    if (hostId !== LOCAL_HOST_ID)
-      throw new Error("A new worktree chat is not available on a host yet.");
     const status = await ensureLocalNativeApi().git.status({ cwd: input.projectCwd });
     branch = status.branch;
     if (!branch) throw new Error("Check out a branch before starting a new worktree.");
