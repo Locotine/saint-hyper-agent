@@ -233,6 +233,7 @@ import {
   WsConnectionSessionsLive,
   type WsConnectionSession,
 } from "./wsConnectionSessions";
+import { guardClientPaths } from "./clientPathAccess";
 import { clientScopeFromUpgrade, CurrentClientScope } from "./clientScope";
 import {
   clientMayRunCommand,
@@ -1624,7 +1625,7 @@ const makeWsRpcHandlersLayer = () =>
           Effect.mapError((cause) => toWsRpcError(cause, fallbackMessage)),
         );
 
-      return AdmittedWsFeatureRpcGroup.of({
+      const handlers = AdmittedWsFeatureRpcGroup.of({
         [ORCHESTRATION_WS_METHODS.settleTurnDispatch]: ({ command }) =>
           rpcEffect(
             Effect.gen(function* () {
@@ -4069,6 +4070,15 @@ const makeWsRpcHandlersLayer = () =>
                   { label: "computer.events" },
                 ),
           ),
+      });
+
+      // On a shared server, RPCs that read, write or run git on a folder must name a folder this
+      // client owns (see clientPathAccess.ts). An unscoped server keeps the handlers untouched.
+      if (!config.clientScoped) return handlers;
+      return guardClientPaths(handlers, {
+        readModel: orchestrationEngine.getReadModel(),
+        worktreesDir: config.worktreesDir,
+        denied: () => new WsRpcError({ message: "That folder does not belong to this computer." }),
       });
     }),
   );

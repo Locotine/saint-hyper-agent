@@ -30,6 +30,14 @@ describe("resolveWorkspaceDownloadRequests", () => {
     ]);
   });
 
+  it("names the desktop to a shared remote server", () => {
+    const requests = resolveWorkspaceDownloadRequests(
+      [item("/r", "a")],
+      "ws://127.0.0.1:4100/?token=t&client=alice-a1b2c3d4",
+    );
+    expect(new URL(requests![0]!.url).searchParams.get("client")).toBe("alice-a1b2c3d4");
+  });
+
   it("refuses names that are paths, empty parts, non-loopback hosts and non-lists", () => {
     expect(
       resolveWorkspaceDownloadRequests([item("/r", "a", "../a.txt")], BACKEND_WS_URL),

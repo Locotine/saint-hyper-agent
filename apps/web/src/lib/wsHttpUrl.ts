@@ -5,6 +5,7 @@
 // Exports: resolveWsHttpUrl, resolveHostHttpUrl, toAttachmentPreviewUrl, hostAttachmentPreviewUrl
 
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { REMOTE_CLIENT_ID_PARAM } from "@saint/shared/remoteClientId";
 
 import { hostConnections } from "../hosts/hostConnectionRegistry";
 
@@ -51,6 +52,11 @@ function resolveHttpUrlAgainst(wsCandidate: string | null, rawPath: string): str
       httpUrl.protocol === serverUrl.protocol && httpUrl.host === serverUrl.host;
     if (legacyToken && targetsServerOrigin && !httpUrl.searchParams.has("token")) {
       httpUrl.searchParams.set("token", legacyToken);
+    }
+    // A shared remote server tells desktops apart by this id (see the server's clientScope.ts).
+    const clientId = wsUrl.searchParams.get(REMOTE_CLIENT_ID_PARAM);
+    if (clientId && targetsServerOrigin && !httpUrl.searchParams.has(REMOTE_CLIENT_ID_PARAM)) {
+      httpUrl.searchParams.set(REMOTE_CLIENT_ID_PARAM, clientId);
     }
     return httpUrl.toString();
   } catch {

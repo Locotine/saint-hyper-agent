@@ -14,6 +14,7 @@ import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 
 import type { DesktopWorkspaceDownloadResult } from "@saint/contracts";
 import { WORKSPACE_DOWNLOAD_ROUTE_PATH } from "@saint/shared/binaryTransfer";
+import { REMOTE_CLIENT_ID_PARAM } from "@saint/shared/remoteClientId";
 import { isPlainUploadFileName, uploadFileNameCandidates } from "@saint/shared/uploadFileName";
 
 const MAX_WORKSPACE_DOWNLOAD_ITEMS = 1000;
@@ -49,6 +50,7 @@ export function resolveWorkspaceDownloadRequests(
   if (backend.protocol !== "ws:" || !LOOPBACK_HOSTNAMES.has(backend.hostname)) return null;
   const origin = `http://${backend.host}`;
   const token = backend.searchParams.get("token");
+  const clientId = backend.searchParams.get(REMOTE_CLIENT_ID_PARAM);
   if (!Array.isArray(rawItems) || rawItems.length > MAX_WORKSPACE_DOWNLOAD_ITEMS) return null;
 
   const requests: WorkspaceDownloadRequest[] = [];
@@ -66,6 +68,8 @@ export function resolveWorkspaceDownloadRequests(
     target.searchParams.set("cwd", cwd);
     target.searchParams.set("path", path);
     if (token) target.searchParams.set("token", token);
+    // A shared remote server scopes the download to this desktop's own projects.
+    if (clientId) target.searchParams.set(REMOTE_CLIENT_ID_PARAM, clientId);
     requests.push({ url: target.toString(), fileName });
   }
   return requests;

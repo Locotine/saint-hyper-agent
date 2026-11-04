@@ -952,6 +952,7 @@ describe("websocketRpcRouteLayer connection lifecycle", () => {
       expect(server.connectionSessions.lookup(sessionKey)).toEqual({
         role: "owner",
         attachmentPrincipal: { ownerKind: "session", ownerId: issued.sessionId },
+        clientScope: null,
       });
       // Idle exit counts live clients through this registry.
       expect(server.connectionSessions.size()).toBe(1);

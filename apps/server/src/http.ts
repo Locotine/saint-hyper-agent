@@ -41,7 +41,11 @@ import {
   resolveAttachmentRelativePath,
 } from "./attachmentPaths";
 import { INLINE_VISUALS_DIRECTORY } from "./inlineVisualStore";
-import { resolveAttachmentPathById } from "./attachmentStore.ts";
+import {
+  parseThreadSegmentFromAttachmentId,
+  resolveAttachmentPathById,
+  toSafeThreadAttachmentSegment,
+} from "./attachmentStore.ts";
 import { authErrorResponse, makeEffectAuthRequest } from "./auth/effectHttp";
 import { AuthError, ServerAuth } from "./auth/Services/ServerAuth";
 import { SessionCredentialService } from "./auth/Services/SessionCredentialService";
@@ -78,6 +82,9 @@ import { HTML_PREVIEW_ROUTE_PATH } from "@saint/shared/localPreviewFiles";
 import type { ProjectFaviconResolverShape } from "./project/Services/ProjectFaviconResolver";
 import { resolveScratchWorkspacesRoot } from "./scratchWorkspaces.ts";
 import { ProjectFaviconResolver } from "./project/Services/ProjectFaviconResolver";
+import { clientMayUsePath } from "./clientPathAccess";
+import { clientScopeFromUpgrade } from "./clientScope";
+import { projectOwner, threadOwner } from "./orchestration/clientOwnership";
 import { OrchestrationEngineService } from "./orchestration/Services/OrchestrationEngine";
 import { ProjectionSnapshotQuery } from "./orchestration/Services/ProjectionSnapshotQuery";
 import { ProviderAdapterRegistry } from "./provider/Services/ProviderAdapterRegistry";
@@ -712,6 +719,8 @@ export const projectFaviconEffectRouteLayer = HttpRouter.add(
     }
     const projectCwd = url.searchParams.get("cwd");
     if (!projectCwd) return HttpServerResponse.text("Missing cwd parameter", { status: 400 });
+    const faviconDenied = yield* clientAccessDenied(url, undefined, mayUsePath(projectCwd));
+    if (faviconDenied) return faviconDenied;
     const resolver = yield* ProjectFaviconResolver;
     const faviconPath = yield* resolver.resolvePath(projectCwd);
     if (!faviconPath) {
@@ -801,6 +810,53 @@ const siteFaviconEffectRouteLayer = HttpRouter.add(
   }).pipe(Effect.catchTag("AuthError", (error) => Effect.succeed(authErrorResponse(error)))),
 );
 
+// On a server shared by several desktops (see clientScope.ts) a route may only touch what the
+// caller's own desktop owns, named by the `client` query parameter. Resolves to the response to
+// send when the caller may not, else null; always null on an unscoped server. An id the server
+// does not know yet (a draft chat) passes, like the same check on the WebSocket.
+type ClientAccessCheck = (input: {
+  readonly readModel: Parameters<typeof clientMayUsePath>[0] & Parameters<typeof threadOwner>[0];
+  readonly scope: string;
+  readonly worktreesDir: string;
+}) => boolean;
+const clientAccessDenied = (
+  url: URL,
+  headers: Record<string, string> | undefined,
+  mayAccess: ClientAccessCheck,
+) =>
+  Effect.gen(function* () {
+    const config = yield* ServerConfig;
+    if (!config.clientScoped) return null;
+    const scope = clientScopeFromUpgrade(url.searchParams, true);
+    if (scope !== "invalid" && scope !== null) {
+      const engine = yield* Effect.serviceOption(OrchestrationEngineService);
+      if (Option.isSome(engine)) {
+        const readModel = yield* engine.value.getReadModel();
+        if (mayAccess({ readModel, scope, worktreesDir: config.worktreesDir })) return null;
+      }
+    }
+    return HttpServerResponse.jsonUnsafe(
+      { error: "That item does not belong to this computer." },
+      { status: 403, ...(headers ? { headers } : {}) },
+    );
+  });
+const mayUseThread =
+  (threadId: string): ClientAccessCheck =>
+  ({ readModel, scope }) => {
+    const owner = threadOwner(readModel, ThreadId.makeUnsafe(threadId));
+    return owner === undefined || owner === scope;
+  };
+const mayUseProject =
+  (projectId: string): ClientAccessCheck =>
+  ({ readModel, scope }) => {
+    const owner = projectOwner(readModel, ProjectId.makeUnsafe(projectId));
+    return owner === undefined || owner === scope;
+  };
+const mayUsePath =
+  (path: string): ClientAccessCheck =>
+  ({ readModel, scope, worktreesDir }) =>
+    clientMayUsePath(readModel, scope, worktreesDir, path);
+
 // Builds a ZIP export of a single thread (thread.json + transcript.md) and streams
 // it back as a download. Loads only the requested thread detail so the export cost
 // scales with that thread rather than the whole projection; mirrors the auth shape
@@ -829,6 +885,9 @@ const threadExportEffectRouteLayer = HttpRouter.add(
         status: 400,
         headers: corsHeaders,
       });
+
+    const exportDenied = yield* clientAccessDenied(url, corsHeaders, mayUseThread(threadIdParam));
+    if (exportDenied) return exportDenied;
 
     const snapshotQuery = yield* ProjectionSnapshotQuery;
     const threadOption = yield* snapshotQuery.getThreadDetailForExportById(
@@ -903,6 +962,8 @@ export const workspaceDownloadEffectRouteLayer = HttpRouter.add(
         { status: 400, headers: corsHeaders },
       );
     }
+    const downloadDenied = yield* clientAccessDenied(url, corsHeaders, mayUsePath(cwd));
+    if (downloadDenied) return downloadDenied;
     const workspaceFileSystem = yield* WorkspaceFileSystem;
     return yield* workspaceFileSystem.openFileForDownload({ cwd, relativePath }).pipe(
       Effect.map((file) =>
@@ -1042,6 +1103,17 @@ export const localImageEffectRouteLayer = HttpRouter.add(
       ...liveCodexHomePaths,
     ];
 
+    // The file itself may sit in a shared place (generated images, scratch, a grant), but the
+    // project folder the request names must be the caller's own.
+    const imageCwd = url.searchParams.get("cwd");
+    const imageDenied = imageCwd
+      ? yield* clientAccessDenied(
+          url,
+          localPreviewCorsHeaders({ config, request, url }),
+          mayUsePath(imageCwd),
+        )
+      : null;
+    if (imageDenied) return imageDenied;
     const previewFile = yield* Effect.promise(() =>
       resolveAllowedLocalPreviewFile({
         requestedPath: url.searchParams.get("path"),
@@ -1169,6 +1241,8 @@ const binaryUploadEffectHandler = Effect.gen(function* () {
         { status: 400, headers: corsHeaders },
       );
     }
+    const uploadDenied = yield* clientAccessDenied(url, corsHeaders, mayUseThread(threadId));
+    if (uploadDenied) return uploadDenied;
     const maxBytes =
       type === "image" ? PROVIDER_SEND_TURN_MAX_IMAGE_BYTES : PROVIDER_SEND_TURN_MAX_FILE_BYTES;
     const declaredLength = Number(request.headers["content-length"] ?? "0");
@@ -1266,6 +1340,12 @@ const binaryUploadEffectHandler = Effect.gen(function* () {
         { status: 400, headers: corsHeaders },
       );
     }
+    const libraryDenied = yield* clientAccessDenied(
+      url,
+      corsHeaders,
+      mayUseProject(projectIdParam),
+    );
+    if (libraryDenied) return libraryDenied;
     const declaredLength = Number(request.headers["content-length"] ?? "0");
     if (Number.isFinite(declaredLength) && declaredLength > PROVIDER_SEND_TURN_MAX_FILE_BYTES) {
       return HttpServerResponse.jsonUnsafe(
@@ -1421,6 +1501,8 @@ const binaryUploadEffectHandler = Effect.gen(function* () {
         { status: 403, headers: corsHeaders },
       );
     }
+    const workspaceUploadDenied = yield* clientAccessDenied(url, corsHeaders, mayUsePath(cwd));
+    if (workspaceUploadDenied) return workspaceUploadDenied;
     const declaredLength = Number(request.headers["content-length"] ?? "0");
     if (Number.isFinite(declaredLength) && declaredLength > WORKSPACE_UPLOAD_MAX_BYTES) {
       return HttpServerResponse.jsonUnsafe(
@@ -1616,6 +1698,20 @@ export const attachmentsEffectRouteLayer = HttpRouter.add(
         status: isIdLookup ? 404 : 400,
       });
     }
+
+    // On a shared server the attachment must belong to a thread of the caller's desktop: a managed
+    // blob names its thread; an older file is named `<thread segment>-<uuid>.<ext>`.
+    const attachmentDenied = yield* clientAccessDenied(url, undefined, ({ readModel, scope }) =>
+      Option.isSome(managedBlob)
+        ? mayUseThread(managedBlob.value.ownerThreadId)({ readModel, scope, worktreesDir: "" })
+        : readModel.threads.some(
+            (thread) =>
+              threadOwner(readModel, thread.id) === scope &&
+              toSafeThreadAttachmentSegment(thread.id) ===
+                parseThreadSegmentFromAttachmentId(normalizedRelativePath.replace(/\.[^.]+$/u, "")),
+          ),
+    );
+    if (attachmentDenied) return attachmentDenied;
 
     const fileSystem = yield* FileSystem.FileSystem;
     const fileInfo = yield* fileSystem

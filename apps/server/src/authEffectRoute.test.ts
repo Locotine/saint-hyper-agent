@@ -26,6 +26,7 @@ import {
 } from "./auth/Services/SessionCredentialService";
 import { ServerConfig, type ServerConfigShape } from "./config";
 import { GitCore, type GitCoreShape } from "./git/Services/GitCore";
+import { OrchestrationEngineService } from "./orchestration/Services/OrchestrationEngine";
 import {
   ProjectionSnapshotQuery,
   type ProjectionSnapshotQueryShape,
@@ -138,6 +139,7 @@ async function withAuthEffectServer(
     readonly serverSettingsLayer?: Layer.Layer<ServerSettingsService, unknown>;
     readonly projectAgentRepository?: ProjectAgentRepositoryShape;
     readonly snapshotQuery?: ProjectionSnapshotQueryShape;
+    readonly readModel?: unknown;
   },
 ): Promise<void> {
   const scope = await Effect.runPromise(Scope.make("sequential"));
@@ -148,6 +150,13 @@ async function withAuthEffectServer(
         Layer.mergeAll(
           Layer.succeed(ServerConfig, config),
           Layer.succeed(ServerAuth, serverAuth),
+          ...(overrides?.readModel === undefined
+            ? []
+            : [
+                Layer.succeed(OrchestrationEngineService, {
+                  getReadModel: () => Effect.succeed(overrides.readModel),
+                } as never),
+              ]),
           Layer.succeed(SessionCredentialService, makeSessionCredentialService()),
           Layer.succeed(
             ProviderAdapterRegistry,
@@ -919,9 +928,7 @@ describe("workspaceDownloadEffectRouteLayer", () => {
           const folder = await download(serverOrigin, { cwd: workspace, path: "docs" });
           expect(folder.status).toBe(200);
           expect(folder.headers.get("content-type")).toBe("application/zip");
-          expect(folder.headers.get("content-disposition")).toBe(
-            'attachment; filename="docs.zip"',
-          );
+          expect(folder.headers.get("content-disposition")).toBe('attachment; filename="docs.zip"');
           const archive = Buffer.from(await folder.arrayBuffer());
           expect(archive.readUInt32LE(0)).toBe(0x04034b50);
           expect(archive.includes(Buffer.from("docs/báo cáo.pdf", "utf8"))).toBe(true);
@@ -949,6 +956,50 @@ describe("workspaceDownloadEffectRouteLayer", () => {
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
       fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("workspaceDownloadEffectRouteLayer on a shared server", () => {
+  it("serves a project folder to its own desktop only", async () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "saint-scoped-download-"));
+    fs.writeFileSync(path.join(workspace, "a.txt"), "a");
+    const config = {
+      host: "0.0.0.0",
+      publicUrl: new URL("https://saint.example.test/"),
+      clientScoped: true,
+      worktreesDir: path.join(workspace, "..", "no-worktrees"),
+    } as ServerConfigShape;
+    const readModel = {
+      projects: [
+        {
+          id: "p1",
+          workspaceRoot: workspace,
+          additionalFolders: [],
+          ownerClientId: "alice-00000001",
+        },
+      ],
+      threads: [],
+    };
+    const download = (serverOrigin: string, client?: string) =>
+      fetch(
+        `${serverOrigin}${WORKSPACE_DOWNLOAD_ROUTE_PATH}?${new URLSearchParams({ cwd: workspace, path: "a.txt", ...(client ? { client } : {}) })}`,
+        { headers: { Authorization: "Bearer bearer-token" } },
+      );
+    try {
+      await withAuthEffectServer(
+        config,
+        makeServerAuth({ count: 0 }),
+        async (serverOrigin) => {
+          expect((await download(serverOrigin, "alice-00000001")).status).toBe(200);
+          expect((await download(serverOrigin, "bob-00000002")).status).toBe(403);
+          expect((await download(serverOrigin)).status).toBe(403);
+        },
+        workspaceDownloadEffectRouteLayer,
+        { readModel },
+      );
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
     }
   });
 });

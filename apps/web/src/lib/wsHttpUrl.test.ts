@@ -70,6 +70,17 @@ describe("resolveHostHttpUrl", () => {
     );
   });
 
+  it("tells a shared remote server which desktop is asking", () => {
+    vi.stubGlobal("window", { location: { origin: "http://fallback.test" } });
+    vi.spyOn(hostConnections, "peek").mockReturnValue({
+      explicitUrl: "ws://127.0.0.1:5222/?token=remote&client=alice-a1b2c3d4",
+    } as never);
+
+    expect(resolveHostHttpUrl(sshHostId("a1b2c3d4"), "/api/x")).toBe(
+      "http://127.0.0.1:5222/api/x?token=remote&client=alice-a1b2c3d4",
+    );
+  });
+
   it("refuses a remote host without a live connection instead of using the local server", () => {
     vi.stubGlobal("window", { location: { origin: "http://fallback.test" } });
     vi.spyOn(hostConnections, "peek").mockReturnValue(undefined);
