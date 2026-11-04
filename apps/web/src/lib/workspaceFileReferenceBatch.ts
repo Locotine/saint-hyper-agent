@@ -1,6 +1,8 @@
 import type { ProjectResolveWorkspaceFileReferencesResult } from "@saint/contracts";
 
-import { ensureLocalNativeApi } from "~/nativeApi";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+
+import { projectApiFor } from "./projectReactQuery";
 
 const MAX_WORKSPACE_FILE_REFERENCE_BATCH_SIZE = 128;
 
@@ -13,11 +15,15 @@ type PendingWorkspaceFileReference = {
 const pendingByCwd = new Map<string, PendingWorkspaceFileReference[]>();
 const scheduledCwds = new Set<string>();
 
+// Batches are per host and workspace: the same path on two hosts is two files.
+const batchKey = (hostId: HostId, cwd: string) => `${hostId}\0${cwd}`;
+
 async function requestWorkspaceFileReferenceChunks(
+  hostId: HostId,
   cwd: string,
   uniquePaths: ReadonlyArray<string>,
 ): Promise<ReadonlyMap<string, string | null>> {
-  const api = ensureLocalNativeApi();
+  const api = projectApiFor(hostId);
   const resolvedByPath = new Map<string, string | null>();
   for (
     let offset = 0;
@@ -40,17 +46,18 @@ async function requestWorkspaceFileReferenceChunks(
   return resolvedByPath;
 }
 
-async function flushWorkspaceFileReferenceBatch(cwd: string): Promise<void> {
-  scheduledCwds.delete(cwd);
-  const pending = pendingByCwd.get(cwd) ?? [];
-  pendingByCwd.delete(cwd);
+async function flushWorkspaceFileReferenceBatch(hostId: HostId, cwd: string): Promise<void> {
+  const key = batchKey(hostId, cwd);
+  scheduledCwds.delete(key);
+  const pending = pendingByCwd.get(key) ?? [];
+  pendingByCwd.delete(key);
   if (pending.length === 0) {
     return;
   }
 
   try {
     const uniquePaths = [...new Set(pending.map((entry) => entry.relativePath))];
-    const resolvedByPath = await requestWorkspaceFileReferenceChunks(cwd, uniquePaths);
+    const resolvedByPath = await requestWorkspaceFileReferenceChunks(hostId, cwd, uniquePaths);
     pending.forEach((entry) => entry.resolve(resolvedByPath.get(entry.relativePath) ?? null));
   } catch (cause) {
     pending.forEach((entry) => entry.reject(cause));
@@ -60,18 +67,21 @@ async function flushWorkspaceFileReferenceBatch(cwd: string): Promise<void> {
 export function resolveWorkspaceFileReferenceBatched(input: {
   cwd: string;
   relativePath: string;
+  hostId?: HostId;
 }): Promise<string | null> {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
+  const key = batchKey(hostId, input.cwd);
   return new Promise((resolve, reject) => {
-    const pending = pendingByCwd.get(input.cwd);
+    const pending = pendingByCwd.get(key);
     const entry = { relativePath: input.relativePath, resolve, reject };
     if (pending) {
       pending.push(entry);
     } else {
-      pendingByCwd.set(input.cwd, [entry]);
+      pendingByCwd.set(key, [entry]);
     }
-    if (!scheduledCwds.has(input.cwd)) {
-      scheduledCwds.add(input.cwd);
-      queueMicrotask(() => void flushWorkspaceFileReferenceBatch(input.cwd));
+    if (!scheduledCwds.has(key)) {
+      scheduledCwds.add(key);
+      queueMicrotask(() => void flushWorkspaceFileReferenceBatch(hostId, input.cwd));
     }
   });
 }

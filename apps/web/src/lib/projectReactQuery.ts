@@ -211,10 +211,10 @@ const ABSOLUTE_LOCAL_READ_CWD = "/";
 // the search palette opens so the first keystroke's query never pays for a
 // cold index build. Failures are irrelevant: the search itself builds the
 // index anyway, just later.
-export function prewarmProjectSearchIndex(cwd: string | null): void {
+export function prewarmProjectSearchIndex(cwd: string | null, hostId: HostId = LOCAL_HOST_ID): void {
   if (!cwd) return;
   try {
-    void ensureLocalNativeApi()
+    void projectApiFor(hostId)
       .projects.prewarmSearchIndex({ cwd })
       .catch(() => undefined);
   } catch {
@@ -329,14 +329,20 @@ export function projectResolveWorkspaceFileReferenceQueryOptions(input: {
   cwd: string | null;
   relativePath: string | null;
   enabled?: boolean;
+  hostId?: HostId;
 }) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions<string | null>({
-    queryKey: projectQueryKeys.resolveWorkspaceFileReference(input.cwd, input.relativePath),
+    queryKey: withHostKey(
+      projectQueryKeys.resolveWorkspaceFileReference(input.cwd, input.relativePath),
+      hostId,
+    ),
     queryFn: () => {
       if (!input.cwd || !input.relativePath) {
         throw new Error("Workspace file reference resolution is unavailable.");
       }
       return resolveWorkspaceFileReferenceBatched({
+        hostId,
         cwd: input.cwd,
         relativePath: input.relativePath,
       });
@@ -359,11 +365,16 @@ export function projectResolveOutOfRootFileReferenceQueryOptions(input: {
   cwd: string | null;
   relativePath: string | null;
   enabled?: boolean;
+  hostId?: HostId;
 }) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions<ProjectResolveOutOfRootFileReferenceResult>({
-    queryKey: projectQueryKeys.resolveOutOfRootFileReference(input.cwd, input.relativePath),
+    queryKey: withHostKey(
+      projectQueryKeys.resolveOutOfRootFileReference(input.cwd, input.relativePath),
+      hostId,
+    ),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!input.cwd || !input.relativePath) {
         throw new Error("Out-of-root file reference resolution is unavailable.");
       }
@@ -501,13 +512,15 @@ export function projectSearchContentQueryOptions(input: {
   enabled?: boolean;
   limit?: number;
   staleTime?: number;
+  hostId?: HostId;
 }) {
   const limit = input.limit ?? DEFAULT_SEARCH_CONTENT_LIMIT;
   const trimmedQuery = input.query.trim();
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: projectQueryKeys.searchContent(input.cwd, trimmedQuery, limit),
+    queryKey: withHostKey(projectQueryKeys.searchContent(input.cwd, trimmedQuery, limit), hostId),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!input.cwd) {
         throw new Error("Workspace content search is unavailable.");
       }

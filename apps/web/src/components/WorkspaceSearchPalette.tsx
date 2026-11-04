@@ -14,6 +14,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useHostId } from "~/hosts/hostScope";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { Autocomplete as AutocompletePrimitive } from "@base-ui/react/autocomplete";
 import type { ProjectContentMatch, ProjectEntry } from "@saint/contracts";
@@ -287,6 +288,7 @@ export function WorkspaceSearchPalette(props: WorkspaceSearchPaletteProps) {
 
 function WorkspaceSearchPaletteContent(props: WorkspaceSearchPaletteProps) {
   const copy = MODE_COPY[props.mode];
+  const hostId = useHostId();
 
   const [query, setQuery] = useState("");
   const trimmedQuery = query.trim();
@@ -295,8 +297,8 @@ function WorkspaceSearchPaletteContent(props: WorkspaceSearchPaletteProps) {
   // The content component mounts once per open, so this fires before the
   // first keystroke — the server index build overlaps with the user typing.
   useEffect(() => {
-    prewarmProjectSearchIndex(props.cwd);
-  }, [props.cwd]);
+    prewarmProjectSearchIndex(props.cwd, hostId);
+  }, [hostId, props.cwd]);
 
   // Absolute / ~/ queries are exact-open intent. Resolve them before enabling
   // the index query so a pasted path never incurs a fuzzy search request.
@@ -318,6 +320,7 @@ function WorkspaceSearchPaletteContent(props: WorkspaceSearchPaletteProps) {
 
   const fileSearchQuery = useQuery(
     projectSearchEntriesQueryOptions({
+      hostId,
       cwd: props.cwd,
       query: debouncedQuery,
       limit: SEARCH_LIMIT,
@@ -332,6 +335,7 @@ function WorkspaceSearchPaletteContent(props: WorkspaceSearchPaletteProps) {
 
   const snippetSearchQuery = useQuery(
     projectSearchContentQueryOptions({
+      hostId,
       cwd: props.cwd,
       query: debouncedQuery,
       limit: SEARCH_LIMIT,

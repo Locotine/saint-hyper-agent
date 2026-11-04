@@ -596,7 +596,7 @@ export function SingleChatSurface(props: {
     }
     const relativePath = resolveWorkspaceFileOpenTarget(path, workspaceRoot);
     if (relativePath) {
-      prefetchWorkspaceFile(queryClient, workspaceRoot, relativePath);
+      prefetchWorkspaceFile(queryClient, workspaceRoot, relativePath, chatHost.hostId);
     }
   };
   // Chat surface: file references open in the right-dock file pane, while the
@@ -1043,6 +1043,7 @@ export function SingleChatSurface(props: {
       for (const parentPath of parentPaths) {
         void queryClient.prefetchQuery(
           projectListDirectoriesQueryOptions({
+            hostId: chatHost.hostId,
             cwd: workspaceRoot,
             relativePath: parentPath,
             includeFiles: true,
@@ -1067,7 +1068,7 @@ export function SingleChatSurface(props: {
       });
     }, 0);
     return () => window.clearTimeout(expandTimer);
-  }, [workspaceRoot, queryClient, selectedEditorFilePath]);
+  }, [workspaceRoot, queryClient, selectedEditorFilePath, chatHost.hostId]);
 
   const editorChatPanelState: SplitViewPanePanelState = {
     panel: editorCenterModeFamily(editorCenterMode) === "diff" ? "diff" : null,

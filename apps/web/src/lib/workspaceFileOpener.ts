@@ -22,6 +22,7 @@ import { createContext, useContext } from "react";
 
 import { openInPreferredEditor } from "../editorPreferences";
 import { readLocalNativeApi } from "../nativeApi";
+import type { HostId } from "@saint/shared/hostId";
 import { projectReadFileQueryOptions } from "./projectReactQuery";
 
 export interface WorkspaceFileOpener {
@@ -203,6 +204,7 @@ export function prefetchWorkspaceFile(
   queryClient: QueryClient,
   workspaceRoot: string,
   relativePath: string,
+  hostId?: HostId,
 ): void {
   // Images and PDFs stream through the local-image HTTP route, so there is no
   // text read to warm and no syntax highlighter to load.
@@ -217,7 +219,7 @@ export function prefetchWorkspaceFile(
   if (!relativePath.includes("/")) {
     return;
   }
-  void queryClient.prefetchQuery(projectReadFileQueryOptions({ cwd: workspaceRoot, relativePath }));
+  void queryClient.prefetchQuery(projectReadFileQueryOptions({ ...(hostId ? { hostId } : {}), cwd: workspaceRoot, relativePath }));
   void import("./syntaxHighlighting")
     .then((module) =>
       module.getSyntaxHighlighterPromise(module.getSyntaxLanguageForPath(relativePath)),

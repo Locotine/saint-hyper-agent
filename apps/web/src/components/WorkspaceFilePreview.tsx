@@ -603,6 +603,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
     ],
   );
   useProjectFileChangeSubscription({
+    hostId,
     cwd: workspaceRoot,
     relativePath: watchedWorkspaceRelativePath,
     enabled: liveRevalidationEnabled && watchedWorkspaceRelativePath !== null,
@@ -627,6 +628,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
     (fileReadFailedWithoutContents || binaryPreviewFailed || relocatedFullPath !== null);
   const outOfRootResolutionQuery = useQuery(
     projectResolveOutOfRootFileReferenceQueryOptions({
+      hostId,
       cwd: workspaceRoot,
       relativePath: requestedFilePath,
       enabled: outOfRootResolutionEnabled,

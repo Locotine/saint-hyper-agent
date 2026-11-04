@@ -70,6 +70,7 @@ import { useStableValue } from "../hooks/useStableValue";
 import { useThrottledStreamingValue } from "../hooks/useThrottledStreamingValue";
 import { openWorkspaceFileReference, useWorkspaceFileOpener } from "../lib/workspaceFileOpener";
 import { useQuery } from "@tanstack/react-query";
+import { useHostId } from "~/hosts/hostScope";
 import { projectResolveWorkspaceFileReferenceQueryOptions } from "../lib/projectReactQuery";
 import {
   extractAbsoluteFilesystemPaths,
@@ -946,8 +947,10 @@ function VerifiedWorkspaceFileChip(props: {
   href?: string;
 }) {
   const relativePath = props.rawReference.replace(MARKDOWN_LINK_POSITION_SUFFIX_PATTERN, "");
+  const hostId = useHostId();
   const query = useQuery(
     projectResolveWorkspaceFileReferenceQueryOptions({
+      hostId,
       cwd: props.cwd,
       relativePath,
     }),
