@@ -3,7 +3,7 @@
 //          thread's composer draft so panels outside ChatView can talk to the chatbox.
 // Layer: Web UI utility
 
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeThread, type HostId } from "@saint/shared/hostId";
 import { CHAT_ASSISTANT_SELECTION_TEXT_MAX_CHARS, type ThreadId } from "@saint/contracts";
 
 import { useComposerDraftStore } from "../composerDraftStore";
@@ -111,20 +111,27 @@ export function buildDiffSelectionReference(path: string, snippet: string): stri
   return formatChatFileReference({ path, snippet });
 }
 
-export function appendComposerPromptText(threadId: ThreadId, text: string): void {
+// `hostId` names the host the chat lives on; this computer by default.
+export function appendComposerPromptText(
+  threadId: ThreadId,
+  text: string,
+  hostId: HostId = LOCAL_HOST_ID,
+): void {
   const store = useComposerDraftStore.getState();
-  const existingPrompt = store.draftsByThreadId[scopeLocalThread(threadId)]?.prompt ?? "";
+  const draftKey = scopeThread(hostId, threadId);
+  const existingPrompt = store.draftsByThreadId[draftKey]?.prompt ?? "";
   const needsSeparator = existingPrompt.length > 0 && !/\s$/.test(existingPrompt);
-  store.setPrompt(
-    scopeLocalThread(threadId),
-    `${existingPrompt}${needsSeparator ? " " : ""}${text} `,
-  );
+  store.setPrompt(draftKey, `${existingPrompt}${needsSeparator ? " " : ""}${text} `);
   // Pull the user's attention to the composer so the insert is visible.
   requestComposerFocus(threadId);
 }
 
-export function appendChatFileReference(threadId: ThreadId, reference: ChatFileReference): void {
-  appendComposerPromptText(threadId, formatChatFileReference(reference));
+export function appendChatFileReference(
+  threadId: ThreadId,
+  reference: ChatFileReference,
+  hostId: HostId = LOCAL_HOST_ID,
+): void {
+  appendComposerPromptText(threadId, formatChatFileReference(reference), hostId);
 }
 
 // Attach an inline "Local comment" (file + line range + request text) to the
@@ -132,12 +139,16 @@ export function appendChatFileReference(threadId: ThreadId, reference: ChatFileR
 // prompt on send. Returns false when the comment is empty/invalid. Focus is
 // pulled to the composer whenever a valid comment is submitted (even if it
 // dedupes against an existing one) so the resulting chip is visible.
-export function addChatFileComment(threadId: ThreadId, comment: FileCommentSelection): boolean {
+export function addChatFileComment(
+  threadId: ThreadId,
+  comment: FileCommentSelection,
+  hostId: HostId = LOCAL_HOST_ID,
+): boolean {
   const draft = createFileCommentDraft(comment);
   if (!draft) {
     return false;
   }
-  useComposerDraftStore.getState().addFileComment(scopeLocalThread(threadId), draft);
+  useComposerDraftStore.getState().addFileComment(scopeThread(hostId, threadId), draft);
   requestComposerFocus(threadId);
   return true;
 }
@@ -149,10 +160,11 @@ export function addChatFileComment(threadId: ThreadId, comment: FileCommentSelec
 export function addChatPullRequestContext(
   threadId: ThreadId,
   context: PullRequestContextDraft,
+  hostId: HostId = LOCAL_HOST_ID,
 ): boolean {
   const added = useComposerDraftStore
     .getState()
-    .addPullRequestContext(scopeLocalThread(threadId), context);
+    .addPullRequestContext(scopeThread(hostId, threadId), context);
   if (added) {
     requestComposerFocus(threadId);
   }

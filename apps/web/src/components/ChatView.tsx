@@ -4335,10 +4335,11 @@ export default function ChatView({
       genericFiles: "accept",
       addFiles: addComposerFiles,
     },
-    appendReferenceText: (referenceText) => appendComposerPromptText(threadId, referenceText),
+    appendReferenceText: (referenceText) =>
+      appendComposerPromptText(threadId, referenceText, chatHost.hostId),
     appendPathMentions: (paths) => {
       for (const absolutePath of paths) {
-        appendComposerPromptText(threadId, formatComposerMentionToken(absolutePath));
+        appendComposerPromptText(threadId, formatComposerMentionToken(absolutePath), chatHost.hostId);
       }
     },
     dragDepthRef,
@@ -4367,7 +4368,7 @@ export default function ChatView({
         return;
       }
       discardPromptHistoryNavigationForComposerMutation();
-      appendComposerPromptText(threadId, formatComposerMentionToken(mention.name));
+      appendComposerPromptText(threadId, formatComposerMentionToken(mention.name), chatHost.hostId);
       updateSelectedComposerMentions((existing) => [
         ...existing.filter((existingMention) => existingMention.name !== mention.name),
         mention,

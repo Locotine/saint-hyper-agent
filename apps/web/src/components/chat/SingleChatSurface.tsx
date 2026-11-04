@@ -578,13 +578,13 @@ export function SingleChatSurface(props: {
       }));
     });
   const handleReferenceInChat = (reference: ChatFileReference) => {
-    appendChatFileReference(props.threadId, reference);
+    appendChatFileReference(props.threadId, reference, chatHost.hostId);
   };
   const handleAskWhyInChat = (reference: ChatFileReference) => {
-    appendComposerPromptText(props.threadId, buildWhyLinesPrompt(reference));
+    appendComposerPromptText(props.threadId, buildWhyLinesPrompt(reference), chatHost.hostId);
   };
   const handleCommentInChat = (comment: FileCommentSelection) => {
-    addChatFileComment(props.threadId, comment);
+    addChatFileComment(props.threadId, comment, chatHost.hostId);
   };
 
   // Hover warm-up shared by both surfaces' file openers: file contents land in

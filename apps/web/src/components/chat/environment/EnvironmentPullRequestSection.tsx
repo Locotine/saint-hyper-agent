@@ -504,7 +504,7 @@ export function EnvironmentPullRequestSection({
     if (!card) {
       return;
     }
-    if (addChatPullRequestContext(activeThreadId, card)) {
+    if (addChatPullRequestContext(activeThreadId, card, hostId)) {
       onClose();
     }
   };
