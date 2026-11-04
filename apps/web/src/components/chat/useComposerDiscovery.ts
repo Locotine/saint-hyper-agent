@@ -11,6 +11,7 @@ import {
 } from "@saint/contracts";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useQuery } from "@tanstack/react-query";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { useHostId } from "~/hosts/hostScope";
 import { useMemo } from "react";
 import { isLocalFolderMentionQuery } from "~/lib/localFolderMentions";
@@ -73,7 +74,9 @@ export function useComposerDiscovery({
   const mentionTriggerQuery = composerTrigger?.kind === "mention" ? composerTrigger.query : "";
   const isMentionTrigger = composerTriggerKind === "mention";
 
+  // This computer's folders are not offered in a connected host's chat.
   const isLocalFolderBrowserOpen =
+    hostId === LOCAL_HOST_ID &&
     composerCommandPicker === null &&
     isMentionTrigger &&
     isLocalFolderMentionQuery(mentionTriggerQuery);
