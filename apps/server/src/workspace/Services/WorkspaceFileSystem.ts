@@ -68,10 +68,12 @@ export interface WorkspaceDownloadFileInput {
   readonly relativePath: string;
 }
 
-/** An opened regular file inside the workspace, ready to stream to a download. */
+/** An opened regular file (or a folder as a ZIP) inside the workspace, ready to stream. */
 export interface WorkspaceDownloadFile {
   readonly fileName: string;
-  readonly sizeBytes: number;
+  /** Null for a folder: its ZIP is produced while it streams. */
+  readonly sizeBytes: number | null;
+  readonly contentType: "application/octet-stream" | "application/zip";
   /** Reads the opened descriptor; it closes once the stream ends or is interrupted. */
   readonly stream: Stream.Stream<Uint8Array, WorkspaceFileSystemError>;
 }
@@ -122,7 +124,10 @@ export interface WorkspaceFileSystemShape {
     { readonly relativePath: string },
     WorkspaceFileSystemError | WorkspacePathOutsideRootError
   >;
-  /** Opens a regular file for a download; folders and special files are refused. */
+  /**
+   * Opens a regular file for a download. A folder downloads as `<name>.zip` of its regular
+   * files; symlinks inside it are skipped, and special files are refused.
+   */
   readonly openFileForDownload: (
     input: WorkspaceDownloadFileInput,
   ) => Effect.Effect<

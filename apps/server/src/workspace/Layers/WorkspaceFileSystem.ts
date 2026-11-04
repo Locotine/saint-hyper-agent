@@ -1,7 +1,7 @@
 // Reads confined workspace text and performs version-checked atomic saves.
 // File identity and regular-file checks stay on the opened descriptor.
 import { createHash, randomUUID } from "node:crypto";
-import { constants as NodeFsConstants, type BigIntStats } from "node:fs";
+import { constants as NodeFsConstants, createReadStream, type BigIntStats } from "node:fs";
 import * as NodeFs from "node:fs/promises";
 import * as NodePath from "node:path";
 
@@ -11,6 +11,7 @@ import { isPlainUploadFileName, uploadFileNameCandidates } from "@saint/shared/u
 import { Effect, Layer, Path, Stream } from "effect";
 
 import { resolveLocalPreviewGrantRealPath } from "../../localImageFiles";
+import { ZIP_MAX_ENTRIES, zipArchiveChunks } from "../../zipArchive";
 import {
   WorkspaceFileConflictError,
   WorkspaceFileDeletedError,
@@ -27,6 +28,43 @@ import {
   resolveRealPathForCreateWithinRoot,
   resolveRealPathWithinRoot,
 } from "../realPathContainment";
+
+// ponytail: a folder ZIP has no ZIP64, so it stays under 4 GiB with room for deflate overhead.
+// Raise both when ZIP64 lands in zipArchive.ts.
+const FOLDER_DOWNLOAD_MAX_BYTES = 3 * 1024 ** 3;
+
+/**
+ * The regular files under a folder (already resolved inside the workspace), sorted, with paths
+ * relative to it. Symlinks are skipped rather than followed, so nothing outside the folder is read.
+ */
+async function listFolderForDownload(
+  realFolder: string,
+  displayPath: string,
+): Promise<ReadonlyArray<{ readonly absolutePath: string; readonly relativePath: string }>> {
+  const files: Array<{ absolutePath: string; relativePath: string }> = [];
+  let totalBytes = 0;
+  const pending = [""];
+  while (pending.length > 0) {
+    const relativeDir = pending.pop()!;
+    const entries = await NodeFs.readdir(NodePath.join(realFolder, relativeDir), {
+      withFileTypes: true,
+    });
+    for (const entry of entries) {
+      const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        pending.push(relativePath);
+      } else if (entry.isFile()) {
+        const absolutePath = NodePath.join(realFolder, relativePath);
+        totalBytes += (await NodeFs.stat(absolutePath)).size;
+        files.push({ absolutePath, relativePath });
+        if (files.length >= ZIP_MAX_ENTRIES || totalBytes > FOLDER_DOWNLOAD_MAX_BYTES) {
+          throw new Error(`${displayPath} is too large to download as one ZIP file.`);
+        }
+      }
+    }
+  }
+  return files.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+}
 
 // A FIFO open is not cancellable: blocking here can strand Node's filesystem workers.
 // Windows keeps its existing read flags; POSIX rejects special files after a nonblocking open.
@@ -925,15 +963,14 @@ export const makeWorkspaceFileSystem = Effect.gen(function* () {
       try: async () => {
         const realPath = await resolveRealPathWithinRoot(input.cwd, target.absolutePath);
         if (realPath === null) return null;
+        if ((await NodeFs.stat(realPath)).isDirectory()) {
+          return { folder: await listFolderForDownload(realPath, target.relativePath) };
+        }
         const handle = await NodeFs.open(realPath, READ_FILE_FLAGS);
         try {
           const stat = await handle.stat();
           if (!stat.isFile()) {
-            throw new Error(
-              stat.isDirectory()
-                ? `${target.relativePath} is a folder.`
-                : `${target.relativePath} is not a regular file.`,
-            );
+            throw new Error(`${target.relativePath} is not a regular file.`);
           }
           return { handle, sizeBytes: stat.size };
         } catch (cause) {
@@ -943,11 +980,7 @@ export const makeWorkspaceFileSystem = Effect.gen(function* () {
       },
       catch: (cause) =>
         fail(
-          isFileNotFoundError(cause)
-            ? `${target.relativePath} no longer exists.`
-            : (cause as NodeJS.ErrnoException | null)?.code === "EISDIR"
-              ? `${target.relativePath} is a folder.`
-              : errorDetail(cause),
+          isFileNotFoundError(cause) ? `${target.relativePath} no longer exists.` : errorDetail(cause),
           cause,
         ),
     });
@@ -957,9 +990,27 @@ export const makeWorkspaceFileSystem = Effect.gen(function* () {
         relativePath: target.relativePath,
       });
     }
+    if ("folder" in opened) {
+      const folderName = NodePath.basename(target.absolutePath);
+      return {
+        fileName: `${folderName}.zip`,
+        sizeBytes: null,
+        contentType: "application/zip",
+        stream: Stream.fromAsyncIterable(
+          zipArchiveChunks(
+            opened.folder.map((file) => ({
+              name: `${folderName}/${file.relativePath}`,
+              chunks: createReadStream(file.absolutePath),
+            })),
+          ),
+          (cause) => fail(errorDetail(cause), cause),
+        ),
+      };
+    }
     return {
       fileName: NodePath.basename(target.absolutePath),
       sizeBytes: opened.sizeBytes,
+      contentType: "application/octet-stream",
       stream: Stream.fromAsyncIterable(
         opened.handle.createReadStream({ autoClose: true }),
         (cause) => fail(errorDetail(cause), cause),

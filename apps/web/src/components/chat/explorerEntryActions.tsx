@@ -96,6 +96,12 @@ export interface ExplorerTreeSelection {
  * space, the drop-to-move action, and the name dialog the menus open. Render
  * `dialog` once next to the tree.
  */
+
+/** "3 files", or "3 items" once a folder (downloaded as a ZIP) is among them. */
+export function downloadCountLabel(targets: readonly ExplorerSelectableEntry[]): string {
+  const noun = targets.some((entry) => entry.kind === "directory") ? "items" : "files";
+  return `${targets.length} ${noun}`;
+}
 export function useExplorerEntryActions(input: {
   readonly workspaceRoot: string | null;
   readonly onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
@@ -111,7 +117,10 @@ export function useExplorerEntryActions(input: {
   readonly selection: ExplorerTreeSelection;
   readonly moveEntries: (paths: string[], directory: string) => void;
   /** The header's Download button; null where downloading does not apply (this computer's files). */
-  readonly downloadSelection: { readonly fileCount: number; readonly download: () => void } | null;
+  readonly downloadSelection: {
+    readonly targets: readonly ExplorerSelectableEntry[];
+    readonly download: () => void;
+  } | null;
   readonly dialog: ReactNode;
 } {
   const queryClient = useQueryClient();
@@ -249,27 +258,22 @@ export function useExplorerEntryActions(input: {
 
   const downloadEntries = async (targets: readonly ExplorerSelectableEntry[]) => {
     if (!workspaceRoot || !hostAlias) return;
-    const paths = targets.filter((entry) => entry.kind === "file").map((entry) => entry.path);
-    const skipped = targets.length - paths.length;
-    if (skipped > 0) {
-      toastManager.add({
-        type: "info",
-        title: skipped === 1 ? "Skipped 1 folder" : `Skipped ${skipped} folders`,
-        description: "Only files can be downloaded.",
-      });
-    }
-    const [firstPath] = paths;
-    if (!firstPath) return;
+    const [first] = targets;
+    if (!first) return;
     const toastId = toastManager.add({
       type: "loading",
       title:
-        paths.length === 1
-          ? `Downloading ${fileNameOf(firstPath)}…`
-          : `Downloading ${paths.length} files…`,
+        targets.length === 1
+          ? `Downloading ${fileNameOf(first.path)}${first.kind === "directory" ? ".zip" : ""}…`
+          : `Downloading ${downloadCountLabel(targets)}…`,
       timeout: 0,
     });
     try {
-      const result = await downloadWorkspaceFiles({ host: hostAlias, cwd: workspaceRoot, paths });
+      const result = await downloadWorkspaceFiles({
+        host: hostAlias,
+        cwd: workspaceRoot,
+        entries: targets,
+      });
       toastManager.close(toastId);
       if (!result) {
         toastManager.add({ type: "error", title: "Downloading needs the Saint desktop app" });
@@ -282,7 +286,7 @@ export function useExplorerEntryActions(input: {
           title:
             result.saved.length === 1
               ? `Downloaded ${firstSaved.fileName}`
-              : `Downloaded ${result.saved.length} files`,
+              : `Downloaded ${result.saved.length} ${targets.some((entry) => entry.kind === "directory") ? "items" : "files"}`,
           description:
             result.saved.length === 1 ? firstSaved.path : `To ${localFolderOf(firstSaved.path)}`,
         });
@@ -355,7 +359,7 @@ export function useExplorerEntryActions(input: {
   ) => {
     const targets = explorerActionTargets(selectedEntries, entry);
     const deleteCount = withoutNestedExplorerEntries(targets).length;
-    const fileCount = targets.filter((target) => target.kind === "file").length;
+    const hasFolder = targets.some((target) => target.kind === "directory");
     const directory = explorerDropDirectoryFor(entry);
     void showFileReferenceContextMenu({
       path: entry.path,
@@ -370,10 +374,15 @@ export function useExplorerEntryActions(input: {
               onRename: () => setNameRequest({ action: "rename", entry }),
               onDelete: () => void deleteEntries(targets),
               ...(deleteCount > 1 ? { deleteLabel: `Delete ${deleteCount} items…` } : {}),
-              ...(canDownload && fileCount > 0
+              ...(canDownload && targets.length > 0
                 ? {
                     download: {
-                      label: fileCount === 1 ? "Download" : `Download ${fileCount} files`,
+                      label:
+                        targets.length === 1
+                          ? hasFolder
+                            ? "Download as ZIP"
+                            : "Download"
+                          : `Download ${downloadCountLabel(targets)}`,
                       onDownload: () => void downloadEntries(targets),
                     },
                   }
@@ -513,7 +522,7 @@ export function useExplorerEntryActions(input: {
         : [];
   const downloadSelection = canDownload
     ? {
-        fileCount: downloadTargets.filter((entry) => entry.kind === "file").length,
+        targets: downloadTargets,
         download: () => void downloadEntries(downloadTargets),
       }
     : null;

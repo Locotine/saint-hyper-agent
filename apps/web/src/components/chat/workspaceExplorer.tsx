@@ -42,6 +42,7 @@ import { IconButton } from "../ui/icon-button";
 import { SearchInput } from "../ui/search-input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { type ExplorerTreeSelection, useExplorerEntryActions } from "./explorerEntryActions";
+import type { ExplorerSelectableEntry } from "./explorerSelection";
 import {
   EXPLORER_DROP_DIRECTORY_ATTRIBUTE,
   EXPLORER_DROP_TARGET_CLASS_NAME,
@@ -618,15 +619,21 @@ function WorkspaceSearchInputHeader(props: {
   );
 }
 
-// Remote windows: saves the selected files (or the open one) on this computer.
-// Stays focusable while nothing is selected so its tooltip can say why.
-function ExplorerDownloadButton(props: { fileCount: number; onDownload: () => void }) {
-  const disabled = props.fileCount === 0;
+// Remote windows: saves the selected files and folders (or the open file) on this computer;
+// a folder arrives as a ZIP. Stays focusable while nothing is selected so its tooltip can say why.
+function ExplorerDownloadButton(props: {
+  targets: readonly ExplorerSelectableEntry[];
+  onDownload: () => void;
+}) {
+  const [first] = props.targets;
+  const disabled = first === undefined;
   const label = disabled
     ? "Select files to download"
-    : props.fileCount === 1
-      ? "Download selected file"
-      : `Download ${props.fileCount} selected files`;
+    : props.targets.length === 1
+      ? first.kind === "directory"
+        ? "Download selected folder as ZIP"
+        : "Download selected file"
+      : `Download ${props.targets.length} selected ${props.targets.some((entry) => entry.kind === "directory") ? "items" : "files"}`;
   return (
     <IconButton
       label={label}
@@ -814,7 +821,7 @@ export function WorkspaceExplorerSidebar(props: {
           <>
             {downloadSelection ? (
               <ExplorerDownloadButton
-                fileCount={downloadSelection.fileCount}
+                targets={downloadSelection.targets}
                 onDownload={downloadSelection.download}
               />
             ) : null}

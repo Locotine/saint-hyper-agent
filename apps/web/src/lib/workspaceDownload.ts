@@ -17,24 +17,25 @@ export function canDownloadWorkspaceFiles(hostId: HostId): boolean {
 }
 
 /**
- * One Save dialog for a single file, one folder dialog for several. Resolves
- * null when the desktop app cannot download (a browser or an older build).
+ * One Save dialog for a single item, one folder dialog for several. A folder arrives as
+ * `<name>.zip` (the host's server zips it). Resolves null when the desktop app cannot
+ * download (a browser or an older build).
  */
 export async function downloadWorkspaceFiles(input: {
   /** The host's SSH name, as the desktop app knows it. */
   readonly host: string;
   readonly cwd: string;
-  /** Workspace-relative file paths. */
-  readonly paths: readonly string[];
+  /** Workspace-relative files and folders. */
+  readonly entries: ReadonlyArray<{ readonly path: string; readonly kind: "file" | "directory" }>;
 }): Promise<DesktopWorkspaceDownloadResult | null> {
   const download = downloadBridge();
   if (!download) return null;
   return download({
     host: input.host,
-    items: input.paths.map((path) => ({
+    items: input.entries.map(({ path, kind }) => ({
       cwd: input.cwd,
       path,
-      fileName: path.slice(path.lastIndexOf("/") + 1),
+      fileName: `${path.slice(path.lastIndexOf("/") + 1)}${kind === "directory" ? ".zip" : ""}`,
     })),
   });
 }

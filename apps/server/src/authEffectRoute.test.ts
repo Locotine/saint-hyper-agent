@@ -917,8 +917,14 @@ describe("workspaceDownloadEffectRouteLayer", () => {
           expect([...new Uint8Array(await file.arrayBuffer())]).toEqual([...bytes]);
 
           const folder = await download(serverOrigin, { cwd: workspace, path: "docs" });
-          expect(folder.status).toBe(400);
-          expect(await folder.json()).toEqual({ error: "docs is a folder." });
+          expect(folder.status).toBe(200);
+          expect(folder.headers.get("content-type")).toBe("application/zip");
+          expect(folder.headers.get("content-disposition")).toBe(
+            'attachment; filename="docs.zip"',
+          );
+          const archive = Buffer.from(await folder.arrayBuffer());
+          expect(archive.readUInt32LE(0)).toBe(0x04034b50);
+          expect(archive.includes(Buffer.from("docs/báo cáo.pdf", "utf8"))).toBe(true);
           const missing = await download(serverOrigin, { cwd: workspace, path: "docs/gone.txt" });
           expect(missing.status).toBe(404);
           const lexical = await download(serverOrigin, { cwd: workspace, path: "../secret.txt" });

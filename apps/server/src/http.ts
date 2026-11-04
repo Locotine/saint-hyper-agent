@@ -868,12 +868,12 @@ function workspaceDownloadErrorStatus(error: {
   const code = (error.cause as NodeJS.ErrnoException | null | undefined)?.code;
   if (code === "ENOENT") return 404;
   if (code === "EACCES" || code === "EPERM") return 403;
-  // No code: refused before reading (a folder or a special file).
+  // No code: refused before reading (a special file, or a folder too large to ZIP).
   return code === undefined || code === "EISDIR" ? 400 : 500;
 }
 
 // Explorer "Download" in a remote window: the desktop app saves one workspace
-// file from the host to this computer. Owner-only, like the workspace upload.
+// file (or a folder, as a ZIP) from the host to this computer. Owner-only, like the workspace upload.
 export const workspaceDownloadEffectRouteLayer = HttpRouter.add(
   "GET",
   WORKSPACE_DOWNLOAD_ROUTE_PATH,
@@ -908,8 +908,8 @@ export const workspaceDownloadEffectRouteLayer = HttpRouter.add(
       Effect.map((file) =>
         HttpServerResponse.stream(file.stream, {
           status: 200,
-          contentType: "application/octet-stream",
-          contentLength: file.sizeBytes,
+          contentType: file.contentType,
+          ...(file.sizeBytes === null ? {} : { contentLength: file.sizeBytes }),
           headers: {
             "Content-Disposition": attachmentContentDisposition(file.fileName),
             "Cache-Control": "no-store",
