@@ -523,20 +523,26 @@ export function providerModelsQueryOptions(input: {
   cwd?: string | null;
   enabled?: boolean;
   priority?: ProviderModelDiscoveryPriority | undefined;
+  // The host whose providers are listed; this computer by default.
+  hostId?: HostId;
 }) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   // OMP's CLI catalog is account-global, not project-scoped. Share the query
   // across projects while retaining the binary, agent directory and account keys.
   const cwd = input.provider === "omp" ? null : (input.cwd ?? null);
-  const queryKey = providerDiscoveryQueryKeys.models(
-    input.provider,
-    input.binaryPath ?? null,
-    input.apiEndpoint ?? null,
-    input.agentDir ?? null,
-    cwd,
-    input.homePath ?? null,
-    input.shadowHomePath ?? null,
-    input.accountId ?? null,
-    input.instanceId ?? null,
+  const queryKey = withHostKey(
+    providerDiscoveryQueryKeys.models(
+      input.provider,
+      input.binaryPath ?? null,
+      input.apiEndpoint ?? null,
+      input.agentDir ?? null,
+      cwd,
+      input.homePath ?? null,
+      input.shadowHomePath ?? null,
+      input.accountId ?? null,
+      input.instanceId ?? null,
+    ),
+    hostId,
   );
   return queryOptions<ProviderListModelsResult, Error, ProviderListModelsResult, typeof queryKey>({
     queryKey,
@@ -546,7 +552,7 @@ export function providerModelsQueryOptions(input: {
         signal,
         input.priority ?? "background",
         async () => {
-          const api = ensureLocalNativeApi();
+          const api = projectApiFor(hostId);
           const result = await api.provider.listModels({
             provider: input.provider,
             ...(input.refresh ? { refresh: input.refresh } : {}),

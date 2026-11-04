@@ -11,6 +11,7 @@ import type {
   ProviderListModelsResult,
   ProviderModelDescriptor,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 
@@ -107,11 +108,16 @@ export function modelQueryOptionsForProviderInstance(input: {
   readonly cwd: string | null;
   readonly enabled: boolean;
   readonly refresh?: "if-stale" | "now";
+  readonly hostId?: HostId;
 }) {
-  const providerOptions = getProviderStartOptions(input.settings, input.instanceId)?.[
-    input.provider
-  ];
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
+  // Binary paths, homes and accounts in settings name files on this computer.
+  const providerOptions =
+    hostId === LOCAL_HOST_ID
+      ? getProviderStartOptions(input.settings, input.instanceId)?.[input.provider]
+      : undefined;
   return providerModelsQueryOptions({
+    ...(hostId === LOCAL_HOST_ID ? {} : { hostId }),
     provider: input.provider,
     instanceId: input.instanceId,
     binaryPath: readProviderOptionString(providerOptions, "binaryPath"),
@@ -160,7 +166,10 @@ export function useProviderModelCatalog(input: {
   prefetchProviders?: ReadonlyArray<ProviderKind> | undefined;
   /** Preserve eager Claude/Codex agent discovery on surfaces that already prefetch both. */
   agentDiscoveryPolicy?: "selected" | "eager-core";
+  /** The host whose providers are listed; this computer by default. */
+  hostId?: HostId;
 }): ProviderModelCatalog {
+  const catalogHostId = input.hostId ?? LOCAL_HOST_ID;
   const { selectedProvider, selectedProviderInstanceId, discoveryEnabled, modelHintByProvider } =
     input;
   const agentDiscoveryPolicy = input.agentDiscoveryPolicy ?? "selected";
@@ -170,6 +179,7 @@ export function useProviderModelCatalog(input: {
   const refreshModels = useCallback<ProviderModelCatalog["refreshModels"]>(
     async (provider, instanceId, refresh) => {
       const options = modelQueryOptionsForProviderInstance({
+        hostId: catalogHostId,
         settings,
         provider,
         instanceId,
@@ -208,6 +218,7 @@ export function useProviderModelCatalog(input: {
   const instanceModelData = useQueries({
     queries: providerInstances.map((instance) =>
       modelQueryOptionsForProviderInstance({
+        hostId: catalogHostId,
         settings,
         provider: instance.provider,
         instanceId: instance.instanceId,
@@ -300,6 +311,7 @@ export function useProviderModelCatalog(input: {
       ) ??
       providerInstances.find((candidate) => candidate.provider === provider);
     return modelQueryOptionsForProviderInstance({
+      hostId: catalogHostId,
       settings,
       provider,
       instanceId: instance?.instanceId ?? provider,

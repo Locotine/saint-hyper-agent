@@ -58,11 +58,11 @@ export const serverMutationKeys = {
   stopLocalServer: () => ["server", "mutation", "stopLocalServer"] as const,
 };
 
-export function serverConfigQueryOptions() {
+export function serverConfigQueryOptions(hostId: HostId = LOCAL_HOST_ID) {
   return queryOptions({
-    queryKey: serverQueryKeys.config(),
+    queryKey: withHostKey(serverQueryKeys.config(), hostId),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       return api.server.getConfig();
     },
     staleTime: Infinity,

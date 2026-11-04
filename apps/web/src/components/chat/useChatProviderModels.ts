@@ -111,8 +111,8 @@ export function useChatProviderModels({
       ? selectedProviderByThreadId
       : null;
   const lockedProvider: ProviderKind | null = allowProviderHandoff === true ? null : boundProvider;
-  const serverConfigQuery = useQuery(serverConfigQueryOptions());
-  const localProviderStatuses = useProviderStatusesForLocalConfig();
+  const serverConfigQuery = useQuery(serverConfigQueryOptions(chatHost.hostId));
+  const localProviderStatuses = useProviderStatusesForLocalConfig(chatHost.hostId);
   const providerStatusesReconciled = hasReconciledServerProviderStatuses(queryClient);
   const selectedProvider = useMemo<ProviderKind>(
     () =>
@@ -237,6 +237,7 @@ export function useChatProviderModels({
     cwd: providerModelDiscoveryCwd,
     modelHintByProvider: composerModelHintByProvider,
     agentDiscoveryPolicy: "eager-core",
+    hostId: chatHost.hostId,
   });
   const selectedInstanceModelOptionsByProvider = useMemo(
     () => ({
