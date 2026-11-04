@@ -9,7 +9,7 @@ import {
   type ServerGetProviderUsageSnapshotResult,
 } from "@saint/contracts";
 import { providerUsageNeedsAuthDetail } from "@saint/shared/providerUsage";
-import { type ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 
 import { useAppSettings } from "~/appSettings";
 import {
@@ -23,7 +23,7 @@ import {
 } from "~/lib/providerUsageDisplay";
 import type { OpenUsageUsageLine } from "~/lib/openUsageRateLimits";
 import type { ProviderRateLimit } from "~/lib/rateLimits";
-import { useStore } from "~/store";
+import { useHostStore, useStore } from "~/store";
 import { createAccountRateLimitThreadsSelector } from "~/storeSelectors";
 
 import { ComposerPickerMenuPopup } from "./chat/ComposerPickerMenuPopup";
@@ -65,9 +65,19 @@ export function buildProviderUsageMenuModel(input: {
   };
 }
 
-// Module-level: the selector memoizes on store slices, so recreating it per render would
-// defeat the memo and rebuild every thread on each streaming flush.
-const selectAccountRateLimitThreads = createAccountRateLimitThreadsSelector();
+/**
+ * The selector memoizes on one store's slices, so it is made once per component and store
+ * (recreating it per render would rebuild every thread on each streaming flush). It must not be
+ * shared at module level: the rail's rings read this computer's store while a remote chat's usage
+ * chip reads the host's, and two stores calling one memo overwrite each other's result, so each
+ * snapshot differs from the last and React re-renders both until it gives up (error 185).
+ */
+export function useAccountRateLimitThreads() {
+  const store = useHostStore();
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- another store needs its own memo
+  const select = useMemo(() => createAccountRateLimitThreadsSelector(), [store]);
+  return useStore(select);
+}
 
 function providerUsageEmptyMessage(
   provider: ProviderKind,
@@ -93,7 +103,7 @@ export function useProviderUsageMenuModel(
   } = {},
 ): ProviderUsageMenuModel {
   const { settings } = useAppSettings();
-  const threads = useStore(selectAccountRateLimitThreads);
+  const threads = useAccountRateLimitThreads();
   const usageSummary = useProviderUsageSummary({
     provider,
     instanceId: input.instanceId,
