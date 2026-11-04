@@ -3,7 +3,7 @@
 // Layer: Web orchestration helper
 // Exports: dispatchQueuedComposerTurnHeadless
 
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeThread, type HostId } from "@saint/shared/hostId";
 import type { AssistantDeliveryMode, MessageId, ThreadId } from "@saint/contracts";
 
 import {
@@ -11,14 +11,14 @@ import {
   retargetQueuedTurnToThreadProvider,
 } from "../components/ChatView.logic";
 import { useComposerDraftStore, type QueuedComposerTurn } from "../composerDraftStore";
-import { readLocalNativeApi } from "../nativeApi";
+import { apiFor } from "../hosts/hostApi";
+import { hostStores } from "../hosts/hostStores";
 import { clearPendingTurnDispatch, markPendingTurnDispatch } from "../pendingTurnDispatch";
 import {
   buildSourceProposedPlanReference,
   findLatestProposedPlan,
   hasActionableProposedPlan,
 } from "../session-logic";
-import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import { appendAssistantSelectionsToPrompt } from "./assistantSelections";
 import { appendBrowserAnnotationsToPrompt } from "./browserAnnotations";
@@ -40,6 +40,8 @@ import { waitForDraftThreadDispatchToSettle } from "./draftThreadDispatch";
 import { newCommandId, newMessageId } from "./utils";
 
 export async function dispatchQueuedComposerTurnHeadless(input: {
+  // The host the thread lives on; this computer by default.
+  hostId?: HostId;
   threadId: ThreadId;
   queuedTurn: QueuedComposerTurn;
   dispatchMode: "queue" | "steer";
@@ -55,12 +57,14 @@ export async function dispatchQueuedComposerTurnHeadless(input: {
 async function dispatchQueuedComposerTurnOnce(
   input: Parameters<typeof dispatchQueuedComposerTurnHeadless>[0],
 ): Promise<boolean> {
-  const api = readLocalNativeApi();
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
+  const api = apiFor(hostId);
   if (!api) {
     return false;
   }
+  const store = hostStores.get(hostId);
 
-  const thread = getThreadFromState(useStore.getState(), input.threadId);
+  const thread = getThreadFromState(store.getState(), input.threadId);
   if (!thread || thread.claudeCacheReview != null) {
     return false;
   }
@@ -102,7 +106,7 @@ async function dispatchQueuedComposerTurnOnce(
       });
       useComposerDraftStore
         .getState()
-        .setInteractionMode(scopeLocalThread(input.threadId), queuedTurn.interactionMode);
+        .setInteractionMode(scopeThread(hostId, input.threadId), queuedTurn.interactionMode);
       await api.orchestration.dispatchCommand({
         type: "thread.turn.start",
         commandId: newCommandId(),
@@ -127,7 +131,7 @@ async function dispatchQueuedComposerTurnOnce(
       return true;
     } catch {
       if (
-        getThreadFromState(useStore.getState(), input.threadId)?.claudeCacheReview?.messageId ===
+        getThreadFromState(store.getState(), input.threadId)?.claudeCacheReview?.messageId ===
         messageId
       ) {
         return true;
@@ -177,6 +181,7 @@ async function dispatchQueuedComposerTurnOnce(
     queuedTurn.mentions,
   );
   const turnAttachmentsPromise = stageUploadComposerAttachments({
+    hostId,
     threadId: input.threadId,
     images: queuedTurn.images,
     files: queuedTurn.files,
@@ -221,8 +226,8 @@ async function dispatchQueuedComposerTurnOnce(
         })
         .catch((error: unknown) => {
           if (
-            getThreadFromState(useStore.getState(), input.threadId)?.claudeCacheReview
-              ?.messageId !== messageId
+            getThreadFromState(store.getState(), input.threadId)?.claudeCacheReview?.messageId !==
+            messageId
           ) {
             throw error;
           }
@@ -240,7 +245,7 @@ async function dispatchQueuedComposerTurnOnce(
 }
 
 async function persistQueuedTurnThreadSettings(input: {
-  api: NonNullable<ReturnType<typeof readLocalNativeApi>>;
+  api: NonNullable<ReturnType<typeof apiFor>>;
   thread: NonNullable<ReturnType<typeof getThreadFromState>>;
   queuedTurn: QueuedComposerTurn;
   createdAt: string;

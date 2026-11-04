@@ -1,4 +1,4 @@
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { scopeLocalThread, scopeThread, sshHostId } from "@saint/shared/hostId";
 import {
   ApprovalRequestId,
   MessageId,
@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { QueuedComposerTurn } from "../composerDraftStore";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { resetComposerDraftStore } from "../composerDraftStoreTestFixtures";
+import { hostStores } from "../hosts/hostStores";
 import { useStore } from "../store";
 import { initialState } from "../storeState";
 import { makeActivity, makeState, makeThread } from "../storeTestFixtures";
@@ -321,6 +322,30 @@ describe("queued composer drain watcher", () => {
     resetQueuedComposerDrainForTests();
     resetComposerDraftStore();
     useStore.setState(initialState);
+  });
+
+  it("sends a remote host's queued turn through that host once it is live", async () => {
+    const hostId = sshHostId("0a1b2c3d");
+    const remoteThreadId = ThreadId.makeUnsafe("remote-thread");
+    hostStores
+      .get(hostId)
+      .setState(makeState(makeThread({ id: remoteThreadId, session: makeSession("ready") })));
+    useComposerDraftStore
+      .getState()
+      .enqueueQueuedTurn(scopeThread(hostId, remoteThreadId), makeQueuedChatTurn("queued-remote"));
+
+    await flushDrain();
+    expect(dispatch).not.toHaveBeenCalled();
+
+    hostStores.setStatus(hostId, "live");
+    await flushDrain();
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch.mock.calls[0]?.[0]).toMatchObject({ hostId, threadId: remoteThreadId });
+    expect(
+      useComposerDraftStore.getState().draftsByThreadId[scopeThread(hostId, remoteThreadId)]
+        ?.queuedTurns ?? [],
+    ).toHaveLength(0);
+    hostStores.remove(hostId);
   });
 
   it("holds every cache review status without consuming retries and resumes after clearance", async () => {
