@@ -1,4 +1,4 @@
-import { scopeLocalThread, scopeLocalProject } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeLocalThread, scopeLocalProject, scopeThread } from "@saint/shared/hostId";
 import { type ProjectId, type ProviderInstanceId, ThreadId } from "@saint/contracts";
 import { getDefaultModel } from "@saint/shared/model";
 import { useNavigate, useRouter } from "@tanstack/react-router";
@@ -9,6 +9,9 @@ import {
   resolveSelectableProviderInstanceId,
   useAppSettings,
 } from "../appSettings";
+import { toastManager } from "../components/ui/toast";
+import { createHostThread } from "../hosts/hostThreadCreate";
+import { useHostId } from "../hosts/hostScope";
 import { prefetchModelsForNewThread } from "../lib/providerModelPrefetch";
 import { hasActiveComposerSend } from "../lib/composerSendOwnership";
 import { useProviderStatusesForLocalConfig } from "../hooks/useProviderStatusesForLocalConfig";
@@ -71,6 +74,7 @@ export interface NewThreadNavigationOptions {
 // Groups new-chat path uses. Stored/route reuse paths keep the user's
 // existing selections.
 export function useHandleNewThread() {
+  const hostId = useHostId();
   const projects = useStore((store) => store.projects);
   const { settings, serverSettings } = useAppSettings();
   const providerInstances = useMemo(() => getProviderInstanceOptions(settings), [settings]);
@@ -96,6 +100,34 @@ export function useHandleNewThread() {
     options?: NewThreadOptions,
     navigation?: NewThreadNavigationOptions,
   ): Promise<ThreadId | null> => {
+    // A chat on another host starts its new thread on that host, as the sidebar does:
+    // composer drafts, sticky model and project env state all belong to this computer.
+    if (hostId !== LOCAL_HOST_ID) {
+      return (async () => {
+        try {
+          const threadId = await createHostThread(hostId, projectId);
+          const scoped = scopeThread(hostId, threadId);
+          if (options?.entryPoint === "terminal") {
+            openTerminalThreadPage(scoped, { terminalOnly: true });
+          } else {
+            openChatThreadPage(scoped);
+          }
+          await navigate({
+            to: "/$threadId",
+            params: { threadId: scoped },
+            ...(navigation?.search ? { search: navigation.search } : {}),
+          });
+          return threadId;
+        } catch (error) {
+          toastManager.add({
+            type: "error",
+            title: "Could not start a new thread on this host",
+            description: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        }
+      })();
+    }
     // Project/thread targets are not authoritative until hydration completes. Read the
     // store at call time so a stale UI callback cannot mint a draft during hydration.
     if (!useStore.getState().threadsHydrated) {
