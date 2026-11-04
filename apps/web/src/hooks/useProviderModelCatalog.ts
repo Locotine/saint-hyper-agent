@@ -210,7 +210,10 @@ export function useProviderModelCatalog(input: {
     [queryClient, settings, discoveryCwd],
   );
   const customModelsByProvider = useMemo(() => getCustomModelsByProvider(settings), [settings]);
-  const providerInstances = useMemo(() => getProviderInstanceOptions(settings), [settings]);
+  const providerInstances = useMemo(
+    () => (catalogHostId === LOCAL_HOST_ID ? getProviderInstanceOptions(settings) : []),
+    [catalogHostId, settings],
+  );
   // Callers without an explicit instance selection route to the provider's
   // default instance, so that is the only instance discovery must warm.
   const effectiveSelectedInstanceId = (selectedProviderInstanceId?.trim() ||

@@ -89,7 +89,7 @@ export function useComposerDiscovery({
   const effectiveMentionQuery = mentionTriggerQuery.length > 0 ? debouncedPathQuery : "";
   const composerSkillCwd = providerModelDiscoveryCwd;
   const providerComposerCapabilitiesQuery = useQuery(
-    providerComposerCapabilitiesQueryOptions(selectedProvider, selectedProviderInstanceId),
+    providerComposerCapabilitiesQueryOptions(selectedProvider, selectedProviderInstanceId, hostId),
   );
   const providerCommandsQuery = useQuery(
     providerCommandsQueryOptions({

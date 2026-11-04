@@ -358,14 +358,19 @@ export function providerModelDiscoveryRetry(provider: ProviderKind): number {
 export function providerComposerCapabilitiesQueryOptions(
   provider: ProviderKind,
   instanceId?: ProviderInstanceId | null,
+  // The host whose agent answers; this computer by default.
+  hostId: HostId = LOCAL_HOST_ID,
 ) {
   // The default instance shares the provider-level key so new-thread prefetches
   // (which warm by provider) serve the composer's first read.
   const keyInstanceId = instanceId && instanceId !== provider ? instanceId : null;
   return queryOptions({
-    queryKey: providerDiscoveryQueryKeys.composerCapabilities(provider, keyInstanceId),
+    queryKey: withHostKey(
+      providerDiscoveryQueryKeys.composerCapabilities(provider, keyInstanceId),
+      hostId,
+    ),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       return api.provider.getComposerCapabilities({
         provider,
         ...(instanceId ? { instanceId } : {}),

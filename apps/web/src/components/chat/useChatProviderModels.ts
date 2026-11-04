@@ -5,7 +5,7 @@ import {
   type ProviderKind,
   type ServerProviderStatus,
 } from "@saint/contracts";
-import { scopeThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeThread } from "@saint/shared/hostId";
 import { useHostHandle } from "~/hosts/hostScope";
 import { normalizeModelSlug } from "@saint/shared/model";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -166,9 +166,12 @@ export function useChatProviderModels({
   ) {
     candidateInstanceId = activeProject.defaultModelSelection.instanceId;
   }
+  // Instances in Settings are this computer's accounts; a host's chat uses the provider's default.
   const selectedProviderInstanceId =
     sessionInstanceId ??
-    resolveSelectableProviderInstanceId(settings, selectedProvider, candidateInstanceId);
+    (chatHost.hostId === LOCAL_HOST_ID
+      ? resolveSelectableProviderInstanceId(settings, selectedProvider, candidateInstanceId)
+      : selectedProvider);
 
   const composerModelHintByProvider = useMemo<Record<ProviderKind, string | null>>(() => {
     const threadModelSelection = activeThread?.modelSelection ?? null;

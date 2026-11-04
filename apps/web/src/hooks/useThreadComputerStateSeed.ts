@@ -1,6 +1,8 @@
 import type { ThreadId } from "@saint/contracts";
 import { useEffect } from "react";
 
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
+import { useHostId } from "~/hosts/hostScope";
 import { ensureLocalNativeApi } from "~/nativeApi";
 import { addWsTransportStateListener } from "~/wsTransportEvents";
 import { useComputerStateStore } from "../computerStateStore";
@@ -11,8 +13,13 @@ import { useComputerStateStore } from "../computerStateStore";
 // transport reopen.
 export function useThreadComputerStateSeed(threadId: ThreadId): void {
   const upsertThreadState = useComputerStateStore((store) => store.upsertThreadState);
+  const hostId = useHostId();
 
   useEffect(() => {
+    // Computer control drives this computer; a connected host's thread is not known here.
+    if (hostId !== LOCAL_HOST_ID) {
+      return;
+    }
     // Desktop-bridge NativeApi implementations update out of band and may
     // predate the computer namespace.
     if (!ensureLocalNativeApi().computer) {
@@ -38,5 +45,5 @@ export function useThreadComputerStateSeed(threadId: ThreadId): void {
       cancelled = true;
       unsubscribe();
     };
-  }, [threadId, upsertThreadState]);
+  }, [hostId, threadId, upsertThreadState]);
 }
