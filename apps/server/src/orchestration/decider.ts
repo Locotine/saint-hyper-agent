@@ -615,10 +615,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
 > {
   // Invariants (one project per folder, pin and space limits, names) hold per client: each
   // client sees only its own projects, spaces and threads. Ids stay unique server-wide.
-  const readModel = readModelForOwner(
-    fullReadModel,
-    commandOwner(command, fullReadModel),
-  );
+  const readModel = readModelForOwner(fullReadModel, commandOwner(command, fullReadModel));
   switch (command.type) {
     case "space.create": {
       yield* requireSpaceAbsent({ readModel: fullReadModel, command, spaceId: command.spaceId });

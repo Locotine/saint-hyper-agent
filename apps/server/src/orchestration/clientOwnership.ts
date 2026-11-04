@@ -95,7 +95,10 @@ export function clientMayRunCommand(
  */
 export function scopeSnapshotToClient<
   S extends {
-    readonly projects: ReadonlyArray<{ readonly id: ProjectId; readonly ownerClientId?: string | null | undefined }>;
+    readonly projects: ReadonlyArray<{
+      readonly id: ProjectId;
+      readonly ownerClientId?: string | null | undefined;
+    }>;
     readonly spaces: ReadonlyArray<{ readonly ownerClientId?: string | null | undefined }>;
     readonly threads: ReadonlyArray<{ readonly projectId: ProjectId }>;
   },

@@ -17,11 +17,8 @@ const model = {
   threads: [thread("t-a", "p-a"), thread("t-b", "p-b"), thread("t-old", "p-old")],
 } as unknown as OrchestrationReadModel;
 
-const event = (
-  aggregateKind: string,
-  aggregateId: string,
-  payload: Record<string, unknown> = {},
-) => ({ aggregateKind, aggregateId, payload }) as unknown as OrchestrationEvent;
+const event = (aggregateKind: string, aggregateId: string, payload: Record<string, unknown> = {}) =>
+  ({ aggregateKind, aggregateId, payload }) as unknown as OrchestrationEvent;
 
 describe("scopeSnapshotToClient", () => {
   it("keeps only the client's projects, spaces and their threads", () => {
@@ -35,19 +32,39 @@ describe("scopeSnapshotToClient", () => {
 
 describe("clientMayRunCommand", () => {
   it("allows own targets, new aggregates and creations; rejects other clients' and unowned data", () => {
-    expect(clientMayRunCommand(A, { type: "thread.delete", threadId: "t-a" } as never, model)).toBe(true);
-    expect(clientMayRunCommand(A, { type: "thread.delete", threadId: "t-b" } as never, model)).toBe(false);
-    expect(clientMayRunCommand(A, { type: "thread.delete", threadId: "t-old" } as never, model)).toBe(false);
+    expect(clientMayRunCommand(A, { type: "thread.delete", threadId: "t-a" } as never, model)).toBe(
+      true,
+    );
+    expect(clientMayRunCommand(A, { type: "thread.delete", threadId: "t-b" } as never, model)).toBe(
+      false,
+    );
     expect(
-      clientMayRunCommand(A, { type: "thread.create", threadId: "new", projectId: "p-a" } as never, model),
+      clientMayRunCommand(A, { type: "thread.delete", threadId: "t-old" } as never, model),
+    ).toBe(false);
+    expect(
+      clientMayRunCommand(
+        A,
+        { type: "thread.create", threadId: "new", projectId: "p-a" } as never,
+        model,
+      ),
     ).toBe(true);
     expect(
-      clientMayRunCommand(A, { type: "thread.create", threadId: "new", projectId: "p-b" } as never, model),
+      clientMayRunCommand(
+        A,
+        { type: "thread.create", threadId: "new", projectId: "p-b" } as never,
+        model,
+      ),
     ).toBe(false);
     expect(
-      clientMayRunCommand(A, { type: "thread.create", threadId: "n", projectId: "p-a", sourceThreadId: "t-b" } as never, model),
+      clientMayRunCommand(
+        A,
+        { type: "thread.create", threadId: "n", projectId: "p-a", sourceThreadId: "t-b" } as never,
+        model,
+      ),
     ).toBe(false);
-    expect(clientMayRunCommand(A, { type: "project.create", projectId: "new" } as never, model)).toBe(true);
+    expect(
+      clientMayRunCommand(A, { type: "project.create", projectId: "new" } as never, model),
+    ).toBe(true);
   });
 });
 

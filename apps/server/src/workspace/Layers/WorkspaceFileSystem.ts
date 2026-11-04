@@ -980,7 +980,9 @@ export const makeWorkspaceFileSystem = Effect.gen(function* () {
       },
       catch: (cause) =>
         fail(
-          isFileNotFoundError(cause) ? `${target.relativePath} no longer exists.` : errorDetail(cause),
+          isFileNotFoundError(cause)
+            ? `${target.relativePath} no longer exists.`
+            : errorDetail(cause),
           cause,
         ),
     });

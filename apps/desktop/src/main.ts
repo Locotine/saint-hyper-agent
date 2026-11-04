@@ -5817,7 +5817,10 @@ function ensureRemoteSshClientId(): string {
   } catch {
     // Missing or unreadable: create one below.
   }
-  const clientId = createRemoteClientId(OS.userInfo().username, Crypto.randomBytes(4).toString("hex"));
+  const clientId = createRemoteClientId(
+    OS.userInfo().username,
+    Crypto.randomBytes(4).toString("hex"),
+  );
   FS.mkdirSync(STATE_DIR, { recursive: true });
   FS.writeFileSync(REMOTE_SSH_CLIENT_ID_PATH, clientId, { mode: 0o600 });
   return clientId;
