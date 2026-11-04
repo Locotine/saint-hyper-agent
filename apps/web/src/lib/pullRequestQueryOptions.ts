@@ -98,12 +98,16 @@ export function pullRequestDiffQueryOptions(
 }
 
 /** Auto-fix CI state for a thread. The server watcher changes it every minute at most. */
-export function pullRequestAutoFixQueryOptions(threadId: ThreadId | null, enabled: boolean) {
+export function pullRequestAutoFixQueryOptions(
+  threadId: ThreadId | null,
+  enabled: boolean,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   return queryOptions({
-    queryKey: pullRequestQueryKeys.autoFix(threadId),
+    queryKey: withHostKey(pullRequestQueryKeys.autoFix(threadId), hostId),
     queryFn: () => {
       if (!threadId) throw new Error("Auto-fix CI is unavailable.");
-      return ensureLocalNativeApi().pullRequests.getAutoFix({ threadId });
+      return pullRequestApiFor(hostId).pullRequests.getAutoFix({ threadId });
     },
     enabled: enabled && threadId !== null,
     staleTime: 15_000,

@@ -8,6 +8,7 @@ import type { ThreadId } from "@saint/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAppSettings } from "~/appSettings";
+import { useHostId } from "~/hosts/hostScope";
 import { PULL_REQUEST_AUTO_FIX_ON } from "~/betaFeatures";
 import { GitPullRequestIcon } from "~/lib/icons";
 import {
@@ -40,13 +41,14 @@ export function ComposerPullRequestAutoFixHint({
   isWorking,
 }: ComposerPullRequestAutoFixHintProps) {
   const queryClient = useQueryClient();
+  const hostId = useHostId();
   const { settings, updateSettings } = useAppSettings();
   const dismissed = settings.dismissedPullRequestAutoFixHint;
   // Only ask the server once the cheap local checks pass.
   const candidate =
     PULL_REQUEST_AUTO_FIX_ON && isServerThread && !dismissed && pullRequest?.state === "open";
-  const autoFixQuery = useQuery(pullRequestAutoFixQueryOptions(threadId, candidate));
-  const mutation = useMutation(pullRequestSetAutoFixMutationOptions(queryClient));
+  const autoFixQuery = useQuery(pullRequestAutoFixQueryOptions(threadId, candidate, hostId));
+  const mutation = useMutation(pullRequestSetAutoFixMutationOptions(queryClient, hostId));
   const turnOn = (pullRequestUrl: string) =>
     mutation.mutate(
       { threadId, enabled: true, pullRequestUrl },

@@ -10,7 +10,7 @@ import {
 } from "~/components/automation/AutomationProposalActions";
 import { Button } from "~/components/ui/button";
 import { ClockIcon } from "~/lib/icons";
-import { ensureLocalNativeApi } from "~/nativeApi";
+import { useHostHandle } from "~/hosts/hostScope";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
@@ -32,9 +32,10 @@ export function AutomationCreatedCard({
   readonly onOpen?: () => void;
 }) {
   const [currentProposalState, setCurrentProposalState] = useState(proposalState);
+  const chatHost = useHostHandle();
   const proposalListQuery = useQuery({
-    queryKey: automationProposalListQueryKey,
-    queryFn: () => ensureLocalNativeApi().automation.list({ includeArchived: true }),
+    queryKey: [...automationProposalListQueryKey, chatHost.hostId] as const,
+    queryFn: () => chatHost.requireApi().automation.list({ includeArchived: true }),
     enabled: currentProposalState === "pending",
   });
 

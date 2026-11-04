@@ -433,14 +433,19 @@ export function pullRequestsForceRefreshMutationOptions(queryClient: QueryClient
 }
 
 /** Auto-fix CI switch; shared by the PR menu checkbox and the composer hint. */
-export function pullRequestSetAutoFixMutationOptions(queryClient: QueryClient) {
+export function pullRequestSetAutoFixMutationOptions(
+  queryClient: QueryClient,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   return mutationOptions({
     mutationFn: (input: PullRequestAutoFixSetInput) =>
-      ensureLocalNativeApi().pullRequests.setAutoFix(input),
+      pullRequestApiFor(hostId).pullRequests.setAutoFix(input),
     // Swap this PR's entry in the chat's list so every row and the composer tip update at once.
     onSuccess: (result, input) => {
       queryClient.setQueryData<PullRequestAutoFixListResult>(
-        pullRequestQueryKeys.autoFix(input.threadId),
+        hostId === LOCAL_HOST_ID
+          ? pullRequestQueryKeys.autoFix(input.threadId)
+          : [...pullRequestQueryKeys.autoFix(input.threadId), hostId],
         (current) => ({
           states: [
             ...(current?.states ?? []).filter(

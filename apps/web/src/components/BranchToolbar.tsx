@@ -16,7 +16,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useAppSettings } from "~/appSettings";
 
 import { newCommandId, cn } from "../lib/utils";
-import { readLocalNativeApi } from "../nativeApi";
+import { useHostHandle } from "../hosts/hostScope";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { useProviderUsageSummary } from "../hooks/useProviderUsageSummary";
 import { resolveThreadEnvironmentPresentation } from "../lib/threadEnvironment";
@@ -283,6 +283,7 @@ export default function BranchToolbar({
   const showBranchSelector = showBranchSelectorProp ?? true;
   const showEnvironmentPicker = showEnvironmentPickerProp ?? true;
   const isPanel = variant === "panel";
+  const chatHost = useHostHandle();
   const setThreadWorkspaceAction = useStore((store) => store.setThreadWorkspace);
   const draftThread = useComposerDraftStore((store) =>
     store.getDraftThread(scopeLocalThread(threadId)),
@@ -344,7 +345,7 @@ export default function BranchToolbar({
           return;
         }
 
-        const api = readLocalNativeApi();
+        const api = chatHost.api();
         if (serverThreadSession && api) {
           void api.orchestration
             .dispatchCommand({
@@ -392,7 +393,7 @@ export default function BranchToolbar({
           ? { patchAssociatedWorktreeRef: patch.associatedWorktreeRef }
           : {}),
       });
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       // If the effective cwd is about to change, stop the running session so the
       // next message creates a new one with the correct cwd.
       if (serverThreadSession && worktreePath !== activeWorktreePath && api) {
@@ -439,6 +440,7 @@ export default function BranchToolbar({
       });
     },
     [
+      chatHost,
       activeThreadId,
       activeThreadBranch,
       activeWorkingDirectory,

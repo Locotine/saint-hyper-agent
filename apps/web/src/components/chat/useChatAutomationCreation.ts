@@ -19,7 +19,6 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { promoteThreadCreate } from "~/lib/threadCreatePromotion";
 import { newCommandId, randomUUID } from "~/lib/utils";
-import { readLocalNativeApi } from "~/nativeApi";
 import { dispatchThreadNotes } from "~/pinnedMessages";
 import {
   mergeProjectInstructionsIntoThreadNotes,
@@ -137,7 +136,7 @@ export function useChatAutomationCreation({
       readonly providerOptions?: ProviderStartOptions;
       readonly activityThreadId?: ThreadId | null;
     }): Promise<boolean> => {
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       if (!api || !activeProject) {
         return false;
       }
@@ -227,6 +226,7 @@ export function useChatAutomationCreation({
         });
     },
     [
+      chatHost,
       activeProject,
       activeThread,
       automationDraftSubmittingRef,
@@ -247,7 +247,7 @@ export function useChatAutomationCreation({
       readonly threadRuntimeMode: RuntimeMode;
       readonly threadInteractionMode: ProviderInteractionMode;
     }): Promise<ThreadId | null> => {
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       if (!api || !activeProject || !activeThread) {
         toastManager.add({
           type: "warning",

@@ -121,8 +121,9 @@ function PullRequestAutoFixToggle(props: {
   number?: number;
 }) {
   const queryClient = useQueryClient();
+  const hostId = useHostId();
   const { updateSettings } = useAppSettings();
-  const autoFixMutation = useMutation(pullRequestSetAutoFixMutationOptions(queryClient));
+  const autoFixMutation = useMutation(pullRequestSetAutoFixMutationOptions(queryClient, hostId));
   const setAutoFix = (threadId: ThreadId, enabled: boolean, pullRequestUrl: string) =>
     autoFixMutation.mutate(
       { threadId, enabled, pullRequestUrl },
@@ -421,13 +422,13 @@ export function EnvironmentPullRequestSection({
   // as cheap as before. With Auto-fix CI it also loads once while the panel is open,
   // because the stack rows and their checkboxes come from its stack entries.
   const detailQuery = useQuery({
-    ...pullRequestDetailQueryOptions(actionInput, { pollingEnabled: false }),
+    ...pullRequestDetailQueryOptions(actionInput, { pollingEnabled: false, hostId }),
     enabled: actionInput !== null && (menuOpen || (enabled && autoFixAvailable)),
   });
-  const actionMutation = useMutation(pullRequestActionMutationOptions(queryClient));
+  const actionMutation = useMutation(pullRequestActionMutationOptions(queryClient, hostId));
 
   const autoFixQuery = useQuery(
-    pullRequestAutoFixQueryOptions(activeThreadId, enabled && autoFixAvailable),
+    pullRequestAutoFixQueryOptions(activeThreadId, enabled && autoFixAvailable, hostId),
   );
 
   if (!displayPr) {

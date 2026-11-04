@@ -1,7 +1,7 @@
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { useState } from "react";
 import type { WorkLogEntry, WorkLogSaintWorkerNotice } from "../../workLog";
-import { readLocalNativeApi } from "~/nativeApi";
+import { useHostHandle } from "~/hosts/hostScope";
 import { cn } from "~/lib/utils";
 import { MUTED_LABEL_TEXT_CLASS_NAME } from "~/surfaceStyles";
 import { Button } from "../ui/button";
@@ -33,13 +33,14 @@ export function WorkerMonitorNoticePill({
   notice,
   onOpenThread,
 }: WorkerMonitorNoticePillProps) {
+  const chatHost = useHostHandle();
   const [pendingAction, setPendingAction] = useState<"retry" | "stop" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const needsYouThread = notice.kind === "needs-you" ? notice.threads[0] : undefined;
   const projectId = needsYouThread?.projectId ?? null;
 
   const resolveWorker = (action: "retry" | "stop") => {
-    const api = readLocalNativeApi();
+    const api = chatHost.api();
     if (!api || !needsYouThread || !projectId || pendingAction !== null) return;
     setPendingAction(action);
     setError(null);
