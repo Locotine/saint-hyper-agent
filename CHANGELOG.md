@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.14 — 2026-11-04
+
+**Same changes as 1.1.13, with the CI failures fixed and terminals working on remote hosts.**
+
+This Stable release covers the commits after `v1.1.13`, up to `19ef2bf2d`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.14).
+
+### Fixed
+
+- Terminals open again on remote hosts: the host's terminal package hid `package.json` and every terminal failed to start.
+- The 1.1.13 source failed the format check, the contracts build, and several tests. The code is otherwise unchanged.
+
 ## 1.1.13 — 2026-11-04
 
 **Several desktops can share one remote host, each seeing only its own projects, chats and data, and chats on a remote host use that host's features.**
