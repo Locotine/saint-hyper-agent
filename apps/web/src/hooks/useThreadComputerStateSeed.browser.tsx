@@ -8,9 +8,10 @@ const calls = vi.hoisted(() => ({
   getThreadState: vi.fn().mockResolvedValue(undefined),
   upsert: vi.fn(),
 }));
-vi.mock("~/nativeApi", () => ({
-  ensureLocalNativeApi: () => ({ computer: { getThreadState: calls.getThreadState } }),
-}));
+vi.mock("~/nativeApi", () => {
+  const api = () => ({ computer: { getThreadState: calls.getThreadState } });
+  return { ensureLocalNativeApi: api, readLocalNativeApi: api };
+});
 vi.mock("../computerStateStore", () => ({
   useComputerStateStore: (
     selector: (store: { upsertThreadState: typeof calls.upsert }) => unknown,

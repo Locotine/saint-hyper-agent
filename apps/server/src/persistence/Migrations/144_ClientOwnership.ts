@@ -6,7 +6,7 @@
 import * as Effect from "effect/Effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
-import { columnExists } from "./schemaHelpers.ts";
+import { columnExists, tableExists } from "./schemaHelpers.ts";
 
 export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -17,7 +17,11 @@ export default Effect.gen(function* () {
   if (!(yield* columnExists(sql, "projection_spaces", "owner_client_id"))) {
     yield* sql`ALTER TABLE projection_spaces ADD COLUMN owner_client_id TEXT`;
   }
-  if (!(yield* columnExists(sql, "todos", "owner_client_id"))) {
+  // A partial schema (a migration test) may not have the todos table yet.
+  if (
+    (yield* tableExists(sql, "todos")) &&
+    !(yield* columnExists(sql, "todos", "owner_client_id"))
+  ) {
     yield* sql`ALTER TABLE todos ADD COLUMN owner_client_id TEXT`;
   }
 });

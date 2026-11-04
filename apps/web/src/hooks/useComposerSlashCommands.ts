@@ -450,7 +450,7 @@ export function useComposerSlashCommands(input: {
         toastManager.add({ type: "info", title: "Thread title is unchanged" });
       }
     },
-    [activeThread, isLocalDraftThread, isServerThread],
+    [activeThread, chatHost, isLocalDraftThread, isServerThread],
   );
 
   const createForkThreadFromSlashCommand = useCallback(
