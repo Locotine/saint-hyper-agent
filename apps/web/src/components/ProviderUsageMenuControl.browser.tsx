@@ -8,14 +8,19 @@ import { render } from "vitest-browser-react";
 import { createHostStore, HostStoreProvider } from "~/store";
 import { useAccountRateLimitThreads } from "./ProviderUsageMenuControl";
 
-function storeWithRateLimit(hostId: typeof LOCAL_HOST_ID | ReturnType<typeof sshHostId>, tag: string) {
+function storeWithRateLimit(
+  hostId: typeof LOCAL_HOST_ID | ReturnType<typeof sshHostId>,
+  tag: string,
+) {
   const store = createHostStore(hostId);
   const threadId = `thread-${tag}`;
   store.setState({
     threadIds: [threadId],
     activityIdsByThreadId: { [threadId]: [`activity-${tag}`] },
     activityByThreadId: {
-      [threadId]: { [`activity-${tag}`]: { id: `activity-${tag}`, kind: "account.rate-limits.updated" } },
+      [threadId]: {
+        [`activity-${tag}`]: { id: `activity-${tag}`, kind: "account.rate-limits.updated" },
+      },
     },
   } as never);
   return store;
