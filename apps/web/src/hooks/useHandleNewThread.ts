@@ -1,4 +1,9 @@
-import { LOCAL_HOST_ID, scopeLocalThread, scopeLocalProject, scopeThread } from "@saint/shared/hostId";
+import {
+  LOCAL_HOST_ID,
+  scopeLocalThread,
+  scopeLocalProject,
+  scopeThread,
+} from "@saint/shared/hostId";
 import { type ProjectId, type ProviderInstanceId, ThreadId } from "@saint/contracts";
 import { getDefaultModel } from "@saint/shared/model";
 import { useNavigate, useRouter } from "@tanstack/react-router";

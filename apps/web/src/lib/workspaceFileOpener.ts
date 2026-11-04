@@ -219,7 +219,13 @@ export function prefetchWorkspaceFile(
   if (!relativePath.includes("/")) {
     return;
   }
-  void queryClient.prefetchQuery(projectReadFileQueryOptions({ ...(hostId ? { hostId } : {}), cwd: workspaceRoot, relativePath }));
+  void queryClient.prefetchQuery(
+    projectReadFileQueryOptions({
+      ...(hostId ? { hostId } : {}),
+      cwd: workspaceRoot,
+      relativePath,
+    }),
+  );
   void import("./syntaxHighlighting")
     .then((module) =>
       module.getSyntaxHighlighterPromise(module.getSyntaxLanguageForPath(relativePath)),

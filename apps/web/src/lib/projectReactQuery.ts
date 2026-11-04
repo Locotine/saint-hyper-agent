@@ -211,7 +211,10 @@ const ABSOLUTE_LOCAL_READ_CWD = "/";
 // the search palette opens so the first keystroke's query never pays for a
 // cold index build. Failures are irrelevant: the search itself builds the
 // index anyway, just later.
-export function prewarmProjectSearchIndex(cwd: string | null, hostId: HostId = LOCAL_HOST_ID): void {
+export function prewarmProjectSearchIndex(
+  cwd: string | null,
+  hostId: HostId = LOCAL_HOST_ID,
+): void {
   if (!cwd) return;
   try {
     void projectApiFor(hostId)

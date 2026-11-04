@@ -455,8 +455,13 @@ export function EnvironmentPanel({
                   usePinnedThreadsStore.getState().unpinThread(scopeThread(hostId, thread.id));
                   const drafts = useComposerDraftStore.getState();
                   drafts.clearDraftThread(scopeThread(hostId, thread.id));
-                  drafts.clearProjectDraftThreadById(thread.projectId, scopeThread(hostId, thread.id));
-                  useTerminalStateStore.getState().clearTerminalState(scopeThread(hostId, thread.id));
+                  drafts.clearProjectDraftThreadById(
+                    thread.projectId,
+                    scopeThread(hostId, thread.id),
+                  );
+                  useTerminalStateStore
+                    .getState()
+                    .clearTerminalState(scopeThread(hostId, thread.id));
                   useSplitViewStore.getState().removeThreadFromSplitViews(hostId, thread.id);
                   useTemporaryThreadStore.getState().clearTemporaryThread(thread.id);
                 },

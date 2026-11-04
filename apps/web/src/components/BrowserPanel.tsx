@@ -604,7 +604,8 @@ export function BrowserPanel({
     (store) => store.draftsByThreadId[scopeThread(hostId, threadId)]?.files.length ?? 0,
   );
   const composerDraftAssistantSelectionCount = useComposerDraftStore(
-    (store) => store.draftsByThreadId[scopeThread(hostId, threadId)]?.assistantSelections.length ?? 0,
+    (store) =>
+      store.draftsByThreadId[scopeThread(hostId, threadId)]?.assistantSelections.length ?? 0,
   );
   const addressInputRef = useRef<HTMLInputElement>(null);
   const browserViewportRef = useRef<HTMLDivElement>(null);

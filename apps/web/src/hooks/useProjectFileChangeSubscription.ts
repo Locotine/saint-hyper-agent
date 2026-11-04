@@ -50,5 +50,12 @@ export function useProjectFileChangeSubscription(input: {
       { cwd: input.cwd, relativePath: input.relativePath },
       input.onChange,
     );
-  }, [capabilityAvailable, input.cwd, input.enabled, input.hostId, input.onChange, input.relativePath]);
+  }, [
+    capabilityAvailable,
+    input.cwd,
+    input.enabled,
+    input.hostId,
+    input.onChange,
+    input.relativePath,
+  ]);
 }
