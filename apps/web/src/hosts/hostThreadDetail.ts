@@ -82,13 +82,13 @@ export function followHostThread(input: {
  * Keeps a remote thread's detail current while the calling view is mounted. A host that goes
  * offline keeps the last detail in its store (read-only); the stream resumes on a new connection.
  */
-export function useHostThreadDetail(hostId: HostId, threadId: ThreadId): void {
+export function useHostThreadDetail(hostId: HostId, threadId: ThreadId | null): void {
   const live = useSyncExternalStore(
     hostStores.subscribe,
     () => hostStores.status(hostId).status === "live",
   );
   useEffect(() => {
-    if (hostId === LOCAL_HOST_ID || !live) return;
+    if (hostId === LOCAL_HOST_ID || !live || threadId === null) return;
     const api = apiFor(hostId);
     if (!api) return;
     const store = hostStores.get(hostId);

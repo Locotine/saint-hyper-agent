@@ -9,6 +9,8 @@
 import type { ThreadId } from "@saint/contracts";
 import { useEffect, useSyncExternalStore } from "react";
 
+import { useHostId } from "~/hosts/hostScope";
+import { useHostThreadDetail } from "~/hosts/hostThreadDetail";
 import type { DockPaneRuntimeMode } from "~/lib/dockPaneActivation";
 import { dockSidechatPaneScopeId } from "~/lib/chatPaneScope";
 import {
@@ -48,6 +50,8 @@ export function SidechatDockPane({
   /** Whether the embedded thread has reached the shell projection yet. */
   threadExists: boolean;
 }) {
+  // A remote host's routed chat follows only its own detail; the side chat follows its own.
+  useHostThreadDetail(useHostId(), threadExists ? pane.threadId : null);
   if (!pane.threadId) {
     return (
       <PanelStateMessage>
