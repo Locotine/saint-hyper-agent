@@ -4341,7 +4341,11 @@ export default function ChatView({
       appendComposerPromptText(threadId, referenceText, chatHost.hostId),
     appendPathMentions: (paths) => {
       for (const absolutePath of paths) {
-        appendComposerPromptText(threadId, formatComposerMentionToken(absolutePath), chatHost.hostId);
+        appendComposerPromptText(
+          threadId,
+          formatComposerMentionToken(absolutePath),
+          chatHost.hostId,
+        );
       }
     },
     dragDepthRef,
@@ -7456,6 +7460,7 @@ export default function ChatView({
           onAddToChat={commitTranscriptAssistantSelection}
           onAddToSide={(selection) =>
             addSelectionToSide({
+              hostId: chatHost.hostId,
               selection,
               project: activeProject,
               sourceThread: activeThread,
@@ -7465,6 +7470,7 @@ export default function ChatView({
           }
           onNewChat={(selection, prompt, envMode, intent) =>
             startSelectionChat({
+              hostId: chatHost.hostId,
               selection,
               prompt,
               envMode,
