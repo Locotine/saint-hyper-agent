@@ -16,6 +16,8 @@ import { formatRelativeTime } from "~/lib/relativeTime";
 import { studioThreadOutputsQueryOptions } from "~/lib/serverReactQuery";
 import { humanizeStudioOutputName } from "~/lib/studioOutputDisplay";
 import { useWorkspaceFileOpener } from "~/lib/workspaceFileOpener";
+import { useHostId } from "~/hosts/hostScope";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { readLocalNativeApi } from "~/nativeApi";
 
 import { FileEntryIcon } from "../FileEntryIcon";
@@ -33,13 +35,15 @@ export function EnvironmentStudioOutputsSection({
   threadId: ThreadId;
   enabled: boolean;
 }) {
-  const outputsQuery = useQuery(studioThreadOutputsQueryOptions({ threadId, enabled }));
+  const hostId = useHostId();
+  const outputsQuery = useQuery(studioThreadOutputsQueryOptions({ hostId, threadId, enabled }));
   const fileOpener = useWorkspaceFileOpener();
 
   // Plain click opens the output in the in-app side panel; meta/ctrl-click — or a
   // file the panel can't view — reveals it in the Finder instead.
   const openEntry = (entry: StudioOutputEntry, forceFinderReveal: boolean) => {
-    if (forceFinderReveal || !fileOpener?.openFile(entry.fullPath)) {
+    // Finder only knows this computer's files.
+    if ((forceFinderReveal || !fileOpener?.openFile(entry.fullPath)) && hostId === LOCAL_HOST_ID) {
       revealEntryInFinder(entry);
     }
   };

@@ -14,6 +14,7 @@ import {
 } from "@saint/contracts";
 import { INLINE_VISUAL_SERIES_COLORS } from "@saint/shared/inlineVisual";
 import { useQuery } from "@tanstack/react-query";
+import { useHostId } from "~/hosts/hostScope";
 import { useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 
 import { useTheme } from "~/hooks/useTheme";
@@ -60,7 +61,10 @@ export function InlineVisualBlocks({
   readonly actions: InlineVisualBlocksActions;
 }) {
   const { resolvedTheme } = useTheme();
-  const source = useQuery(inlineVisualQueryOptions({ threadId, visualId: visual.visualId }));
+  const hostId = useHostId();
+  const source = useQuery(
+    inlineVisualQueryOptions({ hostId, threadId, visualId: visual.visualId }),
+  );
   const spec = useMemo(
     () => (source.data === undefined ? undefined : decodeInlineVisualSpec(source.data)),
     [source.data],

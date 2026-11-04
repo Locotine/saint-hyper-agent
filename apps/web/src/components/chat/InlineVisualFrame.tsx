@@ -13,6 +13,7 @@ import {
   type InlineVisualTheme,
 } from "@saint/shared/inlineVisual";
 import { useQuery } from "@tanstack/react-query";
+import { useHostId } from "~/hosts/hostScope";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { isElectron } from "~/env";
@@ -60,8 +61,9 @@ function DesktopInlineVisualFrame({
   readonly onScrollIntent?: ((upward: boolean) => void) | undefined;
 }) {
   const theme = useInlineVisualTheme();
+  const hostId = useHostId();
   const visualDocument = useQuery(
-    inlineVisualQueryOptions({ threadId, visualId: visual.visualId }),
+    inlineVisualQueryOptions({ hostId, threadId, visualId: visual.visualId }),
   );
   // Reload mounts a fresh frame (and clears a stopped one) without refetching.
   const [generation, setGeneration] = useState(0);

@@ -13,6 +13,7 @@ import { Option, Schema } from "effect";
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { ensureLocalNativeApi } from "../nativeApi";
 import { apiFor } from "../hosts/hostApi";
+import { withHostKey } from "./projectReactQuery";
 
 import {
   expensiveReadErrorRefetchInterval,
@@ -218,12 +219,20 @@ export function checkpointDiffQueryOptions(input: CheckpointDiffQueryInput) {
  * An inline visual's document. Visual ids are content-addressed per turn, so a
  * fetched document never changes; a missing one is reported once, not retried.
  */
-export function inlineVisualQueryOptions(input: { threadId: ThreadId; visualId: string }) {
+export function inlineVisualQueryOptions(input: {
+  threadId: ThreadId;
+  visualId: string;
+  hostId?: HostId;
+}) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: ["inlineVisual", input.threadId, input.visualId] as const,
+    queryKey: withHostKey(["inlineVisual", input.threadId, input.visualId] as const, hostId),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
-      const result = await api.orchestration.getInlineVisual(input);
+      const api = apiForHost(hostId);
+      const result = await api.orchestration.getInlineVisual({
+        threadId: input.threadId,
+        visualId: input.visualId,
+      });
       return result.html;
     },
     staleTime: Infinity,

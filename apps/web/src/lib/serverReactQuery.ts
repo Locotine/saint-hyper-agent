@@ -11,6 +11,7 @@ import type {
 } from "@saint/contracts";
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { apiFor } from "../hosts/hostApi";
+import { projectApiFor, withHostKey } from "./projectReactQuery";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { ensureLocalNativeApi } from "~/nativeApi";
 import { EXPENSIVE_READ_RETRY_OPTIONS } from "./expensiveReadRetry";
@@ -395,12 +396,14 @@ const STUDIO_THREAD_OUTPUTS_STALE_TIME_MS = 10_000;
 export function studioThreadOutputsQueryOptions(input: {
   threadId: ThreadId | null;
   enabled?: boolean;
+  hostId?: HostId;
 }) {
   const threadId = input.threadId;
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: serverQueryKeys.studioThreadOutputs(threadId),
+    queryKey: withHostKey(serverQueryKeys.studioThreadOutputs(threadId), hostId),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!threadId) {
         return { entries: [] };
       }
