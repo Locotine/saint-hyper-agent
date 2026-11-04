@@ -4,6 +4,7 @@
 // Layer: Desktop remote SSH utility
 // Exports: remote script builders, report parsers, REMOTE_SSH_LOGIN_SHELL_COMMAND
 
+import { CLIENT_SCOPED_ENV } from "@saint/shared/remoteClientId";
 import { REMOTE_TREE_HASH_SCRIPT } from "@saint/shared/remoteTreeHash";
 import { REMOTE_SERVER_PROVIDERS, SAINT_PROVIDERS_ENV } from "@saint/shared/serverProviders";
 
@@ -520,6 +521,7 @@ quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\\\\\''/g")"; }
   echo 'export ${SAINT_PROVIDERS_ENV}=${REMOTE_SERVER_PROVIDERS.join(",")}'
   echo 'export SAINT_PROVIDER_RUNTIME_IDLE_STOP_MS=${REMOTE_PROVIDER_RUNTIME_IDLE_STOP_MS}'
   echo 'export SAINT_IDLE_EXIT_MS=${REMOTE_SERVER_IDLE_EXIT_MS}'
+  echo 'export ${CLIENT_SCOPED_ENV}=1'
 ${scannerEnvLines(target)}
   echo "echo \\$\\$ >$(quote "$run_dir/server.pid")"
   echo "exec node ${REMOTE_SERVER_NODE_FLAGS.join(" ")} $(quote "$install_dir/dist/index.mjs") --mode web --host 127.0.0.1 --port $port --home-dir $(quote "$root/home") --no-browser${devUrlFlag} >>$(quote "$run_dir/server.log") 2>&1"

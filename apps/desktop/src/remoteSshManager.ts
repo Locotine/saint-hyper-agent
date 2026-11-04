@@ -17,6 +17,7 @@ import type {
   DesktopRemoteSshSavedHost,
 } from "@saint/contracts";
 import type { RuntimeSpawnOptions } from "@saint/shared/processRuntime";
+import { REMOTE_CLIENT_ID_PARAM } from "@saint/shared/remoteClientId";
 
 import { compareInstallVersions, isValidSshTarget, normalizeRemoteRoot } from "./remoteSshConfig";
 import {
@@ -73,6 +74,11 @@ export interface RemoteSshManagerDependencies {
    */
   readonly createScannerPack?: (platform: string) => Readable | null;
   readonly reserveLocalPort: () => Promise<number>;
+  /**
+   * This desktop's remote client id. Every desktop of a remote account shares one server; it
+   * shows each desktop only the projects, threads and other data created under this id.
+   */
+  readonly clientId: string;
   readonly waitForHttpReady: (baseUrl: string, signal: AbortSignal) => Promise<void>;
   readonly createToken: () => string;
   readonly devUrl?: string | undefined;
@@ -231,7 +237,7 @@ export class RemoteSshManager {
   wsUrl(host: string): string | null {
     const record = this.hosts.get(host);
     if (!record?.token || !record.localPort) return null;
-    return `ws://127.0.0.1:${record.localPort}/?token=${encodeURIComponent(record.token)}`;
+    return `ws://127.0.0.1:${record.localPort}/?token=${encodeURIComponent(record.token)}&${REMOTE_CLIENT_ID_PARAM}=${encodeURIComponent(this.deps.clientId)}`;
   }
 
   /**

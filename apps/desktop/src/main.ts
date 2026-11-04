@@ -304,6 +304,7 @@ import {
   clientRemoteRoot,
   defaultRemoteRoot,
   parseRemoteClientId,
+  createRemoteClientId,
   parseSavedRemoteSshHosts,
   serializeSavedRemoteSshHosts,
 } from "./remoteSshConfig";
@@ -5808,6 +5809,20 @@ function resolveRemoteSshDefaultRoot(): string {
  * This desktop's own folder from before the default was shared (`<store>/clients/<id>`), or null
  * when it never connected to a remote host. A host where it still holds threads keeps using it.
  */
+/** This desktop's remote client id, created and saved on first use. */
+function ensureRemoteSshClientId(): string {
+  try {
+    const saved = parseRemoteClientId(FS.readFileSync(REMOTE_SSH_CLIENT_ID_PATH, "utf8"));
+    if (saved) return saved;
+  } catch {
+    // Missing or unreadable: create one below.
+  }
+  const clientId = createRemoteClientId(OS.userInfo().username, Crypto.randomBytes(4).toString("hex"));
+  FS.mkdirSync(STATE_DIR, { recursive: true });
+  FS.writeFileSync(REMOTE_SSH_CLIENT_ID_PATH, clientId, { mode: 0o600 });
+  return clientId;
+}
+
 function resolveRemoteSshLegacyRoot(): string | null {
   // Stable refuses remote hosts; leave no state behind for them.
   if (!REMOTE_SSH_ENABLED) return null;
@@ -5870,6 +5885,7 @@ function registerRemoteSshHandlers(): void {
     },
     defaultRemoteRoot: remoteSshDefaultRoot,
     legacyRemoteRoot: resolveRemoteSshLegacyRoot(),
+    clientId: ensureRemoteSshClientId(),
     storeRoot: REMOTE_SSH_STORE_ROOT,
     createInstallBundle: (withDepsPack) => {
       const appRoot = resolveAppRoot();

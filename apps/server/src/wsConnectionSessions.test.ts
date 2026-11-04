@@ -11,10 +11,12 @@ import {
   provideWsConnectionSession,
   type WsConnectionSession,
 } from "./wsConnectionSessions.ts";
+import { CurrentClientScope } from "./clientScope.ts";
 
 const OWNER_SESSION: WsConnectionSession = {
   role: "owner",
   attachmentPrincipal: LOCAL_LOOPBACK_ATTACHMENT_PRINCIPAL,
+  clientScope: null,
 };
 
 describe("WsConnectionSessions", () => {
@@ -42,6 +44,7 @@ describe("WsConnectionSessions", () => {
         sessions.register({
           role: "client",
           attachmentPrincipal: { ownerKind: "session", ownerId: "session-1" },
+          clientScope: null,
         }),
         scope,
       ),
@@ -72,6 +75,7 @@ describe("WsConnectionSessions", () => {
       return {
         role: yield* CurrentWsSessionRole,
         principal: yield* CurrentManagedAttachmentPrincipal,
+        clientScope: yield* CurrentClientScope,
       };
     });
 
@@ -79,11 +83,13 @@ describe("WsConnectionSessions", () => {
       provideWsConnectionSession(read, {
         role: "owner",
         attachmentPrincipal: { ownerKind: "session", ownerId: "session-9" },
+        clientScope: "me-0123abcd",
       }),
     );
     expect(withSession).toEqual({
       role: "owner",
       principal: { ownerKind: "session", ownerId: "session-9" },
+      clientScope: "me-0123abcd",
     });
 
     // Without a session the conservative defaults must apply.
@@ -91,6 +97,7 @@ describe("WsConnectionSessions", () => {
     expect(withoutSession).toEqual({
       role: "client",
       principal: LOCAL_LOOPBACK_ATTACHMENT_PRINCIPAL,
+      clientScope: null,
     });
   });
 });

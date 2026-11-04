@@ -118,6 +118,11 @@ export interface ServerConfigShape extends ServerDerivedPaths {
    * or work. Undefined (the default) disables idle exit.
    */
   readonly idleExitMs?: number | undefined;
+  /**
+   * From `SAINT_CLIENT_SCOPED`: a server shared by several remote desktops. Each WebSocket must
+   * carry a client id and sees only the data created under it.
+   */
+  readonly clientScoped?: boolean | undefined;
   readonly logProviderEvents: boolean;
   readonly logWebSocketEvents: boolean;
 }

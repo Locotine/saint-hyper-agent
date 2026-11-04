@@ -45,6 +45,7 @@ import {
   type ServerConfigShape,
 } from "./config";
 import { SAINT_BETA_BUNDLE_ID, SAINT_DESKTOP_BUNDLE_ID_ENV } from "@saint/shared/desktopIdentity";
+import { CLIENT_SCOPED_ENV } from "@saint/shared/remoteClientId";
 import { runBetaImportIfRequested } from "./betaImport";
 import { startBetaUsageSnapshotJob } from "./betaUsageSnapshot";
 import { LATEST_MIGRATION_ID } from "./persistence/Migrations";
@@ -208,6 +209,10 @@ const CliEnvConfig = Config.all({
   idleExitMs: Config.string(IDLE_EXIT_ENV).pipe(
     Config.option,
     Config.map((value) => parseIdleExitMs(Option.getOrUndefined(value))),
+  ),
+  clientScoped: Config.string(CLIENT_SCOPED_ENV).pipe(
+    Config.option,
+    Config.map((value) => Option.getOrUndefined(value) === "1"),
   ),
 });
 
@@ -381,6 +386,7 @@ const ServerConfigLive = (input: CliInput) =>
         autoBootstrapProjectFromCwd,
         trashDir: env.trashDir,
         ...(env.idleExitMs !== undefined ? { idleExitMs: env.idleExitMs } : {}),
+        ...(env.clientScoped ? { clientScoped: true } : {}),
         logProviderEvents,
         logWebSocketEvents,
       } satisfies ServerConfigShape;

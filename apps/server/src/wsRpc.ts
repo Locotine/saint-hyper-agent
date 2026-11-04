@@ -229,6 +229,7 @@ import {
   WsConnectionSessionsLive,
   type WsConnectionSession,
 } from "./wsConnectionSessions";
+import { clientScopeFromUpgrade } from "./clientScope";
 import {
   negotiateWsCompatibility,
   parseWsNegotiateSearchParams,
@@ -3623,6 +3624,10 @@ export function makeWebsocketRpcRouteLayer<R>(
               headers: { "Cache-Control": "no-store" },
             });
           }
+          const clientScope = clientScopeFromUpgrade(url.searchParams, config.clientScoped);
+          if (clientScope === "invalid") {
+            return HttpServerResponse.text("This server needs a client id.", { status: 400 });
+          }
           const legacyToken = url.searchParams.get("token");
           const authenticatedSession = yield* authenticateRpcWebSocketUpgrade({
             config,
@@ -3635,6 +3640,7 @@ export function makeWebsocketRpcRouteLayer<R>(
             return yield* runWithConnectionSession(request, {
               role: "owner",
               attachmentPrincipal: LOCAL_LOOPBACK_ATTACHMENT_PRINCIPAL,
+              clientScope,
             });
           }
 
@@ -3643,6 +3649,7 @@ export function makeWebsocketRpcRouteLayer<R>(
             runWithConnectionSession(request, {
               role: authenticatedSession.role,
               attachmentPrincipal: attachmentPrincipalForSession(authenticatedSession.sessionId),
+              clientScope,
             }),
           );
         }).pipe(

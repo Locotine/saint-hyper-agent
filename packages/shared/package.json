@@ -20,6 +20,10 @@
       "types": "./src/hostId.ts",
       "import": "./src/hostId.ts"
     },
+    "./remoteClientId": {
+      "types": "./src/remoteClientId.ts",
+      "import": "./src/remoteClientId.ts"
+    },
     "./betaFeatures": {
       "types": "./src/betaFeatures.ts",
       "import": "./src/betaFeatures.ts"

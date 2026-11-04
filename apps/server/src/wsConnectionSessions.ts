@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 
 import { Effect, Layer, Scope, ServiceMap } from "effect";
 
+import { type ClientScope, CurrentClientScope } from "./clientScope";
 import {
   CurrentManagedAttachmentPrincipal,
   type ManagedAttachmentPrincipal,
@@ -26,6 +27,8 @@ export const CurrentWsSessionRole = ServiceMap.Reference<WsSessionRole>(
 export interface WsConnectionSession {
   readonly role: WsSessionRole;
   readonly attachmentPrincipal: ManagedAttachmentPrincipal;
+  /** The remote desktop this connection belongs to; null on an unscoped server. */
+  readonly clientScope: ClientScope;
 }
 
 /**
@@ -100,6 +103,7 @@ export function provideWsConnectionSession<A, E, R>(
     ? effect.pipe(
         Effect.provideService(CurrentWsSessionRole, session.role),
         Effect.provideService(CurrentManagedAttachmentPrincipal, session.attachmentPrincipal),
+        Effect.provideService(CurrentClientScope, session.clientScope),
       )
     : effect;
 }

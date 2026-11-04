@@ -6,6 +6,7 @@
 //          saved-host parse/remember/serialize helpers
 
 import { isHostKey } from "@saint/shared/hostId";
+import { isRemoteClientId } from "@saint/shared/remoteClientId";
 
 /**
  * Concrete `Host` aliases from an OpenSSH config file. Patterns (`*`, `?`) and
@@ -55,8 +56,6 @@ export function defaultRemoteRoot(homeDirectoryName: string): string {
   return `${homeDirectoryName.replace(/^\.?/u, ".")}-remote`;
 }
 
-const REMOTE_CLIENT_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,40}-[0-9a-f]{8}$/u;
-
 /**
  * Names this desktop install on remote hosts: the local user name for
  * readability plus random hex so two machines with the same user name never
@@ -75,7 +74,7 @@ export function createRemoteClientId(localUserName: string, randomHex: string): 
 /** A stored client id, or null when the file content is not one. */
 export function parseRemoteClientId(contents: string): string | null {
   const id = contents.trim();
-  return REMOTE_CLIENT_ID_PATTERN.test(id) ? id : null;
+  return isRemoteClientId(id) ? id : null;
 }
 
 /**

@@ -45,6 +45,7 @@ async function makeFixture() {
           sessions.register({
             role: "owner",
             attachmentPrincipal: LOCAL_LOOPBACK_ATTACHMENT_PRINCIPAL,
+            clientScope: null,
           }),
           scope,
         ),

@@ -90,6 +90,7 @@ function makeManager(
     installIdentity: () => ({ version: "1.2.3", depsHash: "0123456789ab" }),
     defaultRemoteRoot: ".saint-remote",
     storeRoot: ".saint-remote",
+    clientId: "me-0123abcd",
     createInstallBundle: () => Readable.from([Buffer.from("bundle")]),
     hasDepsPack: () => true,
     reserveLocalPort: async () => 45_000,
@@ -315,7 +316,7 @@ describe("RemoteSshManager", () => {
     expect(scripts.every((call) => call.args.includes("ClearAllForwardings=yes"))).toBe(true);
     // The token goes over stdin, never into an ssh argument.
     expect(calls.every((call) => !call.args.some((arg) => arg.includes("tok")))).toBe(true);
-    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=tok");
+    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=tok&client=me-0123abcd");
   });
 
   it("reuses a live server of the same version without reinstalling", async () => {
@@ -331,7 +332,7 @@ describe("RemoteSshManager", () => {
     const { manager } = makeManager(spawn);
     await manager.connect({ host: "devbox", remoteRoot: "squad/saint" });
     expect(seen).toEqual(["probe"]);
-    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
+    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live&client=me-0123abcd");
     expect(manager.states()[0]?.remoteRoot).toBe("squad/saint");
   });
 
@@ -424,7 +425,7 @@ describe("RemoteSshManager", () => {
     );
     expect(tunnels[0]?.child.kill).toHaveBeenCalled();
     expect(state).toMatchObject({ phase: "connected", localPort: 45_001 });
-    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45001/?token=live");
+    expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45001/?token=live&client=me-0123abcd");
   });
 
   it("keeps the tunnel when only a forward from the ssh config fails", async () => {
@@ -465,7 +466,7 @@ describe("RemoteSshManager", () => {
       await manager.connect({ host: "devbox" });
       tunnels(calls)[0]?.exit(255);
       expect(states.at(-1)).toMatchObject({ phase: "reconnecting", epoch: 1 });
-      expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
+      expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live&client=me-0123abcd");
       manager.disconnect("devbox");
       expect(states.at(-1)).toMatchObject({ phase: "idle" });
     });
@@ -489,7 +490,7 @@ describe("RemoteSshManager", () => {
       expect(states.at(-1)).toMatchObject({ epoch: 1, localPort: 45_000 });
       expect(tunnels(calls)).toHaveLength(2);
       expect(tunnels(calls)[1]?.args).toContain("127.0.0.1:45000:127.0.0.1:4200");
-      expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live");
+      expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=live&client=me-0123abcd");
     });
 
     it("runs a full connect when the server is gone and bumps the epoch for the new token", async () => {
@@ -527,7 +528,7 @@ describe("RemoteSshManager", () => {
       await vi.waitFor(() => expect(states.at(-1)).toMatchObject({ phase: "connected", epoch: 2 }));
       expect(seen).toEqual(["probe", "probe", "start"]);
       // The first connect reused the live server's token; the restart minted tok1.
-      expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=tok1");
+      expect(manager.wsUrl("devbox")).toBe("ws://127.0.0.1:45000/?token=tok1&client=me-0123abcd");
       // The retry stays "reconnecting" instead of flashing the connect phases.
       expect(states.slice(connectedStates).map((state) => state.phase)).toEqual([
         "reconnecting",
