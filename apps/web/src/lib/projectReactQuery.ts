@@ -385,11 +385,14 @@ export function projectLocalPreviewGrantQueryOptions(input: {
   path: string | null;
   enabled?: boolean;
   staleTime?: number;
+  /** The grant is valid only on the server that serves the file. */
+  hostId?: HostId;
 }) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions<ProjectCreateLocalFilePreviewGrantResult>({
-    queryKey: projectQueryKeys.localPreviewGrant(input.path),
+    queryKey: withHostKey(projectQueryKeys.localPreviewGrant(input.path), hostId),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!input.path) {
         throw new Error("Local file preview grant is unavailable.");
       }

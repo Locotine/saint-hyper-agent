@@ -13,6 +13,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useHostId } from "~/hosts/hostScope";
+
 import { basenameOfPath } from "~/file-icons";
 import { Loader2Icon, TriangleAlertIcon } from "~/lib/icons";
 import { buildLocalImageUrl } from "~/lib/localImageUrls";
@@ -45,6 +47,7 @@ export function PdfFilePreview(props: {
     cwd: props.cwd ?? undefined,
     grant: props.previewGrant,
     cacheKey: props.cacheKey,
+    hostId: useHostId(),
   });
   const fileName = basenameOfPath(props.filePath);
   const doc = usePdfDocument(previewUrl);

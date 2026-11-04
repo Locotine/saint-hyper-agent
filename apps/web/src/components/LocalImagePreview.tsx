@@ -9,6 +9,8 @@
 
 import { type ImgHTMLAttributes, type MouseEvent, useState } from "react";
 
+import { useHostId } from "~/hosts/hostScope";
+
 import { downloadUrlAsBlob } from "~/lib/browserDownload";
 import { DownloadIcon, Loader2Icon, TriangleAlertIcon } from "~/lib/icons";
 import { buildLocalImageUrl, localImageFileName } from "~/lib/localImageUrls";
@@ -42,17 +44,20 @@ export function useLocalImagePreview(input: {
   onPreviewError?: (() => void) | undefined;
 }): LocalImagePreviewState {
   const { src, cwd, previewGrant } = input;
+  const hostId = useHostId();
   const previewUrl = buildLocalImageUrl({
     src,
     cwd: cwd ?? undefined,
     grant: previewGrant,
     cacheKey: input.cacheKey,
+    hostId,
   });
   const downloadUrl = buildLocalImageUrl({
     src,
     cwd: cwd ?? undefined,
     download: true,
     grant: previewGrant,
+    hostId,
   });
   const fileName = localImageFileName(src);
   // A generation distinguishes separate visits to the same URL. This keeps an

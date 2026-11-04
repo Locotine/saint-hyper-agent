@@ -11,6 +11,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type MouseEvent, useEffect, useRef, useState } from "react";
 
+import { useHostId } from "~/hosts/hostScope";
+
 import { DownloadIcon, Loader2Icon, Maximize2 } from "~/lib/icons";
 import { buildLocalImageUrl, localImageAbsolutePath } from "~/lib/localImageUrls";
 import {
@@ -56,7 +58,9 @@ function GeneratedMarkdownImageContent(props: GeneratedMarkdownImageProps) {
   const absolutePath = localImageAbsolutePath(src);
   const [needsGrant, setNeedsGrant] = useState(false);
   const [previewGrant, setPreviewGrant] = useState<string>();
+  const hostId = useHostId();
   const grantOptions = projectLocalPreviewGrantQueryOptions({
+    hostId,
     path: absolutePath,
     enabled: needsGrant && absolutePath !== null && previewGrant === undefined,
     // An HTTP denial must not reuse a token invalidated by a server restart.
@@ -107,7 +111,7 @@ function GeneratedMarkdownImageContent(props: GeneratedMarkdownImageProps) {
     if (!needsGrant || absolutePath === null) return download ? downloadUrl : previewUrl;
     // A backgrounded chat can outlive the grant TTL. Renew at the point of use.
     const grant = await queryClient.fetchQuery({ ...grantOptions, retry: retryGrant });
-    return buildLocalImageUrl({ src, cwd, download, grant: grant.grant });
+    return buildLocalImageUrl({ src, cwd, download, grant: grant.grant, hostId });
   };
   const accessibleName = alt?.trim() || "Generated image";
   const downloadImage = useLocalImageDownloadClick({

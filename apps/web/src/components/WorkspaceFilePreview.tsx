@@ -529,6 +529,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
   const showHtmlPreview = fileIsHtml && markdownPreviewEnabled;
   const localPreviewGrantQuery = useQuery(
     projectLocalPreviewGrantQueryOptions({
+      hostId,
       path: filePath,
       enabled: fileNeedsLocalPreviewGrant,
     }),

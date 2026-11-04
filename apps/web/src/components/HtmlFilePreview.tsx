@@ -10,8 +10,11 @@ import { describeErrorMessage } from "@saint/shared/errorMessages";
 import { HTML_PREVIEW_ROUTE_PATH } from "@saint/shared/localPreviewFiles";
 import { useQuery } from "@tanstack/react-query";
 
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
+
+import { apiFor, useHostId } from "~/hosts/hostScope";
 import { readLocalNativeApi } from "~/nativeApi";
-import { resolveWsHttpUrl } from "~/lib/wsHttpUrl";
+import { resolveHostHttpUrl } from "~/lib/wsHttpUrl";
 import { PanelStateMessage } from "./chat/PanelStateMessage";
 
 // Same capabilities as the response's CSP sandbox; never allow-same-origin, so
@@ -24,10 +27,13 @@ export function HtmlFilePreview(props: {
   /** Changes on reload so the frame fetches the file again. */
   cacheKey: string | number;
 }) {
+  // A remote host's chat previews the file on that host's server, grant included.
+  const hostId = useHostId();
   const grantQuery = useQuery({
-    queryKey: ["projects", "html-preview-grant", props.absolutePath, props.cacheKey],
+    queryKey: ["projects", "html-preview-grant", props.absolutePath, props.cacheKey, hostId],
     queryFn: async () => {
-      const createGrant = readLocalNativeApi()?.projects.createHtmlPreviewGrant;
+      const api = hostId === LOCAL_HOST_ID ? readLocalNativeApi() : apiFor(hostId);
+      const createGrant = api?.projects.createHtmlPreviewGrant;
       if (!createGrant) throw new Error("Update the Saint server to preview HTML files.");
       return createGrant({ path: props.absolutePath });
     },
@@ -50,7 +56,8 @@ export function HtmlFilePreview(props: {
   if (!grantQuery.data) return null;
 
   const srcUrl = new URL(
-    resolveWsHttpUrl(
+    resolveHostHttpUrl(
+      hostId,
       `${HTML_PREVIEW_ROUTE_PATH}/${grantQuery.data.grant}/${encodeURIComponent(grantQuery.data.entryName)}`,
     ),
     window.location.href,

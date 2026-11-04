@@ -11,7 +11,9 @@ import {
 } from "@saint/shared/localPreviewFiles";
 import { isLocalAbsolutePath, isWindowsAbsolutePath } from "@saint/shared/path";
 
-import { resolveWsHttpUrl } from "./wsHttpUrl";
+import type { HostId } from "@saint/shared/hostId";
+
+import { resolveHostHttpUrl, resolveWsHttpUrl } from "./wsHttpUrl";
 
 function normalizeMarkdownImagePath(src: string): string {
   const trimmed = src.trim();
@@ -66,6 +68,8 @@ export function buildLocalImageUrl(input: {
   readonly grant?: string | null | undefined;
   /** Changes the preview URL so an explicit reload bypasses browser caching. */
   readonly cacheKey?: string | number | undefined;
+  /** A remote host's chat reads files from that host's server; omitted means this computer. */
+  readonly hostId?: HostId | undefined;
 }): string {
   const params = new URLSearchParams({ path: normalizeMarkdownImagePath(input.src) });
   if (input.cwd) {
@@ -83,7 +87,8 @@ export function buildLocalImageUrl(input: {
   // Always route through the WS-derived HTTP origin so desktop builds (custom protocol)
   // include the same legacy startup token attachments already use; in web/dev (where
   // the page and server share an origin) this falls back to the same relative path.
-  return resolveWsHttpUrl(`${LOCAL_IMAGE_ROUTE_PATH}?${params.toString()}`);
+  const path = `${LOCAL_IMAGE_ROUTE_PATH}?${params.toString()}`;
+  return input.hostId ? resolveHostHttpUrl(input.hostId, path) : resolveWsHttpUrl(path);
 }
 
 export function localImageFileName(src: string): string {
