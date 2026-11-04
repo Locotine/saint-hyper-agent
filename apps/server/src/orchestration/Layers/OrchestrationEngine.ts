@@ -128,7 +128,10 @@ type CommittedCommandResult = {
  * Projects and spaces belong to the client that creates them; the server sets the owner, never the
  * command's sender.
  */
-function withCreatorClient(command: OrchestrationCommand, scope: ClientScope): OrchestrationCommand {
+function withCreatorClient(
+  command: OrchestrationCommand,
+  scope: ClientScope,
+): OrchestrationCommand {
   return command.type === "project.create" || command.type === "space.create"
     ? { ...command, ownerClientId: scope }
     : command;

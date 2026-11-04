@@ -1456,7 +1456,11 @@ const makeWsRpcHandlersLayer = () =>
               const commandScope = yield* CurrentClientScope;
               if (
                 commandScope !== null &&
-                !clientMayRunCommand(commandScope, command, yield* orchestrationEngine.getReadModel())
+                !clientMayRunCommand(
+                  commandScope,
+                  command,
+                  yield* orchestrationEngine.getReadModel(),
+                )
               ) {
                 return yield* Effect.fail(
                   new WsRpcError({ message: "That item does not belong to this computer." }),
@@ -1692,12 +1696,10 @@ const makeWsRpcHandlersLayer = () =>
                 label: "orchestration.shell",
                 onDroppedEvents: () => Effect.void,
               },
-              snapshot: projectionReadModelQuery
-                .getShellSnapshot()
-                .pipe(
-                  Effect.flatMap(scopeSnapshot),
-                  Effect.mapError((cause) => toWsRpcError(cause, "Failed to load shell snapshot")),
-                ),
+              snapshot: projectionReadModelQuery.getShellSnapshot().pipe(
+                Effect.flatMap(scopeSnapshot),
+                Effect.mapError((cause) => toWsRpcError(cause, "Failed to load shell snapshot")),
+              ),
               snapshotSequence: (snapshot) => snapshot.snapshotSequence,
               getHighWaterSequence: getOrchestrationHighWaterSequence,
               replay: (fromSequenceExclusive, throughSequenceInclusive) =>
@@ -1742,121 +1744,126 @@ const makeWsRpcHandlersLayer = () =>
                     }),
                   )
                 : streamAdmission.guard(
-            clientId,
-            {
-              key: `orchestration.thread:${input.threadId}`,
-              threadId: input.threadId,
-            },
-            makeCursorSafeSnapshotLiveStream({
-              // Keyed per subscriber: concurrent clients hitting the same
-              // stale fence are independent first offenses, not one chain.
-              resnapshotEscalation: {
-                streamKey: `${clientId}:orchestration.thread:${input.threadId}`,
-                tracker: resnapshotEscalationTracker,
-              },
-              // Cursor resume: a client holding cached detail replays only the
-              // gap. Out-of-range cursors (negative or overflowing gap) fall
-              // back to the snapshot inside the stream factory.
-              resumeFromSequence: input.afterSequence,
-              // Opted-in clients get the whole gap as one item and apply it in a
-              // single store update, so a stale cached turn does not replay its
-              // intermediate states on screen.
-              batchReplay: input.batchReplay,
-              // A hard-purged thread leaves no rows to replay while the journal
-              // head stays above the cursor, so the gap check alone would
-              // accept the resume and stream nothing. Falling through to the
-              // snapshot path surfaces THREAD_SNAPSHOT_NOT_FOUND instead.
-              // The shell read shares the detail loader's active-thread
-              // predicate but skips hydrating and validating the transcript,
-              // which the resume path would discard for a boolean anyway.
-              resumeSubjectExists: projectionReadModelQuery.getThreadShellById(input.threadId).pipe(
-                Effect.map(Option.isSome),
-                Effect.mapError((cause) =>
-                  toWsRpcError(cause, "Failed to verify thread before cursor resume"),
-                ),
-              ),
-              onResnapshotRequired: (report) =>
-                recordThreadResnapshotRequired(input.threadId, report),
-              subscribeLive: orchestrationEngine.subscribeDomainEvents.pipe(
-                Effect.map((stream) =>
-                  stream.pipe(
-                    Stream.filter((event) => isThreadDetailEventFor(event, input.threadId)),
-                    Stream.map(sanitizeOrchestrationEventProviderOptions),
-                  ),
-                ),
-              ),
-              liveBufferOptions: {
-                label: "orchestration.thread-detail",
-                onDroppedEvents: (report) => recordThreadStreamOverflow(input.threadId, report),
-              },
-              snapshot: loadThreadDetailSnapshotWithBootstrapWait(input.threadId).pipe(
-                Effect.flatMap(
-                  Option.match({
-                    onNone: () =>
-                      projectionReadModelQuery.getSnapshotSequence().pipe(
-                        Effect.map(({ snapshotSequence }) => ({
-                          detail: Option.none<OrchestrationThreadDetailSnapshot>(),
-                          snapshotSequence,
-                        })),
+                    clientId,
+                    {
+                      key: `orchestration.thread:${input.threadId}`,
+                      threadId: input.threadId,
+                    },
+                    makeCursorSafeSnapshotLiveStream({
+                      // Keyed per subscriber: concurrent clients hitting the same
+                      // stale fence are independent first offenses, not one chain.
+                      resnapshotEscalation: {
+                        streamKey: `${clientId}:orchestration.thread:${input.threadId}`,
+                        tracker: resnapshotEscalationTracker,
+                      },
+                      // Cursor resume: a client holding cached detail replays only the
+                      // gap. Out-of-range cursors (negative or overflowing gap) fall
+                      // back to the snapshot inside the stream factory.
+                      resumeFromSequence: input.afterSequence,
+                      // Opted-in clients get the whole gap as one item and apply it in a
+                      // single store update, so a stale cached turn does not replay its
+                      // intermediate states on screen.
+                      batchReplay: input.batchReplay,
+                      // A hard-purged thread leaves no rows to replay while the journal
+                      // head stays above the cursor, so the gap check alone would
+                      // accept the resume and stream nothing. Falling through to the
+                      // snapshot path surfaces THREAD_SNAPSHOT_NOT_FOUND instead.
+                      // The shell read shares the detail loader's active-thread
+                      // predicate but skips hydrating and validating the transcript,
+                      // which the resume path would discard for a boolean anyway.
+                      resumeSubjectExists: projectionReadModelQuery
+                        .getThreadShellById(input.threadId)
+                        .pipe(
+                          Effect.map(Option.isSome),
+                          Effect.mapError((cause) =>
+                            toWsRpcError(cause, "Failed to verify thread before cursor resume"),
+                          ),
+                        ),
+                      onResnapshotRequired: (report) =>
+                        recordThreadResnapshotRequired(input.threadId, report),
+                      subscribeLive: orchestrationEngine.subscribeDomainEvents.pipe(
+                        Effect.map((stream) =>
+                          stream.pipe(
+                            Stream.filter((event) => isThreadDetailEventFor(event, input.threadId)),
+                            Stream.map(sanitizeOrchestrationEventProviderOptions),
+                          ),
+                        ),
                       ),
-                    onSome: (detail) =>
-                      Effect.succeed({
-                        detail: Option.some(detail),
-                        snapshotSequence: detail.snapshotSequence,
+                      liveBufferOptions: {
+                        label: "orchestration.thread-detail",
+                        onDroppedEvents: (report) =>
+                          recordThreadStreamOverflow(input.threadId, report),
+                      },
+                      snapshot: loadThreadDetailSnapshotWithBootstrapWait(input.threadId).pipe(
+                        Effect.flatMap(
+                          Option.match({
+                            onNone: () =>
+                              projectionReadModelQuery.getSnapshotSequence().pipe(
+                                Effect.map(({ snapshotSequence }) => ({
+                                  detail: Option.none<OrchestrationThreadDetailSnapshot>(),
+                                  snapshotSequence,
+                                })),
+                              ),
+                            onSome: (detail) =>
+                              Effect.succeed({
+                                detail: Option.some(detail),
+                                snapshotSequence: detail.snapshotSequence,
+                              }),
+                          }),
+                        ),
+                        Effect.mapError((cause) =>
+                          toWsRpcError(cause, "Failed to load thread snapshot"),
+                        ),
+                      ),
+                      snapshotSequence: (snapshot) => snapshot.snapshotSequence,
+                      getHighWaterSequence: getOrchestrationHighWaterSequence,
+                      replay: (fromSequenceExclusive, throughSequenceInclusive) =>
+                        orchestrationEngine
+                          .readThreadEventsThrough(
+                            input.threadId,
+                            fromSequenceExclusive,
+                            throughSequenceInclusive,
+                            THREAD_DETAIL_EVENT_TYPES,
+                          )
+                          .pipe(
+                            Stream.filter((event) => isThreadDetailEventFor(event, input.threadId)),
+                            Stream.map(sanitizeOrchestrationEventProviderOptions),
+                            Stream.mapError((cause) =>
+                              toWsRpcError(cause, "Failed to replay thread events"),
+                            ),
+                          ),
+                    }).pipe(
+                      Stream.flatMap((item) => {
+                        if (item.kind === "event") {
+                          return Stream.succeed<OrchestrationThreadStreamItem>({
+                            kind: "event",
+                            event: item.event,
+                          });
+                        }
+                        if (item.kind === "replay") {
+                          return Stream.succeed<OrchestrationThreadStreamItem>({
+                            kind: "replay",
+                            events: item.events,
+                          });
+                        }
+                        // A silently empty snapshot would leave the client waiting forever
+                        // for thread history; fail identifiably so it can surface the state.
+                        return Option.isSome(item.snapshot.detail)
+                          ? Stream.succeed<OrchestrationThreadStreamItem>({
+                              kind: "snapshot",
+                              snapshot: item.snapshot.detail.value,
+                            })
+                          : Stream.fail(
+                              new WsRpcError({
+                                message: `Thread detail snapshot not found for thread ${input.threadId}.`,
+                                code: "THREAD_SNAPSHOT_NOT_FOUND",
+                                retryable: false,
+                              }),
+                            );
                       }),
-                  }),
-                ),
-                Effect.mapError((cause) => toWsRpcError(cause, "Failed to load thread snapshot")),
-              ),
-              snapshotSequence: (snapshot) => snapshot.snapshotSequence,
-              getHighWaterSequence: getOrchestrationHighWaterSequence,
-              replay: (fromSequenceExclusive, throughSequenceInclusive) =>
-                orchestrationEngine
-                  .readThreadEventsThrough(
-                    input.threadId,
-                    fromSequenceExclusive,
-                    throughSequenceInclusive,
-                    THREAD_DETAIL_EVENT_TYPES,
-                  )
-                  .pipe(
-                    Stream.filter((event) => isThreadDetailEventFor(event, input.threadId)),
-                    Stream.map(sanitizeOrchestrationEventProviderOptions),
-                    Stream.mapError((cause) =>
-                      toWsRpcError(cause, "Failed to replay thread events"),
+                      trackSidechatVisibility(input.threadId),
                     ),
                   ),
-            }).pipe(
-              Stream.flatMap((item) => {
-                if (item.kind === "event") {
-                  return Stream.succeed<OrchestrationThreadStreamItem>({
-                    kind: "event",
-                    event: item.event,
-                  });
-                }
-                if (item.kind === "replay") {
-                  return Stream.succeed<OrchestrationThreadStreamItem>({
-                    kind: "replay",
-                    events: item.events,
-                  });
-                }
-                // A silently empty snapshot would leave the client waiting forever
-                // for thread history; fail identifiably so it can surface the state.
-                return Option.isSome(item.snapshot.detail)
-                  ? Stream.succeed<OrchestrationThreadStreamItem>({
-                      kind: "snapshot",
-                      snapshot: item.snapshot.detail.value,
-                    })
-                  : Stream.fail(
-                      new WsRpcError({
-                        message: `Thread detail snapshot not found for thread ${input.threadId}.`,
-                        code: "THREAD_SNAPSHOT_NOT_FOUND",
-                        retryable: false,
-                      }),
-                    );
-              }),
-              trackSidechatVisibility(input.threadId),
-            ),
-          ),
             ),
           ),
         [ORCHESTRATION_WS_METHODS.unsubscribeThread]: () => Effect.void,
