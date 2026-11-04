@@ -36,6 +36,7 @@ import {
   WS_METHODS,
   WsCompatibilityError,
   WsFeatureRpcGroup,
+  WsAutomationTodoRpcGroup,
   WsProjectAgentRpcGroup,
   WsHyperAgentRpcGroup,
   type AutomationStreamEvent,
@@ -296,6 +297,7 @@ const makeRpcClient = RpcClient.make(
   WsFeatureRpcGroup.merge(WsDeviceRpcGroup)
     .merge(WsComputerRpcGroup)
     .merge(WsProjectAgentRpcGroup)
+    .merge(WsAutomationTodoRpcGroup)
     .merge(WsHyperAgentRpcGroup),
 );
 const makeBootstrapRpcClient = RpcClient.make(WsBootstrapRpcGroup);

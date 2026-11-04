@@ -25,6 +25,7 @@ import {
   WsComputerRpcGroup,
   WsDeviceRpcGroup,
   WsFeatureRpcGroup,
+  WsAutomationTodoRpcGroup,
   WsProjectAgentRpcGroup,
   WsHyperAgentRpcGroup,
   WsRpcError,
@@ -302,6 +303,7 @@ class WsRequestAdmissionMiddleware extends RpcMiddleware.Service<WsRequestAdmiss
 const AdmittedWsFeatureRpcGroup = WsFeatureRpcGroup.merge(WsDeviceRpcGroup)
   .merge(WsComputerRpcGroup)
   .merge(WsProjectAgentRpcGroup)
+  .merge(WsAutomationTodoRpcGroup)
   .merge(WsHyperAgentRpcGroup)
   .middleware(WsRequestAdmissionMiddleware);
 

@@ -2358,6 +2358,11 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsProviderReadPluginRpc,
   WsProviderListModelsRpc,
   WsProviderListAgentsRpc,
+);
+
+// Automation and to-do RPCs live in a satellite group for the same reason: WsFeatureRpcGroup's
+// inferred type is at the declaration emit limit.
+export const WsAutomationTodoRpcGroup = RpcGroup.make(
   WsAutomationListRpc,
   WsAutomationGetMemoryRpc,
   WsAutomationCreateRpc,
