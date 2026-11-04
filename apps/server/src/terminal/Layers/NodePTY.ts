@@ -25,8 +25,18 @@ const resolveNodePtySpawnHelperPath = Effect.gen(function* () {
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
 
-  const packageJsonPath = requireForNodePty.resolve("node-pty/package.json");
-  const packageDir = path.dirname(packageJsonPath);
+  // Resolve the entry, not `node-pty/package.json`: the remote pack aliases node-pty to a package
+  // whose `exports` hides package.json. A throw here is a defect that orElseSucceed would not catch.
+  const entryPath = yield* Effect.try({
+    try: () => requireForNodePty.resolve("node-pty"),
+    catch: (cause) => cause,
+  });
+  let packageDir = path.dirname(entryPath);
+  while (!(yield* fs.exists(path.join(packageDir, "package.json")))) {
+    const parent = path.dirname(packageDir);
+    if (parent === packageDir) return null;
+    packageDir = parent;
+  }
   const candidates = [
     path.join(packageDir, "build", "Release", "spawn-helper"),
     path.join(packageDir, "build", "Debug", "spawn-helper"),
