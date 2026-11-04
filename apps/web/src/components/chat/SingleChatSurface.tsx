@@ -1232,6 +1232,7 @@ export function SingleChatSurface(props: {
           onClosePane={(paneId) => {
             if (dockState.panes.find((pane) => pane.id === paneId)?.kind === "terminal") {
               void closeDockTerminalPane({
+                hostId: chatHost.hostId,
                 hostThreadId: props.threadId,
                 paneId,
                 confirmationEnabled: appSettings.confirmTerminalTabClose,

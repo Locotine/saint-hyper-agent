@@ -4164,6 +4164,7 @@ export default function ChatView({
   const onCloseDockTerminalPane = useStableCallback((paneId: string) => {
     if (!activeThreadId) return;
     void closeDockTerminalPane({
+      hostId: chatHost.hostId,
       hostThreadId: activeThreadId,
       paneId,
       confirmationEnabled: settings.confirmTerminalTabClose,
