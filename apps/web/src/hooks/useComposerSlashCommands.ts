@@ -425,7 +425,7 @@ export function useComposerSlashCommands(input: {
         return;
       }
 
-      const outcome = await dispatchThreadTitleRegeneration(activeThread.id);
+      const outcome = await dispatchThreadTitleRegeneration(activeThread.id, chatHost.api());
       if (outcome.status === "renamed") {
         toastManager.add({
           type: "success",

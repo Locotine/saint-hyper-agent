@@ -15,7 +15,7 @@ import {
   upsertPersistedThreadRecap,
   type PersistedThreadRecap,
 } from "~/lib/threadRecap";
-import { readLocalNativeApi } from "~/nativeApi";
+import { useHostHandle } from "~/hosts/hostScope";
 import type { Thread } from "~/types";
 
 interface ThreadRecapCacheEntry {
@@ -56,6 +56,7 @@ function hydrateThreadRecapCache(): Partial<Record<ThreadId, ThreadRecapCacheEnt
 
 // Debounces recap generation until a thread is quiet and the latest assistant output settled.
 export function useThreadRecap(input: UseThreadRecapInput): UseThreadRecapResult {
+  const chatHost = useHostHandle();
   const [cacheByThreadId, setCacheByThreadId] =
     useState<Partial<Record<ThreadId, ThreadRecapCacheEntry>>>(hydrateThreadRecapCache);
   const inFlightSignatureByThreadIdRef = useRef<Partial<Record<ThreadId, string>>>({});
@@ -142,7 +143,7 @@ export function useThreadRecap(input: UseThreadRecapInput): UseThreadRecapResult
 
     const timeoutId = window.setTimeout(() => {
       const payload = sourcePayloadRef.current;
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       if (!api) {
         return;
       }

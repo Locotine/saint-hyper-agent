@@ -6,6 +6,7 @@
 
 import {
   type ModelSelection,
+  type NativeApi,
   type OrchestrationThreadPullRequest,
   type OrchestrationRegenerateThreadTitleResult,
   type ProjectId,
@@ -66,8 +67,10 @@ export function buildDraftThreadRenameCreateInput(thread: DraftThreadRenameSourc
 
 export async function dispatchThreadTitleRegeneration(
   threadId: ThreadId,
+  // The API of the machine the thread lives on; this computer's by default.
+  hostApi?: NativeApi,
 ): Promise<ThreadTitleRegenerationOutcome> {
-  const api = readLocalNativeApi();
+  const api = hostApi ?? readLocalNativeApi();
   if (!api) {
     return { status: "unavailable", title: null };
   }
@@ -75,6 +78,8 @@ export async function dispatchThreadTitleRegeneration(
 }
 
 export async function dispatchThreadRename(input: {
+  // The API of the machine the thread lives on; this computer's by default.
+  hostApi?: NativeApi | undefined;
   threadId: ThreadId;
   newTitle: string;
   unchangedTitles: readonly string[];
@@ -101,7 +106,7 @@ export async function dispatchThreadRename(input: {
     return "unchanged";
   }
 
-  const api = readLocalNativeApi();
+  const api = input.hostApi ?? readLocalNativeApi();
   if (!api) {
     return "unavailable";
   }

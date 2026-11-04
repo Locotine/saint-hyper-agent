@@ -12,7 +12,7 @@ import {
   resolveThreadUnblockTarget,
   unblockThreadFromClient,
 } from "../lib/threadUnblock";
-import { readLocalNativeApi } from "../nativeApi";
+import { useHostHandle } from "../hosts/hostScope";
 
 /**
  * Reconciles the blocking deliveries of `threadId` and reports the outcome.
@@ -29,6 +29,7 @@ export function useThreadUnblock(input: {
   readonly unblockingThreadId: ThreadId | null;
 } {
   const { threadId, onUnblocked } = input;
+  const chatHost = useHostHandle();
   const [unblockingThreadId, setUnblockingThreadId] = useState<ThreadId | null>(null);
   const inFlightThreadIdRef = useRef<ThreadId | null>(null);
   const mountedRef = useRef(true);
@@ -48,7 +49,7 @@ export function useThreadUnblock(input: {
       setUnblockingThreadId(resolvedThreadId);
       void (async () => {
         try {
-          const api = readLocalNativeApi();
+          const api = chatHost.api();
           if (!api) throw new Error("Not connected to the Saint server.");
           const result = await unblockThreadFromClient(api.orchestration, resolvedThreadId);
           onUnblocked(resolvedThreadId);
@@ -68,7 +69,7 @@ export function useThreadUnblock(input: {
         }
       })();
     },
-    [onUnblocked, threadId],
+    [chatHost, onUnblocked, threadId],
   );
 
   return {

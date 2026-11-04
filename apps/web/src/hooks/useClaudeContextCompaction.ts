@@ -1,13 +1,11 @@
 import type { MessageId, ThreadId } from "@saint/contracts";
 import { useHostHandle } from "~/hosts/hostScope";
-import { LOCAL_HOST_ID, scopeThread } from "@saint/shared/hostId";
+import { scopeThread } from "@saint/shared/hostId";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toastManager, reportToastIssue } from "../components/ui/toast";
 import { diagnosticIssueReason } from "../lib/rendererErrorDiagnostics";
 import { newCommandId, newMessageId } from "../lib/utils";
 import { useClaudeCompactionRequests } from "../lib/claudeCompactionRequests";
-import { readLocalNativeApi } from "../nativeApi";
-import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import {
   deriveActiveBackgroundTasksState,
@@ -44,7 +42,7 @@ export function useClaudeContextCompaction({
       const pending = useClaudeCompactionRequests.getState();
       const request = pending.requests[scopeThread(chatHost.hostId, threadId)];
       if (!request) return;
-      const current = getThreadFromState(useStore.getState(), threadId);
+      const current = getThreadFromState(chatHost.store.getState(), threadId);
       if (
         current?.claudeCacheReview?.messageId === request.message.messageId ||
         current?.messages.some((message) => message.id === request.message.messageId)
@@ -53,7 +51,7 @@ export function useClaudeContextCompaction({
       }
     };
     forgetObservedRequest();
-    const unsubscribe = useStore.subscribe(forgetObservedRequest);
+    const unsubscribe = chatHost.store.subscribe(forgetObservedRequest);
     const unsubscribeHydration =
       useClaudeCompactionRequests.persist?.onFinishHydration(forgetObservedRequest);
     return () => {
@@ -69,8 +67,8 @@ export function useClaudeContextCompaction({
       useClaudeCompactionRequests.persist?.hasHydrated() === false
     )
       return false;
-    const api = readLocalNativeApi();
-    const thread = getThreadFromState(useStore.getState(), threadId);
+    const api = chatHost.api();
+    const thread = getThreadFromState(chatHost.store.getState(), threadId);
     if (
       !api ||
       !thread ||
@@ -117,7 +115,7 @@ export function useClaudeContextCompaction({
       createdAt: new Date().toISOString(),
     };
     const messageId = command.message.messageId;
-    pending.remember(LOCAL_HOST_ID, command);
+    pending.remember(chatHost.hostId, command);
     inFlightThreadIdsRef.current.add(threadId);
     setSubmittingThreadIds((current) => new Set([...current, threadId]));
     onBegin({ expectedUserMessageId: messageId });
@@ -131,7 +129,7 @@ export function useClaudeContextCompaction({
       return true;
     } catch (error) {
       // A lost RPC response must not turn an accepted native command into a retry.
-      const current = getThreadFromState(useStore.getState(), threadId);
+      const current = getThreadFromState(chatHost.store.getState(), threadId);
       if (
         current?.claudeCacheReview?.messageId === messageId ||
         current?.messages.some((message) => message.id === messageId)

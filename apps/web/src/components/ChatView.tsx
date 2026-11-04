@@ -5843,6 +5843,7 @@ export default function ChatView({
 
   const handleRenameActiveThread = async (newTitle: string) => {
     const outcome = await dispatchThreadRename({
+      hostApi: chatHost.api(),
       threadId: activeThread.id,
       newTitle,
       unchangedTitles: [activeThread.title],
@@ -6553,11 +6554,13 @@ export default function ChatView({
                   serverThread?.snoozedUntil != null && serverThread.archivedAt == null
                     ? {
                         snoozedUntil: serverThread.snoozedUntil,
-                        onReturnNow: () => void dispatchThreadSnoozedUntil(serverThread.id, null),
+                        onReturnNow: () =>
+                          void dispatchThreadSnoozedUntil(serverThread.id, null, chatHost.api()),
                         onReschedule: (duration) =>
                           void dispatchThreadSnoozedUntil(
                             serverThread.id,
                             resolveSnoozeDeadline(duration, Date.now()).toISOString(),
+                            chatHost.api(),
                           ),
                       }
                     : null
