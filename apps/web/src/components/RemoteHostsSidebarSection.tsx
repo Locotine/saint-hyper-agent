@@ -21,6 +21,7 @@ import { toastManager } from "~/components/ui/toast";
 import { useRemoteHostCatalog } from "~/hooks/useRemoteHostCatalog";
 import { useRemoteHostStoreSync } from "~/hooks/useRemoteHostStoreSync";
 import { useRemoteSshState } from "~/hooks/useRemoteSshState";
+import { reconnectRemoteHost } from "~/hosts/hostReconnect";
 import { hostStores } from "~/hosts/hostStores";
 import { useHostThreadActions } from "~/hooks/useHostThreadActions";
 import {
@@ -40,6 +41,7 @@ import {
   FolderIcon,
   MonitorIcon,
   NewThreadIcon,
+  RefreshCwIcon,
   ServerIcon,
   TrashCanIcon,
 } from "~/lib/icons";
@@ -346,10 +348,37 @@ function RemoteProjectRow(props: {
   );
 }
 
+/** Reconnects a host from its sidebar header; the same action the automatic retry runs. */
+function useReconnectHost(input: {
+  host: string;
+  hostKey: string;
+  remoteRoot: string | null;
+  hostState: DesktopRemoteSshHostState | null;
+}) {
+  const [busy, setBusy] = useState(false);
+  const reconnect = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await reconnectRemoteHost(input);
+    } catch (error) {
+      toastManager.add({
+        type: "error",
+        title: `Could not reconnect to ${input.host}`,
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, reconnect: () => void reconnect() };
+}
+
 /** One host's group: a header that collapses it, then its projects and their threads. */
 function RemoteHostGroup(props: {
   host: string;
   hostKey: string;
+  remoteRoot: string | null;
   hostState: DesktopRemoteSshHostState | null;
   activeThreadParam: string | null;
   collapsed: ReturnType<typeof useRemoteCollapsed>;
@@ -360,41 +389,68 @@ function RemoteHostGroup(props: {
   const catalog = useRemoteHostCatalog(hostKey);
   // Offline hosts keep their last known rows, dimmed; their chats open read-only.
   const offline = status !== "connected" || catalog.status === "error";
+  // The desktop can still report a tunnel as connected after its stream went quiet.
+  const streamStale = useSyncExternalStore(
+    hostStores.subscribe,
+    () => hostStores.status(hostId).status === "stale",
+  );
+  const { busy: reconnecting, reconnect } = useReconnectHost({
+    host,
+    hostKey,
+    remoteRoot: props.remoteRoot,
+    hostState,
+  });
+  const needsReconnect =
+    status === "offline" || status === "error" || catalog.status === "error" || streamStale;
   const label = `${host} · ${remoteHostStatus(hostState)}`;
   const hostCollapseKey = `host:${hostKey}`;
   const hostOpen = !collapsed.isCollapsed(hostCollapseKey);
 
   return (
     <SidebarMenuItem className={cn("rounded-md", offline && "opacity-60")}>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <SidebarMenuButton
-              size="sm"
-              aria-expanded={hostOpen}
-              className={cn(
-                SIDEBAR_HEADER_ROW_CLASS_NAME,
-                SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
-                SIDEBAR_ROW_HOVER_CLASS_NAME,
-                "min-w-0",
-              )}
-              onClick={() => collapsed.toggle(hostCollapseKey)}
-            />
-          }
-        >
-          <ServerIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
-          <span className="min-w-0 flex-1 truncate">{host}</span>
-          <StatusDot
-            className={
-              STATUS_DOT_CLASS_NAME[
-                status === "connected" && catalog.status === "error" ? "error" : status
-              ]
+      <div className="flex items-center">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <SidebarMenuButton
+                size="sm"
+                aria-expanded={hostOpen}
+                className={cn(
+                  SIDEBAR_HEADER_ROW_CLASS_NAME,
+                  SIDEBAR_ROW_IDLE_TEXT_CLASS_NAME,
+                  SIDEBAR_ROW_HOVER_CLASS_NAME,
+                  "min-w-0 flex-1",
+                )}
+                onClick={() => collapsed.toggle(hostCollapseKey)}
+              />
             }
+          >
+            <ServerIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground/79" />
+            <span className="min-w-0 flex-1 truncate">{host}</span>
+            <StatusDot
+              className={
+                STATUS_DOT_CLASS_NAME[
+                  status === "connected" && catalog.status === "error" ? "error" : status
+                ]
+              }
+            />
+            <DisclosureChevron open={hostOpen} className="size-3.5 shrink-0" />
+          </TooltipTrigger>
+          <TooltipPopup side="right">{catalog.message ?? label}</TooltipPopup>
+        </Tooltip>
+        {needsReconnect ? (
+          <SidebarIconButton
+            icon={RefreshCwIcon}
+            label={`Reconnect ${host}`}
+            tooltip={`Reconnect ${host}`}
+            tooltipSide="top"
+            disabled={reconnecting}
+            {...(reconnecting ? { iconClassName: "size-3.5 animate-spin" } : {})}
+            className="mr-1 opacity-100"
+            onClick={reconnect}
           />
-          <DisclosureChevron open={hostOpen} className="size-3.5 shrink-0" />
-        </TooltipTrigger>
-        <TooltipPopup side="right">{catalog.message ?? label}</TooltipPopup>
-      </Tooltip>
+        ) : null}
+      </div>
       {hostOpen ? (
         <SidebarMenu className={cn(SIDEBAR_NESTED_LIST_GAP_CLASS_NAME, "pt-0.5")}>
           {catalog.projects.map((project) => (
@@ -451,6 +507,7 @@ export function RemoteHostProjects(props: { state: DesktopRemoteSshState }) {
         key={row.host}
         host={row.host}
         hostKey={hostKey}
+        remoteRoot={row.savedRemoteRoot}
         hostState={row.state}
         activeThreadParam={activeThreadParam}
         collapsed={collapsed}

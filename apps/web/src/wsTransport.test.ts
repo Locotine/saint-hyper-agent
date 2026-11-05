@@ -3609,6 +3609,24 @@ it("times out a stuck unary request with the default deadline and retry guidance
   }
 });
 
+it("reports a deadline that passes while still waiting for a connection as not sent", async () => {
+  vi.useFakeTimers();
+  bindWindowTimersToCurrentGlobals();
+  const { transport, internals } = makeBareTransport();
+  Object.assign(internals, { getClient: () => new Promise(() => undefined) });
+  try {
+    const verdict = transport.request(WS_METHODS.gitStatus).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(await verdict).toMatchObject({
+      code: "WS_REQUEST_TIMEOUT",
+      delivery: "not_sent",
+      message: expect.stringContaining("nothing was sent"),
+    });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 it("lets providerCompactThread outlive the default deadline until its caller cancels", async () => {
   vi.useFakeTimers();
   bindWindowTimersToCurrentGlobals();

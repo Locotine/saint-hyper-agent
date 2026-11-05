@@ -1087,6 +1087,9 @@ export class WsTransport {
       null;
     let queuedRequestClass: WsRequestClass | null = null;
     let sendAdmitted = false;
+    // False while the request still waits for a connection: nothing was written, so a deadline
+    // that passes in that wait cannot have applied the command.
+    let clientReady = false;
     try {
       if (method === ORCHESTRATION_WS_METHODS.unsubscribeShell) {
         this.shellSubscribed = false;
@@ -1169,6 +1172,7 @@ export class WsTransport {
       try {
         sendAdmitted = true;
         const client = await awaitWithAbort(this.getClient(), abortScope.signal);
+        clientReady = true;
         if (
           method === ORCHESTRATION_WS_METHODS.settleTurnDispatch &&
           !this.compatibility?.capabilities.includes(WS_TURN_DISPATCH_SETTLEMENT_CAPABILITY)
@@ -1240,6 +1244,18 @@ export class WsTransport {
         // The deadline passed in the queue: nothing was sent, so this is a plain
         // capacity error, never an uncertain outcome.
         failure = makeWsRequestCapacityError(queuedRequestClass);
+      } else if (abortScope.didTimeout() && !clientReady) {
+        failure = new WsTransportRequestInterruptedError({
+          message: `WebSocket RPC ${method} timed out after ${requestOptions.timeoutMs}ms waiting for a connection. The server was not reached and nothing was sent; try again once it is back.`,
+          code: "WS_REQUEST_TIMEOUT",
+          method,
+          retryable: true,
+          delivery: "not_sent",
+          ...(requestOptions.timeoutMs !== undefined && requestOptions.timeoutMs !== null
+            ? { timeoutMs: requestOptions.timeoutMs }
+            : {}),
+          cause: error,
+        });
       } else if (abortScope.didTimeout()) {
         failure = new WsTransportRequestInterruptedError({
           message: `WebSocket RPC ${method} timed out after ${requestOptions.timeoutMs}ms. The server did not finish this request in time. ${method === ORCHESTRATION_WS_METHODS.dispatchCommand ? "Check the result before retrying; the command may have been applied." : "Try again when the server responds."}`,

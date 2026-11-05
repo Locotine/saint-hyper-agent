@@ -58,8 +58,16 @@ const subscribeMock = vi.fn<
   };
 });
 
+let mockTransportState: "open" | "closed" = "open";
+
 vi.mock("./wsTransport", () => {
   return {
+    WsTransportRequestInterruptedError: class extends Error {
+      constructor(fields: { message: string }) {
+        super(fields.message);
+        Object.assign(this, fields);
+      }
+    },
     WsTransport: class MockWsTransport {
       request = requestMock;
       subscribe = subscribeMock;
@@ -83,7 +91,7 @@ vi.mock("./wsTransport", () => {
         return latestPushByChannel.get(channel) ?? null;
       }
       getState() {
-        return "open" as const;
+        return mockTransportState;
       }
       dispose = disposeMock;
     },
@@ -164,6 +172,24 @@ afterEach(() => {
 });
 
 describe("wsNativeApi", () => {
+  afterEach(() => {
+    mockTransportState = "open";
+  });
+
+  it("fails a dispatch to an offline host at once without sending it", async () => {
+    const { createHostNativeApi } = await import("./wsNativeApi");
+    const { WsTransport } = await import("./wsTransport");
+    mockTransportState = "closed";
+    requestMock.mockClear();
+    const api = createHostNativeApi(new WsTransport("ws://host"));
+
+    await expect(api.orchestration.dispatchCommand({} as never)).rejects.toMatchObject({
+      delivery: "not_sent",
+      code: "WS_REQUEST_RECONNECTED",
+    });
+    expect(requestMock).not.toHaveBeenCalled();
+  });
+
   it("forwards exhausted shell failures and removes unsubscribed listeners", async () => {
     const { createWsNativeApi, onShellStreamFailure } = await import("./wsNativeApi");
     createWsNativeApi();

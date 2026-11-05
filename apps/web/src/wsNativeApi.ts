@@ -66,7 +66,12 @@ import { showContextMenuFallback } from "./contextMenuFallback";
 import { requireHttpExternalUrl } from "./lib/externalUrl";
 import { withNativeMenuIcons } from "./lib/nativeMenuIcons";
 import { isMacNavigatorPlatform } from "./lib/utils";
-import { WsTransport, type WsThreadStreamFailure, type WsShellStreamFailure } from "./wsTransport";
+import {
+  WsTransport,
+  WsTransportRequestInterruptedError,
+  type WsThreadStreamFailure,
+  type WsShellStreamFailure,
+} from "./wsTransport";
 import { emitWsCompatibilityIssue, emitWsTransportState } from "./wsTransportEvents";
 import { resolveWsHttpUrl } from "./lib/wsHttpUrl";
 
@@ -961,6 +966,21 @@ function buildNativeApi(
         transport.request(ORCHESTRATION_WS_METHODS.getThreadDetailSnapshot, input),
       searchThreads: (input) => transport.request(ORCHESTRATION_WS_METHODS.searchThreads, input),
       dispatchCommand: (command) => {
+        // A host whose connection is down shows its chats read-only; fail at once instead of
+        // queueing the command behind a reconnect for the whole request deadline.
+        const transportState = transport.getState();
+        if (!options.local && (transportState === "closed" || transportState === "incompatible")) {
+          return Promise.reject(
+            new WsTransportRequestInterruptedError({
+              message:
+                "This host is offline, so nothing was sent. Reconnect it in Settings → Remote hosts.",
+              code: "WS_REQUEST_RECONNECTED",
+              method: ORCHESTRATION_WS_METHODS.dispatchCommand,
+              retryable: true,
+              delivery: "not_sent",
+            }),
+          );
+        }
         return transport.request(ORCHESTRATION_WS_METHODS.dispatchCommand, {
           command: omitNullUserInputAnswers(command),
         });
