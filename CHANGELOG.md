@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.16 — 2026-11-05
+
+**Remote hosts that drop out come back on their own, and a message to an offline host fails at once.**
+
+This Stable release covers the commits after `v1.1.15`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.16).
+
+### Added
+
+- A reconnect button on a remote host's sidebar header, shown when the host is offline, failed, or has stopped sending updates.
+- Remote hosts reconnect automatically when the desktop gives up on the SSH tunnel, or when the host stops sending updates behind a tunnel that still looks connected. Tries back off from 5 seconds to 2 minutes; Disconnect stops them.
+
+### Fixed
+
+- A message sent to an offline remote host fails at once instead of waiting 60 seconds.
+- A request that timed out before it reached the host says nothing was sent, instead of "the command may have been applied".
+
 ## 1.1.15 — 2026-11-05
 
 **Find and replace work in files: Ctrl+F searches inside the open file, and the code search replaces across files.**
