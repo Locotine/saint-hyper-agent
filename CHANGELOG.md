@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.17 — 2026-11-05
+
+**New chats on a remote host follow Settings' default provider, and a host's sidebar row adds a project directly.**
+
+This Stable release covers the commits after `v1.1.16`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.1.17).
+
+### Added
+
+- An Add project button on a connected remote host's sidebar row, which opens the host's folder picker directly.
+
+### Fixed
+
+- New chats and projects on a remote host start with the default provider and model chosen in Settings, or with a provider the host has when it lacks that one. They no longer always start on Codex.
+- The model picker of a remote host chat lists the providers the host reports, without applying this computer's disabled providers or binary paths, and refreshes their status after 30 seconds.
+
 ## 1.1.16 — 2026-11-05
 
 **Remote hosts that drop out come back on their own, and a message to an offline host fails at once.**
