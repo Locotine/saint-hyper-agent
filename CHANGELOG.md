@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.15 — 2026-11-05
+
+**Find and replace work in files: Ctrl+F searches inside the open file, and the code search replaces across files.**
+
+### Added
+
+- Replace across files: the code search (Ctrl+Shift+F) has a "Replace with" field and a "Replace all" button that asks for a second click before it writes. It works on this computer and on a connected host.
+
+### Fixed
+
+- Ctrl+F inside the code editor opens the editor's own find (Ctrl+H for replace) instead of the chat find bar.
+
 ## 1.1.14 — 2026-11-04
 
 **Same changes as 1.1.13, with the CI failures fixed and terminals working on remote hosts.**
