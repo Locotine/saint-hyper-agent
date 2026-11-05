@@ -6,9 +6,15 @@
 // Exports: createHostThread, addHostProject, addHostProjectAtPath, removeHostProject,
 //          renameHostProject, setHostProjectPinned, deleteHostThread, updateHostThreadMeta
 
-import type { ProjectId, ThreadId } from "@saint/contracts";
+import type { ModelSelection, NativeApi, ProjectId, ThreadId } from "@saint/contracts";
 import { GENERIC_CHAT_THREAD_TITLE } from "@saint/shared/chatThreads";
 import type { HostId } from "@saint/shared/hostId";
+import { getDefaultModel } from "@saint/shared/model";
+
+import { readStoredAppSettings } from "../appSettings";
+import { resolveDefaultModelSelection } from "../composerDraftModels";
+import { resolveAvailableProviderPreference } from "../lib/providerAvailability";
+import { buildModelSelection } from "../providerModelOptions";
 
 import { deleteProjectFromClient } from "../lib/projectDelete";
 import { createOrRecoverProjectFromPath } from "../lib/projectCreation";
@@ -18,19 +24,59 @@ import { newCommandId, newThreadId } from "../lib/utils";
 import { DEFAULT_INTERACTION_MODE, DEFAULT_RUNTIME_MODE } from "../types";
 import { hostHandle } from "./hostScope";
 
+/**
+ * The provider Settings picks for new chats, or the first one the host has when it lacks that
+ * provider: Settings are this computer's, but a host only runs what it has installed.
+ */
+async function resolveHostProvider(api: NativeApi) {
+  const settings = readStoredAppSettings();
+  const config = await api.server.getConfig().catch(() => null);
+  const provider = resolveAvailableProviderPreference({
+    preferredProvider: settings.defaultProvider,
+    statuses: config?.providers ?? [],
+    providerOrder: settings.providerOrder,
+    hiddenProviders: settings.hiddenProviders,
+  });
+  return { provider, settings };
+}
+
+/** Model of a new chat on a host: Settings' pinned model, else the last one used there. */
+async function resolveHostModelSelection(
+  api: NativeApi,
+  candidates: ReadonlyArray<ModelSelection | null | undefined>,
+): Promise<ModelSelection> {
+  const { provider, settings } = await resolveHostProvider(api);
+  return (
+    (settings.defaultProvider === provider
+      ? resolveDefaultModelSelection({
+          defaultProvider: provider,
+          defaultModel: settings.defaultModel,
+          defaultEffort: settings.defaultEffort,
+        })
+      : null) ??
+    candidates.find((selection) => selection?.provider === provider) ??
+    // Providers without a default model (pi, omp) fall back to Codex's.
+    buildModelSelection(
+      getDefaultModel(provider) ? provider : "codex",
+      getDefaultModel(provider) ?? getDefaultModel("codex")!,
+    )
+  );
+}
+
 export async function createHostThread(hostId: HostId, projectId: ProjectId): Promise<ThreadId> {
   const host = hostHandle(hostId);
   const api = host.requireApi();
   const state = host.store.getState();
   const project = state.projects.find((candidate) => candidate.id === projectId);
   if (!project) throw new Error("This project is no longer on the host.");
-  // The project's default, else the model its latest thread used.
   const latestThread = (state.threadIds ?? [])
     .map((id) => getThreadFromState(state, id))
     .filter((thread) => thread?.projectId === projectId)
     .toSorted((a, b) => (b?.updatedAt ?? "").localeCompare(a?.updatedAt ?? ""))[0];
-  const modelSelection = project.defaultModelSelection ?? latestThread?.modelSelection;
-  if (!modelSelection) throw new Error("Pick a default model for this project on the host first.");
+  const modelSelection = await resolveHostModelSelection(api, [
+    latestThread?.modelSelection,
+    project.defaultModelSelection,
+  ]);
 
   const threadId = newThreadId();
   await api.orchestration.dispatchCommand({
@@ -68,9 +114,11 @@ export async function addHostProjectAtPath(
   options: { readonly createIfMissing?: boolean } = {},
 ): Promise<ProjectId> {
   const api = hostHandle(hostId).requireApi();
+  const { provider } = await resolveHostProvider(api);
   const { projectId } = await createOrRecoverProjectFromPath({
     api,
     workspaceRoot,
+    defaultProvider: provider,
     spaceId: null,
     ...(options.createIfMissing ? { createIfMissing: true } : {}),
     loadSnapshot: () => api.orchestration.getShellSnapshot().catch(() => null),

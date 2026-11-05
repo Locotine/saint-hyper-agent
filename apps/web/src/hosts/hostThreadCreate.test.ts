@@ -3,11 +3,46 @@ import { sshHostId } from "@saint/shared/hostId";
 import { describe, expect, it, vi } from "vitest";
 
 const dispatchCommand = vi.fn(async () => undefined);
+let hostProviders: unknown[] = [];
 vi.mock("./hostScope", () => ({
-  hostHandle: () => ({ requireApi: () => ({ orchestration: { dispatchCommand } }) }),
+  hostHandle: () => ({
+    requireApi: () => ({
+      orchestration: { dispatchCommand },
+      server: { getConfig: async () => ({ providers: hostProviders }) },
+    }),
+    store: {
+      getState: () => ({
+        projects: [
+          { id: "project-1", defaultModelSelection: { provider: "codex", model: "gpt-5" } },
+        ],
+        threadIds: [],
+      }),
+    },
+  }),
+}));
+vi.mock("../appSettings", () => ({
+  readStoredAppSettings: () => ({
+    defaultProvider: "claudeAgent",
+    providerOrder: [],
+    hiddenProviders: [],
+  }),
 }));
 
-import { renameHostProject, setHostProjectPinned, updateHostThreadMeta } from "./hostThreadCreate";
+import {
+  createHostThread,
+  renameHostProject,
+  setHostProjectPinned,
+  updateHostThreadMeta,
+} from "./hostThreadCreate";
+
+const status = (provider: string, available: boolean) => ({
+  provider,
+  available,
+  enabled: true,
+  status: "ready",
+  authStatus: "authenticated",
+  checkedAt: "2026-11-05T00:00:00.000Z",
+});
 
 const hostId = sshHostId("a1b2c3d4");
 const projectId = ProjectId.makeUnsafe("project-1");
@@ -39,5 +74,25 @@ describe("host thread commands", () => {
     );
     await updateHostThreadMeta(hostId, threadId, { isPinned: true });
     expect(dispatchCommand).toHaveBeenLastCalledWith(expect.objectContaining({ isPinned: true }));
+  });
+});
+
+describe("createHostThread", () => {
+  it("starts with Settings' default provider when the host has it", async () => {
+    hostProviders = [status("codex", true), status("claudeAgent", true)];
+    await createHostThread(hostId, projectId);
+    expect(dispatchCommand).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        modelSelection: expect.objectContaining({ provider: "claudeAgent" }),
+      }),
+    );
+  });
+
+  it("falls back to the provider the host has when it lacks the default one", async () => {
+    hostProviders = [status("codex", true), status("claudeAgent", false)];
+    await createHostThread(hostId, projectId);
+    expect(dispatchCommand).toHaveBeenLastCalledWith(
+      expect.objectContaining({ modelSelection: expect.objectContaining({ provider: "codex" }) }),
+    );
   });
 });

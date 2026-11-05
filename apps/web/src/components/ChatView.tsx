@@ -2694,6 +2694,7 @@ export default function ChatView({
     activeThread,
     settings,
     configuredProviderStatuses: serverConfigQuery.data?.providers,
+    hostId: chatHost.hostId,
   });
   const activeThreadProvider = activeThread?.modelSelection.provider ?? null;
   const activeThreadProviderInstanceId =

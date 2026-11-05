@@ -41,7 +41,7 @@ import {
   DEFAULT_APP_SNAP_SHORTCUT,
 } from "@saint/shared/appSnapShortcut";
 import { codexAccountInstanceId } from "@saint/shared/providerInstances";
-import { useLocalStorage } from "./hooks/useLocalStorage";
+import { getLocalStorageItem, useLocalStorage } from "./hooks/useLocalStorage";
 import { EnvMode } from "./components/BranchToolbar.logic";
 import { normalizeCursorModelVariantBaseId } from "./cursorModelVariants";
 import { formatProviderModelOptionName, type ProviderModelOption } from "./providerModelOptions";
@@ -2702,6 +2702,17 @@ function resolveAppSettings(
   });
   resolvedAppSettings = { local, server, settings };
   return settings;
+}
+
+// The stored settings for code that runs outside React, such as creating a chat on a host.
+export function readStoredAppSettings(): AppSettings {
+  try {
+    return normalizeStoredAppSettings(
+      getLocalStorageItem(APP_SETTINGS_STORAGE_KEY, AppSettingsSchema) ?? DEFAULT_APP_SETTINGS,
+    );
+  } catch {
+    return normalizeStoredAppSettings(DEFAULT_APP_SETTINGS);
+  }
 }
 
 export function useAppSettings() {

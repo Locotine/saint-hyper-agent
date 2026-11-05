@@ -438,6 +438,16 @@ function RemoteHostGroup(props: {
           </TooltipTrigger>
           <TooltipPopup side="right">{catalog.message ?? label}</TooltipPopup>
         </Tooltip>
+        {offline ? null : (
+          <SidebarIconButton
+            icon={AddPlusIcon}
+            label={`Add project on ${host}`}
+            tooltip={`Add project on ${host}`}
+            tooltipSide="top"
+            className="mr-1 opacity-100"
+            onClick={() => void addOnHost(hostId, host)}
+          />
+        )}
         {needsReconnect ? (
           <SidebarIconButton
             icon={RefreshCwIcon}
@@ -598,6 +608,18 @@ export function RemoteHostActivity(props: { state: DesktopRemoteSshState }) {
   );
 }
 
+async function addOnHost(hostId: HostId, host: string) {
+  try {
+    await addHostProject(hostId, host);
+  } catch (error) {
+    toastManager.add({
+      type: "error",
+      title: `Could not add the project on ${host}`,
+      description: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 /**
  * The Projects list's Add project button. With a connected host it asks where the folder
  * lives: this computer (the usual flow) or the host, whose folders the remote picker browses.
@@ -618,17 +640,6 @@ export function AddProjectOnHostButton(props: {
       />
     );
   }
-  const addOnHost = async (hostId: HostId, host: string) => {
-    try {
-      await addHostProject(hostId, host);
-    } catch (error) {
-      toastManager.add({
-        type: "error",
-        title: `Could not add the project on ${host}`,
-        description: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
   return (
     <Menu>
       <SidebarIconButton

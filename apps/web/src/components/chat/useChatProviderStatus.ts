@@ -4,6 +4,7 @@ import {
   type ProviderStartOptions,
   type ServerProviderStatus,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   normalizeCustomBinaryPath,
@@ -77,12 +78,14 @@ interface ChatProviderStatusInput {
   activeThread: Thread | undefined;
   settings: AppSettings;
   configuredProviderStatuses: readonly ServerProviderStatus[] | undefined;
+  hostId?: HostId;
 }
 
 export function useChatProviderStatus({
   activeThread,
   settings,
   configuredProviderStatuses,
+  hostId = LOCAL_HOST_ID,
 }: ChatProviderStatusInput) {
   const [
     confirmedCustomBinaryPathsByProviderInstance,
@@ -168,29 +171,33 @@ export function useChatProviderStatus({
   }, [confirmedCustomBinaryPathsByProviderInstance]);
   const providerStatuses = useMemo(
     () =>
-      (configuredProviderStatuses ?? EMPTY_PROVIDER_STATUSES)
-        .map((status) => {
-          const provider = status.driver ?? status.provider;
-          if (!isProviderKind(provider)) {
-            return status;
-          }
-          const providerInstanceId = providerStatusInstanceKey(status);
-          const customBinaryPath = getCustomBinaryPathForProviderInstance(
-            settings,
-            provider,
-            providerInstanceId,
-          );
-          return normalizeProviderStatusForLocalConfig({
-            provider,
-            status,
-            customBinaryPath,
-            confirmedCustomBinaryPath:
-              confirmedCustomBinaryPathsByProviderInstance[providerInstanceId],
-            disabled: settings.disabledProviders.includes(provider),
-          });
-        })
-        .flatMap((status) => (status ? [status] : [])),
-    [confirmedCustomBinaryPathsByProviderInstance, configuredProviderStatuses, settings],
+      // A host reports its own providers; this computer's disabled providers and binary paths
+      // say nothing about them.
+      hostId !== LOCAL_HOST_ID
+        ? (configuredProviderStatuses ?? EMPTY_PROVIDER_STATUSES)
+        : (configuredProviderStatuses ?? EMPTY_PROVIDER_STATUSES)
+            .map((status) => {
+              const provider = status.driver ?? status.provider;
+              if (!isProviderKind(provider)) {
+                return status;
+              }
+              const providerInstanceId = providerStatusInstanceKey(status);
+              const customBinaryPath = getCustomBinaryPathForProviderInstance(
+                settings,
+                provider,
+                providerInstanceId,
+              );
+              return normalizeProviderStatusForLocalConfig({
+                provider,
+                status,
+                customBinaryPath,
+                confirmedCustomBinaryPath:
+                  confirmedCustomBinaryPathsByProviderInstance[providerInstanceId],
+                disabled: settings.disabledProviders.includes(provider),
+              });
+            })
+            .flatMap((status) => (status ? [status] : [])),
+    [confirmedCustomBinaryPathsByProviderInstance, configuredProviderStatuses, hostId, settings],
   );
   return { rememberCustomBinaryPathForDispatch, providerStatuses };
 }

@@ -65,7 +65,9 @@ export function serverConfigQueryOptions(hostId: HostId = LOCAL_HOST_ID) {
       const api = projectApiFor(hostId);
       return api.server.getConfig();
     },
-    staleTime: Infinity,
+    // This computer's config is kept current by its stream; a host's is only read, so it
+    // would otherwise keep the provider health it had when first opened.
+    staleTime: hostId === LOCAL_HOST_ID ? Infinity : 30_000,
   });
 }
 
