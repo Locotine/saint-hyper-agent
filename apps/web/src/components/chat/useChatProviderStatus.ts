@@ -78,14 +78,14 @@ interface ChatProviderStatusInput {
   activeThread: Thread | undefined;
   settings: AppSettings;
   configuredProviderStatuses: readonly ServerProviderStatus[] | undefined;
-  hostId?: HostId;
+  hostId: HostId;
 }
 
 export function useChatProviderStatus({
   activeThread,
   settings,
   configuredProviderStatuses,
-  hostId = LOCAL_HOST_ID,
+  hostId,
 }: ChatProviderStatusInput) {
   const [
     confirmedCustomBinaryPathsByProviderInstance,
