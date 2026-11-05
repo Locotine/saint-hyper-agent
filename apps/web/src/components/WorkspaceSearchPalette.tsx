@@ -13,19 +13,25 @@
 // re-render bails out at the row boundary.
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHostId } from "~/hosts/hostScope";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { Autocomplete as AutocompletePrimitive } from "@base-ui/react/autocomplete";
 import type { ProjectContentMatch, ProjectEntry } from "@saint/contracts";
-import { PROJECT_SEARCH_CONTENT_MIN_QUERY_LENGTH } from "@saint/contracts";
+import {
+  PROJECT_SEARCH_CONTENT_MAX_LIMIT,
+  PROJECT_SEARCH_CONTENT_MIN_QUERY_LENGTH,
+} from "@saint/contracts";
 import { normalizeWorkspaceEntrySearchQuery } from "@saint/shared/searchQuery";
 
 import {
+  invalidateProjectFileQueriesForCwds,
+  invalidateSettledTurnProjectQueriesForCwds,
   prewarmProjectSearchIndex,
   projectSearchContentQueryOptions,
   projectSearchEntriesQueryOptions,
 } from "~/lib/projectReactQuery";
+import { replaceInWorkspaceFiles } from "~/lib/workspaceReplace";
 import { buildMatchSegments } from "~/lib/matchHighlight";
 import { cn } from "~/lib/utils";
 import {
@@ -38,6 +44,8 @@ import {
   CommandList,
   CommandStatus,
 } from "./ui/command";
+import { Button } from "./ui/button";
+import { toastManager } from "./ui/toast";
 import { FileEntryIcon } from "./chat/FileEntryIcon";
 import {
   isWorkspaceSearchFilesystemPathQuery,
@@ -66,6 +74,9 @@ const INPUT_CLASS =
 // The list keeps AutocompleteList's built-in 4px frame; combined with the 10px
 // paddings below, every piece of text lands on the same 14px column.
 const LIST_CLASS = "max-h-[min(30rem,60vh)]";
+
+const REPLACE_INPUT_CLASS =
+  "font-system-ui h-7 min-w-0 flex-1 rounded-md bg-zinc-500/8 px-2 text-ui text-zinc-800 outline-none placeholder:text-zinc-400 dark:bg-zinc-400/10 dark:text-zinc-200 dark:placeholder:text-zinc-500";
 
 const GROUP_LABEL_CLASS =
   "px-2.5 pt-1.5 pb-1 font-normal text-ui-sm text-zinc-400 dark:text-zinc-500";
@@ -387,6 +398,78 @@ function WorkspaceSearchPaletteContent(props: WorkspaceSearchPaletteProps) {
   const highlightQuery =
     props.mode === "files" ? normalizeWorkspaceEntrySearchQuery(debouncedQuery) : debouncedQuery;
 
+  // Replace across files. The first click collects every matching file (a wider search than the
+  // visible rows) and arms the button with the count; a second click writes the files.
+  const queryClient = useQueryClient();
+  const [replacement, setReplacement] = useState("");
+  const [armed, setArmed] = useState<{
+    query: string;
+    paths: string[];
+    lines: number;
+    truncated: boolean;
+  } | null>(null);
+  const [replaceBusy, setReplaceBusy] = useState(false);
+  const armedFor = armed && armed.query === trimmedQuery ? armed : null;
+  const canReplace =
+    props.mode === "snippets" &&
+    props.cwd !== null &&
+    !replaceBusy &&
+    trimmedQuery.length >= PROJECT_SEARCH_CONTENT_MIN_QUERY_LENGTH &&
+    snippetMatches.length > 0;
+  const handleReplace = async () => {
+    const cwd = props.cwd;
+    if (!cwd || !canReplace) return;
+    setReplaceBusy(true);
+    try {
+      if (!armedFor) {
+        const result = await queryClient.fetchQuery({
+          ...projectSearchContentQueryOptions({
+            hostId,
+            cwd,
+            query: trimmedQuery,
+            limit: PROJECT_SEARCH_CONTENT_MAX_LIMIT,
+            staleTime: 0,
+          }),
+        });
+        setArmed({
+          query: trimmedQuery,
+          paths: [...new Set(result.matches.map((match) => match.path))],
+          lines: result.matches.length,
+          truncated: result.truncated,
+        });
+        return;
+      }
+      const summary = await replaceInWorkspaceFiles({
+        hostId,
+        cwd,
+        relativePaths: armedFor.paths,
+        query: trimmedQuery,
+        replacement,
+      });
+      setArmed(null);
+      await Promise.all([
+        invalidateProjectFileQueriesForCwds(queryClient, [cwd]),
+        invalidateSettledTurnProjectQueriesForCwds(queryClient, [cwd]),
+      ]);
+      toastManager.add({
+        type: summary.skipped.length > 0 ? "warning" : "success",
+        title: `Replaced ${summary.occurrences} in ${summary.filesChanged} ${summary.filesChanged === 1 ? "file" : "files"}`,
+        ...(summary.skipped.length > 0
+          ? {
+              description: `Skipped ${summary.skipped.length}: ${summary.skipped.slice(0, 3).join(", ")}`,
+            }
+          : armedFor.truncated
+            ? { description: "More matches remain. Run it again to continue." }
+            : {}),
+      });
+    } catch {
+      setArmed(null);
+      toastManager.add({ type: "error", title: "Replace failed" });
+    } finally {
+      setReplaceBusy(false);
+    }
+  };
+
   const { onOpenChange, onOpenFile, onOpenDirectory } = props;
   const handleOpenFile = useCallback(
     (relativePath: string) => {
@@ -429,6 +512,37 @@ function WorkspaceSearchPaletteContent(props: WorkspaceSearchPaletteProps) {
           onChange={(event) => setQuery(event.currentTarget.value)}
         />
       </div>
+
+      {props.mode === "snippets" && hasUsableQuery ? (
+        <div className="flex items-center gap-2 border-b border-zinc-950/5 px-3.5 py-1.5 dark:border-white/5">
+          <input
+            className={REPLACE_INPUT_CLASS}
+            placeholder="Replace with"
+            aria-label="Replace with"
+            value={replacement}
+            onChange={(event) => {
+              setReplacement(event.currentTarget.value);
+              setArmed(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void handleReplace();
+              }
+            }}
+          />
+          <Button
+            size="xs"
+            variant={armedFor ? "default" : "chrome-outline"}
+            disabled={!canReplace}
+            onClick={() => void handleReplace()}
+          >
+            {armedFor
+              ? `Confirm: ${armedFor.truncated ? `${armedFor.lines}+` : armedFor.lines} ${armedFor.lines === 1 ? "line" : "lines"} in ${armedFor.paths.length} ${armedFor.paths.length === 1 ? "file" : "files"}`
+              : "Replace all"}
+          </Button>
+        </div>
+      ) : null}
 
       {/* Always-mounted polite live region, sibling of the listbox: prompt /
           no-results / error copy lives here so it is announced and never sits

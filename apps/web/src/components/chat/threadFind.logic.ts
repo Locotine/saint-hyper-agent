@@ -501,15 +501,25 @@ export function eventTargetsInAppBrowser(target: EventTarget | null): boolean {
   );
 }
 
+// The in-app code editor (Monaco) owns Ctrl+F / Ctrl+H for find and replace in the file.
+export function eventTargetsCodeEditor(target: EventTarget | null): boolean {
+  if (typeof Element === "undefined" || !(target instanceof Element)) {
+    return false;
+  }
+  return target.closest(".monaco-editor, .saint-code-editor") !== null;
+}
+
 export function shouldCaptureChatFindShortcut(input: {
   shouldRenderChatPaneContent: boolean;
   terminalWorkspaceTerminalTabActive: boolean;
   inAppBrowserFocused: boolean;
+  codeEditorFocused?: boolean;
 }): boolean {
   return (
     input.shouldRenderChatPaneContent &&
     !input.terminalWorkspaceTerminalTabActive &&
-    !input.inAppBrowserFocused
+    !input.inAppBrowserFocused &&
+    !input.codeEditorFocused
   );
 }
 

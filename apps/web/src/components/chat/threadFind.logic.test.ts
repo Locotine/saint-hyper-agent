@@ -363,6 +363,17 @@ describe("shouldCaptureChatFindShortcut", () => {
     ).toBe(true);
   });
 
+  it("leaves Ctrl+F to a focused code editor", () => {
+    expect(
+      shouldCaptureChatFindShortcut({
+        shouldRenderChatPaneContent: true,
+        terminalWorkspaceTerminalTabActive: false,
+        inAppBrowserFocused: false,
+        codeEditorFocused: true,
+      }),
+    ).toBe(false);
+  });
+
   it("does not steal Ctrl+F from a focused terminal tab or in-app browser", () => {
     expect(
       shouldCaptureChatFindShortcut({

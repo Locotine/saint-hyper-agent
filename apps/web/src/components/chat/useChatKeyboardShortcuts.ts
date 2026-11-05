@@ -19,7 +19,11 @@ import type { Project } from "../../types";
 import { type Thread } from "../../types";
 import { resolveCycledModelSlug } from "../ChatView.logic";
 import { collectForegroundRunningSubagentStripItems } from "./ComposerSubagentStrip.logic";
-import { eventTargetsInAppBrowser, shouldCaptureChatFindShortcut } from "./threadFind.logic";
+import {
+  eventTargetsCodeEditor,
+  eventTargetsInAppBrowser,
+  shouldCaptureChatFindShortcut,
+} from "./threadFind.logic";
 import { useChatProjectScripts } from "./useChatProjectScripts";
 import { useChatProviderModels } from "./useChatProviderModels";
 import { useChatTerminalController } from "./useChatTerminalController";
@@ -294,6 +298,7 @@ export function useChatKeyboardShortcuts({
             shouldRenderChatPaneContent,
             terminalWorkspaceTerminalTabActive,
             inAppBrowserFocused: eventTargetsInAppBrowser(event.target),
+            codeEditorFocused: eventTargetsCodeEditor(event.target),
           })
         ) {
           return;
