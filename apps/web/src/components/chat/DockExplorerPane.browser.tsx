@@ -277,8 +277,7 @@ it("deletes a multi-selection after one confirmation", async () => {
   await expect.poll(() => deleteEntry.mock.calls.length).toBe(2);
   const items = contextMenu.mock.calls[0]?.[0] as Array<{ id: string; label: string }>;
   expect(items.find((item) => item.id === "delete")?.label).toBe("Delete 2 items…");
-  // Local windows have nothing to download.
-  expect(items.some((item) => item.id === "download")).toBe(false);
+  expect(items.find((item) => item.id === "download")?.label).toBe("Download 2 files");
   expect(confirm).toHaveBeenCalledOnce();
   expect(confirm.mock.calls[0]?.[0]).toContain("Delete 2 items?");
   expect(deleteEntry.mock.calls.map(([input]) => input.relativePath)).toEqual(["b.txt", "c.txt"]);
