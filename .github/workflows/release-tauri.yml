@@ -106,6 +106,13 @@ jobs:
       - name: Verify preload bridge unit tests
         run: bun run --cwd apps/desktop-rust test
 
+      # tauri-build only checks that the externalBin exists; unit tests never
+      # launch it, so an empty stub avoids compiling the real sidecar here.
+      - name: Stub server sidecar for Rust unit tests
+        run: |
+          mkdir -p apps/desktop-rust/binaries
+          touch apps/desktop-rust/binaries/saint-server-x86_64-unknown-linux-gnu
+
       - name: Verify Rust core unit tests
         run: bun run --cwd apps/desktop-rust test:rust
 
