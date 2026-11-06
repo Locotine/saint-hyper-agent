@@ -123,8 +123,8 @@ fn seed_isolated_dev_userdata(source_base: &Path, target_base: &Path) {
 impl SaintPaths {
     /// Resolves `~/.saint` (or `SAINT_HOME` when set), preserving 100% compatibility
     /// with existing Electron user data, SQLite databases, and window state files.
-    /// If another Saint instance currently holds the SQLite lifecycle lock on `~/.saint`,
-    /// automatically isolates into `~/.saint-rust-dev` so side-by-side testing works cleanly.
+    /// In debug builds only, if another Saint instance holds the SQLite lifecycle lock on
+    /// `~/.saint`, isolates into `~/.saint-rust-dev` so side-by-side testing works cleanly.
     pub fn resolve() -> Self {
         let explicit_home = std::env::var("SAINT_HOME")
             .ok()
@@ -142,7 +142,12 @@ impl SaintPaths {
             seed_dev_state_from_userdata(&primary_dir);
         }
 
-        if explicit_home.is_none() && is_saint_home_locked_by_live_process(&primary_dir) {
+        // Dev-only: a release build must never silently move a user to another
+        // home (and an empty database) because some process holds the lock.
+        if cfg!(debug_assertions)
+            && explicit_home.is_none()
+            && is_saint_home_locked_by_live_process(&primary_dir)
+        {
             let isolated_dir = dirs::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
                 .join(".saint-rust-dev");

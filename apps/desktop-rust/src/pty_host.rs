@@ -158,6 +158,9 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
         cmd.arg(arg);
     }
     cmd.cwd(&cwd);
+    // The server sends the complete, already-sanitized terminal env; inheriting
+    // the desktop process env would bring back keys it deliberately removed.
+    cmd.env_clear();
     for (k, v) in &env {
         cmd.env(k, v);
     }

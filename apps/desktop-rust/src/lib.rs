@@ -355,8 +355,10 @@ fn desktop_open_external(url: String) -> Result<bool, String> {
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
-        std::process::Command::new("cmd")
-            .args(["/C", "start", "", &url])
+        // Not `cmd /C start`: cmd re-parses the URL, so `&` in a query string
+        // would start a second command.
+        std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", url.trim()])
             .creation_flags(0x0800_0000)
             .spawn()
             .map_err(|e| e.to_string())?;
