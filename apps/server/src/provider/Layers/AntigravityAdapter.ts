@@ -64,8 +64,10 @@ import {
   type ProviderThreadSnapshot,
 } from "../Services/ProviderAdapter.ts";
 import {
+  type AntigravityTokenUsage,
   createAntigravityPrintResultParser,
   isAntigravityPostResponseTimeout,
+  parseAntigravityTokenUsage,
 } from "../antigravityPrintResult.ts";
 import { appendFileAttachmentsPromptBlock } from "../attachmentProjection.ts";
 import { makeBoundedCallbackIngress } from "../boundedCallbackIngress.ts";
@@ -82,7 +84,7 @@ import { capHistoryBytes } from "../../terminal/terminalHistory.ts";
 
 const PROVIDER = "antigravity" as const;
 const DEFAULT_MODEL = "Gemini 3.5 Flash";
-const PRINT_TIMEOUT = "30m";
+const PRINT_TIMEOUT = "0s";
 const POLL_INTERVAL_MS = 75;
 const MODEL_DISCOVERY_TIMEOUT_MS = 30_000;
 const PLUGIN_INSTALL_TIMEOUT_MS = 45_000;
@@ -186,6 +188,9 @@ type AntigravitySessionContext = ToolSurfaceCounters & {
   settledBackgroundTaskIds: string[];
   /** Calls the transcript backgrounded before their pre-tool hook was seen. */
   transcriptBackgroundedCalls: AntigravityBackgroundCallKey[];
+  /** Foreground commands the transcript finished before their post-tool hook was seen. */
+  transcriptForegroundCompletedCalls: AntigravityBackgroundCallKey[];
+  latestTranscriptPlannerStepIndex?: number;
   backgroundCompletionSequence: number;
   latestBackgroundCompletionStepIndex?: number;
   /**
@@ -206,6 +211,7 @@ type AntigravitySessionContext = ToolSurfaceCounters & {
    * calls with the same name in one planner step still render independently.
    */
   sawAssistant: boolean;
+  totalProcessedTokens: number;
   interrupted: boolean;
   stopped: boolean;
   /** Guards against double turn.completed (process close + interrupt/stop). */
@@ -326,10 +332,13 @@ export function buildAntigravityCaptureCommand(
     // decoding JSON escapes, so any `"` in the command arrives as `\"` and
     // breaks cmd's quote handling: a quoted program path is executed literally
     // ("...exe" is not recognized as an internal or external command) and the
-    // hook never runs. Keep the invocation free of double quotes; the helper
-    // paths are space-free in every supported install layout (dev bun/electron
-    // binaries and packaged apps under %LOCALAPPDATA%\Programs).
-    const invocation = `${executablePath} ${scriptPath} ${event}`;
+    // hook never runs. Keep the invocation free of double quotes; when either
+    // path contains spaces (e.g. `C:\Program Files\nodejs\node.exe` or a
+    // spaced user profile), dispatch via PowerShell single-quoted `& '...'`.
+    const invocation =
+      /\s/u.test(executablePath) || /\s/u.test(scriptPath)
+        ? `powershell -NoProfile -Command ^& '${executablePath.replaceAll("'", "''")}' '${scriptPath.replaceAll("'", "''")}' ${event}`
+        : `${executablePath} ${scriptPath} ${event}`;
     return `if not defined SAINT_ANTIGRAVITY_EVENTS (more >nul 2>nul & powershell -NoProfile -Command ${win32FallbackHookJson(event)}) else (set ELECTRON_RUN_AS_NODE=1&& ${invocation})`;
   }
   const invocation = `${shellQuote(executablePath, platform)} ${shellQuote(scriptPath, platform)} ${shellQuote(event, platform)}`;
@@ -511,6 +520,9 @@ export async function runAntigravityHelperProcess(
       env: buildProviderChildEnvironment({
         provider: PROVIDER,
         ...(options.environment ? { baseEnv: { ...process.env, ...options.environment } } : {}),
+        overrides: {
+          AGY_CLI_DISABLE_AUTO_UPDATE: "1",
+        },
       }),
       stdio: ["ignore", "pipe", "pipe"],
       requireExecutable: true,
@@ -625,6 +637,7 @@ export async function ensureCapturePlugin(
       {
         $schema: "https://antigravity.google/schemas/v1/plugin.json",
         name: "saint-capture",
+        version: "1.0.0",
         description: "Streams Antigravity CLI lifecycle events to Saint when requested.",
       },
       null,
@@ -686,6 +699,7 @@ export function buildAntigravityTurnProcessEnvironment(input: {
       ...gatewayKeys,
     ],
     overrides: {
+      AGY_CLI_DISABLE_AUTO_UPDATE: "1",
       SAINT_ANTIGRAVITY_EVENTS: input.eventFile,
       SAINT_ANTIGRAVITY_HOOK_DECISION: "allow",
       ...gatewayEnvironment,
@@ -708,6 +722,8 @@ export function buildAntigravityTurnPrompt(
 }
 
 const DEFAULT_EFFORT_BY_MODEL: Readonly<Record<string, string>> = {
+  "Gemini 4 Argon": "medium",
+  "Gemini 3.8 Flash": "medium",
   "Gemini 3.7 Flash": "high",
   "Gemini 3.6 Flash": "medium",
   "Gemini 3.5 Flash": "medium",
@@ -743,6 +759,9 @@ export function parseAntigravityCliModelLabel(
     tabIndex >= 0 ? stripped.slice(tabIndex + 1).trim() : stripped.replace(/^(?:[*•-]\s+)+/u, "");
   const trimmed = labelColumn.replace(/^(?:[*•-]\s+)+/u, "").trim();
   if (!trimmed) return null;
+  if (tabIndex < 0 && (trimmed.endsWith("...") || /^(?:fetching|loading)\b/iu.test(trimmed))) {
+    return null;
+  }
 
   const match = trimmed.match(/^(.*?)\s+\(([^()]+)\)$/u);
   if (!match?.[1] || !match[2]) return { model: trimmed };
@@ -750,6 +769,43 @@ export function parseAntigravityCliModelLabel(
     model: match[1].trim(),
     effort: match[2].trim().toLowerCase(),
   };
+}
+
+export function resolveAntigravityModelMaxTokens(model: string): number {
+  const normalized = (parseAntigravityCliModelLabel(model)?.model ?? model).trim().toLowerCase();
+  if (normalized.includes("gpt-oss")) return 131_072;
+  if (normalized.includes("claude")) return 250_000;
+  if (normalized.includes("flash") && normalized.includes("image")) return 65_536;
+  return 1_048_576;
+}
+
+export function resolveEffectiveAntigravityModel(
+  requestedModel: string,
+  discoveredSlugs: ReadonlySet<string>,
+): string {
+  if (discoveredSlugs.size === 0 || discoveredSlugs.has(requestedModel)) {
+    return requestedModel;
+  }
+  const parsed = parseAntigravityCliModelLabel(requestedModel);
+  const baseModel = parsed?.model ?? requestedModel;
+  if (discoveredSlugs.has(baseModel)) {
+    return requestedModel;
+  }
+  if (/^gemini\b.*\bflash\b/iu.test(baseModel) && !/\bimage\b/iu.test(baseModel)) {
+    for (const candidate of discoveredSlugs) {
+      if (/^gemini\b.*\bflash\b/iu.test(candidate) && !/\bimage\b/iu.test(candidate)) {
+        return parsed?.effort ? `${candidate} (${effortLabel(parsed.effort)})` : candidate;
+      }
+    }
+  }
+  if (/^gemini\b.*\b(?:pro|argon)\b/iu.test(baseModel)) {
+    for (const candidate of discoveredSlugs) {
+      if (/^gemini\b.*\b(?:pro|argon)\b/iu.test(candidate)) {
+        return parsed?.effort ? `${candidate} (${effortLabel(parsed.effort)})` : candidate;
+      }
+    }
+  }
+  return requestedModel;
 }
 
 export function antigravityPromptCommandLineIssue(
@@ -806,9 +862,12 @@ export function resolveAntigravityCliModelLabel(
 ): string {
   const parsed = parseAntigravityCliModelLabel(model);
   if (!parsed) return model;
+  const fastModeEffort =
+    options?.fastMode === true && /^gemini\b/iu.test(parsed.model) ? "low" : undefined;
   const effort =
     parsed.effort ??
     options?.reasoningEffort?.trim().toLowerCase() ??
+    fastModeEffort ??
     discoveredDefaultEffort?.trim().toLowerCase() ??
     DEFAULT_EFFORT_BY_MODEL[parsed.model];
   // Always rebuild the CLI display label. Returning the raw input would preserve
@@ -1132,6 +1191,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
     );
     const sessions = new Map<ThreadId, AntigravitySessionContext>();
     const defaultEffortByModel = new Map(Object.entries(DEFAULT_EFFORT_BY_MODEL));
+    const discoveredModelSlugs = new Set<string>();
 
     const eventIngress = yield* makeBoundedCallbackIngress<SizedProviderRuntimeEvent, never, never>(
       (item) => Queue.offer(eventQueue, item.event).pipe(Effect.asVoid),
@@ -1586,6 +1646,54 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         ? context.turns.find((turn) => turn.id === context.activeTurnId)
         : undefined;
 
+    const emitTokenUsage = (
+      context: AntigravitySessionContext,
+      usage: AntigravityTokenUsage,
+      rawSource: string,
+      rawPayload: unknown,
+      durationSeconds?: number,
+    ): void => {
+      if (context.stopped) return;
+      const maxTokens = resolveAntigravityModelMaxTokens(
+        context.modelName ?? context.session.model ?? DEFAULT_MODEL,
+      );
+      const inputTokens = usage.inputTokens;
+      const cachedInputTokens = usage.cacheReadTokens;
+      const outputTokens = usage.outputTokens;
+      const reasoningOutputTokens = usage.thinkingTokens;
+      const usedTokens = inputTokens + cachedInputTokens + outputTokens + reasoningOutputTokens;
+      if (usedTokens <= 0) return;
+      context.totalProcessedTokens = Math.max(
+        context.totalProcessedTokens + outputTokens + reasoningOutputTokens,
+        usedTokens,
+      );
+      offer({
+        ...base(context),
+        type: "thread.token-usage.updated",
+        payload: {
+          usage: {
+            usedTokens,
+            totalProcessedTokens: context.totalProcessedTokens,
+            maxTokens,
+            inputTokens,
+            cachedInputTokens,
+            outputTokens,
+            reasoningOutputTokens,
+            lastUsedTokens: usedTokens,
+            lastInputTokens: inputTokens,
+            lastCachedInputTokens: cachedInputTokens,
+            lastOutputTokens: outputTokens,
+            lastReasoningOutputTokens: reasoningOutputTokens,
+            ...(durationSeconds !== undefined && durationSeconds > 0
+              ? { durationMs: Math.round(durationSeconds * 1000) }
+              : {}),
+            compactsAutomatically: true,
+          },
+        },
+        raw: raw(rawSource, rawPayload),
+      } satisfies ProviderRuntimeEvent);
+    };
+
     const emitTextItem = (
       context: AntigravitySessionContext,
       step: TranscriptStep,
@@ -1784,7 +1892,66 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         return;
       }
 
+      if (
+        step.type === "GENERIC" &&
+        step.status === "DONE" &&
+        !parseAntigravityBackgroundTaskStep(step.content) &&
+        typeof step.content === "string" &&
+        /exited with code/iu.test(step.content)
+      ) {
+        const toolStep =
+          context.latestTranscriptPlannerStepIndex !== undefined &&
+          (stepIndex === undefined || context.latestTranscriptPlannerStepIndex < stepIndex)
+            ? context.latestTranscriptPlannerStepIndex
+            : stepIndex === undefined
+              ? undefined
+              : stepIndex - 1;
+        if (toolStep !== undefined) {
+          const plannerStep = currentTurn(context)?.items.find(
+            (item): item is TranscriptStep =>
+              typeof item === "object" &&
+              item !== null &&
+              (item as TranscriptStep).step_index === toolStep &&
+              (item as TranscriptStep).type === "PLANNER_RESPONSE",
+          );
+          const callIndex = stepIndex !== undefined ? stepIndex - toolStep - 1 : 0;
+          const plannerCall =
+            callIndex >= 0 && Array.isArray(plannerStep?.tool_calls)
+              ? plannerStep.tool_calls[callIndex]
+              : undefined;
+          const wantedCommand = normalizeAntigravityCommandLine(
+            plannerCall?.args?.CommandLine ?? plannerCall?.args?.command ?? plannerCall?.args?.cmd,
+          );
+          const clearedAnonymous =
+            (wantedCommand !== undefined &&
+              takeAntigravityBackgroundCallKey(
+                context.pendingAnonymousBackgroundTasks,
+                toolStep,
+                wantedCommand,
+              )) ||
+            takeAntigravityBackgroundCallKey(
+              context.pendingAnonymousBackgroundTasks,
+              toolStep,
+              undefined,
+            );
+          if (!clearedAnonymous) {
+            context.transcriptForegroundCompletedCalls.push({
+              stepIndex: toolStep,
+              ...(wantedCommand !== undefined ? { command: wantedCommand } : {}),
+            });
+          }
+        }
+        return;
+      }
+
       if (step.type === "PLANNER_RESPONSE") {
+        if (typeof stepIndex === "number") {
+          context.latestTranscriptPlannerStepIndex = stepIndex;
+        }
+        const transcriptStepUsage = parseAntigravityTokenUsage(step.usage ?? step.token_usage);
+        if (transcriptStepUsage) {
+          emitTokenUsage(context, transcriptStepUsage, "transcript-step-usage", step);
+        }
         const calls = Array.isArray(step.tool_calls) ? step.tool_calls : [];
         if (calls.length > 0) {
           const reasoning = trim(
@@ -2228,18 +2395,46 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           // An unmarked pending call can still own a transcript marker. Consume
           // an unspecified command only for background output, so a foreground
           // call sharing the step cannot take another call's marker.
+          const hookNormalizedCommand = normalizeAntigravityCommandLine(
+            toolArgs?.CommandLine ?? toolArgs?.command ?? toolArgs?.cmd,
+          );
+          const rawPostOutput =
+            typeof payload.toolOutput === "string"
+              ? payload.toolOutput
+              : typeof payload.result === "string"
+                ? payload.result
+                : undefined;
+          const inferredFromWaitMsOnly =
+            toolName === "run_command" &&
+            bgStart?.isBackground === true &&
+            bgStart.taskId === undefined &&
+            !rawPostOutput;
+          const foregroundCompletedByTranscript =
+            inferredFromWaitMsOnly &&
+            ((hookNormalizedCommand !== undefined &&
+              takeAntigravityBackgroundCallKey(
+                context.transcriptForegroundCompletedCalls,
+                stepIndex,
+                hookNormalizedCommand,
+                { allowUnspecifiedCommand: false },
+              )) ||
+              takeAntigravityBackgroundCallKey(
+                context.transcriptForegroundCompletedCalls,
+                stepIndex,
+                hookNormalizedCommand,
+              ));
           const transcriptOwned =
             pending?.backgroundedByTranscript === true ||
             takeAntigravityBackgroundCallKey(
               context.transcriptBackgroundedCalls,
               stepIndex,
-              normalizeAntigravityCommandLine(toolArgs?.CommandLine),
+              hookNormalizedCommand,
               {
                 allowUnspecifiedCommand: bgStart?.isBackground === true,
                 taskId: bgStart?.taskId,
               },
             );
-          if (!failed && toolName && !transcriptOwned) {
+          if (!failed && toolName && !transcriptOwned && !foregroundCompletedByTranscript) {
             if (bgStart?.isBackground) {
               // Without a pre-tool entry the marker above cannot help: a hook that
               // arrives after the transcript already settled the task must not
@@ -2423,11 +2618,13 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           pendingBackgroundTaskTerminals: [],
           settledBackgroundTaskIds: [],
           transcriptBackgroundedCalls: [],
+          transcriptForegroundCompletedCalls: [],
           backgroundCompletionSequence: 0,
           foreignConversations: new Map(),
           surfacedToolCallCounts: new Map(),
           hookToolCallCounts: new Map(),
           sawAssistant: false,
+          totalProcessedTokens: 0,
           interrupted: false,
           stopped: false,
           turnTerminalEmitted: false,
@@ -2491,18 +2688,11 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           prompt: normalizedPrompt,
           hasGatewaySessionLease: canBootstrapGateway,
         });
-        const promptIssue = antigravityPromptCommandLineIssue(providerPrompt);
-        if (promptIssue) {
-          return yield* new ProviderAdapterValidationError({
-            provider: PROVIDER,
-            operation: "turn/start",
-            issue: promptIssue,
-          });
-        }
         const turnId = TurnId.makeUnsafe(crypto.randomUUID());
         const modelSelection =
           input.modelSelection?.provider === PROVIDER ? input.modelSelection : undefined;
-        const model = modelSelection?.model ?? context.session.model ?? DEFAULT_MODEL;
+        const requestedModel = modelSelection?.model ?? context.session.model ?? DEFAULT_MODEL;
+        const model = resolveEffectiveAntigravityModel(requestedModel, discoveredModelSlugs);
         const modelOptions = modelSelection?.options ?? context.modelOptions;
         const cliModel = resolveAntigravityCliModelLabel(
           model,
@@ -2521,6 +2711,34 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         });
         const eventFile = path.join(runDir, "hooks.ndjson");
         const logFile = path.join(runDir, "agy.log");
+        let cliPrompt = providerPrompt;
+        if (antigravityPromptCommandLineIssue(providerPrompt)) {
+          const promptFile = path.join(runDir, "prompt.md");
+          yield* Effect.tryPromise({
+            try: () => fs.writeFile(promptFile, normalizedPrompt, "utf8"),
+            catch: (cause) =>
+              new ProviderAdapterRequestError({
+                provider: PROVIDER,
+                method: "turn/prepare",
+                detail: messageFromCause(cause, "Failed to write Antigravity prompt file."),
+                cause,
+              }),
+          });
+          const harnessPrefix =
+            providerPrompt.length > normalizedPrompt.length
+              ? providerPrompt.slice(0, providerPrompt.length - normalizedPrompt.length)
+              : "";
+          cliPrompt = `${harnessPrefix}Read the complete user prompt from ${promptFile} using read_file and fulfill the request.`;
+        }
+        const promptIssue = antigravityPromptCommandLineIssue(cliPrompt);
+        if (promptIssue) {
+          yield* Effect.promise(() => fs.rm(runDir, { recursive: true, force: true }));
+          return yield* new ProviderAdapterValidationError({
+            provider: PROVIDER,
+            operation: "turn/start",
+            issue: promptIssue,
+          });
+        }
         yield* Effect.tryPromise({
           try: () => fs.writeFile(eventFile, ""),
           catch: (cause) =>
@@ -2565,6 +2783,8 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         yield* Effect.promise(() => markExistingTranscriptStepsProcessed(context));
         context.pendingTools = [];
         context.transcriptBackgroundedCalls.length = 0;
+        context.transcriptForegroundCompletedCalls.length = 0;
+        delete context.latestTranscriptPlannerStepIndex;
         context.pendingAnonymousBackgroundTasks.length = 0;
         context.pendingBackgroundTaskTerminals.length = 0;
         context.backgroundCompletionSequence = 0;
@@ -2605,7 +2825,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           "--print-timeout",
           PRINT_TIMEOUT,
           "-p",
-          providerPrompt,
+          cliPrompt,
         ];
         let child: AntigravityChildProcess;
         try {
@@ -2676,7 +2896,12 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         // an overflow marker; the exact benign timeout is much shorter than it.
         let stderrEvidence = "";
         let stderrEvidenceOverflow = false;
-        const outputParser = createAntigravityPrintResultParser();
+        const outputParser = createAntigravityPrintResultParser({
+          onStepUsage: (stepIndex, stepUsage) => {
+            if (!ownsTurn()) return;
+            emitTokenUsage(context, stepUsage, "step-usage", { stepIndex, usage: stepUsage });
+          },
+        });
         child.stdout.setEncoding("utf8");
         child.stderr.setEncoding("utf8");
         child.stdout.on("data", (chunk) => {
@@ -2748,6 +2973,15 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
             const stderrOnlyExactTimeout =
               !stderrEvidenceOverflow && isAntigravityPostResponseTimeout(stderrEvidence);
             const printResult = outputParser.finish();
+            if (printResult?.usage) {
+              emitTokenUsage(
+                context,
+                printResult.usage,
+                "result-usage",
+                printResult.usage,
+                printResult.durationSeconds,
+              );
+            }
             const responseText = printResult?.response ?? responseStdout.join("").trim();
             if (!context.sawAssistant && responseText) {
               emitTextItem(
@@ -2989,7 +3223,9 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           );
           if (result.code !== 0) throw new Error(result.stderr || "agy models failed");
           const models = parseModelLines(result.stdout);
+          discoveredModelSlugs.clear();
           for (const model of models) {
+            discoveredModelSlugs.add(model.slug);
             if (model.defaultReasoningEffort) {
               defaultEffortByModel.set(model.slug, model.defaultReasoningEffort);
             }

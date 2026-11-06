@@ -37,6 +37,18 @@
         "wait-on": "^8.0.2",
       },
     },
+    "apps/desktop-rust": {
+      "name": "@saint/desktop-rust",
+      "version": "1.1.17",
+      "devDependencies": {
+        "@saint/contracts": "workspace:*",
+        "@saint/shared": "workspace:*",
+        "@types/node": "catalog:",
+        "tsdown": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
     "apps/server": {
       "name": "@saint/cli",
       "version": "1.1.17",
@@ -843,6 +855,8 @@
     "@saint/contracts": ["@saint/contracts@workspace:packages/contracts"],
 
     "@saint/desktop": ["@saint/desktop@workspace:apps/desktop"],
+
+    "@saint/desktop-rust": ["@saint/desktop-rust@workspace:apps/desktop-rust"],
 
     "@saint/scripts": ["@saint/scripts@workspace:scripts"],
 

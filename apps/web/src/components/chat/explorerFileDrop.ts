@@ -99,11 +99,19 @@ export function invalidateExplorerDirectories(
   hostId: HostId,
 ): Promise<void> {
   return queryClient.invalidateQueries({
-    predicate: ({ queryKey }) =>
-      queryKey[0] === "projects" &&
-      queryKey[1] === "list-directories" &&
-      queryKey[2] === cwd &&
-      (hostId === LOCAL_HOST_ID ? queryKey.length === 5 : queryKey[5] === hostId),
+    predicate: ({ queryKey }) => {
+      if (queryKey[0] !== "projects" || queryKey[2] !== cwd) return false;
+      if (queryKey[1] === "list-directories") {
+        return hostId === LOCAL_HOST_ID ? queryKey.length === 5 : queryKey[5] === hostId;
+      }
+      if (queryKey[1] === "search-entries") {
+        return hostId === LOCAL_HOST_ID ? queryKey.length === 6 : queryKey[6] === hostId;
+      }
+      if (queryKey[1] === "read-file") {
+        return hostId === LOCAL_HOST_ID ? queryKey.length === 4 : queryKey[4] === hostId;
+      }
+      return false;
+    },
   });
 }
 

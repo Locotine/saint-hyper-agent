@@ -128,8 +128,15 @@ export const DockExplorerPane = function DockExplorerPane(props: {
   // Browse state lives in the per-thread store, not component state: the pane
   // unmounts on a thread switch and remounts on return, so useState here would
   // reset the selected file, expanded directories, and search query every time.
-  const { selectedFilePath, openFilePaths, expandedDirectories, searchQuery } =
-    useDockExplorerBrowseStore(selectDockExplorerBrowseState(props.threadId));
+  const {
+    selectedFilePath,
+    openFilePaths,
+    expandedDirectories,
+    searchQuery,
+    activeRootPath,
+    rootHistory,
+  } = useDockExplorerBrowseStore(selectDockExplorerBrowseState(props.threadId));
+  const effectiveWorkspaceRoot = activeRootPath ?? props.workspaceRoot;
   const treeColumnRef = useRef<HTMLDivElement>(null);
   const [treeWidth, setTreeWidth] = useLocalStorage(
     TREE_WIDTH_STORAGE_KEY,
@@ -193,7 +200,7 @@ export const DockExplorerPane = function DockExplorerPane(props: {
   const selectionRequestRef = useRef(0);
   const handleSelectFile = (path: string) => {
     const request = ++selectionRequestRef.current;
-    void flushWorkspaceEditors(queryClient, props.workspaceRoot).then((saved) => {
+    void flushWorkspaceEditors(queryClient, effectiveWorkspaceRoot).then((saved) => {
       if (saved && request === selectionRequestRef.current) {
         useDockExplorerBrowseStore.getState().selectFile(props.threadId, path);
       }
@@ -202,7 +209,7 @@ export const DockExplorerPane = function DockExplorerPane(props: {
 
   const handleCloseFile = (path: string) => {
     // A dirty buffer is saved first, like switching files.
-    void flushWorkspaceEditors(queryClient, props.workspaceRoot).then((saved) => {
+    void flushWorkspaceEditors(queryClient, effectiveWorkspaceRoot).then((saved) => {
       if (saved) useDockExplorerBrowseStore.getState().closeFile(props.threadId, path);
     });
   };
@@ -215,6 +222,33 @@ export const DockExplorerPane = function DockExplorerPane(props: {
     useDockExplorerBrowseStore.getState().setSearchQuery(props.threadId, query);
   };
 
+  const handleNavigateRoot = (nextRoot: string) => {
+    if (!effectiveWorkspaceRoot) return;
+    void flushWorkspaceEditors(queryClient, effectiveWorkspaceRoot).then((saved) => {
+      if (saved) {
+        useDockExplorerBrowseStore
+          .getState()
+          .navigateRoot(props.threadId, nextRoot, effectiveWorkspaceRoot);
+      }
+    });
+  };
+
+  const handleNavigateBack = () => {
+    void flushWorkspaceEditors(queryClient, effectiveWorkspaceRoot).then((saved) => {
+      if (saved) {
+        useDockExplorerBrowseStore.getState().navigateBackRoot(props.threadId, props.workspaceRoot);
+      }
+    });
+  };
+
+  const handleResetRoot = () => {
+    void flushWorkspaceEditors(queryClient, effectiveWorkspaceRoot).then((saved) => {
+      if (saved) {
+        useDockExplorerBrowseStore.getState().resetRoot(props.threadId);
+      }
+    });
+  };
+
   return (
     <div className="flex h-full min-h-0 w-full">
       <div
@@ -223,7 +257,12 @@ export const DockExplorerPane = function DockExplorerPane(props: {
         style={{ width: treeWidth }}
       >
         <WorkspaceExplorerSidebar
-          workspaceRoot={props.workspaceRoot}
+          workspaceRoot={effectiveWorkspaceRoot}
+          projectWorkspaceRoot={props.workspaceRoot}
+          canNavigateBack={rootHistory.length > 0}
+          onNavigateRoot={handleNavigateRoot}
+          onNavigateBack={handleNavigateBack}
+          onResetRoot={handleResetRoot}
           selectedFilePath={selectedFilePath}
           expandedDirectories={expandedDirectories}
           query={searchQuery}
@@ -255,7 +294,7 @@ export const DockExplorerPane = function DockExplorerPane(props: {
         ) : null}
         <div className="flex min-h-0 min-w-0 flex-1">
           <WorkspaceFilePreview
-            workspaceRoot={props.workspaceRoot}
+            workspaceRoot={effectiveWorkspaceRoot}
             filePath={selectedFilePath}
             liveRevalidationEnabled={props.isVisible}
             editable

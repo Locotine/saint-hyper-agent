@@ -43,6 +43,8 @@ import {
   parseAntigravitySystemMessage,
   readCompleteAntigravityLines,
   resolveAntigravityCliModelLabel,
+  resolveAntigravityModelMaxTokens,
+  resolveEffectiveAntigravityModel,
   runAntigravityHelperProcess,
 } from "./AntigravityAdapter";
 
@@ -211,6 +213,25 @@ claude-sonnet-4-6\tClaude Sonnet 4.6 (Thinking)
       ).toBe(`${model} (${label})`);
     },
   );
+
+  it("ignores CLI status headers, supports Fast Mode effort fallback, and upgrades retired Gemini slugs", () => {
+    expect(parseAntigravityCliModelLabel("Fetching available models...")).toBeNull();
+    expect(resolveAntigravityCliModelLabel("Gemini 4 Argon")).toBe("Gemini 4 Argon (Medium)");
+    expect(resolveAntigravityCliModelLabel("Gemini 4 Argon", { fastMode: true })).toBe(
+      "Gemini 4 Argon (Low)",
+    );
+    expect(resolveAntigravityCliModelLabel("Gemini 3.8 Flash", { fastMode: true })).toBe(
+      "Gemini 3.8 Flash (Low)",
+    );
+    const discovered = new Set(["Gemini 3.8 Flash", "Gemini 4 Argon", "Claude Sonnet 4.6"]);
+    expect(resolveEffectiveAntigravityModel("Gemini 3.5 Flash", discovered)).toBe(
+      "Gemini 3.8 Flash",
+    );
+    expect(resolveEffectiveAntigravityModel("Gemini 3.1 Pro", discovered)).toBe("Gemini 4 Argon");
+    expect(resolveAntigravityModelMaxTokens("Gemini 4 Argon")).toBe(1_048_576);
+    expect(resolveAntigravityModelMaxTokens("Claude Opus 4.6")).toBe(250_000);
+    expect(resolveAntigravityModelMaxTokens("GPT-OSS 120B")).toBe(131_072);
+  });
 });
 
 describe("Antigravity CLI integration helpers", () => {
@@ -435,8 +456,6 @@ describe("Antigravity CLI integration helpers", () => {
             command: stdioProxy.command,
             args: stdioProxy.args,
             env: {
-              SAINT_AGENT_GATEWAY_URL: "$SAINT_AGENT_GATEWAY_URL",
-              SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN: "$SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN",
               ELECTRON_RUN_AS_NODE: "1",
             },
             disabled: false,
@@ -478,6 +497,7 @@ describe("Antigravity CLI integration helpers", () => {
       PATH: "/usr/bin",
       HOME: "/home/test",
       GEMINI_API_KEY: "gemini-key",
+      AGY_CLI_DISABLE_AUTO_UPDATE: "1",
       SAINT_AGENT_GATEWAY_URL: "http://127.0.0.1:3773/mcp",
       SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN: "thread-a-bootstrap",
       SAINT_ANTIGRAVITY_EVENTS: "/tmp/thread-a-hooks.ndjson",
@@ -3415,6 +3435,50 @@ describe("Antigravity background task helpers (#752)", () => {
         ]);
       }),
     ));
+
+  it.each([false, true])(
+    "clears WaitMsBeforeAsync-inferred anonymous tasks when the transcript step completes in the foreground (transcript first: %s)",
+    (transcriptFirst) =>
+      runAgyBackgroundScenario(`foreground-waitms-${transcriptFirst}`, (io) =>
+        Effect.gen(function* () {
+          const args = { CommandLine: "git status --short", WaitMsBeforeAsync: 5000 };
+          const toolCall = { name: "run_command", args };
+          const doneStep = {
+            step_index: 8,
+            type: "GENERIC",
+            status: "DONE",
+            content:
+              "Created At: 2026-11-06T09:20:35+07:00\nCompleted At: 2026-11-06T09:20:38+07:00\nCommand exited with code 0.\n\nCommand output:\n## main\n",
+          };
+          if (transcriptFirst) {
+            io.transcript(
+              { step_index: 7, type: "PLANNER_RESPONSE", tool_calls: [toolCall] },
+              doneStep,
+              agyText(9, "Clean working tree."),
+            );
+            yield* io.waitUntil(() => io.counts.assistantMessages === 1);
+            io.hooks(
+              `pre-tool\t${JSON.stringify({ stepIdx: 7, toolCall })}`,
+              `post-tool\t${JSON.stringify({ stepIdx: 7, toolCall, failed: false })}`,
+              'stop\t{"stepIdx":9}',
+            );
+          } else {
+            io.hooks(
+              `pre-tool\t${JSON.stringify({ stepIdx: 7, toolCall })}`,
+              `post-tool\t${JSON.stringify({ stepIdx: 7, toolCall, failed: false })}`,
+              'stop\t{"stepIdx":9}',
+            );
+            io.transcript(
+              { step_index: 7, type: "PLANNER_RESPONSE", tool_calls: [toolCall] },
+              doneStep,
+              agyText(9, "Clean working tree."),
+            );
+          }
+          yield* io.waitUntil(() => io.counts.teardowns === 1);
+          expect(io.taskEvents).toEqual([]);
+        }),
+      ),
+  );
 
   it.each([false, true])(
     "keeps another anonymous task pending after early completion (reverse starts: %s)",

@@ -231,7 +231,13 @@ const PROVIDER_TARGET_OPTION_RULES = {
   }),
   antigravity: defineProviderOptionConfig<"antigravity">({
     primaryOptionKey: "reasoningEffort",
-    options: { reasoningEffort: providerOptionRule("string", [], "model-discovery") },
+    options: {
+      reasoningEffort: providerOptionRule("string", [], "model-discovery"),
+      fastMode: providerOptionRule("boolean", [], "model-discovery", {
+        advertised: false,
+        validation: { kind: "boolean-capability", capability: "supportsFastMode" },
+      }),
+    },
   }),
   opencode: defineProviderOptionConfig<"opencode">({
     primaryOptionKey: "variant",

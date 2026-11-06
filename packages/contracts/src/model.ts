@@ -129,6 +129,7 @@ export type ClaudeModelOptions = typeof ClaudeModelOptions.Type;
 
 export const AntigravityModelOptions = Schema.Struct({
   reasoningEffort: Schema.optional(TrimmedNonEmptyString),
+  fastMode: Schema.optional(Schema.Boolean),
 });
 export type AntigravityModelOptions = typeof AntigravityModelOptions.Type;
 

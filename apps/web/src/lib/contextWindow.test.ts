@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { EventId, type OrchestrationThreadActivity, TurnId } from "@saint/contracts";
 
 import {
+  deriveAntigravityFallbackContextWindowSnapshot,
   deriveContextWindowSelectionStatus,
   deriveComposerContextWindowLabel,
   deriveAppliedContextWindowSelection,
@@ -476,5 +477,26 @@ describe("observed Claude context budget", () => {
         }),
       ]),
     ).toEqual({ model: "claude-sonnet-5", maxTokens: 200_000 });
+  });
+});
+
+describe("deriveAntigravityFallbackContextWindowSnapshot", () => {
+  it("resolves model-specific context budgets and estimates existing message tokens", () => {
+    expect(deriveAntigravityFallbackContextWindowSnapshot("Gemini 4 Argon").maxTokens).toBe(
+      1_048_576,
+    );
+    expect(deriveAntigravityFallbackContextWindowSnapshot("Claude Opus 4.6").maxTokens).toBe(
+      250_000,
+    );
+    expect(deriveAntigravityFallbackContextWindowSnapshot("GPT-OSS 120B").maxTokens).toBe(131_072);
+    expect(deriveAntigravityFallbackContextWindowSnapshot("Gemini 3.1 Flash Image").maxTokens).toBe(
+      65_536,
+    );
+
+    const withMessages = deriveAntigravityFallbackContextWindowSnapshot("Gemini 3.8 Flash", [
+      { text: "a".repeat(400) },
+    ]);
+    expect(withMessages.usedTokens).toBe(100);
+    expect(withMessages.remainingTokens).toBe(1_048_476);
   });
 });

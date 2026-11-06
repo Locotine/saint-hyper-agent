@@ -18,6 +18,7 @@ import {
   forwardRef,
   useEffect,
   useEffectEvent,
+  useState,
 } from "react";
 
 import {
@@ -32,9 +33,22 @@ import {
   projectReadFileQueryOptions,
   projectSearchEntriesQueryOptions,
 } from "~/lib/projectReactQuery";
-import { DownloadIcon, RefreshCwIcon } from "~/lib/icons";
+import {
+  ArrowLeftIcon,
+  ArrowUpIcon,
+  DownloadIcon,
+  FolderIcon,
+  RefreshCwIcon,
+  RotateCcwIcon,
+} from "~/lib/icons";
 import { getSyntaxHighlighterPromise, getSyntaxLanguageForPath } from "~/lib/syntaxHighlighting";
 import { cn } from "~/lib/utils";
+import {
+  folderNameOfWorkspaceRoot,
+  joinChildWorkspaceRoot,
+  parentWorkspaceRoot,
+} from "~/lib/workspaceDownload";
+import { useWorkspaceUploadProgress } from "~/lib/workspaceUpload";
 import { Skeleton } from "../ui/skeleton";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import { DisclosureChevron } from "../ui/DisclosureChevron";
@@ -67,12 +81,7 @@ const EXPLORER_HIDDEN_DIRECTORY_NAMES = new Set([
   ".turbo",
   ".vite",
   ".yarn",
-  "build",
-  "coverage",
-  "dist",
   "node_modules",
-  "out",
-  "target",
 ]);
 
 // Mirrors the composer mention search: debounce keystrokes so they don't fan
@@ -148,6 +157,7 @@ const ExplorerRow = forwardRef<
     dropTarget?: boolean;
     selection: ExplorerTreeSelection;
     onSelectFile: (path: string) => void;
+    onNavigateIntoDirectory?: ((relativePath: string) => void) | undefined;
     onPrefetchEntry: (entry: ProjectFileSystemEntry) => void;
     onEntryContextMenu: (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => void;
   } & ComponentPropsWithoutRef<"button">
@@ -160,6 +170,7 @@ const ExplorerRow = forwardRef<
     dropTarget = false,
     selection,
     onSelectFile,
+    onNavigateIntoDirectory,
     onPrefetchEntry,
     onEntryContextMenu,
     className,
@@ -179,6 +190,12 @@ const ExplorerRow = forwardRef<
       return;
     }
     onSelectFile(entry.path);
+  };
+  const handleDoubleClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (!isDirectory || !onNavigateIntoDirectory) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onNavigateIntoDirectory(entry.path);
   };
   const handlePrefetch = () => {
     onPrefetchEntry(entry);
@@ -211,6 +228,7 @@ const ExplorerRow = forwardRef<
       onDragStart={handleDragStart}
       onDragEnd={endExplorerEntriesDrag}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onPointerEnter={handlePrefetch}
       onFocus={handlePrefetch}
       onContextMenu={handleContextMenu}
@@ -259,6 +277,7 @@ function WorkspaceDirectory(props: {
   dropDirectory: string | null;
   onSelectFile: (path: string) => void;
   onToggleDirectory: (path: string) => void;
+  onNavigateIntoDirectory?: ((relativePath: string) => void) | undefined;
   onPrefetchEntry: (entry: ProjectFileSystemEntry) => void;
   onEntryContextMenu: (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => void;
 }) {
@@ -324,6 +343,7 @@ function WorkspaceDirectory(props: {
                   dropTarget={entry.path === props.dropDirectory}
                   selection={props.selection}
                   onSelectFile={props.onSelectFile}
+                  onNavigateIntoDirectory={props.onNavigateIntoDirectory}
                   onPrefetchEntry={props.onPrefetchEntry}
                   onEntryContextMenu={props.onEntryContextMenu}
                 />
@@ -342,6 +362,7 @@ function WorkspaceDirectory(props: {
                 dropDirectory={props.dropDirectory}
                 onSelectFile={props.onSelectFile}
                 onToggleDirectory={props.onToggleDirectory}
+                onNavigateIntoDirectory={props.onNavigateIntoDirectory}
                 onPrefetchEntry={props.onPrefetchEntry}
                 onEntryContextMenu={props.onEntryContextMenu}
               />
@@ -374,6 +395,8 @@ function WorkspaceFilesTreeBody(props: {
   expandedDirectories: ReadonlySet<string>;
   onSelectFile: (path: string) => void;
   onToggleDirectory: (path: string) => void;
+  onNavigateUp?: (() => void) | undefined;
+  onNavigateIntoDirectory?: ((relativePath: string) => void) | undefined;
   onPrefetchEntry: (entry: ProjectFileSystemEntry) => void;
   onEntryContextMenu: (entry: ProjectFileSystemEntry, position: { x: number; y: number }) => void;
   onRootContextMenu: (position: { x: number; y: number }) => void;
@@ -395,6 +418,7 @@ function WorkspaceFilesTreeBody(props: {
     );
     return () => window.clearTimeout(timer);
   }, [dropDirectory]);
+  const parentRoot = props.workspaceRoot ? parentWorkspaceRoot(props.workspaceRoot) : null;
   return (
     <div
       className={cn(
@@ -412,24 +436,146 @@ function WorkspaceFilesTreeBody(props: {
       }}
     >
       {props.workspaceRoot ? (
-        <WorkspaceDirectory
-          cwd={props.workspaceRoot}
-          relativePath={null}
-          depth={0}
-          selectedFilePath={props.selectedFilePath}
-          selection={props.selection}
-          expandedDirectories={props.expandedDirectories}
-          dropDirectory={fileDrop.dropDirectory}
-          onSelectFile={props.onSelectFile}
-          onToggleDirectory={props.onToggleDirectory}
-          onPrefetchEntry={props.onPrefetchEntry}
-          onEntryContextMenu={props.onEntryContextMenu}
-        />
+        <>
+          {parentRoot && props.onNavigateUp ? (
+            <button
+              {...EXPLORER_ROW_PROPS}
+              type="button"
+              className={fileRowClassName(
+                false,
+                "h-7 pr-2 text-muted-foreground hover:text-foreground",
+              )}
+              style={fileRowIndentStyle(0)}
+              title={`Parent folder (${parentRoot})`}
+              onClick={props.onNavigateUp}
+            >
+              <ArrowUpIcon className="size-3.5 shrink-0 opacity-75" />
+              <span className="min-w-0 truncate font-medium">..</span>
+            </button>
+          ) : null}
+          <WorkspaceDirectory
+            cwd={props.workspaceRoot}
+            relativePath={null}
+            depth={0}
+            selectedFilePath={props.selectedFilePath}
+            selection={props.selection}
+            expandedDirectories={props.expandedDirectories}
+            dropDirectory={fileDrop.dropDirectory}
+            onSelectFile={props.onSelectFile}
+            onToggleDirectory={props.onToggleDirectory}
+            onNavigateIntoDirectory={props.onNavigateIntoDirectory}
+            onPrefetchEntry={props.onPrefetchEntry}
+            onEntryContextMenu={props.onEntryContextMenu}
+          />
+        </>
       ) : (
         <PanelStateMessage density="compact" fill="flex">
           <p>No workspace.</p>
         </PanelStateMessage>
       )}
+    </div>
+  );
+}
+
+function ExplorerNavigationBar(props: {
+  workspaceRoot: string;
+  projectWorkspaceRoot: string | null;
+  canNavigateBack: boolean;
+  onNavigateBack: () => void;
+  onNavigateUp: (() => void) | null;
+  onResetRoot: (() => void) | null;
+}) {
+  const folderName = folderNameOfWorkspaceRoot(props.workspaceRoot);
+  return (
+    <div className="flex shrink-0 items-center gap-1 border-b border-border/55 bg-muted/15 px-2 py-1">
+      <IconButton
+        label="Back to previous folder"
+        tooltip="Back to previous folder"
+        tooltipSide="bottom"
+        size="icon-xs"
+        variant="chrome"
+        aria-disabled={!props.canNavigateBack || undefined}
+        className={cn(
+          "shrink-0 text-muted-foreground hover:text-foreground",
+          !props.canNavigateBack && "cursor-default opacity-45 hover:text-muted-foreground",
+        )}
+        onClick={() => {
+          if (props.canNavigateBack) props.onNavigateBack();
+        }}
+      >
+        <ArrowLeftIcon className="size-3.5" />
+      </IconButton>
+      <IconButton
+        label="Up to parent folder (..)"
+        tooltip={
+          props.onNavigateUp
+            ? `Up to parent folder (${parentWorkspaceRoot(props.workspaceRoot) ?? ".."})`
+            : "Already at filesystem root"
+        }
+        tooltipSide="bottom"
+        size="icon-xs"
+        variant="chrome"
+        aria-disabled={!props.onNavigateUp || undefined}
+        className={cn(
+          "shrink-0 text-muted-foreground hover:text-foreground",
+          !props.onNavigateUp && "cursor-default opacity-45 hover:text-muted-foreground",
+        )}
+        onClick={() => {
+          props.onNavigateUp?.();
+        }}
+      >
+        <ArrowUpIcon className="size-3.5" />
+      </IconButton>
+      <div
+        className="flex min-w-0 flex-1 items-center gap-1.5 px-1 text-ui-xs text-muted-foreground"
+        title={props.workspaceRoot}
+      >
+        <FolderIcon className="size-3.5 shrink-0 opacity-75" />
+        <span className="min-w-0 truncate font-medium text-foreground/90">{folderName}</span>
+      </div>
+      {props.onResetRoot &&
+      props.projectWorkspaceRoot &&
+      props.projectWorkspaceRoot !== props.workspaceRoot ? (
+        <IconButton
+          label="Return to project workspace root"
+          tooltip={`Return to project root (${folderNameOfWorkspaceRoot(props.projectWorkspaceRoot)})`}
+          tooltipSide="bottom"
+          size="icon-xs"
+          variant="chrome"
+          className="shrink-0 text-muted-foreground hover:text-foreground"
+          onClick={props.onResetRoot}
+        >
+          <RotateCcwIcon className="size-3" />
+        </IconButton>
+      ) : null}
+    </div>
+  );
+}
+
+function ExplorerUploadProgressBar(props: { workspaceRoot: string | null }) {
+  const progress = useWorkspaceUploadProgress(props.workspaceRoot);
+  if (!progress) return null;
+  const currentIndex = Math.min(progress.completedFiles + 1, progress.totalFiles);
+  return (
+    <div
+      className="shrink-0 border-b border-border/65 bg-info/8 px-2.5 py-1.5"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-center justify-between gap-2 text-ui-xs">
+        <span className="min-w-0 truncate font-medium text-foreground">
+          Uploading {progress.currentFileName}
+        </span>
+        <span className="shrink-0 tabular-nums text-muted-foreground">
+          {currentIndex}/{progress.totalFiles} ({progress.percent}%)
+        </span>
+      </div>
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-border/60">
+        <div
+          className="h-full rounded-full bg-info transition-all duration-150"
+          style={{ width: `${Math.max(4, progress.percent)}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -443,12 +589,55 @@ export function WorkspaceFilesSidebar(props: {
   onToggleDirectory: (path: string) => void;
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
 }) {
-  const prefetchEntry = useExplorerEntryPrefetch(props.workspaceRoot);
+  const [localRootState, setLocalRootState] = useState<{
+    readonly baseRoot: string | null;
+    readonly activeRoot: string | null;
+    readonly history: readonly string[];
+  }>({
+    baseRoot: props.workspaceRoot,
+    activeRoot: null,
+    history: [],
+  });
+  const effectiveLocalState =
+    localRootState.baseRoot === props.workspaceRoot
+      ? localRootState
+      : { baseRoot: props.workspaceRoot, activeRoot: null, history: [] };
+  const effectiveWorkspaceRoot = effectiveLocalState.activeRoot ?? props.workspaceRoot;
+
+  const navigateRoot = (nextRoot: string) => {
+    if (!effectiveWorkspaceRoot || nextRoot === effectiveWorkspaceRoot) return;
+    setLocalRootState({
+      baseRoot: props.workspaceRoot,
+      activeRoot: nextRoot,
+      history: [...effectiveLocalState.history, effectiveWorkspaceRoot],
+    });
+  };
+  const navigateBack = () => {
+    if (effectiveLocalState.history.length === 0) return;
+    const prev = effectiveLocalState.history[effectiveLocalState.history.length - 1] ?? null;
+    setLocalRootState({
+      baseRoot: props.workspaceRoot,
+      activeRoot: prev === props.workspaceRoot ? null : prev,
+      history: effectiveLocalState.history.slice(0, -1),
+    });
+  };
+  const resetRoot = () => {
+    setLocalRootState({ baseRoot: props.workspaceRoot, activeRoot: null, history: [] });
+  };
+
+  const parentRoot = effectiveWorkspaceRoot ? parentWorkspaceRoot(effectiveWorkspaceRoot) : null;
+  const handleNavigateIntoDirectory = (relativePath: string) => {
+    if (!effectiveWorkspaceRoot) return;
+    navigateRoot(joinChildWorkspaceRoot(effectiveWorkspaceRoot, relativePath));
+  };
+
+  const prefetchEntry = useExplorerEntryPrefetch(effectiveWorkspaceRoot);
   const entryActions = useExplorerEntryActions({
-    workspaceRoot: props.workspaceRoot,
+    workspaceRoot: effectiveWorkspaceRoot,
     onReferenceInChat: props.onReferenceInChat,
     onSelectFile: props.onSelectFile,
     selectedFilePath: props.selectedFilePath,
+    onNavigateIntoDirectory: handleNavigateIntoDirectory,
   });
   const handleListKeyDown = useExplorerListNavigation();
   return (
@@ -456,12 +645,25 @@ export function WorkspaceFilesSidebar(props: {
       className={props.containerClassName ?? EXPLORER_SIDEBAR_CONTAINER_CLASS}
       onKeyDown={handleListKeyDown}
     >
+      {effectiveWorkspaceRoot ? (
+        <ExplorerNavigationBar
+          workspaceRoot={effectiveWorkspaceRoot}
+          projectWorkspaceRoot={props.workspaceRoot}
+          canNavigateBack={effectiveLocalState.history.length > 0}
+          onNavigateBack={navigateBack}
+          onNavigateUp={parentRoot ? () => navigateRoot(parentRoot) : null}
+          onResetRoot={resetRoot}
+        />
+      ) : null}
+      <ExplorerUploadProgressBar workspaceRoot={effectiveWorkspaceRoot} />
       <WorkspaceFilesTreeBody
-        workspaceRoot={props.workspaceRoot}
+        workspaceRoot={effectiveWorkspaceRoot}
         selectedFilePath={props.selectedFilePath}
         expandedDirectories={props.expandedDirectories}
         onSelectFile={props.onSelectFile}
         onToggleDirectory={props.onToggleDirectory}
+        onNavigateUp={parentRoot ? () => navigateRoot(parentRoot) : undefined}
+        onNavigateIntoDirectory={handleNavigateIntoDirectory}
         onPrefetchEntry={prefetchEntry}
         onEntryContextMenu={entryActions.openEntryMenu}
         onRootContextMenu={entryActions.openRootMenu}
@@ -619,21 +821,25 @@ function WorkspaceSearchInputHeader(props: {
   );
 }
 
-// Remote windows: saves the selected files and folders (or the open file) on this computer;
-// a folder arrives as a ZIP. Stays focusable while nothing is selected so its tooltip can say why.
+// Saves the selected files and folders (or the entire currently viewed folder when nothing
+// is selected) as a file or .zip archive.
 function ExplorerDownloadButton(props: {
   targets: readonly ExplorerSelectableEntry[];
   onDownload: () => void;
 }) {
   const [first] = props.targets;
   const disabled = first === undefined;
+  const isCurrentFolderArchive =
+    props.targets.length === 1 && first !== undefined && (first.path === "." || first.path === "");
   const label = disabled
     ? "Select files to download"
-    : props.targets.length === 1
-      ? first.kind === "directory"
-        ? "Download selected folder as ZIP"
-        : "Download selected file"
-      : `Download ${props.targets.length} selected ${props.targets.some((entry) => entry.kind === "directory") ? "items" : "files"}`;
+    : isCurrentFolderArchive
+      ? "Download current folder as ZIP"
+      : props.targets.length === 1
+        ? first.kind === "directory"
+          ? "Download selected folder as ZIP"
+          : "Download selected file"
+        : `Download ${props.targets.length} selected ${props.targets.some((entry) => entry.kind === "directory") ? "items" : "files"}`;
   return (
     <IconButton
       label={label}
@@ -653,19 +859,36 @@ function ExplorerDownloadButton(props: {
   );
 }
 
-// Refetches every folder listing of the workspace on the host the Explorer shows.
+// Dynamically invalidates and refetches every folder listing, file search index, and open file
+// of the workspace on the host the Explorer shows so newly created folders/files appear immediately.
 function ExplorerRefreshButton(props: { workspaceRoot: string }) {
   const queryClient = useQueryClient();
   const hostId = useHostId();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await invalidateExplorerDirectories(queryClient, props.workspaceRoot, hostId);
+      await queryClient.refetchQueries({
+        predicate: ({ queryKey }) =>
+          queryKey[0] === "projects" && queryKey[2] === props.workspaceRoot,
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <IconButton
       label="Refresh files"
-      tooltip="Refresh files"
+      tooltip="Refresh files and folders from disk"
       tooltipSide="bottom"
       className="shrink-0 text-muted-foreground hover:text-foreground"
-      onClick={() => void invalidateExplorerDirectories(queryClient, props.workspaceRoot, hostId)}
+      onClick={() => void handleRefresh()}
     >
-      <RefreshCwIcon className="size-3.5" />
+      <RefreshCwIcon className={cn("size-3.5", isRefreshing && "animate-spin")} />
     </IconButton>
   );
 }
@@ -785,6 +1008,12 @@ export function WorkspaceSearchSidebar(props: {
 // the user types — no separate Files/Search activity rail needed.
 export function WorkspaceExplorerSidebar(props: {
   workspaceRoot: string | null;
+  /** Original project workspace root, when `workspaceRoot` has been navigated elsewhere. */
+  projectWorkspaceRoot?: string | null;
+  canNavigateBack?: boolean;
+  onNavigateRoot?: (nextRoot: string) => void;
+  onNavigateBack?: () => void;
+  onResetRoot?: () => void;
   selectedFilePath: string | null;
   expandedDirectories: ReadonlySet<string>;
   query: string;
@@ -794,20 +1023,84 @@ export function WorkspaceExplorerSidebar(props: {
   onToggleDirectory: (path: string) => void;
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
 }) {
-  const prefetchEntry = useExplorerEntryPrefetch(props.workspaceRoot);
+  const [localRootState, setLocalRootState] = useState<{
+    readonly baseRoot: string | null;
+    readonly activeRoot: string | null;
+    readonly history: readonly string[];
+  }>({
+    baseRoot: props.workspaceRoot,
+    activeRoot: null,
+    history: [],
+  });
+  const usesExternalNavigation = props.onNavigateRoot !== undefined;
+  const effectiveLocalState =
+    localRootState.baseRoot === props.workspaceRoot
+      ? localRootState
+      : { baseRoot: props.workspaceRoot, activeRoot: null, history: [] };
+  const effectiveWorkspaceRoot = usesExternalNavigation
+    ? props.workspaceRoot
+    : (effectiveLocalState.activeRoot ?? props.workspaceRoot);
+  const projectRoot = props.projectWorkspaceRoot ?? props.workspaceRoot;
+
+  const navigateRoot = (nextRoot: string) => {
+    if (!effectiveWorkspaceRoot || nextRoot === effectiveWorkspaceRoot) return;
+    if (props.onNavigateRoot) {
+      props.onNavigateRoot(nextRoot);
+      return;
+    }
+    setLocalRootState({
+      baseRoot: props.workspaceRoot,
+      activeRoot: nextRoot,
+      history: [...effectiveLocalState.history, effectiveWorkspaceRoot],
+    });
+  };
+
+  const navigateBack = () => {
+    if (props.onNavigateBack) {
+      props.onNavigateBack();
+      return;
+    }
+    if (effectiveLocalState.history.length === 0) return;
+    const prev = effectiveLocalState.history[effectiveLocalState.history.length - 1] ?? null;
+    setLocalRootState({
+      baseRoot: props.workspaceRoot,
+      activeRoot: prev === props.workspaceRoot ? null : prev,
+      history: effectiveLocalState.history.slice(0, -1),
+    });
+  };
+
+  const resetRoot = () => {
+    if (props.onResetRoot) {
+      props.onResetRoot();
+      return;
+    }
+    setLocalRootState({ baseRoot: props.workspaceRoot, activeRoot: null, history: [] });
+  };
+
+  const canNavigateBack = usesExternalNavigation
+    ? (props.canNavigateBack ?? false)
+    : effectiveLocalState.history.length > 0;
+  const parentRoot = effectiveWorkspaceRoot ? parentWorkspaceRoot(effectiveWorkspaceRoot) : null;
+  const handleNavigateIntoDirectory = (relativePath: string) => {
+    if (!effectiveWorkspaceRoot) return;
+    navigateRoot(joinChildWorkspaceRoot(effectiveWorkspaceRoot, relativePath));
+  };
+
+  const prefetchEntry = useExplorerEntryPrefetch(effectiveWorkspaceRoot);
   const entryActions = useExplorerEntryActions({
-    workspaceRoot: props.workspaceRoot,
+    workspaceRoot: effectiveWorkspaceRoot,
     onReferenceInChat: props.onReferenceInChat,
     onSelectFile: props.onSelectFile,
     selectedFilePath: props.selectedFilePath,
+    onNavigateIntoDirectory: handleNavigateIntoDirectory,
   });
   const { downloadSelection } = entryActions;
   const handleResultEntryContextMenu = useResultEntryContextMenu(
     props.onReferenceInChat,
-    props.workspaceRoot,
+    effectiveWorkspaceRoot,
   );
   const handleListKeyDown = useExplorerListNavigation();
-  const search = useWorkspaceFileSearch(props.workspaceRoot, props.query);
+  const search = useWorkspaceFileSearch(effectiveWorkspaceRoot, props.query);
 
   return (
     <aside
@@ -825,21 +1118,34 @@ export function WorkspaceExplorerSidebar(props: {
                 onDownload={downloadSelection.download}
               />
             ) : null}
-            {props.workspaceRoot ? (
-              <ExplorerRefreshButton workspaceRoot={props.workspaceRoot} />
+            {effectiveWorkspaceRoot ? (
+              <ExplorerRefreshButton workspaceRoot={effectiveWorkspaceRoot} />
             ) : null}
           </>
         }
         onQueryChange={props.onQueryChange}
         onSelectFile={props.onSelectFile}
       />
+      {effectiveWorkspaceRoot ? (
+        <ExplorerNavigationBar
+          workspaceRoot={effectiveWorkspaceRoot}
+          projectWorkspaceRoot={projectRoot}
+          canNavigateBack={canNavigateBack}
+          onNavigateBack={navigateBack}
+          onNavigateUp={parentRoot ? () => navigateRoot(parentRoot) : null}
+          onResetRoot={resetRoot}
+        />
+      ) : null}
+      <ExplorerUploadProgressBar workspaceRoot={effectiveWorkspaceRoot} />
       {search.inputQuery.length === 0 ? (
         <WorkspaceFilesTreeBody
-          workspaceRoot={props.workspaceRoot}
+          workspaceRoot={effectiveWorkspaceRoot}
           selectedFilePath={props.selectedFilePath}
           expandedDirectories={props.expandedDirectories}
           onSelectFile={props.onSelectFile}
           onToggleDirectory={props.onToggleDirectory}
+          onNavigateUp={parentRoot ? () => navigateRoot(parentRoot) : undefined}
+          onNavigateIntoDirectory={handleNavigateIntoDirectory}
           onPrefetchEntry={prefetchEntry}
           onEntryContextMenu={entryActions.openEntryMenu}
           onRootContextMenu={entryActions.openRootMenu}
@@ -848,7 +1154,7 @@ export function WorkspaceExplorerSidebar(props: {
         />
       ) : (
         <WorkspaceSearchResultsBody
-          workspaceRoot={props.workspaceRoot}
+          workspaceRoot={effectiveWorkspaceRoot}
           search={search}
           selectedFilePath={props.selectedFilePath}
           onSelectFile={props.onSelectFile}

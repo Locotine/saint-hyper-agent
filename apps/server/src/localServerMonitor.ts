@@ -131,7 +131,7 @@ function execFileText(command: string, args: readonly string[]): Promise<string>
     execFile(
       command,
       [...args],
-      { encoding: "utf8", maxBuffer: PROCESS_OUTPUT_MAX_BUFFER_BYTES },
+      { encoding: "utf8", maxBuffer: PROCESS_OUTPUT_MAX_BUFFER_BYTES, windowsHide: true },
       (error, stdout) => {
         if (error) {
           reject(error);

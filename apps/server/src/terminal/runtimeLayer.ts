@@ -11,6 +11,7 @@ type RuntimePtyAdapterLoader = {
 const runtimePtyAdapterLoaders = {
   bun: () => import("./Layers/BunPTY"),
   node: () => import("./Layers/NodePTY"),
+  rust: () => import("./Layers/RustPTY"),
 } satisfies Record<PtyAdapterRuntime, () => Promise<RuntimePtyAdapterLoader>>;
 
 const makeRuntimePtyAdapterLayer = () =>
@@ -18,6 +19,7 @@ const makeRuntimePtyAdapterLayer = () =>
     const runtime = selectPtyAdapterRuntime({
       platform: process.platform,
       runtime: process.versions.bun !== undefined ? "bun" : "node",
+      env: process.env,
     });
     const loader = runtimePtyAdapterLoaders[runtime];
     const ptyAdapterModule = yield* Effect.promise<RuntimePtyAdapterLoader>(loader);

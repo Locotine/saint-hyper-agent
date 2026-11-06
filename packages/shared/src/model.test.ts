@@ -1106,6 +1106,12 @@ describe("normalizeAntigravityModelOptions", () => {
         runtimeCapabilities,
       ),
     ).toEqual({ reasoningEffort: "high" });
+    expect(normalizeAntigravityModelOptions("Gemini 4 Argon", { fastMode: true })).toEqual({
+      fastMode: true,
+    });
+    expect(
+      normalizeAntigravityModelOptions("Claude Sonnet 4.6", { fastMode: true }),
+    ).toBeUndefined();
   });
 });
 describe("normalizePiModelOptions", () => {

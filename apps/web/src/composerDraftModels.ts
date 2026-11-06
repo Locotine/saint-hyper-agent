@@ -437,9 +437,15 @@ export function normalizeProviderModelOptions(
       : undefined;
 
   const antigravityReasoningEffort = trimStringOrUndefined(antigravityCandidate?.reasoningEffort);
+  const antigravityFastMode = booleanOrUndefined(antigravityCandidate?.fastMode);
   const antigravity =
-    antigravityReasoningEffort !== undefined
-      ? { reasoningEffort: antigravityReasoningEffort }
+    antigravityReasoningEffort !== undefined || antigravityFastMode !== undefined
+      ? {
+          ...(antigravityReasoningEffort !== undefined
+            ? { reasoningEffort: antigravityReasoningEffort }
+            : {}),
+          ...(antigravityFastMode !== undefined ? { fastMode: antigravityFastMode } : {}),
+        }
       : undefined;
   const grokReasoningEffort: GrokReasoningEffort | undefined = isGrokReasoningEffort(
     grokCandidate?.reasoningEffort,
@@ -590,6 +596,7 @@ export function normalizeModelSelection(
   const normalizedOptions =
     provider === "antigravity" && hasLegacyAntigravityEffort
       ? {
+          ...modelOptions?.antigravity,
           reasoningEffort: modelOptions?.antigravity?.reasoningEffort ?? antigravityLegacyEffort,
         }
       : options;

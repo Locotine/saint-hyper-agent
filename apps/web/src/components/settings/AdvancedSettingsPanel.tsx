@@ -21,6 +21,7 @@ import { SETTINGS_INSET_LIST_CLASS_NAME } from "~/settingsPanelStyles";
 import { useStore } from "~/store";
 import { createAllThreadsMessagelessSelector, createThreadShellsSelector } from "~/storeSelectors";
 import { useSettingsRestoreSignal } from "./SettingControls";
+import { LanRelaySettingsSection } from "./LanRelaySettingsSection";
 import { SettingsRow, SettingsSection } from "./SettingsPanelPrimitives";
 
 export function AdvancedSettingsPanel(props: {
@@ -137,6 +138,7 @@ export function AdvancedSettingsPanel(props: {
 
   return (
     <div className="space-y-6">
+      <LanRelaySettingsSection active={props.active} />
       {authSessionQuery.data?.authenticated ? (
         <SettingsSection title="Session">
           <SettingsRow

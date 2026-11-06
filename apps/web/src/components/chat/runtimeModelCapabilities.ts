@@ -94,7 +94,7 @@ export function getRuntimeAwareModelCapabilities(input: {
   const staticCapabilities = getModelCapabilities(input.provider, input.model);
   // Runtime discovery is authoritative when available; the static table is only a startup fallback.
   const supportsFastMode =
-    input.provider === "claudeAgent"
+    input.provider === "claudeAgent" || input.provider === "antigravity"
       ? (input.runtimeModel?.supportsFastMode ?? staticCapabilities.supportsFastMode)
       : (input.provider === "codex" || input.provider === "cursor" || input.provider === "devin") &&
           input.runtimeModel

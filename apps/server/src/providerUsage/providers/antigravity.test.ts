@@ -14,6 +14,7 @@ import {
   antigravityUsageFetcher,
   parseAntigravityQuota,
   parseAntigravityQuotaSummary,
+  setAntigravityKeyringReaderForTest,
 } from "./antigravity";
 
 const NOW_MS = 1_780_000_000_000;
@@ -104,6 +105,7 @@ function makeGeminiHome(relativePath: string, creds: Record<string, unknown>) {
 }
 
 afterEach(() => {
+  setAntigravityKeyringReaderForTest(null);
   vi.restoreAllMocks();
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
@@ -536,5 +538,78 @@ describe("antigravityUsageFetcher", () => {
     expect(snapshot.limits).toEqual([]);
     expect(snapshot.detail).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("prefers the OS keyring agy token over a stale gemini-cli oauth_creds.json and merges Ultra Gemini buckets", async () => {
+    const { homeDir } = makeGeminiHome(".gemini/oauth_creds.json", {
+      access_token: "ya29-stale-gemini-cli",
+      expiry_date: NOW_MS - 60_000,
+    });
+    setAntigravityKeyringReaderForTest(async () => ({
+      auth_method: "consumer",
+      token: {
+        access_token: "ya29-keyring-agy",
+        refresh_token: "1//keyring-refresh",
+        expiry: new Date(NOW_MS + 3_600_000).toISOString(),
+      },
+    }));
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const target = String(url);
+      const headers = init?.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer ya29-keyring-agy");
+      if (isQuotaSummaryUrl(target)) {
+        return jsonResponse({
+          groups: [
+            {
+              groupName: "Claude, GPT-OSS",
+              buckets: [
+                {
+                  bucketId: "3p-5h",
+                  remainingFraction: 1,
+                  resetTime: "2026-05-28T17:00:00Z",
+                },
+                {
+                  bucketId: "3p-weekly",
+                  remainingFraction: 0.9,
+                  resetTime: "2026-06-04T12:00:00Z",
+                },
+              ],
+            },
+          ],
+        });
+      }
+      if (target.includes("loadCodeAssist")) {
+        return jsonResponse({
+          paidTier: { id: "g1-ultra-tier", name: "Google AI Ultra" },
+          cloudaicompanionProject: "ultra-proj-1",
+        });
+      }
+      if (isLegacyQuotaUrl(target)) {
+        return jsonResponse({
+          buckets: [
+            { modelId: "gemini-3.1-pro-high", remainingFraction: 0.95 },
+            { modelId: "gemini-3-flash-agent", remainingFraction: 0.8 },
+          ],
+        });
+      }
+      throw new Error(`unexpected url ${target}`);
+    });
+    stubOutboundFetch(fetchMock);
+
+    const snapshot = await antigravityUsageFetcher.fetch({
+      homeDir,
+      env: {},
+      platform: "win32",
+      nowMs: NOW_MS,
+    });
+
+    expect(snapshot.status).toBe("ok");
+    expect(snapshot.planName).toBe("Google AI Ultra");
+    expect(snapshot.limits.map((limit) => limit.window)).toEqual([
+      "Pro",
+      "Flash",
+      "Claude 5h",
+      "Claude Weekly",
+    ]);
   });
 });

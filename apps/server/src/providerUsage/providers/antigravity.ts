@@ -4,7 +4,10 @@
 // through the Google client that issued it, then calls Cloud Code retrieveUserQuotaSummary
 // (falling back to loadCodeAssist + retrieveUserQuota).
 
+import { execFile } from "node:child_process";
+import os from "node:os";
 import nodePath from "node:path";
+import { promisify } from "node:util";
 
 import type { ServerProviderUsageLimit } from "@saint/contracts";
 
@@ -151,8 +154,120 @@ function readGeminiCreds(candidate: GeminiCredCandidate, value: unknown): Gemini
   };
 }
 
+const execFileAsync = promisify(execFile);
+const KEYRING_SERVICE = "gemini";
+const KEYRING_ACCOUNT = "antigravity";
+const KEYRING_TARGET = `${KEYRING_SERVICE}:${KEYRING_ACCOUNT}`;
+const KEYRING_TIMEOUT_MS = 4_000;
+
+const WIN32_CRED_READ_SCRIPT = [
+  `$code = '[DllImport("advapi32.dll", SetLastError=true, CharSet=CharSet.Unicode)] public static extern bool CredReadW(string target, int type, int flag, out IntPtr cred); [DllImport("advapi32.dll")] public static extern void CredFree(IntPtr cred); [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] public struct CREDENTIAL { public int Flags; public int Type; public string TargetName; public string Comment; public long LastWritten; public int CredentialBlobSize; public IntPtr CredentialBlob; public int Persist; public int AttributeCount; public IntPtr Attributes; public string TargetAlias; public string UserName; }'`,
+  `Add-Type -MemberDefinition $code -Namespace Win32 -Name Cred`,
+  `$ptr = [IntPtr]::Zero`,
+  `if ([Win32.Cred]::CredReadW('${KEYRING_TARGET}', 1, 0, [ref]$ptr)) {`,
+  `  try {`,
+  `    $c = [Runtime.InteropServices.Marshal]::PtrToStructure($ptr, [Type][Win32.Cred+CREDENTIAL])`,
+  `    $bytes = New-Object byte[] $c.CredentialBlobSize`,
+  `    [Runtime.InteropServices.Marshal]::Copy($c.CredentialBlob, $bytes, 0, $c.CredentialBlobSize)`,
+  `    [Console]::OutputEncoding = [Text.Encoding]::UTF8`,
+  `    [Console]::Out.Write([Text.Encoding]::UTF8.GetString($bytes))`,
+  `  } finally {`,
+  `    [Win32.Cred]::CredFree($ptr)`,
+  `  }`,
+  `}`,
+].join("; ");
+
+let keyringReaderOverride: ((ctx: ProviderUsageContext) => Promise<unknown>) | null = null;
+const KEYRING_CACHE_TTL_MS = 5 * 60 * 1000;
+let cachedKeyringEntry: {
+  readonly homeDir: string;
+  readonly value: unknown;
+  readonly expiresAtMs: number;
+} | null = null;
+
+export function setAntigravityKeyringReaderForTest(
+  reader: ((ctx: ProviderUsageContext) => Promise<unknown>) | null,
+): void {
+  keyringReaderOverride = reader;
+  cachedKeyringEntry = null;
+}
+
+async function readOsKeyringAntigravityToken(ctx: ProviderUsageContext): Promise<unknown> {
+  if (keyringReaderOverride) {
+    return keyringReaderOverride(ctx);
+  }
+  if (ctx.isolateCredentials) return null;
+  const resolvedHome = nodePath.resolve(ctx.homeDir);
+  if (resolvedHome !== nodePath.resolve(os.homedir())) return null;
+  const nowMs = ctx.nowMs;
+  if (
+    cachedKeyringEntry &&
+    cachedKeyringEntry.homeDir === resolvedHome &&
+    nowMs < cachedKeyringEntry.expiresAtMs
+  ) {
+    return cachedKeyringEntry.value;
+  }
+  try {
+    let stdout = "";
+    if (ctx.platform === "win32") {
+      const result = await execFileAsync(
+        "powershell.exe",
+        [
+          "-WindowStyle",
+          "Hidden",
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          WIN32_CRED_READ_SCRIPT,
+        ],
+        { timeout: KEYRING_TIMEOUT_MS, windowsHide: true },
+      );
+      stdout = result.stdout;
+    } else if (ctx.platform === "darwin") {
+      const result = await execFileAsync(
+        "security",
+        ["find-generic-password", "-s", KEYRING_SERVICE, "-a", KEYRING_ACCOUNT, "-w"],
+        { timeout: KEYRING_TIMEOUT_MS },
+      );
+      stdout = result.stdout;
+    } else if (ctx.platform === "linux") {
+      const result = await execFileAsync(
+        "secret-tool",
+        ["lookup", "service", KEYRING_SERVICE, "account", KEYRING_ACCOUNT],
+        { timeout: KEYRING_TIMEOUT_MS },
+      );
+      stdout = result.stdout;
+    }
+    const trimmed = stdout.trim();
+    const parsed = trimmed ? (JSON.parse(trimmed) as unknown) : null;
+    cachedKeyringEntry = {
+      homeDir: resolvedHome,
+      value: parsed,
+      expiresAtMs: nowMs + KEYRING_CACHE_TTL_MS,
+    };
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveGeminiCreds(ctx: ProviderUsageContext): Promise<GeminiOAuthCreds | null> {
-  for (const candidate of geminiCredPaths(ctx)) {
+  const candidates = geminiCredPaths(ctx);
+  const antigravityCandidates = candidates.filter(
+    (candidate) => candidate.client === "antigravity",
+  );
+  for (const candidate of antigravityCandidates) {
+    const creds = readGeminiCreds(candidate, await readJsonFile(candidate.path));
+    if (creds) return creds;
+  }
+  const keyringTarget = antigravityCandidates[0] ?? {
+    path: nodePath.join(ctx.homeDir, ".gemini", "antigravity-cli", "antigravity-oauth-token"),
+    client: "antigravity" as const,
+  };
+  const keyringCreds = readGeminiCreds(keyringTarget, await readOsKeyringAntigravityToken(ctx));
+  if (keyringCreds) return keyringCreds;
+  for (const candidate of candidates) {
+    if (candidate.client === "antigravity") continue;
     const creds = readGeminiCreds(candidate, await readJsonFile(candidate.path));
     if (creds) return creds;
   }
@@ -431,12 +546,37 @@ export const antigravityUsageFetcher: ProviderUsageFetcher = {
           LOAD_CODE_ASSIST_BODY,
         ).catch(() => null);
         planName = planResult?.ok ? antigravityPlanName(planResult.json) : undefined;
+        let mergedLimits = summaryLimits;
+        const hasGeminiPool = summaryLimits.some(
+          (limit) => limit.window === "5h" || limit.window === "Weekly",
+        );
+        const assistProjectId = planResult?.ok
+          ? asString(asRecord(planResult.json)?.cloudaicompanionProject)
+          : undefined;
+        if (!hasGeminiPool && assistProjectId) {
+          const quotaResult = await postCloudCode(QUOTA_URL, creds.accessToken, {
+            project: assistProjectId,
+          }).catch(() => null);
+          if (quotaResult?.ok) {
+            const legacySnapshot = parseAntigravityQuota({
+              loadAssist: planResult?.json,
+              quota: quotaResult.json,
+              nowMs: ctx.nowMs,
+            });
+            if (legacySnapshot.limits.length > 0) {
+              mergedLimits = [...legacySnapshot.limits, ...summaryLimits].slice(
+                0,
+                MAX_QUOTA_WINDOWS,
+              );
+            }
+          }
+        }
         return buildSnapshot({
           provider: "antigravity",
           nowMs: ctx.nowMs,
           status: "ok",
           source: SOURCE,
-          limits: summaryLimits,
+          limits: mergedLimits,
           ...(planName ? { planName } : {}),
         });
       }

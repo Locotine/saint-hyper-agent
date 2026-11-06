@@ -1245,6 +1245,9 @@ export async function listWorkspaceDirectories(
   input: ProjectListDirectoriesInput,
 ): Promise<ProjectListDirectoriesResult> {
   const relativePath = input.relativePath?.trim() ?? "";
+  if (!relativePath) {
+    clearWorkspaceIndexCache(input.cwd);
+  }
   const resolvedTarget = relativePath
     ? resolveDirectoryWithinRoot(input.cwd, relativePath)
     : input.cwd;

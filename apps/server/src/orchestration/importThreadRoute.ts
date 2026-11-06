@@ -143,6 +143,7 @@ async function runClaudeSessionQueryInChildProcess<T>(input: {
         {
           env: claudeHistoricalSessionChildEnvironment(input.environment),
           maxBuffer: 64 * 1024 * 1024,
+          windowsHide: true,
         },
         (error, childStdout, childStderr) => {
           if (error) {

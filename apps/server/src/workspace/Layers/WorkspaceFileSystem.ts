@@ -50,6 +50,9 @@ async function listFolderForDownload(
       withFileTypes: true,
     });
     for (const entry of entries) {
+      if (entry.name === ".git" || entry.name === "node_modules") {
+        continue;
+      }
       const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
       if (entry.isDirectory()) {
         pending.push(relativePath);
@@ -947,10 +950,17 @@ export const makeWorkspaceFileSystem = Effect.gen(function* () {
   const openFileForDownload: WorkspaceFileSystemShape["openFileForDownload"] = Effect.fn(
     "WorkspaceFileSystem.openFileForDownload",
   )(function* (input) {
-    const target = yield* workspacePaths.resolveRelativePathWithinRoot({
-      workspaceRoot: input.cwd,
-      relativePath: input.relativePath,
-    });
+    const requestedRelativePath = input.relativePath.trim();
+    const isRootFolderDownload = requestedRelativePath === "" || requestedRelativePath === ".";
+    const target = isRootFolderDownload
+      ? {
+          absolutePath: path.resolve(input.cwd),
+          relativePath: ".",
+        }
+      : yield* workspacePaths.resolveRelativePathWithinRoot({
+          workspaceRoot: input.cwd,
+          relativePath: input.relativePath,
+        });
     const fail = (detail: string, cause: unknown) =>
       new WorkspaceFileSystemError({
         cwd: input.cwd,
@@ -993,7 +1003,9 @@ export const makeWorkspaceFileSystem = Effect.gen(function* () {
       });
     }
     if ("folder" in opened) {
-      const folderName = NodePath.basename(target.absolutePath);
+      const rawFolderName = NodePath.basename(target.absolutePath).replace(/[:\\/]+/g, "");
+      const folderName =
+        rawFolderName.length > 0 && rawFolderName !== "." ? rawFolderName : "workspace";
       return {
         fileName: `${folderName}.zip`,
         sizeBytes: null,

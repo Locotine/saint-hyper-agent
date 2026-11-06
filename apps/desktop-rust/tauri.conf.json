@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Saint",
+  "version": "1.1.17",
+  "identifier": "com.locotine.saint",
+  "build": {
+    "beforeDevCommand": "bun run --cwd ../web dev",
+    "devUrl": "http://localhost:5733",
+    "beforeBuildCommand": "bun run --cwd ../web build && bun run build:bridge",
+    "frontendDist": "../web/dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage"],
+    "createUpdaterArtifacts": true,
+    "externalBin": ["binaries/saint-server"],
+    "icon": [
+      "../desktop/resources/icon.ico",
+      "../desktop/resources/icon.icns",
+      "../desktop/resources/icon.png"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "entitlements": "../desktop/resources/entitlements.mac.plist"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/Locotine/saint-hyper-agent/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMzNTJCREMzODQxNEREMTAKUldRUTNSU0V3NzFTTTc1SnZxalZDWlFrZmhWZ0xkdTZJczducHFsSWl3VHpncEJiUUFTbld3dVQK"
+    }
+  }
+}

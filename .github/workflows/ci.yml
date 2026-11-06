@@ -132,7 +132,7 @@ jobs:
       matrix:
         include:
           - pkg: core
-            filters: "--filter=@saint/contracts --filter=@saint/shared --filter=@saint/scripts --filter=@saint/desktop"
+            filters: "--filter=@saint/contracts --filter=@saint/shared --filter=@saint/scripts --filter=@saint/desktop --filter=@saint/desktop-rust"
             test-args: ""
           - pkg: web
             filters: "--filter=@saint/web"

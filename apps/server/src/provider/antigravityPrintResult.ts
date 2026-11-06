@@ -22,14 +22,53 @@ export function isAntigravityPostResponseTimeout(value: string | undefined): boo
   );
 }
 
+export interface AntigravityTokenUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly cacheReadTokens: number;
+  readonly thinkingTokens: number;
+}
+
+function asNonNegativeInt(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.round(value)
+    : undefined;
+}
+
+export function parseAntigravityTokenUsage(value: unknown): AntigravityTokenUsage | undefined {
+  const usage = record(value);
+  if (!usage) return undefined;
+  const inputTokens = asNonNegativeInt(usage.input_tokens);
+  const outputTokens = asNonNegativeInt(usage.output_tokens);
+  const cacheReadTokens = asNonNegativeInt(usage.cache_read_tokens);
+  const thinkingTokens = asNonNegativeInt(usage.thinking_tokens);
+  if (
+    inputTokens === undefined &&
+    outputTokens === undefined &&
+    cacheReadTokens === undefined &&
+    thinkingTokens === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    inputTokens: inputTokens ?? 0,
+    outputTokens: outputTokens ?? 0,
+    cacheReadTokens: cacheReadTokens ?? 0,
+    thinkingTokens: thinkingTokens ?? 0,
+  };
+}
+
 type Step = {
   state?: unknown;
   type?: unknown;
   text: string;
+  usage?: AntigravityTokenUsage;
 };
 
 /** Consume complete records as they arrive; an interrupted final line must not erase prior output. */
-export function createAntigravityPrintResultParser() {
+export function createAntigravityPrintResultParser(options?: {
+  readonly onStepUsage?: (stepIndex: number, usage: AntigravityTokenUsage) => void;
+}) {
   let pending = "";
   let structured = false;
   let streamed = false;
@@ -95,11 +134,17 @@ export function createAntigravityPrintResultParser() {
         return;
       }
       const previous = steps.get(index);
+      const stepUsage = parseAntigravityTokenUsage(update.usage);
+      const effectiveUsage = stepUsage ?? previous?.usage;
       steps.set(index, {
         state: update.state ?? previous?.state,
         type: update.step_type ?? previous?.type,
         text: `${previous?.text ?? ""}${typeof update.text_delta === "string" ? update.text_delta : ""}`,
+        ...(effectiveUsage ? { usage: effectiveUsage } : {}),
       });
+      if (stepUsage) {
+        options?.onStepUsage?.(index, stepUsage);
+      }
     }
   };
 
@@ -148,6 +193,13 @@ export function createAntigravityPrintResultParser() {
         hasCompleteAssistantResponse && (state === undefined || state === "completed");
       const hasExplicitResultError = result !== undefined && Object.hasOwn(result, "error");
       const terminalError = typeof result?.error === "string" ? result.error : streamError;
+      const resultUsage = parseAntigravityTokenUsage(result?.usage);
+      const durationSeconds =
+        typeof result?.duration_seconds === "number" &&
+        Number.isFinite(result.duration_seconds) &&
+        result.duration_seconds >= 0
+          ? result.duration_seconds
+          : undefined;
       return {
         state,
         hasCompleteAssistantResponse,
@@ -164,6 +216,8 @@ export function createAntigravityPrintResultParser() {
           terminalError ??
           (state === "failed" ? `Antigravity ended with status ${result?.status}.` : undefined),
         ...(terminalError !== undefined ? { terminalError } : {}),
+        ...(resultUsage !== undefined ? { usage: resultUsage } : {}),
+        ...(durationSeconds !== undefined ? { durationSeconds } : {}),
         failed: state === "failed",
       };
     },

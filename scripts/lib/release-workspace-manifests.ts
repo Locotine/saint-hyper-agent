@@ -6,6 +6,7 @@ export const RELEASE_WORKSPACE_MANIFEST_PATHS = [
   "package.json",
   "apps/server/package.json",
   "apps/desktop/package.json",
+  "apps/desktop-rust/package.json",
   "apps/web/package.json",
   "packages/contracts/package.json",
   "packages/shared/package.json",

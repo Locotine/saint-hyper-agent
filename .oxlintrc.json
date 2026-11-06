@@ -1,8 +1,11 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "ignorePatterns": [
+    ".serena",
     "dist",
     "dist-electron",
+    "dist-bridge",
+    "target",
     "node_modules",
     "bun.lock",
     "*.tsbuildinfo",
