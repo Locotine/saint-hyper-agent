@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.1 — 2026-11-06
+
+**A Tauri v2 / Rust desktop app, a free-roaming Explorer with folder downloads, and LAN relay pairing for mobile.**
+
+This Stable release covers the commits after `v1.1.17`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.2.1).
+
+### Added
+
+- A Tauri v2 / Rust desktop shell (`apps/desktop-rust`) with the server as a sidecar, a Rust PTY host, and its own `Release Tauri` workflow and updater manifest.
+- Explorer navigation outside the project root with a back button to the parent folder, and a download button that saves the folder in view as a zip.
+- A LAN / Tailscale relay in Settings with QR pairing for phones.
+
+### Fixed
+
+- A steer message sent while a turn starts no longer loses the session update.
+- Antigravity turns that run past the print timeout no longer end with `print timeout after 30m0s with the turn still in progress`.
+- The Antigravity MCP plugin inherits the agent gateway URL and token instead of receiving literal `$VAR` strings, so Saint tools load.
+
 ## 1.1.17 — 2026-11-05
 
 **New chats on a remote host follow Settings' default provider, and a host's sidebar row adds a project directly.**
