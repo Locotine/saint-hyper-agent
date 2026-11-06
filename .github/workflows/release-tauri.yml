@@ -39,6 +39,7 @@ jobs:
       version: ${{ steps.release_meta.outputs.version }}
       tag: ${{ steps.release_meta.outputs.tag }}
       publish_release: ${{ steps.release_mode.outputs.publish_release }}
+      matrix: ${{ steps.build_matrix.outputs.include }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -53,6 +54,23 @@ jobs:
           PUBLISH_RELEASE: ${{ github.event_name == 'push' || inputs.publish_release }}
         run: |
           echo "publish_release=$PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
+
+      # The matrix context is unavailable in a job-level `if`, so the platform
+      # filter is applied here and the build job reads the filtered list.
+      - id: build_matrix
+        name: Resolve build platforms
+        shell: bash
+        env:
+          PLATFORM: ${{ inputs.platform || 'all' }}
+        run: |
+          ALL='[
+            {"id":"win-x64","label":"Windows x64","runner":"windows-2022","platform":"win","arch":"x64","rust_target":"x86_64-pc-windows-msvc"},
+            {"id":"mac-arm64","label":"macOS arm64","runner":"macos-15","platform":"mac","arch":"arm64","rust_target":"aarch64-apple-darwin"},
+            {"id":"mac-x64","label":"macOS x64","runner":"macos-15","platform":"mac","arch":"x64","rust_target":"x86_64-apple-darwin"},
+            {"id":"linux-x64","label":"Linux x64","runner":"ubuntu-24.04","platform":"linux","arch":"x64","rust_target":"x86_64-unknown-linux-gnu"}
+          ]'
+          INCLUDE="$(jq -c --arg p "$PLATFORM" 'map(select($p == "all" or .id == $p))' <<<"$ALL")"
+          echo "include=$INCLUDE" >> "$GITHUB_OUTPUT"
 
       - id: release_meta
         name: Validate stable release version
@@ -94,7 +112,6 @@ jobs:
   build_tauri:
     name: Build Tauri (${{ matrix.label }})
     needs: [preflight]
-    if: inputs.platform == '' || inputs.platform == 'all' || inputs.platform == matrix.id
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     permissions:
@@ -102,31 +119,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - id: win-x64
-            label: Windows x64
-            runner: windows-2022
-            platform: win
-            arch: x64
-            rust_target: x86_64-pc-windows-msvc
-          - id: mac-arm64
-            label: macOS arm64
-            runner: macos-15
-            platform: mac
-            arch: arm64
-            rust_target: aarch64-apple-darwin
-          - id: mac-x64
-            label: macOS x64
-            runner: macos-15
-            platform: mac
-            arch: x64
-            rust_target: x86_64-apple-darwin
-          - id: linux-x64
-            label: Linux x64
-            runner: ubuntu-24.04
-            platform: linux
-            arch: x64
-            rust_target: x86_64-unknown-linux-gnu
+        include: ${{ fromJSON(needs.preflight.outputs.matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
