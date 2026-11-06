@@ -132,7 +132,7 @@ jobs:
       matrix:
         include:
           - pkg: core
-            filters: "--filter=@saint/contracts --filter=@saint/shared --filter=@saint/scripts --filter=@saint/desktop --filter=@saint/desktop-rust"
+            filters: "--filter=@saint/contracts --filter=@saint/shared --filter=@saint/scripts --filter=@saint/desktop-rust"
             test-args: ""
           - pkg: web
             filters: "--filter=@saint/web"
@@ -226,31 +226,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # Electron is retired; the Tauri shell bundles the web client and this
+      # preload bridge, and release-tauri.yml builds the native app per platform.
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
-        with:
-          electron: "true"
-          turbo: "true"
 
-      - name: Build desktop pipeline
-        run: bun run build:desktop
+      - name: Build web client
+        run: bun run --cwd apps/web build
 
-      - name: Configure Electron sandbox helper
-        run: |
-          sandbox_helper="$(node -p "require('node:path').join(require('node:path').dirname(require('./apps/desktop/node_modules/electron')), 'chrome-sandbox')")"
-          sudo chown root:root "$sandbox_helper"
-          sudo chmod 4755 "$sandbox_helper"
-
-      - name: Verify live Electron browser lifecycle
-        run: xvfb-run -a bun run --cwd apps/desktop smoke:browser-lifecycle
-
-      - name: Verify browser navigation preserves composer focus
-        run: xvfb-run -a bun run --cwd apps/web test:electron:e2e visibleBrowserMcp.e2e.ts --grep 'preserves composer keyboard ownership'
+      - name: Build Tauri preload bridge
+        run: bun run --cwd apps/desktop-rust build:bridge
 
       - name: Verify preload bundle output
         run: |
-          test -f apps/desktop/dist-electron/preload.js
-          grep -nE "desktopBridge|getWsUrl|PICK_FOLDER_CHANNEL|wsUrl" apps/desktop/dist-electron/preload.js
+          test -f apps/desktop-rust/dist-bridge/preloadBridge.iife.js
+          grep -nE "desktopBridge" apps/desktop-rust/dist-bridge/preloadBridge.iife.js
 
   # Aggregate only: no checkout, install, build or test execution.
   # Preserve the branch-protection display name and always() failure handling.
@@ -371,12 +361,6 @@ jobs:
       # exactly what Windows treats differently: unlinking a marker, reclaiming
       # stranded partials, and renaming a database file that may still be held
       # open. Linux-only coverage cannot speak for any of that.
-      - name: Test Windows desktop shutdown and migration recovery
-        run: >-
-          bun run --cwd apps/desktop test
-          src/backendShutdown.windows.integration.test.ts
-          src/desktopMigrationRecovery.test.ts
-
   # Released (id, name) migration pairs are recorded in every user's
   # effect_sql_migrations table, so renumbering or renaming one corrupts existing
   # installs. This job needs the release tags, hence the unshallow checkout; the

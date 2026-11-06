@@ -24,6 +24,9 @@ on:
 
 permissions: {}
 
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
 concurrency:
   group: saint-desktop-tauri-release-${{ github.ref }}
   cancel-in-progress: false

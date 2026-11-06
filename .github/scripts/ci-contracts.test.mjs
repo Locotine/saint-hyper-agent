@@ -131,9 +131,7 @@ test("native Windows runtime and recovery tests are not replaced with Linux chec
     "src/processRunner.test.ts",
     "src/providerUsage/providers/droidSecureStorage.test.ts",
     "src/windowsProcessEffect.test.ts",
-    "src/backendShutdown.windows.integration.test.ts",
     "src/migrationRecovery.test.ts",
-    "src/desktopMigrationRecovery.test.ts",
     "src/persistence/MigrationBackup.test.ts",
     "src/persistence/Migrations/MigrationReplay.test.ts",
   ])
