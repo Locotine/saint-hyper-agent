@@ -456,8 +456,6 @@ describe("Antigravity CLI integration helpers", () => {
             command: stdioProxy.command,
             args: stdioProxy.args,
             env: {
-              SAINT_AGENT_GATEWAY_URL: "$SAINT_AGENT_GATEWAY_URL",
-              SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN: "$SAINT_AGENT_GATEWAY_BOOTSTRAP_TOKEN",
               ELECTRON_RUN_AS_NODE: "1",
             },
             disabled: false,

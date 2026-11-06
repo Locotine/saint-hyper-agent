@@ -637,6 +637,7 @@ export async function ensureCapturePlugin(
       {
         $schema: "https://antigravity.google/schemas/v1/plugin.json",
         name: "saint-capture",
+        version: "1.0.0",
         description: "Streams Antigravity CLI lifecycle events to Saint when requested.",
       },
       null,

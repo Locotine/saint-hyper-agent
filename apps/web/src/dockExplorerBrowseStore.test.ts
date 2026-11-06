@@ -30,12 +30,16 @@ describe("dockExplorerBrowseStore", () => {
       openFilePaths: ["src/a.ts"],
       expandedDirectories: new Set(["src"]),
       searchQuery: "read",
+      activeRootPath: null,
+      rootHistory: [],
     });
     expect(stateB).toEqual({
       selectedFilePath: "docs/b.md",
       openFilePaths: ["docs/b.md"],
       expandedDirectories: new Set(),
       searchQuery: "",
+      activeRootPath: null,
+      rootHistory: [],
     });
   });
 

@@ -2,8 +2,11 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
     ".plans",
+    ".serena",
     "dist",
     "dist-electron",
+    "dist-bridge",
+    "target",
     "node_modules",
     "bun.lock",
     "apps/server/remote-deps",

@@ -20,8 +20,20 @@ pub const BACKEND_MAX_CONSECUTIVE_START_FAILURES: u32 = 3;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VoiceTranscriptionInput {
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub provider_instance_id: Option<String>,
+    #[serde(default)]
+    pub cwd: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
     pub audio_base64: String,
     pub mime_type: String,
+    #[serde(default)]
+    pub sample_rate_hz: Option<u32>,
+    #[serde(default)]
+    pub duration_ms: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
 }
@@ -339,14 +351,46 @@ impl BackendSupervisor {
         &self,
         input: VoiceTranscriptionInput,
     ) -> Result<VoiceTranscriptionResult, String> {
+        use base64::Engine as _;
+
         let base_url = self
             .current_http_base_url()
             .ok_or_else(|| "Backend server is not ready".to_string())?;
+        let audio_bytes = base64::engine::general_purpose::STANDARD
+            .decode(input.audio_base64.trim())
+            .map_err(|e| format!("Invalid audioBase64 payload: {e}"))?;
+
+        let mut query_params: Vec<(&str, String)> = vec![
+            ("mimeType", input.mime_type.clone()),
+            ("token", self.auth_token.clone()),
+        ];
+        if let Some(provider) = &input.provider {
+            query_params.push(("provider", provider.clone()));
+        }
+        if let Some(provider_instance_id) = &input.provider_instance_id {
+            query_params.push(("providerInstanceId", provider_instance_id.clone()));
+        }
+        if let Some(cwd) = &input.cwd {
+            query_params.push(("cwd", cwd.clone()));
+        }
+        if let Some(thread_id) = &input.thread_id {
+            query_params.push(("threadId", thread_id.clone()));
+        }
+        if let Some(sample_rate_hz) = input.sample_rate_hz {
+            query_params.push(("sampleRateHz", sample_rate_hz.to_string()));
+        }
+        if let Some(duration_ms) = input.duration_ms {
+            query_params.push(("durationMs", duration_ms.to_string()));
+        }
+
         let endpoint = format!("{base_url}/api/voice/transcribe");
         let client = reqwest::Client::new();
         let response = client
             .post(endpoint)
-            .json(&input)
+            .query(&query_params)
+            .header(reqwest::header::CONTENT_TYPE, input.mime_type)
+            .bearer_auth(&self.auth_token)
+            .body(audio_bytes)
             .send()
             .await
             .map_err(|e| e.to_string())?;
