@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for Saint Desktop main window and child browser webviews",
+  "windows": ["main", "remote-*"],
+  "webviews": ["main", "browser-*"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:default",
+    "core:webview:default",
+    "dialog:default",
+    "shell:default",
+    "notification:default",
+    "global-shortcut:default",
+    "updater:default",
+    "clipboard-manager:default"
+  ]
+}

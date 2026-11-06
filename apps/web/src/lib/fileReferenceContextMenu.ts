@@ -44,13 +44,14 @@ export async function showFileReferenceContextMenu(input: {
    * selection. Their presence switches to the Explorer's VS Code-like order.
    */
   explorerActions?: {
+    readonly onOpenFolder?: () => void;
     readonly onNewFile: () => void;
     readonly onNewFolder: () => void;
     readonly onRename: () => void;
     readonly onDelete: () => void;
     /** Delete's label when it acts on several entries ("Delete 3 items…"). */
     readonly deleteLabel?: string;
-    /** Remote windows: saves the targeted files on this computer. */
+    /** Saves the targeted files or folders (as .zip) on this computer. */
     readonly download?: { readonly label: string; readonly onDownload: () => void };
   };
 }): Promise<void> {
@@ -117,8 +118,13 @@ export async function showFileReferenceContextMenu(input: {
   const clicked = await api.contextMenu.show<FileReferenceMenuItemId>(
     explorer
       ? [
+          ...(explorer.onOpenFolder ? [{ id: "open-folder" as const, label: "Open Folder" }] : []),
           // VS Code's Explorer order: create | download | copy, reference | edit.
-          { id: "new-file", label: "New File…" },
+          {
+            id: "new-file",
+            label: "New File…",
+            ...(explorer.onOpenFolder ? { separatorBefore: true } : {}),
+          },
           { id: "new-folder", label: "New Folder…" },
           ...(explorer.download
             ? [{ id: "download" as const, label: explorer.download.label, separatorBefore: true }]
@@ -131,6 +137,10 @@ export async function showFileReferenceContextMenu(input: {
       : [...referenceItems, ...copyPathItems(false)],
     input.position,
   );
+  if (clicked === "open-folder") {
+    input.explorerActions?.onOpenFolder?.();
+    return;
+  }
   if (clicked === "reference-in-chat") {
     input.onReferenceInChat?.(reference);
     return;
@@ -168,6 +178,7 @@ export async function showFileReferenceContextMenu(input: {
 }
 
 type FileReferenceMenuItemId =
+  | "open-folder"
   | "reference-in-chat"
   | "ask-why-in-chat"
   | "reveal-in-folder"

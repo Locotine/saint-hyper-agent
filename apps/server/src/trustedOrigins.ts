@@ -20,6 +20,9 @@ export const DESKTOP_APP_CORS_ORIGINS: ReadonlySet<string> = new Set([
   SAINT_CANARY_DESKTOP_ORIGIN,
   SAINT_CUA_DESKTOP_ORIGIN,
   SAINT_BETA_DESKTOP_ORIGIN,
+  "http://tauri.localhost",
+  "https://tauri.localhost",
+  "tauri://localhost",
 ]);
 
 export function normalizeCorsOrigin(rawOrigin: string | ReadonlyArray<string> | undefined) {

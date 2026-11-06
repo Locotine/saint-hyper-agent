@@ -358,7 +358,10 @@ const runBoundedProviderCall = <E, R>(input: {
 
 export function isSafeLegacyProviderBlocker(lastError: string | null): boolean {
   const normalized = lastError?.toLowerCase() ?? "";
-  return normalized.includes("stdin closed before the frame was written");
+  return (
+    normalized.includes("stdin closed before the frame was written") ||
+    normalized.includes("session changed before the conditional update")
+  );
 }
 
 function toNonEmptyProviderInput(value: string | undefined): string | undefined {
@@ -1770,19 +1773,29 @@ const make = Effect.gen(function* () {
     readonly expectedSession?: Pick<OrchestrationSession, "status" | "updatedAt">;
     readonly createdAt: string;
   }) =>
-    orchestrationEngine.dispatch({
-      type: "thread.session.set",
-      commandId: serverCommandId("provider-session-set"),
-      threadId: input.threadId,
-      session: input.session,
-      ...(input.expectedSession !== undefined
-        ? {
-            expectedSessionStatus: input.expectedSession.status,
-            expectedSessionUpdatedAt: input.expectedSession.updatedAt,
-          }
-        : {}),
-      createdAt: input.createdAt,
-    });
+    orchestrationEngine
+      .dispatch({
+        type: "thread.session.set",
+        commandId: serverCommandId("provider-session-set"),
+        threadId: input.threadId,
+        session: input.session,
+        ...(input.expectedSession !== undefined
+          ? {
+              expectedSessionStatus: input.expectedSession.status,
+              expectedSessionUpdatedAt: input.expectedSession.updatedAt,
+            }
+          : {}),
+        createdAt: input.createdAt,
+      })
+      .pipe(
+        Effect.catchTag("OrchestrationCommandInvariantError", (error) =>
+          input.expectedSession !== undefined &&
+          error.detail ===
+            `Thread '${input.threadId}' session changed before the conditional update.`
+            ? Effect.void
+            : Effect.fail(error),
+        ),
+      );
 
   const resolveKnownProviderForModelSelection = Effect.fnUntraced(function* (
     modelSelection: ModelSelection,
@@ -9808,7 +9821,7 @@ const make = Effect.gen(function* () {
           if (Option.isNone(reconciled)) continue;
 
           quarantinedThreads.delete(blocker.threadId);
-          if (settledQuit) {
+          if (settledQuit || isSafeLegacyProviderBlocker(blocker.lastError)) {
             const remaining = yield* deliveryRepository.firstBlockingDeliveryForThread({
               consumerName: PROVIDER_COMMAND_REACTOR_CONSUMER,
               threadId: blocker.threadId,

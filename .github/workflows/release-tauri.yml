@@ -1,0 +1,255 @@
+name: Release Desktop (Tauri Rust)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (for example 1.1.18 or v1.1.18)"
+        required: true
+        type: string
+      publish_release:
+        description: "Publish installers and latest.json to GitHub Releases"
+        required: true
+        default: false
+        type: boolean
+      platform:
+        description: "Target platform scope"
+        required: false
+        type: choice
+        default: all
+        options: [all, win-x64, mac-arm64, mac-x64, linux-x64]
+
+permissions: {}
+
+concurrency:
+  group: saint-desktop-tauri-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Preflight & Rust Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.release_meta.outputs.version }}
+      tag: ${{ steps.release_meta.outputs.tag }}
+      publish_release: ${{ steps.release_mode.outputs.publish_release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - id: release_mode
+        name: Resolve publication mode
+        shell: bash
+        env:
+          PUBLISH_RELEASE: ${{ github.event_name == 'push' || inputs.publish_release }}
+        run: |
+          echo "publish_release=$PUBLISH_RELEASE" >> "$GITHUB_OUTPUT"
+
+      - id: release_meta
+        name: Validate stable release version
+        shell: bash
+        env:
+          RAW_VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
+        run: |
+          CLEAN_VERSION="$(node -e "import('./scripts/sync-tauri-release-version.ts').then(m => process.stdout.write(m.normalizeReleaseVersion(process.env.RAW_VERSION)))")"
+          echo "version=$CLEAN_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$CLEAN_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux Tauri & X11 system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            libxcb1-dev \
+            libxrandr-dev \
+            libdbus-1-dev
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "apps/desktop-rust -> target"
+
+      - name: Verify preload bridge unit tests
+        run: bun run --cwd apps/desktop-rust test
+
+      - name: Verify Rust core unit tests
+        run: bun run --cwd apps/desktop-rust test:rust
+
+  build_tauri:
+    name: Build Tauri (${{ matrix.label }})
+    needs: [preflight]
+    if: inputs.platform == '' || inputs.platform == 'all' || inputs.platform == matrix.id
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: win-x64
+            label: Windows x64
+            runner: windows-2022
+            platform: win
+            arch: x64
+            rust_target: x86_64-pc-windows-msvc
+          - id: mac-arm64
+            label: macOS arm64
+            runner: macos-15
+            platform: mac
+            arch: arm64
+            rust_target: aarch64-apple-darwin
+          - id: mac-x64
+            label: macOS x64
+            runner: macos-15
+            platform: mac
+            arch: x64
+            rust_target: x86_64-apple-darwin
+          - id: linux-x64
+            label: Linux x64
+            runner: ubuntu-24.04
+            platform: linux
+            arch: x64
+            rust_target: x86_64-unknown-linux-gnu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Linux Tauri system libraries
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            libxcb1-dev \
+            libxrandr-dev \
+            libdbus-1-dev \
+            file
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "apps/desktop-rust -> target"
+          key: ${{ matrix.id }}
+
+      - name: Synchronize release version in Tauri manifests
+        run: node scripts/sync-tauri-release-version.ts "${{ needs.preflight.outputs.version }}"
+
+      - name: Build production web client (@saint/web)
+        run: bun run --cwd apps/web build
+
+      - name: Build preload bridge (@saint/desktop-rust)
+        run: bun run --cwd apps/desktop-rust build:bridge
+
+      - name: Build standalone server sidecar
+        run: bun run scripts/build-server-sidecar.ts --target "${{ matrix.rust_target }}"
+
+      - name: Build Tauri native bundles
+        working-directory: apps/desktop-rust
+        env:
+          CI: "true"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bunx @tauri-apps/cli@^2.4.0 build --target "${{ matrix.rust_target }}"
+
+      - name: Stage platform release assets
+        shell: bash
+        run: |
+          mkdir -p release-tauri-assets
+          BUNDLE_DIR="apps/desktop-rust/target/${{ matrix.rust_target }}/release/bundle"
+          if [ -d "$BUNDLE_DIR" ]; then
+            find "$BUNDLE_DIR" -type f \( \
+              -name "*.exe" -o \
+              -name "*.msi" -o \
+              -name "*.dmg" -o \
+              -name "*.app.tar.gz" -o \
+              -name "*.AppImage" -o \
+              -name "*.deb" -o \
+              -name "*.rpm" -o \
+              -name "*.sig" \
+            \) -exec cp -v {} release-tauri-assets/ \;
+          fi
+          ls -la release-tauri-assets/
+
+      - name: Upload platform Tauri bundles
+        uses: actions/upload-artifact@v7
+        with:
+          name: tauri-desktop-${{ matrix.id }}
+          path: release-tauri-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish_tauri_release:
+    name: Publish Tauri GitHub Release
+    needs: [preflight, build_tauri]
+    if: needs.preflight.outputs.publish_release == 'true' && (inputs.platform == '' || inputs.platform == 'all')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+
+      - name: Download all Tauri platform bundles
+        uses: actions/download-artifact@v8
+        with:
+          pattern: tauri-desktop-*
+          path: tauri-release-artifacts
+          merge-multiple: true
+
+      - name: Generate Tauri updater manifest (latest.json)
+        run: |
+          node scripts/sync-tauri-release-version.ts \
+            --generate-latest-json tauri-release-artifacts \
+            --version "${{ needs.preflight.outputs.version }}" \
+            --tag "${{ needs.preflight.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --out tauri-release-artifacts/latest.json
+          cp tauri-release-artifacts/latest.json tauri-release-artifacts/saint-tauri-latest.json
+          cat tauri-release-artifacts/latest.json
+
+      - name: Publish or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" tauri-release-artifacts/* --clobber
+          else
+            gh release create "$TAG" tauri-release-artifacts/* --title "Saint v$VERSION" --generate-notes --latest
+          fi

@@ -22,7 +22,11 @@ import { showFileReferenceContextMenu } from "~/lib/fileReferenceContextMenu";
 import { projectQueryKeys } from "~/lib/projectReactQuery";
 import { isMacPlatform, getNavigatorPlatform } from "~/lib/utils";
 import { useRemoteSshState } from "~/hooks/useRemoteSshState";
-import { canDownloadWorkspaceFiles, downloadWorkspaceFiles } from "~/lib/workspaceDownload";
+import {
+  canDownloadWorkspaceFiles,
+  downloadWorkspaceFiles,
+  folderNameOfWorkspaceRoot,
+} from "~/lib/workspaceDownload";
 import { remoteHostAlias } from "../settings/remoteHostsSettingsModel";
 import { ensureLocalNativeApi } from "~/nativeApi";
 import { RenameDialog } from "../RenameDialog";
@@ -108,6 +112,8 @@ export function useExplorerEntryActions(input: {
   readonly onSelectFile?: (path: string) => void;
   /** File open in the preview: seeds a multi-selection and follows a move or rename. */
   readonly selectedFilePath?: string | null;
+  /** Navigates the Explorer root into a child directory when provided. */
+  readonly onNavigateIntoDirectory?: (relativePath: string) => void;
 }): {
   readonly openEntryMenu: (
     entry: Pick<ProjectFileSystemEntry, "path" | "kind">,
@@ -257,38 +263,49 @@ export function useExplorerEntryActions(input: {
   };
 
   const downloadEntries = async (targets: readonly ExplorerSelectableEntry[]) => {
-    if (!workspaceRoot || !hostAlias) return;
+    if (!workspaceRoot) return;
     const [first] = targets;
     if (!first) return;
+    const isRootArchive = targets.length === 1 && (first.path === "." || first.path === "");
+    const singleDownloadName = isRootArchive
+      ? `${folderNameOfWorkspaceRoot(workspaceRoot)}.zip`
+      : `${fileNameOf(first.path)}${first.kind === "directory" ? ".zip" : ""}`;
     const toastId = toastManager.add({
       type: "loading",
       title:
         targets.length === 1
-          ? `Downloading ${fileNameOf(first.path)}${first.kind === "directory" ? ".zip" : ""}…`
+          ? `Downloading ${singleDownloadName}…`
           : `Downloading ${downloadCountLabel(targets)}…`,
       timeout: 0,
     });
     try {
       const result = await downloadWorkspaceFiles({
         host: hostAlias,
+        hostId,
         cwd: workspaceRoot,
         entries: targets,
       });
       toastManager.close(toastId);
       if (!result) {
-        toastManager.add({ type: "error", title: "Downloading needs the Saint desktop app" });
+        toastManager.add({ type: "error", title: "Could not download files" });
         return;
       }
       const [firstSaved] = result.saved;
       if (firstSaved) {
+        const folderHint = localFolderOf(firstSaved.path);
         toastManager.add({
           type: "success",
           title:
             result.saved.length === 1
               ? `Downloaded ${firstSaved.fileName}`
               : `Downloaded ${result.saved.length} ${targets.some((entry) => entry.kind === "directory") ? "items" : "files"}`,
-          description:
-            result.saved.length === 1 ? firstSaved.path : `To ${localFolderOf(firstSaved.path)}`,
+          ...(result.saved.length === 1
+            ? firstSaved.path !== firstSaved.fileName
+              ? { description: firstSaved.path }
+              : {}
+            : folderHint
+              ? { description: `To ${folderHint}` }
+              : {}),
         });
       }
       for (const failure of result.failures) {
@@ -351,7 +368,7 @@ export function useExplorerEntryActions(input: {
     forgetSelected(movedFrom);
   };
 
-  const canDownload = hostAlias !== null && canDownloadWorkspaceFiles(hostId);
+  const canDownload = workspaceRoot !== null && canDownloadWorkspaceFiles(hostId);
 
   const openEntryMenu = (
     entry: Pick<ProjectFileSystemEntry, "path" | "kind">,
@@ -369,6 +386,9 @@ export function useExplorerEntryActions(input: {
       ...(workspaceRoot
         ? {
             explorerActions: {
+              ...(entry.kind === "directory" && input.onNavigateIntoDirectory
+                ? { onOpenFolder: () => input.onNavigateIntoDirectory?.(entry.path) }
+                : {}),
               onNewFile: () => setNameRequest({ action: "create", kind: "file", directory }),
               onNewFolder: () => setNameRequest({ action: "create", kind: "directory", directory }),
               onRename: () => setNameRequest({ action: "rename", entry }),
@@ -393,7 +413,7 @@ export function useExplorerEntryActions(input: {
     });
   };
 
-  // Empty space below the rows: only creation applies, in the workspace root.
+  // Empty space below the rows: creation and downloading the current folder as ZIP.
   const openRootMenu = (position: { x: number; y: number }) => {
     if (!workspaceRoot) return;
     void ensureLocalNativeApi()
@@ -401,6 +421,15 @@ export function useExplorerEntryActions(input: {
         [
           { id: "new-file" as const, label: "New File…" },
           { id: "new-folder" as const, label: "New Folder…" },
+          ...(canDownload
+            ? [
+                {
+                  id: "download-root" as const,
+                  label: "Download Current Folder as ZIP",
+                  separatorBefore: true,
+                },
+              ]
+            : []),
         ],
         position,
       )
@@ -409,6 +438,7 @@ export function useExplorerEntryActions(input: {
           setNameRequest({ action: "create", kind: "file", directory: "" });
         if (clicked === "new-folder")
           setNameRequest({ action: "create", kind: "directory", directory: "" });
+        if (clicked === "download-root") void downloadEntries([{ path: ".", kind: "directory" }]);
       });
   };
 
@@ -513,12 +543,13 @@ export function useExplorerEntryActions(input: {
     onTreeKeyDown,
   };
 
-  // The header button acts on the multi-selection, or else on the open file.
+  // The header button acts on the multi-selection in the tree, or else downloads the entire
+  // currently viewed folder as a .zip archive.
   const downloadTargets: readonly ExplorerSelectableEntry[] =
     selectedEntries.length > 0
       ? selectedEntries
-      : selectedFilePath
-        ? [{ path: selectedFilePath, kind: "file" }]
+      : workspaceRoot
+        ? [{ path: ".", kind: "directory" }]
         : [];
   const downloadSelection = canDownload
     ? {

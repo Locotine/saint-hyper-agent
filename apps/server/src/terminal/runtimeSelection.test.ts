@@ -46,4 +46,19 @@ describe("selectPtyAdapterRuntime", () => {
       "node",
     );
   });
+
+  it("selects the Rust portable-pty adapter when configured by the Tauri desktop host", () => {
+    assert.equal(
+      selectPtyAdapterRuntime({
+        platform: "win32",
+        runtime: "bun",
+        env: {
+          SAINT_NATIVE_PTY_BACKEND: "rust-portable-pty",
+          SAINT_RUST_PTY_PORT: "51234",
+          SAINT_RUST_PTY_TOKEN: "secret-token",
+        },
+      }),
+      "rust",
+    );
+  });
 });

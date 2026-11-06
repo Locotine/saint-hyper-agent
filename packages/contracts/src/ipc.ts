@@ -1069,6 +1069,28 @@ export interface DesktopWorkspaceDownloadResult {
   readonly failures: ReadonlyArray<{ readonly fileName: string; readonly message: string }>;
 }
 
+export interface DesktopLanRelayClientSession {
+  readonly sessionId: string;
+  readonly label: string;
+  readonly remoteAddress: string;
+  readonly userAgent: string | null;
+  readonly createdAt: string;
+  readonly lastSeenAt: string;
+}
+
+export interface DesktopLanRelayState {
+  readonly enabled: boolean;
+  readonly port: number;
+  readonly lanAddresses: readonly string[];
+  readonly tailscaleAddresses: readonly string[];
+  readonly preferredHost: string | null;
+  readonly pairingToken: string;
+  readonly pairingUrl: string | null;
+  readonly qrSvg: string | null;
+  readonly activeSessions: readonly DesktopLanRelayClientSession[];
+  readonly error: string | null;
+}
+
 export interface DesktopBridge {
   /** Present only when the desktop main process enables baked-in Beta diagnostics. */
   betaDiagnostics?: {
@@ -1211,6 +1233,22 @@ export interface DesktopBridge {
       readonly items: readonly DesktopWorkspaceDownloadItem[];
     }) => Promise<DesktopWorkspaceDownloadResult>;
     onState: (listener: (state: DesktopRemoteSshState) => void) => () => void;
+  };
+  /**
+   * Mobile LAN / Tailscale relay owned by the desktop shell: exposes a token-gated
+   * HTTP + WebSocket reverse proxy on 0.0.0.0:<port> with QR pairing and instant
+   * session revocation while keeping `saint-server` bound to 127.0.0.1.
+   */
+  lanRelay?: {
+    getState: () => Promise<DesktopLanRelayState>;
+    setEnabled: (input: {
+      readonly enabled: boolean;
+      readonly port?: number;
+    }) => Promise<DesktopLanRelayState>;
+    rotatePairingToken: () => Promise<DesktopLanRelayState>;
+    revokeSession: (input: { readonly sessionId: string }) => Promise<DesktopLanRelayState>;
+    revokeAllSessions: () => Promise<DesktopLanRelayState>;
+    onState: (listener: (state: DesktopLanRelayState) => void) => () => void;
   };
   /** Stable→Beta opt-in surface. Absent on builds that do not ship it. */
   beta?: {

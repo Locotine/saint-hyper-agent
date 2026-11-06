@@ -168,6 +168,7 @@ import {
   effectiveComposerAttachmentCount,
 } from "../lib/composerSend";
 import {
+  deriveAntigravityFallbackContextWindowSnapshot,
   deriveContextWindowSelectionStatus,
   deriveComposerContextWindowLabel,
   deriveObservedClaudeContextBudget,
@@ -4931,7 +4932,14 @@ export default function ChatView({
     selectedProviderModelOptions,
     selectedRuntimeModel,
   );
-  const runtimeUsageContextWindow = activeContextWindow;
+  const runtimeUsageContextWindow = useMemo(
+    () =>
+      activeContextWindow ??
+      (selectedProvider === "antigravity"
+        ? deriveAntigravityFallbackContextWindowSnapshot(selectedModel, activeThread?.messages)
+        : null),
+    [activeContextWindow, activeThread?.messages, selectedModel, selectedProvider],
+  );
   const claudeSwitchKey =
     (activeThread?.messages.length ?? 0) > 0 &&
     boundProvider === "claudeAgent" &&

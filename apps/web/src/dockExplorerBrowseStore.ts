@@ -17,6 +17,10 @@ export interface DockExplorerBrowseState {
   openFilePaths: readonly string[];
   expandedDirectories: ReadonlySet<string>;
   searchQuery: string;
+  /** Custom browsed folder root when the user navigates up (`..`) or into a folder; null for the project workspace root. */
+  activeRootPath: string | null;
+  /** History stack of previously visited roots for the Back button. */
+  rootHistory: readonly string[];
 }
 
 // Shared immutable snapshot returned for threads with no recorded state, so a
@@ -26,10 +30,13 @@ export const EMPTY_DOCK_EXPLORER_BROWSE_STATE: DockExplorerBrowseState = {
   openFilePaths: [],
   expandedDirectories: new Set<string>(),
   searchQuery: "",
+  activeRootPath: null,
+  rootHistory: [],
 };
 Object.freeze(EMPTY_DOCK_EXPLORER_BROWSE_STATE);
 Object.freeze(EMPTY_DOCK_EXPLORER_BROWSE_STATE.expandedDirectories);
 Object.freeze(EMPTY_DOCK_EXPLORER_BROWSE_STATE.openFilePaths);
+Object.freeze(EMPTY_DOCK_EXPLORER_BROWSE_STATE.rootHistory);
 
 interface DockExplorerBrowseStore {
   browseStateByThreadId: Record<string, DockExplorerBrowseState>;
@@ -40,6 +47,9 @@ interface DockExplorerBrowseStore {
   setSearchQuery: (threadId: ThreadId, query: string) => void;
   toggleDirectory: (threadId: ThreadId, path: string) => void;
   expandDirectories: (threadId: ThreadId, paths: readonly string[]) => void;
+  navigateRoot: (threadId: ThreadId, nextRoot: string, currentEffectiveRoot: string) => void;
+  navigateBackRoot: (threadId: ThreadId, projectWorkspaceRoot: string | null) => void;
+  resetRoot: (threadId: ThreadId) => void;
 }
 
 export const useDockExplorerBrowseStore = create<DockExplorerBrowseStore>()((set) => {
@@ -103,6 +113,47 @@ export const useDockExplorerBrowseStore = create<DockExplorerBrowseStore>()((set
         expandedDirectories: new Set([...current.expandedDirectories, ...paths]),
       }));
     },
+    navigateRoot: (threadId, nextRoot, currentEffectiveRoot) =>
+      update(threadId, (current) => {
+        if (!nextRoot || nextRoot === currentEffectiveRoot) {
+          return {};
+        }
+        return {
+          activeRootPath: nextRoot,
+          rootHistory: [...current.rootHistory, currentEffectiveRoot],
+          expandedDirectories: new Set<string>(),
+          selectedFilePath: null,
+          openFilePaths: [],
+        };
+      }),
+    navigateBackRoot: (threadId, projectWorkspaceRoot) =>
+      update(threadId, (current) => {
+        if (current.rootHistory.length === 0) {
+          return {};
+        }
+        const previousRoot = current.rootHistory[current.rootHistory.length - 1] ?? null;
+        const rootHistory = current.rootHistory.slice(0, -1);
+        return {
+          activeRootPath: previousRoot === projectWorkspaceRoot ? null : previousRoot,
+          rootHistory,
+          expandedDirectories: new Set<string>(),
+          selectedFilePath: null,
+          openFilePaths: [],
+        };
+      }),
+    resetRoot: (threadId) =>
+      update(threadId, (current) => {
+        if (current.activeRootPath === null && current.rootHistory.length === 0) {
+          return {};
+        }
+        return {
+          activeRootPath: null,
+          rootHistory: [],
+          expandedDirectories: new Set<string>(),
+          selectedFilePath: null,
+          openFilePaths: [],
+        };
+      }),
   };
 });
 

@@ -258,6 +258,7 @@ export function deriveSelectedContextWindowSnapshot(
     usedTokens: 0,
     usedPercent: null,
     totalProcessedTokens: null,
+    tokenAccountingVersion: null,
     maxTokens,
     remainingTokens: maxTokens,
     usedPercentage: 0,
@@ -274,6 +275,55 @@ export function deriveSelectedContextWindowSnapshot(
     toolUses: null,
     durationMs: null,
     compactsAutomatically: false,
+    updatedAt: "",
+  };
+}
+
+export function resolveAntigravityContextWindowMaxTokens(model: string | null | undefined): number {
+  const normalized = (model ?? "").trim().toLowerCase();
+  if (normalized.includes("gpt-oss")) return 131_072;
+  if (normalized.includes("claude")) return 250_000;
+  if (normalized.includes("flash") && normalized.includes("image")) return 65_536;
+  return 1_048_576;
+}
+
+export function deriveAntigravityFallbackContextWindowSnapshot(
+  model: string | null | undefined,
+  messages: ReadonlyArray<{ readonly text?: string }> = [],
+): ContextWindowSnapshot {
+  const maxTokens = resolveAntigravityContextWindowMaxTokens(model);
+  let totalChars = 0;
+  for (const message of messages) {
+    if (typeof message?.text === "string") {
+      totalChars += message.text.length;
+    }
+  }
+  const usedTokens = totalChars > 0 ? Math.max(1, Math.round(totalChars / 4)) : 0;
+  const remainingTokens = Math.max(0, maxTokens - usedTokens);
+  const usedPercentage = Math.min(100, (usedTokens / maxTokens) * 100);
+  const remainingPercentage = Math.max(0, 100 - usedPercentage);
+  return {
+    claudeCache: null,
+    usedTokens,
+    usedPercent: null,
+    totalProcessedTokens: usedTokens > 0 ? usedTokens : null,
+    tokenAccountingVersion: null,
+    maxTokens,
+    remainingTokens,
+    usedPercentage,
+    remainingPercentage,
+    inputTokens: null,
+    cachedInputTokens: null,
+    outputTokens: null,
+    reasoningOutputTokens: null,
+    lastUsedTokens: usedTokens > 0 ? usedTokens : null,
+    lastInputTokens: null,
+    lastCachedInputTokens: null,
+    lastOutputTokens: null,
+    lastReasoningOutputTokens: null,
+    toolUses: null,
+    durationMs: null,
+    compactsAutomatically: true,
     updatedAt: "",
   };
 }

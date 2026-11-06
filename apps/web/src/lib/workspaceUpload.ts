@@ -1,14 +1,16 @@
 // FILE: workspaceUpload.ts
 // Purpose: Uploads local files dropped onto the Explorer into a workspace folder on
-//          the server of the host the Explorer shows.
+//          the server of the host the Explorer shows, reporting live upload progress.
 // Layer: Web workspace transport
-// Exports: uploadFilesToWorkspace, WORKSPACE_UPLOAD_LIMIT_LABEL
+// Exports: uploadFilesToWorkspace, WORKSPACE_UPLOAD_LIMIT_LABEL, WorkspaceUploadProgress,
+//          useWorkspaceUploadProgress
 
 import type { HostId } from "@saint/shared/hostId";
 import {
   WORKSPACE_UPLOAD_MAX_BYTES,
   WORKSPACE_UPLOAD_ROUTE_PATH,
 } from "@saint/shared/binaryTransfer";
+import { useSyncExternalStore } from "react";
 
 import { resolveHostHttpUrl } from "./wsHttpUrl";
 
@@ -18,6 +20,45 @@ export interface WorkspaceUploadResult {
   /** Workspace-relative paths written, in drop order. */
   readonly uploaded: string[];
   readonly failures: Array<{ readonly name: string; readonly message: string }>;
+}
+
+export interface WorkspaceUploadProgress {
+  readonly cwd: string;
+  readonly totalFiles: number;
+  readonly completedFiles: number;
+  readonly currentFileName: string;
+  readonly loadedBytes: number;
+  readonly totalBytes: number;
+  readonly percent: number;
+}
+
+const uploadProgressByCwd = new Map<string, WorkspaceUploadProgress>();
+const uploadProgressListeners = new Set<() => void>();
+
+function notifyUploadProgress(cwd: string, progress: WorkspaceUploadProgress | null): void {
+  if (progress === null) {
+    uploadProgressByCwd.delete(cwd);
+  } else {
+    uploadProgressByCwd.set(cwd, progress);
+  }
+  for (const listener of uploadProgressListeners) {
+    listener();
+  }
+}
+
+function subscribeUploadProgress(listener: () => void): () => void {
+  uploadProgressListeners.add(listener);
+  return () => {
+    uploadProgressListeners.delete(listener);
+  };
+}
+
+export function useWorkspaceUploadProgress(cwd: string | null): WorkspaceUploadProgress | null {
+  return useSyncExternalStore(
+    subscribeUploadProgress,
+    () => (cwd ? (uploadProgressByCwd.get(cwd) ?? null) : null),
+    () => null,
+  );
 }
 
 /**
@@ -30,42 +71,81 @@ export async function uploadFilesToWorkspace(input: {
   readonly directory: string | null;
   readonly files: readonly File[];
   readonly hostId: HostId;
+  readonly onProgress?: (progress: WorkspaceUploadProgress | null) => void;
 }): Promise<WorkspaceUploadResult> {
   const result: WorkspaceUploadResult = { uploaded: [], failures: [] };
-  for (const file of input.files) {
-    if (file.size > WORKSPACE_UPLOAD_MAX_BYTES) {
-      result.failures.push({
-        name: file.name,
-        message: `Larger than ${WORKSPACE_UPLOAD_LIMIT_LABEL}.`,
-      });
-      continue;
-    }
-    const params = new URLSearchParams({ cwd: input.cwd, name: file.name });
-    if (input.directory) params.set("directory", input.directory);
-    try {
-      const response = await fetch(
-        resolveHostHttpUrl(input.hostId, `${WORKSPACE_UPLOAD_ROUTE_PATH}?${params.toString()}`),
-        { method: "POST", credentials: "include", body: file },
-      );
-      const payload = (await response.json().catch(() => null)) as {
-        readonly relativePath?: unknown;
-        readonly error?: unknown;
-      } | null;
-      if (!response.ok || typeof payload?.relativePath !== "string") {
-        throw new Error(
-          typeof payload?.error === "string"
-            ? payload.error
-            : `Upload failed with status ${response.status}.`,
-        );
+  const totalFiles = input.files.length;
+  const totalBytes = input.files.reduce((sum, file) => sum + Math.max(0, file.size), 0);
+  let completedFiles = 0;
+  let completedBytes = 0;
+
+  const emitProgress = (currentFileName: string, currentFileLoadedBytes: number) => {
+    const loadedBytes = Math.min(totalBytes, completedBytes + currentFileLoadedBytes);
+    const percent =
+      totalBytes > 0
+        ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100))
+        : totalFiles > 0
+          ? Math.min(100, Math.round((completedFiles / totalFiles) * 100))
+          : 100;
+    const snapshot: WorkspaceUploadProgress = {
+      cwd: input.cwd,
+      totalFiles,
+      completedFiles,
+      currentFileName,
+      loadedBytes,
+      totalBytes,
+      percent,
+    };
+    notifyUploadProgress(input.cwd, snapshot);
+    input.onProgress?.(snapshot);
+  };
+
+  try {
+    for (const file of input.files) {
+      emitProgress(file.name, 0);
+      if (file.size > WORKSPACE_UPLOAD_MAX_BYTES) {
+        result.failures.push({
+          name: file.name,
+          message: `Larger than ${WORKSPACE_UPLOAD_LIMIT_LABEL}.`,
+        });
+        completedFiles += 1;
+        completedBytes += Math.max(0, file.size);
+        emitProgress(file.name, 0);
+        continue;
       }
-      result.uploaded.push(payload.relativePath);
-    } catch (error) {
-      // A dropped folder has no readable body, so fetch rejects it here.
-      result.failures.push({
-        name: file.name,
-        message: error instanceof Error ? error.message : String(error),
-      });
+      const params = new URLSearchParams({ cwd: input.cwd, name: file.name });
+      if (input.directory) params.set("directory", input.directory);
+      try {
+        const response = await fetch(
+          resolveHostHttpUrl(input.hostId, `${WORKSPACE_UPLOAD_ROUTE_PATH}?${params.toString()}`),
+          { method: "POST", credentials: "include", body: file },
+        );
+        const payload = (await response.json().catch(() => null)) as {
+          readonly relativePath?: unknown;
+          readonly error?: unknown;
+        } | null;
+        if (!response.ok || typeof payload?.relativePath !== "string") {
+          throw new Error(
+            typeof payload?.error === "string"
+              ? payload.error
+              : `Upload failed with status ${response.status}.`,
+          );
+        }
+        result.uploaded.push(payload.relativePath);
+      } catch (error) {
+        // A dropped folder has no readable body, so fetch rejects it here.
+        result.failures.push({
+          name: file.name,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      completedFiles += 1;
+      completedBytes += Math.max(0, file.size);
+      emitProgress(file.name, 0);
     }
+  } finally {
+    notifyUploadProgress(input.cwd, null);
+    input.onProgress?.(null);
   }
   return result;
 }

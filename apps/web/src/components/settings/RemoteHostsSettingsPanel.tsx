@@ -17,6 +17,7 @@ import {
   type RemoteHostRow,
 } from "./remoteHostsSettingsModel";
 import { SettingsListRow, SettingsRow, SettingsSection } from "./SettingsPanelPrimitives";
+import { LanRelaySettingsSection } from "./LanRelaySettingsSection";
 import { remoteSshBridge } from "../../lib/devLoopbackHosts";
 
 function showError(title: string, error: unknown): void {
@@ -52,6 +53,7 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
 
   return (
     <div className="space-y-6">
+      <LanRelaySettingsSection active={props.active} />
       <SettingsSection title="Connect a host">
         <SettingsRow
           title="SSH host"

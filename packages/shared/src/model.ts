@@ -598,6 +598,14 @@ export function getProviderOptionCurrentValue(
   return descriptor.currentValue ?? descriptor.options.find((option) => option.isDefault)?.id;
 }
 
+const ANTIGRAVITY_GEMINI_CAPABILITIES: ModelCapabilities = {
+  reasoningEffortLevels: [],
+  supportsFastMode: true,
+  supportsThinkingToggle: false,
+  contextWindowOptions: [],
+  promptInjectedEffortLevels: [],
+};
+
 // ── Data-driven capability resolver ───────────────────────────────────
 
 export function getModelCapabilities(
@@ -611,6 +619,9 @@ export function getModelCapabilities(
       : normalizedSlug;
   if (slug && MODEL_CAPABILITIES_INDEX[provider]?.[slug]) {
     return MODEL_CAPABILITIES_INDEX[provider][slug];
+  }
+  if (provider === "antigravity" && slug && /^gemini\b/iu.test(slug)) {
+    return ANTIGRAVITY_GEMINI_CAPABILITIES;
   }
   if (provider === "grok" && slug) {
     // Grok exposes reasoning effort as a provider-level CLI option, while its
@@ -1028,14 +1039,22 @@ export function normalizeAntigravityModelOptions(
   modelOptions: AntigravityModelOptions | null | undefined,
   capabilities: ModelCapabilities = getModelCapabilities("antigravity", model),
 ): AntigravityModelOptions | undefined {
-  const reasoningEffort = trimOrNull(modelOptions?.reasoningEffort);
-  if (!reasoningEffort || !hasEffortLevel(capabilities, reasoningEffort)) {
+  const rawReasoningEffort = trimOrNull(modelOptions?.reasoningEffort);
+  const reasoningEffort =
+    rawReasoningEffort &&
+    hasEffortLevel(capabilities, rawReasoningEffort) &&
+    rawReasoningEffort !== getDefaultEffort(capabilities)
+      ? rawReasoningEffort
+      : undefined;
+  const fastMode =
+    capabilities.supportsFastMode && modelOptions?.fastMode === true ? true : undefined;
+  if (reasoningEffort === undefined && fastMode === undefined) {
     return undefined;
   }
-  if (reasoningEffort === getDefaultEffort(capabilities)) {
-    return undefined;
-  }
-  return { reasoningEffort };
+  return {
+    ...(reasoningEffort !== undefined ? { reasoningEffort } : {}),
+    ...(fastMode !== undefined ? { fastMode } : {}),
+  };
 }
 
 export function normalizePiModelOptions(
