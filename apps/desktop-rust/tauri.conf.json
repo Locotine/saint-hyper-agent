@@ -25,7 +25,7 @@
     "icon": [
       "../desktop/resources/icon.ico",
       "../desktop/resources/icon.icns",
-      "../desktop/resources/icon.png"
+      "icons/icon.png"
     ],
     "macOS": {
       "minimumSystemVersion": "13.0",
