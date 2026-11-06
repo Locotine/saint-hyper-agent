@@ -127,15 +127,18 @@ Configure the shell to match the way you work with light and dark themes, typogr
 
 The current release is **1.2.1**. Download it from [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
 
-| Platform              | Artifact                          | Install                                                                                                                                  |
-| --------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Linux x86_64          | `Saint-<version>-x86_64.AppImage` | `bash install-saint.sh` (from the same release) installs it with a menu entry and lets the updater replace it; `--uninstall` removes it. |
-| Windows x64           | `Saint-<version>-x64.exe`         | Run the NSIS installer. Unsigned builds show a SmartScreen warning.                                                                      |
-| macOS (Apple Silicon) | `Saint-<version>-arm64.dmg`       | Open the disk image and drag Saint to Applications. Requires macOS 13 or later. Intel builds are not published; build them on macOS.     |
+| Platform              | Artifact                         | Install                                                                         |
+| --------------------- | -------------------------------- | ------------------------------------------------------------------------------- |
+| Linux x86_64          | `Saint_<version>_amd64.AppImage` | Make it executable and run it.                                                  |
+| Windows x64           | `Saint_<version>_x64-setup.exe`  | Run the NSIS installer. Unsigned builds show a SmartScreen warning.             |
+| macOS (Apple Silicon) | `Saint_<version>_aarch64.dmg`    | Open the disk image and drag Saint to Applications. Requires macOS 13 or later. |
+| macOS (Intel)         | `Saint_<version>_x64.dmg`        | Same as Apple Silicon.                                                          |
 
-On first launch, an unsigned macOS build shows **“Saint” Not Opened**. Choose **Done**, then **System Settings → Privacy & Security → Open Anyway** and confirm. Builds older than the ad-hoc sealed ones say **is damaged** instead; for those run `xattr -dr com.apple.quarantine /Applications/Saint.app` once.
+The desktop app is built with Tauri (`apps/desktop-rust`). The Electron app (`apps/desktop`) is retired from 1.2.1: it is no longer published or maintained, and Electron installs up to 1.1.17 do not update to the Tauri app on their own. Quit the Electron app, then install the Tauri build from GitHub Releases. Threads, projects and server settings in `~/.saint` carry over; UI state kept in the Electron window (pinned items, open tabs, composer drafts) does not.
 
-Saint Beta is retired. To move Beta data into Saint once, quit both apps and run `copy-saint-beta-data.sh` (macOS/Linux) or `copy-saint-beta-data.ps1` (Windows) from the release assets. The Stable data it replaces is kept as a backup. See [CHANGELOG](./CHANGELOG.md) for release notes.
+macOS builds are not notarized yet. If macOS refuses to open Saint, choose **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/Saint.app` once.
+
+Saint Beta is retired. To move Beta data into Saint once, quit both apps and run `scripts/copy-saint-beta-data.sh` (macOS/Linux) or `scripts/copy-saint-beta-data.ps1` (Windows) from this repository. The Stable data it replaces is kept as a backup. See [CHANGELOG](./CHANGELOG.md) for release notes.
 
 Workspace Git features require [Git 2.29 or newer](https://github.com/git/git/blob/v2.29.0/Documentation/RelNotes/2.29.0.txt). Background refreshes preserve the FETCH_HEAD used by explicit fetch workflows. Ahead/behind counts use local refs and can update on the next status poll, up to 60 seconds after a successful background refresh; status reads do not wait for the remote.
 
@@ -172,15 +175,12 @@ the root `typecheck` command also ensures that patch is applied before checking.
 
 ```console
 bun install --frozen-lockfile
-bun run build:desktop
-bun run dist:desktop:linux -- --flavor production --build-version 1.2.1
-bun run dist:desktop:win -- --flavor production --build-version 1.2.1
-bun run dist:desktop:dmg:arm64 -- --flavor production --build-version 1.2.1   # macOS only
+cd apps/desktop-rust
+bun run build:sidecar
+bunx @tauri-apps/cli@^2.4.0 build
 ```
 
-`--build-version` defaults to the package version. Releases are published by the `Release Desktop` GitHub Actions workflow when a `vX.Y.Z` tag is pushed; set `SAINT_DESKTOP_UPDATE_REPOSITORY=Locotine/saint-hyper-agent` for a local build that should update from GitHub Releases. See [Updates from GitHub Releases](./BETA.md#updates-from-github-releases).
-
-Artifacts land in `release/` (or `SAINT_DESKTOP_OUTPUT_DIR`). The Linux package must be built on Linux x64, because it compiles `node-pty`. The Windows installer builds on Windows or cross-builds on Linux: the cross-build installs the win32 optional packages, uses the prebuilt native bindings instead of compiling them, and needs Wine with 32-bit support (`wine`, `wine64`, `wine32:i386`) for the executable resources and the NSIS uninstaller. See the [release guide](./docs/release.md#building-installers-on-linux).
+Tauri builds for the current platform; run the build on each target OS. Releases are published by the `Release Desktop (Tauri Rust)` GitHub Actions workflow (`.github/workflows/release-tauri.yml`) when a `vX.Y.Z` tag is pushed, or by dispatching it with `publish_release=true`. It builds Windows, macOS (arm64 and x64) and Linux bundles and uploads them with the `latest.json` updater manifest.
 
 ## Contributing
 

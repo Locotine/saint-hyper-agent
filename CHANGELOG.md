@@ -2,13 +2,22 @@
 
 ## 1.2.1 — 2026-11-06
 
-**A Tauri v2 / Rust desktop app, a free-roaming Explorer with folder downloads, and LAN relay pairing for mobile.**
+**The desktop app moves to Tauri v2 / Rust, with a free-roaming Explorer with folder downloads and LAN relay pairing for mobile.**
 
 This Stable release covers the commits after `v1.1.17`. It is published on [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases/tag/v1.2.1).
 
+### Changed
+
+- The desktop app is the Tauri v2 / Rust shell (`apps/desktop-rust`) with the server as a sidecar, a Rust PTY host, and the `latest.json` updater feed. The Electron app is no longer published or maintained.
+
+### Upgrading from 1.1.17 or earlier
+
+- Electron installs do not update to the Tauri app on their own. Quit the Electron app and install the Tauri build from this release.
+- Threads, projects and server settings in `~/.saint` carry over. UI state kept in the Electron window (pinned items, open tabs, composer drafts) does not.
+- Windows and macOS builds are not code-signed yet: Windows shows a SmartScreen warning, and macOS needs **Open Anyway** in Privacy & Security.
+
 ### Added
 
-- A Tauri v2 / Rust desktop shell (`apps/desktop-rust`) with the server as a sidecar, a Rust PTY host, and its own `Release Tauri` workflow and updater manifest.
 - Explorer navigation outside the project root with a back button to the parent folder, and a download button that saves the folder in view as a zip.
 - A LAN / Tailscale relay in Settings with QR pairing for phones.
 
@@ -17,6 +26,9 @@ This Stable release covers the commits after `v1.1.17`. It is published on [GitH
 - A steer message sent while a turn starts no longer loses the session update.
 - Antigravity turns that run past the print timeout no longer end with `print timeout after 30m0s with the turn still in progress`.
 - The Antigravity MCP plugin inherits the agent gateway URL and token instead of receiving literal `$VAR` strings, so Saint tools load.
+- Opening an external link on Windows no longer passes the URL through `cmd`, which could run a second command from a URL containing `&`.
+- Rust PTY terminals no longer inherit desktop environment variables that the server removes from terminal sessions.
+- A release build no longer switches to `~/.saint-rust-dev` when another process holds the `~/.saint` lock.
 
 ## 1.1.17 — 2026-11-05
 

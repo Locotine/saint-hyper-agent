@@ -1,5 +1,8 @@
 # Release Checklist
 
+> [!IMPORTANT]
+> From 1.2.1 the desktop app ships from `.github/workflows/release-tauri.yml` (Tauri v2 / Rust). The Electron release workflows (`release.yml`, `release-platform.yml`) were removed and the Electron app is no longer published. To release, bump the versions, push a `vX.Y.Z` tag, or dispatch `Release Desktop (Tauri Rust)` with `publish_release=true`. The rest of this file describes the retired Electron pipeline and is kept for reference.
+
 This document covers publishing desktop releases from one tag and targeted
 build-only diagnosis. An ordinary release uses one publication run after its
 version, release notes and lockfile are final.
