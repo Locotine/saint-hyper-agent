@@ -348,10 +348,11 @@ export function buildAntigravityCaptureCommand(
       /\s/u.test(executablePath) || /\s/u.test(scriptPath)
         ? `powershell -NoProfile -Command ^& '${escapedExecutablePath.replaceAll("'", "''")}' '${escapedScriptPath.replaceAll("'", "''")}' ${event}`
         : `${escapedExecutablePath} ${escapedScriptPath} ${event}`;
-    return `if not defined SAINT_ANTIGRAVITY_EVENTS (more >nul 2>nul & powershell -NoProfile -Command ${win32FallbackHookJson(event)}) else (set ELECTRON_RUN_AS_NODE=1&& ${invocation})`;
+    return `if not defined SAINT_ANTIGRAVITY_EVENTS (more >nul 2>nul & powershell -NoProfile -Command ${win32FallbackHookJson(event)}) else (set ELECTRON_RUN_AS_NODE=1&& set BUN_BE_BUN=1&& ${invocation})`;
   }
   const invocation = `${shellQuote(executablePath, platform)} ${shellQuote(scriptPath, platform)} ${shellQuote(event, platform)}`;
-  return `if [ -z "\${SAINT_ANTIGRAVITY_EVENTS:-}" ]; then cat >/dev/null 2>&1 || :; printf '%s\\n' '${fallback}'; else ELECTRON_RUN_AS_NODE=1 ${invocation}; fi`;
+  // BUN_BE_BUN skips the bundled server entrypoint of a compiled saint-server (~430ms -> ~20ms per hook); ignored by node/bun/electron.
+  return `if [ -z "\${SAINT_ANTIGRAVITY_EVENTS:-}" ]; then cat >/dev/null 2>&1 || :; printf '%s\\n' '${fallback}'; else ELECTRON_RUN_AS_NODE=1 BUN_BE_BUN=1 ${invocation}; fi`;
 }
 
 export function hookScriptSource(): string {

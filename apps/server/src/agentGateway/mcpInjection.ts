@@ -265,7 +265,9 @@ export interface AntigravityMcpPluginConfig {
  *
  * `ELECTRON_RUN_AS_NODE` keeps the generated proxy runnable when a packaged
  * desktop or compiled sidecar uses its own executable as `process.execPath`;
- * it is harmless for regular Node and Bun executables.
+ * it is harmless for regular Node and Bun executables. `BUN_BE_BUN` makes a
+ * compiled bun sidecar run the proxy script as plain bun instead of
+ * evaluating the whole server bundle first.
  */
 export function buildAntigravityMcpPluginConfig(
   stdioProxy: AcpStdioProxySpawn,
@@ -277,6 +279,7 @@ export function buildAntigravityMcpPluginConfig(
         args: [...stdioProxy.args],
         env: {
           ELECTRON_RUN_AS_NODE: "1",
+          BUN_BE_BUN: "1",
         },
         disabled: false,
         disabledTools: [],

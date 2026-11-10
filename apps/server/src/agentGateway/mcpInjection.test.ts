@@ -39,6 +39,7 @@ describe("agent gateway MCP injection", () => {
           args: stdioProxy.args,
           env: {
             ELECTRON_RUN_AS_NODE: "1",
+            BUN_BE_BUN: "1",
           },
           disabled: false,
           disabledTools: [],
