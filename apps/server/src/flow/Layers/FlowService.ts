@@ -79,6 +79,47 @@ const toError = (message: string) => (cause: unknown) =>
 const FLOW_SPECS_DIR = "flows";
 const decodeModelSelection = Schema.decodeUnknownEffect(ModelSelection);
 
+const validateNodeModelSelection = (spec: FlowNodeSpec, runSelection?: ModelSelection) =>
+  Effect.gen(function* () {
+    const targetProvider = spec.provider ?? runSelection?.provider;
+    const requestedModel =
+      spec.model ?? (spec.provider || !runSelection ? undefined : runSelection.model);
+    const isProviderOnly = Boolean(spec.provider && !spec.model);
+    const keepRunSelection =
+      runSelection !== undefined &&
+      !isProviderOnly &&
+      targetProvider === runSelection.provider &&
+      requestedModel?.trim() === runSelection.model;
+    const mergedOptions = keepRunSelection
+      ? runSelection.options || spec.options
+        ? { ...runSelection.options, ...spec.options }
+        : undefined
+      : spec.options;
+    const decoded = yield* decodeModelSelection({
+      provider: targetProvider,
+      ...(keepRunSelection && runSelection.instanceId !== undefined
+        ? { instanceId: runSelection.instanceId }
+        : {}),
+      model: requestedModel,
+      ...(mergedOptions !== undefined ? { options: mergedOptions } : {}),
+    }).pipe(
+      Effect.mapError(
+        toError(`Node "${spec.id}" names an unknown provider, model, or model options.`),
+      ),
+    );
+    if (spec.options) {
+      const decodedOptions: Record<string, unknown> = decoded.options ?? {};
+      for (const [key, value] of Object.entries(spec.options)) {
+        if (value !== undefined && !(key in decodedOptions)) {
+          return yield* new FlowServiceError({
+            message: `Node "${spec.id}" names an unknown provider, model, or model options (unknown option "${key}").`,
+          });
+        }
+      }
+    }
+    return decoded;
+  });
+
 export const flowNodeThreadId = (flowId: string, nodeId: string, attempt: number) =>
   ThreadId.makeUnsafe(`flow-${stableGatewayDigest({ flowId, nodeId, attempt }, 32)}`);
 
@@ -211,11 +252,8 @@ const make = Effect.gen(function* () {
   const nodeModelSelection = (run: FlowRun, spec: FlowNodeSpec, node: FlowNodeRun) =>
     (node.modelOverride
       ? Effect.succeed(node.modelOverride)
-      : spec.provider || spec.model
-        ? decodeModelSelection({
-            provider: spec.provider ?? run.modelSelection.provider,
-            model: spec.model ?? (spec.provider ? undefined : run.modelSelection.model),
-          }).pipe(Effect.mapError(toError(`Node "${spec.id}" names an unknown provider or model.`)))
+      : spec.provider || spec.model || spec.options
+        ? validateNodeModelSelection(spec, run.modelSelection)
         : Effect.succeed(run.modelSelection)
     ).pipe(Effect.flatMap(withClaudeAutoMode));
 
@@ -529,6 +567,11 @@ const make = Effect.gen(function* () {
           revision: 0,
           updatedAt: now,
         }));
+        for (const nodeSpec of spec.nodes) {
+          if (nodeSpec.provider || nodeSpec.model || nodeSpec.options) {
+            yield* validateNodeModelSelection(nodeSpec, run.modelSelection);
+          }
+        }
         yield* repository
           .create(run, nodes)
           .pipe(Effect.mapError(toError("Could not save the flow.")));
@@ -1372,6 +1415,11 @@ const make = Effect.gen(function* () {
       const parsed = parseFlowSpecYaml(yaml);
       if (parsed._tag === "invalid") {
         return yield* Effect.fail(new FlowServiceError({ message: parsed.errors.join("\n") }));
+      }
+      for (const node of parsed.spec.nodes) {
+        if (node.provider) {
+          yield* validateNodeModelSelection(node);
+        }
       }
       const slug =
         parsed.spec.name

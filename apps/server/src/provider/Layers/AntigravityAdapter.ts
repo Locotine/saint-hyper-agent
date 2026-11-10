@@ -20,6 +20,7 @@ import {
   TurnId,
 } from "@saint/contracts";
 import {
+  escapeWindowsCmdMetachars,
   spawnProcess as spawnPlatformProcess,
   type RuntimeSpawnOptions,
 } from "@saint/shared/processRuntime";
@@ -212,6 +213,9 @@ type AntigravitySessionContext = ToolSurfaceCounters & {
    */
   sawAssistant: boolean;
   totalProcessedTokens: number;
+  turnBaseProcessedTokens: number;
+  turnStdoutStepUsage: Map<number, AntigravityTokenUsage>;
+  turnTranscriptStepUsage: Map<number, AntigravityTokenUsage>;
   interrupted: boolean;
   stopped: boolean;
   /** Guards against double turn.completed (process close + interrupt/stop). */
@@ -335,10 +339,15 @@ export function buildAntigravityCaptureCommand(
     // hook never runs. Keep the invocation free of double quotes; when either
     // path contains spaces (e.g. `C:\Program Files\nodejs\node.exe` or a
     // spaced user profile), dispatch via PowerShell single-quoted `& '...'`.
+    // Caret-escape cmd.exe metacharacters (`^`, `%`, `&`, `|`, `<`, `>`, `(`, `)`)
+    // on each path so paths like `C:\Users\R&D\...` or `C:\Program Files (x86)\...`
+    // do not split commands, expand variables, or close cmd.exe's `else (...)` block early.
+    const escapedExecutablePath = escapeWindowsCmdMetachars(executablePath);
+    const escapedScriptPath = escapeWindowsCmdMetachars(scriptPath);
     const invocation =
       /\s/u.test(executablePath) || /\s/u.test(scriptPath)
-        ? `powershell -NoProfile -Command ^& '${executablePath.replaceAll("'", "''")}' '${scriptPath.replaceAll("'", "''")}' ${event}`
-        : `${executablePath} ${scriptPath} ${event}`;
+        ? `powershell -NoProfile -Command ^& '${escapedExecutablePath.replaceAll("'", "''")}' '${escapedScriptPath.replaceAll("'", "''")}' ${event}`
+        : `${escapedExecutablePath} ${escapedScriptPath} ${event}`;
     return `if not defined SAINT_ANTIGRAVITY_EVENTS (more >nul 2>nul & powershell -NoProfile -Command ${win32FallbackHookJson(event)}) else (set ELECTRON_RUN_AS_NODE=1&& ${invocation})`;
   }
   const invocation = `${shellQuote(executablePath, platform)} ${shellQuote(scriptPath, platform)} ${shellQuote(event, platform)}`;
@@ -1652,6 +1661,10 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
       rawSource: string,
       rawPayload: unknown,
       durationSeconds?: number,
+      options?: {
+        readonly stepIndex?: number | undefined;
+        readonly isFinalResult?: boolean | undefined;
+      },
     ): void => {
       if (context.stopped) return;
       const maxTokens = resolveAntigravityModelMaxTokens(
@@ -1663,10 +1676,37 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
       const reasoningOutputTokens = usage.thinkingTokens;
       const usedTokens = inputTokens + cachedInputTokens + outputTokens + reasoningOutputTokens;
       if (usedTokens <= 0) return;
-      context.totalProcessedTokens = Math.max(
-        context.totalProcessedTokens + outputTokens + reasoningOutputTokens,
-        usedTokens,
-      );
+      if (options?.isFinalResult) {
+        context.totalProcessedTokens = Math.max(
+          context.totalProcessedTokens,
+          context.turnBaseProcessedTokens + outputTokens + reasoningOutputTokens,
+          usedTokens,
+        );
+      } else if (typeof options?.stepIndex === "number") {
+        if (rawSource === "step-usage") {
+          context.turnStdoutStepUsage.set(options.stepIndex, usage);
+        } else {
+          context.turnTranscriptStepUsage.set(options.stepIndex, usage);
+        }
+        const activeStepUsage =
+          context.turnStdoutStepUsage.size > 0
+            ? context.turnStdoutStepUsage
+            : context.turnTranscriptStepUsage;
+        let turnStepOutputSum = 0;
+        for (const stepUsage of activeStepUsage.values()) {
+          turnStepOutputSum += stepUsage.outputTokens + stepUsage.thinkingTokens;
+        }
+        context.totalProcessedTokens = Math.max(
+          context.totalProcessedTokens,
+          context.turnBaseProcessedTokens + turnStepOutputSum,
+          usedTokens,
+        );
+      } else {
+        context.totalProcessedTokens = Math.max(
+          context.totalProcessedTokens + outputTokens + reasoningOutputTokens,
+          usedTokens,
+        );
+      }
       offer({
         ...base(context),
         type: "thread.token-usage.updated",
@@ -1950,7 +1990,9 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         }
         const transcriptStepUsage = parseAntigravityTokenUsage(step.usage ?? step.token_usage);
         if (transcriptStepUsage) {
-          emitTokenUsage(context, transcriptStepUsage, "transcript-step-usage", step);
+          emitTokenUsage(context, transcriptStepUsage, "transcript-step-usage", step, undefined, {
+            stepIndex,
+          });
         }
         const calls = Array.isArray(step.tool_calls) ? step.tool_calls : [];
         if (calls.length > 0) {
@@ -2625,6 +2667,9 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           hookToolCallCounts: new Map(),
           sawAssistant: false,
           totalProcessedTokens: 0,
+          turnBaseProcessedTokens: 0,
+          turnStdoutStepUsage: new Map(),
+          turnTranscriptStepUsage: new Map(),
           interrupted: false,
           stopped: false,
           turnTerminalEmitted: false,
@@ -2794,6 +2839,9 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         context.surfacedToolCallCounts.clear();
         context.hookToolCallCounts.clear();
         context.sawAssistant = false;
+        context.turnBaseProcessedTokens = context.totalProcessedTokens;
+        context.turnStdoutStepUsage.clear();
+        context.turnTranscriptStepUsage.clear();
         context.interrupted = false;
         context.turnTerminalEmitted = false;
         delete context.stopTeardownRequested;
@@ -2899,7 +2947,14 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         const outputParser = createAntigravityPrintResultParser({
           onStepUsage: (stepIndex, stepUsage) => {
             if (!ownsTurn()) return;
-            emitTokenUsage(context, stepUsage, "step-usage", { stepIndex, usage: stepUsage });
+            emitTokenUsage(
+              context,
+              stepUsage,
+              "step-usage",
+              { stepIndex, usage: stepUsage },
+              undefined,
+              { stepIndex },
+            );
           },
         });
         child.stdout.setEncoding("utf8");
@@ -2980,6 +3035,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
                 "result-usage",
                 printResult.usage,
                 printResult.durationSeconds,
+                { isFinalResult: true },
               );
             }
             const responseText = printResult?.response ?? responseStdout.join("").trim();

@@ -64,6 +64,7 @@ export const FlowNodeSpec = Schema.Struct({
   prompt: TrimmedNonEmptyString.check(Schema.isMaxLength(20_000)),
   provider: Schema.optional(ProviderKind),
   model: Schema.optional(TrimmedNonEmptyString),
+  options: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   mode: Schema.optional(FlowNodeMode),
   maxRefix: Schema.optional(NonNegativeInt),
   gate: Schema.optional(FlowGateSpec),

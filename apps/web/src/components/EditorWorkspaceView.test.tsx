@@ -10,6 +10,16 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EditorWorkspaceView } from "./EditorWorkspaceView";
 import { WorkspaceSearchSidebar } from "./chat/workspaceExplorer";
+import {
+  closeFileInSplitGroup,
+  createInitialEditorSplitLayout,
+  dropFileOnSplitZone,
+  moveTabBetweenSplitGroups,
+  readEditorViewState,
+  resizeSplitGroups,
+  resolveSplitDropZoneFromPoint,
+  storeEditorSplitLayout,
+} from "../editorViewState";
 import { projectQueryKeys } from "../lib/projectReactQuery";
 import { SidebarProvider } from "./ui/sidebar";
 
@@ -174,5 +184,115 @@ describe("EditorWorkspaceView", () => {
     expect(markup).toContain('title="apps/web/src/components/EditorWorkspaceView.tsx"');
     expect(markup).toContain("EditorWorkspaceView.tsx");
     expect(markup).not.toContain("No matching files.");
+  });
+
+  it("exposes toolbar toggles for hiding the left file explorer and chat pane while keeping chat mounted", () => {
+    const storage = new Map<string, string>();
+    const prevWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+        },
+      },
+    });
+    try {
+      const defaultMarkup = renderToStaticMarkup(
+        <SidebarProvider>
+          <EditorWorkspaceView {...makeEditorBaseProps()} />
+        </SidebarProvider>,
+      );
+      expect(defaultMarkup).toContain('aria-label="Hide file explorer"');
+      expect(defaultMarkup).toContain('aria-label="Hide chat panel"');
+
+      storage.set("saint.editor.sidebarVisible", "false");
+      storage.set("saint.editor.chatPaneVisible", "false");
+      const hiddenMarkup = renderToStaticMarkup(
+        <SidebarProvider>
+          <EditorWorkspaceView {...makeEditorBaseProps()} chatPanel={<div>Persistent chat</div>} />
+        </SidebarProvider>,
+      );
+      expect(hiddenMarkup).toContain('aria-label="Show file explorer"');
+      expect(hiddenMarkup).toContain('aria-label="Show chat panel"');
+      expect(hiddenMarkup).toContain("Persistent chat");
+      const chatIndex = hiddenMarkup.indexOf("Persistent chat");
+      const asideIndex = hiddenMarkup.lastIndexOf("<aside", chatIndex);
+      expect(hiddenMarkup.slice(asideIndex, chatIndex)).toContain("hidden");
+    } finally {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: prevWindow,
+      });
+    }
+  });
+
+  it("supports VS Code-style split editor groups, tab moves, group auto-close, divider resize, and per-thread persistence", () => {
+    const storage = new Map<string, string>();
+    const prevWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+        },
+      },
+    });
+    try {
+      let layout = createInitialEditorSplitLayout("src/a.ts");
+      layout = dropFileOnSplitZone(layout, "group-1", "right", "src/b.ts");
+      expect(layout.groups).toHaveLength(2);
+      expect(layout.direction).toBe("horizontal");
+      expect(layout.groups[0]?.selectedFilePath).toBe("src/a.ts");
+      expect(layout.groups[1]?.selectedFilePath).toBe("src/b.ts");
+
+      // Resize divider between group 0 and group 1
+      layout = resizeSplitGroups(layout, 0, 15);
+      expect(layout.sizes[0]).toBeCloseTo(65, 1);
+      expect(layout.sizes[1]).toBeCloseTo(35, 1);
+
+      // Persist per thread in saint.editor.viewStateByThreadId and render EditorWorkspaceView
+      storeEditorSplitLayout("thread-split-1", layout);
+      const restored = readEditorViewState("thread-split-1")?.splitLayout;
+      expect(restored?.groups).toHaveLength(2);
+
+      const markup = renderToStaticMarkup(
+        <SidebarProvider>
+          <EditorWorkspaceView
+            {...makeEditorBaseProps()}
+            threadId="thread-split-1"
+            selectedFilePath="src/b.ts"
+          />
+        </SidebarProvider>,
+      );
+      expect(markup).toContain('data-editor-split-group="group-1"');
+      expect(markup).toContain('data-editor-split-group="group-2"');
+      expect(markup).toContain('aria-label="Resize split editor group"');
+
+      // Moving the last tab out of group-2 closes group-2 automatically
+      const merged = moveTabBetweenSplitGroups(layout, "group-2", "src/b.ts", "group-1");
+      expect(merged.groups).toHaveLength(1);
+      expect(merged.groups[0]?.openFilePaths).toEqual(["src/a.ts", "src/b.ts"]);
+
+      // Closing a tab in a multi-group layout when it's the last tab closes that group
+      const afterClose = closeFileInSplitGroup(layout, "group-2", "src/b.ts");
+      expect(afterClose.groups).toHaveLength(1);
+      expect(afterClose.groups[0]?.id).toBe("group-1");
+
+      // Hit-testing drop zones on an editor group rect
+      const rect = { left: 0, top: 0, width: 400, height: 300 };
+      expect(resolveSplitDropZoneFromPoint(rect, 20, 150)).toBe("left");
+      expect(resolveSplitDropZoneFromPoint(rect, 380, 150)).toBe("right");
+      expect(resolveSplitDropZoneFromPoint(rect, 200, 20)).toBe("top");
+      expect(resolveSplitDropZoneFromPoint(rect, 200, 285)).toBe("bottom");
+      expect(resolveSplitDropZoneFromPoint(rect, 200, 150)).toBe("center");
+    } finally {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: prevWindow,
+      });
+    }
   });
 });

@@ -19,12 +19,38 @@ pub const DEFAULT_REMOTE_ROOT: &str = ".saint-remote";
 #[serde(rename_all = "camelCase")]
 pub struct DesktopRemoteSshSavedHost {
     pub host: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub remote_root: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host_key: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_connect: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity_file: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopRemoteSshTestResult {
+    pub host: String,
+    pub reachable: bool,
+    pub authenticated: bool,
+    pub server_running: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopRemoteSshUpdateHostInput {
+    #[serde(default)]
+    pub previous_host: Option<String>,
+    pub target: DesktopRemoteSshSavedHost,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -233,10 +259,79 @@ impl RemoteSshManager {
             .unwrap_or(42890)
     }
 
-    pub fn connect(
+    fn sanitize_optional_field(raw: Option<&str>) -> Option<String> {
+        let trimmed = raw?.trim();
+        if trimmed.is_empty() || trimmed.starts_with('-') || trimmed.chars().any(|c| c == '\0' || c == '\n' || c == '\r') {
+            return None;
+        }
+        Some(trimmed.to_string())
+    }
+
+    pub fn ssh_connection_option_args(entry: &DesktopRemoteSshSavedHost) -> Vec<String> {
+        let mut args = Vec::new();
+        if let Some(port) = entry.port.filter(|p| *p > 0) {
+            args.push("-p".to_string());
+            args.push(port.to_string());
+        }
+        if let Some(user) = Self::sanitize_optional_field(entry.user.as_deref()) {
+            if !entry.host.contains('@') {
+                args.push("-l".to_string());
+                args.push(user);
+            }
+        }
+        if let Some(identity_file) = Self::sanitize_optional_field(entry.identity_file.as_deref()) {
+            args.push("-i".to_string());
+            args.push(identity_file);
+        }
+        args
+    }
+
+    pub fn parse_test_host_output(
+        host: &str,
+        exit_success: bool,
+        stdout: &str,
+        stderr: &str,
+    ) -> DesktopRemoteSshTestResult {
+        if exit_success && stdout.contains("SAINT_SSH_OK") {
+            let server_running = stdout.contains("SAINT_SERVER_RUNNING");
+            let message = if server_running {
+                "SSH reachable · authenticated · Saint server is running.".to_string()
+            } else {
+                "SSH reachable · authenticated · Saint server is stopped.".to_string()
+            };
+            return DesktopRemoteSshTestResult {
+                host: host.to_string(),
+                reachable: true,
+                authenticated: true,
+                server_running,
+                message,
+            };
+        }
+        let detail = stderr.trim();
+        let lower = detail.to_ascii_lowercase();
+        let auth_failure = lower.contains("permission denied")
+            || lower.contains("publickey")
+            || lower.contains("authentication failed");
+        let message = if detail.is_empty() {
+            format!("Could not reach {host} over SSH.")
+        } else {
+            detail.lines().last().unwrap_or(detail).to_string()
+        };
+        DesktopRemoteSshTestResult {
+            host: host.to_string(),
+            reachable: auth_failure,
+            authenticated: false,
+            server_running: false,
+            message,
+        }
+    }
+
+    fn upsert_saved_entry(
         &self,
+        previous_host: Option<&str>,
         input: DesktopRemoteSshSavedHost,
-    ) -> Result<DesktopRemoteSshHostState, String> {
+        promote_to_front: bool,
+    ) -> Result<DesktopRemoteSshSavedHost, String> {
         let host = input.host.trim().to_string();
         if !Self::is_valid_ssh_target(&host) {
             return Err("Enter an SSH host such as `devbox` or `user@example.com`.".to_string());
@@ -249,50 +344,246 @@ impl RemoteSshManager {
                 })?,
             ),
         };
+        let prev = previous_host
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(&host);
 
-        let host_key = {
+        let mut saved_guard = self.saved_hosts.lock().map_err(|e| e.to_string())?;
+        let existing = saved_guard
+            .iter()
+            .find(|h| h.host == prev || h.host == host)
+            .cloned();
+        let existing_key = input
+            .host_key
+            .clone()
+            .or_else(|| existing.as_ref().and_then(|h| h.host_key.clone()))
+            .unwrap_or_else(Self::generate_host_key);
+
+        let entry = DesktopRemoteSshSavedHost {
+            host: host.clone(),
+            remote_root: normalized_root,
+            host_key: Some(existing_key),
+            auto_connect: if promote_to_front {
+                None
+            } else {
+                input
+                    .auto_connect
+                    .or_else(|| existing.as_ref().and_then(|h| h.auto_connect))
+            },
+            label: Self::sanitize_optional_field(input.label.as_deref())
+                .or_else(|| existing.as_ref().and_then(|h| h.label.clone())),
+            user: Self::sanitize_optional_field(input.user.as_deref())
+                .or_else(|| existing.as_ref().and_then(|h| h.user.clone())),
+            port: input.port.filter(|p| *p > 0).or_else(|| existing.as_ref().and_then(|h| h.port)),
+            identity_file: Self::sanitize_optional_field(input.identity_file.as_deref())
+                .or_else(|| existing.as_ref().and_then(|h| h.identity_file.clone())),
+        };
+
+        if promote_to_front {
+            saved_guard.retain(|h| h.host != prev && h.host != host);
+            saved_guard.insert(0, entry.clone());
+        } else if let Some(pos) = saved_guard.iter().position(|h| h.host == prev || h.host == host) {
+            saved_guard[pos] = entry.clone();
+            let mut idx = 0;
+            saved_guard.retain(|h| {
+                let keep = idx == pos || (h.host != prev && h.host != host);
+                idx += 1;
+                keep
+            });
+        } else {
+            saved_guard.insert(0, entry.clone());
+        }
+        self.persist_saved_hosts(&saved_guard);
+        Ok(entry)
+    }
+
+    pub fn update_host(
+        &self,
+        input: DesktopRemoteSshUpdateHostInput,
+    ) -> Result<DesktopRemoteSshState, String> {
+        let host = input.target.host.trim().to_string();
+        if !Self::is_valid_ssh_target(&host) {
+            return Err("Enter an SSH host such as `devbox` or `user@example.com`.".to_string());
+        }
+        let normalized_root = match input.target.remote_root.as_deref() {
+            None | Some("") => None,
+            Some(raw) => Some(
+                Self::normalize_remote_root(raw).ok_or_else(|| {
+                    "The remote folder must be a relative path inside the home folder.".to_string()
+                })?,
+            ),
+        };
+        let prev = input
+            .previous_host
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(&host);
+
+        {
             let mut saved_guard = self.saved_hosts.lock().map_err(|e| e.to_string())?;
-            let existing_key = input
+            let existing = saved_guard
+                .iter()
+                .find(|h| h.host == prev || h.host == host)
+                .cloned();
+            let host_key = input
+                .target
                 .host_key
                 .clone()
-                .or_else(|| {
-                    saved_guard
-                        .iter()
-                        .find(|h| h.host == host)
-                        .and_then(|h| h.host_key.clone())
-                })
+                .or_else(|| existing.as_ref().and_then(|h| h.host_key.clone()))
                 .unwrap_or_else(Self::generate_host_key);
 
             let entry = DesktopRemoteSshSavedHost {
                 host: host.clone(),
                 remote_root: normalized_root.clone(),
-                host_key: Some(existing_key.clone()),
-                auto_connect: None,
+                host_key: Some(host_key),
+                auto_connect: input
+                    .target
+                    .auto_connect
+                    .or_else(|| existing.as_ref().and_then(|h| h.auto_connect)),
+                label: Self::sanitize_optional_field(input.target.label.as_deref()),
+                user: Self::sanitize_optional_field(input.target.user.as_deref()),
+                port: input.target.port.filter(|p| *p > 0),
+                identity_file: Self::sanitize_optional_field(input.target.identity_file.as_deref()),
             };
-            saved_guard.retain(|h| h.host != host);
-            saved_guard.insert(0, entry);
-            self.persist_saved_hosts(&saved_guard);
-            existing_key
-        };
 
-        let remote_root = normalized_root.unwrap_or_else(|| DEFAULT_REMOTE_ROOT.to_string());
+            if let Some(pos) = saved_guard.iter().position(|h| h.host == prev || h.host == host) {
+                saved_guard[pos] = entry;
+                let mut idx = 0;
+                saved_guard.retain(|h| {
+                    let keep = idx == pos || (h.host != prev && h.host != host);
+                    idx += 1;
+                    keep
+                });
+            } else {
+                saved_guard.insert(0, entry);
+            }
+            self.persist_saved_hosts(&saved_guard);
+        }
+
+        if prev != host {
+            if let Ok(mut live_guard) = self.live_hosts.lock() {
+                if let Some(live) = live_guard.iter_mut().find(|h| h.host == prev) {
+                    live.host = host.clone();
+                    if let Some(root) = normalized_root {
+                        live.remote_root = root;
+                    }
+                }
+            }
+        }
+
+        Ok(self.get_state())
+    }
+
+    pub fn test_host(
+        &self,
+        input: DesktopRemoteSshSavedHost,
+    ) -> Result<DesktopRemoteSshTestResult, String> {
+        let host = input.host.trim().to_string();
+        if !Self::is_valid_ssh_target(&host) {
+            return Err("Enter an SSH host such as `devbox` or `user@example.com`.".to_string());
+        }
+        let remote_root = input
+            .remote_root
+            .as_deref()
+            .and_then(Self::normalize_remote_root)
+            .unwrap_or_else(|| DEFAULT_REMOTE_ROOT.to_string());
+        let saved_entry = self
+            .saved_hosts
+            .lock()
+            .ok()
+            .and_then(|g| g.iter().find(|h| h.host == host).cloned());
+        let merged = DesktopRemoteSshSavedHost {
+            host: host.clone(),
+            remote_root: Some(remote_root.clone()),
+            host_key: input.host_key,
+            auto_connect: input.auto_connect,
+            label: input.label,
+            user: input.user.or_else(|| saved_entry.as_ref().and_then(|s| s.user.clone())),
+            port: input.port.or_else(|| saved_entry.as_ref().and_then(|s| s.port)),
+            identity_file: input
+                .identity_file
+                .or_else(|| saved_entry.as_ref().and_then(|s| s.identity_file.clone())),
+        };
+        let extra_args = Self::ssh_connection_option_args(&merged);
+
+        let probe_cmd = format!(
+            "printf 'SAINT_SSH_OK\\n'; if pgrep -f '{remote_root}' >/dev/null 2>&1; then printf 'SAINT_SERVER_RUNNING\\n'; else printf 'SAINT_SERVER_STOPPED\\n'; fi"
+        );
+        let mut ssh_cmd = Command::new("ssh");
+        ssh_cmd.args([
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=8",
+            "-o",
+            "ClearAllForwardings=yes",
+        ]);
+        ssh_cmd.args(&extra_args);
+        ssh_cmd.arg(&host).arg(&probe_cmd);
+        ssh_cmd
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            ssh_cmd.creation_flags(0x0800_0000);
+        }
+
+        match ssh_cmd.output() {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Ok(Self::parse_test_host_output(
+                    &host,
+                    output.status.success(),
+                    &stdout,
+                    &stderr,
+                ))
+            }
+            Err(err) => Ok(DesktopRemoteSshTestResult {
+                host,
+                reachable: false,
+                authenticated: false,
+                server_running: false,
+                message: format!("Failed to invoke ssh: {err}"),
+            }),
+        }
+    }
+
+    pub fn connect(
+        &self,
+        input: DesktopRemoteSshSavedHost,
+    ) -> Result<DesktopRemoteSshHostState, String> {
+        let entry = self.upsert_saved_entry(None, input, true)?;
+        let host = entry.host.clone();
+        let host_key = entry
+            .host_key
+            .clone()
+            .unwrap_or_else(Self::generate_host_key);
+        let remote_root = entry
+            .remote_root
+            .clone()
+            .unwrap_or_else(|| DEFAULT_REMOTE_ROOT.to_string());
         let local_port = Self::reserve_local_port();
+        let extra_args = Self::ssh_connection_option_args(&entry);
 
         // Spawn non-interactive SSH port forward (`ssh -N -L <localPort>:127.0.0.1:3773 <host>`)
         let mut ssh_cmd = Command::new("ssh");
+        ssh_cmd.args([
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            "-o",
+            "ExitOnForwardFailure=yes",
+        ]);
+        ssh_cmd.args(&extra_args);
         ssh_cmd
-            .args([
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "ConnectTimeout=10",
-                "-o",
-                "ExitOnForwardFailure=yes",
-                "-N",
-                "-L",
-                &format!("{local_port}:127.0.0.1:3773"),
-                &host,
-            ])
+            .args(["-N", "-L", &format!("{local_port}:127.0.0.1:3773"), &host])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::piped());
@@ -502,5 +793,92 @@ mod tests {
         );
         assert!(RemoteSshManager::normalize_remote_root("../escape").is_none());
         assert!(RemoteSshManager::normalize_remote_root("/abs/path").is_none());
+    }
+
+    #[test]
+    fn builds_ssh_option_args_and_parses_probe_results() {
+        let entry = DesktopRemoteSshSavedHost {
+            host: "devbox.internal".to_string(),
+            remote_root: Some(".saint-remote".to_string()),
+            host_key: Some("a1b2c3d4".to_string()),
+            auto_connect: None,
+            label: Some("Staging Box".to_string()),
+            user: Some("ubuntu".to_string()),
+            port: Some(2222),
+            identity_file: Some("~/.ssh/id_ed25519".to_string()),
+        };
+        assert_eq!(
+            RemoteSshManager::ssh_connection_option_args(&entry),
+            vec!["-p", "2222", "-l", "ubuntu", "-i", "~/.ssh/id_ed25519"]
+        );
+
+        let running = RemoteSshManager::parse_test_host_output(
+            "devbox.internal",
+            true,
+            "SAINT_SSH_OK\nSAINT_SERVER_RUNNING\n",
+            "",
+        );
+        assert!(running.reachable);
+        assert!(running.authenticated);
+        assert!(running.server_running);
+
+        let auth_failed = RemoteSshManager::parse_test_host_output(
+            "devbox.internal",
+            false,
+            "",
+            "ubuntu@devbox.internal: Permission denied (publickey).",
+        );
+        assert!(auth_failed.reachable);
+        assert!(!auth_failed.authenticated);
+        assert!(!auth_failed.server_running);
+    }
+
+    #[test]
+    fn updates_and_renames_saved_hosts_preserving_host_key() {
+        let temp_dir = std::env::temp_dir().join(format!("saint-ssh-test-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let paths = SaintPaths::from_base_dir(temp_dir.clone());
+        let manager = RemoteSshManager::new(paths);
+
+        let state = manager
+            .update_host(DesktopRemoteSshUpdateHostInput {
+                previous_host: None,
+                target: DesktopRemoteSshSavedHost {
+                    host: "devbox".to_string(),
+                    remote_root: Some("custom/saint".to_string()),
+                    host_key: None,
+                    auto_connect: None,
+                    label: Some("Dev Box".to_string()),
+                    user: Some("alice".to_string()),
+                    port: Some(2200),
+                    identity_file: Some("~/.ssh/dev_key".to_string()),
+                },
+            })
+            .unwrap();
+        assert_eq!(state.saved_hosts.len(), 1);
+        let original_key = state.saved_hosts[0].host_key.clone();
+        assert!(original_key.is_some());
+
+        let renamed = manager
+            .update_host(DesktopRemoteSshUpdateHostInput {
+                previous_host: Some("devbox".to_string()),
+                target: DesktopRemoteSshSavedHost {
+                    host: "devbox-2".to_string(),
+                    remote_root: Some("custom/saint".to_string()),
+                    host_key: None,
+                    auto_connect: None,
+                    label: Some("Dev Box 2".to_string()),
+                    user: Some("bob".to_string()),
+                    port: Some(22),
+                    identity_file: Some("~/.ssh/id_ed25519".to_string()),
+                },
+            })
+            .unwrap();
+        assert_eq!(renamed.saved_hosts.len(), 1);
+        assert_eq!(renamed.saved_hosts[0].host, "devbox-2");
+        assert_eq!(renamed.saved_hosts[0].host_key, original_key);
+        assert_eq!(renamed.saved_hosts[0].label.as_deref(), Some("Dev Box 2"));
+        assert_eq!(renamed.saved_hosts[0].user.as_deref(), Some("bob"));
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

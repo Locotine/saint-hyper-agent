@@ -1,0 +1,117 @@
+# Opus plans, Antigravity Gemini 4 Argon executes and tests, Opus reviews.
+# A review that finds bugs feeds the next round's plan; rounds after a clean
+# review hand off at once. flow-v1 is a DAG, so the loop is unrolled into three
+# rounds. Replace GOAL below before starting.
+# Antigravity exposes no fast mode in Saint, so Argon runs at reasoningEffort medium.
+version: flow-v1
+name: Opus plan, Argon execute, Opus review (3 rounds)
+allowedProviders: [claudeAgent, antigravity]
+budget:
+  maxParallel: 1
+  maxDepth: 9
+  breakerFailures: 3
+nodes:
+  - id: plan-1
+    role: Planner
+    provider: claudeAgent
+    model: opus
+    options: { effort: high }
+    prompt: |
+      GOAL: <replace with the user's request before starting>
+
+      State the goal in one sentence, then plan it: read the code it touches end to end, list the
+      files to change, the exact change per file, the tests to add, and the checks to run. Do not
+      write the implementation. Follow AGENTS.md. Hand off with saint_flow_done: put the full plan
+      in `change`, the files in `ownership`, and the checks in `acceptance`.
+  - id: execute-1
+    role: Executor
+    provider: antigravity
+    model: Gemini 4 Argon
+    options: { reasoningEffort: medium }
+    mode: auto_refix
+    maxRefix: 2
+    gate: { id: execute-1-checks, cmd: bun run typecheck && bun run lint }
+    prompt: |
+      Implement the plan from the handoff exactly, within its ownership. Add the tests it lists and
+      run its acceptance checks; report each result. Do not commit or push. Hand off with
+      saint_flow_done describing what changed and every check result.
+  - id: review-1
+    role: Reviewer
+    provider: claudeAgent
+    model: opus
+    options: { effort: high }
+    mode: gate_hold
+    prompt: |
+      Review the executor's diff against the plan for correctness bugs, regressions, missing tests
+      and security issues. Verify each finding in the code before reporting it. Hand off with
+      saint_flow_done: if there are no bugs, start `change` with "CLEAN" and give the conclusion;
+      otherwise list each bug with file:line and a concrete failure scenario.
+  - id: plan-2
+    role: Planner
+    provider: claudeAgent
+    model: opus
+    options: { effort: high }
+    prompt: |
+      If the review handoff starts with "CLEAN", hand off immediately with `change` "CLEAN: no
+      further work". Otherwise plan the fix for every reported bug (files, exact change, tests,
+      checks) without implementing it, and hand off the plan.
+  - id: execute-2
+    role: Executor
+    provider: antigravity
+    model: Gemini 4 Argon
+    options: { reasoningEffort: medium }
+    mode: auto_refix
+    maxRefix: 2
+    gate: { id: execute-2-checks, cmd: bun run typecheck && bun run lint }
+    prompt: |
+      If the handoff starts with "CLEAN", hand off immediately with `change` "CLEAN: no further
+      work" and change nothing. Otherwise implement the fix plan within its ownership, add its
+      tests, run its checks and report each result. Do not commit or push.
+  - id: review-2
+    role: Reviewer
+    provider: claudeAgent
+    model: opus
+    options: { effort: high }
+    mode: gate_hold
+    prompt: |
+      If the handoff starts with "CLEAN", pass it on unchanged. Otherwise review the fix diff the
+      same way as the first review and hand off "CLEAN" plus a conclusion, or the remaining bugs.
+  - id: plan-3
+    role: Planner
+    provider: claudeAgent
+    model: opus
+    options: { effort: high }
+    prompt: |
+      If the review handoff starts with "CLEAN", hand off immediately with `change` "CLEAN: no
+      further work". Otherwise plan the fix for every remaining bug and hand off the plan.
+  - id: execute-3
+    role: Executor
+    provider: antigravity
+    model: Gemini 4 Argon
+    options: { reasoningEffort: medium }
+    mode: auto_refix
+    maxRefix: 2
+    gate: { id: execute-3-checks, cmd: bun run typecheck && bun run lint }
+    prompt: |
+      If the handoff starts with "CLEAN", hand off immediately with `change` "CLEAN: no further
+      work" and change nothing. Otherwise implement the fix plan, add its tests, run its checks
+      and report each result. Do not commit or push.
+  - id: review-3
+    role: Final reviewer
+    provider: claudeAgent
+    model: opus
+    options: { effort: high }
+    mode: gate_hold
+    prompt: |
+      Give the final conclusion for the whole change. If bugs remain after three rounds, list them
+      with file:line so a person can decide; otherwise hand off "CLEAN". Remind the person that
+      /verify must run before any commit or push.
+edges:
+  - { from: plan-1, to: execute-1 }
+  - { from: execute-1, to: review-1 }
+  - { from: review-1, to: plan-2 }
+  - { from: plan-2, to: execute-2 }
+  - { from: execute-2, to: review-2 }
+  - { from: review-2, to: plan-3 }
+  - { from: plan-3, to: execute-3 }
+  - { from: execute-3, to: review-3 }

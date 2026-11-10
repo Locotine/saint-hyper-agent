@@ -202,6 +202,22 @@ describe("createTauriDesktopBridge", () => {
       host: { host: "devbox" },
     });
 
+    await bridge.remoteSsh!.testHost!({ host: "devbox", port: 2222 });
+    expect(invoke).toHaveBeenCalledWith("desktop_remote_ssh_test_host", {
+      host: { host: "devbox", port: 2222 },
+    });
+
+    await bridge.remoteSsh!.updateHost!({
+      previousHost: "devbox",
+      target: { host: "devbox-2", label: "Dev 2" },
+    });
+    expect(invoke).toHaveBeenCalledWith("desktop_remote_ssh_update_host", {
+      input: {
+        previousHost: "devbox",
+        target: { host: "devbox-2", label: "Dev 2" },
+      },
+    });
+
     await bridge.appSnap.captureCurrentApp("req-1");
     expect(invoke).toHaveBeenCalledWith("desktop_appsnap_capture_current_app", {
       requestId: "req-1",

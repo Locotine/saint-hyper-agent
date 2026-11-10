@@ -1,7 +1,15 @@
 import type { DesktopRemoteSshHostState } from "@saint/contracts";
 import { describe, expect, it } from "vitest";
 
-import { isRemoteHostBusy, remoteHostRows, remoteHostStatus } from "./remoteHostsSettingsModel";
+import {
+  formatRemoteHostConnectionDetails,
+  isRemoteHostBusy,
+  remoteHostBadgeLabel,
+  remoteHostConnectingProgress,
+  remoteHostRows,
+  remoteHostStatus,
+  remoteHostStatusTone,
+} from "./remoteHostsSettingsModel";
 
 const hostState = (
   host: string,
@@ -57,5 +65,43 @@ describe("remoteHostStatus", () => {
     expect(isRemoteHostBusy(hostState("a", "connected"))).toBe(false);
     expect(isRemoteHostBusy(hostState("a", "error"))).toBe(false);
     expect(isRemoteHostBusy(null)).toBe(false);
+  });
+
+  it("formats connection details, status badges, and connecting progress copy", () => {
+    expect(
+      formatRemoteHostConnectionDetails({
+        host: "devbox.internal",
+        user: "ubuntu",
+        port: 2222,
+        identityFile: "~/.ssh/prod_key",
+      }),
+    ).toBe("ubuntu@devbox.internal:2222 • ~/.ssh/prod_key");
+
+    expect(
+      formatRemoteHostConnectionDetails({
+        host: "alice@gpu.example.com:2200",
+      }),
+    ).toBe("alice@gpu.example.com:2200 • ~/.ssh/id_ed25519");
+
+    expect(remoteHostStatusTone(null)).toBe("disconnected");
+    expect(remoteHostBadgeLabel(null)).toBe("Disconnected");
+    expect(remoteHostBadgeLabel(hostState("a", "starting"))).toBe("Connecting…");
+    expect(remoteHostBadgeLabel(hostState("a", "connected"))).toBe("Connected");
+    expect(remoteHostBadgeLabel(hostState("a", "error"))).toBe("Error");
+
+    expect(
+      remoteHostConnectingProgress({
+        host: "devbox",
+        displayName: "Staging GPU",
+        state: hostState("devbox", "installing"),
+      }),
+    ).toBe("Setting up a managed Saint server on Staging GPU — Installing dependencies…");
+    expect(
+      remoteHostConnectingProgress({
+        host: "devbox",
+        displayName: "Staging GPU",
+        state: hostState("devbox", "connected"),
+      }),
+    ).toBeNull();
   });
 });

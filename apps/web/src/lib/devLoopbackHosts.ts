@@ -92,6 +92,16 @@ function loopbackBridge(): RemoteSshBridge | undefined {
       setConnected(saved.host, false);
     },
     forget: async () => undefined,
+    testHost: async (saved) => ({
+      host: saved.host,
+      reachable: true,
+      authenticated: true,
+      serverRunning: hosts.some(
+        (state) => state.host === saved.host && state.phase === "connected",
+      ),
+      message: "SSH reachable · authenticated · Saint server is running.",
+    }),
+    updateHost: async () => snapshot(),
     wsUrl: async (host) =>
       hosts.some((state) => state.host === host && state.phase === "connected")
         ? (urls.get(host) ?? null)

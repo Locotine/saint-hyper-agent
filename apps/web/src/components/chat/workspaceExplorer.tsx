@@ -7,6 +7,12 @@
 
 import { useHostId } from "~/hosts/hostScope";
 import type { ProjectEntry, ProjectFileSystemEntry } from "@saint/contracts";
+import {
+  isLocalAbsolutePath,
+  joinWorkspaceRelativePath,
+  localPathsEqual,
+  workspaceRelativePathOf,
+} from "@saint/shared/path";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -91,6 +97,83 @@ const EXPLORER_SEARCH_RESULTS_LIMIT = 80;
 // How long a drag rests on a collapsed folder before it opens.
 const EXPLORER_DRAG_EXPAND_DELAY_MS = 500;
 const EMPTY_WORKSPACE_SEARCH_FILE_MATCHES: ReadonlyArray<ProjectEntry> = [];
+const EMPTY_EXPANDED_DIRECTORIES: ReadonlySet<string> = new Set<string>();
+const EMPTY_EXPANDED_DIRECTORIES_BY_ROOT: ReadonlyMap<string, ReadonlySet<string>> = new Map();
+
+function toFullPath(entryPath: string, root: string): string {
+  return isLocalAbsolutePath(entryPath) ? entryPath : joinWorkspaceRelativePath(root, entryPath);
+}
+
+/**
+ * Converts an entry path relative to `activeRoot` into the path representation
+ * expected by a consumer rooted at `baseRoot`: a `baseRoot`-relative path when
+ * the file is inside `baseRoot`, or a normalized absolute path when the user
+ * has navigated outside `baseRoot`.
+ */
+export function resolveExplorerPathForBaseRoot(
+  entryPath: string,
+  activeRoot: string | null,
+  baseRoot: string | null,
+): string {
+  if (!entryPath || !activeRoot || !baseRoot || localPathsEqual(activeRoot, baseRoot)) {
+    return entryPath;
+  }
+  const fullPath = toFullPath(entryPath, activeRoot);
+  return workspaceRelativePathOf(fullPath, baseRoot) ?? fullPath;
+}
+
+/**
+ * Resolves an entry path relative to `activeRoot` into a `baseRoot`-relative
+ * path for consumers whose URL route param is fixed to `baseRoot` (such as
+ * `SingleChatSurface`'s `?editorFilePath=`). Returns `null` when the entry
+ * lies outside `baseRoot`.
+ */
+export function resolveSelectablePathForBaseRoot(
+  entryPath: string,
+  activeRoot: string | null,
+  baseRoot: string | null,
+): string | null {
+  if (!entryPath) {
+    return null;
+  }
+  if (!activeRoot || !baseRoot) {
+    return isLocalAbsolutePath(entryPath) ? null : entryPath;
+  }
+  if (localPathsEqual(activeRoot, baseRoot) && !isLocalAbsolutePath(entryPath)) {
+    return entryPath;
+  }
+  return workspaceRelativePathOf(toFullPath(entryPath, activeRoot), baseRoot);
+}
+
+/**
+ * Converts a consumer's `selectedFilePath` (relative to `baseRoot` or absolute)
+ * into a path relative to `activeRoot` so the active tree/search highlights it.
+ */
+export function resolveSelectedFilePathForActiveRoot(
+  selectedFilePath: string | null,
+  activeRoot: string | null,
+  baseRoot: string | null,
+): string | null {
+  if (!selectedFilePath || !activeRoot || !baseRoot || localPathsEqual(activeRoot, baseRoot)) {
+    return selectedFilePath;
+  }
+  return workspaceRelativePathOf(toFullPath(selectedFilePath, baseRoot), activeRoot);
+}
+
+export function wrapReferenceInChatForActiveRoot(
+  onReferenceInChat: ((reference: ChatFileReference) => void) | undefined,
+  activeRoot: string | null,
+  baseRoot: string | null,
+): ((reference: ChatFileReference) => void) | undefined {
+  if (!onReferenceInChat || !activeRoot || !baseRoot || localPathsEqual(activeRoot, baseRoot)) {
+    return onReferenceInChat;
+  }
+  return (reference) =>
+    onReferenceInChat({
+      ...reference,
+      path: resolveExplorerPathForBaseRoot(reference.path, activeRoot, baseRoot),
+    });
+}
 
 // Default sidebar shell: a full-height column in the editor's wide row layout
 // that collapses to a stacked block on narrow viewports. Surfaces with a fixed
@@ -580,6 +663,226 @@ function ExplorerUploadProgressBar(props: { workspaceRoot: string | null }) {
   );
 }
 
+export interface ExplorerLocalRootState {
+  readonly baseRoot: string | null;
+  readonly activeRoot: string | null;
+  readonly history: readonly string[];
+  readonly expandedDirectoriesByRoot: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+const EMPTY_LOCAL_ROOT_STATE: Omit<ExplorerLocalRootState, "baseRoot"> = {
+  activeRoot: null,
+  history: [],
+  expandedDirectoriesByRoot: EMPTY_EXPANDED_DIRECTORIES_BY_ROOT,
+};
+
+export function makeEmptyLocalRootState(baseRoot: string | null): ExplorerLocalRootState {
+  return { baseRoot, ...EMPTY_LOCAL_ROOT_STATE };
+}
+
+export function ensureLocalRootState(
+  state: ExplorerLocalRootState,
+  workspaceRoot: string | null,
+): ExplorerLocalRootState {
+  return state.baseRoot === workspaceRoot ? state : makeEmptyLocalRootState(workspaceRoot);
+}
+
+export function navigateLocalRootState(
+  state: ExplorerLocalRootState,
+  workspaceRoot: string | null,
+  nextRoot: string,
+): ExplorerLocalRootState {
+  const base = ensureLocalRootState(state, workspaceRoot);
+  const currentRoot = base.activeRoot ?? workspaceRoot;
+  if (!currentRoot || nextRoot === currentRoot) return base;
+  return {
+    baseRoot: workspaceRoot,
+    activeRoot:
+      workspaceRoot !== null && localPathsEqual(nextRoot, workspaceRoot) ? null : nextRoot,
+    history: [...base.history, currentRoot],
+    expandedDirectoriesByRoot: base.expandedDirectoriesByRoot,
+  };
+}
+
+export function navigateBackLocalRootState(
+  state: ExplorerLocalRootState,
+  workspaceRoot: string | null,
+): ExplorerLocalRootState {
+  const base = ensureLocalRootState(state, workspaceRoot);
+  if (base.history.length === 0) return base;
+  const prev = base.history[base.history.length - 1] ?? null;
+  return {
+    baseRoot: workspaceRoot,
+    activeRoot:
+      prev === null || (workspaceRoot !== null && localPathsEqual(prev, workspaceRoot))
+        ? null
+        : prev,
+    history: base.history.slice(0, -1),
+    expandedDirectoriesByRoot: base.expandedDirectoriesByRoot,
+  };
+}
+
+export function resetLocalRootState(
+  state: ExplorerLocalRootState,
+  workspaceRoot: string | null,
+): ExplorerLocalRootState {
+  const base = ensureLocalRootState(state, workspaceRoot);
+  if (base.activeRoot === null && base.history.length === 0) {
+    return base;
+  }
+  return {
+    baseRoot: workspaceRoot,
+    activeRoot: null,
+    history: [],
+    expandedDirectoriesByRoot: base.expandedDirectoriesByRoot,
+  };
+}
+
+export function toggleLocalRootExpandedDirectory(
+  state: ExplorerLocalRootState,
+  workspaceRoot: string | null,
+  activeRoot: string,
+  directoryPath: string,
+): ExplorerLocalRootState {
+  const base = ensureLocalRootState(state, workspaceRoot);
+  const nextExpanded = new Set(
+    base.expandedDirectoriesByRoot.get(activeRoot) ?? EMPTY_EXPANDED_DIRECTORIES,
+  );
+  if (nextExpanded.has(directoryPath)) {
+    nextExpanded.delete(directoryPath);
+  } else {
+    nextExpanded.add(directoryPath);
+  }
+  const nextMap = new Map(base.expandedDirectoriesByRoot);
+  nextMap.set(activeRoot, nextExpanded);
+  return { ...base, expandedDirectoriesByRoot: nextMap };
+}
+
+function useExplorerLocalRoot(input: {
+  readonly workspaceRoot: string | null;
+  readonly projectWorkspaceRoot?: string | null | undefined;
+  readonly selectedFilePath: string | null;
+  readonly expandedDirectories: ReadonlySet<string>;
+  readonly restrictSelectionToBaseRoot?: boolean | undefined;
+  readonly onSelectFile: (path: string) => void;
+  readonly onToggleDirectory: (path: string) => void;
+  readonly onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
+  readonly canNavigateBack?: boolean | undefined;
+  readonly onNavigateRoot?: ((nextRoot: string) => void) | undefined;
+  readonly onNavigateBack?: (() => void) | undefined;
+  readonly onResetRoot?: (() => void) | undefined;
+}) {
+  const [localRootState, setLocalRootState] = useState<ExplorerLocalRootState>(() =>
+    makeEmptyLocalRootState(input.workspaceRoot),
+  );
+  const usesExternalNavigation = input.onNavigateRoot !== undefined;
+  const projectRoot = input.projectWorkspaceRoot ?? input.workspaceRoot;
+  const effectiveLocalState = ensureLocalRootState(localRootState, input.workspaceRoot);
+  const effectiveWorkspaceRoot = usesExternalNavigation
+    ? input.workspaceRoot
+    : (effectiveLocalState.activeRoot ?? input.workspaceRoot);
+  const isNavigatedAwayFromBase =
+    effectiveWorkspaceRoot !== null &&
+    projectRoot !== null &&
+    !localPathsEqual(effectiveWorkspaceRoot, projectRoot);
+  const isLocalNavigatedAwayFromBase = !usesExternalNavigation && isNavigatedAwayFromBase;
+
+  const navigateRoot = (nextRoot: string) => {
+    if (!effectiveWorkspaceRoot || nextRoot === effectiveWorkspaceRoot) return;
+    if (input.onNavigateRoot) {
+      input.onNavigateRoot(nextRoot);
+      return;
+    }
+    setLocalRootState((current) => navigateLocalRootState(current, input.workspaceRoot, nextRoot));
+  };
+
+  const navigateBack = () => {
+    if (input.onNavigateBack) {
+      input.onNavigateBack();
+      return;
+    }
+    if (effectiveLocalState.history.length === 0) return;
+    setLocalRootState((current) => navigateBackLocalRootState(current, input.workspaceRoot));
+  };
+
+  const resetRoot = () => {
+    if (input.onResetRoot) {
+      input.onResetRoot();
+      return;
+    }
+    setLocalRootState((current) => resetLocalRootState(current, input.workspaceRoot));
+  };
+
+  const effectiveSelectedFilePath = isLocalNavigatedAwayFromBase
+    ? resolveSelectedFilePathForActiveRoot(
+        input.selectedFilePath,
+        effectiveWorkspaceRoot,
+        projectRoot,
+      )
+    : input.selectedFilePath;
+  const effectiveExpandedDirectories =
+    isLocalNavigatedAwayFromBase && effectiveWorkspaceRoot
+      ? (effectiveLocalState.expandedDirectoriesByRoot.get(effectiveWorkspaceRoot) ??
+        EMPTY_EXPANDED_DIRECTORIES)
+      : input.expandedDirectories;
+  const handleSelectFile = isLocalNavigatedAwayFromBase
+    ? (path: string) => {
+        if (input.restrictSelectionToBaseRoot) {
+          const selectablePath = resolveSelectablePathForBaseRoot(
+            path,
+            effectiveWorkspaceRoot,
+            projectRoot,
+          );
+          if (selectablePath !== null) {
+            input.onSelectFile(selectablePath);
+          }
+          return;
+        }
+        input.onSelectFile(
+          resolveExplorerPathForBaseRoot(path, effectiveWorkspaceRoot, projectRoot),
+        );
+      }
+    : input.onSelectFile;
+  const handleToggleDirectory =
+    isLocalNavigatedAwayFromBase && effectiveWorkspaceRoot
+      ? (path: string) => {
+          const activeRoot = effectiveWorkspaceRoot;
+          setLocalRootState((current) =>
+            toggleLocalRootExpandedDirectory(current, input.workspaceRoot, activeRoot, path),
+          );
+        }
+      : input.onToggleDirectory;
+  const handleReferenceInChat = wrapReferenceInChatForActiveRoot(
+    input.onReferenceInChat,
+    effectiveWorkspaceRoot,
+    projectRoot,
+  );
+
+  const canNavigateBack = usesExternalNavigation
+    ? (input.canNavigateBack ?? false)
+    : effectiveLocalState.history.length > 0;
+  const parentRoot = effectiveWorkspaceRoot ? parentWorkspaceRoot(effectiveWorkspaceRoot) : null;
+  const handleNavigateIntoDirectory = (relativePath: string) => {
+    if (!effectiveWorkspaceRoot) return;
+    navigateRoot(joinChildWorkspaceRoot(effectiveWorkspaceRoot, relativePath));
+  };
+
+  return {
+    effectiveWorkspaceRoot,
+    effectiveSelectedFilePath,
+    effectiveExpandedDirectories,
+    canNavigateBack,
+    parentRoot,
+    navigateRoot,
+    navigateBack,
+    resetRoot,
+    handleNavigateIntoDirectory,
+    handleSelectFile,
+    handleToggleDirectory,
+    handleReferenceInChat,
+  };
+}
+
 export function WorkspaceFilesSidebar(props: {
   workspaceRoot: string | null;
   selectedFilePath: string | null;
@@ -589,54 +892,30 @@ export function WorkspaceFilesSidebar(props: {
   onToggleDirectory: (path: string) => void;
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
 }) {
-  const [localRootState, setLocalRootState] = useState<{
-    readonly baseRoot: string | null;
-    readonly activeRoot: string | null;
-    readonly history: readonly string[];
-  }>({
-    baseRoot: props.workspaceRoot,
-    activeRoot: null,
-    history: [],
+  const {
+    effectiveWorkspaceRoot,
+    effectiveSelectedFilePath,
+    effectiveExpandedDirectories,
+    canNavigateBack,
+    parentRoot,
+    navigateRoot,
+    navigateBack,
+    resetRoot,
+    handleNavigateIntoDirectory,
+    handleSelectFile,
+    handleToggleDirectory,
+    handleReferenceInChat,
+  } = useExplorerLocalRoot({
+    ...props,
+    restrictSelectionToBaseRoot: true,
   });
-  const effectiveLocalState =
-    localRootState.baseRoot === props.workspaceRoot
-      ? localRootState
-      : { baseRoot: props.workspaceRoot, activeRoot: null, history: [] };
-  const effectiveWorkspaceRoot = effectiveLocalState.activeRoot ?? props.workspaceRoot;
-
-  const navigateRoot = (nextRoot: string) => {
-    if (!effectiveWorkspaceRoot || nextRoot === effectiveWorkspaceRoot) return;
-    setLocalRootState({
-      baseRoot: props.workspaceRoot,
-      activeRoot: nextRoot,
-      history: [...effectiveLocalState.history, effectiveWorkspaceRoot],
-    });
-  };
-  const navigateBack = () => {
-    if (effectiveLocalState.history.length === 0) return;
-    const prev = effectiveLocalState.history[effectiveLocalState.history.length - 1] ?? null;
-    setLocalRootState({
-      baseRoot: props.workspaceRoot,
-      activeRoot: prev === props.workspaceRoot ? null : prev,
-      history: effectiveLocalState.history.slice(0, -1),
-    });
-  };
-  const resetRoot = () => {
-    setLocalRootState({ baseRoot: props.workspaceRoot, activeRoot: null, history: [] });
-  };
-
-  const parentRoot = effectiveWorkspaceRoot ? parentWorkspaceRoot(effectiveWorkspaceRoot) : null;
-  const handleNavigateIntoDirectory = (relativePath: string) => {
-    if (!effectiveWorkspaceRoot) return;
-    navigateRoot(joinChildWorkspaceRoot(effectiveWorkspaceRoot, relativePath));
-  };
 
   const prefetchEntry = useExplorerEntryPrefetch(effectiveWorkspaceRoot);
   const entryActions = useExplorerEntryActions({
     workspaceRoot: effectiveWorkspaceRoot,
-    onReferenceInChat: props.onReferenceInChat,
-    onSelectFile: props.onSelectFile,
-    selectedFilePath: props.selectedFilePath,
+    onReferenceInChat: handleReferenceInChat,
+    onSelectFile: handleSelectFile,
+    selectedFilePath: effectiveSelectedFilePath,
     onNavigateIntoDirectory: handleNavigateIntoDirectory,
   });
   const handleListKeyDown = useExplorerListNavigation();
@@ -649,7 +928,7 @@ export function WorkspaceFilesSidebar(props: {
         <ExplorerNavigationBar
           workspaceRoot={effectiveWorkspaceRoot}
           projectWorkspaceRoot={props.workspaceRoot}
-          canNavigateBack={effectiveLocalState.history.length > 0}
+          canNavigateBack={canNavigateBack}
           onNavigateBack={navigateBack}
           onNavigateUp={parentRoot ? () => navigateRoot(parentRoot) : null}
           onResetRoot={resetRoot}
@@ -658,10 +937,10 @@ export function WorkspaceFilesSidebar(props: {
       <ExplorerUploadProgressBar workspaceRoot={effectiveWorkspaceRoot} />
       <WorkspaceFilesTreeBody
         workspaceRoot={effectiveWorkspaceRoot}
-        selectedFilePath={props.selectedFilePath}
-        expandedDirectories={props.expandedDirectories}
-        onSelectFile={props.onSelectFile}
-        onToggleDirectory={props.onToggleDirectory}
+        selectedFilePath={effectiveSelectedFilePath}
+        expandedDirectories={effectiveExpandedDirectories}
+        onSelectFile={handleSelectFile}
+        onToggleDirectory={handleToggleDirectory}
         onNavigateUp={parentRoot ? () => navigateRoot(parentRoot) : undefined}
         onNavigateIntoDirectory={handleNavigateIntoDirectory}
         onPrefetchEntry={prefetchEntry}
@@ -1023,80 +1302,33 @@ export function WorkspaceExplorerSidebar(props: {
   onToggleDirectory: (path: string) => void;
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
 }) {
-  const [localRootState, setLocalRootState] = useState<{
-    readonly baseRoot: string | null;
-    readonly activeRoot: string | null;
-    readonly history: readonly string[];
-  }>({
-    baseRoot: props.workspaceRoot,
-    activeRoot: null,
-    history: [],
-  });
-  const usesExternalNavigation = props.onNavigateRoot !== undefined;
-  const effectiveLocalState =
-    localRootState.baseRoot === props.workspaceRoot
-      ? localRootState
-      : { baseRoot: props.workspaceRoot, activeRoot: null, history: [] };
-  const effectiveWorkspaceRoot = usesExternalNavigation
-    ? props.workspaceRoot
-    : (effectiveLocalState.activeRoot ?? props.workspaceRoot);
+  const {
+    effectiveWorkspaceRoot,
+    effectiveSelectedFilePath,
+    effectiveExpandedDirectories,
+    canNavigateBack,
+    parentRoot,
+    navigateRoot,
+    navigateBack,
+    resetRoot,
+    handleNavigateIntoDirectory,
+    handleSelectFile,
+    handleToggleDirectory,
+    handleReferenceInChat,
+  } = useExplorerLocalRoot(props);
   const projectRoot = props.projectWorkspaceRoot ?? props.workspaceRoot;
-
-  const navigateRoot = (nextRoot: string) => {
-    if (!effectiveWorkspaceRoot || nextRoot === effectiveWorkspaceRoot) return;
-    if (props.onNavigateRoot) {
-      props.onNavigateRoot(nextRoot);
-      return;
-    }
-    setLocalRootState({
-      baseRoot: props.workspaceRoot,
-      activeRoot: nextRoot,
-      history: [...effectiveLocalState.history, effectiveWorkspaceRoot],
-    });
-  };
-
-  const navigateBack = () => {
-    if (props.onNavigateBack) {
-      props.onNavigateBack();
-      return;
-    }
-    if (effectiveLocalState.history.length === 0) return;
-    const prev = effectiveLocalState.history[effectiveLocalState.history.length - 1] ?? null;
-    setLocalRootState({
-      baseRoot: props.workspaceRoot,
-      activeRoot: prev === props.workspaceRoot ? null : prev,
-      history: effectiveLocalState.history.slice(0, -1),
-    });
-  };
-
-  const resetRoot = () => {
-    if (props.onResetRoot) {
-      props.onResetRoot();
-      return;
-    }
-    setLocalRootState({ baseRoot: props.workspaceRoot, activeRoot: null, history: [] });
-  };
-
-  const canNavigateBack = usesExternalNavigation
-    ? (props.canNavigateBack ?? false)
-    : effectiveLocalState.history.length > 0;
-  const parentRoot = effectiveWorkspaceRoot ? parentWorkspaceRoot(effectiveWorkspaceRoot) : null;
-  const handleNavigateIntoDirectory = (relativePath: string) => {
-    if (!effectiveWorkspaceRoot) return;
-    navigateRoot(joinChildWorkspaceRoot(effectiveWorkspaceRoot, relativePath));
-  };
 
   const prefetchEntry = useExplorerEntryPrefetch(effectiveWorkspaceRoot);
   const entryActions = useExplorerEntryActions({
     workspaceRoot: effectiveWorkspaceRoot,
-    onReferenceInChat: props.onReferenceInChat,
-    onSelectFile: props.onSelectFile,
-    selectedFilePath: props.selectedFilePath,
+    onReferenceInChat: handleReferenceInChat,
+    onSelectFile: handleSelectFile,
+    selectedFilePath: effectiveSelectedFilePath,
     onNavigateIntoDirectory: handleNavigateIntoDirectory,
   });
   const { downloadSelection } = entryActions;
   const handleResultEntryContextMenu = useResultEntryContextMenu(
-    props.onReferenceInChat,
+    handleReferenceInChat,
     effectiveWorkspaceRoot,
   );
   const handleListKeyDown = useExplorerListNavigation();
@@ -1124,7 +1356,7 @@ export function WorkspaceExplorerSidebar(props: {
           </>
         }
         onQueryChange={props.onQueryChange}
-        onSelectFile={props.onSelectFile}
+        onSelectFile={handleSelectFile}
       />
       {effectiveWorkspaceRoot ? (
         <ExplorerNavigationBar
@@ -1140,10 +1372,10 @@ export function WorkspaceExplorerSidebar(props: {
       {search.inputQuery.length === 0 ? (
         <WorkspaceFilesTreeBody
           workspaceRoot={effectiveWorkspaceRoot}
-          selectedFilePath={props.selectedFilePath}
-          expandedDirectories={props.expandedDirectories}
-          onSelectFile={props.onSelectFile}
-          onToggleDirectory={props.onToggleDirectory}
+          selectedFilePath={effectiveSelectedFilePath}
+          expandedDirectories={effectiveExpandedDirectories}
+          onSelectFile={handleSelectFile}
+          onToggleDirectory={handleToggleDirectory}
           onNavigateUp={parentRoot ? () => navigateRoot(parentRoot) : undefined}
           onNavigateIntoDirectory={handleNavigateIntoDirectory}
           onPrefetchEntry={prefetchEntry}
@@ -1156,8 +1388,8 @@ export function WorkspaceExplorerSidebar(props: {
         <WorkspaceSearchResultsBody
           workspaceRoot={effectiveWorkspaceRoot}
           search={search}
-          selectedFilePath={props.selectedFilePath}
-          onSelectFile={props.onSelectFile}
+          selectedFilePath={effectiveSelectedFilePath}
+          onSelectFile={handleSelectFile}
           onPrefetchEntry={prefetchEntry}
           onEntryContextMenu={handleResultEntryContextMenu}
         />

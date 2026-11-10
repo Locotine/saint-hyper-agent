@@ -19,6 +19,7 @@ import {
 } from "node:child_process";
 
 import {
+  escapeWindowsCmdMetachars,
   lowerProcessPriority,
   prepareProcess,
   type ProcessLaunchInput,
@@ -28,6 +29,7 @@ import { resolveWindowsComSpec } from "./platformEnvironment";
 
 import { trackProcessSpawn } from "./processSpawnOutcome";
 export { didProcessFailToSpawn } from "./processSpawnOutcome";
+export { escapeWindowsCmdMetachars };
 
 type ProcessPlanningOptions = Pick<
   ProcessLaunchInput,

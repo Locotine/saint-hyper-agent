@@ -15,7 +15,7 @@ import {
   PtySpawnError,
 } from "../Services/PTY";
 
-const PAUSE_BUFFER_LIMIT = 8 * 1024 * 1024; // 8 MB
+export const PAUSE_BUFFER_LIMIT = 8 * 1024 * 1024; // 8 MB
 
 interface BridgeSpawnedEvent {
   readonly type: "spawned";
@@ -40,7 +40,38 @@ interface BridgeErrorEvent {
 
 type BridgeServerEvent = BridgeSpawnedEvent | BridgeDataEvent | BridgeExitEvent | BridgeErrorEvent;
 
-class RustPtyProcess implements PtyProcess {
+interface PendingDataChunk {
+  readonly text: string;
+  readonly bytes: number;
+}
+
+function sliceUtf16TailToUtf8ByteLimit(text: string, maxBytes: number): PendingDataChunk {
+  let low = Math.max(0, text.length - maxBytes);
+  let high = text.length;
+  if (Buffer.byteLength(text.slice(low), "utf8") > maxBytes) {
+    while (low < high) {
+      const mid = low + Math.floor((high - low) / 2);
+      if (Buffer.byteLength(text.slice(mid), "utf8") <= maxBytes) {
+        high = mid;
+      } else {
+        low = mid + 1;
+      }
+    }
+  }
+  if (low < text.length) {
+    const code = text.charCodeAt(low);
+    if (code >= 0xdc00 && code <= 0xdfff) {
+      low += 1;
+    }
+  }
+  const tail = text.slice(low);
+  return {
+    text: tail,
+    bytes: Buffer.byteLength(tail, "utf8"),
+  };
+}
+
+export class RustPtyProcess implements PtyProcess {
   private readonly dataListeners = new Set<(data: string) => void>();
   private readonly exitListeners = new Set<(event: PtyExitEvent) => void>();
   private readonly decoder = new TextDecoder();
@@ -48,6 +79,10 @@ class RustPtyProcess implements PtyProcess {
   private paused = false;
   private readonly pausedChunks: Uint8Array[] = [];
   private pausedBytes = 0;
+  private readonly pendingData: PendingDataChunk[] = [];
+  private pendingDataBytes = 0;
+  private pendingExit: PtyExitEvent | null = null;
+  private pendingFlushScheduled = false;
 
   constructor(
     private readonly socket: Net.Socket,
@@ -74,6 +109,9 @@ class RustPtyProcess implements PtyProcess {
   }
 
   kill(_signal?: string): void {
+    if (this.dataListeners.size === 0) {
+      this.clearPendingData();
+    }
     if (this.didExit || this.socket.destroyed) return;
     const payload = JSON.stringify({ type: "kill" });
     this.socket.write(`${payload}\n`, () => {
@@ -90,6 +128,7 @@ class RustPtyProcess implements PtyProcess {
     if (!this.paused) return;
     this.paused = false;
     this.flushPausedChunks();
+    this.flushPendingData();
     if (!this.socket.destroyed) {
       this.socket.resume();
     }
@@ -97,6 +136,9 @@ class RustPtyProcess implements PtyProcess {
 
   onData(callback: (data: string) => void): () => void {
     this.dataListeners.add(callback);
+    if (!this.paused || this.pendingExit !== null) {
+      this.schedulePendingFlush();
+    }
     return () => {
       this.dataListeners.delete(callback);
     };
@@ -104,6 +146,7 @@ class RustPtyProcess implements PtyProcess {
 
   onExit(callback: (event: PtyExitEvent) => void): () => void {
     this.exitListeners.add(callback);
+    this.schedulePendingFlush();
     return () => {
       this.exitListeners.delete(callback);
     };
@@ -128,13 +171,61 @@ class RustPtyProcess implements PtyProcess {
 
     const remainder = this.decoder.decode();
     if (remainder.length > 0) {
+      this.deliverData(remainder);
+    }
+    this.pendingExit = event;
+    this.schedulePendingFlush();
+  }
+
+  private flushPendingData(): void {
+    if (this.pendingData.length === 0 || this.dataListeners.size === 0) {
+      return;
+    }
+    const buffered = this.pendingData.splice(0, this.pendingData.length);
+    this.pendingDataBytes = 0;
+    for (const chunk of buffered) {
       for (const listener of this.dataListeners) {
-        listener(remainder);
+        listener(chunk.text);
       }
     }
+  }
+
+  private clearPendingData(): void {
+    this.pendingData.length = 0;
+    this.pendingDataBytes = 0;
+  }
+
+  private emitPendingExitNow(): void {
+    if (this.pendingExit === null || this.exitListeners.size === 0) {
+      return;
+    }
+    this.flushPendingData();
+    this.clearPendingData();
+    const event = this.pendingExit;
+    this.pendingExit = null;
     for (const listener of this.exitListeners) {
       listener(event);
     }
+  }
+
+  private schedulePendingFlush(): void {
+    const hasFlushableData =
+      !this.paused && this.pendingData.length > 0 && this.dataListeners.size > 0;
+    const hasFlushableExit = this.pendingExit !== null && this.exitListeners.size > 0;
+    if (!hasFlushableData && !hasFlushableExit) {
+      return;
+    }
+    if (this.pendingFlushScheduled) {
+      return;
+    }
+    this.pendingFlushScheduled = true;
+    queueMicrotask(() => {
+      this.pendingFlushScheduled = false;
+      if (!this.paused) {
+        this.flushPendingData();
+      }
+      this.emitPendingExitNow();
+    });
   }
 
   private flushPausedChunks(): void {
@@ -152,7 +243,34 @@ class RustPtyProcess implements PtyProcess {
   private emitDecoded(bytes: Uint8Array): void {
     if (this.didExit) return;
     const text = this.decoder.decode(bytes, { stream: true });
+    this.deliverData(text);
+  }
+
+  private deliverData(text: string): void {
     if (text.length === 0) return;
+    if (this.dataListeners.size === 0 || (this.pendingFlushScheduled && !this.paused)) {
+      const bytes = Buffer.byteLength(text, "utf8");
+      if (bytes > PAUSE_BUFFER_LIMIT) {
+        this.clearPendingData();
+        const tail = sliceUtf16TailToUtf8ByteLimit(text, PAUSE_BUFFER_LIMIT);
+        if (tail.text.length > 0) {
+          this.pendingData.push(tail);
+          this.pendingDataBytes = tail.bytes;
+        }
+      } else {
+        this.pendingData.push({ text, bytes });
+        this.pendingDataBytes += bytes;
+        while (this.pendingData.length > 0 && this.pendingDataBytes > PAUSE_BUFFER_LIMIT) {
+          const removed = this.pendingData.shift()!;
+          this.pendingDataBytes -= removed.bytes;
+        }
+      }
+      if (!this.paused && this.dataListeners.size > 0) {
+        this.schedulePendingFlush();
+      }
+      return;
+    }
+    this.flushPendingData();
     for (const listener of this.dataListeners) {
       listener(text);
     }
@@ -199,7 +317,7 @@ function spawnRustPtyProcess(
       if (!settled) {
         fail(`Failed to connect to Rust PTY bridge on 127.0.0.1:${port}`, err);
       } else {
-        processHandle?.handleExit({ exitCode: 1, signal: null });
+        processHandle?.handleExit({ exitCode: null, signal: null });
       }
     });
 
@@ -207,7 +325,7 @@ function spawnRustPtyProcess(
       if (!settled) {
         fail("Rust PTY bridge closed connection before spawn completed");
       } else {
-        processHandle?.handleExit({ exitCode: 0, signal: null });
+        processHandle?.handleExit({ exitCode: null, signal: null });
       }
     });
 

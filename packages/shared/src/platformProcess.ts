@@ -9,10 +9,13 @@ import { win32 } from "node:path";
 import { hasPathSeparator, resolveExecutable } from "./executable";
 import { resolveWindowsPowerShellExecutable } from "./platformEnvironment";
 import {
+  escapeWindowsCmdMetachars,
   parseWindowsWslUncPath,
   prepareWindowsSafeProcess,
   type WindowsSafeProcessCommand,
 } from "./windowsProcess";
+
+export { escapeWindowsCmdMetachars };
 
 export type ProcessExecutionBackend = "native" | "wsl";
 

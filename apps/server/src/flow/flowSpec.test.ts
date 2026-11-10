@@ -37,6 +37,28 @@ describe("parseFlowSpecYaml", () => {
     expect(parseFlowSpecYaml(stringifyFlowSpecYaml(result.spec))).toEqual(result);
   });
 
+  it("decodes and round-trips per-node model options through YAML", () => {
+    const withOptions = `
+version: flow-v1
+name: Argon with medium reasoning
+nodes:
+  - id: exec
+    role: Executor
+    provider: antigravity
+    model: Gemini 4 Argon
+    options:
+      reasoningEffort: medium
+    prompt: Implement the change
+edges: []
+`;
+    const result = parseFlowSpecYaml(withOptions);
+    expect(result._tag).toBe("ok");
+    if (result._tag !== "ok") return;
+    expect(result.spec.nodes[0]?.options).toEqual({ reasoningEffort: "medium" });
+    const roundTripped = parseFlowSpecYaml(stringifyFlowSpecYaml(result.spec));
+    expect(roundTripped).toEqual(result);
+  });
+
   it.each([
     ["a cycle", "edges: [{ from: a, to: b }, { from: b, to: a }]", "cycle"],
     ["an unknown endpoint", "edges: [{ from: a, to: z }]", "unknown node"],

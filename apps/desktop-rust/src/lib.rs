@@ -7,6 +7,7 @@ pub mod appsnap;
 pub mod backend;
 pub mod browser;
 pub mod cua_host;
+pub mod electron_storage;
 pub mod lan_relay;
 pub mod pty_host;
 pub mod remote_ssh;
@@ -15,7 +16,7 @@ pub mod updater;
 pub mod window_state;
 
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
@@ -25,6 +26,7 @@ use crate::appsnap::{
 };
 use crate::backend::{
     SidecarRuntimeBridgeConfig, VoiceTranscriptionInput, VoiceTranscriptionResult,
+    BACKEND_MAX_CONSECUTIVE_START_FAILURES,
 };
 use crate::browser::{
     BrowserAttachWebviewInput, BrowserCaptureScreenshotResult, BrowserNavigateInput,
@@ -37,7 +39,8 @@ use crate::lan_relay::{
 use crate::pty_host::{PtyOpenInput, PtySessionSnapshot};
 use crate::remote_ssh::{
     DesktopRemoteSshHostState, DesktopRemoteSshSavedHost, DesktopRemoteSshState,
-    DesktopWorkspaceDownloadInput, DesktopWorkspaceDownloadResult,
+    DesktopRemoteSshTestResult, DesktopRemoteSshUpdateHostInput, DesktopWorkspaceDownloadInput,
+    DesktopWorkspaceDownloadResult,
 };
 use crate::state::{
     is_trusted_external_url, reveal_path_in_file_manager, DesktopSharedState, SaintPaths,
@@ -910,6 +913,25 @@ fn desktop_remote_ssh_forget(
 }
 
 #[tauri::command]
+fn desktop_remote_ssh_test_host(
+    state: State<'_, Arc<DesktopSharedState>>,
+    host: DesktopRemoteSshSavedHost,
+) -> Result<DesktopRemoteSshTestResult, String> {
+    state.remote_ssh.test_host(host)
+}
+
+#[tauri::command]
+fn desktop_remote_ssh_update_host(
+    window: tauri::WebviewWindow,
+    state: State<'_, Arc<DesktopSharedState>>,
+    input: DesktopRemoteSshUpdateHostInput,
+) -> Result<DesktopRemoteSshState, String> {
+    let full_state = state.remote_ssh.update_host(input)?;
+    emit_window_event(&window, "desktop:remote-ssh-state", &full_state);
+    Ok(full_state)
+}
+
+#[tauri::command]
 fn desktop_remote_ssh_ws_url(
     state: State<'_, Arc<DesktopSharedState>>,
     host: String,
@@ -1337,13 +1359,38 @@ pub fn run() {
                     pty_bridge_port: Some(state_for_server.pty_host.bridge_port()),
                     pty_bridge_token: Some(state_for_server.pty_host.bridge_token().to_string()),
                 };
-                match state_for_server.backend.start_and_wait_ready(bridge).await {
-                    Ok(ws_url) => {
-                        state_for_server.set_ws_url(Some(ws_url.clone()));
-                        emit_app_event(&handle_for_server, "desktop:ws-url-changed", &ws_url);
+                for attempt in 1..=BACKEND_MAX_CONSECUTIVE_START_FAILURES {
+                    if state_for_server.backend.is_shutting_down() {
+                        break;
                     }
-                    Err(err) => {
-                        eprintln!("[saint-desktop-rust] Failed to start saint-server sidecar: {err}");
+                    match state_for_server
+                        .backend
+                        .start_and_wait_ready(bridge.clone())
+                        .await
+                    {
+                        Ok(ws_url) => {
+                            if !state_for_server.backend.is_shutting_down() {
+                                state_for_server.set_ws_url(Some(ws_url.clone()));
+                                emit_app_event(&handle_for_server, "desktop:ws-url-changed", &ws_url);
+                            }
+                            break;
+                        }
+                        Err(err) => {
+                            if state_for_server.backend.is_shutting_down()
+                                || state_for_server.backend.is_child_running()
+                            {
+                                break;
+                            }
+                            eprintln!(
+                                "[saint-desktop-rust] Failed to start saint-server sidecar (attempt {attempt}/{BACKEND_MAX_CONSECUTIVE_START_FAILURES}): {err}"
+                            );
+                            if attempt < BACKEND_MAX_CONSECUTIVE_START_FAILURES {
+                                tokio::time::sleep(std::time::Duration::from_secs(u64::from(
+                                    attempt,
+                                )))
+                                .await;
+                            }
+                        }
                     }
                 }
             });
@@ -1353,6 +1400,7 @@ pub fn run() {
             } else {
                 read_desktop_window_state(&state.paths.window_state_path)
             };
+            crate::electron_storage::import_electron_local_storage(&state.paths);
             let init_script = build_initialization_script(&state);
 
             let mut win_builder =
@@ -1471,6 +1519,8 @@ pub fn run() {
             desktop_remote_ssh_disconnect,
             desktop_remote_ssh_stop_server,
             desktop_remote_ssh_forget,
+            desktop_remote_ssh_test_host,
+            desktop_remote_ssh_update_host,
             desktop_remote_ssh_ws_url,
             desktop_remote_ssh_download_files,
             desktop_lan_relay_get_state,
@@ -1509,13 +1559,22 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building Saint Rust desktop shell");
 
-    app.run(move |_app_handle, event| {
-        if matches!(event, tauri::RunEvent::Exit) {
+    let exit_teardown_ran = AtomicBool::new(false);
+    app.run(move |app_handle, event| {
+        if matches!(
+            event,
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+        ) && !exit_teardown_ran.swap(true, Ordering::SeqCst)
+        {
+            for window in app_handle.webview_windows().values() {
+                let _ = window.hide();
+            }
+            state_for_exit.backend.begin_shutdown();
             state_for_exit.lan_relay.stop_sync();
             state_for_exit.pty_host.close_all_sessions();
             state_for_exit.remote_ssh.kill_all_tunnels();
             state_for_exit.cua_host.kill_sync();
-            state_for_exit.backend.kill_sync();
+            tauri::async_runtime::block_on(state_for_exit.backend.stop_and_wait());
         }
     });
 }

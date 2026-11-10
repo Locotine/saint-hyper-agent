@@ -1086,6 +1086,7 @@ export function SingleChatSurface(props: {
         >
           <Suspense fallback={<ChatMountLoader />}>
             <EditorWorkspaceView
+              threadId={props.threadId}
               workspaceRoot={workspaceRoot}
               projectName={activeProject?.name ?? null}
               currentProjectId={activeProject?.id ?? null}

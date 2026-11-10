@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   buildWindowsBatchCommandArgs,
+  escapeWindowsCmdMetachars,
   isWindowsBatchCommand,
   prepareWindowsSafeProcess,
   resolveWindowsCommandPath,
@@ -332,5 +333,14 @@ describe("windowsProcess", () => {
     expect(isWindowsBatchCommand("codex.cmd")).toBe(true);
     expect(isWindowsBatchCommand("tool.bat")).toBe(true);
     expect(isWindowsBatchCommand("tool.exe")).toBe(false);
+  });
+
+  it("caret-escapes cmd.exe metacharacters including %, parens, and operators", () => {
+    expect(escapeWindowsCmdMetachars(String.raw`C:\Program Files (x86)\nodejs\node.exe`)).toBe(
+      String.raw`C:\Program Files ^(x86^)\nodejs\node.exe`,
+    );
+    expect(
+      escapeWindowsCmdMetachars(String.raw`C:\Users\R&D\^hooks\%TEMP%\a|b<c>d\capture.cjs`),
+    ).toBe(String.raw`C:\Users\R^&D\^^hooks\^%TEMP^%\a^|b^<c^>d\capture.cjs`);
   });
 });

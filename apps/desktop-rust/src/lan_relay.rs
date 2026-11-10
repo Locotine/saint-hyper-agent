@@ -613,7 +613,7 @@ async fn handle_relay_connection(
             let redirect = "HTTP/1.1 302 Found\r\nLocation: /pair\r\nCache-Control: no-store\r\nContent-Length: 0\r\n\r\n";
             let _ = client_stream.write_all(redirect.as_bytes()).await;
         } else {
-            let unauthorized = "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nContent-Length: 36\r\n\r\n{\"error\":\"LAN pairing required.\"}";
+            let unauthorized = build_unauthorized_json_response();
             let _ = client_stream.write_all(unauthorized.as_bytes()).await;
         }
         return Ok(());
@@ -656,19 +656,13 @@ async fn handle_relay_connection(
     };
 
     // Rewrite request line and Host/Origin headers so loopback guards on `saint-server` succeed
-    let mut forward_header = format!("{} {} HTTP/1.1\r\n", parsed.method, rewritten_target);
-    forward_header.push_str(&format!("Host: 127.0.0.1:{upstream_port}\r\n"));
-    for (k, v) in &parsed.headers {
-        if k.eq_ignore_ascii_case("host") {
-            continue;
-        }
-        if k.eq_ignore_ascii_case("origin") {
-            forward_header.push_str(&format!("Origin: http://127.0.0.1:{upstream_port}\r\n"));
-            continue;
-        }
-        forward_header.push_str(&format!("{k}: {v}\r\n"));
-    }
-    forward_header.push_str("\r\n");
+    let forward_header = build_forwarded_request_header(
+        &parsed.method,
+        &rewritten_target,
+        upstream_port,
+        &parsed.headers,
+        is_upgrade,
+    );
 
     upstream
         .write_all(forward_header.as_bytes())
@@ -688,6 +682,44 @@ async fn handle_relay_connection(
     }
 
     Ok(())
+}
+
+fn build_unauthorized_json_response() -> String {
+    const BODY: &str = "{\"error\":\"LAN pairing required.\"}";
+    format!(
+        "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+        BODY.len(),
+        BODY
+    )
+}
+
+fn build_forwarded_request_header(
+    method: &str,
+    rewritten_target: &str,
+    upstream_port: u16,
+    headers: &[(String, String)],
+    is_upgrade: bool,
+) -> String {
+    let mut forward_header = format!("{method} {rewritten_target} HTTP/1.1\r\n");
+    forward_header.push_str(&format!("Host: 127.0.0.1:{upstream_port}\r\n"));
+    for (k, v) in headers {
+        if k.eq_ignore_ascii_case("host") {
+            continue;
+        }
+        if !is_upgrade && k.eq_ignore_ascii_case("connection") {
+            continue;
+        }
+        if k.eq_ignore_ascii_case("origin") {
+            forward_header.push_str(&format!("Origin: http://127.0.0.1:{upstream_port}\r\n"));
+            continue;
+        }
+        forward_header.push_str(&format!("{k}: {v}\r\n"));
+    }
+    if !is_upgrade {
+        forward_header.push_str("Connection: close\r\n");
+    }
+    forward_header.push_str("\r\n");
+    forward_header
 }
 
 fn pairing_html_page(error_msg: Option<&str>) -> String {
@@ -1025,5 +1057,50 @@ mod tests {
         assert!(svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\""));
         assert!(svg.contains("<path d=\"M"));
         assert!(svg.ends_with("</svg>"));
+    }
+
+    #[test]
+    fn rewrites_headers_with_connection_close_for_http_and_preserves_upgrade_for_ws() {
+        let http_headers = vec![
+            ("Host".to_string(), "192.168.1.25:3883".to_string()),
+            ("Origin".to_string(), "http://192.168.1.25:3883".to_string()),
+            ("Connection".to_string(), "keep-alive".to_string()),
+            ("Accept".to_string(), "application/json".to_string()),
+        ];
+        let rewritten_get = build_forwarded_request_header(
+            "GET",
+            "/api/health?token=secret",
+            41820,
+            &http_headers,
+            false,
+        );
+        assert!(rewritten_get.starts_with("GET /api/health?token=secret HTTP/1.1\r\n"));
+        assert!(rewritten_get.contains("Host: 127.0.0.1:41820\r\n"));
+        assert!(rewritten_get.contains("Origin: http://127.0.0.1:41820\r\n"));
+        assert!(rewritten_get.contains("Connection: close\r\n"));
+        assert!(!rewritten_get.contains("keep-alive"));
+        assert!(rewritten_get.ends_with("\r\n\r\n"));
+
+        let ws_headers = vec![
+            ("Host".to_string(), "192.168.1.25:3883".to_string()),
+            ("Upgrade".to_string(), "websocket".to_string()),
+            ("Connection".to_string(), "Upgrade".to_string()),
+        ];
+        let rewritten_ws =
+            build_forwarded_request_header("GET", "/?token=secret", 41820, &ws_headers, true);
+        assert!(rewritten_ws.contains("Upgrade: websocket\r\n"));
+        assert!(rewritten_ws.contains("Connection: Upgrade\r\n"));
+        assert!(!rewritten_ws.contains("Connection: close\r\n"));
+
+        let unauthorized = build_unauthorized_json_response();
+        let (head, body) = unauthorized
+            .split_once("\r\n\r\n")
+            .expect("valid HTTP response");
+        let content_len = head
+            .lines()
+            .find_map(|line| line.strip_prefix("Content-Length: "))
+            .and_then(|v| v.parse::<usize>().ok())
+            .expect("Content-Length header");
+        assert_eq!(content_len, body.len());
     }
 }

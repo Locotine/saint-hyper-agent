@@ -235,11 +235,11 @@ impl DesktopSharedState {
             .ok()
             .map(|v| v.trim().to_string())
             .filter(|v| !v.is_empty())
-            .or_else(|| backend.current_ws_url());
+            .unwrap_or_else(|| backend.current_ws_url().to_string());
 
         Arc::new(Self {
             paths,
-            ws_url: RwLock::new(initial_ws_url),
+            ws_url: RwLock::new(Some(initial_ws_url)),
             auth_token: RwLock::new(Some(backend.auth_token().to_string())),
             zoom_factor: RwLock::new(1.0),
             custom_title_bar_active,

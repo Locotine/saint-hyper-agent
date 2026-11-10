@@ -18,7 +18,7 @@ export class PtySpawnError extends Schema.TaggedErrorClass<PtySpawnError>()("Pty
 }) {}
 
 export interface PtyExitEvent {
-  exitCode: number;
+  exitCode: number | null;
   signal: number | null;
 }
 

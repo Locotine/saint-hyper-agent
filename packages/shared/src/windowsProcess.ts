@@ -65,6 +65,30 @@ export function isWindowsBatchCommand(command: string): boolean {
   return WINDOWS_BATCH_EXTENSION_PATTERN.test(command);
 }
 
+/**
+ * Caret-escapes `cmd.exe` metacharacters (`^`, `%`, `&`, `|`, `<`, `>`, `(`, `)`)
+ * for unquoted or PowerShell single-quoted command lines evaluated by `cmd.exe /c`
+ * (where double quotes cannot be used, e.g. when a host CLI forwards JSON-escaped
+ * `\"` verbatim to `cmd.exe`).
+ *
+ * Delayed variable expansion (`!VAR!`) is off by default for `cmd.exe /c` (and
+ * explicitly disabled via `/v:off` when Saint spawns `cmd.exe`). Because a single
+ * `^!` is consumed in `cmd.exe`'s first pass before delayed expansion runs while
+ * `^^!` leaves a literal `^!` when delayed expansion is off, `!` cannot be
+ * portably caret-escaped without knowing the shell's `/v` mode and is left as-is.
+ */
+export function escapeWindowsCmdMetachars(value: string): string {
+  return value
+    .replaceAll("^", "^^")
+    .replaceAll("%", "^%")
+    .replaceAll("&", "^&")
+    .replaceAll("|", "^|")
+    .replaceAll("<", "^<")
+    .replaceAll(">", "^>")
+    .replaceAll("(", "^(")
+    .replaceAll(")", "^)");
+}
+
 function quoteWindowsBatchToken(token: string, label: string): string {
   if (WINDOWS_BATCH_UNSAFE_TOKEN_PATTERN.test(token)) {
     throw new Error(

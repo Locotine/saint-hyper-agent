@@ -720,7 +720,7 @@ describe("Antigravity CLI integration helpers", () => {
     );
   });
 
-  it("keeps win32 hook commands free of double quotes", () => {
+  it("keeps win32 hook commands free of double quotes and escapes parentheses inside cmd else block", () => {
     for (const event of ["pre-tool", "post-tool", "pre-invocation", "post-invocation", "stop"]) {
       const command = buildAntigravityCaptureCommand(
         String.raw`C:\Saint\Saint.exe`,
@@ -730,6 +730,287 @@ describe("Antigravity CLI integration helpers", () => {
       );
       expect(command).not.toContain('"');
       expect(JSON.parse(JSON.stringify({ command })).command).not.toContain('\\"');
+    }
+
+    const x86Command = buildAntigravityCaptureCommand(
+      String.raw`C:\Program Files (x86)\nodejs\node.exe`,
+      String.raw`C:\Users\test (dev)\.gemini\capture.cjs`,
+      "pre-tool",
+      "win32",
+    );
+    expect(x86Command).not.toContain('"');
+    expect(x86Command).toContain(
+      String.raw`else (set ELECTRON_RUN_AS_NODE=1&& powershell -NoProfile -Command ^& 'C:\Program Files ^(x86^)\nodejs\node.exe' 'C:\Users\test ^(dev^)\.gemini\capture.cjs' pre-tool)`,
+    );
+
+    const rndCommand = buildAntigravityCaptureCommand(
+      String.raw`C:\Users\R&D\AppData\Local\Programs\Saint\Saint.exe`,
+      String.raw`C:\Users\R&D\^hooks\%TEMP%\capture.cjs`,
+      "pre-tool",
+      "win32",
+    );
+    expect(rndCommand).not.toContain('"');
+    expect(rndCommand).toContain(
+      String.raw`else (set ELECTRON_RUN_AS_NODE=1&& C:\Users\R^&D\AppData\Local\Programs\Saint\Saint.exe C:\Users\R^&D\^^hooks\^%TEMP^%\capture.cjs pre-tool)`,
+    );
+  });
+
+  it("deduplicates token usage per step across stdout step_update, transcript, and final result", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "saint-antigravity-token-dedup-"));
+    const transcriptFile = path.join(root, "transcript.jsonl");
+    await fs.writeFile(transcriptFile, "");
+    let eventFile: string | undefined;
+    let child: ChildProcess | undefined;
+    const spawnProcess = ((
+      _command: string,
+      _args: readonly string[],
+      options: { readonly env?: NodeJS.ProcessEnv },
+    ) => {
+      eventFile = options.env?.SAINT_ANTIGRAVITY_EVENTS;
+      const spawned = new EventEmitter() as ChildProcess;
+      Object.assign(spawned, {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+        killed: false,
+        kill: () => true,
+      });
+      child = spawned;
+      return spawned;
+    }) as NonNullable<AntigravityAdapterDependencies["spawnProcess"]>;
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const adapter = yield* AntigravityAdapter;
+          const threadId = ThreadId.makeUnsafe("thread-antigravity-token-dedup");
+          yield* adapter.startSession({
+            provider: "antigravity",
+            threadId,
+            runtimeMode: "full-access",
+            cwd: root,
+            providerOptions: { antigravity: { binaryPath: "/fake/agy" } },
+          });
+          const eventsFiber = yield* adapter.streamEvents.pipe(
+            Stream.takeUntil((event) => event.type === "turn.completed"),
+            Stream.runCollect,
+            Effect.forkChild,
+          );
+
+          // Turn 1 establishes a higher baseline so Turn 2's `totalProcessedTokens`
+          // is driven by `turnBaseProcessedTokens + output + thinking` rather than `usedTokens`.
+          yield* adapter.sendTurn({ threadId, input: "turn 1", attachments: [] });
+          child!.stdout!.emit(
+            "data",
+            `${JSON.stringify({
+              event: "result",
+              result: {
+                status: "SUCCESS",
+                response: "turn 1 done",
+                usage: {
+                  input_tokens: 4000,
+                  output_tokens: 500,
+                  cache_read_tokens: 500,
+                  thinking_tokens: 0,
+                },
+              },
+            })}\n`,
+          );
+          child!.emit("close", 0, null);
+          yield* Fiber.join(eventsFiber).pipe(Effect.timeout("2 seconds"));
+
+          // Turn 2: step 1 reports usage twice on stdout (`step_update`), once in
+          // `transcript.jsonl` (`PLANNER_RESPONSE`), and then in the final `result`.
+          const turn2EventsFiber = yield* adapter.streamEvents.pipe(
+            Stream.takeUntil((event) => event.type === "turn.completed"),
+            Stream.runCollect,
+            Effect.forkChild,
+          );
+          yield* adapter.sendTurn({ threadId, input: "turn 2", attachments: [] });
+          yield* Effect.promise(() =>
+            fs.appendFile(
+              eventFile!,
+              `pre-invocation\t${JSON.stringify({
+                conversationId: "conv-token-dedup",
+                transcriptPath: transcriptFile,
+              })}\n`,
+            ),
+          );
+          yield* Effect.promise(() =>
+            fs.appendFile(
+              transcriptFile,
+              `${JSON.stringify({
+                step_index: 37,
+                type: "PLANNER_RESPONSE",
+                content: "reply from step 1",
+                usage: {
+                  input_tokens: 1000,
+                  output_tokens: 120,
+                  cache_read_tokens: 0,
+                  thinking_tokens: 30,
+                },
+              })}\n`,
+            ),
+          );
+          child!.stdout!.emit(
+            "data",
+            [
+              JSON.stringify({
+                event: "step_update",
+                step_update: {
+                  step_index: 1,
+                  state: "ACTIVE",
+                  step_type: "agent_response",
+                  usage: {
+                    input_tokens: 1000,
+                    output_tokens: 60,
+                    cache_read_tokens: 0,
+                    thinking_tokens: 30,
+                  },
+                },
+              }),
+              JSON.stringify({
+                event: "step_update",
+                step_update: {
+                  step_index: 1,
+                  state: "DONE",
+                  step_type: "agent_response",
+                  text_delta: "reply from step 1",
+                  usage: {
+                    input_tokens: 1000,
+                    output_tokens: 120,
+                    cache_read_tokens: 0,
+                    thinking_tokens: 30,
+                  },
+                },
+              }),
+              JSON.stringify({
+                event: "step_update",
+                step_update: {
+                  step_index: 2,
+                  state: "DONE",
+                  step_type: "agent_response",
+                  text_delta: "reply from step 2",
+                  usage: {
+                    input_tokens: 1200,
+                    output_tokens: 80,
+                    cache_read_tokens: 0,
+                    thinking_tokens: 20,
+                  },
+                },
+              }),
+              // Final result reports only the last response's usage (100 output+thinking),
+              // which is smaller than the per-step sum (150 + 100 = 250).
+              JSON.stringify({
+                event: "result",
+                result: {
+                  status: "SUCCESS",
+                  response: "reply from step 2",
+                  usage: {
+                    input_tokens: 1200,
+                    output_tokens: 80,
+                    cache_read_tokens: 0,
+                    thinking_tokens: 20,
+                  },
+                },
+              }),
+            ].join("\n"),
+          );
+          child!.emit("close", 0, null);
+          const turn2Events = Array.from(
+            yield* Fiber.join(turn2EventsFiber).pipe(Effect.timeout("2 seconds")),
+          );
+          const usageSnapshots = turn2Events.flatMap((event) =>
+            event.type === "thread.token-usage.updated" ? [event.payload.usage] : [],
+          );
+          expect(usageSnapshots.length).toBeGreaterThanOrEqual(4);
+          // Turn 1 base = 5000; Turn 2 deduplicated step 1 (150) + step 2 (100) = 250 -> 5250,
+          // and the smaller final result (100) must not decrease totalProcessedTokens.
+          expect(usageSnapshots.at(-1)?.totalProcessedTokens).toBe(5250);
+
+          // Turn 3: step 0 reports a large input (9000 -> usedTokens 9100), then step 1
+          // reports a smaller input (1000 -> usedTokens 1050); totalProcessedTokens must
+          // stay monotonic within the turn and never decrease.
+          const turn3EventsFiber = yield* adapter.streamEvents.pipe(
+            Stream.takeUntil((event) => event.type === "turn.completed"),
+            Stream.runCollect,
+            Effect.forkChild,
+          );
+          yield* adapter.sendTurn({ threadId, input: "turn 3", attachments: [] });
+          child!.stdout!.emit(
+            "data",
+            [
+              JSON.stringify({
+                event: "step_update",
+                step_update: {
+                  step_index: 0,
+                  state: "DONE",
+                  step_type: "agent_response",
+                  text_delta: "step 0",
+                  usage: {
+                    input_tokens: 9000,
+                    output_tokens: 100,
+                    cache_read_tokens: 0,
+                    thinking_tokens: 0,
+                  },
+                },
+              }),
+              JSON.stringify({
+                event: "step_update",
+                step_update: {
+                  step_index: 1,
+                  state: "DONE",
+                  step_type: "agent_response",
+                  text_delta: "step 1",
+                  usage: {
+                    input_tokens: 1000,
+                    output_tokens: 50,
+                    cache_read_tokens: 0,
+                    thinking_tokens: 0,
+                  },
+                },
+              }),
+              JSON.stringify({
+                event: "result",
+                result: {
+                  status: "SUCCESS",
+                  response: "step 1",
+                  usage: {
+                    input_tokens: 1000,
+                    output_tokens: 50,
+                    cache_read_tokens: 0,
+                    thinking_tokens: 0,
+                  },
+                },
+              }),
+            ].join("\n"),
+          );
+          child!.emit("close", 0, null);
+          const turn3Events = Array.from(
+            yield* Fiber.join(turn3EventsFiber).pipe(Effect.timeout("2 seconds")),
+          );
+          const turn3Totals = turn3Events.flatMap((event) =>
+            event.type === "thread.token-usage.updated"
+              ? [event.payload.usage.totalProcessedTokens]
+              : [],
+          );
+          expect(turn3Totals).toEqual([9100, 9100, 9100]);
+          yield* adapter.stopSession(threadId);
+        }).pipe(
+          Effect.provide(
+            makeAntigravityAdapterLive({
+              ensurePlugin: async () => undefined,
+              spawnProcess,
+            }).pipe(
+              Layer.provideMerge(
+                ServerConfig.layerTest(root, { prefix: "antigravity-token-dedup-" }),
+              ),
+              Layer.provideMerge(NodeServices.layer),
+            ),
+          ),
+        ),
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
     }
   });
 

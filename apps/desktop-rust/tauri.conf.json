@@ -22,11 +22,7 @@
     "targets": ["nsis", "dmg", "appimage"],
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/saint-server"],
-    "icon": [
-      "../desktop/resources/icon.ico",
-      "../desktop/resources/icon.icns",
-      "icons/icon.png"
-    ],
+    "icon": ["../desktop/resources/icon.ico", "../desktop/resources/icon.icns", "icons/icon.png"],
     "macOS": {
       "minimumSystemVersion": "13.0",
       "entitlements": "../desktop/resources/entitlements.mac.plist"

@@ -1027,6 +1027,28 @@ export interface DesktopRemoteSshSavedHost {
   readonly remoteRoot?: string | null;
   /** Stable 8-hex identity (see `@saint/shared/hostId`); survives renaming the SSH alias. */
   readonly hostKey?: string | null;
+  /** Optional display label for the target in Settings › Remote hosts. */
+  readonly label?: string | null;
+  /** Optional SSH username (`user` in `user@host:port`). */
+  readonly user?: string | null;
+  /** Optional SSH port (defaults to 22). */
+  readonly port?: number | null;
+  /** Optional SSH identity key file path (`-i <path>`). */
+  readonly identityFile?: string | null;
+}
+
+export interface DesktopRemoteSshTestResult {
+  readonly host: string;
+  readonly reachable: boolean;
+  readonly authenticated: boolean;
+  readonly serverRunning: boolean;
+  readonly message: string;
+}
+
+export interface DesktopRemoteSshUpdateHostInput {
+  /** Existing host alias when renaming or updating an existing saved target. */
+  readonly previousHost?: string | null;
+  readonly target: DesktopRemoteSshSavedHost;
 }
 
 export interface DesktopRemoteSshHostState {
@@ -1221,6 +1243,10 @@ export interface DesktopBridge {
     /** Stops the host's server (its windows close); installed files and data stay. */
     stopServer: (host: DesktopRemoteSshSavedHost) => Promise<void>;
     forget: (host: string) => Promise<void>;
+    /** Probes SSH reachability, authentication, and remote Saint server status without connecting. */
+    testHost?: (host: DesktopRemoteSshSavedHost) => Promise<DesktopRemoteSshTestResult>;
+    /** Adds or updates a saved SSH target without opening a tunnel. */
+    updateHost?: (input: DesktopRemoteSshUpdateHostInput) => Promise<DesktopRemoteSshState>;
     /** The loopback WebSocket URL of a connected host's server, or null while it is down. */
     wsUrl: (host: string) => Promise<string | null>;
     /**

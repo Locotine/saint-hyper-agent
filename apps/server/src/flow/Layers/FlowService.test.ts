@@ -357,6 +357,322 @@ edges: [{ from: coder, to: docs }]
     }),
   );
 
+  it.effect(
+    "applies per-node model options without leaking to other nodes and rejects invalid options",
+    () =>
+      Effect.gen(function* () {
+        const flows = yield* FlowService;
+        dispatched.length = 0;
+        const started = yield* flows.start({
+          projectId: ProjectId.makeUnsafe("project-1"),
+          spec: `
+version: flow-v1
+name: Per-node options
+nodes:
+  - id: exec
+    role: Executor
+    provider: antigravity
+    model: Gemini 4 Argon
+    options: { reasoningEffort: medium }
+    prompt: Build it
+  - id: options-only
+    role: Tuner
+    options: { reasoningEffort: high }
+    prompt: Tune it
+  - id: same-provider-same-model
+    role: SameModelTuner
+    model: gpt-5-codex
+    options: { reasoningEffort: low }
+    prompt: Tune same model
+  - id: same-provider-different-model
+    role: DiffModelTuner
+    model: gpt-5.5
+    options: { reasoningEffort: low }
+    prompt: Tune different model
+  - id: provider-only
+    role: ProviderDefault
+    provider: claudeAgent
+    options: { effort: medium }
+    prompt: Use provider default
+  - id: inherit-run
+    role: Reviewer
+    prompt: Review it
+edges:
+  - { from: exec, to: options-only }
+  - { from: options-only, to: same-provider-same-model }
+  - { from: same-provider-same-model, to: same-provider-different-model }
+  - { from: same-provider-different-model, to: provider-only }
+  - { from: provider-only, to: inherit-run }
+`,
+          modelSelection: {
+            provider: "codex",
+            instanceId: "codex-work" as never,
+            model: "gpt-5-codex",
+            options: { fastMode: true },
+          },
+          runtimeMode: "full-access",
+          startedBy: "user",
+        });
+        void started;
+        const execCreate = dispatched.find((command) => command.type === "thread.create");
+        assert.deepStrictEqual(
+          execCreate?.type === "thread.create" ? execCreate.modelSelection : null,
+          {
+            provider: "antigravity",
+            instanceId: "antigravity",
+            model: "Gemini 4 Argon",
+            options: { reasoningEffort: "medium" },
+          },
+        );
+
+        for (let idx = 0; idx < 5; idx += 1) {
+          const thread = startedThreads()[idx]!;
+          turns.set(thread, "completed");
+          yield* flows.reconcileThread(thread);
+        }
+
+        const creates = dispatched.filter((command) => command.type === "thread.create");
+        assert.strictEqual(creates.length, 6);
+        // (a) Neither provider nor model set -> merges run options + node options
+        assert.deepStrictEqual(
+          creates[1]?.type === "thread.create" ? creates[1].modelSelection : null,
+          {
+            provider: "codex",
+            instanceId: "codex-work",
+            model: "gpt-5-codex",
+            options: { fastMode: true, reasoningEffort: "high" },
+          },
+        );
+        // (b) Resulting provider AND model equal the run's -> merges run options + node options
+        assert.deepStrictEqual(
+          creates[2]?.type === "thread.create" ? creates[2].modelSelection : null,
+          {
+            provider: "codex",
+            instanceId: "codex-work",
+            model: "gpt-5-codex",
+            options: { fastMode: true, reasoningEffort: "low" },
+          },
+        );
+        // (c1) Different model on same provider -> uses only spec.options (does not inherit fastMode)
+        assert.deepStrictEqual(
+          creates[3]?.type === "thread.create" ? creates[3].modelSelection : null,
+          {
+            provider: "codex",
+            instanceId: "codex",
+            model: "gpt-5.5",
+            options: { reasoningEffort: "low" },
+          },
+        );
+        // (c2) Provider-only -> uses provider default model and only spec.options
+        assert.deepStrictEqual(
+          creates[4]?.type === "thread.create" ? creates[4].modelSelection : null,
+          {
+            provider: "claudeAgent",
+            instanceId: "claudeAgent",
+            model: "claude-sonnet-5",
+            options: { effort: "medium" },
+            supportsAutoMode: true,
+          },
+        );
+        // Unmodified node -> inherits run.modelSelection unchanged
+        assert.deepStrictEqual(
+          creates[5]?.type === "thread.create" ? creates[5].modelSelection : null,
+          {
+            provider: "codex",
+            instanceId: "codex-work",
+            model: "gpt-5-codex",
+            options: { fastMode: true },
+          },
+        );
+        yield* flows.killAll("user");
+
+        dispatched.length = 0;
+        const invalidErr = yield* flows
+          .start({
+            projectId: ProjectId.makeUnsafe("project-1"),
+            spec: `
+version: flow-v1
+name: Bad options
+nodes:
+  - id: bad
+    role: Bad
+    provider: claudeAgent
+    model: opus
+    options: { effort: extreme-invalid }
+    prompt: Fail
+edges: []
+`,
+            modelSelection: { provider: "codex", model: "gpt-5-codex" },
+            runtimeMode: "full-access",
+            startedBy: "user",
+          })
+          .pipe(Effect.flip);
+        assert.include(
+          invalidErr.message,
+          'Node "bad" names an unknown provider, model, or model options.',
+        );
+
+        dispatched.length = 0;
+        const typoSpec = `
+version: flow-v1
+name: Typo option key on downstream node
+nodes:
+  - id: first
+    role: First
+    prompt: Start
+  - id: bad-key
+    role: BadKey
+    provider: codex
+    model: gpt-5-codex
+    options: { reasoningEfort: high }
+    prompt: Fail
+edges:
+  - { from: first, to: bad-key }
+`;
+        const typoKeyErr = yield* flows
+          .start({
+            projectId: ProjectId.makeUnsafe("project-1"),
+            spec: typoSpec,
+            modelSelection: { provider: "codex", model: "gpt-5-codex" },
+            runtimeMode: "full-access",
+            startedBy: "user",
+          })
+          .pipe(Effect.flip);
+        assert.include(typoKeyErr.message, 'Node "bad-key"');
+        assert.include(typoKeyErr.message, "reasoningEfort");
+        assert.isEmpty(dispatched);
+
+        const saveTypoErr = yield* flows
+          .saveSpec({
+            projectId: ProjectId.makeUnsafe("project-1"),
+            yaml: typoSpec,
+            by: "user",
+          })
+          .pipe(Effect.flip);
+        assert.strictEqual(saveTypoErr.message, typoKeyErr.message);
+
+        // Z4: model-only Claude-style node with effort saves (since provider is not set on the node),
+        // and fails at start on a codex run against the run's authoritative provider.
+        const modelOnlyClaudeEffortSpec = `
+version: flow-v1
+name: Model only Claude node with effort
+nodes:
+  - id: claude-model-only
+    role: ClaudeModelOnly
+    model: claude-opus-4-6
+    options: { effort: high }
+    prompt: Run with effort
+edges: []
+`;
+        const savedModelOnlyClaude = yield* flows.saveSpec({
+          projectId: ProjectId.makeUnsafe("project-1"),
+          yaml: modelOnlyClaudeEffortSpec,
+          by: "user",
+        });
+        assert.strictEqual(
+          savedModelOnlyClaude.path,
+          "flows/model-only-claude-node-with-effort.yaml",
+        );
+
+        dispatched.length = 0;
+        const modelOnlyOnCodexErr = yield* flows
+          .start({
+            projectId: ProjectId.makeUnsafe("project-1"),
+            spec: modelOnlyClaudeEffortSpec,
+            modelSelection: { provider: "codex", model: "gpt-5-codex" },
+            runtimeMode: "full-access",
+            startedBy: "user",
+          })
+          .pipe(Effect.flip);
+        assert.strictEqual(
+          modelOnlyOnCodexErr.message,
+          'Node "claude-model-only" names an unknown provider, model, or model options (unknown option "effort").',
+        );
+        assert.isEmpty(dispatched);
+
+        // W2: options-only Claude-style node saves without a run selection, and fails at
+        // start on a codex run with the shared unknown-option error message.
+        const optionsOnlyClaudeSpec = `
+version: flow-v1
+name: Options only Claude node
+nodes:
+  - id: claude-opts
+    role: ClaudeOpts
+    options: { effort: high }
+    prompt: Run with effort
+edges: []
+`;
+        const savedOptionsOnly = yield* flows.saveSpec({
+          projectId: ProjectId.makeUnsafe("project-1"),
+          yaml: optionsOnlyClaudeSpec,
+          by: "user",
+        });
+        assert.strictEqual(savedOptionsOnly.path, "flows/options-only-claude-node.yaml");
+
+        dispatched.length = 0;
+        const optionsOnlyOnCodexErr = yield* flows
+          .start({
+            projectId: ProjectId.makeUnsafe("project-1"),
+            spec: optionsOnlyClaudeSpec,
+            modelSelection: { provider: "codex", model: "gpt-5-codex" },
+            runtimeMode: "full-access",
+            startedBy: "user",
+          })
+          .pipe(Effect.flip);
+        assert.strictEqual(
+          optionsOnlyOnCodexErr.message,
+          'Node "claude-opts" names an unknown provider, model, or model options (unknown option "effort").',
+        );
+        assert.isEmpty(dispatched);
+
+        // W1: model-only node on an opencode run keeps the run's opencode provider even when
+        // the model slug contains "claude".
+        dispatched.length = 0;
+        yield* flows.start({
+          projectId: ProjectId.makeUnsafe("project-1"),
+          spec: `
+version: flow-v1
+name: OpenCode with Claude model slug
+nodes:
+  - id: oc-step
+    role: OpenCodeClaude
+    model: anthropic/claude-sonnet-4
+    prompt: Build on OpenCode
+edges: []
+`,
+          modelSelection: { provider: "opencode", model: "anthropic/claude-opus-4" },
+          runtimeMode: "full-access",
+          startedBy: "user",
+        });
+        const ocCreate = dispatched.find((command) => command.type === "thread.create");
+        assert.deepStrictEqual(
+          ocCreate?.type === "thread.create" ? ocCreate.modelSelection : null,
+          {
+            provider: "opencode",
+            instanceId: "opencode",
+            model: "anthropic/claude-sonnet-4",
+          },
+        );
+        yield* flows.killAll("user");
+
+        const savedGrok = yield* flows.saveSpec({
+          projectId: ProjectId.makeUnsafe("project-1"),
+          yaml: `
+version: flow-v1
+name: Grok node spec
+nodes:
+  - id: grok-step
+    role: Grok
+    model: grok-4
+    prompt: Analyze with Grok
+edges: []
+`,
+          by: "user",
+        });
+        assert.strictEqual(savedGrok.path, "flows/grok-node-spec.yaml");
+      }),
+  );
+
   it.effect("a step whose thread cannot be created waits for the person with the reason", () =>
     Effect.gen(function* () {
       const flows = yield* FlowService;
