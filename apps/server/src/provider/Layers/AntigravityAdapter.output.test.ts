@@ -120,6 +120,16 @@ async function runPrintTurn(input: {
     await fs.rm(root, { recursive: true, force: true });
   }
 }
+const agentStep = (state: string, text_delta?: string, conversation_id?: string) => ({
+  event: "step_update",
+  step_update: {
+    ...(conversation_id ? { conversation_id } : {}),
+    step_index: 1,
+    step_type: "agent_response",
+    state,
+    ...(text_delta === undefined ? {} : { text_delta }),
+  },
+});
 const terminalPayload = (events: Awaited<ReturnType<typeof runPrintTurn>>) =>
   events.find((e) => e.type === "turn.completed")?.payload;
 const textPayloads = (events: Awaited<ReturnType<typeof runPrintTurn>>) =>
@@ -235,5 +245,85 @@ describe("Antigravity structured output lifecycle", () => {
         await runPrintTurn({ stdout: encode([envelope(undefined, 1, "INVALID")]), code: 0 }),
       ),
     ).toMatchObject({ state: "failed" });
+  });
+
+  it("streams stdout agent_response deltas on one item", async () => {
+    const events = await runPrintTurn({
+      stdout: encode([
+        agentStep("ACTIVE", "Hel"),
+        agentStep("ACTIVE", "lo"),
+        agentStep("DONE", ""),
+      ]),
+    });
+    expect(textPayloads(events)).toEqual([
+      { streamKind: "assistant_text", delta: "Hel" },
+      { streamKind: "assistant_text", delta: "lo" },
+    ]);
+    const started = events.filter((e) => e.type === "item.started");
+    const completed = events.filter((e) => e.type === "item.completed");
+    expect(started).toHaveLength(1);
+    expect(completed).toHaveLength(1);
+    expect(started[0]!.itemId).toBe(completed[0]!.itemId);
+    expect(String(started[0]!.itemId)).toMatch(/-stdout-1-assistant_message$/);
+  });
+  it("does not repeat text the transcript also records", async () => {
+    const events = await runPrintTurn({
+      stdout: encode([
+        agentStep("ACTIVE", "Hel"),
+        agentStep("ACTIVE", "lo"),
+        agentStep("DONE", ""),
+      ]),
+      transcript: [{ step_index: 1, type: "PLANNER_RESPONSE", content: "Hello" }],
+    });
+    expect(
+      textPayloads(events)
+        .map((p) => (p as { delta: string }).delta)
+        .join(""),
+    ).toBe("Hello");
+  });
+  it("closes an open stdout item before the interrupted turn completes", async () => {
+    const events = await runPrintTurn({
+      stdout: encode([agentStep("ACTIVE", "Hel")]) + "\n",
+      code: null,
+      signal: "SIGKILL",
+      interrupt: true,
+    });
+    const types = events.map((e) => e.type);
+    // The PRINT_OUTPUT close fallback must not repeat the partial text.
+    expect(
+      textPayloads(events)
+        .map((p) => (p as { delta: string }).delta)
+        .join(""),
+    ).toBe("Hel");
+    expect(types.indexOf("item.completed")).toBeGreaterThan(-1);
+    expect(types.indexOf("item.completed")).toBeLessThan(types.indexOf("turn.completed"));
+  });
+  it("leaves a whitespace-only stdout step to the transcript", async () => {
+    const events = await runPrintTurn({
+      stdout: encode([agentStep("DONE", "\n")]),
+      transcript: [{ step_index: 1, type: "PLANNER_RESPONSE", content: "Hello" }],
+    });
+    expect(events.some((e) => String(e.itemId ?? "").includes("-stdout-"))).toBe(false);
+    expect(
+      textPayloads(events)
+        .map((p) => (p as { delta: string }).delta)
+        .join(""),
+    ).toBe("Hello");
+  });
+  it("does not repeat streamed pre-tool text as transcript reasoning", async () => {
+    const events = await runPrintTurn({
+      stdout: encode([agentStep("ACTIVE", "Let me check"), agentStep("DONE", "")]),
+      transcript: [{ ...transcriptToolStep(1), content: "Let me check" }],
+    });
+    expect(
+      textPayloads(events).filter((p) => (p as { delta: string }).delta.includes("Let me check")),
+    ).toHaveLength(1);
+  });
+  it("ignores step updates from another conversation", async () => {
+    const events = await runPrintTurn({
+      // Unterminated record: parsed at close, after the hook poll has set the session conversation id.
+      stdout: encode([agentStep("ACTIVE", "x", "other")]),
+    });
+    expect(events.some((e) => String(e.itemId ?? "").includes("-stdout-"))).toBe(false);
   });
 });

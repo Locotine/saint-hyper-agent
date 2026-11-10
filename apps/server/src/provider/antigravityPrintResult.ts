@@ -68,6 +68,15 @@ type Step = {
 /** Consume complete records as they arrive; an interrupted final line must not erase prior output. */
 export function createAntigravityPrintResultParser(options?: {
   readonly onStepUsage?: (stepIndex: number, usage: AntigravityTokenUsage) => void;
+  readonly onStepUpdate?: (
+    stepIndex: number,
+    update: {
+      readonly type: unknown;
+      readonly state: unknown;
+      readonly delta: string;
+      readonly conversationId?: string;
+    },
+  ) => void;
 }) {
   let pending = "";
   let structured = false;
@@ -136,15 +145,24 @@ export function createAntigravityPrintResultParser(options?: {
       const previous = steps.get(index);
       const stepUsage = parseAntigravityTokenUsage(update.usage);
       const effectiveUsage = stepUsage ?? previous?.usage;
-      steps.set(index, {
+      const merged = {
         state: update.state ?? previous?.state,
         type: update.step_type ?? previous?.type,
         text: `${previous?.text ?? ""}${typeof update.text_delta === "string" ? update.text_delta : ""}`,
         ...(effectiveUsage ? { usage: effectiveUsage } : {}),
-      });
+      };
+      steps.set(index, merged);
       if (stepUsage) {
         options?.onStepUsage?.(index, stepUsage);
       }
+      options?.onStepUpdate?.(index, {
+        type: merged.type,
+        state: merged.state,
+        delta: typeof update.text_delta === "string" ? update.text_delta : "",
+        ...(typeof update.conversation_id === "string"
+          ? { conversationId: update.conversation_id }
+          : {}),
+      });
     }
   };
 

@@ -17,6 +17,32 @@ const response = {
 };
 
 describe("Antigravity print result", () => {
+  it("reports each step_update, merging step_type into type, and keeps the full response", () => {
+    const updates: unknown[] = [];
+    const parser = createAntigravityPrintResultParser({
+      onStepUpdate: (stepIndex, update) => updates.push([stepIndex, update]),
+    });
+    const step = (state: string, text_delta?: string) =>
+      JSON.stringify({
+        event: "step_update",
+        step_update: {
+          conversation_id: "c1",
+          step_index: 1,
+          state,
+          ...(state === "ACTIVE" ? { step_type: "agent_response" } : {}),
+          ...(text_delta === undefined ? {} : { text_delta }),
+        },
+      });
+    parser.write([step("ACTIVE", "Hel"), step("ACTIVE", "lo"), step("DONE", "")].join("\n") + "\n");
+    const base = { type: "agent_response", conversationId: "c1" };
+    expect(updates).toEqual([
+      [1, { ...base, state: "ACTIVE", delta: "Hel" }],
+      [1, { ...base, state: "ACTIVE", delta: "lo" }],
+      [1, { ...base, state: "DONE", delta: "" }],
+    ]);
+    expect(parser.finish()?.response).toBe("Hello");
+  });
+
   it("honors the terminal ERROR after a response recovered within the first turn", () => {
     const result = parseAntigravityPrintResult(
       encode([

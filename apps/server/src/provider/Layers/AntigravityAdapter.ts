@@ -215,6 +215,11 @@ type AntigravitySessionContext = ToolSurfaceCounters & {
   totalProcessedTokens: number;
   turnBaseProcessedTokens: number;
   turnStdoutStepUsage: Map<number, AntigravityTokenUsage>;
+  /** Assistant items streamed from stdout this turn, keyed by stdout step_index. */
+  stdoutAssistantItems: Map<
+    number,
+    { readonly itemId: RuntimeItemId; text: string; completed: boolean }
+  >;
   turnTranscriptStepUsage: Map<number, AntigravityTokenUsage>;
   interrupted: boolean;
   stopped: boolean;
@@ -231,6 +236,13 @@ function messageFromCause(cause: unknown, fallback: string): string {
 function trim(value: string | null | undefined): string | undefined {
   const result = value?.trim();
   return result ? result : undefined;
+}
+
+/** True when stdout already streamed this text (pre-tool text arrives as an `agent_response` step). */
+function streamedFromStdout(context: AntigravitySessionContext, text: string): boolean {
+  return [...context.stdoutAssistantItems.values()].some(
+    (entry) => entry.text.trim() !== "" && text.startsWith(entry.text.trim()),
+  );
 }
 
 function nextToolOccurrence(counts: Map<string, number>, key: string): number {
@@ -1596,6 +1608,9 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
       if (context.turnTerminalEmitted || context.activeTurnId === undefined) {
         return false;
       }
+      for (const [stepIndex, entry] of context.stdoutAssistantItems) {
+        completeStdoutAssistantItem(context, entry, stepIndex);
+      }
       const completionBase = base(context);
       completePendingBackgroundTasks(
         context,
@@ -1776,6 +1791,79 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         raw: raw(step.type ?? "transcript", step),
       } satisfies ProviderRuntimeEvent);
       if (itemType === "assistant_message") context.sawAssistant = true;
+    };
+
+    const completeStdoutAssistantItem = (
+      context: AntigravitySessionContext,
+      entry: { readonly itemId: RuntimeItemId; text: string; completed: boolean },
+      stepIndex: number,
+    ) => {
+      if (entry.completed) return;
+      entry.completed = true;
+      offer({
+        ...base(context, { itemId: entry.itemId }),
+        type: "item.completed",
+        payload: {
+          itemType: "assistant_message",
+          status: "completed",
+          title: "Assistant",
+          data: { step_index: stepIndex, type: "agent_response", content: entry.text },
+        },
+        raw: raw("stdout-step-update", { stepIndex }),
+      } satisfies ProviderRuntimeEvent);
+      if (entry.text.trim()) context.sawAssistant = true;
+    };
+
+    /** Stream stdout `agent_response` deltas as they arrive instead of waiting for the transcript. */
+    const emitStdoutAssistantUpdate = (
+      context: AntigravitySessionContext,
+      stepIndex: number,
+      update: {
+        readonly type: unknown;
+        readonly state: unknown;
+        readonly delta: string;
+        readonly conversationId?: string;
+      },
+    ) => {
+      if (update.type !== "agent_response") return;
+      if (
+        update.conversationId !== undefined &&
+        context.conversationId !== undefined &&
+        update.conversationId !== context.conversationId
+      ) {
+        return;
+      }
+      let entry = context.stdoutAssistantItems.get(stepIndex);
+      // A whitespace-only step (e.g. a lone DONE "\n") must not open a bubble or suppress the transcript.
+      if (!entry && update.delta.trim() === "") return;
+      if (!entry) {
+        entry = {
+          itemId: RuntimeItemId.makeUnsafe(
+            `antigravity-${context.activeTurnId ?? "turn"}-stdout-${stepIndex}-assistant_message`,
+          ),
+          text: "",
+          completed: false,
+        };
+        context.stdoutAssistantItems.set(stepIndex, entry);
+        offer({
+          ...base(context, { itemId: entry.itemId }),
+          type: "item.started",
+          payload: { itemType: "assistant_message", status: "inProgress", title: "Assistant" },
+          raw: raw("stdout-step-update", { stepIndex }),
+        } satisfies ProviderRuntimeEvent);
+      }
+      if (update.delta !== "" && !entry.completed) {
+        entry.text += update.delta;
+        // Set now, not at completion: the close-handler PRINT_OUTPUT fallback must not repeat streamed text.
+        if (entry.text.trim()) context.sawAssistant = true;
+        offer({
+          ...base(context, { itemId: entry.itemId }),
+          type: "content.delta",
+          payload: { streamKind: "assistant_text", delta: update.delta },
+          raw: raw("stdout-step-update", { stepIndex }),
+        } satisfies ProviderRuntimeEvent);
+      }
+      if (update.state === "DONE") completeStdoutAssistantItem(context, entry, stepIndex);
     };
 
     /**
@@ -2004,7 +2092,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
                 ? step.thought
                 : step.content,
           );
-          if (reasoning) {
+          if (reasoning && !streamedFromStdout(context, reasoning)) {
             emitTextItem(context, step, "reasoning", "reasoning_text", reasoning);
           }
           emitTranscriptToolCalls(context, stepIndex ?? 0, calls);
@@ -2016,7 +2104,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
                 ? step.thinking
                 : undefined,
           );
-          if (assistantText) {
+          if (assistantText && context.stdoutAssistantItems.size === 0) {
             emitTextItem(context, step, "assistant_message", "assistant_text", assistantText);
           }
         }
@@ -2670,6 +2758,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
           totalProcessedTokens: 0,
           turnBaseProcessedTokens: 0,
           turnStdoutStepUsage: new Map(),
+          stdoutAssistantItems: new Map(),
           turnTranscriptStepUsage: new Map(),
           interrupted: false,
           stopped: false,
@@ -2842,6 +2931,7 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         context.sawAssistant = false;
         context.turnBaseProcessedTokens = context.totalProcessedTokens;
         context.turnStdoutStepUsage.clear();
+        context.stdoutAssistantItems.clear();
         context.turnTranscriptStepUsage.clear();
         context.interrupted = false;
         context.turnTerminalEmitted = false;
@@ -2946,6 +3036,10 @@ const makeAntigravityAdapter = (dependencies: AntigravityAdapterDependencies = {
         let stderrEvidence = "";
         let stderrEvidenceOverflow = false;
         const outputParser = createAntigravityPrintResultParser({
+          onStepUpdate: (stepIndex, update) => {
+            if (!ownsTurn()) return;
+            emitStdoutAssistantUpdate(context, stepIndex, update);
+          },
           onStepUsage: (stepIndex, stepUsage) => {
             if (!ownsTurn()) return;
             emitTokenUsage(
