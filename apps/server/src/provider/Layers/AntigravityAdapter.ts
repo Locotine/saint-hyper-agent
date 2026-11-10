@@ -635,6 +635,9 @@ export async function readCompleteAntigravityLines(
 
 type AntigravityHelperRunner = typeof runAntigravityHelperProcess;
 
+// ponytail: per-process memo; edits to the installed files (not deletion) go unnoticed until content or server changes.
+const installedCapturePlugins = new Map<string, string>();
+
 export async function ensureCapturePlugin(
   binaryPath: string,
   stdioProxy?: AcpStdioProxySpawn,
@@ -644,41 +647,65 @@ export async function ensureCapturePlugin(
     readonly runHelper?: AntigravityHelperRunner;
   } = {},
 ): Promise<void> {
-  const pluginDir = path.join(
-    options.homeDir ?? os.homedir(),
-    ".gemini",
-    "antigravity-cli",
-    "plugins",
-    "saint-capture",
-  );
+  const homeDir = options.homeDir ?? os.homedir();
+  const pluginDir = path.join(homeDir, ".gemini", "antigravity-cli", "plugins", "saint-capture");
   const scriptPath = path.join(pluginDir, "capture.cjs");
-  await fs.mkdir(pluginDir, { recursive: true });
-  await fs.writeFile(
-    path.join(pluginDir, "plugin.json"),
-    `${JSON.stringify(
-      {
-        $schema: "https://antigravity.google/schemas/v1/plugin.json",
-        name: "saint-capture",
-        version: "1.0.0",
-        description: "Streams Antigravity CLI lifecycle events to Saint when requested.",
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  await fs.writeFile(scriptPath, hookScriptSource(), { mode: 0o700 });
   const command = (event: string) =>
     buildAntigravityCaptureCommand(process.execPath, scriptPath, event);
-  await fs.writeFile(
-    path.join(pluginDir, "hooks.json"),
-    `${JSON.stringify(buildAntigravityHookConfig(command), null, 2)}\n`,
+  const pluginJson = `${JSON.stringify(
+    {
+      $schema: "https://antigravity.google/schemas/v1/plugin.json",
+      name: "saint-capture",
+      version: "1.0.0",
+      description: "Streams Antigravity CLI lifecycle events to Saint when requested.",
+    },
+    null,
+    2,
+  )}\n`;
+  const scriptSource = hookScriptSource();
+  const hooksJson = `${JSON.stringify(buildAntigravityHookConfig(command), null, 2)}\n`;
+  const mcpJson = stdioProxy
+    ? `${JSON.stringify(buildAntigravityMcpPluginConfig(stdioProxy), null, 2)}\n`
+    : undefined;
+  const fingerprint = crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify([
+        binaryPath,
+        options.environment ?? null,
+        pluginJson,
+        scriptSource,
+        hooksJson,
+        mcpJson ?? null,
+      ]),
+    )
+    .digest("hex");
+  // `agy plugin install` copies hooks.json into config/plugins but keeps running capture.cjs from
+  // pluginDir, so a memo hit is only trusted while both files are still on disk.
+  const installedHooksPath = path.join(
+    homeDir,
+    ".gemini",
+    "config",
+    "plugins",
+    "saint-capture",
+    "hooks.json",
   );
+  if (
+    installedCapturePlugins.get(pluginDir) === fingerprint &&
+    (await Promise.all([fs.access(scriptPath), fs.access(installedHooksPath)]).then(
+      () => true,
+      () => false,
+    ))
+  ) {
+    return;
+  }
+  await fs.mkdir(pluginDir, { recursive: true });
+  await fs.writeFile(path.join(pluginDir, "plugin.json"), pluginJson);
+  await fs.writeFile(scriptPath, scriptSource, { mode: 0o700 });
+  await fs.writeFile(path.join(pluginDir, "hooks.json"), hooksJson);
   const mcpConfigPath = path.join(pluginDir, "mcp_config.json");
-  if (stdioProxy) {
-    await fs.writeFile(
-      mcpConfigPath,
-      `${JSON.stringify(buildAntigravityMcpPluginConfig(stdioProxy), null, 2)}\n`,
-    );
+  if (mcpJson !== undefined) {
+    await fs.writeFile(mcpConfigPath, mcpJson);
   } else {
     await fs.rm(mcpConfigPath, { force: true });
   }
@@ -693,6 +720,7 @@ export async function ensureCapturePlugin(
   if (installed.code !== 0) {
     throw new Error(installed.stderr.trim() || installed.stdout.trim() || "Plugin install failed.");
   }
+  installedCapturePlugins.set(pluginDir, fingerprint);
 }
 
 export function buildAntigravityTurnProcessEnvironment(input: {

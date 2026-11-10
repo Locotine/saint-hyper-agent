@@ -472,6 +472,87 @@ describe("Antigravity CLI integration helpers", () => {
     }
   });
 
+  describe("ensureCapturePlugin memo", () => {
+    const proxy = (arg: string) => ({ command: "/bin/saint", args: [arg] });
+    const withHome = async (run: (homeDir: string) => Promise<void>) => {
+      const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "saint-antigravity-memo-test-"));
+      try {
+        await run(homeDir);
+      } finally {
+        await fs.rm(homeDir, { recursive: true, force: true });
+      }
+    };
+
+    // Stands in for `agy plugin install`, which copies hooks.json into config/plugins.
+    const installedHooksPath = (homeDir: string) =>
+      path.join(homeDir, ".gemini", "config", "plugins", "saint-capture", "hooks.json");
+    const fakeInstall =
+      (homeDir: string, onRun: () => number = () => 0) =>
+      async () => {
+        const code = onRun();
+        if (code === 0) {
+          await fs.mkdir(path.dirname(installedHooksPath(homeDir)), { recursive: true });
+          await fs.writeFile(installedHooksPath(homeDir), "{}");
+        }
+        return { stdout: "", stderr: "boom", code };
+      };
+
+    it("installs once for identical content", async () => {
+      await withHome(async (homeDir) => {
+        let runs = 0;
+        const runHelper = fakeInstall(homeDir, () => ((runs += 1), 0));
+        await ensureCapturePlugin("/usr/local/bin/agy", proxy("a.mjs"), { homeDir, runHelper });
+        await ensureCapturePlugin("/usr/local/bin/agy", proxy("a.mjs"), { homeDir, runHelper });
+        expect(runs).toBe(1);
+      });
+    });
+
+    it("reinstalls when the proxy args change", async () => {
+      await withHome(async (homeDir) => {
+        let runs = 0;
+        const runHelper = fakeInstall(homeDir, () => ((runs += 1), 0));
+        await ensureCapturePlugin("/usr/local/bin/agy", proxy("a.mjs"), { homeDir, runHelper });
+        await ensureCapturePlugin("/usr/local/bin/agy", proxy("b.mjs"), { homeDir, runHelper });
+        expect(runs).toBe(2);
+      });
+    });
+
+    it("does not memoize a failed install", async () => {
+      await withHome(async (homeDir) => {
+        let runs = 0;
+        const runHelper = fakeInstall(homeDir, () => ((runs += 1), runs === 1 ? 1 : 0));
+        await expect(
+          ensureCapturePlugin("/usr/local/bin/agy", proxy("a.mjs"), { homeDir, runHelper }),
+        ).rejects.toThrow("boom");
+        await ensureCapturePlugin("/usr/local/bin/agy", proxy("a.mjs"), { homeDir, runHelper });
+        expect(runs).toBe(2);
+      });
+    });
+
+    it("reinstalls when the agy binary changes", async () => {
+      await withHome(async (homeDir) => {
+        let runs = 0;
+        const runHelper = fakeInstall(homeDir, () => ((runs += 1), 0));
+        await ensureCapturePlugin("/usr/local/bin/agy", proxy("a.mjs"), { homeDir, runHelper });
+        await ensureCapturePlugin("/opt/agy/bin/agy", proxy("a.mjs"), { homeDir, runHelper });
+        expect(runs).toBe(2);
+      });
+    });
+
+    it("reinstalls when the plugin files were deleted", async () => {
+      await withHome(async (homeDir) => {
+        let runs = 0;
+        const runHelper = fakeInstall(homeDir, () => ((runs += 1), 0));
+        await ensureCapturePlugin("/usr/local/bin/agy", proxy("a.mjs"), { homeDir, runHelper });
+        await fs.rm(installedHooksPath(homeDir));
+        await ensureCapturePlugin("/usr/local/bin/agy", proxy("a.mjs"), { homeDir, runHelper });
+        await fs.rm(path.join(homeDir, ".gemini", "antigravity-cli"), { recursive: true });
+        await ensureCapturePlugin("/usr/local/bin/agy", proxy("a.mjs"), { homeDir, runHelper });
+        expect(runs).toBe(3);
+      });
+    });
+  });
+
   it("gives an Antigravity turn only its thread-scoped gateway credential", () => {
     const env = buildAntigravityTurnProcessEnvironment({
       eventFile: "/tmp/thread-a-hooks.ndjson",
