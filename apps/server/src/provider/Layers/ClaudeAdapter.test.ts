@@ -17,6 +17,7 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import {
   ApprovalRequestId,
+  DEFAULT_MODEL_BY_PROVIDER,
   ProviderItemId,
   ProviderRuntimeEvent,
   ThreadId,
@@ -202,6 +203,16 @@ class FakeClaudeQuery implements AsyncIterable<SDKMessage> {
         value: "claude-sonnet-5",
         displayName: "Claude Sonnet 5",
         description: "Default supported test model",
+        supportsEffort: true,
+        supportsAdaptiveThinking: true,
+        supportsFastMode: false,
+        supportsAutoMode: true,
+      },
+      {
+        // Sessions started without a model use the provider default.
+        value: DEFAULT_MODEL_BY_PROVIDER.claudeAgent,
+        displayName: "Provider default test model",
+        description: "Provider default model",
         supportsEffort: true,
         supportsAdaptiveThinking: true,
         supportsFastMode: false,

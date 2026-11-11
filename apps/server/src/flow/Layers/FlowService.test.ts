@@ -1,4 +1,5 @@
 import {
+  DEFAULT_MODEL_BY_PROVIDER,
   ProjectId,
   TurnId,
   type OrchestrationCommand,
@@ -91,7 +92,14 @@ const snapshotQuery = {
 const discovery = {
   listModels: () =>
     Effect.succeed({
-      models: [{ slug: "claude-sonnet-5", name: "Sonnet 5", supportsAutoMode: true }],
+      models: [
+        { slug: "claude-sonnet-5", name: "Sonnet 5", supportsAutoMode: true },
+        {
+          slug: DEFAULT_MODEL_BY_PROVIDER.claudeAgent,
+          name: "Default Claude",
+          supportsAutoMode: true,
+        },
+      ],
     }),
 } as unknown as ProviderDiscoveryServiceShape;
 
@@ -469,7 +477,7 @@ edges:
           {
             provider: "claudeAgent",
             instanceId: "claudeAgent",
-            model: "claude-sonnet-5",
+            model: DEFAULT_MODEL_BY_PROVIDER.claudeAgent,
             options: { effort: "medium" },
             supportsAutoMode: true,
           },

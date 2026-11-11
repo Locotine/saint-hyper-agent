@@ -203,6 +203,8 @@ const listDefaultTestModels: (typeof ProviderDiscoveryService)["Service"]["listM
         slug: "claude-sonnet-5",
         name: "Claude Sonnet 5",
       },
+      // Threads created without a model use the provider default.
+      { slug: DEFAULT_MODEL_BY_PROVIDER.claudeAgent, name: "Provider default" },
       {
         slug: "sonnet",
         name: "Claude Sonnet alias",
