@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nội quy &amp; đội ngũ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--panel:#070707;--panel2:#0b0b0b;--line:#1a1a1a;--line2:#242424;--text:#f2f2f2;--mute:#a6a6a6;--mute2:#6b6b6b;--gold:#ecc970;--ok:#7ccf9b;--warn:#ecc970;--bad:#e8a39b;--mono:"JetBrains Mono",ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Be Vietnam Pro",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;display:grid;grid-template-rows:auto 1fr}
+.mono{font-family:var(--mono)}
+.head{display:grid;grid-template-columns:auto auto 1fr;gap:18px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0a0a0a,#050505)}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:34px;height:34px;border-radius:10px;background:var(--gold);color:#000;display:grid;place-items:center;font-weight:800;font-size:18px}
+.brand b{font-size:16px;display:block}.brand small{font-size:10px;color:var(--mute2);letter-spacing:.18em;text-transform:uppercase}
+.clock{display:flex;align-items:center;gap:12px;padding:0 18px;border-left:1px solid var(--line);border-right:1px solid var(--line)}.clock .t{font-size:26px;font-weight:700;font-family:var(--mono)}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--ok)}.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 1.4s infinite}
+.live.off{color:var(--bad)}.live.off i{background:var(--bad);animation:none}@keyframes pulse{50%{opacity:.25}}
+.views{justify-self:end;display:flex;gap:6px;flex-wrap:wrap}.views a{font-size:11px;color:var(--mute);text-decoration:none;border:1px solid var(--line2);border-radius:999px;padding:4px 11px}.views a:hover{color:var(--text)}
+main{display:grid;grid-template-columns:290px minmax(0,1.35fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:10px;min-height:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:0;min-width:0}
+.panel h2{margin:0;padding:10px 14px 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:700;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line)}
+.panel h2 em{font-style:normal;letter-spacing:0;text-transform:none;color:var(--mute2);font-weight:500}
+.body{padding:8px 14px 12px;overflow:auto;min-height:0;flex:1}
+.p-toc{grid-row:1/3}.p-rule{grid-row:1/3}
+.toc a{display:block;padding:7px 9px;border-radius:8px;font-size:12.5px;color:#cfcfcf;text-decoration:none;cursor:pointer;line-height:1.35;border:1px solid transparent}
+.toc a:hover{background:#0f0f0f}.toc a.sel{background:#12100a;border-color:rgba(236,201,112,.35);color:var(--text)}
+.new{font-size:9px;font-weight:800;color:#000;background:var(--gold);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}
+.draft{font-size:9px;font-weight:800;color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:0 5px;margin-left:6px}
+/* nội dung Markdown */
+.md{font-size:13.5px;line-height:1.6;color:#e2e2e2}
+.md h3{font-size:16px;margin:0 0 8px;color:var(--text)}.md h4,.md h5,.md h6{font-size:13.5px;margin:12px 0 4px;color:var(--gold)}
+.md p{margin:6px 0}.md ul,.md ol{margin:6px 0;padding-left:20px}.md li{margin:3px 0}.md li.sub{margin-left:18px;list-style:circle}
+.md code{font-family:var(--mono);font-size:12px;background:#141414;border:1px solid #222;border-radius:4px;padding:0 4px;word-break:break-all}
+.md b{color:#fff}.md a{color:#8fc0ef}
+.mdt{overflow-x:auto;margin:8px 0}.md table{border-collapse:collapse;font-size:12px;width:100%}
+.md th{text-align:left;color:var(--mute2);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:5px 7px;border-bottom:1px solid var(--line2)}
+.md td{padding:6px 7px;border-bottom:1px solid #141414;vertical-align:top}
+.meta{font-size:11px;color:var(--mute2);margin-bottom:8px}
+/* đội ngũ + sổ tay */
+.team td:first-child{font-weight:600}.team .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:#333}.team .dot.on{background:var(--ok)}
+.tabs{display:flex;gap:4px;padding:8px 14px 0;flex-wrap:wrap}
+.tabs button{background:none;border:1px solid var(--line2);color:var(--mute);border-radius:999px;font:inherit;font-size:11.5px;padding:3px 11px;cursor:pointer}.tabs button.on{border-color:rgba(236,201,112,.5);color:var(--gold)}
+.search{margin:8px 14px 0;background:#050505;border:1px solid var(--line2);border-radius:8px;color:var(--text);font:inherit;font-size:12.5px;padding:6px 9px}
+.card{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:7px;background:var(--panel2);font-size:12.5px;line-height:1.5}
+.card b{display:block;font-size:12.5px;margin-bottom:2px}.card small{color:var(--mute2)}
+.tag{font-family:var(--mono);font-size:10px;color:var(--gold);border:1px solid rgba(236,201,112,.35);border-radius:4px;padding:0 4px;margin-right:4px}
+details{border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--panel2)}details summary{cursor:pointer;padding:8px 10px;font-size:12.5px;font-weight:600}details .md{padding:0 12px 8px}
+@media (min-width:1101px){body{height:100vh;overflow:hidden}}</style>
+</head>
+<body>
+<header class="head">
+  <div class="brand"><div class="logo">V</div><div><b>Nội quy &amp; đội ngũ</b><small>Luật chung · cấp bậc · ai làm gì · sổ tay</small></div></div>
+  <div class="clock"><span class="t" id="clock">--:--:--</span><span class="live" id="live"><i></i>TRỰC TIẾP</span></div>
+  <nav class="views"><a href="board.html" target="vp3d">Bảng điều hành</a><a href="congviec.html" target="vp3d">Công việc &amp; tiến độ</a><a href="hieusuat.html" target="vp3d">Đánh giá nhân sự</a><a href="./" target="vp3d">Văn phòng 3D</a></nav>
+</header>
+<main>
+  <section class="panel p-toc"><h2>Nội quy <em id="rule-meta"></em></h2><div class="body toc" id="toc"></div></section>
+  <section class="panel p-rule"><h2><span id="rule-title">–</span><em id="rule-age"></em></h2><div class="body md" id="rule"></div></section>
+  <section class="panel"><h2>Cấp bậc &amp; đội ngũ <em id="team-meta"></em></h2><div class="body"><div class="md" id="team"></div><details><summary>Cấp bậc &amp; quyền (CAP-BAC.md)</summary><div class="md" id="camco"></div></details></div></section>
+  <section class="panel"><h2>Sổ tay <em id="book-meta"></em></h2>
+    <div class="tabs" id="tabs"></div><input class="search" id="q" placeholder="Tìm trong sổ tay…">
+    <div class="body" id="book"></div></section>
+</main>
+<script src="md.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const ago = (ms) => { if (!ms) return "–"; const s = Math.max(0, (Date.now() - ms) / 1000); if (s < 3600) return Math.round(s / 60) + " phút"; if (s < 86400) return (s / 3600).toFixed(1).replace(".", ",") + " giờ"; return Math.round(s / 86400) + " ngày"; };
+let D = null, sel = null, tab = "bai";
+const isNew = (s) => s.changedAt && Date.now() - s.changedAt < 86400000;
+
+function renderRules() {
+  const nq = D.noiQuy; if (!nq) { $("rule").textContent = "Chưa có nội quy: tạo data/NOI-QUY.md (setup đã chép khung mẫu) hoặc AGENTS.md / CLAUDE.md trong dự án."; return; }
+  const secs = nq.sections.filter((s) => s.body.trim()); // bỏ tiêu đề đầu file trống
+  const newCount = secs.filter(isNew).length;
+  $("rule-meta").textContent = `${secs.length} mục${newCount ? ` · ${newCount} mục mới` : ""} · ${nq.file} sửa ${ago(nq.at)} trước`;
+  const toc = $("toc"); toc.textContent = "";
+  const items = secs.map((s, i) => ({ key: "r" + i, title: s.title || "Phần đầu", body: s.body, at: s.changedAt, isNew: isNew(s) }));
+  if (D.noiQuyGon) items.push({ key: "gon", title: "Bản gọn", body: D.noiQuyGon.body, draft: true, at: D.noiQuyGon.at });
+  if (!sel || !items.some((x) => x.key === sel)) sel = (items.find((x) => x.isNew) || items[0]).key;
+  for (const it of items) {
+    const a = h("a", it.key === sel ? "sel" : "", it.title);
+    if (it.isNew) a.appendChild(h("span", "new", "MỚI")); if (it.draft) a.appendChild(h("span", "draft", "NHÁP chờ duyệt"));
+    a.onclick = () => { sel = it.key; renderRules(); }; toc.appendChild(a);
+  }
+  const cur = items.find((x) => x.key === sel);
+  $("rule-title").textContent = cur.title;
+  $("rule-age").textContent = cur.draft ? `nháp · sửa ${ago(cur.at)} trước` : cur.isNew ? `mới đổi ${ago(cur.at)} trước` : "";
+  $("rule").innerHTML = MD.render(cur.body);
+}
+function renderTeam() {
+  const dn = D.doiNgu, box = $("team"); box.textContent = "";
+  $("team-meta").textContent = dn ? `DOI-NGU.md sửa ${ago(dn.at)} trước` : "";
+  if (!dn) return;
+  for (const g of dn.groups) {
+    const [head, ...rows] = g.rows;
+    const t = h("table", "team"); const th = h("thead"); const tr = h("tr"); for (const c of head || []) tr.appendChild(h("th", "", c)); th.appendChild(tr); t.appendChild(th);
+    const tb = h("tbody");
+    for (const r of rows) {
+      const row = h("tr");
+      const id = (String(r[1] || "").match(/[0-9a-f]{8}/) || [])[0];
+      const ag = id && D.agents.find((a) => (a.host && a.host.startsWith(id)) || (a.session && a.session.startsWith(id)));
+      r.forEach((c, i) => { const td = h("td"); if (i === 0) { const d = h("span", "dot" + (ag ? " on" : "")); d.title = ag ? "Có trong văn phòng" : "Chưa thấy phiên"; td.appendChild(d); } td.append(c); row.appendChild(td); });
+      tb.appendChild(row);
+    }
+    t.appendChild(tb);
+    const wrap = h("div", "mdt"); wrap.appendChild(h("h5", "", g.title)); wrap.appendChild(t); box.appendChild(wrap);
+  }
+  if (D.camCo) $("camco").innerHTML = MD.render(D.camCo.body);
+}
+const TABS = [["bai", "Bài học"], ["sau", "Việc để sau"], ["tu", "Từ điển"], ["spec", "SPEC"]];
+function renderBook() {
+  const tabs = $("tabs"); tabs.textContent = "";
+  for (const [k, lab] of TABS) { const b = h("button", k === tab ? "on" : "", lab); b.onclick = () => { tab = k; renderBook(); }; tabs.appendChild(b); }
+  const q = $("q").value.trim().toLowerCase(), hit = (s) => !q || String(s).toLowerCase().includes(q);
+  const box = $("book"); box.textContent = "";
+  if (tab === "bai" && D.baiHoc) {
+    const H = D.baiHoc.head; $("book-meta").textContent = `${D.baiHoc.rows.length} bài · sửa ${ago(D.baiHoc.at)} trước`;
+    for (const r of D.baiHoc.rows) {
+      if (!hit(r.join(" "))) continue;
+      const c = h("div", "card"); const t = h("b"); t.append(h("span", "tag", r[0]), ...(String(r[1] || "").split(/[,\s]+/).filter(Boolean).map((x) => h("span", "tag", x)))); c.appendChild(t);
+      r.slice(2).forEach((v, i) => { if (v) { const p = h("div"); p.append(h("small", "", (H[i + 2] || "") + ": "), v); c.appendChild(p); } });
+      box.appendChild(c);
+    }
+  } else if (tab === "sau" && D.viecLamSau) {
+    $("book-meta").textContent = `${D.viecLamSau.sections.length} nhóm · sửa ${ago(D.viecLamSau.at)} trước`;
+    for (const s of D.viecLamSau.sections) {
+      if (!hit(s.title + " " + s.body)) continue;
+      const d = h("details"); if (q) d.open = true; const sm = h("summary", "", `${s.title} · ${s.n} mục`); d.appendChild(sm);
+      const m = h("div", "md"); m.innerHTML = MD.render(s.body); d.appendChild(m); box.appendChild(d);
+    }
+  } else if (tab === "tu" && D.tuDien) {
+    $("book-meta").textContent = `${D.tuDien.rows.length} từ · sửa ${ago(D.tuDien.at)} trước`;
+    for (const r of D.tuDien.rows) {
+      if (!hit(r.join(" "))) continue;
+      const c = h("div", "card"); c.appendChild(h("b", "", r[0])); if (r[1]) c.appendChild(h("div", "", r[1]));
+      if (r[2]) { const p = h("div"); p.append(h("small", "", "Ví dụ: "), r[2]); c.appendChild(p); } if (r[3]) c.appendChild(h("small", "", "Gặp ở: " + r[3]));
+      box.appendChild(c);
+    }
+  } else if (tab === "spec") {
+    $("book-meta").textContent = `${D.specs.length} tài liệu`;
+    for (const s of D.specs) { if (!hit(s.title + s.file)) continue; const c = h("div", "card"); c.append(h("b", "", s.title), h("small", "", `${s.file} · sửa ${ago(s.at)} trước`)); box.appendChild(c); }
+  }
+}
+$("q").addEventListener("input", renderBook);
+function render(d) { D = d; renderRules(); renderTeam(); renderBook(); }
+// Hỏi máy chủ 5 giây/lần, không giữ kết nối mở: trình duyệt chỉ cho 6 kết nối tới cùng localhost, văn phòng 3D đang mở cả 3 bảng.
+async function load() { try { const r = await fetch("docs", { cache: "no-store" }); render(await r.json()); $("live").className = "live"; } catch { $("live").className = "live off"; } }
+load(); setInterval(load, 5000);
+setInterval(() => { $("clock").textContent = new Date().toLocaleTimeString("vi-VN", { hour12: false }); }, 1000);
+</script>
+</body>
+</html>

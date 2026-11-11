@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hòm thư</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--panel:#070707;--panel2:#0b0b0b;--line:#1a1a1a;--line2:#242424;--text:#f2f2f2;--mute:#a6a6a6;--mute2:#6b6b6b;--gold:#ecc970;--ok:#7ccf9b;--warn:#ecc970;--bad:#e8a39b;--claude:#d9734a;--codex:#3f8fd9;--mono:"JetBrains Mono",ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Be Vietnam Pro",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.head{display:grid;grid-template-columns:auto auto 1fr;gap:18px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0a0a0a,#050505)}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:34px;height:34px;border-radius:10px;background:var(--gold);color:#000;display:grid;place-items:center;font-weight:800;font-size:18px}
+.brand b{font-size:16px;display:block}.brand small{font-size:10px;color:var(--mute2);letter-spacing:.18em;text-transform:uppercase}
+.clock{font-family:var(--mono);font-size:13px;color:var(--mute);padding:0 18px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.views{justify-self:end;display:flex;gap:6px;flex-wrap:wrap}.views a{font-size:11px;color:var(--mute);text-decoration:none;border:1px solid var(--line2);border-radius:999px;padding:4px 11px}.views a:hover{color:var(--text)}
+main{padding:12px 18px 24px;display:grid;gap:12px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+.kpi small{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute2);font-weight:700}
+.kpi b{display:block;font-size:26px;margin-top:4px;font-family:var(--mono)}
+.kpi span{display:block;font-size:11px;color:var(--mute);margin-top:2px}
+.kpi.bad b{color:var(--bad)}.kpi.warn b{color:var(--warn)}.kpi.ok b{color:var(--ok)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.panel h2{margin:0 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);display:flex;justify-content:space-between;gap:10px}
+.panel h2 em{font-style:normal;letter-spacing:0;text-transform:none;color:var(--mute2);font-weight:500}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute2);padding:6px 8px;border-bottom:1px solid var(--line2);white-space:nowrap}
+th.n,td.n{text-align:right}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.vai{white-space:nowrap;font-weight:600}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.old{font-size:12px;color:#d6d6d6;max-width:640px}.old small{display:block;color:var(--mute2);font-family:var(--mono);font-size:10.5px;margin-bottom:2px}
+.z{color:var(--mute2)}.r{color:var(--bad);font-weight:700}.y{color:var(--warn);font-weight:700}
+.note{font-size:11.5px;color:var(--mute2);line-height:1.6}
+@media (max-width:900px){.head{grid-template-columns:1fr auto}.clock,.brand small{display:none}main{padding:12px 16px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.old{max-width:none}.hide-m{display:none}}
+</style>
+</head>
+<body>
+<header class="head">
+  <div class="brand"><div class="logo">V</div><div><b>Hòm thư</b><small>Phiên nào đang tắc · chỉ xem</small></div></div>
+  <div class="clock" id="at">–</div>
+  <nav class="views"><a href="board.html" target="vp3d">Bảng điều hành</a><a href="congviec.html" target="vp3d">Công việc</a><a href="noiquy.html" target="vp3d">Nội quy</a><a href="./" target="vp3d">Văn phòng 3D</a></nav>
+</header>
+<main>
+  <section class="kpis" id="kpis"></section>
+  <section class="panel"><h2>Theo từng vai <em>sắp theo mức tắc: đọc ≥ 3 lần → chờ quá 1 giờ → nhiều tin</em></h2>
+    <div style="overflow-x:auto"><table><thead><tr><th>Vai</th><th class="n">Chưa xong</th><th class="n">Chờ &gt; 1 giờ</th><th class="n">Đọc ≥ 3 lần</th><th class="n hide-m">Chưa đọc</th><th>Tin cũ nhất</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+  <p class="note">Văn phòng chỉ đọc hòm thư, không gửi, sửa hay đóng tin; mọi tin đi qua công cụ <code>tools/vp.js</code> (<code>vp gui</code> · <code>vp tiep</code> · <code>vp xong</code>). "Đọc ≥ 3 lần" là tin người nhận đã đọc đi đọc lại mà chưa làm xong: cần người vào xem. "Chưa đọc" là tin người nhận chưa chạy <code>vp tiep</code> lần nào. Làm mới 30 giây một lần.</p>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const ago = (ms) => { const m = Math.max(0, (Date.now() - ms) / 60000); return m < 60 ? Math.round(m) + " phút" : m < 1440 ? (m / 60).toFixed(1).replace(".", ",") + " giờ" : Math.round(m / 1440) + " ngày"; };
+function render(d) {
+  $("at").textContent = "cập nhật " + new Date(d.at).toLocaleTimeString("vi-VN", { hour12: false });
+  const cx = d.roles;
+  const sum = (a, k) => a.reduce((s, r) => s + (r[k] || 0), 0);
+  const k = $("kpis"); k.textContent = "";
+  const tile = (cls, lab, val, sub) => { const e = h("div", "kpi " + cls); e.append(h("small", "", lab), h("b", "", val)); if (sub) e.appendChild(h("span", "", sub)); k.appendChild(e); };
+  tile(sum(cx, "open") ? "warn" : "ok", "Tin chưa xong", String(sum(cx, "open")), `${cx.filter((r) => r.open).length} vai`);
+  tile(sum(cx, "nhac2") ? "bad" : "ok", "Cần người (đọc ≥ 3)", String(sum(cx, "nhac2")), "đọc lại mà chưa xong");
+  tile(sum(cx, "over1h") ? "warn" : "ok", "Chờ > 1 giờ", String(sum(cx, "over1h")));
+  tile(sum(cx, "chuaToi") ? "warn" : "ok", "Chưa đọc", String(sum(cx, "chuaToi")), "người nhận chưa mở");
+  const tb = $("rows"); tb.textContent = "";
+  for (const r of d.roles) {
+    const tr = h("tr");
+    const v = h("td", "vai"); const dot = h("i", "dot"); dot.style.background = "var(--gold)"; v.append(dot, r.vai); tr.appendChild(v);
+    tr.appendChild(h("td", "n mono " + (r.open ? "" : "z"), String(r.open)));
+    tr.appendChild(h("td", "n mono " + (r.over1h ? "y" : "z"), String(r.over1h)));
+    tr.appendChild(h("td", "n mono " + (r.nhac2 == null ? "z" : r.nhac2 ? "r" : "z"), r.nhac2 == null ? "–" : String(r.nhac2)));
+    tr.appendChild(h("td", "n mono hide-m " + (r.chuaToi ? "y" : "z"), String(r.chuaToi)));
+    const o = h("td", "old");
+    if (r.oldest) { o.append(h("small", "", `${r.oldest.id || "không mã"} · chờ ${ago(r.oldest.luc)}`), r.oldest.dong); }
+    tr.appendChild(o); tb.appendChild(tr);
+  }
+}
+async function load() { try { const r = await fetch("hopthu", { cache: "no-store" }); render(await r.json()); } catch { $("at").textContent = "mất kết nối máy chủ"; } }
+load(); setInterval(load, 30000);
+</script>
+</body>
+</html>
