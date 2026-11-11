@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LOCAL_HOST_ID, sshHostId } from "@saint/shared/hostId";
 
 import { hostConnections } from "../hosts/hostConnectionRegistry";
-import { hostAttachmentPreviewUrl, resolveHostHttpUrl, resolveWsHttpUrl } from "./wsHttpUrl";
+import {
+  buildTimeWsUrl,
+  hostAttachmentPreviewUrl,
+  resolveHostHttpUrl,
+  resolveWsHttpUrl,
+} from "./wsHttpUrl";
 
 describe("resolveWsHttpUrl", () => {
   afterEach(() => {
@@ -119,5 +124,21 @@ describe("hostAttachmentPreviewUrl", () => {
     vi.spyOn(hostConnections, "peek").mockReturnValue(undefined);
     expect(hostAttachmentPreviewUrl(hostId, stored)).toBe(stored);
     expect(hostAttachmentPreviewUrl(hostId, "blob:http://x/1")).toBe("blob:http://x/1");
+  });
+});
+
+describe("buildTimeWsUrl", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("drops a loopback dev server URL on a page opened from another device", () => {
+    vi.stubEnv("VITE_WS_URL", "ws://localhost:3773");
+    vi.stubGlobal("window", { location: { hostname: "192.168.1.20" } });
+    expect(buildTimeWsUrl()).toBeNull();
+
+    vi.stubGlobal("window", { location: { hostname: "localhost" } });
+    expect(buildTimeWsUrl()).toBe("ws://localhost:3773");
   });
 });

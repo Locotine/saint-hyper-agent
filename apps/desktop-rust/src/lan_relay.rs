@@ -766,6 +766,8 @@ async fn handle_relay_connection(
         .any(|(k, v)| k.eq_ignore_ascii_case("upgrade") && v.eq_ignore_ascii_case("websocket"));
     let is_backend_route = is_upgrade
         || path_only.starts_with("/api/")
+        || path_only == "/ws"
+        || path_only.starts_with("/ws/")
         || path_only.starts_with("/attachments/")
         || path_only == "/health";
 

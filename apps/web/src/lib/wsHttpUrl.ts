@@ -7,7 +7,24 @@
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { REMOTE_CLIENT_ID_PARAM } from "@saint/shared/remoteClientId";
 
+import { isLoopbackHostname } from "~/components/Sidebar.logic";
 import { hostConnections } from "../hosts/hostConnectionRegistry";
+
+/**
+ * The server URL baked in at build time (dev runner), or null. A dev build bakes in a
+ * loopback URL; a phone opening the page through the LAN relay would dial its own
+ * localhost, so such a page uses its own origin instead.
+ */
+export function buildTimeWsUrl(): string | null {
+  const envUrl = import.meta.env.VITE_WS_URL as string | undefined;
+  if (!envUrl) return null;
+  if (typeof window === "undefined" || isLoopbackHostname(window.location.hostname)) return envUrl;
+  try {
+    return isLoopbackHostname(new URL(envUrl).hostname) ? null : envUrl;
+  } catch {
+    return envUrl;
+  }
+}
 
 // Build a fully-qualified HTTP URL for `rawPath` against the same server the WS connection uses.
 // On desktop the page is served from a custom protocol scheme, so <img>/<a download> with a
@@ -17,7 +34,7 @@ import { hostConnections } from "../hosts/hostConnectionRegistry";
 export function resolveWsHttpUrl(rawPath: string): string {
   if (typeof window === "undefined") return rawPath;
   const bridgeWsUrl = window.desktopBridge?.getWsUrl?.();
-  const envWsUrl = import.meta.env.VITE_WS_URL as string | undefined;
+  const envWsUrl = buildTimeWsUrl();
   const wsCandidate =
     typeof bridgeWsUrl === "string" && bridgeWsUrl.length > 0
       ? bridgeWsUrl

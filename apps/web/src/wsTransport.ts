@@ -93,6 +93,7 @@ import {
   UNARY_RPC_CAPACITY_QUEUE_WAIT_MS,
 } from "./lib/expensiveReadRetry";
 import { RpcRequestQueue, RpcRequestQueueWaitExpiredError } from "./lib/rpcRequestQueue";
+import { buildTimeWsUrl } from "./lib/wsHttpUrl";
 import {
   classifyWsRequest,
   makeWsRequestCapacityError,
@@ -362,7 +363,7 @@ function resolveRpcUrl(rawUrl: string, path: string): string {
 function rawSocketUrl(explicitUrl: string | null): string {
   if (explicitUrl) return explicitUrl;
   const bridgeUrl = window.desktopBridge?.getWsUrl();
-  const envUrl = import.meta.env.VITE_WS_URL as string | undefined;
+  const envUrl = buildTimeWsUrl();
   return bridgeUrl && bridgeUrl.length > 0
     ? bridgeUrl
     : envUrl && envUrl.length > 0
