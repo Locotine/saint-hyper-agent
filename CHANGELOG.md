@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.2 — 2026-11-11
+
+**Phone pairing works, Computer Use ships with the Tauri app, and the Explorer viewer splits like the editor.**
+
+This Stable release covers the commits after `v1.2.1`.
+
+### Added
+
+- Drag a file tab in the Explorer viewer onto another group's tabs to move it, or onto a group's edge to split the viewer. Dividers resize the groups.
+- Settings > Remote hosts > Mobile & LAN access lists network interfaces by name, and the relay listens only on the one you pick.
+
+### Changed
+
+- The LAN / Tailscale relay no longer listens on `0.0.0.0`. Container bridges and broadcast addresses are not offered.
+- The relay section is no longer repeated under System tools.
+- The 3D office renders at up to 30 fps and redraws its wall screens only when the camera moves.
+
+### Fixed
+
+- The pairing QR code could not be scanned: its format information was written transposed.
+- Computer Use reported "Cua Driver is not bundled" in every Tauri build. Release builds now include the driver.
+- Remote SSH Connect reported success before the tunnel opened. It now waits for the tunnel and shows ssh's error, and Stop server appears only for connected targets.
+- With TanStack Router 1.171, the committed pathname lagged one update behind route params.
+- CI and release builds: Bun 1.4.4 rejected the frozen lockfile, and macOS release builds ran out of memory in the web build.
+
 ## 1.2.1 — 2026-11-06
 
 **The desktop app moves to Tauri v2 / Rust, with a free-roaming Explorer with folder downloads and LAN relay pairing for mobile.**

@@ -289,9 +289,11 @@ export function readTrackedFiles(cwd = process.cwd()): BrandIdentityBinaryFile[]
     .filter(Boolean);
   // Gitlinks name another repository, not a file owned by this checkout. They may
   // exist as directories or be absent when submodules have not been initialized.
+  // Vendored third-party code (three.js) is not ours to rename and uses short math names.
   const paths = entries
     .filter((entry) => !entry.startsWith("160000 "))
-    .map((entry) => entry.slice(entry.indexOf("\t") + 1));
+    .map((entry) => entry.slice(entry.indexOf("\t") + 1))
+    .filter((path) => !path.includes("/vendor/"));
   return paths.map((path) => ({ path, contents: readFileSync(resolve(cwd, path)) }));
 }
 
