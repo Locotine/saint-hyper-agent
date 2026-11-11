@@ -540,26 +540,52 @@ fn desktop_update_get_state(state: State<'_, Arc<DesktopSharedState>>) -> Deskto
     state.updater.get_state()
 }
 
+// Electron Saint checked 15 s after launch and every 4 h, then downloaded in the
+// background so the sidebar offers "restart to update" without a manual check.
+const AUTO_UPDATE_STARTUP_DELAY: std::time::Duration = std::time::Duration::from_secs(15);
+const AUTO_UPDATE_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(4 * 60 * 60);
+
+fn spawn_auto_update_poll(app: tauri::AppHandle, state: Arc<DesktopSharedState>) {
+    if !state.updater.get_state().enabled {
+        return;
+    }
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(AUTO_UPDATE_STARTUP_DELAY).await;
+        loop {
+            if run_update_check(&app, &state).await.status == "available" {
+                run_update_download(&app, &state).await;
+            }
+            tokio::time::sleep(AUTO_UPDATE_POLL_INTERVAL).await;
+        }
+    });
+}
+
 #[tauri::command]
 async fn desktop_update_check(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
     state: State<'_, Arc<DesktopSharedState>>,
 ) -> Result<DesktopUpdateState, String> {
+    Ok(run_update_check(&app, state.inner()).await)
+}
+
+async fn run_update_check(
+    app: &tauri::AppHandle,
+    state: &Arc<DesktopSharedState>,
+) -> DesktopUpdateState {
     use tauri_plugin_updater::UpdaterExt;
 
     let (accepted, checking) = state.updater.begin_check();
     if !accepted || !checking.enabled {
-        return Ok(checking);
+        return checking;
     }
-    emit_window_event(&window, "desktop:update-state", &checking);
+    emit_app_event(app, "desktop:update-state", &checking);
 
     let updater = match app.updater() {
         Ok(u) => u,
         Err(_) => {
             let up_to_date = state.updater.mark_up_to_date(now_iso8601());
-            emit_window_event(&window, "desktop:update-state", &up_to_date);
-            return Ok(up_to_date);
+            emit_app_event(app, "desktop:update-state", &up_to_date);
+            return up_to_date;
         }
     };
 
@@ -579,38 +605,44 @@ async fn desktop_update_check(
         Err(err) => state.updater.mark_error("check", err.to_string()),
     };
 
-    emit_window_event(&window, "desktop:update-state", &next_state);
-    Ok(next_state)
+    emit_app_event(app, "desktop:update-state", &next_state);
+    next_state
 }
 
 #[tauri::command]
 async fn desktop_update_download(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
     state: State<'_, Arc<DesktopSharedState>>,
 ) -> Result<DesktopUpdateActionResult, String> {
+    Ok(run_update_download(&app, state.inner()).await)
+}
+
+async fn run_update_download(
+    app: &tauri::AppHandle,
+    state: &Arc<DesktopSharedState>,
+) -> DesktopUpdateActionResult {
     use tauri_plugin_updater::UpdaterExt;
 
     let (accepted, initial) = state.updater.begin_download();
     if !accepted {
-        return Ok(DesktopUpdateActionResult {
+        return DesktopUpdateActionResult {
             accepted: false,
             completed: false,
             state: initial,
-        });
+        };
     }
-    emit_window_event(&window, "desktop:update-state", &initial);
+    emit_app_event(app, "desktop:update-state", &initial);
 
     let Ok(updater) = app.updater() else {
         let err_state = state
             .updater
             .mark_error("download", "Updater is not configured.".to_string());
-        emit_window_event(&window, "desktop:update-state", &err_state);
-        return Ok(DesktopUpdateActionResult {
+        emit_app_event(app, "desktop:update-state", &err_state);
+        return DesktopUpdateActionResult {
             accepted: true,
             completed: false,
             state: err_state,
-        });
+        };
     };
 
     match updater.check().await {
@@ -621,15 +653,15 @@ async fn desktop_update_download(
                 || !is_update_version_newer(&current, &version)
             {
                 let up_to_date = state.updater.mark_up_to_date(now_iso8601());
-                emit_window_event(&window, "desktop:update-state", &up_to_date);
-                return Ok(DesktopUpdateActionResult {
+                emit_app_event(app, "desktop:update-state", &up_to_date);
+                return DesktopUpdateActionResult {
                     accepted: false,
                     completed: false,
                     state: up_to_date,
-                });
+                };
             }
-            let state_progress = Arc::clone(&state);
-            let win_progress = window.clone();
+            let state_progress = Arc::clone(state);
+            let app_progress = app.clone();
             let mut transferred: u64 = 0;
             let download_res = update
                 .download(
@@ -638,7 +670,7 @@ async fn desktop_update_download(
                         if let Some(total) = total_len.filter(|t| *t > 0) {
                             let pct = (transferred as f64 / total as f64) * 100.0;
                             let next = state_progress.updater.update_download_progress(pct);
-                            emit_window_event(&win_progress, "desktop:update-state", &next);
+                            emit_app_event(&app_progress, "desktop:update-state", &next);
                         }
                     },
                     || {},
@@ -651,41 +683,41 @@ async fn desktop_update_download(
                         .updater
                         .store_downloaded_payload(version.clone(), bytes);
                     let done = state.updater.mark_downloaded(version);
-                    emit_window_event(&window, "desktop:update-state", &done);
-                    Ok(DesktopUpdateActionResult {
+                    emit_app_event(app, "desktop:update-state", &done);
+                    DesktopUpdateActionResult {
                         accepted: true,
                         completed: true,
                         state: done,
-                    })
+                    }
                 }
                 Err(err) => {
                     let err_state = state.updater.mark_error("download", err.to_string());
-                    emit_window_event(&window, "desktop:update-state", &err_state);
-                    Ok(DesktopUpdateActionResult {
+                    emit_app_event(app, "desktop:update-state", &err_state);
+                    DesktopUpdateActionResult {
                         accepted: true,
                         completed: false,
                         state: err_state,
-                    })
+                    }
                 }
             }
         }
         Ok(None) => {
             let up_to_date = state.updater.mark_up_to_date(now_iso8601());
-            emit_window_event(&window, "desktop:update-state", &up_to_date);
-            Ok(DesktopUpdateActionResult {
+            emit_app_event(app, "desktop:update-state", &up_to_date);
+            DesktopUpdateActionResult {
                 accepted: false,
                 completed: false,
                 state: up_to_date,
-            })
+            }
         }
         Err(err) => {
             let err_state = state.updater.mark_error("download", err.to_string());
-            emit_window_event(&window, "desktop:update-state", &err_state);
-            Ok(DesktopUpdateActionResult {
+            emit_app_event(app, "desktop:update-state", &err_state);
+            DesktopUpdateActionResult {
                 accepted: true,
                 completed: false,
                 state: err_state,
-            })
+            }
         }
     }
 }
@@ -715,6 +747,13 @@ async fn desktop_update_install(
             if is_update_version_allowed_for_stable(&candidate)
                 && is_update_version_newer(&current, &candidate)
             {
+                // Windows hands off to the NSIS installer and exits inside install(), so
+                // the sidecar must stop first or the installer cannot replace it.
+                #[cfg(windows)]
+                {
+                    cleanup_all_managed_resources(&state);
+                    state.backend.stop_and_wait().await;
+                }
                 // The cached payload stays stored until a successful install restarts the app.
                 let install_res = if let Some(cached_bytes) =
                     state.updater.take_downloaded_payload(&candidate)
@@ -725,6 +764,9 @@ async fn desktop_update_install(
                 };
 
                 if let Err(err) = install_res {
+                    // The sidecar is already down on Windows; relaunch to bring it back.
+                    #[cfg(windows)]
+                    app.request_restart();
                     let err_state = state.updater.mark_error("install", err.to_string());
                     emit_window_event(&window, "desktop:update-state", &err_state);
                     return Ok(DesktopUpdateActionResult {
@@ -1438,6 +1480,8 @@ pub fn run() {
         .setup(move |app| {
             let state = Arc::clone(&shared_state);
             let app_handle = app.handle().clone();
+
+            spawn_auto_update_poll(app_handle.clone(), Arc::clone(&state));
 
             // Start the local RPC pipe server (`SAINT_BROWSER_HOST_PIPE_PATH`) so `apps/server`
             // can invoke `browser_*` tools against the desktop browser manager.

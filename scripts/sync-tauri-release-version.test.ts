@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  generateElectronBridgeFeeds,
   generateTauriLatestManifest,
   normalizeReleaseVersion,
   syncTauriManifestVersions,
@@ -47,63 +49,102 @@ describe("sync-tauri-release-version", () => {
     }
   });
 
-  it("generates a valid Tauri latest.json updater manifest from bundle files", () => {
+  // File names match the release workflow: Tauri's own names for Windows and
+  // Linux, and the arch-suffixed macOS archives the staging step produces.
+  const writeReleaseBundles = (dir: string) => {
+    for (const [name, sig] of [
+      ["Saint_2.4.6_x64-setup.exe", "win-sig"],
+      ["Saint_2.4.6_arm64.app.tar.gz", "mac-arm-sig"],
+      ["Saint_2.4.6_x64.app.tar.gz", "mac-x64-sig"],
+      ["Saint_2.4.6_amd64.AppImage", "linux-sig"],
+    ] as const) {
+      writeFileSync(join(dir, name), "binary");
+      writeFileSync(join(dir, `${name}.sig`), `${sig}\n`);
+    }
+    // Unsigned installers must never be picked as updater bundles.
+    writeFileSync(join(dir, "Saint_2.4.6_aarch64.dmg"), "dmg");
+    writeFileSync(join(dir, "Saint_2.4.6_x64.dmg"), "dmg");
+  };
+
+  it("maps every platform to its signed updater bundle", () => {
     const artifactsDir = mkdtempSync(join(tmpdir(), "saint-tauri-artifacts-"));
     try {
-      writeFileSync(join(artifactsDir, "Saint_2.4.6_x64-setup.exe"), "binary");
-      writeFileSync(join(artifactsDir, "Saint_2.4.6_x64-setup.exe.sig"), "win-sig-123\n");
-      writeFileSync(join(artifactsDir, "Saint_aarch64.app.tar.gz"), "binary");
-      writeFileSync(join(artifactsDir, "Saint_aarch64.app.tar.gz.sig"), "mac-arm-sig\n");
-
+      writeReleaseBundles(artifactsDir);
       const manifest = generateTauriLatestManifest({
         artifactsDir,
         version: "v2.4.6",
         tag: "v2.4.6",
         repository: "Locotine/saint-hyper-agent",
       });
-
+      const base = "https://github.com/Locotine/saint-hyper-agent/releases/download/v2.4.6";
       expect(manifest.version).toBe("2.4.6");
-      expect(manifest.platforms["windows-x86_64"]).toEqual({
-        signature: "win-sig-123",
-        url: "https://github.com/Locotine/saint-hyper-agent/releases/download/v2.4.6/Saint_2.4.6_x64-setup.exe",
-      });
-      expect(manifest.platforms["darwin-aarch64"]).toEqual({
-        signature: "mac-arm-sig",
-        url: "https://github.com/Locotine/saint-hyper-agent/releases/download/v2.4.6/Saint_aarch64.app.tar.gz",
+      expect(manifest.platforms).toEqual({
+        "windows-x86_64": { signature: "win-sig", url: `${base}/Saint_2.4.6_x64-setup.exe` },
+        "darwin-aarch64": { signature: "mac-arm-sig", url: `${base}/Saint_2.4.6_arm64.app.tar.gz` },
+        "darwin-x86_64": { signature: "mac-x64-sig", url: `${base}/Saint_2.4.6_x64.app.tar.gz` },
+        "linux-x86_64": { signature: "linux-sig", url: `${base}/Saint_2.4.6_amd64.AppImage` },
       });
     } finally {
       rmSync(artifactsDir, { recursive: true, force: true });
     }
   });
 
-  it("prefers signed updater archives (.app.tar.gz / .AppImage) over unsigned installers (.dmg / .deb)", () => {
-    const artifactsDir = mkdtempSync(join(tmpdir(), "saint-tauri-artifacts-priority-"));
-    try {
-      // Alphabetically A_Saint_aarch64.dmg comes before Z_Saint_aarch64.app.tar.gz
-      writeFileSync(join(artifactsDir, "A_Saint_aarch64.dmg"), "dmg-binary");
-      writeFileSync(join(artifactsDir, "Z_Saint_aarch64.app.tar.gz"), "tar-binary");
-      writeFileSync(join(artifactsDir, "Z_Saint_aarch64.app.tar.gz.sig"), "mac-tar-sig\n");
-
-      // Alphabetically A_Saint_amd64.deb comes before Z_Saint_amd64.AppImage
-      writeFileSync(join(artifactsDir, "A_Saint_amd64.deb"), "deb-binary");
-      writeFileSync(join(artifactsDir, "Z_Saint_amd64.AppImage"), "appimage-binary");
-      writeFileSync(join(artifactsDir, "Z_Saint_amd64.AppImage.sig"), "linux-appimage-sig\n");
-
-      const manifest = generateTauriLatestManifest({
+  it("refuses a manifest with a missing or empty platform signature", () => {
+    const artifactsDir = mkdtempSync(join(tmpdir(), "saint-tauri-artifacts-missing-"));
+    const generate = () =>
+      generateTauriLatestManifest({
         artifactsDir,
-        version: "v2.4.6",
+        version: "2.4.6",
         tag: "v2.4.6",
         repository: "Locotine/saint-hyper-agent",
       });
-
-      expect(manifest.platforms["darwin-aarch64"]).toEqual({
-        signature: "mac-tar-sig",
-        url: "https://github.com/Locotine/saint-hyper-agent/releases/download/v2.4.6/Z_Saint_aarch64.app.tar.gz",
+    try {
+      writeReleaseBundles(artifactsDir);
+      writeFileSync(join(artifactsDir, "Saint_2.4.6_x64.app.tar.gz.sig"), "\n");
+      expect(generate).toThrow(/darwin-x86_64/u);
+      rmSync(join(artifactsDir, "Saint_2.4.6_amd64.AppImage.sig"));
+      writeFileSync(join(artifactsDir, "Saint_2.4.6_x64.app.tar.gz.sig"), "mac-x64-sig\n");
+      expect(generate).toThrow(/linux-x86_64/u);
+    } finally {
+      rmSync(artifactsDir, { recursive: true, force: true });
+    }
+  });
+  it("writes electron-updater feeds that point Electron installs at the Tauri installers", () => {
+    const artifactsDir = mkdtempSync(join(tmpdir(), "saint-tauri-artifacts-bridge-"));
+    try {
+      writeReleaseBundles(artifactsDir);
+      const feeds = generateElectronBridgeFeeds({
+        artifactsDir,
+        version: "v2.4.6",
+        releaseDate: "2026-11-11T00:00:00.000Z",
       });
-      expect(manifest.platforms["linux-x86_64"]).toEqual({
-        signature: "linux-appimage-sig",
-        url: "https://github.com/Locotine/saint-hyper-agent/releases/download/v2.4.6/Z_Saint_amd64.AppImage",
-      });
+      // sha512 of the 6-byte "binary" fixture, base64 as electron-updater expects.
+      const sha = createHash("sha512").update("binary").digest("base64");
+      expect(feeds["saint.yml"]).toBe(
+        [
+          "version: 2.4.6",
+          "files:",
+          "  - url: Saint_2.4.6_x64-setup.exe",
+          `    sha512: ${sha}`,
+          "    size: 6",
+          "path: Saint_2.4.6_x64-setup.exe",
+          `sha512: ${sha}`,
+          "releaseDate: '2026-11-11T00:00:00.000Z'",
+          "",
+        ].join("\n"),
+      );
+      expect(feeds["latest.yml"]).toBe(feeds["saint.yml"]);
+      expect(feeds["saint-linux.yml"]).toContain("url: Saint_2.4.6_amd64.AppImage");
+      expect(feeds["saint-mac.yml"]).toContain("url: Saint_2.4.6_aarch64.dmg");
+      expect(feeds["saint-mac.yml"]).toContain("url: Saint_2.4.6_x64.dmg");
+      expect(Object.keys(feeds).sort()).toEqual([
+        "latest-linux.yml",
+        "latest-mac.yml",
+        "latest.yml",
+        "saint-linux.yml",
+        "saint-mac.yml",
+        "saint.yml",
+      ]);
     } finally {
       rmSync(artifactsDir, { recursive: true, force: true });
     }

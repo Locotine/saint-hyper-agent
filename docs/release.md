@@ -1,7 +1,9 @@
 # Release Checklist
 
 > [!IMPORTANT]
-> From 1.2.1 the desktop app ships from `.github/workflows/release-tauri.yml` (Tauri v2 / Rust). The Electron release workflows (`release.yml`, `release-platform.yml`), the Electron app (`apps/desktop`) and its packaging scripts (`dist:desktop:*`, `release:smoke*`) were removed. To release, bump the versions, push a `vX.Y.Z` tag, or dispatch `Release Desktop (Tauri Rust)` with `publish_release=true`. The rest of this file describes the retired Electron pipeline and is kept for reference.
+> From 1.2.1 the desktop app ships from `.github/workflows/release-tauri.yml` (Tauri v2 / Rust). The Electron release workflows (`release.yml`, `release-platform.yml`), the Electron app (`apps/desktop`) and its packaging scripts (`dist:desktop:*`, `release:smoke*`) were removed. To release, bump the versions, push a `vX.Y.Z` tag, or dispatch `Release Desktop (Tauri Rust)` with `publish_release=true`.
+>
+> Tauri releases are unsigned (no Apple or Windows certificates). Each publication carries `latest.json` for the Tauri updater, which needs a minisign-signed bundle for all four platforms (the macOS `.app.tar.gz` archives are renamed with their arch so they do not collide), and electron-updater feeds (`saint*.yml`, `latest*.yml`) that move Electron 1.1.17 installs over: Linux swaps the AppImage in place, Windows runs the Tauri installer (the old Electron install stays until the user removes it), and macOS falls back to the release page because an unsigned Squirrel app cannot update itself. The app checks 15 s after launch and every 4 h, downloads in the background, and installs when the user restarts from the update button. The rest of this file describes the retired Electron pipeline and is kept for reference.
 
 This document covers publishing desktop releases from one tag and targeted
 build-only diagnosis. An ordinary release uses one publication run after its

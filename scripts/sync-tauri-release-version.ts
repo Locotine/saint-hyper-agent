@@ -5,6 +5,7 @@
 //          Tauri v2 `latest.json` updater manifest from built platform bundles.
 // Layer: Build / Release helper
 
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,69 +86,101 @@ export function generateTauriLatestManifest(options: {
 }): TauriLatestManifest {
   const normalizedVersion = normalizeReleaseVersion(options.version);
   const allFiles = collectFilesRecursively(options.artifactsDir);
-  const platforms: Record<string, TauriUpdaterPlatformEntry> = {};
 
   const downloadBaseUrl = `https://github.com/${options.repository}/releases/download/${options.tag}`;
 
-  const matchUpdaterBundle = (
-    predicates: ReadonlyArray<(filePath: string) => boolean>,
-  ): TauriUpdaterPlatformEntry | null => {
-    const candidates = allFiles.filter((file) => !file.endsWith(".sig"));
-    let bundlePath: string | undefined;
-    for (const predicate of predicates) {
-      bundlePath = candidates.find((file) => predicate(file) && existsSync(`${file}.sig`));
-      if (bundlePath) break;
+  // Each platform needs a signed updater bundle; an unsigned installer (.dmg,
+  // .deb) or an empty signature would publish a manifest the updater rejects.
+  const signedBundle = (
+    platform: string,
+    predicate: (fileName: string) => boolean,
+  ): TauriUpdaterPlatformEntry => {
+    const bundlePath = allFiles.find(
+      (file) => predicate(file.split(/[\\/]/u).pop()!) && existsSync(`${file}.sig`),
+    );
+    const signature = bundlePath ? readFileSync(`${bundlePath}.sig`, "utf8").trim() : "";
+    if (!bundlePath || !signature) {
+      throw new Error(`Missing signed updater bundle for ${platform} in ${options.artifactsDir}`);
     }
-    if (!bundlePath) {
-      for (const predicate of predicates) {
-        bundlePath = candidates.find((file) => predicate(file));
-        if (bundlePath) break;
-      }
-    }
-    if (!bundlePath) return null;
-    const sigPath = `${bundlePath}.sig`;
-    const signature = existsSync(sigPath) ? readFileSync(sigPath, "utf8").trim() : "";
     const fileName = bundlePath.split(/[\\/]/u).pop()!;
-    return {
-      signature,
-      url: `${downloadBaseUrl}/${encodeURIComponent(fileName)}`,
-    };
+    return { signature, url: `${downloadBaseUrl}/${encodeURIComponent(fileName)}` };
   };
 
-  const winX64 = matchUpdaterBundle([
-    (f) => f.endsWith("-setup.exe") || f.endsWith("_x64-setup.exe"),
-    (f) => f.endsWith(".msi"),
-  ]);
-  if (winX64) {
-    platforms["windows-x86_64"] = winX64;
-  }
-
-  const macArm64 = matchUpdaterBundle([
-    (f) => (f.includes("aarch64") || f.includes("arm64")) && f.endsWith(".app.tar.gz"),
-    (f) => (f.includes("aarch64") || f.includes("arm64")) && f.endsWith(".dmg"),
-  ]);
-  if (macArm64) {
-    platforms["darwin-aarch64"] = macArm64;
-  }
-
-  const macX64 = matchUpdaterBundle([
-    (f) => (f.includes("x86_64") || f.includes("x64")) && f.endsWith(".app.tar.gz"),
-    (f) => (f.includes("x86_64") || f.includes("x64")) && f.endsWith(".dmg"),
-  ]);
-  if (macX64) {
-    platforms["darwin-x86_64"] = macX64;
-  }
-
-  const linuxX64 = matchUpdaterBundle([(f) => f.endsWith(".AppImage"), (f) => f.endsWith(".deb")]);
-  if (linuxX64) {
-    platforms["linux-x86_64"] = linuxX64;
-  }
+  // Tauri names both macOS archives `Saint.app.tar.gz`; the release workflow
+  // renames them with the matrix arch (`arm64` / `x64`) before upload.
+  const platforms: Record<string, TauriUpdaterPlatformEntry> = {
+    "windows-x86_64": signedBundle("windows-x86_64", (f) => f.endsWith("-setup.exe")),
+    "darwin-aarch64": signedBundle(
+      "darwin-aarch64",
+      (f) => /(aarch64|arm64)/u.test(f) && f.endsWith(".app.tar.gz"),
+    ),
+    "darwin-x86_64": signedBundle(
+      "darwin-x86_64",
+      (f) => /(x86_64|x64)/u.test(f) && f.endsWith(".app.tar.gz"),
+    ),
+    "linux-x86_64": signedBundle("linux-x86_64", (f) => f.endsWith(".AppImage")),
+  };
 
   return {
     version: normalizedVersion,
     notes: options.notes ?? `Saint v${normalizedVersion}`,
     pub_date: new Date().toISOString(),
     platforms,
+  };
+}
+
+// Electron Saint (<= 1.1.17) polls electron-updater feeds on the latest release.
+// Publishing them with the Tauri installers moves those installs over: Linux
+// swaps the AppImage in place, Windows runs the Tauri NSIS installer, and macOS
+// (an unsigned Squirrel install that cannot update itself) reaches the updater
+// error that already links to the release page.
+// ponytail: remove once Electron installs are gone.
+export function generateElectronBridgeFeeds(options: {
+  readonly artifactsDir: string;
+  readonly version: string;
+  readonly releaseDate?: string;
+}): Record<string, string> {
+  const version = normalizeReleaseVersion(options.version);
+  const releaseDate = options.releaseDate ?? new Date().toISOString();
+  const allFiles = collectFilesRecursively(options.artifactsDir);
+  const feed = (predicate: (fileName: string) => boolean): string => {
+    const files = allFiles
+      .filter((file) => predicate(file.split(/[\\/]/u).pop()!))
+      .map((file) => {
+        const bytes = readFileSync(file);
+        return {
+          url: file.split(/[\\/]/u).pop()!,
+          sha512: createHash("sha512").update(bytes).digest("base64"),
+          size: bytes.length,
+        };
+      });
+    const [first] = files;
+    if (!first) throw new Error(`Missing Electron bridge installer in ${options.artifactsDir}`);
+    return [
+      `version: ${version}`,
+      "files:",
+      ...files.flatMap((f) => [
+        `  - url: ${f.url}`,
+        `    sha512: ${f.sha512}`,
+        `    size: ${f.size}`,
+      ]),
+      `path: ${first.url}`,
+      `sha512: ${first.sha512}`,
+      `releaseDate: '${releaseDate}'`,
+      "",
+    ].join("\n");
+  };
+  const windows = feed((f) => f.endsWith("-setup.exe"));
+  const mac = feed((f) => f.endsWith(".dmg"));
+  const linux = feed((f) => f.endsWith(".AppImage"));
+  // `saint*` is the Stable channel; `latest*` covers builds on the default channel.
+  return {
+    "saint.yml": windows,
+    "latest.yml": windows,
+    "saint-mac.yml": mac,
+    "latest-mac.yml": mac,
+    "saint-linux.yml": linux,
+    "latest-linux.yml": linux,
   };
 }
 
@@ -175,6 +208,15 @@ if (import.meta.main) {
     const outPath = resolve(args[outIdx + 1]!);
     writeFileSync(outPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
     console.log(`[sync-tauri-release-version] Wrote ${outPath}`);
+    const feeds = generateElectronBridgeFeeds({
+      artifactsDir: resolve(artifactsDir),
+      version: args[versionIdx + 1]!,
+      releaseDate: manifest.pub_date,
+    });
+    for (const [name, body] of Object.entries(feeds)) {
+      writeFileSync(join(dirname(outPath), name), body, "utf8");
+    }
+    console.log(`[sync-tauri-release-version] Wrote Electron bridge feeds next to ${outPath}`);
   } else {
     const version = args[0];
     if (!version) {

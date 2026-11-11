@@ -223,6 +223,15 @@ jobs:
               -name "*.sig" \
             \) -exec cp -v {} release-tauri-assets/ \;
           fi
+          # Tauri names both macOS updater archives `Saint.app.tar.gz`; add the
+          # arch so the merged release keeps both and latest.json can tell them apart.
+          if [ "${{ matrix.platform }}" = "mac" ]; then
+            for f in release-tauri-assets/*.app.tar.gz release-tauri-assets/*.app.tar.gz.sig; do
+              [ -e "$f" ] || continue
+              base="$(basename "$f")"
+              mv -v "$f" "release-tauri-assets/${base%%.app.tar.gz*}_${{ needs.preflight.outputs.version }}_${{ matrix.arch }}.app.tar.gz${base#*.app.tar.gz}"
+            done
+          fi
           ls -la release-tauri-assets/
 
       - name: Upload platform Tauri bundles
@@ -277,5 +286,5 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" tauri-release-artifacts/* --clobber
           else
-            gh release create "$TAG" tauri-release-artifacts/* --title "Saint v$VERSION" --generate-notes --latest
+            gh release create "$TAG" tauri-release-artifacts/* --target "$GITHUB_SHA" --title "Saint v$VERSION" --generate-notes --latest
           fi
