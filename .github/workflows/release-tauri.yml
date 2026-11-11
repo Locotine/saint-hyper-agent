@@ -167,6 +167,9 @@ jobs:
         run: node scripts/sync-tauri-release-version.ts "${{ needs.preflight.outputs.version }}"
 
       - name: Build production web client (@saint/web)
+        # macOS runners abort (exit 134) at Node's default heap limit.
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: bun run --cwd apps/web build
 
       - name: Build preload bridge (@saint/desktop-rust)
