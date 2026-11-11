@@ -26,7 +26,7 @@ import {
 } from "@saint/shared/computerGrants";
 
 import { computerStatusNeedsSetup } from "~/components/ComputerPanel.logic";
-import { isLoopbackHostname } from "~/components/Sidebar.logic";
+import { isLoopbackHostname } from "~/lib/loopbackHostname";
 
 /** The desktop bridge identifies its live server; remote servers own their own grants. */
 export function readLocalComputerPermissionBridge(): DesktopBridge["appSnap"] | null {

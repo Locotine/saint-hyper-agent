@@ -2,6 +2,9 @@
 // Purpose: Shared sidebar sorting and status helpers used by the thread list UI.
 // Exports: Sidebar row state derivation, add-project error helpers, sort utilities, and visibility helpers.
 
+import { isLoopbackHostname } from "~/lib/loopbackHostname";
+
+export { isLoopbackHostname };
 import {
   MAX_PINNED_PROJECTS,
   type ProjectAgentSummary,
@@ -326,17 +329,6 @@ export function resolveThreadHoverCardMetadata(input: {
     branch: resolveThreadDisplayBranch(input.thread),
     worktreeName: worktreePath ? formatWorktreePathForDisplay(worktreePath) : null,
   };
-}
-
-export function isLoopbackHostname(hostname: string): boolean {
-  const normalizedHostname = hostname.trim().toLowerCase().replace(/\.$/, "");
-
-  return (
-    normalizedHostname === "localhost" ||
-    normalizedHostname === "127.0.0.1" ||
-    normalizedHostname === "::1" ||
-    normalizedHostname === "[::1]"
-  );
 }
 
 export function shouldShowDebugFeatureFlagsMenu(input: {

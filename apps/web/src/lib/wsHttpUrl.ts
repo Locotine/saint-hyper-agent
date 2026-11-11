@@ -7,7 +7,7 @@
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { REMOTE_CLIENT_ID_PARAM } from "@saint/shared/remoteClientId";
 
-import { isLoopbackHostname } from "~/components/Sidebar.logic";
+import { isLoopbackHostname } from "~/lib/loopbackHostname";
 import { hostConnections } from "../hosts/hostConnectionRegistry";
 
 /**
