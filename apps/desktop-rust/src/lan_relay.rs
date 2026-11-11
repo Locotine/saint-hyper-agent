@@ -345,14 +345,15 @@ pub fn discover_network_interfaces() -> Vec<DesktopLanRelayInterface> {
             kind: kind.to_string(),
         });
     }
-    // Primary route first, then LAN before Tailscale.
-    out.sort_by_key(|i| {
-        (
-            Some(i.address.as_str()) != primary.map(|p| p.to_string()).as_deref(),
-            i.kind != "lan",
-        )
-    });
+    sort_interfaces(&mut out, primary);
     out
+}
+
+/// LAN before Tailscale, then the primary route. A Tailscale exit node owns the
+/// default route, but a phone on the same Wi-Fi can only reach the LAN address.
+fn sort_interfaces(interfaces: &mut [DesktopLanRelayInterface], primary: Option<Ipv4Addr>) {
+    let primary = primary.map(|p| p.to_string());
+    interfaces.sort_by_key(|i| (i.kind != "lan", Some(&i.address) != primary.as_ref()));
 }
 
 fn is_virtual_interface_name(name: &str) -> bool {
@@ -1355,6 +1356,25 @@ mod tests {
         )
         .await;
         out
+    }
+
+    #[test]
+    fn prefers_lan_over_a_tailscale_default_route() {
+        let iface = |name: &str, address: &str, kind: &str| DesktopLanRelayInterface {
+            name: name.to_string(),
+            address: address.to_string(),
+            kind: kind.to_string(),
+        };
+        let mut list = vec![
+            iface("tailscale0", "100.77.126.10", "tailscale"),
+            iface("eth0", "10.0.0.2", "lan"),
+            iface("wlan0", "192.168.110.133", "lan"),
+        ];
+        sort_interfaces(&mut list, Some(Ipv4Addr::new(100, 77, 126, 10)));
+        assert_eq!(list[0].kind, "lan");
+        sort_interfaces(&mut list, Some(Ipv4Addr::new(192, 168, 110, 133)));
+        assert_eq!(list[0].address, "192.168.110.133");
+        assert_eq!(list[2].kind, "tailscale");
     }
 
     #[tokio::test]
