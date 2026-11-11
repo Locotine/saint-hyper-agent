@@ -181,9 +181,22 @@ jobs:
       # Computer Use needs cua-driver next to the app; without it the server
       # reports "Cua Driver is not bundled".
       - name: Provision verified Cua
+        if: matrix.platform != 'win'
         uses: ./.github/actions/provision-cua
         with:
           arch: ${{ matrix.arch }}
+
+      # Windows ships the pinned upstream binary, checked against its release
+      # checksums; nothing is built, so the native cache action (bash, GNU tar,
+      # Linux toolchain probes) is skipped. pwsh keeps Windows' bsdtar, which reads zip.
+      - name: Provision verified Cua (Windows)
+        if: matrix.platform == 'win'
+        shell: pwsh
+        run: |
+          $dir = "$env:RUNNER_TEMP/cua-verified" -replace '\\', '/'
+          node apps/desktop-rust/scripts/provision-cua-driver.mjs --platform win32 --arch ${{ matrix.arch }} --destination $dir
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "SAINT_CUA_ARTIFACT_DIR=$dir" >> $env:GITHUB_ENV
 
       - name: Stage Cua driver as a bundle resource
         shell: bash
