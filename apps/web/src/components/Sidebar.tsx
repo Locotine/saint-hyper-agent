@@ -4063,6 +4063,7 @@ export default function Sidebar() {
     },
     [
       activeSpaceId,
+      appSettings.defaultProvider,
       addProjectFromPath,
       handleSelectSpaceForIncomingProject,
       homeDir,
