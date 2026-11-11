@@ -481,7 +481,9 @@ async fn run_relay_accept_loop(
                 let backend_conn = Arc::clone(&backend);
                 let stop_conn = stop_rx.clone();
                 tokio::spawn(async move {
-                    let _ = handle_relay_connection(stream, remote_addr, inner_conn, backend_conn, stop_conn).await;
+                    if let Err(err) = handle_relay_connection(stream, remote_addr, inner_conn, backend_conn, stop_conn).await {
+                        eprintln!("[lan-relay] {remote_addr}: {err}");
+                    }
                 });
             }
         }
@@ -684,6 +686,11 @@ async fn handle_relay_connection(
         if n == 0 {
             return Ok(());
         }
+        // 0x16 opens a TLS handshake: the browser upgraded the link to https.
+        // Close at once so it falls back to http instead of waiting out the timeout.
+        if filled == 0 && buf[0] == 0x16 {
+            return Err("TLS handshake on the plain-HTTP relay (browser upgraded to https://); open the http:// link".to_string());
+        }
         filled += n;
         if let Some(p) = parse_http_header(&buf[..filled]) {
             break p;
@@ -831,7 +838,14 @@ async fn handle_relay_connection(
 fn dev_web_port() -> u16 {
     std::env::var("VITE_DEV_SERVER_URL")
         .ok()
-        .and_then(|url| url.trim().trim_end_matches('/').rsplit(':').next()?.parse().ok())
+        .and_then(|url| {
+            url.trim()
+                .trim_end_matches('/')
+                .rsplit(':')
+                .next()?
+                .parse()
+                .ok()
+        })
         .unwrap_or(5733)
 }
 
@@ -1279,6 +1293,117 @@ mod tests {
         assert!(is_virtual_interface_name("docker0"));
         assert!(is_virtual_interface_name("br-1a2b3c"));
         assert!(!is_virtual_interface_name("tailscale0"));
+    }
+
+    /// Drives one request through the real relay into a fake backend.
+    async fn relay_round_trip(path: &str, paired: bool) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let root = std::env::temp_dir().join(format!(
+            "saint-relay-test-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let backend = Arc::new(BackendSupervisor::new(
+            crate::state::SaintPaths::from_base_dir(root),
+        ));
+        let fake = TcpListener::bind(("127.0.0.1", backend.port()))
+            .await
+            .unwrap();
+        tokio::spawn(async move {
+            let (mut s, _) = fake.accept().await.unwrap();
+            let mut buf = vec![0u8; 4096];
+            let n = s.read(&mut buf).await.unwrap();
+            let first = String::from_utf8_lossy(&buf[..n])
+                .lines()
+                .next()
+                .unwrap_or("")
+                .to_string();
+            let body = format!("upstream saw: {first}");
+            let _ = s
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .await;
+        });
+        let manager = LanRelayManager::new(Arc::clone(&backend));
+        let token = manager.get_state().pairing_token;
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (_stop_tx, stop_rx) = watch::channel(false);
+        let inner = Arc::clone(&manager.inner);
+        let cookie = if paired {
+            let secret = issue_relay_session(&inner, &token, addr, None).unwrap();
+            format!("Cookie: {LAN_SESSION_COOKIE_NAME}={secret}\r\n")
+        } else {
+            String::new()
+        };
+        tokio::spawn(run_relay_accept_loop(listener, stop_rx, inner, backend));
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(
+                format!("GET {path} HTTP/1.1\r\nHost: 192.168.1.5:3883\r\n{cookie}\r\n").as_bytes(),
+            )
+            .await
+            .unwrap();
+        let mut out = String::new();
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            client.read_to_string(&mut out),
+        )
+        .await;
+        out
+    }
+
+    #[tokio::test]
+    async fn closes_tls_handshakes_immediately() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let root =
+            std::env::temp_dir().join(format!("saint-relay-tls-{}", uuid::Uuid::new_v4().simple()));
+        let backend = Arc::new(BackendSupervisor::new(
+            crate::state::SaintPaths::from_base_dir(root),
+        ));
+        let manager = LanRelayManager::new(Arc::clone(&backend));
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (_stop_tx, stop_rx) = watch::channel(false);
+        tokio::spawn(run_relay_accept_loop(
+            listener,
+            stop_rx,
+            Arc::clone(&manager.inner),
+            backend,
+        ));
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(&[0x16, 0x03, 0x01, 0x00, 0x05])
+            .await
+            .unwrap();
+        let mut out = Vec::new();
+        let closed = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            client.read_to_end(&mut out),
+        )
+        .await;
+        assert!(
+            closed.is_ok(),
+            "relay must close a TLS handshake without waiting for the header timeout"
+        );
+    }
+
+    #[tokio::test]
+    async fn relays_health_to_the_backend_for_a_paired_device() {
+        let unpaired = relay_round_trip("/health", false).await;
+        assert!(
+            unpaired.starts_with("HTTP/1.1 302"),
+            "unpaired: {unpaired:?}"
+        );
+        let paired = relay_round_trip("/health", true).await;
+        assert!(
+            paired.contains("upstream saw: GET /health?token="),
+            "paired: {paired:?}"
+        );
     }
 
     #[test]
