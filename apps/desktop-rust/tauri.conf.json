@@ -19,7 +19,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "dmg", "appimage"],
+    "targets": ["nsis", "app", "dmg", "appimage"],
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/saint-server"],
     "icon": ["icons/icon.ico", "icons/icon.icns", "icons/icon.png"],
