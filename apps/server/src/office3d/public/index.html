@@ -112,7 +112,7 @@ const SC = { ok: 0x7ccf9b, warn: 0xecc970, bad: 0xe8a39b, idle: 0x3a4048, off: 0
 // Ba lớp vẽ: trang HTML của màn hình lớn (dưới) · WebGL có lỗ trong suốt (giữa) · nhãn tên (trên).
 const cssR = new CSS3DRenderer(); $("css3d").appendChild(cssR.domElement);
 const gl = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-gl.setPixelRatio(Math.min(devicePixelRatio, 1.75)); gl.setClearColor(0x000000, 0);
+gl.setPixelRatio(Math.min(devicePixelRatio, 1.25)); gl.setClearColor(0x000000, 0);
 gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.0;
 $("gl").appendChild(gl.domElement);
 const lblR = new CSS2DRenderer(); $("lbl").appendChild(lblR.domElement);
@@ -124,7 +124,9 @@ controls.enableDamping = true; controls.maxPolarAngle = 1.38; controls.minDistan
 const S = 8; // 1 đơn vị 3D = 8 px mặt bằng: văn phòng rộng hơn 25%
 const X = (x) => (x - 600) / S, Z = (y) => (y - 390) / S;
 const HOME_CAM = { pos: new THREE.Vector3(0, 58, 158), target: new THREE.Vector3(0, 32, -20) }; // nhìn cao lên: 3 màn hình chiếm nửa trên, văn phòng nửa dưới
+let cssDirty = true;
 function resize() {
+  cssDirty = true;
   const w = innerWidth, hh = innerHeight;
   gl.setSize(w, hh); lblR.setSize(w, hh); cssR.setSize(w, hh);
   camera.aspect = w / hh; camera.updateProjectionMatrix();
@@ -135,12 +137,12 @@ camera.position.copy(HOME_CAM.pos); controls.target.copy(HOME_CAM.target);
 controls.maxDistance = 340;
 
 // ánh sáng thật: môi trường phản chiếu + nắng có bóng đổ
-gl.shadowMap.enabled = true; gl.shadowMap.type = THREE.PCFSoftShadowMap;
+gl.shadowMap.enabled = true; gl.shadowMap.type = THREE.PCFShadowMap;
 const pmrem = new THREE.PMREMGenerator(gl);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x2a1f16, 0.35));
 const key = new THREE.DirectionalLight(0xfff1dc, 1.7); key.position.set(-60, 110, 70); key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
+key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
 Object.assign(key.shadow.camera, { left: -100, right: 100, top: 70, bottom: -70, near: 10, far: 320 }); scene.add(key);
 const fill = new THREE.DirectionalLight(0xbcd4ff, 0.45); fill.position.set(70, 50, 90); scene.add(fill);
 const devLight = new THREE.PointLight(0xecc970, 0, 60, 2); scene.add(devLight);
@@ -523,7 +525,13 @@ gl.domElement.addEventListener("pointermove", (ev) => {
 
 // ---------- vòng vẽ ----------
 const clock = new THREE.Clock();
-function loop() {
+// Hiệu năng: tối đa 30 khung/giây; lớp CSS3D (3 iframe màn hình lớn) chỉ vẽ lại khi camera đổi.
+const FRAME_MS = 1000 / 30, lastCam = new THREE.Matrix4();
+let lastFrameAt = 0;
+function loop(now = 0) {
+  requestAnimationFrame(loop);
+  if (now - lastFrameAt < FRAME_MS) return;
+  lastFrameAt = now;
   const dt = Math.min(clock.getDelta(), .25), t = clock.elapsedTime;
   if (anim) {
     const u = Math.min(1, (performance.now() - anim.s) / anim.ms), e = u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
@@ -554,9 +562,10 @@ function loop() {
     if (u > 5) { scene.remove(f.line); scene.remove(f.to); flights.splice(i, 1); }
   }
   controls.update();
-  cssR.render(cssScene, camera); gl.render(scene, camera); lblR.render(scene, camera);
+  camera.updateMatrixWorld();
+  if (!lastCam.equals(camera.matrixWorld) || cssDirty) { cssR.render(cssScene, camera); lastCam.copy(camera.matrixWorld); cssDirty = false; }
+  gl.render(scene, camera); lblR.render(scene, camera);
   declutterNames(performance.now());
-  requestAnimationFrame(loop);
 }
 
 // Tên nào đè lên tên đã đặt thì ẩn đi; zoom gần là hiện lại. Ưu tiên: người đang chọn, người đang
