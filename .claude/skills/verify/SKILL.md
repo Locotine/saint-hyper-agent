@@ -22,9 +22,15 @@ cd <repo>/apps/web && PORT=5899 VITE_WS_URL=ws://localhost:3899 bun run dev &
 
 Then open http://localhost:5899/.
 
+This launches only `apps/server` and `apps/web`. It never builds the desktop app; the desktop shell is `apps/desktop-rust` (Tauri), and `apps/desktop` (Electron) no longer exists.
+
+## Cleanup
+
+Stop both processes, then check `git status`. The vite dev server's TanStack Router plugin can regenerate `apps/web/src/routeTree.gen.ts` with a different route order on Windows; restore it with `git checkout -- apps/web/src/routeTree.gen.ts` unless the change under test adds or removes routes. Never commit verification artifacts.
+
 ## Gotchas
 
-- Preflight the ports before launching: run `lsof -nP -iTCP:<port> -sTCP:LISTEN` on both the server and web ports (check IPv4 and IPv6 listeners — a `:::port` entry collides even when `127.0.0.1` looks free). If you use `scripts/dev-runner.ts dev`, read its dry-run output for the real port map first.
+- Preflight the ports before launching: run `lsof -nP -iTCP:<port> -sTCP:LISTEN` (Windows: `netstat -ano | rg ":<port> "`) on both the server and web ports (check IPv4 and IPv6 listeners — a `:::port` entry collides even when `127.0.0.1` looks free). If you use `scripts/dev-runner.ts dev`, read its dry-run output for the real port map first.
 - `SAINT_AUTH_TOKEN` is inherited from the launching shell: a server started with it set requires auth the web client does not have, which produces a healthy-but-disconnected UI. Unset it in the isolated test process only — never strip it from production policy.
 - `VITE_DEV_SERVER_URL` on the **server** is required — without it the WS handshake from the vite origin is rejected with 403 (see `apps/server/src/trustedOrigins.ts`).
 - `VITE_WS_URL` on the **web** side tells the app where the WS server lives (`apps/web/src/wsTransport.ts`).
