@@ -1,2 +1,3 @@
 bun.lock text eol=lf
 apps/server/remote-deps/*.tar.gz binary
+*.patch text eol=lf
