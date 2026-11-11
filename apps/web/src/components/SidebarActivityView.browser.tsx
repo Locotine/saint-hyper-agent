@@ -12,6 +12,7 @@ import { render } from "vitest-browser-react";
 
 import type { Project, SidebarThreadSummary } from "../types";
 import { DEFAULT_PROJECT_ICON, type ProjectAppearance } from "../lib/projectAppearance";
+import { resolveWsHttpUrl } from "../lib/wsHttpUrl";
 import { resolveThreadStatusPill, type ThreadStatusPill } from "./Sidebar.logic";
 import { SidebarActivityView } from "./SidebarActivityView";
 import type { ActivityGroupMode, ActivityScopeSelection } from "./SidebarActivityView.logic";
@@ -20,10 +21,10 @@ const projectFavicon = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="8" fill="red"/></svg>',
 )}`;
 
-vi.mock("~/lib/wsHttpUrl", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../lib/wsHttpUrl")>()),
-  resolveWsHttpUrl: () => projectFavicon,
-}));
+// A factory that awaits the original module deadlocks: wsHttpUrl and wsTransport
+// import each other through hostConnectionRegistry. Spy on the real module instead.
+vi.mock("~/lib/wsHttpUrl", { spy: true });
+vi.mocked(resolveWsHttpUrl).mockReturnValue(projectFavicon);
 
 const PROJECT_A = ProjectId.makeUnsafe("activity-project-a");
 const PROJECT_B = ProjectId.makeUnsafe("activity-project-b");

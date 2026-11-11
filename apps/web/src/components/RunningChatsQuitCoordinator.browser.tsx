@@ -6,14 +6,15 @@ import { page, userEvent } from "vitest/browser";
 import { afterEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 
+import { resolveWsHttpUrl } from "~/lib/wsHttpUrl";
 import { useStore } from "~/store";
 
 import { RunningChatsQuitCoordinator } from "./RunningChatsQuitCoordinator";
 
-vi.mock("~/lib/wsHttpUrl", async (original) => ({
-  ...(await original<typeof import("../lib/wsHttpUrl")>()),
-  resolveWsHttpUrl: () => "",
-}));
+// A factory that awaits the original module deadlocks: wsHttpUrl and wsTransport
+// import each other through hostConnectionRegistry. Spy on the real module instead.
+vi.mock("~/lib/wsHttpUrl", { spy: true });
+vi.mocked(resolveWsHttpUrl).mockReturnValue("");
 
 const originalBridge = window.desktopBridge;
 const originalState = useStore.getState();

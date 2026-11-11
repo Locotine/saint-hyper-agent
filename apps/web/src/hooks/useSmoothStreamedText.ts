@@ -133,8 +133,8 @@ export function useSmoothStreamedText(text: string, isStreaming: boolean): strin
     typeof window === "undefined" ||
     typeof (window as unknown as { requestAnimationFrame?: unknown }).requestAnimationFrame !==
       "function" ||
-    (typeof process !== "undefined" &&
-      (process.env.VITEST === "true" || process.env.NODE_ENV === "test"));
+    // A real browser under Vitest browser mode also sets VITEST, so match jsdom itself.
+    (typeof navigator !== "undefined" && navigator.userAgent.includes("jsdom"));
   const animate = isStreaming && !reduceMotion && !isTestableEnv;
 
   const [revealed, setRevealed] = useState(text);
