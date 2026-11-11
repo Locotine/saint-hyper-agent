@@ -53,6 +53,7 @@ import {
 } from "vitest";
 import { render } from "vitest-browser-react";
 
+import { LAST_USED_MODEL_VALUE, MODEL_DEFAULT_EFFORT_VALUE } from "../appSettings";
 import { type ComposerImageAttachment, useComposerDraftStore } from "../composerDraftStore";
 import {
   AUTO_SCROLL_BOTTOM_THRESHOLD_PX,
@@ -2465,6 +2466,16 @@ describe("ChatView transcript geometry (full app)", () => {
     attachmentUploadBarrier = null;
     attachmentCancelBarrier = null;
     localStorage.clear();
+    // These cases were written for the pre-1.2.2 defaults: Codex, and new chats
+    // reusing the last model. Settings now pins Claude Opus 5.5 for new chats.
+    localStorage.setItem(
+      "saint:app-settings:v1",
+      JSON.stringify({
+        defaultProvider: "codex",
+        defaultModel: LAST_USED_MODEL_VALUE,
+        defaultEffort: MODEL_DEFAULT_EFFORT_VALUE,
+      }),
+    );
     acknowledgeStartupAnnouncementsForTest(createBaseServerConfig());
     // Clearing localStorage does not reset the live Zustand dock state.
     useRightDockStore.setState({ dockStateByThreadId: {} });
