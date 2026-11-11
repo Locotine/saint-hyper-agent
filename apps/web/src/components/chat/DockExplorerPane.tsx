@@ -3,21 +3,22 @@
 //          search box over the file tree, switching to file-name results as the
 //          user types) alongside the shared file viewer.
 // Layer: Chat right-dock UI
-// Exports: DockExplorerPane, FilePreviewTabs
+// Exports: DockExplorerPane
 
-import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { Schema } from "effect";
-import { type DragEvent as ReactDragEvent, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import type { ThreadId } from "@saint/contracts";
 import { isNormalizedWindowsAbsolutePath } from "@saint/shared/path";
 import { useQueryClient } from "@tanstack/react-query";
 
 import {
+  dockExplorerSplitLayout,
   selectDockExplorerBrowseState,
   useDockExplorerBrowseStore,
 } from "~/dockExplorerBrowseStore";
+import { closeFileInSplitGroup, type EditorSplitLayoutState } from "~/editorViewState";
+import { EditorSplitGroups } from "../EditorSplitGroups";
 import { directoryChain, useExplorerRevealRequestStore } from "~/explorerRevealRequestStore";
 import type { ChatFileReference } from "~/lib/chatReferences";
 import type { FileCommentSelection } from "~/lib/fileComments";
@@ -26,18 +27,9 @@ import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
 import { WorkspaceFilePreview } from "../WorkspaceFilePreview";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { useHostId } from "~/hosts/hostScope";
-import { XIcon } from "~/lib/icons";
-import { cn } from "~/lib/utils";
-import {
-  WORKSPACE_TAB_ACTIVE_CLASS_NAME,
-  WORKSPACE_TAB_CLASS_NAME,
-  WORKSPACE_TAB_IDLE_CLASS_NAME,
-} from "../TerminalWorkspaceTabs";
 import { ColumnResizeHandle } from "../ui/ColumnResizeHandle";
-import { IconButton } from "../ui/icon-button";
-import { useHorizontalWheelScroll } from "./chatHeaderControls";
 import { PanelStateMessage } from "./PanelStateMessage";
-import { setFileReferenceDragData, WorkspaceExplorerSidebar } from "./workspaceExplorer";
+import { WorkspaceExplorerSidebar } from "./workspaceExplorer";
 
 // The dock lays out as a fixed horizontal row, so the shared sidebar takes a
 // full-height fixed-width column (the editor's responsive default would collapse
@@ -56,125 +48,6 @@ function clampTreeWidth(width: number, containerWidth: number): number {
   return Math.round(Math.min(max, Math.max(TREE_MIN_WIDTH, width)));
 }
 
-function FilePreviewTabItem(props: {
-  groupId: string | undefined;
-  path: string;
-  active: boolean;
-  onSelect: (path: string) => void;
-  onClose: (path: string) => void;
-}) {
-  const { groupId, path, active } = props;
-  const name = path.split("/").pop() ?? path;
-  const draggable = useDraggable({
-    id: groupId ? `editor-tab:${groupId}:${path}` : `dock-tab:${path}`,
-    disabled: !groupId,
-    data: {
-      kind: "editor-file-tab",
-      groupId: groupId ?? "group-1",
-      filePath: path,
-    },
-  });
-  const style = draggable.transform
-    ? { transform: CSS.Translate.toString(draggable.transform) }
-    : undefined;
-  const handleNativeDragStart = (event: ReactDragEvent<HTMLDivElement>) => {
-    setFileReferenceDragData(event.dataTransfer, path);
-    if (groupId) {
-      event.dataTransfer.setData("application/x-saint-editor-group", groupId);
-    }
-  };
-  return (
-    <div
-      ref={groupId ? draggable.setNodeRef : undefined}
-      style={style}
-      {...(groupId ? draggable.listeners : undefined)}
-      {...(groupId ? draggable.attributes : undefined)}
-      role="tab"
-      aria-selected={active}
-      tabIndex={active ? 0 : -1}
-      draggable
-      onDragStart={handleNativeDragStart}
-      className={cn(
-        WORKSPACE_TAB_CLASS_NAME,
-        "max-w-48 cursor-default gap-1 pr-1",
-        active ? WORKSPACE_TAB_ACTIVE_CLASS_NAME : WORKSPACE_TAB_IDLE_CLASS_NAME,
-        draggable.isDragging && "opacity-60",
-      )}
-      onClick={() => props.onSelect(path)}
-      onAuxClick={(event) => {
-        if (event.button === 1) props.onClose(path);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") props.onSelect(path);
-      }}
-    >
-      <span className="min-w-0 truncate">{name}</span>
-      <IconButton
-        label={`Close ${name}`}
-        tooltip="Close preview"
-        size="icon-xs"
-        variant="chrome"
-        onPointerDown={(event) => {
-          event.stopPropagation();
-        }}
-        onClick={(event) => {
-          event.stopPropagation();
-          props.onClose(path);
-        }}
-      >
-        <XIcon className="size-3" />
-      </IconButton>
-    </div>
-  );
-}
-
-/** One tab per open file; the X closes it, and closing the last one closes the preview. */
-export function FilePreviewTabs(props: {
-  groupId?: string | undefined;
-  openFilePaths: readonly string[];
-  selectedFilePath: string | null;
-  onSelect: (path: string) => void;
-  onClose: (path: string) => void;
-}) {
-  const stripRef = useRef<HTMLDivElement>(null);
-  useHorizontalWheelScroll(stripRef);
-  const droppable = useDroppable({
-    id: props.groupId ? `editor-group-tabs:${props.groupId}` : "dock-group-tabs",
-    disabled: !props.groupId,
-    data: {
-      kind: "editor-group-tabs",
-      groupId: props.groupId ?? "group-1",
-    },
-  });
-  return (
-    <div
-      ref={props.groupId ? droppable.setNodeRef : undefined}
-      className={cn(
-        "relative shrink-0 border-b border-border/70 bg-muted/10 px-2",
-        droppable.isOver && "bg-accent/25",
-      )}
-    >
-      <div
-        ref={stripRef}
-        role="tablist"
-        aria-label="Open files"
-        className="flex min-w-0 items-end gap-1 overflow-x-auto overflow-y-hidden overscroll-contain pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {props.openFilePaths.map((path) => (
-          <FilePreviewTabItem
-            key={path}
-            groupId={props.groupId}
-            path={path}
-            active={path === props.selectedFilePath}
-            onSelect={props.onSelect}
-            onClose={props.onClose}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export const DockExplorerPane = function DockExplorerPane(props: {
   threadId: ThreadId;
   workspaceRoot: string | null;
@@ -189,14 +62,10 @@ export const DockExplorerPane = function DockExplorerPane(props: {
   // Browse state lives in the per-thread store, not component state: the pane
   // unmounts on a thread switch and remounts on return, so useState here would
   // reset the selected file, expanded directories, and search query every time.
-  const {
-    selectedFilePath,
-    openFilePaths,
-    expandedDirectories,
-    searchQuery,
-    activeRootPath,
-    rootHistory,
-  } = useDockExplorerBrowseStore(selectDockExplorerBrowseState(props.threadId));
+  const browseState = useDockExplorerBrowseStore(selectDockExplorerBrowseState(props.threadId));
+  const { selectedFilePath, expandedDirectories, searchQuery, activeRootPath, rootHistory } =
+    browseState;
+  const splitLayout = dockExplorerSplitLayout(browseState);
   const effectiveWorkspaceRoot = activeRootPath ?? props.workspaceRoot;
   const treeColumnRef = useRef<HTMLDivElement>(null);
   const [treeWidth, setTreeWidth] = useLocalStorage(
@@ -268,10 +137,18 @@ export const DockExplorerPane = function DockExplorerPane(props: {
     });
   };
 
-  const handleCloseFile = (path: string) => {
+  const handleSetSplitLayout = (
+    action: EditorSplitLayoutState | ((current: EditorSplitLayoutState) => EditorSplitLayoutState),
+  ) => {
+    useDockExplorerBrowseStore
+      .getState()
+      .updateSplitLayout(props.threadId, typeof action === "function" ? action : () => action);
+  };
+
+  const handleCloseTabInGroup = (groupId: string, path: string) => {
     // A dirty buffer is saved first, like switching files.
     void flushWorkspaceEditors(queryClient, effectiveWorkspaceRoot).then((saved) => {
-      if (saved) useDockExplorerBrowseStore.getState().closeFile(props.threadId, path);
+      if (saved) handleSetSplitLayout((current) => closeFileInSplitGroup(current, groupId, path));
     });
   };
 
@@ -345,30 +222,28 @@ export const DockExplorerPane = function DockExplorerPane(props: {
         />
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {openFilePaths.length > 0 ? (
-          <FilePreviewTabs
-            openFilePaths={openFilePaths}
-            selectedFilePath={selectedFilePath}
-            onSelect={handleSelectFile}
-            onClose={handleCloseFile}
-          />
-        ) : null}
-        <div className="flex min-h-0 min-w-0 flex-1">
-          <WorkspaceFilePreview
-            workspaceRoot={effectiveWorkspaceRoot}
-            filePath={selectedFilePath}
-            liveRevalidationEnabled={props.isVisible}
-            editable
-            emptyState={
-              <PanelStateMessage density="compact" fill="flex">
-                <p>Select a file from the tree to view it.</p>
-              </PanelStateMessage>
-            }
-            onReferenceInChat={props.onReferenceInChat}
-            onAskWhyInChat={props.onAskWhyInChat}
-            onCommentInChat={props.onCommentInChat}
-          />
-        </div>
+        <EditorSplitGroups
+          layout={splitLayout}
+          setLayout={handleSetSplitLayout}
+          onActivateFile={handleSelectFile}
+          onCloseTab={handleCloseTabInGroup}
+          renderGroupBody={(group) => (
+            <WorkspaceFilePreview
+              workspaceRoot={effectiveWorkspaceRoot}
+              filePath={group.selectedFilePath}
+              liveRevalidationEnabled={props.isVisible}
+              editable
+              emptyState={
+                <PanelStateMessage density="compact" fill="flex">
+                  <p>Select a file from the tree to view it.</p>
+                </PanelStateMessage>
+              }
+              onReferenceInChat={props.onReferenceInChat}
+              onAskWhyInChat={props.onAskWhyInChat}
+              onCommentInChat={props.onCommentInChat}
+            />
+          )}
+        />
       </div>
     </div>
   );

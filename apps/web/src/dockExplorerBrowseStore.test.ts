@@ -1,7 +1,9 @@
 import { ThreadId } from "@saint/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { dropFileOnSplitZone } from "./editorViewState";
 import {
+  dockExplorerSplitLayout,
   EMPTY_DOCK_EXPLORER_BROWSE_STATE,
   selectDockExplorerBrowseState,
   useDockExplorerBrowseStore,
@@ -32,6 +34,7 @@ describe("dockExplorerBrowseStore", () => {
       searchQuery: "read",
       activeRootPath: null,
       rootHistory: [],
+      splitLayout: null,
     });
     expect(stateB).toEqual({
       selectedFilePath: "docs/b.md",
@@ -40,6 +43,7 @@ describe("dockExplorerBrowseStore", () => {
       searchQuery: "",
       activeRootPath: null,
       rootHistory: [],
+      splitLayout: null,
     });
   });
 
@@ -84,5 +88,27 @@ describe("dockExplorerBrowseStore", () => {
     store.expandDirectories(threadA, []);
 
     expect(useDockExplorerBrowseStore.getState().browseStateByThreadId).toEqual({});
+  });
+
+  it("splits the viewer and mirrors the active group into the open tabs", () => {
+    const store = useDockExplorerBrowseStore.getState();
+    store.selectFile(threadA, "a.ts");
+    store.selectFile(threadA, "b.ts");
+    store.updateSplitLayout(threadA, (layout) =>
+      dropFileOnSplitZone(layout, "group-1", "right", "b.ts", "group-1"),
+    );
+    const read = () =>
+      selectDockExplorerBrowseState(threadA)(useDockExplorerBrowseStore.getState());
+
+    expect(dockExplorerSplitLayout(read()).groups).toHaveLength(2);
+    expect(read()).toMatchObject({ openFilePaths: ["b.ts"], selectedFilePath: "b.ts" });
+
+    // Closing the last tab of the split group collapses back to one group.
+    store.closeFile(threadA, "b.ts");
+    expect(read()).toMatchObject({
+      splitLayout: null,
+      openFilePaths: ["a.ts"],
+      selectedFilePath: "a.ts",
+    });
   });
 });

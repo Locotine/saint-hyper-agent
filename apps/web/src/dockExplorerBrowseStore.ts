@@ -11,6 +11,12 @@
 import type { ThreadId } from "@saint/contracts";
 import { create } from "zustand";
 
+import {
+  closeFileInSplitGroup,
+  type EditorSplitLayoutState,
+  syncPrimaryFileIntoSplitLayout,
+} from "./editorViewState";
+
 export interface DockExplorerBrowseState {
   selectedFilePath: string | null;
   /** Files open as preview tabs, in tab order; the selected one is among them. */
@@ -21,6 +27,11 @@ export interface DockExplorerBrowseState {
   activeRootPath: string | null;
   /** History stack of previously visited roots for the Back button. */
   rootHistory: readonly string[];
+  /**
+   * Split editor groups when the viewer is split; null for a single group.
+   * `openFilePaths`/`selectedFilePath` always mirror the active group.
+   */
+  splitLayout: EditorSplitLayoutState | null;
 }
 
 // Shared immutable snapshot returned for threads with no recorded state, so a
@@ -32,6 +43,7 @@ export const EMPTY_DOCK_EXPLORER_BROWSE_STATE: DockExplorerBrowseState = {
   searchQuery: "",
   activeRootPath: null,
   rootHistory: [],
+  splitLayout: null,
 };
 Object.freeze(EMPTY_DOCK_EXPLORER_BROWSE_STATE);
 Object.freeze(EMPTY_DOCK_EXPLORER_BROWSE_STATE.expandedDirectories);
@@ -50,6 +62,39 @@ interface DockExplorerBrowseStore {
   navigateRoot: (threadId: ThreadId, nextRoot: string, currentEffectiveRoot: string) => void;
   navigateBackRoot: (threadId: ThreadId, projectWorkspaceRoot: string | null) => void;
   resetRoot: (threadId: ThreadId) => void;
+  /** Applies a split layout change (tab move, split, resize, close in a group). */
+  updateSplitLayout: (
+    threadId: ThreadId,
+    update: (layout: EditorSplitLayoutState) => EditorSplitLayoutState,
+  ) => void;
+}
+
+/** The viewer's groups; a single group built from the open tabs when not split. */
+export function dockExplorerSplitLayout(state: DockExplorerBrowseState): EditorSplitLayoutState {
+  return (
+    state.splitLayout ?? {
+      groups: [
+        {
+          id: "group-1",
+          openFilePaths: state.openFilePaths,
+          selectedFilePath: state.selectedFilePath,
+        },
+      ],
+      activeGroupId: "group-1",
+      direction: "horizontal",
+      sizes: [100],
+    }
+  );
+}
+
+function patchFromSplitLayout(layout: EditorSplitLayoutState): Partial<DockExplorerBrowseState> {
+  const active =
+    layout.groups.find((group) => group.id === layout.activeGroupId) ?? layout.groups[0];
+  return {
+    splitLayout: layout.groups.length > 1 ? layout : null,
+    openFilePaths: active?.openFilePaths ?? [],
+    selectedFilePath: active?.selectedFilePath ?? null,
+  };
 }
 
 export const useDockExplorerBrowseStore = create<DockExplorerBrowseStore>()((set) => {
@@ -77,23 +122,27 @@ export const useDockExplorerBrowseStore = create<DockExplorerBrowseStore>()((set
   return {
     browseStateByThreadId: {},
     selectFile: (threadId, path) =>
-      update(threadId, (current) => ({
-        selectedFilePath: path,
-        ...(path !== null && !current.openFilePaths.includes(path)
-          ? { openFilePaths: [...current.openFilePaths, path] }
-          : {}),
-      })),
+      update(threadId, (current) => {
+        if (path === null) {
+          const layout = dockExplorerSplitLayout(current);
+          return patchFromSplitLayout({
+            ...layout,
+            groups: layout.groups.map((group) =>
+              group.id === layout.activeGroupId ? { ...group, selectedFilePath: null } : group,
+            ),
+          });
+        }
+        return patchFromSplitLayout(
+          syncPrimaryFileIntoSplitLayout(dockExplorerSplitLayout(current), path),
+        );
+      }),
     closeFile: (threadId, path) =>
       update(threadId, (current) => {
-        const index = current.openFilePaths.indexOf(path);
-        if (index === -1) return {};
-        const openFilePaths = current.openFilePaths.filter((entry) => entry !== path);
-        if (current.selectedFilePath !== path) return { openFilePaths };
-        return {
-          openFilePaths,
-          selectedFilePath: openFilePaths[Math.min(index, openFilePaths.length - 1)] ?? null,
-        };
+        const layout = dockExplorerSplitLayout(current);
+        return patchFromSplitLayout(closeFileInSplitGroup(layout, layout.activeGroupId, path));
       }),
+    updateSplitLayout: (threadId, change) =>
+      update(threadId, (current) => patchFromSplitLayout(change(dockExplorerSplitLayout(current)))),
     setSearchQuery: (threadId, query) => update(threadId, () => ({ searchQuery: query })),
     toggleDirectory: (threadId, path) =>
       update(threadId, (current) => {
@@ -124,6 +173,7 @@ export const useDockExplorerBrowseStore = create<DockExplorerBrowseStore>()((set
           expandedDirectories: new Set<string>(),
           selectedFilePath: null,
           openFilePaths: [],
+          splitLayout: null,
         };
       }),
     navigateBackRoot: (threadId, projectWorkspaceRoot) =>
@@ -139,6 +189,7 @@ export const useDockExplorerBrowseStore = create<DockExplorerBrowseStore>()((set
           expandedDirectories: new Set<string>(),
           selectedFilePath: null,
           openFilePaths: [],
+          splitLayout: null,
         };
       }),
     resetRoot: (threadId) =>
@@ -152,6 +203,7 @@ export const useDockExplorerBrowseStore = create<DockExplorerBrowseStore>()((set
           expandedDirectories: new Set<string>(),
           selectedFilePath: null,
           openFilePaths: [],
+          splitLayout: null,
         };
       }),
   };
