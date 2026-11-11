@@ -39,7 +39,8 @@ const MODE_ARGS = {
   ],
   "dev:server": ["run", "dev", "--filter=@saint/cli"],
   "dev:web": ["run", "dev", "--filter=@saint/web"],
-  "dev:desktop": ["run", "dev", "--filter=@saint/desktop", "--filter=@saint/web", "--parallel"],
+  // Tauri starts the web dev server itself (beforeDevCommand).
+  "dev:desktop": ["run", "dev", "--filter=@saint/desktop-rust"],
 } as const satisfies Record<string, ReadonlyArray<string>>;
 
 type DevMode = keyof typeof MODE_ARGS;

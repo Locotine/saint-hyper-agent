@@ -5,7 +5,7 @@ application that installs and updates side-by-side with stable Saint, and it nev
 shares stable's data directory or update feed.
 
 > [!NOTE]
-> Saint Beta is retired from Stable 1.0.11 (current release: 1.2.1). `BETA_ONLY_FEATURES` is empty, Stable no longer offers to install Beta or copy data into it, and GitHub Releases publishes Stable only. To move Beta data into Stable once, quit both apps and run `scripts/copy-saint-beta-data.sh` or `scripts/copy-saint-beta-data.ps1` from this repository; the Stable data it replaces is kept as a backup. The Electron app and its release workflows, which this file describes, are retired from 1.2.1 (see [the release guide](docs/release.md)); the rest of this file is kept for reference only.
+> Saint Beta is retired from Stable 1.0.11 (current release: 1.2.2). `BETA_ONLY_FEATURES` is empty, Stable no longer offers to install Beta or copy data into it, and GitHub Releases publishes Stable only. To move Beta data into Stable once, quit both apps and run `scripts/copy-saint-beta-data.sh` or `scripts/copy-saint-beta-data.ps1` from this repository; the Stable data it replaces is kept as a backup. The Electron app, its release workflows and its packaging scripts, which this file describes, are retired from 1.2.1 and removed from the repository (see [the release guide](docs/release.md)); the rest of this file is kept for reference only.
 
 ## The short version
 

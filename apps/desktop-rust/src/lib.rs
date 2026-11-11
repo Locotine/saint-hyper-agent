@@ -3,17 +3,17 @@
 //          and `window.desktopBridge` initialization script injection.
 // Layer: Desktop shell core.
 
-pub mod appsnap;
-pub mod backend;
-pub mod browser;
-pub mod cua_host;
-pub mod electron_storage;
-pub mod lan_relay;
-pub mod pty_host;
-pub mod remote_ssh;
-pub mod state;
-pub mod updater;
-pub mod window_state;
+mod appsnap;
+mod backend;
+mod browser;
+mod cua_host;
+mod electron_storage;
+mod lan_relay;
+mod pty_host;
+mod remote_ssh;
+mod state;
+mod updater;
+mod window_state;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -36,7 +36,6 @@ use crate::browser::{
 use crate::lan_relay::{
     DesktopLanRelayRevokeSessionInput, DesktopLanRelaySetEnabledInput, DesktopLanRelayState,
 };
-use crate::pty_host::{PtyOpenInput, PtySessionSnapshot};
 use crate::remote_ssh::{
     DesktopRemoteSshHostState, DesktopRemoteSshSavedHost, DesktopRemoteSshState,
     DesktopRemoteSshTestResult, DesktopRemoteSshUpdateHostInput, DesktopWorkspaceDownloadInput,
@@ -55,12 +54,21 @@ use crate::window_state::{
     decode_clipboard_png_data_url, default_custom_title_bar_preference,
     read_custom_title_bar_preference, read_desktop_window_state, read_saint_storage_snapshot,
     resolve_desktop_custom_title_bar_state, resolve_reported_menu_accelerators,
-    resolve_window_translucency, supports_custom_title_bar, write_custom_title_bar_preference,
-    write_desktop_window_state, AgentCursorStylePreference, ContextMenuPosition,
-    DesktopContextMenuItem, DesktopCustomTitleBarState, DesktopMenuShortcuts,
-    DesktopQuitConfirmationResponse, DesktopWindowBounds, DesktopWindowMaterial,
-    DesktopWindowState, PersistedDesktopWindowState, ResolvedContextMenuNode,
+    resolve_visible_window_bounds, resolve_window_translucency, supports_custom_title_bar,
+    write_custom_title_bar_preference, write_desktop_window_state, AgentCursorStylePreference,
+    ContextMenuPosition, DesktopContextMenuItem, DesktopCustomTitleBarState, DesktopMenuShortcuts,
+    DesktopQuitConfirmationRequest, DesktopQuitConfirmationResponse, DesktopWindowBounds,
+    DesktopWindowMaterial, DesktopWindowState, PersistedDesktopWindowState,
+    ResolvedContextMenuNode,
 };
+
+fn cleanup_all_managed_resources(state: &DesktopSharedState) {
+    state.backend.begin_shutdown();
+    state.lan_relay.stop_sync();
+    state.remote_ssh.kill_all_tunnels();
+    state.cua_host.kill_sync();
+    state.browser.stop_rpc_pipe_server();
+}
 
 pub fn emit_window_event<T: serde::Serialize>(
     window: &tauri::WebviewWindow,
@@ -116,9 +124,17 @@ async fn desktop_pick_folder(app: tauri::AppHandle) -> Result<Option<String>, St
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct SaveFileFilter {
+    name: String,
+    extensions: Vec<String>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SaveFileInput {
     default_filename: String,
     contents: String,
+    filters: Option<Vec<SaveFileFilter>>,
 }
 
 #[tauri::command]
@@ -127,11 +143,16 @@ async fn desktop_save_file(
     input: SaveFileInput,
 ) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
-    let target = app
-        .dialog()
-        .file()
-        .set_file_name(&input.default_filename)
-        .blocking_save_file();
+    let mut builder = app.dialog().file().set_file_name(&input.default_filename);
+    if let Some(filters) = input.filters.as_ref() {
+        for filter in filters {
+            let ext_refs: Vec<&str> = filter.extensions.iter().map(|s| s.as_str()).collect();
+            if !ext_refs.is_empty() {
+                builder = builder.add_filter(&filter.name, &ext_refs);
+            }
+        }
+    }
+    let target = builder.blocking_save_file();
     let Some(file_path) = target.and_then(|f| f.into_path().ok()) else {
         return Ok(None);
     };
@@ -320,7 +341,12 @@ fn desktop_quit_confirmation_response(
                 .ok()
                 .and_then(|g| g.clone())
                 .map(|pending| pending == request_id)
-                .unwrap_or(true);
+                .unwrap_or(false);
+            if matches_pending && running_count <= 0 {
+                if let Ok(mut guard) = state.pending_quit_request_id.lock() {
+                    *guard = None;
+                }
+            }
             matches_pending && running_count <= 0
         }
         DesktopQuitConfirmationResponse::Decision { request_id, allow } => {
@@ -330,7 +356,7 @@ fn desktop_quit_confirmation_response(
                 .ok()
                 .and_then(|g| g.clone())
                 .map(|pending| pending == request_id)
-                .unwrap_or(true);
+                .unwrap_or(false);
             if matches_pending {
                 if let Ok(mut guard) = state.pending_quit_request_id.lock() {
                     *guard = None;
@@ -450,7 +476,12 @@ fn desktop_custom_title_bar_set_preference(
 }
 
 #[tauri::command]
-fn desktop_custom_title_bar_relaunch(app: tauri::AppHandle) {
+fn desktop_custom_title_bar_relaunch(
+    app: tauri::AppHandle,
+    state: State<'_, Arc<DesktopSharedState>>,
+) {
+    cleanup_all_managed_resources(&state);
+    state.backend.kill_sync();
     app.restart();
 }
 
@@ -482,10 +513,13 @@ fn desktop_audio_level_set_source(
 }
 
 #[tauri::command]
-fn desktop_audio_level_list_microphones(
+async fn desktop_audio_level_list_microphones(
     state: State<'_, Arc<DesktopSharedState>>,
-) -> Vec<DesktopAudioInputDevice> {
-    state.appsnap.list_microphones()
+) -> Result<Vec<DesktopAudioInputDevice>, String> {
+    let appsnap = Arc::clone(&state.appsnap);
+    tokio::task::spawn_blocking(move || appsnap.list_microphones())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -514,8 +548,8 @@ async fn desktop_update_check(
 ) -> Result<DesktopUpdateState, String> {
     use tauri_plugin_updater::UpdaterExt;
 
-    let checking = state.updater.begin_check();
-    if !checking.enabled {
+    let (accepted, checking) = state.updater.begin_check();
+    if !accepted || !checking.enabled {
         return Ok(checking);
     }
     emit_window_event(&window, "desktop:update-state", &checking);
@@ -582,6 +616,18 @@ async fn desktop_update_download(
     match updater.check().await {
         Ok(Some(update)) => {
             let version = update.version.clone();
+            let current = state.updater.get_state().current_version;
+            if !is_update_version_allowed_for_stable(&version)
+                || !is_update_version_newer(&current, &version)
+            {
+                let up_to_date = state.updater.mark_up_to_date(now_iso8601());
+                emit_window_event(&window, "desktop:update-state", &up_to_date);
+                return Ok(DesktopUpdateActionResult {
+                    accepted: false,
+                    completed: false,
+                    state: up_to_date,
+                });
+            }
             let state_progress = Arc::clone(&state);
             let win_progress = window.clone();
             let mut transferred: u64 = 0;
@@ -600,7 +646,10 @@ async fn desktop_update_download(
                 .await;
 
             match download_res {
-                Ok(_bytes) => {
+                Ok(bytes) => {
+                    state
+                        .updater
+                        .store_downloaded_payload(version.clone(), bytes);
                     let done = state.updater.mark_downloaded(version);
                     emit_window_event(&window, "desktop:update-state", &done);
                     Ok(DesktopUpdateActionResult {
@@ -661,16 +710,33 @@ async fn desktop_update_install(
 
     if let Ok(updater) = app.updater() {
         if let Ok(Some(update)) = updater.check().await {
-            if let Err(err) = update.download_and_install(|_, _| {}, || {}).await {
-                let err_state = state.updater.mark_error("install", err.to_string());
-                emit_window_event(&window, "desktop:update-state", &err_state);
-                return Ok(DesktopUpdateActionResult {
-                    accepted: true,
-                    completed: false,
-                    state: err_state,
-                });
+            let candidate = update.version.clone();
+            let current = state.updater.get_state().current_version;
+            if is_update_version_allowed_for_stable(&candidate)
+                && is_update_version_newer(&current, &candidate)
+            {
+                // The cached payload stays stored until a successful install restarts the app.
+                let install_res = if let Some(cached_bytes) =
+                    state.updater.take_downloaded_payload(&candidate)
+                {
+                    update.install(cached_bytes)
+                } else {
+                    update.download_and_install(|_, _| {}, || {}).await
+                };
+
+                if let Err(err) = install_res {
+                    let err_state = state.updater.mark_error("install", err.to_string());
+                    emit_window_event(&window, "desktop:update-state", &err_state);
+                    return Ok(DesktopUpdateActionResult {
+                        accepted: true,
+                        completed: false,
+                        state: err_state,
+                    });
+                }
+                cleanup_all_managed_resources(&state);
+                state.backend.stop_and_wait().await;
+                app.restart();
             }
-            app.restart();
         }
     }
 
@@ -695,14 +761,22 @@ fn desktop_notifications_is_supported() -> bool {
 struct NotificationShowInput {
     title: String,
     body: Option<String>,
+    suppress_when_foreground: Option<bool>,
 }
 
 #[tauri::command]
 fn desktop_notifications_show(
     app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     input: NotificationShowInput,
 ) -> Result<bool, String> {
     use tauri_plugin_notification::NotificationExt;
+    if input.title.trim().is_empty() {
+        return Ok(false);
+    }
+    if input.suppress_when_foreground.unwrap_or(false) && window.is_focused().unwrap_or(false) {
+        return Ok(false);
+    }
     let mut builder = app.notification().builder().title(&input.title);
     if let Some(body) = input.body.as_deref() {
         builder = builder.body(body);
@@ -804,10 +878,13 @@ fn desktop_appsnap_acknowledge_capture(
 }
 
 #[tauri::command]
-fn desktop_appsnap_list_windows(
+async fn desktop_appsnap_list_windows(
     state: State<'_, Arc<DesktopSharedState>>,
-) -> Vec<serde_json::Value> {
-    state.appsnap.list_windows()
+) -> Result<Vec<serde_json::Value>, String> {
+    let appsnap = Arc::clone(&state.appsnap);
+    tokio::task::spawn_blocking(move || appsnap.list_windows())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -834,7 +911,12 @@ fn desktop_appsnap_open_permission_settings(pane: String) -> bool {
 }
 
 #[tauri::command]
-fn desktop_appsnap_restart_app(app: tauri::AppHandle) {
+fn desktop_appsnap_restart_app(
+    app: tauri::AppHandle,
+    state: State<'_, Arc<DesktopSharedState>>,
+) {
+    cleanup_all_managed_resources(&state);
+    state.backend.kill_sync();
     app.restart();
 }
 
@@ -859,44 +941,63 @@ fn desktop_appsnap_hide_permission_guide(
 }
 
 #[tauri::command]
-fn desktop_remote_ssh_get_state(
+async fn desktop_remote_ssh_get_state(
     state: State<'_, Arc<DesktopSharedState>>,
-) -> DesktopRemoteSshState {
-    state.remote_ssh.get_state()
+) -> Result<DesktopRemoteSshState, String> {
+    let remote_ssh = Arc::clone(&state.remote_ssh);
+    tokio::task::spawn_blocking(move || remote_ssh.get_state())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn desktop_remote_ssh_connect(
+async fn desktop_remote_ssh_connect(
     window: tauri::WebviewWindow,
     state: State<'_, Arc<DesktopSharedState>>,
     host: DesktopRemoteSshSavedHost,
 ) -> Result<DesktopRemoteSshHostState, String> {
-    let host_state = state.remote_ssh.connect(host)?;
-    let full_state = state.remote_ssh.get_state();
+    let remote_ssh = Arc::clone(&state.remote_ssh);
+    let (host_state, full_state) = tokio::task::spawn_blocking(move || {
+        let hs = remote_ssh.connect(host)?;
+        let fs = remote_ssh.get_state();
+        Ok::<_, String>((hs, fs))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     emit_window_event(&window, "desktop:remote-ssh-state", &full_state);
     Ok(host_state)
 }
 
 #[tauri::command]
-fn desktop_remote_ssh_disconnect(
+async fn desktop_remote_ssh_disconnect(
     window: tauri::WebviewWindow,
     state: State<'_, Arc<DesktopSharedState>>,
     host: String,
 ) -> Result<(), String> {
-    state.remote_ssh.disconnect(&host)?;
-    let full_state = state.remote_ssh.get_state();
+    let remote_ssh = Arc::clone(&state.remote_ssh);
+    let full_state = tokio::task::spawn_blocking(move || {
+        remote_ssh.disconnect(&host)?;
+        Ok::<_, String>(remote_ssh.get_state())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     emit_window_event(&window, "desktop:remote-ssh-state", &full_state);
     Ok(())
 }
 
 #[tauri::command]
-fn desktop_remote_ssh_stop_server(
+async fn desktop_remote_ssh_stop_server(
     window: tauri::WebviewWindow,
     state: State<'_, Arc<DesktopSharedState>>,
     host: DesktopRemoteSshSavedHost,
 ) -> Result<(), String> {
-    state.remote_ssh.stop_server(host)?;
-    let full_state = state.remote_ssh.get_state();
+    let remote_ssh = Arc::clone(&state.remote_ssh);
+    let full_state = tokio::task::spawn_blocking(move || {
+        remote_ssh.stop_server(host)?;
+        Ok::<_, String>(remote_ssh.get_state())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     emit_window_event(&window, "desktop:remote-ssh-state", &full_state);
     Ok(())
 }
@@ -913,11 +1014,14 @@ fn desktop_remote_ssh_forget(
 }
 
 #[tauri::command]
-fn desktop_remote_ssh_test_host(
+async fn desktop_remote_ssh_test_host(
     state: State<'_, Arc<DesktopSharedState>>,
     host: DesktopRemoteSshSavedHost,
 ) -> Result<DesktopRemoteSshTestResult, String> {
-    state.remote_ssh.test_host(host)
+    let remote_ssh = Arc::clone(&state.remote_ssh);
+    tokio::task::spawn_blocking(move || remote_ssh.test_host(host))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -948,10 +1052,13 @@ fn desktop_remote_ssh_download_files(
 }
 
 #[tauri::command]
-fn desktop_lan_relay_get_state(
+async fn desktop_lan_relay_get_state(
     state: State<'_, Arc<DesktopSharedState>>,
-) -> DesktopLanRelayState {
-    state.lan_relay.get_state()
+) -> Result<DesktopLanRelayState, String> {
+    let lan_relay = Arc::clone(&state.lan_relay);
+    tokio::task::spawn_blocking(move || lan_relay.get_state())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1122,11 +1229,13 @@ fn desktop_browser_navigate(
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserNavigateInput,
 ) -> ThreadBrowserState {
+    let explicit_tab_id = input.tab_id.clone();
     let next = state.browser.navigate(input);
     emit_window_event(&window, "desktop:browser-state", &next);
-    if let Some(active_id) = next.active_tab_id.as_deref() {
-        if let Some(url) = state.browser.tab_url(&next.thread_id, active_id) {
-            state.browser.navigate_native_webview(&app, active_id, &url);
+    let target_tab_id = explicit_tab_id.or_else(|| next.active_tab_id.clone());
+    if let Some(tab_id) = target_tab_id.as_deref() {
+        if let Some(url) = state.browser.tab_url(&next.thread_id, tab_id) {
+            state.browser.navigate_native_webview(&app, tab_id, &url);
         }
     }
     next
@@ -1226,8 +1335,42 @@ fn desktop_browser_open_devtools(
 }
 
 #[tauri::command]
-fn desktop_browser_annotations_start(_input: serde_json::Value) -> serde_json::Value {
-    serde_json::json!({ "started": false })
+fn desktop_browser_annotations_start(
+    state: State<'_, Arc<DesktopSharedState>>,
+    input: serde_json::Value,
+) -> serde_json::Value {
+    let thread_id = input
+        .get("threadId")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let tab_id = input
+        .get("tabId")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let browser_state = state.browser.get_state(&thread_id);
+    let tab = browser_state.tabs.iter().find(|t| t.id == tab_id);
+    let source_url = tab
+        .map(|t| t.url.clone())
+        .unwrap_or_else(|| "about:blank".to_string());
+    let page_title = tab.map(|t| t.title.clone()).unwrap_or_default();
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let key = format!(".saint-annotations-{session_id}.html");
+    serde_json::json!({
+        "sessionId": session_id,
+        "threadId": thread_id,
+        "tabId": tab_id,
+        "document": {
+            "token": uuid::Uuid::new_v4().to_string(),
+            "key": key,
+            "url": source_url,
+        },
+        "source": {
+            "url": source_url,
+            "pageTitle": page_title,
+        },
+    })
 }
 
 #[tauri::command]
@@ -1236,51 +1379,11 @@ fn desktop_browser_annotations_cancel(_input: serde_json::Value) {}
 #[tauri::command]
 fn desktop_browser_annotations_sync_markers(_input: serde_json::Value) {}
 
-#[tauri::command]
-fn desktop_pty_open(
-    state: State<'_, Arc<DesktopSharedState>>,
-    input: PtyOpenInput,
-) -> Result<PtySessionSnapshot, String> {
-    state.pty_host.open_session(input)
-}
-
-#[tauri::command]
-fn desktop_pty_write(
-    state: State<'_, Arc<DesktopSharedState>>,
-    session_id: String,
-    data: String,
-) -> Result<(), String> {
-    state.pty_host.write_input(&session_id, data.as_bytes())
-}
-
-#[tauri::command]
-fn desktop_pty_resize(
-    state: State<'_, Arc<DesktopSharedState>>,
-    session_id: String,
-    cols: u16,
-    rows: u16,
-) -> Result<(), String> {
-    state.pty_host.resize(&session_id, cols, rows)
-}
-
-#[tauri::command]
-fn desktop_pty_snapshot(
-    state: State<'_, Arc<DesktopSharedState>>,
-    session_id: String,
-) -> Result<PtySessionSnapshot, String> {
-    state.pty_host.snapshot(&session_id)
-}
-
-#[tauri::command]
-fn desktop_pty_close(state: State<'_, Arc<DesktopSharedState>>, session_id: String) {
-    state.pty_host.close_session(&session_id);
-}
-
 fn build_initialization_script(state: &DesktopSharedState) -> String {
     let snapshot = read_saint_storage_snapshot(&state.paths.storage_snapshot_path);
     let boot_json = serde_json::json!({
         "wsUrl": state.current_ws_url(),
-        "zoomFactor": state.current_zoom_factor(),
+        "zoomFactor": 1.0,
         "windowTranslucency": resolve_window_translucency(),
         "remoteSshEnabled": true,
         "storageMigrationSnapshot": snapshot,
@@ -1304,7 +1407,6 @@ pub fn run() {
     let state_for_exit = Arc::clone(&shared_state);
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -1413,9 +1515,27 @@ pub fn run() {
                     .initialization_script(&init_script);
 
             if let Some(ref persisted) = saved_window {
+                let work_areas: Vec<DesktopWindowBounds> = app
+                    .available_monitors()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|m| {
+                        let pos = m.position();
+                        let size = m.size();
+                        DesktopWindowBounds {
+                            x: pos.x,
+                            y: pos.y,
+                            width: size.width as i32,
+                            height: size.height as i32,
+                        }
+                    })
+                    .collect();
+                // Same minimum as the window builder's min_inner_size above.
+                let safe_bounds =
+                    resolve_visible_window_bounds(persisted.bounds, &work_areas, 860, 600);
                 win_builder = win_builder
-                    .inner_size(persisted.bounds.width as f64, persisted.bounds.height as f64)
-                    .position(persisted.bounds.x as f64, persisted.bounds.y as f64)
+                    .inner_size(safe_bounds.width as f64, safe_bounds.height as f64)
+                    .position(safe_bounds.x as f64, safe_bounds.y as f64)
                     .maximized(persisted.is_maximized);
             } else {
                 win_builder = win_builder.inner_size(1360.0, 860.0).center();
@@ -1431,7 +1551,51 @@ pub fn run() {
 
             let window_state_path = state.paths.window_state_path.clone();
             let window_for_events = window.clone();
+            let state_for_window = Arc::clone(&state);
+            let app_for_window = app_handle.clone();
+            let last_normal_bounds = Arc::new(std::sync::Mutex::new(
+                saved_window.as_ref().map(|w| w.bounds.clone()),
+            ));
+            let last_normal_for_events = Arc::clone(&last_normal_bounds);
             window.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    if !state_for_window.quit_allowed.load(Ordering::SeqCst) {
+                        api.prevent_close();
+                        let request_id = uuid::Uuid::new_v4().to_string();
+                        if let Ok(mut guard) = state_for_window.pending_quit_request_id.lock() {
+                            *guard = Some(request_id.clone());
+                        }
+                        emit_window_event(
+                            &window_for_events,
+                            "desktop:quit-confirmation-request",
+                            &DesktopQuitConfirmationRequest {
+                                request_id: request_id.clone(),
+                                // The window is open, so the renderer shows its own dialog.
+                                presentation: "in-app".to_string(),
+                            },
+                        );
+                        let state_timeout = Arc::clone(&state_for_window);
+                        let app_timeout = app_for_window.clone();
+                        tauri::async_runtime::spawn(async move {
+                            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                            let still_pending = state_timeout
+                                .pending_quit_request_id
+                                .lock()
+                                .ok()
+                                .and_then(|g| g.clone())
+                                .map(|id| id == request_id)
+                                .unwrap_or(false);
+                            if still_pending {
+                                state_timeout.quit_allowed.store(true, Ordering::SeqCst);
+                                if let Some(win) = app_timeout.get_webview_window("main") {
+                                    let _ = win.close();
+                                } else {
+                                    app_timeout.exit(0);
+                                }
+                            }
+                        });
+                    }
+                }
                 if matches!(event, tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_)) {
                     let win_state = DesktopWindowState {
                         is_maximized: window_for_events.is_maximized().unwrap_or(false),
@@ -1445,21 +1609,39 @@ pub fn run() {
                         | tauri::WindowEvent::Resized(_)
                         | tauri::WindowEvent::CloseRequested { .. }
                 ) {
-                    if let (Ok(pos), Ok(size)) = (
-                        window_for_events.outer_position(),
-                        window_for_events.inner_size(),
-                    ) {
-                        let persisted = PersistedDesktopWindowState {
-                            version: 1,
-                            bounds: DesktopWindowBounds {
-                                x: pos.x,
-                                y: pos.y,
-                                width: size.width as i32,
-                                height: size.height as i32,
-                            },
-                            is_maximized: window_for_events.is_maximized().unwrap_or(false),
-                        };
-                        let _ = write_desktop_window_state(&window_state_path, &persisted);
+                    let is_maximized = window_for_events.is_maximized().unwrap_or(false);
+                    let is_minimized = window_for_events.is_minimized().unwrap_or(false);
+                    let is_fullscreen = window_for_events.is_fullscreen().unwrap_or(false);
+                    if !is_maximized && !is_minimized && !is_fullscreen {
+                        if let (Ok(pos), Ok(size)) = (
+                            window_for_events.outer_position(),
+                            window_for_events.inner_size(),
+                        ) {
+                            if size.width > 0 && size.height > 0 {
+                                if let Ok(mut guard) = last_normal_for_events.lock() {
+                                    *guard = Some(DesktopWindowBounds {
+                                        x: pos.x,
+                                        y: pos.y,
+                                        width: size.width as i32,
+                                        height: size.height as i32,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    if !is_minimized {
+                        let bounds_to_save = last_normal_for_events
+                            .lock()
+                            .ok()
+                            .and_then(|g| g.clone());
+                        if let Some(bounds) = bounds_to_save {
+                            let persisted = PersistedDesktopWindowState {
+                                version: 1,
+                                bounds,
+                                is_maximized,
+                            };
+                            let _ = write_desktop_window_state(&window_state_path, &persisted);
+                        }
                     }
                 }
             });
@@ -1550,11 +1732,6 @@ pub fn run() {
             desktop_browser_annotations_start,
             desktop_browser_annotations_cancel,
             desktop_browser_annotations_sync_markers,
-            desktop_pty_open,
-            desktop_pty_write,
-            desktop_pty_resize,
-            desktop_pty_snapshot,
-            desktop_pty_close,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Saint Rust desktop shell");
@@ -1569,11 +1746,7 @@ pub fn run() {
             for window in app_handle.webview_windows().values() {
                 let _ = window.hide();
             }
-            state_for_exit.backend.begin_shutdown();
-            state_for_exit.lan_relay.stop_sync();
-            state_for_exit.pty_host.close_all_sessions();
-            state_for_exit.remote_ssh.kill_all_tunnels();
-            state_for_exit.cua_host.kill_sync();
+            cleanup_all_managed_resources(&state_for_exit);
             tauri::async_runtime::block_on(state_for_exit.backend.stop_and_wait());
         }
     });

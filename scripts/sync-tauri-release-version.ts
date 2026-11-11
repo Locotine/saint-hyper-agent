@@ -90,9 +90,20 @@ export function generateTauriLatestManifest(options: {
   const downloadBaseUrl = `https://github.com/${options.repository}/releases/download/${options.tag}`;
 
   const matchUpdaterBundle = (
-    predicate: (filePath: string) => boolean,
+    predicates: ReadonlyArray<(filePath: string) => boolean>,
   ): TauriUpdaterPlatformEntry | null => {
-    const bundlePath = allFiles.find((file) => !file.endsWith(".sig") && predicate(file));
+    const candidates = allFiles.filter((file) => !file.endsWith(".sig"));
+    let bundlePath: string | undefined;
+    for (const predicate of predicates) {
+      bundlePath = candidates.find((file) => predicate(file) && existsSync(`${file}.sig`));
+      if (bundlePath) break;
+    }
+    if (!bundlePath) {
+      for (const predicate of predicates) {
+        bundlePath = candidates.find((file) => predicate(file));
+        if (bundlePath) break;
+      }
+    }
     if (!bundlePath) return null;
     const sigPath = `${bundlePath}.sig`;
     const signature = existsSync(sigPath) ? readFileSync(sigPath, "utf8").trim() : "";
@@ -103,32 +114,31 @@ export function generateTauriLatestManifest(options: {
     };
   };
 
-  const winX64 = matchUpdaterBundle(
-    (f) => f.endsWith("-setup.exe") || f.endsWith("_x64-setup.exe") || f.endsWith(".msi"),
-  );
+  const winX64 = matchUpdaterBundle([
+    (f) => f.endsWith("-setup.exe") || f.endsWith("_x64-setup.exe"),
+    (f) => f.endsWith(".msi"),
+  ]);
   if (winX64) {
     platforms["windows-x86_64"] = winX64;
   }
 
-  const macArm64 = matchUpdaterBundle(
-    (f) =>
-      (f.includes("aarch64") || f.includes("arm64")) &&
-      (f.endsWith(".app.tar.gz") || f.endsWith(".dmg")),
-  );
+  const macArm64 = matchUpdaterBundle([
+    (f) => (f.includes("aarch64") || f.includes("arm64")) && f.endsWith(".app.tar.gz"),
+    (f) => (f.includes("aarch64") || f.includes("arm64")) && f.endsWith(".dmg"),
+  ]);
   if (macArm64) {
     platforms["darwin-aarch64"] = macArm64;
   }
 
-  const macX64 = matchUpdaterBundle(
-    (f) =>
-      (f.includes("x86_64") || f.includes("x64")) &&
-      (f.endsWith(".app.tar.gz") || f.endsWith(".dmg")),
-  );
+  const macX64 = matchUpdaterBundle([
+    (f) => (f.includes("x86_64") || f.includes("x64")) && f.endsWith(".app.tar.gz"),
+    (f) => (f.includes("x86_64") || f.includes("x64")) && f.endsWith(".dmg"),
+  ]);
   if (macX64) {
     platforms["darwin-x86_64"] = macX64;
   }
 
-  const linuxX64 = matchUpdaterBundle((f) => f.endsWith(".AppImage") || f.endsWith(".deb"));
+  const linuxX64 = matchUpdaterBundle([(f) => f.endsWith(".AppImage"), (f) => f.endsWith(".deb")]);
   if (linuxX64) {
     platforms["linux-x86_64"] = linuxX64;
   }

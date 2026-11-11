@@ -62,3 +62,8 @@ apps/desktop-rust/target/
 apps/desktop-rust/dist-bridge/
 apps/desktop-rust/binaries/
 apps/desktop-rust/gen/
+.gstack/
+graphify-out/
+
+# Provisioned desktop helpers (cua-driver, appsnap)
+apps/desktop-rust/resources/

@@ -2,8 +2,16 @@ import type { ExternalMcpStdioConfiguration } from "@saint/contracts";
 
 import { quoteExternalMcpShellArgument } from "./shell.ts";
 
+function isBunVirtualEntryPath(candidate: string | undefined): boolean {
+  return (
+    typeof candidate === "string" && /^[/\\]\$bunfs[/\\]|^[a-zA-Z]:[/\\]~BUN[/\\]/u.test(candidate)
+  );
+}
+
 function executableEntry(): { readonly command: string; readonly prefix: ReadonlyArray<string> } {
-  const entry = process.env.SAINT_SERVER_ENTRY?.trim() || process.argv[1];
+  const configuredEntry = process.env.SAINT_SERVER_ENTRY?.trim();
+  const argvEntry = isBunVirtualEntryPath(process.argv[1]) ? undefined : process.argv[1];
+  const entry = configuredEntry || argvEntry;
   return entry
     ? { command: process.execPath, prefix: [entry] }
     : { command: process.execPath, prefix: [] };

@@ -15,9 +15,21 @@ use crate::backend::BackendSupervisor;
 use crate::updater::now_iso8601;
 
 pub const DEFAULT_LAN_RELAY_PORT: u16 = 3883;
+pub const MAX_LAN_RELAY_SESSIONS: usize = 64;
 const LAN_SESSION_COOKIE_NAME: &str = "saint_lan_session";
 const PAIRING_TOKEN_ALPHABET: &[u8] = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const PAIRING_TOKEN_LEN: usize = 12;
+
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (&x, &y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -243,9 +255,19 @@ impl LanRelayManager {
 }
 
 fn generate_pairing_token() -> String {
-    let bytes = *uuid::Uuid::new_v4().as_bytes();
+    let u1 = *uuid::Uuid::new_v4().as_bytes();
+    let u2 = *uuid::Uuid::new_v4().as_bytes();
+    let mut entropy = Vec::with_capacity(24);
+    for b in [&u1, &u2] {
+        // Skip byte 6 (UUID version nibble) and byte 8 (UUID variant bits) so all 12 bytes are uniform random.
+        for (idx, &val) in b.iter().enumerate() {
+            if idx != 6 && idx != 8 {
+                entropy.push(val);
+            }
+        }
+    }
     let mut out = String::with_capacity(PAIRING_TOKEN_LEN);
-    for b in bytes.iter().take(PAIRING_TOKEN_LEN) {
+    for b in entropy.iter().take(PAIRING_TOKEN_LEN) {
         let idx = (*b as usize) % PAIRING_TOKEN_ALPHABET.len();
         out.push(PAIRING_TOKEN_ALPHABET[idx] as char);
     }
@@ -343,11 +365,19 @@ fn list_system_ipv4_addresses() -> Vec<Ipv4Addr> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        if let Ok(output) = std::process::Command::new("ifconfig").output() {
-            if let Ok(text) = String::from_utf8(output.stdout) {
-                for token in text.split_whitespace() {
-                    if let Ok(ip) = token.parse::<Ipv4Addr>() {
-                        out.push(ip);
+        for (prog, args) in [
+            ("ip", &["-4", "-o", "addr", "show"][..]),
+            ("ifconfig", &[][..]),
+        ] {
+            if let Ok(output) = std::process::Command::new(prog).args(args).output() {
+                if let Ok(text) = String::from_utf8(output.stdout) {
+                    for token in text.split_whitespace() {
+                        let ip_str = token.split('/').next().unwrap_or(token);
+                        if let Ok(ip) = ip_str.parse::<Ipv4Addr>() {
+                            if !out.contains(&ip) {
+                                out.push(ip);
+                            }
+                        }
                     }
                 }
             }
@@ -472,8 +502,22 @@ fn issue_relay_session(
 ) -> Option<String> {
     let clean_token = provided_token.trim().to_uppercase();
     let mut guard = inner.lock().ok()?;
-    if clean_token.is_empty() || clean_token != guard.pairing_token.to_uppercase() {
+    let expected = guard.pairing_token.to_uppercase();
+    if clean_token.is_empty() || !constant_time_eq(clean_token.as_bytes(), expected.as_bytes()) {
         return None;
+    }
+
+    if guard.sessions.len() >= MAX_LAN_RELAY_SESSIONS {
+        if let Some(oldest_id) = guard
+            .sessions
+            .values()
+            .min_by(|a, b| a.info.last_seen_at.cmp(&b.info.last_seen_at))
+            .map(|s| s.info.session_id.clone())
+        {
+            if let Some(removed) = guard.sessions.remove(&oldest_id) {
+                let _ = removed.revoke_tx.send(true);
+            }
+        }
     }
 
     let session_id = uuid::Uuid::new_v4().to_string();
@@ -511,7 +555,7 @@ fn validate_relay_session(
 ) -> Option<watch::Receiver<bool>> {
     let mut guard = inner.lock().ok()?;
     for session in guard.sessions.values_mut() {
-        if session.secret == secret {
+        if constant_time_eq(session.secret.as_bytes(), secret.as_bytes()) {
             session.info.last_seen_at = now_iso8601();
             return Some(session.revoke_tx.subscribe());
         }
@@ -520,14 +564,22 @@ fn validate_relay_session(
 }
 
 fn append_auth_token_to_target(target: &str, token: &str) -> String {
-    if extract_query_param(target, "token").is_some() {
-        return target.to_string();
-    }
-    if target.contains('?') {
-        format!("{target}&token={token}")
-    } else {
-        format!("{target}?token={token}")
-    }
+    let Some((path, query)) = target.split_once('?') else {
+        return format!("{target}?token={token}");
+    };
+    let mut kept_params: Vec<&str> = query
+        .split('&')
+        .filter(|pair| {
+            !pair.is_empty()
+                && pair
+                    .split_once('=')
+                    .map(|(k, _)| k != "token")
+                    .unwrap_or(pair != &"token")
+        })
+        .collect();
+    let token_pair = format!("token={token}");
+    kept_params.push(&token_pair);
+    format!("{path}?{}", kept_params.join("&"))
 }
 
 async fn handle_relay_connection(
@@ -539,15 +591,22 @@ async fn handle_relay_connection(
 ) -> Result<(), String> {
     let mut buf = vec![0u8; 16384];
     let mut filled = 0usize;
+    let header_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
 
     let parsed = loop {
         if filled >= buf.len() {
             return Err("Header too large".to_string());
         }
-        let n = client_stream
-            .read(&mut buf[filled..])
-            .await
-            .map_err(|e| e.to_string())?;
+        let read_res = tokio::select! {
+            _ = tokio::time::sleep_until(header_deadline) => {
+                return Err("Timed out reading HTTP header".to_string());
+            }
+            _ = stop_rx.changed() => {
+                return Ok(());
+            }
+            res = client_stream.read(&mut buf[filled..]) => res,
+        };
+        let n = read_res.map_err(|e| e.to_string())?;
         if n == 0 {
             return Ok(());
         }
@@ -711,6 +770,23 @@ fn build_forwarded_request_header(
         }
         if k.eq_ignore_ascii_case("origin") {
             forward_header.push_str(&format!("Origin: http://127.0.0.1:{upstream_port}\r\n"));
+            continue;
+        }
+        if k.eq_ignore_ascii_case("cookie") {
+            let filtered_cookies: Vec<&str> = v
+                .split(';')
+                .map(str::trim)
+                .filter(|pair| {
+                    !pair.is_empty()
+                        && pair
+                            .split_once('=')
+                            .map(|(name, _)| name.trim() != LAN_SESSION_COOKIE_NAME)
+                            .unwrap_or(true)
+                })
+                .collect();
+            if !filtered_cookies.is_empty() {
+                forward_header.push_str(&format!("Cookie: {}\r\n", filtered_cookies.join("; ")));
+            }
             continue;
         }
         forward_header.push_str(&format!("{k}: {v}\r\n"));

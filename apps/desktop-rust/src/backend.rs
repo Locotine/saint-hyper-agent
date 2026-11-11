@@ -182,10 +182,30 @@ impl BackendSupervisor {
         } else {
             "saint-server"
         };
-        let bundled_sidecar = exe_dir.join(sidecar_name);
+        let sidecar_candidates = [
+            exe_dir.join(sidecar_name),
+            exe_dir.join("binaries").join(sidecar_name),
+            exe_dir.join("..").join("Resources").join(sidecar_name),
+            exe_dir
+                .join("..")
+                .join("Resources")
+                .join("binaries")
+                .join(sidecar_name),
+        ];
+        let bundled_sidecar = sidecar_candidates.into_iter().find(|p| p.is_file());
 
-        let mut cmd = if !cfg!(debug_assertions) && bundled_sidecar.is_file() {
-            let mut c = Command::new(bundled_sidecar);
+        let mut cmd = if !cfg!(debug_assertions) {
+            if let Some(sidecar_path) = bundled_sidecar {
+                let mut c = Command::new(sidecar_path);
+                c.arg("--port").arg(port.to_string());
+                c
+            } else {
+                let mut c = Command::new(exe_dir.join(sidecar_name));
+                c.arg("--port").arg(port.to_string());
+                c
+            }
+        } else if let Some(sidecar_path) = bundled_sidecar {
+            let mut c = Command::new(sidecar_path);
             c.arg("--port").arg(port.to_string());
             c
         } else {
@@ -225,6 +245,7 @@ impl BackendSupervisor {
             .env("SAINT_DESKTOP_SHUTDOWN_TOKEN", &self.shutdown_token)
             .env("SAINT_DESKTOP_BUNDLE_ID", crate::state::APP_BUNDLE_ID)
             .env("SAINT_DESKTOP_PARENT_PID", std::process::id().to_string())
+            .env("SAINT_DESKTOP_PARENT_STDIN", "1")
             .env("SAINT_NATIVE_PTY_BACKEND", "rust-portable-pty")
             .kill_on_drop(true)
             .stdin(Stdio::piped())
@@ -240,15 +261,21 @@ impl BackendSupervisor {
             .map(|v| PathBuf::from(v.trim()))
             .filter(|p| p.join("index.html").is_file())
             .or_else(|| {
-                let candidates = [
+                let mut candidates = vec![
                     exe_dir.join("client"),
                     exe_dir.join("resources").join("client"),
-                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                        .parent()
-                        .and_then(|p| p.parent())
-                        .map(|r| r.join("apps/web/dist"))
-                        .unwrap_or_else(|| PathBuf::from("apps/web/dist")),
+                    exe_dir.join("..").join("Resources").join("client"),
+                    exe_dir.join("..").join("Resources").join("resources").join("client"),
                 ];
+                if cfg!(debug_assertions) {
+                    candidates.push(
+                        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                            .parent()
+                            .and_then(|p| p.parent())
+                            .map(|r| r.join("apps/web/dist"))
+                            .unwrap_or_else(|| PathBuf::from("apps/web/dist")),
+                    );
+                }
                 candidates
                     .into_iter()
                     .find(|candidate| candidate.join("index.html").is_file())
@@ -443,7 +470,7 @@ impl BackendSupervisor {
         }
     }
 
-    fn kill_process_tree(pid: u32) {
+    pub(crate) fn kill_process_tree(pid: u32) {
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
@@ -527,7 +554,14 @@ impl BackendSupervisor {
             }
             if let Ok(resp) = client.get(&health_url).send().await {
                 if resp.status().is_success() {
-                    return Ok(());
+                    let body = resp.text().await.unwrap_or_default();
+                    let still_starting = serde_json::from_str::<serde_json::Value>(&body)
+                        .ok()
+                        .and_then(|val| val.get("startupReady").and_then(|v| v.as_bool()))
+                        == Some(false);
+                    if !still_starting {
+                        return Ok(());
+                    }
                 }
             }
             let now = tokio::time::Instant::now();
@@ -584,13 +618,20 @@ impl BackendSupervisor {
         if let Some(duration_ms) = input.duration_ms {
             query_params.push(("durationMs", duration_ms.to_string()));
         }
+        if let Some(language) = &input.language {
+            query_params.push(("language", language.clone()));
+        }
 
         let endpoint = format!("{base_url}/api/voice/transcribe");
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(60))
+            .build()
+            .map_err(|e| e.to_string())?;
         let response = client
             .post(endpoint)
             .query(&query_params)
             .header(reqwest::header::CONTENT_TYPE, input.mime_type)
+            .header(reqwest::header::ORIGIN, base_url)
             .bearer_auth(&self.auth_token)
             .body(audio_bytes)
             .send()
@@ -619,8 +660,30 @@ impl BackendSupervisor {
         // so the server begins graceful shutdown immediately.
         drop(child.stdin.take());
 
+        let shutdown_url = format!("{}/api/desktop/shutdown", self.current_http_base_url());
+        let shutdown_token = self.shutdown_token.clone();
+        tokio::spawn(async move {
+            if let Ok(client) = reqwest::Client::builder()
+                .timeout(Duration::from_millis(500))
+                .build()
+            {
+                let _ = client
+                    .post(shutdown_url)
+                    .bearer_auth(shutdown_token)
+                    .send()
+                    .await;
+            }
+        });
+
         let grace = Duration::from_secs(4);
         if tokio::time::timeout(grace, child.wait()).await.is_ok() {
+            #[cfg(unix)]
+            if let Some(pid) = pid {
+                let _ = tokio::task::spawn_blocking(move || {
+                    Self::kill_process_tree(pid);
+                })
+                .await;
+            }
             return;
         }
 
@@ -749,14 +812,15 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         tokio::spawn(async move {
-            for status_line in [
+            for response_raw in [
                 "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok",
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 42\r\nConnection: close\r\n\r\n{\"status\":\"starting\",\"startupReady\":false}",
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 35\r\nConnection: close\r\n\r\n{\"status\":\"ok\",\"startupReady\":true}",
             ] {
                 if let Ok((mut socket, _)) = listener.accept().await {
                     let mut buf = [0u8; 512];
                     let _ = socket.read(&mut buf).await;
-                    let _ = socket.write_all(status_line.as_bytes()).await;
+                    let _ = socket.write_all(response_raw.as_bytes()).await;
                 }
             }
         });
@@ -768,7 +832,7 @@ mod tests {
                 Duration::from_secs(30),
             )
             .await
-            .expect("must succeed once 200 OK is returned after 503");
+            .expect("must succeed once 200 OK with startupReady: true is returned");
 
         supervisor.stop_and_wait().await;
         let _ = std::fs::remove_dir_all(&root);

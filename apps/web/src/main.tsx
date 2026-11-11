@@ -28,7 +28,7 @@ document.title = APP_DISPLAY_NAME;
 if (isElectron) {
   document.documentElement.dataset.runtime = "electron";
   // Desktop windows backed by macOS vibrancy or the Hyprland compositor blur are transparent
-  // (see getWindowMaterialOptions in apps/desktop). A `backdrop-filter` cannot hide page
+  // (see the desktop shell window setup). A `backdrop-filter` cannot hide page
   // content over a see-through region there, so floating overlays get the page cut out from
   // under them instead.
   if (readDesktopWindowTranslucency() !== null) {

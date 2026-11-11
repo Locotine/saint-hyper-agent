@@ -136,6 +136,31 @@ export function parseQuitConfirmationRequest(
   };
 }
 
+function isValidQuitConfirmationResponse(
+  response: unknown,
+): response is DesktopQuitConfirmationResponse {
+  if (!response || typeof response !== "object") return false;
+  const candidate = response as Record<string, unknown>;
+  if (typeof candidate.requestId !== "string" || candidate.requestId.trim().length === 0) {
+    return false;
+  }
+  if (candidate.phase === "ready") {
+    return true;
+  }
+  if (candidate.phase === "decision") {
+    return typeof candidate.allow === "boolean";
+  }
+  return false;
+}
+
+function normalizeCaptureBytesField<T>(value: T): T {
+  if (!value || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  const bytes = computerPreviewFrameBytes(record.bytes);
+  if (!bytes) return value;
+  return { ...record, bytes } as T;
+}
+
 export function createDefaultTauriAdapter(): TauriRuntimeAdapter {
   const eventListeners = new Map<string, Set<(payload: unknown) => void>>();
 
@@ -315,6 +340,7 @@ export function createTauriDesktopBridge(
         if (request) listener(request);
       }),
     replyQuitConfirmation: (response: DesktopQuitConfirmationResponse) => {
+      if (!isValidQuitConfirmationResponse(response)) return;
       void adapter.invoke("desktop_quit_confirmation_response", { response }).catch(() => {});
     },
     getZoomFactor: () => currentZoomFactor,
@@ -353,8 +379,10 @@ export function createTauriDesktopBridge(
       show: (input) => adapter.invoke("desktop_notifications_show", { input }),
     },
     appSnap: {
-      captureCurrentApp: (requestId) =>
-        adapter.invoke("desktop_appsnap_capture_current_app", { requestId }),
+      captureCurrentApp: async (requestId) =>
+        normalizeCaptureBytesField(
+          await adapter.invoke("desktop_appsnap_capture_current_app", { requestId }),
+        ),
       cancelCapture: (requestId) => adapter.invoke("desktop_appsnap_cancel_capture", { requestId }),
       getState: (permissions) =>
         adapter.invoke("desktop_appsnap_get_state", { permissions: permissions ?? null }),
@@ -365,11 +393,21 @@ export function createTauriDesktopBridge(
         adapter.invoke("desktop_appsnap_request_permissions", { permissions: permissions ?? null }),
       startPermissionSetup: (permissions) =>
         adapter.invoke("desktop_appsnap_start_permission_setup", { permissions }),
-      listPendingCaptures: () => adapter.invoke("desktop_appsnap_list_pending_captures"),
+      listPendingCaptures: async () => {
+        const captures = await adapter.invoke<unknown>("desktop_appsnap_list_pending_captures");
+        return Array.isArray(captures)
+          ? (captures.map((item) => normalizeCaptureBytesField(item)) as Awaited<
+              ReturnType<DesktopBridge["appSnap"]["listPendingCaptures"]>
+            >)
+          : [];
+      },
       acknowledgeCapture: (captureId) =>
         adapter.invoke("desktop_appsnap_acknowledge_capture", { captureId }),
       listWindows: () => adapter.invoke("desktop_appsnap_list_windows"),
-      captureWindow: (input) => adapter.invoke("desktop_appsnap_capture_window", { input }),
+      captureWindow: async (input) =>
+        normalizeCaptureBytesField(
+          await adapter.invoke("desktop_appsnap_capture_window", { input }),
+        ),
       openPermissionSettings: (pane) =>
         adapter.invoke("desktop_appsnap_open_permission_settings", { pane }),
       restartApp: () => adapter.invoke("desktop_appsnap_restart_app"),
@@ -378,14 +416,14 @@ export function createTauriDesktopBridge(
       hidePermissionGuide: () => adapter.invoke("desktop_appsnap_hide_permission_guide"),
       onPermissionGuideState: (listener) =>
         adapter.listen("desktop:appsnap-permission-guide-state", (state) => {
-          if (typeof state === "string") {
-            listener(state as Parameters<typeof listener>[0]);
+          if (state === "closed" || state === "granted") {
+            listener(state);
           }
         }),
       onCaptured: (listener) =>
         adapter.listen("desktop:appsnap-captured", (capture) => {
           if (typeof capture === "object" && capture !== null) {
-            listener(capture as Parameters<typeof listener>[0]);
+            listener(normalizeCaptureBytesField(capture) as Parameters<typeof listener>[0]);
           }
         }),
       onError: (listener) =>
@@ -422,7 +460,10 @@ export function createTauriDesktopBridge(
       copyLink: (input) => adapter.invoke("desktop_browser_request_copy_link", { input }),
       copyScreenshotToClipboard: (input) =>
         adapter.invoke("desktop_browser_copy_screenshot_to_clipboard", { input }),
-      captureScreenshot: (input) => adapter.invoke("desktop_browser_capture_screenshot", { input }),
+      captureScreenshot: async (input) =>
+        normalizeCaptureBytesField(
+          await adapter.invoke("desktop_browser_capture_screenshot", { input }),
+        ),
       capturePreview: (input) => adapter.invoke("desktop_browser_capture_preview", { input }),
       navigate: (input) => adapter.invoke("desktop_browser_navigate", { input }),
       reload: (input) => adapter.invoke("desktop_browser_reload", { input }),

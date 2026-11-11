@@ -136,6 +136,8 @@ fn detect_rosetta_translation() -> bool {
 
 pub struct UpdaterCoordinator {
     state: Mutex<DesktopUpdateState>,
+    install_in_flight: Mutex<bool>,
+    downloaded_payload: Mutex<Option<(String, Vec<u8>)>>,
 }
 
 impl UpdaterCoordinator {
@@ -195,6 +197,38 @@ impl UpdaterCoordinator {
 
         Self {
             state: Mutex::new(initial),
+            install_in_flight: Mutex::new(false),
+            downloaded_payload: Mutex::new(None),
+        }
+    }
+
+    #[cfg(test)]
+    fn set_enabled_for_test(&self, enabled: bool) {
+        let mut guard = self.state.lock().expect("updater mutex poisoned");
+        guard.enabled = enabled;
+        if enabled && guard.status == "disabled" {
+            guard.status = "idle".to_string();
+            guard.message = None;
+        }
+    }
+
+    pub fn store_downloaded_payload(&self, version: String, bytes: Vec<u8>) {
+        if let Ok(mut guard) = self.downloaded_payload.lock() {
+            *guard = Some((version, bytes));
+        }
+    }
+
+    pub fn take_downloaded_payload(&self, expected_version: &str) -> Option<Vec<u8>> {
+        let guard = self.downloaded_payload.lock().ok()?;
+        match guard.as_ref() {
+            Some((ver, bytes)) if ver == expected_version => Some(bytes.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn clear_downloaded_payload(&self) {
+        if let Ok(mut guard) = self.downloaded_payload.lock() {
+            *guard = None;
         }
     }
 
@@ -202,23 +236,37 @@ impl UpdaterCoordinator {
         self.state.lock().expect("updater mutex poisoned").clone()
     }
 
-    pub fn begin_check(&self) -> DesktopUpdateState {
+    pub fn begin_check(&self) -> (bool, DesktopUpdateState) {
         let mut guard = self.state.lock().expect("updater mutex poisoned");
-        if !guard.enabled {
-            return guard.clone();
+        let in_flight = *self
+            .install_in_flight
+            .lock()
+            .expect("updater install mutex poisoned");
+        if !guard.enabled
+            || in_flight
+            || matches!(guard.status.as_str(), "checking" | "downloading" | "downloaded")
+        {
+            return (false, guard.clone());
         }
         guard.status = "checking".to_string();
         guard.message = None;
         guard.error_context = None;
         guard.can_retry = false;
-        guard.clone()
+        (true, guard.clone())
     }
 
     pub fn mark_up_to_date(&self, timestamp_iso: String) -> DesktopUpdateState {
         let mut guard = self.state.lock().expect("updater mutex poisoned");
+        *self
+            .install_in_flight
+            .lock()
+            .expect("updater install mutex poisoned") = false;
+        self.clear_downloaded_payload();
         guard.status = "up-to-date".to_string();
         guard.checked_at = Some(timestamp_iso);
         guard.available_version = None;
+        guard.downloaded_version = None;
+        guard.download_percent = None;
         guard.message = None;
         guard.error_context = None;
         guard.can_retry = false;
@@ -227,8 +275,15 @@ impl UpdaterCoordinator {
 
     pub fn mark_available(&self, version: String, timestamp_iso: String) -> DesktopUpdateState {
         let mut guard = self.state.lock().expect("updater mutex poisoned");
+        *self
+            .install_in_flight
+            .lock()
+            .expect("updater install mutex poisoned") = false;
+        self.clear_downloaded_payload();
         guard.status = "available".to_string();
         guard.available_version = Some(version);
+        guard.downloaded_version = None;
+        guard.download_percent = None;
         guard.checked_at = Some(timestamp_iso);
         guard.message = None;
         guard.error_context = None;
@@ -238,7 +293,15 @@ impl UpdaterCoordinator {
 
     pub fn begin_download(&self) -> (bool, DesktopUpdateState) {
         let mut guard = self.state.lock().expect("updater mutex poisoned");
-        if !guard.enabled || guard.available_version.is_none() {
+        let in_flight = *self
+            .install_in_flight
+            .lock()
+            .expect("updater install mutex poisoned");
+        if !guard.enabled
+            || in_flight
+            || guard.status != "available"
+            || guard.available_version.is_none()
+        {
             return (false, guard.clone());
         }
         guard.status = "downloading".to_string();
@@ -269,28 +332,47 @@ impl UpdaterCoordinator {
 
     pub fn begin_install(&self) -> (bool, DesktopUpdateState) {
         let mut guard = self.state.lock().expect("updater mutex poisoned");
-        if !guard.enabled || guard.downloaded_version.is_none() {
+        let mut in_flight = self
+            .install_in_flight
+            .lock()
+            .expect("updater install mutex poisoned");
+        if !guard.enabled
+            || *in_flight
+            || guard.status != "downloaded"
+            || guard.downloaded_version.is_none()
+        {
             return (false, guard.clone());
         }
-        guard.status = "installing".to_string();
+        *in_flight = true;
+        // Keep status as "downloaded" to match DesktopUpdateStatus contract (never emit "installing").
+        guard.status = "downloaded".to_string();
         guard.message = None;
         guard.error_context = None;
+        guard.can_retry = false;
         (true, guard.clone())
     }
 
     pub fn mark_error(&self, context: &str, message: String) -> DesktopUpdateState {
         let mut guard = self.state.lock().expect("updater mutex poisoned");
+        *self
+            .install_in_flight
+            .lock()
+            .expect("updater install mutex poisoned") = false;
         if context == "install" {
             guard.install_failure_count += 1;
         }
-        guard.status = if context == "download" && guard.available_version.is_some() {
+        guard.status = if context == "install" && guard.downloaded_version.is_some() {
+            "downloaded".to_string()
+        } else if context == "download" && guard.available_version.is_some() {
             "available".to_string()
         } else {
             "error".to_string()
         };
         guard.error_context = Some(context.to_string());
         guard.message = Some(message);
-        guard.can_retry = guard.available_version.is_some() || context == "check";
+        guard.can_retry = guard.downloaded_version.is_some()
+            || guard.available_version.is_some()
+            || context == "check";
         guard.clone()
     }
 }
@@ -308,12 +390,42 @@ mod tests {
         assert!(is_update_version_newer("1.2.0-beta.1", "1.2.0"));
 
         let coord = UpdaterCoordinator::new();
+        coord.set_enabled_for_test(true);
+
+        let (accepted_check, checking) = coord.begin_check();
+        assert!(accepted_check);
+        assert_eq!(checking.status, "checking");
+        // Duplicate check while checking is rejected
+        let (dup_check, _) = coord.begin_check();
+        assert!(!dup_check);
+
         let avail = coord.mark_available("1.2.0".to_string(), "2026-11-06T00:00:00Z".to_string());
         assert_eq!(avail.status, "available");
         assert_eq!(avail.available_version.as_deref(), Some("1.2.0"));
 
+        let (accepted_dl, _) = coord.begin_download();
+        assert!(accepted_dl);
+        let (dup_dl, _) = coord.begin_download();
+        assert!(!dup_dl);
+
+        coord.store_downloaded_payload("1.2.0".to_string(), vec![1, 2, 3, 4]);
         let downloaded = coord.mark_downloaded("1.2.0".to_string());
         assert_eq!(downloaded.status, "downloaded");
         assert_eq!(downloaded.download_percent, Some(100.0));
+
+        // begin_check while downloaded is rejected so downloaded state is not clobbered
+        let (check_while_downloaded, _) = coord.begin_check();
+        assert!(!check_while_downloaded);
+
+        let (accepted_install, installing) = coord.begin_install();
+        assert!(accepted_install);
+        assert_eq!(installing.status, "downloaded");
+        assert_eq!(coord.take_downloaded_payload("1.2.0"), Some(vec![1, 2, 3, 4]));
+
+        // Install error preserves "downloaded" status and sets can_retry = true
+        let err_state = coord.mark_error("install", "disk busy".to_string());
+        assert_eq!(err_state.status, "downloaded");
+        assert!(err_state.can_retry);
+        assert_eq!(err_state.install_failure_count, 1);
     }
 }

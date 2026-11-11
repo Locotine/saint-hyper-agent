@@ -33,6 +33,8 @@ export interface WorkspaceUploadProgress {
 }
 
 const uploadProgressByCwd = new Map<string, WorkspaceUploadProgress>();
+const activeUploadIdByCwd = new Map<string, number>();
+let nextUploadId = 0;
 const uploadProgressListeners = new Set<() => void>();
 
 function notifyUploadProgress(cwd: string, progress: WorkspaceUploadProgress | null): void {
@@ -79,6 +81,9 @@ export async function uploadFilesToWorkspace(input: {
   let completedFiles = 0;
   let completedBytes = 0;
 
+  const uploadId = ++nextUploadId;
+  activeUploadIdByCwd.set(input.cwd, uploadId);
+
   const emitProgress = (currentFileName: string, currentFileLoadedBytes: number) => {
     const loadedBytes = Math.min(totalBytes, completedBytes + currentFileLoadedBytes);
     const percent =
@@ -96,7 +101,9 @@ export async function uploadFilesToWorkspace(input: {
       totalBytes,
       percent,
     };
-    notifyUploadProgress(input.cwd, snapshot);
+    if (activeUploadIdByCwd.get(input.cwd) === uploadId) {
+      notifyUploadProgress(input.cwd, snapshot);
+    }
     input.onProgress?.(snapshot);
   };
 
@@ -144,7 +151,10 @@ export async function uploadFilesToWorkspace(input: {
       emitProgress(file.name, 0);
     }
   } finally {
-    notifyUploadProgress(input.cwd, null);
+    if (activeUploadIdByCwd.get(input.cwd) === uploadId) {
+      activeUploadIdByCwd.delete(input.cwd);
+      notifyUploadProgress(input.cwd, null);
+    }
     input.onProgress?.(null);
   }
   return result;

@@ -566,7 +566,8 @@ export const OrchestrationMessageSource = Schema.Literals([
 ]);
 export type OrchestrationMessageSource = typeof OrchestrationMessageSource.Type;
 
-export const PROVIDER_SEND_TURN_MAX_INPUT_CHARS = 120_000;
+// Keep worst-case UTF-8 (3 bytes/char) under MAX_WEBSOCKET_MESSAGE_BYTES (2 MiB).
+export const PROVIDER_SEND_TURN_MAX_INPUT_CHARS = 500_000;
 export const PROVIDER_SEND_TURN_MAX_ATTACHMENTS = 8;
 export const PROVIDER_SEND_TURN_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 // Raw local images may exceed the provider-safe payload limit when they can be

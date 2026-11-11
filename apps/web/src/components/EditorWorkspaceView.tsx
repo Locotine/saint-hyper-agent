@@ -70,7 +70,7 @@ import {
   summarizeFileDiffStats,
 } from "~/lib/diffRendering";
 import { showFileReferenceContextMenu } from "~/lib/fileReferenceContextMenu";
-import type { ChatFileReference } from "~/lib/chatReferences";
+import { CHAT_FILE_REFERENCE_DRAG_TYPE, type ChatFileReference } from "~/lib/chatReferences";
 import type { DiffEditBaseRev } from "~/lib/diffEditBaseRev";
 import {
   editorActivityBarSelectionLeavesEditor,
@@ -460,11 +460,15 @@ function SplitZoneDroppableTarget(props: {
     },
   });
 
+  const handleHover = useEffectEvent(() => {
+    props.onHoverZone(props.zone);
+  });
+
   useEffect(() => {
     if (isOver) {
-      props.onHoverZone(props.zone);
+      handleHover();
     }
-  }, [isOver, props]);
+  }, [isOver]);
 
   if (!props.active) return null;
   return (
@@ -476,7 +480,10 @@ function SplitZoneDroppableTarget(props: {
   );
 }
 
-function extractDroppedFilePath(dataTransfer: DataTransfer): string | null {
+export function extractDroppedFilePath(dataTransfer: DataTransfer): string | null {
+  if (!Array.from(dataTransfer.types).includes(CHAT_FILE_REFERENCE_DRAG_TYPE)) {
+    return null;
+  }
   const plain = dataTransfer.getData("text/plain")?.trim();
   if (plain) return plain;
   return null;
@@ -612,6 +619,10 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
     const base = persisted ?? createInitialEditorSplitLayout(props.selectedFilePath);
     return syncPrimaryFileIntoSplitLayout(base, props.selectedFilePath);
   });
+  const splitLayoutRef = useRef(splitLayout);
+  splitLayoutRef.current = splitLayout;
+  const splitLayoutThreadIdRef = useRef(props.threadId);
+  const splitDividerCleanupRef = useRef<(() => void) | null>(null);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
   const [dndActiveTab, setDndActiveTab] = useState<{
     groupId: string;
@@ -623,12 +634,27 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
   } | null>(null);
 
   useEffect(() => {
-    if (!props.selectedFilePath) return;
-    setSplitLayout((current) => syncPrimaryFileIntoSplitLayout(current, props.selectedFilePath));
-  }, [props.selectedFilePath]);
+    return () => {
+      splitDividerCleanupRef.current?.();
+    };
+  }, []);
 
   useEffect(() => {
-    if (!props.threadId) return;
+    if (splitLayoutThreadIdRef.current !== props.threadId) {
+      splitLayoutThreadIdRef.current = props.threadId;
+      const persisted = props.threadId ? readEditorViewState(props.threadId)?.splitLayout : null;
+      const base = persisted ?? createInitialEditorSplitLayout(props.selectedFilePath);
+      const next = syncPrimaryFileIntoSplitLayout(base, props.selectedFilePath);
+      splitLayoutRef.current = next;
+      setSplitLayout(next);
+      return;
+    }
+    if (!props.selectedFilePath) return;
+    setSplitLayout((current) => syncPrimaryFileIntoSplitLayout(current, props.selectedFilePath));
+  }, [props.threadId, props.selectedFilePath]);
+
+  useEffect(() => {
+    if (!props.threadId || splitLayoutThreadIdRef.current !== props.threadId) return;
     storeEditorSplitLayout(props.threadId, splitLayout);
   }, [props.threadId, splitLayout]);
 
@@ -684,18 +710,17 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
 
   const handleCloseTabInGroup = (groupId: string, filePath: string) => {
     guardLeavingEdit(() => {
-      setSplitLayout((current) => {
-        const next = closeFileInSplitGroup(current, groupId, filePath);
-        const activeGroup =
-          next.groups.find((group) => group.id === next.activeGroupId) ?? next.groups[0];
-        if (
-          activeGroup?.selectedFilePath &&
-          activeGroup.selectedFilePath !== props.selectedFilePath
-        ) {
-          props.onSelectFile(activeGroup.selectedFilePath);
-        }
-        return next;
-      });
+      const next = closeFileInSplitGroup(splitLayoutRef.current, groupId, filePath);
+      splitLayoutRef.current = next;
+      setSplitLayout(next);
+      const activeGroup =
+        next.groups.find((group) => group.id === next.activeGroupId) ?? next.groups[0];
+      if (
+        activeGroup?.selectedFilePath &&
+        activeGroup.selectedFilePath !== props.selectedFilePath
+      ) {
+        props.onSelectFile(activeGroup.selectedFilePath);
+      }
     });
   };
 
@@ -714,12 +739,25 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
     const totalPixels = isHorizontal ? rect.width : rect.height;
     if (totalPixels <= 0) return;
 
+    splitDividerCleanupRef.current?.();
+
     let lastPos = isHorizontal ? event.clientX : event.clientY;
     const pointerId = event.pointerId;
     const restoreCursor = document.body.style.cursor;
     const restoreUserSelect = document.body.style.userSelect;
     document.body.style.cursor = isHorizontal ? "col-resize" : "row-resize";
     document.body.style.userSelect = "none";
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onEnd);
+      window.removeEventListener("pointercancel", onEnd);
+      document.body.style.cursor = restoreCursor;
+      document.body.style.userSelect = restoreUserSelect;
+      if (splitDividerCleanupRef.current === cleanup) {
+        splitDividerCleanupRef.current = null;
+      }
+    };
 
     const onMove = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) return;
@@ -732,13 +770,10 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
 
     const onEnd = (endEvent: PointerEvent) => {
       if (endEvent.pointerId !== pointerId) return;
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onEnd);
-      window.removeEventListener("pointercancel", onEnd);
-      document.body.style.cursor = restoreCursor;
-      document.body.style.userSelect = restoreUserSelect;
+      cleanup();
     };
 
+    splitDividerCleanupRef.current = cleanup;
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onEnd);
     window.addEventListener("pointercancel", onEnd);
@@ -839,8 +874,22 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
   };
 
   const guardedSelectFile = (filePath: string) => {
-    guardLeavingEdit(() => props.onSelectFile(filePath));
+    guardLeavingEdit(() => {
+      setSplitLayout((current) => syncPrimaryFileIntoSplitLayout(current, filePath));
+      props.onSelectFile(filePath);
+    });
   };
+
+  const activeSplitGroup =
+    splitLayout.groups.find((candidate) => candidate.id === splitLayout.activeGroupId) ??
+    splitLayout.groups[0];
+  const fileEditGroupId =
+    props.centerMode === "fileEdit" && props.editFilePath !== null
+      ? activeSplitGroup?.selectedFilePath === props.editFilePath
+        ? activeSplitGroup.id
+        : (splitLayout.groups.find((candidate) => candidate.selectedFilePath === props.editFilePath)
+            ?.id ?? null)
+      : null;
 
   const guardedSelectDiffFile = (filePath: string) => {
     guardLeavingEdit(() => props.onSelectDiffFile(filePath));
@@ -1061,8 +1110,7 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
                   >
                     {splitLayout.groups.map((group: EditorSplitGroup, groupIndex: number) => {
                       const isPrimaryActive = group.id === splitLayout.activeGroupId;
-                      const groupFilePath =
-                        group.selectedFilePath ?? (isPrimaryActive ? props.selectedFilePath : null);
+                      const groupFilePath = group.selectedFilePath;
                       const groupMarkdownKey = `${props.workspaceRoot ?? ""}\0${groupFilePath ?? ""}`;
                       const groupSizePercent =
                         splitLayout.sizes[groupIndex] ?? 100 / splitLayout.groups.length;
@@ -1070,7 +1118,7 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
                         hoveredDropZone?.groupId === group.id ? hoveredDropZone.zone : null;
                       const handleGroupDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
                         const types = Array.from(event.dataTransfer.types);
-                        if (!types.includes("text/plain")) return;
+                        if (!types.includes(CHAT_FILE_REFERENCE_DRAG_TYPE)) return;
                         event.preventDefault();
                         event.dataTransfer.dropEffect = "copy";
                         const rect = event.currentTarget.getBoundingClientRect();
@@ -1079,12 +1127,11 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
                           event.clientX,
                           event.clientY,
                         );
-                        if (
-                          hoveredDropZone?.groupId !== group.id ||
-                          hoveredDropZone.zone !== zone
-                        ) {
-                          setHoveredDropZone({ groupId: group.id, zone });
-                        }
+                        setHoveredDropZone((previous) =>
+                          previous?.groupId === group.id && previous.zone === zone
+                            ? previous
+                            : { groupId: group.id, zone },
+                        );
                       };
                       const handleGroupDragLeave = (event: ReactDragEvent<HTMLDivElement>) => {
                         if (
@@ -1093,9 +1140,9 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
                         ) {
                           return;
                         }
-                        if (hoveredDropZone?.groupId === group.id) {
-                          setHoveredDropZone(null);
-                        }
+                        setHoveredDropZone((previous) =>
+                          previous?.groupId === group.id ? null : previous,
+                        );
                       };
                       const handleGroupDrop = (event: ReactDragEvent<HTMLDivElement>) => {
                         const droppedPath = extractDroppedFilePath(event.dataTransfer);
@@ -1153,7 +1200,11 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
                                   active={dndActiveTab !== null}
                                   onHoverZone={(hovered) => {
                                     if (hovered) {
-                                      setHoveredDropZone({ groupId: group.id, zone: hovered });
+                                      setHoveredDropZone((previous) =>
+                                        previous?.groupId === group.id && previous.zone === hovered
+                                          ? previous
+                                          : { groupId: group.id, zone: hovered },
+                                      );
                                     }
                                   }}
                                 />
@@ -1168,9 +1219,7 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
                                   )}
                                 />
                               ) : null}
-                              {props.centerMode === "fileEdit" &&
-                              props.editFilePath !== null &&
-                              isPrimaryActive ? (
+                              {fileEditGroupId === group.id && props.editFilePath !== null ? (
                                 <WorkspaceFileEditorPane
                                   onReferenceInChat={props.onReferenceInChat}
                                   workspaceRoot={props.workspaceRoot}

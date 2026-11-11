@@ -1,7 +1,7 @@
 // FILE: remote-deps-pack.ts
 // Purpose: Builds and checks the remote server's dependency pack, a gzipped node_modules
 //          committed in apps/server/remote-deps so no machine needs npm to install a
-//          remote SSH host. Read by apps/desktop/src/remoteSshBundle.ts (REMOTE_DEPS_PACK_FILE).
+//          remote SSH host.
 // Layer: Desktop artifact build helper
 
 import { execFileSync } from "node:child_process";

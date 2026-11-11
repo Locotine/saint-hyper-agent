@@ -1,6 +1,6 @@
 {
   "name": "@saint/web",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,7 +16,6 @@
     "test:browser:ci": "vitest run --config vitest.browser.ci.config.ts",
     "test:browser:geometry": "vitest run --config vitest.browser.geometry.config.ts",
     "test:editor:e2e": "playwright test --config playwright.editor.config.ts",
-    "test:electron:e2e": "playwright test --config playwright.electron.config.ts",
     "test:browser:install": "playwright install --with-deps chromium",
     "measure:lcp": "node scripts/measure-lcp.mjs"
   },

@@ -17,10 +17,7 @@ import {
   type ServerConfig,
 } from "@saint/contracts";
 import { Schema, type Effect } from "effect";
-import {
-  startFocusProbe,
-  type FocusProbeExpect,
-} from "../../apps/desktop/src/cuaFixtures/focusProbe.ts";
+import { startFocusProbe, type FocusProbeExpect } from "./focusProbe.ts";
 import { artifactIdentity, PackagedAppInstallationError } from "./packaged-artifact.ts";
 import {
   connectPackagedOwner,

@@ -1,6 +1,6 @@
 import * as Net from "node:net";
 import { Effect } from "effect";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PtyAdapter, type PtyExitEvent } from "../Services/PTY";
 import { PAUSE_BUFFER_LIMIT, RustPtyProcess, layer as RustPtyAdapterLive } from "./RustPTY";
@@ -9,6 +9,7 @@ describe("RustPTY", () => {
   const originalPort = process.env.SAINT_RUST_PTY_PORT;
   const originalToken = process.env.SAINT_RUST_PTY_TOKEN;
   const servers: Net.Server[] = [];
+  const sockets: Net.Socket[] = [];
 
   afterEach(async () => {
     if (originalPort === undefined) {
@@ -20,6 +21,9 @@ describe("RustPTY", () => {
       delete process.env.SAINT_RUST_PTY_TOKEN;
     } else {
       process.env.SAINT_RUST_PTY_TOKEN = originalToken;
+    }
+    for (const socket of sockets.splice(0)) {
+      socket.destroy();
     }
     await Promise.all(
       servers.splice(0).map(
@@ -36,6 +40,7 @@ describe("RustPTY", () => {
     const initialPrompt = "Welcome to Saint Terminal\r\n$ ";
 
     const server = Net.createServer((socket) => {
+      sockets.push(socket);
       let buffer = "";
       socket.on("data", (chunk) => {
         buffer += chunk.toString("utf8");
@@ -116,6 +121,7 @@ describe("RustPTY", () => {
     const initialPrompt = "output-before-exit\r\n";
 
     const server = Net.createServer((socket) => {
+      sockets.push(socket);
       let buffer = "";
       socket.on("data", (chunk) => {
         buffer += chunk.toString("utf8");
@@ -186,6 +192,7 @@ describe("RustPTY", () => {
     const trailingOutput = "^C\r\n";
 
     const server = Net.createServer((socket) => {
+      sockets.push(socket);
       let buffer = "";
       socket.on("data", (chunk) => {
         buffer += chunk.toString("utf8");
@@ -253,6 +260,7 @@ describe("RustPTY", () => {
     const trailingError = "fatal: port already in use\r\n";
 
     const server = Net.createServer((socket) => {
+      sockets.push(socket);
       let buffer = "";
       socket.on("data", (chunk) => {
         buffer += chunk.toString("utf8");
@@ -321,6 +329,7 @@ describe("RustPTY", () => {
     const partialOutput = "stream cut off by backpressure shutdown\r\n";
 
     const server = Net.createServer((socket) => {
+      sockets.push(socket);
       let buffer = "";
       socket.on("data", (chunk) => {
         buffer += chunk.toString("utf8");
@@ -389,6 +398,7 @@ describe("RustPTY", () => {
     expect(chunkBytes).toBe(1_000_002);
 
     const server = Net.createServer((socket) => {
+      sockets.push(socket);
       let buffer = "";
       socket.on("data", (chunk) => {
         buffer += chunk.toString("utf8");
@@ -423,38 +433,49 @@ describe("RustPTY", () => {
     process.env.SAINT_RUST_PTY_PORT = String(port);
     process.env.SAINT_RUST_PTY_TOKEN = token;
 
-    const ptyProcess = await Effect.runPromise(
-      Effect.gen(function* () {
-        const adapter = yield* PtyAdapter;
-        return yield* adapter.spawn({
-          shell: "sh",
-          cwd: process.cwd(),
-          cols: 80,
-          rows: 24,
-          env: {},
-        });
-      }).pipe(Effect.provide(RustPtyAdapterLive)),
-    );
+    const spy = vi.spyOn(RustPtyProcess.prototype, "handleRawData");
+    try {
+      const ptyProcess = await Effect.runPromise(
+        Effect.gen(function* () {
+          const adapter = yield* PtyAdapter;
+          return yield* adapter.spawn({
+            shell: "sh",
+            cwd: process.cwd(),
+            cols: 80,
+            rows: 24,
+            env: {},
+          });
+        }).pipe(Effect.provide(RustPtyAdapterLive)),
+      );
 
-    // Wait briefly so all 10 chunks are read from the loopback socket before onData attaches.
-    await new Promise((resolve) => setTimeout(resolve, 60));
+      // Wait until all 10 chunks are read from the loopback socket before onData attaches.
+      // ~13 MB of base64 over loopback can take well over the 1 s default under full-suite load.
+      await vi.waitFor(
+        () => {
+          expect(spy).toHaveBeenCalledTimes(10);
+        },
+        { timeout: 15_000 },
+      );
 
-    const receivedChunks: string[] = [];
-    ptyProcess.onData((chunk) => {
-      receivedChunks.push(chunk);
-    });
-    expect(receivedChunks).toEqual([]);
-    await new Promise<void>((resolve) => queueMicrotask(resolve));
+      const receivedChunks: string[] = [];
+      ptyProcess.onData((chunk) => {
+        receivedChunks.push(chunk);
+      });
+      expect(receivedChunks).toEqual([]);
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
 
-    const combined = receivedChunks.join("");
-    const receivedBytes = Buffer.byteLength(combined, "utf8");
-    // 8 chunks of 1,000,003 bytes = 8,000,024 bytes <= 8,388,608; chunks 0 and 1 were dropped.
-    expect(receivedChunks.length).toBe(8);
-    expect(receivedBytes).toBeLessThanOrEqual(PAUSE_BUFFER_LIMIT);
-    expect(receivedChunks[0]?.startsWith("2€")).toBe(true);
-    expect(receivedChunks[7]?.startsWith("9€")).toBe(true);
-    expect(combined.includes("\uFFFD")).toBe(false);
-    ptyProcess.kill();
+      const combined = receivedChunks.join("");
+      const receivedBytes = Buffer.byteLength(combined, "utf8");
+      // 8 chunks of 1,000,003 bytes = 8,000,024 bytes <= 8,388,608; chunks 0 and 1 were dropped.
+      expect(receivedChunks.length).toBe(8);
+      expect(receivedBytes).toBeLessThanOrEqual(PAUSE_BUFFER_LIMIT);
+      expect(receivedChunks[0]?.startsWith("2€")).toBe(true);
+      expect(receivedChunks[7]?.startsWith("9€")).toBe(true);
+      expect(combined.includes("\uFFFD")).toBe(false);
+      ptyProcess.kill();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("delivers all output without eviction when paused buffer overflows PAUSE_BUFFER_LIMIT with an attached listener", () => {
@@ -509,5 +530,69 @@ describe("RustPTY", () => {
     expect(tail.includes("\uFFFD")).toBe(false);
     const firstCode = tail.charCodeAt(0);
     expect(firstCode < 0xdc00 || firstCode > 0xdfff).toBe(true);
+  });
+
+  it("resumes a paused bridge socket on kill so exit events are still delivered", async () => {
+    const token = "test-bridge-token-paused-kill";
+
+    const server = Net.createServer((socket) => {
+      sockets.push(socket);
+      let buffer = "";
+      let spawned = false;
+      socket.on("data", (chunk) => {
+        buffer += chunk.toString("utf8");
+        let idx = buffer.indexOf("\n");
+        while (idx !== -1) {
+          const line = buffer.slice(0, idx).trim();
+          buffer = buffer.slice(idx + 1);
+          idx = buffer.indexOf("\n");
+          if (!line) continue;
+          const msg = JSON.parse(line) as { type: string };
+          if (!spawned) {
+            spawned = true;
+            socket.write(`${JSON.stringify({ type: "spawned", pid: 8888 })}\n`);
+          } else if (msg.type === "kill") {
+            socket.write(`${JSON.stringify({ type: "exit", exitCode: 0, signal: null })}\n`);
+          }
+        }
+      });
+    });
+    servers.push(server);
+
+    const port = await new Promise<number>((resolve, reject) => {
+      server.listen(0, "127.0.0.1", () => {
+        const addr = server.address();
+        if (addr && typeof addr === "object") {
+          resolve(addr.port);
+        } else {
+          reject(new Error("Failed to bind mock PTY server"));
+        }
+      });
+    });
+
+    process.env.SAINT_RUST_PTY_PORT = String(port);
+    process.env.SAINT_RUST_PTY_TOKEN = token;
+
+    const ptyProcess = await Effect.runPromise(
+      Effect.gen(function* () {
+        const adapter = yield* PtyAdapter;
+        return yield* adapter.spawn({
+          shell: "sh",
+          cwd: process.cwd(),
+          cols: 80,
+          rows: 24,
+          env: {},
+        });
+      }).pipe(Effect.provide(RustPtyAdapterLive)),
+    );
+
+    ptyProcess.pause();
+    const exitPromise = new Promise<PtyExitEvent>((resolve) => {
+      ptyProcess.onExit(resolve);
+    });
+    ptyProcess.kill();
+
+    const exitEvent = await exitPromise;
+    expect(exitEvent).toEqual({ exitCode: 0, signal: null });
   });
 });

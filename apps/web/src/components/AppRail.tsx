@@ -113,6 +113,7 @@ const RAIL_ITEM_GLYPH_NAMES: Record<Exclude<RailItemId, HugeiconRailItemId>, str
   security: "shield-check",
   cyberSecurity: "shield-code",
   hostEconomy: "gauge",
+  office3d: "ar-cube-3",
 };
 
 function isHugeiconRailItem(id: RailItemId): id is HugeiconRailItemId {

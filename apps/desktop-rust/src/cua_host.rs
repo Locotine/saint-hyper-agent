@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use uuid::Uuid;
 
@@ -15,12 +15,23 @@ use crate::state::{SaintPaths, APP_BUNDLE_ID};
 use crate::window_state::{write_agent_cursor_preference, AgentCursorStylePreference};
 
 pub const CUA_CURSOR_IDLE_HIDE_MS: u64 = 60_000;
+pub const MAX_CUA_SOCKET_LINE_BYTES: usize = 2 * 1024 * 1024;
+
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (&x, &y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
 
 pub struct CuaDriverHost {
     paths: SaintPaths,
     socket_path: String,
     driver_socket_path: String,
-    capability: String,
     preview_subscribed: AtomicBool,
     socket_started: AtomicBool,
     driver_child: Mutex<Option<Child>>,
@@ -48,17 +59,11 @@ impl CuaDriverHost {
                     .into_owned(),
             )
         };
-        let capability = format!(
-            "{}{}",
-            Uuid::new_v4().simple(),
-            Uuid::new_v4().simple()
-        );
 
         Self {
             paths,
             socket_path,
             driver_socket_path,
-            capability,
             preview_subscribed: AtomicBool::new(false),
             socket_started: AtomicBool::new(false),
             driver_child: Mutex::new(None),
@@ -67,10 +72,6 @@ impl CuaDriverHost {
 
     pub fn socket_path(&self) -> &str {
         &self.socket_path
-    }
-
-    pub fn capability(&self) -> &str {
-        &self.capability
     }
 
     pub fn resolve_driver_binary_path() -> PathBuf {
@@ -90,7 +91,7 @@ impl CuaDriverHost {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap_or_else(|| std::path::Path::new("."))
-            .join("desktop/resources/cua-driver")
+            .join("desktop-rust/resources/cua-driver")
             .join(bin_name)
     }
 
@@ -100,10 +101,6 @@ impl CuaDriverHost {
 
     pub fn unsubscribe_preview(&self) {
         self.preview_subscribed.store(false, Ordering::SeqCst);
-    }
-
-    pub fn is_preview_subscribed(&self) -> bool {
-        self.preview_subscribed.load(Ordering::SeqCst)
     }
 
     pub fn set_cursor_style(
@@ -117,7 +114,7 @@ impl CuaDriverHost {
     pub fn ensure_driver_started(&self) -> Result<String, String> {
         let binary = Self::resolve_driver_binary_path();
         if !binary.is_file() {
-            return Err("Cua Driver is not bundled. Run the provisioning script (`node apps/desktop/scripts/provision-cua-driver.mjs`), then relaunch Saint.".to_string());
+            return Err("Cua Driver is not bundled. Run the provisioning script (`node apps/desktop-rust/scripts/provision-cua-driver.mjs`), then relaunch Saint.".to_string());
         }
         let mut guard = self
             .driver_child
@@ -161,9 +158,15 @@ impl CuaDriverHost {
             cmd.creation_flags(0x0800_0000);
         }
 
-        let child = cmd
+        let mut child = cmd
             .spawn()
             .map_err(|e| format!("Failed to spawn cua-driver: {e}"))?;
+        if let Some(stderr) = child.stderr.take() {
+            tokio::spawn(async move {
+                let mut reader = BufReader::new(stderr).lines();
+                while let Ok(Some(_)) = reader.next_line().await {}
+            });
+        }
         *guard = Some(child);
         Ok(self.driver_socket_path.clone())
     }
@@ -185,7 +188,9 @@ impl CuaDriverHost {
             .get("capability")
             .and_then(|v| v.as_str())
             .unwrap_or("");
-        if expected_capability.len() < 32 || supplied_cap != expected_capability {
+        if expected_capability.len() < 32
+            || !constant_time_eq(supplied_cap.as_bytes(), expected_capability.as_bytes())
+        {
             return serde_json::json!({
                 "ok": false,
                 "error": "Computer host authority is required.",
@@ -243,7 +248,7 @@ impl CuaDriverHost {
                 } else {
                     serde_json::json!({
                         "ok": false,
-                        "error": "Cua Driver is not bundled. Run the provisioning script (`node apps/desktop/scripts/provision-cua-driver.mjs`), then relaunch Saint.",
+                        "error": "Cua Driver is not bundled. Run the provisioning script (`node apps/desktop-rust/scripts/provision-cua-driver.mjs`), then relaunch Saint.",
                         "effect": "not-dispatched",
                         "desktopEpoch": 0,
                         "desktopPauses": [],
@@ -278,27 +283,27 @@ impl CuaDriverHost {
                         "desktopInterruptions": 0,
                     })
                     .to_string()
-                } else if let Err(err) = self.ensure_driver_started() {
-                    let _ = err;
-                    serde_json::json!({
-                        "ok": false,
-                        "error": format!("Cua Driver tool '{tool_name}' requires a provisioned cua-driver binary."),
-                        "effect": "not-dispatched",
-                        "desktopEpoch": 0,
-                        "desktopPauses": [],
-                        "desktopInterruptions": 0,
-                    })
-                    .to_string()
                 } else {
-                    serde_json::json!({
-                        "ok": false,
-                        "error": format!("Cua Driver tool '{tool_name}' requires a provisioned cua-driver binary."),
-                        "effect": "not-dispatched",
-                        "desktopEpoch": 0,
-                        "desktopPauses": [],
-                        "desktopInterruptions": 0,
-                    })
-                    .to_string()
+                    match self.ensure_driver_started() {
+                        Err(err) => serde_json::json!({
+                            "ok": false,
+                            "error": err,
+                            "effect": "not-dispatched",
+                            "desktopEpoch": 0,
+                            "desktopPauses": [],
+                            "desktopInterruptions": 0,
+                        })
+                        .to_string(),
+                        Ok(driver_sock) => serde_json::json!({
+                            "ok": false,
+                            "error": format!("Cua Driver socket '{driver_sock}' did not respond to '{tool_name}'."),
+                            "effect": "not-dispatched",
+                            "desktopEpoch": 0,
+                            "desktopPauses": [],
+                            "desktopInterruptions": 0,
+                        })
+                        .to_string(),
+                    }
                 }
             }
             _ => serde_json::json!({
@@ -346,13 +351,33 @@ impl CuaDriverHost {
                     let host_conn = Arc::clone(&host);
                     let cap_conn = shared_capability.clone();
                     tauri::async_runtime::spawn(async move {
-                        let mut reader = BufReader::new(server);
-                        let mut line = String::new();
-                        if reader.read_line(&mut line).await.unwrap_or(0) > 0 {
+                        let (read_half, mut write_half) = tokio::io::split(server);
+                        let mut reader = BufReader::new(read_half);
+                        loop {
+                            let mut buf = Vec::new();
+                            let n = match (&mut reader)
+                                .take((MAX_CUA_SOCKET_LINE_BYTES + 1) as u64)
+                                .read_until(b'\n', &mut buf)
+                                .await
+                            {
+                                Ok(n) => n,
+                                Err(_) => break,
+                            };
+                            if n == 0 || (buf.len() > MAX_CUA_SOCKET_LINE_BYTES && !buf.ends_with(b"\n")) {
+                                break;
+                            }
+                            let Ok(line) = String::from_utf8(buf) else {
+                                break;
+                            };
+                            if line.trim().is_empty() {
+                                continue;
+                            }
                             let response = host_conn.handle_socket_json_line(&cap_conn, &line);
-                            let mut stream = reader.into_inner();
-                            let _ = stream.write_all(format!("{response}\n").as_bytes()).await;
-                            let _ = stream.flush().await;
+                            if write_half.write_all(format!("{response}\n").as_bytes()).await.is_err()
+                                || write_half.flush().await.is_err()
+                            {
+                                break;
+                            }
                         }
                     });
                 }
@@ -360,6 +385,9 @@ impl CuaDriverHost {
 
             #[cfg(not(target_os = "windows"))]
             {
+                if let Some(parent) = std::path::Path::new(&socket_path).parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
                 let _ = std::fs::remove_file(&socket_path);
                 let listener = match tokio::net::UnixListener::bind(&socket_path) {
                     Ok(l) => l,
@@ -370,17 +398,45 @@ impl CuaDriverHost {
                         return;
                     }
                 };
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(
+                        &socket_path,
+                        std::fs::Permissions::from_mode(0o600),
+                    );
+                }
                 while let Ok((stream, _)) = listener.accept().await {
                     let host_conn = Arc::clone(&host);
                     let cap_conn = shared_capability.clone();
                     tauri::async_runtime::spawn(async move {
-                        let mut reader = BufReader::new(stream);
-                        let mut line = String::new();
-                        if reader.read_line(&mut line).await.unwrap_or(0) > 0 {
+                        let (read_half, mut write_half) = stream.into_split();
+                        let mut reader = BufReader::new(read_half);
+                        loop {
+                            let mut buf = Vec::new();
+                            let n = match (&mut reader)
+                                .take((MAX_CUA_SOCKET_LINE_BYTES + 1) as u64)
+                                .read_until(b'\n', &mut buf)
+                                .await
+                            {
+                                Ok(n) => n,
+                                Err(_) => break,
+                            };
+                            if n == 0 || (buf.len() > MAX_CUA_SOCKET_LINE_BYTES && !buf.ends_with(b"\n")) {
+                                break;
+                            }
+                            let Ok(line) = String::from_utf8(buf) else {
+                                break;
+                            };
+                            if line.trim().is_empty() {
+                                continue;
+                            }
                             let response = host_conn.handle_socket_json_line(&cap_conn, &line);
-                            let mut inner = reader.into_inner();
-                            let _ = inner.write_all(format!("{response}\n").as_bytes()).await;
-                            let _ = inner.flush().await;
+                            if write_half.write_all(format!("{response}\n").as_bytes()).await.is_err()
+                                || write_half.flush().await.is_err()
+                            {
+                                break;
+                            }
                         }
                     });
                 }
@@ -388,18 +444,15 @@ impl CuaDriverHost {
         });
     }
 
-    pub async fn stop(&self) {
-        self.preview_subscribed.store(false, Ordering::SeqCst);
-        let child = self.driver_child.lock().ok().and_then(|mut g| g.take());
-        if let Some(mut c) = child {
-            let _ = c.kill().await;
-        }
-    }
-
     pub fn kill_sync(&self) {
         self.preview_subscribed.store(false, Ordering::SeqCst);
         if let Some(mut c) = self.driver_child.lock().ok().and_then(|mut g| g.take()) {
             let _ = c.start_kill();
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = std::fs::remove_file(&self.socket_path);
+            let _ = std::fs::remove_file(&self.driver_socket_path);
         }
     }
 }

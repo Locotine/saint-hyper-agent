@@ -191,7 +191,7 @@ function currentMigrationLineageFamily(): MigrationLineageFamily {
     (JSON.parse(readFileSync(resolve(repoRoot, path), "utf8")) as { version?: unknown }).version;
   return resolveMigrationLineageFamily(
     versionAt("apps/server/package.json"),
-    versionAt("apps/desktop/package.json"),
+    versionAt("apps/desktop-rust/package.json"),
   );
 }
 

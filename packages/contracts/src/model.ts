@@ -1180,7 +1180,7 @@ export type ProviderWithDefaultModel = Exclude<ProviderKind, "pi" | "omp">;
 
 export const DEFAULT_MODEL_BY_PROVIDER: Record<ProviderWithDefaultModel, ModelSlug> = {
   codex: "gpt-6-astra",
-  claudeAgent: "claude-sonnet-5",
+  claudeAgent: "claude-opus-5-5",
   cursor: "auto",
   devin: "adaptive",
   antigravity: "Gemini 3.5 Flash",

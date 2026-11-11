@@ -252,7 +252,9 @@ function extractCommandFromTitle(title: string | undefined): string | undefined 
 
 function extractToolCallCommand(rawInput: unknown, title: string | undefined): string | undefined {
   if (isRecord(rawInput)) {
-    const directCommand = normalizeCommandValue(rawInput.command);
+    const directCommand = normalizeCommandValue(
+      rawInput.command ?? rawInput.CommandLine ?? rawInput.cmd,
+    );
     if (directCommand) {
       return directCommand;
     }
@@ -376,25 +378,48 @@ interface AcpSubagentToolInput {
   readonly prompt?: string;
 }
 
-const ACP_SUBAGENT_TOOL_NAMES: ReadonlySet<string> = new Set(["task", "agent", "subagent"]);
+const ACP_SUBAGENT_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "task",
+  "agent",
+  "subagent",
+  "invoke_subagent",
+]);
 
 // Cursor's ACP bridge surfaces its `Task` subagent tool as a generic `other` tool call
-// whose rawInput carries the native tool name plus the task description/prompt. The
-// subagent streams nothing back over ACP until it finishes (only `cursor/task`, a
-// completion-only notification), so this detection is what lets the client render it
-// as a subagent run instead of an idle-looking generic tool.
-function parseSubagentToolInput(rawInput: unknown): AcpSubagentToolInput | undefined {
+// whose rawInput carries the native tool name plus the task description/prompt, and
+// Antigravity (`agy acp`) surfaces `invoke_subagent` with `Role` and `Prompt`. The
+// subagent streams nothing back over ACP until it finishes, so this detection is what
+// lets the client render it as a subagent run instead of an idle-looking generic tool.
+function parseSubagentToolInput(
+  rawInput: unknown,
+  title?: string | null | undefined,
+): AcpSubagentToolInput | undefined {
   if (!isRecord(rawInput)) {
     return undefined;
   }
+  const rawToolName = readNativeToolName(rawInput);
+  const normalizedTitle = title?.trim().toLowerCase();
+  const titleInferredToolName =
+    normalizedTitle === "run invoke_subagent" || normalizedTitle === "invoke_subagent"
+      ? "invoke_subagent"
+      : undefined;
   const toolName =
-    typeof rawInput._toolName === "string" ? rawInput._toolName.trim().toLowerCase() : undefined;
+    typeof rawToolName === "string" ? rawToolName.trim().toLowerCase() : titleInferredToolName;
   if (!toolName || !ACP_SUBAGENT_TOOL_NAMES.has(toolName)) {
     return undefined;
   }
   const description =
-    typeof rawInput.description === "string" ? trimNonEmpty(rawInput.description) : undefined;
-  const prompt = typeof rawInput.prompt === "string" ? trimNonEmpty(rawInput.prompt) : undefined;
+    typeof rawInput.description === "string"
+      ? trimNonEmpty(rawInput.description)
+      : typeof rawInput.Role === "string"
+        ? trimNonEmpty(rawInput.Role)
+        : undefined;
+  const prompt =
+    typeof rawInput.prompt === "string"
+      ? trimNonEmpty(rawInput.prompt)
+      : typeof rawInput.Prompt === "string"
+        ? trimNonEmpty(rawInput.Prompt)
+        : undefined;
   return {
     ...(description !== undefined ? { description } : {}),
     ...(prompt !== undefined ? { prompt } : {}),
@@ -460,7 +485,7 @@ function makeToolCallState(
   if (!toolCallId) {
     return undefined;
   }
-  const subagent = parseSubagentToolInput(input.rawInput);
+  const subagent = parseSubagentToolInput(input.rawInput, input.title);
   // A subagent's own description ("Explore composer UI") is the row heading; the
   // provider title ("Task: Explore composer UI") is only the fallback.
   const title = subagent?.description ?? (input.title?.trim() || undefined);
@@ -611,10 +636,11 @@ export function mergeToolCallState(
 ): AcpToolCallState {
   const nextKind = typeof next.data.kind === "string" ? next.data.kind : undefined;
   // Sparse completion updates often repeat ACP's generic kind without the native
-  // name. They describe the same call and must not erase its detected image kind.
+  // name. They describe the same call and must not erase its detected image/subagent kind.
   const kind =
     nextKind === "other" &&
-    previous?.kind === ACP_IMAGE_GENERATION_TOOL_KIND &&
+    (previous?.kind === ACP_IMAGE_GENERATION_TOOL_KIND ||
+      previous?.kind === ACP_SUBAGENT_TOOL_KIND) &&
     readNativeToolName(next.data.rawInput) === undefined
       ? previous.kind
       : (nextKind ?? previous?.kind);
@@ -625,7 +651,10 @@ export function mergeToolCallState(
     ? (actionTitle ?? previous?.title ?? next.title)
     : (next.title ?? previous?.title);
   const command = next.command ?? previous?.command;
-  const detail = next.detail ?? previous?.detail;
+  const detail =
+    kind === ACP_SUBAGENT_TOOL_KIND && status !== "failed"
+      ? previous?.detail
+      : (next.detail ?? previous?.detail);
   return {
     toolCallId: next.toolCallId,
     ...(kind ? { kind } : {}),
@@ -639,7 +668,9 @@ export function mergeToolCallState(
     data: {
       ...previous?.data,
       ...next.data,
-      ...(kind === ACP_IMAGE_GENERATION_TOOL_KIND ? { kind } : {}),
+      ...(kind === ACP_IMAGE_GENERATION_TOOL_KIND || kind === ACP_SUBAGENT_TOOL_KIND
+        ? { kind }
+        : {}),
     },
   };
 }

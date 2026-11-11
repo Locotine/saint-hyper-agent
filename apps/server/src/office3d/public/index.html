@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Văn phòng AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--gold:#ecc970;--ok:#7ccf9b;--warn:#ecc970;--bad:#e8a39b;--mute:#a6a6a6;--mute2:#6b6b6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#05070a;color:#f2f2f2;font-family:"Be Vietnam Pro",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+#world{position:fixed;inset:0;background:radial-gradient(120% 90% at 50% 10%,#16202c 0%,#0a0e14 45%,#040507 100%)}
+#css3d,#gl,#lbl{position:absolute;inset:0}
+#css3d{pointer-events:none}
+#css3d.live{pointer-events:auto}
+#lbl,#gl{pointer-events:none}
+#gl canvas{pointer-events:auto}
+.bar{position:fixed;left:12px;right:12px;top:10px;display:flex;align-items:center;gap:14px;z-index:10;pointer-events:none}
+.pill{pointer-events:auto;display:flex;align-items:center;gap:10px;background:rgba(8,10,13,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:8px 12px}
+.logo{width:28px;height:28px;border-radius:9px;background:var(--gold);color:#000;display:grid;place-items:center;font-weight:800}
+.ttl b{display:block;font-size:14px}.ttl small{font-size:10px;color:var(--mute2);letter-spacing:.14em;text-transform:uppercase}
+.clock{font-family:"JetBrains Mono",monospace;font-size:20px;font-weight:700}
+.live{font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--ok);display:flex;align-items:center;gap:6px}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:p 1.4s infinite}
+.live.off{color:var(--bad)}.live.off i{background:var(--bad);animation:none}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(124,207,155,.6)}70%{box-shadow:0 0 0 8px rgba(124,207,155,0)}100%{box-shadow:none}}
+.k{display:flex;gap:14px}
+.k div{display:flex;flex-direction:column}
+.k b{font-family:"JetBrains Mono",monospace;font-size:16px}
+.k span{font-size:9px;color:var(--mute2);letter-spacing:.1em;text-transform:uppercase}
+.sp{flex:1}
+body.zoomed .bar .pill,body.zoomed .card,body.zoomed .hint,body.zoomed .links{display:none}
+body.zoomed .bar{top:auto;bottom:14px;left:auto;right:14px;z-index:30}
+#full{position:fixed;inset:0;z-index:25;background:#000;opacity:0;pointer-events:none;transform:scale(.96);transition:opacity .35s ease,transform .35s ease}
+#full.show{opacity:1;pointer-events:auto;transform:none}
+#full iframe{width:100%;height:100%;border:0;display:block}
+.ask{text-decoration:none;color:inherit;gap:6px}
+.ask b{font-family:"JetBrains Mono",monospace;font-size:16px}
+.ask span{font-size:10px;color:#9aa3ad;letter-spacing:.04em}
+.ask.on{border-color:rgba(236,201,112,.6);box-shadow:0 0 0 1px rgba(236,201,112,.25)}
+.ask.on b{color:var(--gold)}
+@media (max-width: 760px){ .ask:not(#ask){display:none} }
+.btn{pointer-events:auto;cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;color:#000;background:var(--gold);border:0;border-radius:12px;padding:10px 14px;box-shadow:0 8px 24px rgba(236,201,112,.25)}
+.btn.ghost{background:rgba(8,10,13,.72);color:#e9e9e9;border:1px solid rgba(255,255,255,.12);box-shadow:none}
+.hint{position:fixed;left:12px;bottom:10px;font-size:11px;color:var(--mute2);z-index:10;pointer-events:none}
+.links{position:fixed;right:12px;bottom:10px;display:flex;gap:6px;z-index:10}
+.links a{font-size:10.5px;color:var(--mute);text-decoration:none;border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:3px 9px;background:rgba(8,10,13,.6)}
+.lb{text-align:center;cursor:pointer;pointer-events:auto;user-select:none;transform:translateY(-4px)}
+.lb .n{font-size:11px;font-weight:700;color:#f4f4f4;text-shadow:0 1px 4px #000,0 0 2px #000;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;margin:0 auto}
+.lb.sel .n{color:var(--gold)}
+.lb .b{display:inline-block;margin-bottom:4px;font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(5,6,8,.85);border:1px solid;white-space:nowrap}
+.rl{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#7c8794;font-weight:700;white-space:nowrap;pointer-events:none;text-shadow:0 1px 3px #000}
+.dl{font-size:11px;color:#e8e8e8;text-align:center;pointer-events:none;text-shadow:0 1px 4px #000;white-space:nowrap}
+.dl small{display:block;color:#9aa3ad;font-size:9.5px}
+.say{display:block;max-width:320px;max-height:170px;overflow:auto;pointer-events:auto;margin:0 auto 6px;font-size:10.5px;font-weight:600;line-height:1.35;padding:6px 9px;border-radius:12px;background:rgba(6,8,11,.92);border:1px solid;white-space:normal;text-align:left;box-shadow:0 6px 18px rgba(0,0,0,.5);animation:pop .35s cubic-bezier(.2,1.4,.4,1)}
+.say small{display:block;font-size:9px;opacity:.75;font-weight:700;letter-spacing:.04em;margin-bottom:2px}
+@keyframes pop{from{transform:scale(.6) translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.mt{min-width:230px;max-width:360px;padding:8px 12px;border-radius:12px;background:rgba(6,8,11,.9);border:1px solid;font-size:11px;line-height:1.45;color:#e2e2e2;pointer-events:none;text-align:left;box-shadow:0 8px 22px rgba(0,0,0,.55)}
+.mt b{display:block;font-size:12.5px;margin-bottom:2px}
+.mt i{display:block;font-style:normal;color:#9aa3ad;font-size:10px;margin-bottom:4px}
+.mt div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt.idle{min-width:0;padding:3px 10px;border-color:rgba(255,255,255,.14);color:#7c8794;font-size:10px;letter-spacing:.06em}
+.ml{font-size:10px;font-weight:700;padding:2px 9px;border-radius:999px;background:rgba(5,6,8,.85);border:1px solid;white-space:nowrap;pointer-events:none}
+.card{position:fixed;left:12px;top:70px;width:min(360px,calc(100vw - 24px));z-index:12;background:rgba(8,10,13,.9);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px 14px;font-size:12.5px;line-height:1.5;display:none}
+.card{max-height:calc(100vh - 90px);overflow:auto}
+.card h4{margin:0 0 4px;display:flex;justify-content:space-between;font-size:14px}
+.card button{background:none;border:1px solid rgba(255,255,255,.15);color:#ccc;border-radius:8px;cursor:pointer;font:inherit;font-size:11px;padding:1px 8px}
+.card p{color:#d4d4d4;margin:8px 0 0}
+.card .m{color:var(--mute2);font-size:11.5px}
+@media (max-width: 760px){ .zbtn{padding:8px 9px!important;font-size:11px!important} .k{display:none} .ttl small{display:none} .clock{font-size:16px} .btn{padding:9px 11px;font-size:12px} .links a:first-child{display:none} }
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
+</head>
+<body>
+<div id="world"><div id="css3d"></div><div id="gl"></div><div id="lbl"></div></div>
+<div class="bar">
+  <div class="pill"><div class="logo">V</div><div class="ttl"><b id="ttl">Văn phòng AI</b><small id="sub">Công ty AI · trực tiếp</small></div></div>
+  <div class="pill"><span class="clock" id="clock">--:--:--</span><span class="live" id="live"><i></i>TRỰC TIẾP</span></div>
+  <div class="pill k"><div><b id="k1">–</b><span>Đang làm</span></div><div><b id="k2">–</b><span>Chờ/chặn</span></div><div><b id="k3">–</b><span>DEV</span></div><div><b id="k4">–</b><span>Việc ưu tiên</span></div></div>
+  <a class="pill ask" id="ask" href="board.html" title="Mở bảng điều hành để xem ai đang chờ bạn"><b id="askN">–</b><span>Cần anh</span></a>
+  <a class="pill ask" href="board.html" title="Tiền AI hôm nay (ước tính) so với trần"><b id="money">–</b><span>Tiền AI hôm nay</span></a>
+  <div class="sp"></div>
+  <button class="btn ghost zbtn" data-screen="viec" title="Màn hình tường trái">◧ Công việc</button>
+  <button class="btn zbtn" data-screen="board" title="Màn hình lớn giữa phòng">Xem màn hình lớn</button>
+  <button class="btn ghost zbtn" data-screen="noiquy" title="Màn hình tường phải">Nội quy ◨</button>
+  <button class="btn ghost" id="back" style="display:none">Về văn phòng 3D</button>
+</div>
+<div class="card" id="card"></div>
+<div class="hint" id="hint">Kéo để xoay · chụm/cuộn để phóng to · bấm vào tên một người để xem họ đang làm gì</div>
+<div class="links"><a href="tongquan.html">Tổng quan</a><a href="hopthu.html">Hòm thư</a><a href="hieusuat.html">Đánh giá nhân sự</a><a href="board.html">Mở bảng điều hành toàn màn hình</a><a href="2d.html">Sơ đồ 2D</a></div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { CSS3DRenderer, CSS3DObject } from "three/addons/renderers/CSS3DRenderer.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+if (!window.name) window.name = "vp3d";
+const $ = (id) => document.getElementById(id);
+const h = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const ago = (ms) => { if (!ms) return "–"; const s = Math.max(0, (Date.now() - ms) / 1000); if (s < 60) return Math.round(s) + " giây"; if (s < 3600) return Math.round(s / 60) + " phút"; return (s / 3600).toFixed(1).replace(".", ",") + " giờ"; };
+// Nhãn trên bản đồ chỉ giữ tên ngắn; tên đầy đủ nằm trong thẻ khi bấm và tooltip khi rê chuột.
+const SHORT_NAME_MAX = 10;
+// Dòng vai trò bên dưới đã ghi nền tảng, nên bỏ tiền tố "Claude"/"Antigravity"… để giữ phần phân biệt.
+const PLATFORM_PREFIX = /^(Claude|Codex|Antigravity|Cursor|Gemini|Grok|Droid|OpenCode|Devin|Pi)\s+(?=\S)/i;
+const short = (n) => { const s = n.split(" · ")[0].trim().replace(PLATFORM_PREFIX, ""); return s.length > SHORT_NAME_MAX ? s.slice(0, SHORT_NAME_MAX - 1).trimEnd() + "…" : s; };
+const PCOL = { claude: 0xd9734a, codex: 0x3f8fd9, antigravity: 0xa87ffb, human: 0xecc970 };
+const pName = (p) => p === "codex" ? "Codex" : p === "antigravity" ? "Antigravity" : p === "claude" ? "Claude" : "Người";
+const SC = { ok: 0x7ccf9b, warn: 0xecc970, bad: 0xe8a39b, idle: 0x3a4048, off: 0x1c1f24 };
+
+// Ba lớp vẽ: trang HTML của màn hình lớn (dưới) · WebGL có lỗ trong suốt (giữa) · nhãn tên (trên).
+const cssR = new CSS3DRenderer(); $("css3d").appendChild(cssR.domElement);
+const gl = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+gl.setPixelRatio(Math.min(devicePixelRatio, 1.75)); gl.setClearColor(0x000000, 0);
+gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.0;
+$("gl").appendChild(gl.domElement);
+const lblR = new CSS2DRenderer(); $("lbl").appendChild(lblR.domElement);
+const scene = new THREE.Scene(), cssScene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0a0e14, 300, 520);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 800); // góc rộng để thấy trọn bức tường 3 màn hình
+const controls = new OrbitControls(camera, gl.domElement);
+controls.enableDamping = true; controls.maxPolarAngle = 1.38; controls.minDistance = 14; controls.maxDistance = 260;
+const S = 8; // 1 đơn vị 3D = 8 px mặt bằng: văn phòng rộng hơn 25%
+const X = (x) => (x - 600) / S, Z = (y) => (y - 390) / S;
+const HOME_CAM = { pos: new THREE.Vector3(0, 58, 158), target: new THREE.Vector3(0, 32, -20) }; // nhìn cao lên: 3 màn hình chiếm nửa trên, văn phòng nửa dưới
+function resize() {
+  const w = innerWidth, hh = innerHeight;
+  gl.setSize(w, hh); lblR.setSize(w, hh); cssR.setSize(w, hh);
+  camera.aspect = w / hh; camera.updateProjectionMatrix();
+  const k = 1.7 * Math.max(1, 1.7 / camera.aspect); HOME_CAM.pos.set(0, 58 * k, 158 * k); // lùi ra để thấy đủ 3 màn hình
+}
+addEventListener("resize", resize); resize();
+camera.position.copy(HOME_CAM.pos); controls.target.copy(HOME_CAM.target);
+controls.maxDistance = 340;
+
+// ánh sáng thật: môi trường phản chiếu + nắng có bóng đổ
+gl.shadowMap.enabled = true; gl.shadowMap.type = THREE.PCFSoftShadowMap;
+const pmrem = new THREE.PMREMGenerator(gl);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x2a1f16, 0.35));
+const key = new THREE.DirectionalLight(0xfff1dc, 1.7); key.position.set(-60, 110, 70); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
+Object.assign(key.shadow.camera, { left: -100, right: 100, top: 70, bottom: -70, near: 10, far: 320 }); scene.add(key);
+const fill = new THREE.DirectionalLight(0xbcd4ff, 0.45); fill.position.set(70, 50, 90); scene.add(fill);
+const devLight = new THREE.PointLight(0xecc970, 0, 60, 2); scene.add(devLight);
+
+const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.1, ...o });
+const add = (m, x, y, z, parent = scene) => { m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+function tex(w, hh, draw, rx = 1, ry = 1) { const c = document.createElement("canvas"); c.width = w; c.height = hh; draw(c.getContext("2d"), w, hh); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 8; return t; }
+const woodTex = tex(512, 512, (g, w, hh) => {
+  const rows = 8, rh = hh / rows;
+  for (let r = 0; r < rows; r++) {
+    let x = -Math.random() * 200;
+    while (x < w) {
+      const len = 160 + Math.random() * 180, l = 34 + Math.random() * 10;
+      g.fillStyle = `hsl(28, 32%, ${l}%)`; g.fillRect(x, r * rh, len, rh);
+      for (let i = 0; i < 6; i++) { g.strokeStyle = `rgba(40,22,10,${0.05 + Math.random() * .08})`; g.lineWidth = 1; g.beginPath(); const yy = r * rh + Math.random() * rh; g.moveTo(x, yy); g.bezierCurveTo(x + len * .3, yy + 3, x + len * .6, yy - 3, x + len, yy); g.stroke(); }
+      g.fillStyle = "rgba(20,10,4,.55)"; g.fillRect(x, r * rh, 2, rh);
+      x += len;
+    }
+    g.fillStyle = "rgba(20,10,4,.6)"; g.fillRect(0, r * rh, w, 2);
+  }
+}, 14, 10);
+const carpetTex = tex(256, 256, (g, w, hh) => { g.fillStyle = "#808080"; g.fillRect(0, 0, w, hh); for (let i = 0; i < 9000; i++) { const v = 110 + Math.random() * 40; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(Math.random() * w, Math.random() * hh, 1.5, 1.5); } }, 6, 6);
+
+// sàn gỗ toàn văn phòng + tường bao thấp
+const OW = 1200 / S + 14, OD = 780 / S + 14;
+const floor = add(new THREE.Mesh(new THREE.PlaneGeometry(OW, OD), std(0xffffff, { map: woodTex, roughness: .5, metalness: .05 })), 0, 0, 0); floor.rotation.x = -Math.PI / 2; floor.castShadow = false;
+const outerMat = std(0xe9e6e1, { roughness: .85 });
+add(new THREE.Mesh(new THREE.BoxGeometry(OW, 3, 0.6), outerMat), 0, 1.5, OD / 2);
+for (const sx of [-1, 1]) add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 3, OD), outerMat), sx * OW / 2, 1.5, 0);
+const skirting = std(0x2a2622, { roughness: .6 });
+add(new THREE.Mesh(new THREE.BoxGeometry(OW, 0.35, 0.66), skirting), 0, 0.18, OD / 2 - 0.02);
+
+// phòng: thảm + vách kính khung nhôm
+const ROOMS = [
+  { id: "ceo", label: "Phòng Giám đốc", x: 20, y: 20, w: 220, h: 170, tone: 0x8a6a3a },
+  { id: "manager", label: "Phòng Quản lý", x: 256, y: 20, w: 240, h: 170, tone: 0x5c6470 },
+  { id: "coord", label: "Phòng Điều phối", x: 512, y: 20, w: 350, h: 170, tone: 0x5c6470 },
+  { id: "g1", label: "Kiểm tra & duyệt", x: 878, y: 20, w: 302, h: 300, tone: 0x4d6a86 },
+  { id: "claude", label: "Studio Claude", x: 20, y: 206, w: 390, h: 250, tone: 0x8a5a44 },
+  { id: "dev", label: "Phòng DEV", x: 426, y: 206, w: 436, h: 250, tone: 0x3a3a40 },
+  { id: "codex", label: "Khu kỹ sư Codex", x: 20, y: 472, w: 413, h: 290, tone: 0x3f5a78 },
+  { id: "antigravity", label: "Khu Antigravity", x: 449, y: 472, w: 413, h: 290, tone: 0x56437a },
+  { id: "lounge", label: "Phòng họp", x: 878, y: 336, w: 302, h: 426, tone: 0x6a6e74 },
+];
+const glassMat = new THREE.MeshStandardMaterial({ color: 0xd9ecff, transparent: true, opacity: 0.16, roughness: 0.05, metalness: 0.1, depthWrite: false });
+const alu = std(0xb8bcc2, { metalness: .9, roughness: .25 });
+function glassWall(x1, z1, x2, z2, hgt = 3.4) {
+  const len = Math.hypot(x2 - x1, z2 - z1), ang = Math.atan2(z2 - z1, x2 - x1), cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
+  const g = new THREE.Group(); g.position.set(cx, 0, cz); g.rotation.y = -ang; scene.add(g);
+  const pane = new THREE.Mesh(new THREE.BoxGeometry(len, hgt, 0.06), glassMat); pane.position.y = hgt / 2; g.add(pane);
+  add(new THREE.Mesh(new THREE.BoxGeometry(len, 0.12, 0.14), alu), 0, hgt, 0, g);
+  add(new THREE.Mesh(new THREE.BoxGeometry(len, 0.12, 0.14), alu), 0, 0.06, 0, g);
+  const n = Math.max(1, Math.round(len / 7));
+  for (let i = 0; i <= n; i++) add(new THREE.Mesh(new THREE.BoxGeometry(0.12, hgt, 0.14), alu), -len / 2 + (len / n) * i, hgt / 2, 0, g);
+}
+for (const r of ROOMS) {
+  const x0 = X(r.x) + .3, x1 = X(r.x + r.w) - .3, z0 = Z(r.y) + .3, z1 = Z(r.y + r.h) - .3;
+  const rug = add(new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.08, z1 - z0), std(r.tone, { map: carpetTex, roughness: .95 })), (x0 + x1) / 2, 0.04, (z0 + z1) / 2); rug.castShadow = false;
+  glassWall(x0, z0, x1, z0); glassWall(x0, z0, x0, z1); glassWall(x1, z0, x1, z1);
+  const gap = Math.min(6, (x1 - x0) * .25); glassWall(x0, z1, (x0 + x1) / 2 - gap / 2, z1); glassWall((x0 + x1) / 2 + gap / 2, z1, x1, z1);
+  const lab = new CSS2DObject(h("div", "rl", r.label)); lab.position.set(x0 + 1.2, 4.2, z0 + 1.2); lab.center.set(0, .5); scene.add(lab);
+}
+
+// cây xanh
+function plant(x, z, s = 1) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); scene.add(g);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.6, 1.5, 24), std(0xf2f0ec, { roughness: .35 })), 0, .75, 0, g);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, .1, 24), std(0x3a2a1c)), 0, 1.48, 0, g);
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, leaf = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 8), std(i % 2 ? 0x3f7d4f : 0x2f6a40, { roughness: .7 })); leaf.scale.set(.55, 1.6, .3); leaf.rotation.set(Math.cos(a) * .6, a, Math.sin(a) * .6); add(leaf, Math.cos(a) * .5, 2.6 + (i % 3) * .3, Math.sin(a) * .5, g); }
+}
+for (const [x, y] of [[232, 32], [854, 32], [30, 466], [854, 466], [1170, 330], [1170, 752], [30, 752], [412, 466], [500, 200], [1170, 32]]) plant(X(x), Z(y), 1.05);
+
+// phòng họp: bàn tròn, ghế, sofa
+add(new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.2, 0.25, 64), std(0xc59a6e, { roughness: .35 })), X(1029), 1.5, Z(520));
+add(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 1.2, 1.4, 24), std(0x2a2a2e, { metalness: .6, roughness: .3 })), X(1029), .7, Z(520));
+const fabric = std(0x4a4f57, { roughness: .95 });
+for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const cx = X(1029) + Math.cos(a) * 7, cz = Z(520) + Math.sin(a) * 7; const c = add(new THREE.Mesh(new THREE.BoxGeometry(1.6, .3, 1.6), fabric), cx, 1, cz); const b = add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, .25), fabric), cx + Math.cos(a) * .7, 1.8, cz + Math.sin(a) * .7); b.lookAt(X(1029), 1.8, Z(520)); add(new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, 1, 8), alu), cx, .5, cz); }
+for (const [dz, rot] of [[0, 0]]) { const sx = X(1029), sz = Z(700); add(new THREE.Mesh(new THREE.BoxGeometry(12, 1, 3.4), std(0x3c4048, { roughness: .95 })), sx, .8, sz + dz); add(new THREE.Mesh(new THREE.BoxGeometry(12, 2.2, .8), std(0x3c4048, { roughness: .95 })), sx, 1.6, sz + 1.6); for (const ax of [-1, 1]) add(new THREE.Mesh(new THREE.BoxGeometry(.8, 1.6, 3.4), std(0x3c4048, { roughness: .95 })), sx + ax * 6, 1.1, sz); add(new THREE.Mesh(new THREE.BoxGeometry(5, .2, 2.4), std(0xc59a6e, { roughness: .35 })), sx, 1, sz - 4); }
+
+// ---------- màn hình lớn: to bằng cả văn phòng ----------
+const SCR = { w: 160, h: 160 * 1080 / 1920, x: 0, y: 52, z: -62 }; // 3 màn hình cùng khổ 16:9, nội dung đầy đủ như khi xem toàn màn hình
+add(new THREE.Mesh(new THREE.BoxGeometry(SCR.w + 6, SCR.y - SCR.h / 2, 3), std(0x15171b, { metalness: .5, roughness: .4 })), SCR.x, (SCR.y - SCR.h / 2) / 2, SCR.z - 1);
+add(new THREE.Mesh(new THREE.BoxGeometry(SCR.w + 2.4, SCR.h + 2.4, 1.2), std(0x0b0d10, { metalness: .7, roughness: .25 })), SCR.x, SCR.y, SCR.z - .7);
+const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(SCR.w + 2.5, SCR.h + 2.5, 1.25)), new THREE.LineBasicMaterial({ color: 0xecc970 })); edge.position.set(SCR.x, SCR.y, SCR.z - .7); scene.add(edge);
+const screenGlow = new THREE.PointLight(0xa9c8ff, 160, 170, 2); screenGlow.position.set(0, 20, SCR.z + 20); scene.add(screenGlow);
+// Mỗi màn hình: một "lỗ" trong suốt trong cảnh 3D + một trang web thật đặt đúng chỗ đó (CSS3D), bấm chuột trực tiếp được.
+const walls = [];
+function wallScreen(cfg) {
+  const { w, pxw, pxh, x, y, z, ry, page, title } = cfg, hgt = w * pxh / pxw;
+  const hole = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), new THREE.MeshBasicMaterial({ color: 0x000000, opacity: 0, transparent: false, blending: THREE.NoBlending, side: THREE.DoubleSide }));
+  hole.position.set(x, y, z); hole.rotation.y = ry; scene.add(hole);
+  const ifr = document.createElement("iframe"); ifr.src = page; ifr.title = title;
+  Object.assign(ifr.style, { width: pxw + "px", height: pxh + "px", border: "0", background: "#000", pointerEvents: "auto" });
+  const obj = new CSS3DObject(ifr); obj.position.copy(hole.position); obj.rotation.y = ry; obj.scale.setScalar(w / pxw); cssScene.add(obj);
+  ifr.addEventListener("mouseleave", () => { if (!zoomed) gl.domElement.style.pointerEvents = "auto"; });
+  const sc = { ...cfg, h: hgt, hole, ifr, normal: new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry)) };
+  walls.push(sc); return sc;
+}
+wallScreen({ key: "board", title: "Bảng điều hành", page: "board.html", w: SCR.w, pxw: 1920, pxh: 1080, x: SCR.x, y: SCR.y, z: SCR.z, ry: 0 });
+// Bức tường 3 màn hình liền nhau trên tường sau, kiểu sàn chứng khoán: [Công việc] [Bảng điều hành] [Nội quy].
+// Hai màn bên cùng chiều cao với màn giữa, nghiêng vào trong 25°, không màn nào đè lên màn nào.
+const SIDE = { w: 124, tilt: 22 * Math.PI / 180, gap: 3 }; // vừa khít khung nhìn 16:9 (mép ngoài ~0,96)
+for (const [key, page, title, sx] of [["viec", "congviec.html", "Công việc & tiến độ", -1], ["noiquy", "noiquy.html", "Nội quy & đội ngũ", 1]]) {
+  const ry = -sx * SIDE.tilt, half = SIDE.w / 2;
+  const x = sx * (SCR.w / 2 + SIDE.gap + half * Math.cos(SIDE.tilt)), z = SCR.z + half * Math.sin(SIDE.tilt);
+  const sc = wallScreen({ key, title, page, w: SIDE.w, pxw: 1920, pxh: 1080, x, y: SCR.y, z, ry });
+  const g = new THREE.Group(); g.position.set(x, SCR.y, z); g.rotation.y = ry; scene.add(g); // khung + chân nằm sau mặt màn hình
+  add(new THREE.Mesh(new THREE.BoxGeometry(SIDE.w + 2.4, sc.h + 2.4, 1.2), std(0x0b0d10, { metalness: .7, roughness: .25 })), 0, 0, -0.7, g);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(SIDE.w + 2.5, sc.h + 2.5, 1.25)), new THREE.LineBasicMaterial({ color: 0xecc970 })); e.position.z = -0.7; g.add(e);
+  add(new THREE.Mesh(new THREE.BoxGeometry(SIDE.w * .5, SCR.y - sc.h / 2, 2), std(0x15171b, { metalness: .5, roughness: .4 })), 0, -(sc.h / 2) - (SCR.y - sc.h / 2) / 2, -1.2, g);
+  const glow = new THREE.PointLight(0xa9c8ff, 70, 110, 2); glow.position.set(x * 0.8, 20, z + 22); scene.add(glow);
+}
+
+// ---------- bàn làm việc thật: mặt gỗ, 2 màn hình, bàn phím, ly, đèn, ghế xoay ----------
+const HOME = { ceo: [130, 112] }; // bàn Giám đốc cố định; nhân viên tự được xếp bàn theo phòng
+const DEV_SEAT = [644, 336];
+const G1Q = [[935, 236], [995, 236], [1055, 236], [1115, 236], [965, 288], [1025, 288], [1085, 288]];
+const oak = std(0xc9a27a, { roughness: .4 }), white = std(0xf4f4f2, { roughness: .4 }), black = std(0x141518, { roughness: .35, metalness: .3 }), chairMat = std(0x26292e, { roughness: .8 });
+const screens = {};
+// Chỗ kê bàn của từng phòng: mở phiên mới là có bàn ngay.
+const FREE = {
+  manager: [[316, 112], [436, 112]],
+  coord: [[572, 112], [692, 112], [812, 112]],
+  g1: [[935, 100], [1029, 100], [1125, 100]],
+  claude: [[95, 300], [215, 300], [335, 300], [95, 400], [215, 400], [335, 400]],
+  codex: [95, 195, 295, 385].flatMap((x) => [[x, 570], [x, 690]]),
+  antigravity: [515, 615, 715, 805].flatMap((x) => [[x, 570], [x, 690]]),
+  spare: [[950, 740], [1110, 740], [950, 420], [1110, 420]],
+};
+function seatFor(a) {
+  if (HOME[a.key]) return false;
+  const taken = Object.values(HOME), free = (p) => !taken.some(([x, y]) => Math.hypot(x - p[0], y - p[1]) < 80);
+  const p = (FREE[a.room] || []).find(free) || FREE.spare.find(free) || FREE.codex.find(free) || FREE.antigravity.find(free) || [600, 400];
+  HOME[a.key] = p; makeDesk(a.key, p[0], p[1]); return true;
+}
+function makeDesk(k, x, y) {
+  const big = k === "ceo";
+  const g = new THREE.Group(); g.position.set(X(x), 0, Z(y) - 3.6); scene.add(g);
+  add(new THREE.Mesh(new THREE.BoxGeometry(big ? 9 : 7.4, 0.18, 3.2), big ? std(0x5a3a22, { roughness: .35 }) : oak), 0, 1.55, 0, g);
+  for (const sx of [-1, 1]) add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.5, 2.9), white), sx * (big ? 4.3 : 3.5), .75, 0, g);
+  add(new THREE.Mesh(new THREE.BoxGeometry(big ? 8.4 : 6.8, 1.1, 0.08), white), 0, 1, -1.4, g);
+  const sm = new THREE.MeshStandardMaterial({ color: 0x050607, emissive: 0x1d2a33, emissiveIntensity: 1, roughness: .2 });
+  for (const [sx, ry] of [[-1.6, .2], [1.6, -.2]]) {
+    const mon = new THREE.Group(); mon.position.set(sx, 0, -.75); mon.rotation.y = ry; g.add(mon);
+    add(new THREE.Mesh(new THREE.BoxGeometry(3, 1.8, 0.12), black), 0, 2.75, 0, mon);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.6), sm); scr.position.set(0, 2.75, .065); mon.add(scr);
+    add(new THREE.Mesh(new THREE.BoxGeometry(.18, .8, .18), alu), 0, 1.95, -.05, mon);
+    add(new THREE.Mesh(new THREE.BoxGeometry(1, .06, .6), alu), 0, 1.66, 0, mon);
+  }
+  add(new THREE.Mesh(new THREE.BoxGeometry(2.2, .06, .7), std(0x2b2d31, { roughness: .6 })), 0, 1.68, .55, g);
+  add(new THREE.Mesh(new THREE.BoxGeometry(.5, .04, .7), std(0x2b2d31)), 1.6, 1.67, .6, g);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(.2, .17, .45, 16), white), -2.9, 1.86, .7, g);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, 1.4, 8), black), 3.1, 2.3, -.9, g);
+  const shade = add(new THREE.Mesh(new THREE.ConeGeometry(.35, .45, 16, 1, true), std(0x1d1f22, { side: THREE.DoubleSide })), 2.85, 3, -.7, g); shade.rotation.z = .7;
+  add(new THREE.Mesh(new THREE.SphereGeometry(.12, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe2a8 })), 2.75, 2.88, -.7, g);
+  // ghế xoay
+  const ch = new THREE.Group(); ch.position.set(0, 0, 2.6); g.add(ch);
+  add(new THREE.Mesh(new THREE.BoxGeometry(1.9, .3, 1.8), chairMat), 0, 1.05, 0, ch);
+  add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 2, .25), chairMat), 0, 2.1, .85, ch);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(.1, .1, .8, 8), alu), 0, .55, 0, ch);
+  for (let i = 0; i < 5; i++) { const leg = add(new THREE.Mesh(new THREE.BoxGeometry(1.1, .08, .14), alu), Math.cos(i * 1.2566) * .5, .14, Math.sin(i * 1.2566) * .5, ch); leg.rotation.y = -i * 1.2566; }
+  screens[k] = sm;
+}
+for (const [k, [x, y]] of Object.entries(HOME)) makeDesk(k, x, y);
+// ---------- phòng DEV ----------
+const pad = add(new THREE.Mesh(new THREE.CylinderGeometry(6, 6.3, 0.4, 72), std(0x1a1b1f, { metalness: .6, roughness: .25 })), X(DEV_SEAT[0]), .2, Z(DEV_SEAT[1]));
+const ringMat = new THREE.MeshBasicMaterial({ color: 0xecc970, transparent: true, opacity: .3 });
+const r1 = new THREE.Mesh(new THREE.TorusGeometry(6, 0.1, 8, 140), ringMat); r1.rotation.x = Math.PI / 2; r1.position.set(X(DEV_SEAT[0]), .45, Z(DEV_SEAT[1])); scene.add(r1);
+const r2 = new THREE.Mesh(new THREE.TorusGeometry(4.4, 0.07, 8, 140), ringMat); r2.rotation.x = Math.PI / 2; r2.position.copy(r1.position); scene.add(r2);
+const holo = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0xecc970, emissive: 0xecc970, emissiveIntensity: .2, metalness: .6, roughness: .2 })); holo.position.set(X(DEV_SEAT[0]), 8.5, Z(DEV_SEAT[1])); scene.add(holo);
+devLight.position.set(X(DEV_SEAT[0]), 11, Z(DEV_SEAT[1]));
+const devLbl = h("div", "dl"); const devLblO = new CSS2DObject(devLbl); devLblO.position.set(X(DEV_SEAT[0]), 10.6, Z(DEV_SEAT[1])); scene.add(devLblO);
+const racks = []; const rackG = new THREE.Group(); scene.add(rackG);
+function buildRacks(cs) {
+  if (racks.length === cs.length) return;
+  rackG.clear(); racks.length = 0;
+  cs.forEach((c, i) => {
+    const x = X(450 + (i % 5) * 82), z = Z(236 + Math.floor(i / 5) * 178);
+    add(new THREE.Mesh(new THREE.BoxGeometry(7, 6, 2.2), std(0x121418, { metalness: .7, roughness: .3 })), x + 3.5, 3, z, rackG);
+    const leds = [];
+    for (let j = 0; j < 9; j++) { const led = new THREE.Mesh(new THREE.BoxGeometry(.7, .16, .05), new THREE.MeshBasicMaterial({ color: 0x7ccf9b })); led.position.set(x + 1.3 + (j % 3) * 2.2, 5 - Math.floor(j / 3) * .8, z + 1.13); rackG.add(led); leds.push(led); }
+    racks.push({ leds });
+  });
+}
+
+// ---------- nhân vật ----------
+const bots = {}; let selected = null;
+const badgeCache = {};
+function badgeTex(platform) {
+  if (badgeCache[platform]) return badgeCache[platform];
+  return (badgeCache[platform] = tex(128, 128, (g, w, hh) => {
+    g.fillStyle = "#ffffff"; g.fillRect(0, 0, w, hh);
+    const col = "#" + (PCOL[platform] || 0x3f8fd9).toString(16).padStart(6, "0");
+    g.strokeStyle = col; g.lineWidth = 8;
+    g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = col; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = '800 58px "Be Vietnam Pro", system-ui, sans-serif';
+    const glyph = platform === "antigravity" ? "A" : platform === "codex" ? "X" : platform === "claude" ? "C" : "★";
+    g.fillText(glyph, 64, 68);
+  }));
+}
+function makeBot(a) {
+  const g = new THREE.Group();
+  const shell = std(PCOL[a.platform] || 0x3f8fd9, { roughness: .28, metalness: .35 });
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.72, 0.85, 8, 20), shell); body.position.y = 1.55; g.add(body);
+  const belly = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24), new THREE.MeshStandardMaterial({ color: 0xffffff, map: badgeTex(a.platform), roughness: .3 })); belly.position.set(0, 1.5, 0.73); g.add(belly);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.78, 32, 20), std(0xf6f6f7, { roughness: .22, metalness: .05 })); head.position.y = 3.05; g.add(head);
+  const visorMat = new THREE.MeshStandardMaterial({ color: 0x07090c, emissive: 0x6fe3ff, emissiveIntensity: .25, roughness: .1, metalness: .4 });
+  const visor = new THREE.Mesh(new THREE.SphereGeometry(0.8, 24, 12, Math.PI * 0.5 - 0.95, 1.9, 1.15, 0.85), visorMat); visor.position.y = 3.05; g.add(visor);
+  const eyes = []; for (const sx of [-0.24, 0.24]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshBasicMaterial({ color: 0x9ff0ff })); e.position.set(sx, 3.1, 0.78); g.add(e); eyes.push(e); }
+  const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.55, 8), std(0xcfcfcf)); ant.position.y = 4.05; g.add(ant);
+  const bulbMat = new THREE.MeshBasicMaterial({ color: 0x3a4048 }); const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), bulbMat); bulb.position.y = 4.38; g.add(bulb);
+  const arms = []; for (const sx of [-1, 1]) { const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.55, 4, 10), shell); arm.position.set(sx * 0.95, 1.7, 0); g.add(arm); arms.push(arm); }
+  if (a.platform === "human") { const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.42, 0.35, 6, 1, true), std(0xecc970, { emissive: 0xecc970, emissiveIntensity: .4, metalness: .8, roughness: .2, side: THREE.DoubleSide })); crown.position.y = 3.85; g.add(crown); }
+  const ringM = new THREE.MeshBasicMaterial({ color: 0x3a4048, side: THREE.DoubleSide, transparent: true, opacity: .95 });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.3, 1.55, 48), ringM); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.2; g.add(ring);
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.1, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .45 })); shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.17; g.add(shadow);
+  const subs = new THREE.Group(); g.add(subs);
+  const lab = h("div", "lb"); const bub = h("div", "b"); bub.style.display = "none"; const says = h("div");
+  // Khu phòng đã ghi nền tảng, nên nhãn chỉ còn tên; vai trò nằm trong tooltip và thẻ chi tiết.
+  const nameEl = h("div", "n", short(a.name));
+  lab.append(says, bub, nameEl);
+  lab.title = `${a.name} · ${a.role}`;
+  lab.addEventListener("click", () => { selected = a.key; showCard(); });
+  const lo = new CSS2DObject(lab); lo.position.y = 5.0; g.add(lo);
+  g.scale.setScalar(1.45); g.traverse((m) => { if (m.isMesh && m.material !== ringM) m.castShadow = true; }); scene.add(g);
+  const hm = HOME[a.key] || [600, 400]; g.position.set(X(hm[0]), 0.14, Z(hm[1]));
+  return { g, body, head, visor, visorMat, eyes, arms, bulbMat, ring, ringM, subs, lab, nameEl, bub, says, target: g.position.clone(), moving: false };
+}
+
+// ---------- tin nhắn bay ----------
+const flights = [];
+function say(bot, head, text, col, ms = 14000) {
+  const d = h("div", "say"); d.style.borderColor = col; d.appendChild(h("small", "", head)); d.lastChild.style.color = col; d.append(text.slice(0, 700));
+  bot.says.appendChild(d); while (bot.says.children.length > 2) bot.says.firstChild.remove();
+  setTimeout(() => { d.style.transition = "opacity .6s"; d.style.opacity = 0; setTimeout(() => d.remove(), 700); }, ms);
+}
+const nameOf = (k) => short(((last && last.agents.find((x) => x.key === k)) || { name: k }).name);
+function fly(e) {
+  const A = bots[e.from], B = bots[e.to]; if (!A || !B) return;
+  const cssCol = e.kind === "ceo" ? "#ecc970" : /GẤP|CHẶN/.test(e.title) ? "#e8a39b" : "#7ccf9b";
+  const nm = (k) => short((last.agents.find((x) => x.key === k) || { name: k }).name);
+  // Người gửi đứng dậy đi sang bàn người nhận, nói đủ nội dung, rồi quay về.
+  if (e.from !== "ceo" && !A.meet) A.visit = { to: e.to, until: Date.now() + 16000 };
+  say(A, `💬 nói với ${nm(e.to)}`, e.body || e.title, cssCol, 16000);
+  setTimeout(() => say(B, `👂 ${nm(e.from)} đang báo`, e.title, cssCol, 12000), 2500);
+  const col = e.kind === "ceo" ? 0xecc970 : /GẤP|CHẶN/.test(e.title) ? 0xe8a39b : 0x7ccf9b;
+  const p0 = A.g.position.clone().setY(4.5), p2 = B.g.position.clone().setY(4.5);
+  const p1 = p0.clone().lerp(p2, .5).setY(10 + p0.distanceTo(p2) * 0.14);
+  const curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(48)), new THREE.LineDashedMaterial({ color: col, dashSize: .6, gapSize: .45, transparent: true, opacity: .8 }));
+  line.computeLineDistances(); scene.add(line);
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), new THREE.MeshBasicMaterial({ color: col })); orb.add(new THREE.PointLight(col, 6, 12)); scene.add(orb);
+  const tag = h("div", "ml", e.title.slice(0, 52)); const css = "#" + col.toString(16).padStart(6, "0"); tag.style.color = css; tag.style.borderColor = css;
+  const to = new CSS2DObject(tag); to.position.copy(p1); scene.add(to);
+  flights.push({ curve, orb, line, to, t0: performance.now() });
+}
+
+// ---------- phòng họp: họp thật theo tin nhắn thật ----------
+// Họp với Giám đốc: bạn giao việc -> bạn, phòng Quản lý + Điều phối đang làm và người nhận ra bàn họp.
+// Họp xử lý sự cố: tin GẤP/CHẶN -> người báo và người nhận ra họp.
+// Họp review: tin REVIEW/duyệt -> người nộp và người duyệt ra họp.
+// Họp giao việc: một người gửi việc cho từ 2 người trở lên trong 5 phút -> cả nhóm ra họp.
+// Trong họp: chủ trì đọc lại từng việc (tiêu đề thật), người nhận xác nhận; hết giờ chủ trì chốt "ai làm gì" rồi mọi người về bàn.
+const MT = { x: X(1029), z: Z(520) };
+const MEET_KIND = { ceo: ["Họp với Giám đốc", "#ecc970"], incident: ["Họp xử lý sự cố", "#e8a39b"], review: ["Họp review", "#8fc0ef"], assign: ["Họp giao việc", "#7ccf9b"] };
+const angTo = (p) => Math.atan2(p.z - MT.z, p.x - MT.x);
+const ringPt = (a, r) => new THREE.Vector3(MT.x + Math.cos(a) * r, 0.14, MT.z + Math.sin(a) * r);
+function arc(a0, a1, r) { let d = a1 - a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; const n = Math.max(1, Math.ceil(Math.abs(d) / .45)), out = []; for (let i = 0; i <= n; i++) out.push(ringPt(a0 + d * i / n, r)); return out; }
+const SLOT = (i) => i < 8 ? [i / 8 * Math.PI * 2 + Math.PI / 2, 8.8] : [(i - 8 + .5) / 4 * Math.PI * 2 + Math.PI / 2, 11.2]; // 8 ghế, thêm 4 chỗ đứng
+let meet = null; const recent = [];
+const meetLbl = h("div", "mt idle", "PHÒNG HỌP · TRỐNG"); const meetLblO = new CSS2DObject(meetLbl); meetLblO.position.set(MT.x, 9.5, MT.z); scene.add(meetLblO);
+function classify(e) {
+  if (e.kind === "ceo" || e.from === "ceo" || e.to === "ceo") return "ceo";
+  if (/GẤP|CHẶN|sự cố/i.test(e.title)) return "incident";
+  if (/REVIEW|duyệt/i.test(e.title)) return "review";
+  return null;
+}
+function canMeet(k) { const a = last && last.agents.find((x) => x.key === k); return !!(bots[k] && a && a.where !== "dev"); }
+function seatOf(k) { const [a, r] = SLOT(meet.slots[k]); return { a, p: ringPt(a, r) }; }
+function join(k) {
+  if (!meet || meet.slots[k] !== undefined || !canMeet(k)) return;
+  const used = new Set(Object.values(meet.slots)); let i = 0; while (used.has(i)) i++; if (i >= 12) return;
+  meet.slots[k] = i; meet.members.push(k);
+  const b = bots[k], s = seatOf(k); b.meet = true; b.visit = null;
+  b.path = [...arc(angTo(b.g.position), s.a, 12.8), s.p]; // đi vòng quanh bàn, không xuyên bàn
+}
+function leave(k, m) {
+  const b = bots[k]; if (!b || !b.meet) return;
+  const [a] = SLOT(m.slots[k]), home = HOME[k] ? new THREE.Vector3(X(HOME[k][0]), 0, Z(HOME[k][1])) : b.target;
+  b.meet = false; b.path = arc(a, angTo(home), 12.8);
+}
+function startMeet(kind, e, past) {
+  const chair = kind === "ceo" ? "ceo" : e.from;
+  meet = { kind, chair, members: [], slots: {}, log: [], start: Date.now(), until: Date.now() + 60000 };
+  const leads = last ? last.agents.filter((a) => (a.room === "manager" || a.room === "coord") && a.status === "active").map((a) => a.key) : [];
+  const who = kind === "ceo" ? ["ceo", ...leads, e.from, e.to] : [chair, ...past.map((x) => x.to), e.to];
+  for (const k of who) join(k);
+  if (!meet.members.length) { meet = null; return; }
+  const m = meet, [nm, col] = MEET_KIND[kind];
+  setTimeout(() => meet === m && bots[chair] && say(bots[chair], `🪑 Mở ${nm.toLowerCase()}`, e.title, col, 12000), 4500);
+  past.forEach((x, i) => {
+    m.log.push(x);
+    setTimeout(() => {
+      if (meet !== m || !bots[x.from]) return;
+      say(bots[x.from], `📌 Việc ${i + 1} → ${nameOf(x.to)}`, x.body || x.title, col, 13000);
+      setTimeout(() => meet === m && bots[x.to] && say(bots[x.to], "👌 Đã nhận", x.title, col, 10000), 2200);
+    }, 9000 + i * 5500);
+  });
+  m.until = Math.max(m.until, Date.now() + 16000 + past.length * 5500);
+}
+function endMeet() {
+  const m = meet; if (!m) return;
+  const [nm, col] = MEET_KIND[m.kind];
+  const plan = m.log.slice(-5).map((x) => `${nameOf(x.to)}: ${x.title}`).join(" · ");
+  const ch = bots[m.chair] || bots[m.members[0]];
+  if (ch) say(ch, `✅ Chốt ${nm.toLowerCase()}`, plan || "Đã thống nhất, mọi người về làm.", col, 14000);
+  m.closing = true;
+  setTimeout(() => { m.members.forEach((k) => leave(k, m)); if (meet === m) meet = null; }, 5500);
+}
+function handle(e, live) {
+  recent.push(e); while (recent.length && Date.now() - recent[0].t > 600000) recent.shift();
+  if (!live) return;
+  const inMeet = meet && !meet.closing && [e.from, e.to].some((k) => meet.slots[k] !== undefined);
+  if (inMeet) { meet.log.push(e); join(e.from); join(e.to); meet.until = Math.min(meet.start + 180000, Math.max(meet.until, Date.now() + 25000)); }
+  else if (!meet) {
+    let kind = classify(e), past = [];
+    if (!kind) { // giao việc: cùng một người gửi cho từ 2 người trở lên trong 5 phút
+      past = recent.filter((x) => x.from === e.from && x !== e && e.t - x.t < 300000 && x.to !== e.from && x.to !== e.to && bots[x.to]);
+      if (past.length) kind = "assign";
+    }
+    if (kind) { startMeet(kind, e, past.slice(-6)); if (meet) meet.log.push(e); }
+  }
+  fly(e);
+}
+setInterval(() => {
+  if (meet && !meet.closing && Date.now() > meet.until) endMeet();
+  if (!meet) { meetLbl.className = "mt idle"; meetLbl.textContent = "PHÒNG HỌP · TRỐNG"; meetLbl.style.borderColor = ""; return; }
+  const [nm, col] = MEET_KIND[meet.kind];
+  meetLbl.className = "mt"; meetLbl.style.borderColor = col; meetLbl.textContent = "";
+  const b = h("b", "", `📋 ${nm}`); b.style.color = col; meetLbl.appendChild(b);
+  meetLbl.appendChild(h("i", "", `Chủ trì: ${nameOf(meet.chair)} · ${meet.members.length} người · ${meet.closing ? "đang chốt" : "còn " + Math.max(0, Math.round((meet.until - Date.now()) / 1000)) + " giây"}`));
+  meet.log.slice(-4).forEach((x) => meetLbl.appendChild(h("div", "", `• ${nameOf(x.from)} → ${nameOf(x.to)}: ${x.title}`)));
+}, 1000);
+
+// ---------- phóng vào màn hình lớn ----------
+let anim = null, zoomed = false;
+function flyCam(pos, target, ms = 1400) { anim = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: target, s: performance.now(), ms }; }
+// Xem màn hình lớn: camera lướt tới màn hình rồi bảng điều hành phủ kín đúng khổ màn hình máy tính (không méo).
+const full = document.createElement("div"); full.id = "full";
+const fullIfr = document.createElement("iframe"); fullIfr.title = "Bảng điều hành"; full.appendChild(fullIfr); document.body.appendChild(full);
+function setZoom(key) { // key = màn hình cần xem; null = về văn phòng
+  const sc = key && walls.find((x) => x.key === key), on = !!sc;
+  zoomed = on;
+  document.body.classList.toggle("zoomed", on);
+  controls.enabled = !on;
+  $("back").style.display = on ? "" : "none";
+  document.querySelectorAll(".zbtn").forEach((b) => (b.style.display = on ? "none" : ""));
+  if (on) {
+    const dist = (sc.h / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(1, (sc.w / sc.h) / camera.aspect);
+    const at = new THREE.Vector3(sc.x, sc.y, sc.z);
+    flyCam(at.clone().addScaledVector(sc.normal, dist), at, 900);
+    const pg = sc.full || sc.page; fullIfr.title = sc.title; if (!fullIfr.src.endsWith(pg)) fullIfr.src = pg; // phóng to: bản đầy đủ
+    setTimeout(() => { if (zoomed) full.classList.add("show"); }, 750);
+  } else {
+    full.classList.remove("show");
+    flyCam(HOME_CAM.pos.clone(), HOME_CAM.target.clone(), 1100);
+  }
+}
+addEventListener("keydown", (e) => { if (e.key === "Escape" && zoomed) setZoom(null); });
+document.querySelectorAll(".zbtn").forEach((b) => b.addEventListener("click", () => setZoom(b.dataset.screen)));
+$("back").addEventListener("click", () => setZoom(null));
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+gl.domElement.addEventListener("pointermove", (ev) => {
+  if (zoomed || ev.buttons) return;
+  ndc.set(ev.clientX / innerWidth * 2 - 1, -(ev.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  if (ray.intersectObjects(walls.map((x) => x.hole)).length) gl.domElement.style.pointerEvents = "none"; // chuột vào màn hình: dùng trực tiếp trang đó
+});
+
+// ---------- vòng vẽ ----------
+const clock = new THREE.Clock();
+function loop() {
+  const dt = Math.min(clock.getDelta(), .25), t = clock.elapsedTime;
+  if (anim) {
+    const u = Math.min(1, (performance.now() - anim.s) / anim.ms), e = u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+    camera.position.lerpVectors(anim.p0, anim.p1, e); controls.target.lerpVectors(anim.t0, anim.t1, e);
+    if (u >= 1) anim = null;
+  }
+  for (const k in bots) {
+    const b = bots[k];
+    if (b.path && b.path.length && Math.hypot(b.g.position.x - b.path[0].x, b.g.position.z - b.path[0].z) < .35) b.path.shift();
+    const goal = b.path && b.path.length ? b.path[0] : b.target;
+    const d = goal.clone().sub(b.g.position); d.y = 0; const dist = d.length();
+    if (dist > .05) { b.g.position.add(d.normalize().multiplyScalar(Math.min(dist, dt * 10))); b.g.rotation.y = Math.atan2(d.x, d.z); b.moving = true; }
+    else if (b.moving) { b.moving = false; b.g.rotation.y = b.meet ? Math.atan2(MT.x - b.g.position.x, MT.z - b.g.position.z) : Math.PI; }
+    const walk = b.moving ? Math.sin(t * 12) : 0;
+    const bob = b.moving ? Math.abs(walk) * .22 : (b.active ? Math.sin(t * 3 + k.length) * .05 : 0);
+    b.body.position.y = 1.55 + bob; b.head.position.y = 3.05 + bob; b.visor.position.y = 3.05 + bob;
+    b.eyes.forEach((e) => { e.position.y = 3.1 + bob; e.scale.y = Math.sin(t * 1.3 + k.length * 2) > .985 ? .1 : 1; });
+    b.arms[0].rotation.x = b.moving ? walk * .8 : b.active ? Math.sin(t * 14) * .35 - .6 : 0;
+    b.arms[1].rotation.x = b.moving ? -walk * .8 : b.active ? Math.sin(t * 14 + 1.4) * .35 - .6 : 0;
+    if (b.active) b.ring.rotation.z += dt * 1.6;
+    b.subs.children.forEach((s, i) => { const a = t * 1.5 + i * (Math.PI * 2 / b.subs.children.length); s.position.set(Math.cos(a) * 2.3, 2.6 + Math.sin(t * 3 + i) * .2, Math.sin(a) * 2.3); });
+  }
+  r1.rotation.z += dt * .25; r2.rotation.z -= dt * .35; holo.rotation.y += dt * 1.2; holo.position.y = 6.8 + Math.sin(t * 2) * .3;
+  for (let i = flights.length - 1; i >= 0; i--) {
+    const f = flights[i], u = (performance.now() - f.t0) / 1800;
+    if (u <= 1) f.orb.position.copy(f.curve.getPoint(u)); else if (f.orb.parent) scene.remove(f.orb);
+    if (u > 1) f.line.material.opacity = Math.max(0, .8 - (u - 1) * .2);
+    if (u > 5) { scene.remove(f.line); scene.remove(f.to); flights.splice(i, 1); }
+  }
+  controls.update();
+  cssR.render(cssScene, camera); gl.render(scene, camera); lblR.render(scene, camera);
+  declutterNames(performance.now());
+  requestAnimationFrame(loop);
+}
+
+// Tên nào đè lên tên đã đặt thì ẩn đi; zoom gần là hiện lại. Ưu tiên: người đang chọn, người đang
+// làm, rồi người gần camera hơn (thấp hơn trên màn hình).
+// ponytail: so từng cặp O(n²) mỗi 150ms, đủ cho vài chục nhân viên; cần lưới không gian nếu lên hàng trăm.
+let lastDeclutterAt = 0;
+function declutterNames(now) {
+  if (now - lastDeclutterAt < 150) return;
+  lastDeclutterAt = now;
+  const items = [];
+  for (const k in bots) {
+    const el = bots[k].nameEl;
+    el.style.visibility = "visible";
+    const r = el.getBoundingClientRect();
+    if (r.width > 0) items.push({ k, el, r, rank: k === selected ? 0 : bots[k].active ? 1 : 2 });
+  }
+  items.sort((p, q) => p.rank - q.rank || q.r.bottom - p.r.bottom);
+  const kept = [];
+  for (const it of items) {
+    const hit = kept.some((r) => it.r.left < r.right + 4 && it.r.right > r.left - 4 && it.r.top < r.bottom && it.r.bottom > r.top);
+    if (hit) it.el.style.visibility = "hidden"; else kept.push(it.r);
+  }
+}
+loop();
+
+// ---------- dữ liệu ----------
+let last = null; const seen = new Set(); let first = true;
+function apply(s) {
+  last = s;
+  const A = s.agents, staff = A.filter((a) => a.platform !== "human");
+  $("clock").textContent = new Date(s.now).toLocaleTimeString("vi-VN", { hour12: false });
+  $("k1").textContent = staff.filter((a) => a.status === "active" && !a.flag).length;
+  $("k2").textContent = A.filter((a) => a.flag).length;
+  const holder = A.find((a) => a.key === s.dev.holder), busy = !!(s.dev.holder || s.dev.holderLabel);
+  $("k3").textContent = busy ? (holder ? short(holder.name) : "có người") : "trống " + ago(s.dev.idleSince);
+  $("k4").textContent = `${s.tasks.filter((t) => t.state === "done").length}/${s.tasks.length}`;
+  document.title = s.title; $("ttl").textContent = s.title; $("sub").textContent = s.subtitle || "";
+  $("askN").textContent = s.asks.length; $("ask").classList.toggle("on", s.asks.length > 0);
+  { const md = s.money.days[s.money.days.length - 1]; $("money").textContent = "$" + md.usd.toFixed(2).replace(".", ","); }
+  devLight.intensity = busy ? 80 : 0; ringMat.opacity = busy ? .95 : .25; holo.material.emissiveIntensity = busy ? 1.6 : .15;
+  devLbl.textContent = ""; devLbl.append(document.createTextNode(holder ? `${short(holder.name)} đang giữ lượt DEV · ${ago(s.dev.holderSince)}` : busy ? s.dev.holderLabel : `DEV đang trống · ${ago(s.dev.idleSince)}`));
+  if (s.dev.package) devLbl.append(h("small", "", s.dev.package));
+  buildRacks(s.sys.containers.length ? s.sys.containers : [1, 2, 3, 4, 5]); // không dùng Docker: 5 tủ máy trang trí
+  if (!s.sys.containers.length) { racks.forEach((r) => r.leds.forEach((l) => l.material.color.setHex(busy || Math.random() > .5 ? 0x7ccf9b : 0x2f6b48))); }
+  s.sys.containers.forEach((c, i) => { const ok = c.state === "running" && !/unhealthy|Restarting/i.test(c.status); if (c.retired) return racks[i]?.leds.forEach((l) => l.material.color.setHex(0x23262b)); racks[i]?.leds.forEach((l, j) => l.material.color.setHex(ok ? (Math.random() > .25 || j % 2 ? 0x7ccf9b : 0x2f6b48) : (j % 2 ? 0xe8a39b : 0x5a2b27))); });
+  let q = 0;
+  for (const a of A) {
+    const fresh = seatFor(a);
+    const b = bots[a.key] || (bots[a.key] = makeBot(a));
+    if (fresh && !first) say(b, "🆕 Nhân viên mới", `Chào cả phòng, em là ${short(a.name)} (${pName(a.platform)}), vừa vào làm.`, "#ecc970", 20000);
+    const p = a.where === "dev" ? DEV_SEAT : a.where === "g1q" ? G1Q[Math.min(q++, G1Q.length - 1)] : (HOME[a.key] || [600, 400]);
+    b.target.set(X(p[0]), 0.14, Z(p[1]) + (a.where === "dev" || a.where === "g1q" ? 0 : -0.6));
+    if (b.meet && meet && a.where === "dev") { leave(a.key, meet); delete meet.slots[a.key]; meet.members = meet.members.filter((x) => x !== a.key); }
+    if (b.meet && meet && meet.slots[a.key] !== undefined) b.target.copy(seatOf(a.key).p);
+    else if (b.visit && Date.now() < b.visit.until && bots[b.visit.to] && a.where !== "dev") { const tg = bots[b.visit.to].g.position; b.target.set(tg.x + 4.2, 0.14, tg.z + 1.5); }
+    else b.visit = null;
+    // báo cáo công việc: có câu mới thì nói ra
+    if (!first && a.lastText && a.lastTextAt && a.lastTextAt !== b.saidAt && Date.now() - a.lastTextAt < 60000) { b.saidAt = a.lastTextAt; say(b, a.platform === "human" ? "🗣 Giám đốc nói" : "🗣 Báo cáo", a.lastText, a.platform === "human" ? "#ecc970" : "#cfd8e3", 15000); }
+    else if (first) b.saidAt = a.lastTextAt;
+    b.active = a.status === "active";
+    const rc = a.flag === "blocked" ? SC.bad : a.flag === "waiting" ? SC.warn : b.active ? SC.ok : a.status === "idle" ? SC.idle : SC.off;
+    b.ringM.color.setHex(rc); b.bulbMat.color.setHex(rc);
+    b.visorMat.emissiveIntensity = b.active ? 1.1 : .2;
+    const dim = a.status === "away" || a.status === "offline"; b.body.material.transparent = dim; b.body.material.opacity = dim ? .45 : 1;
+    const sm = screens[a.key]; if (sm) { sm.emissive.setHex(a.flag === "blocked" ? 0x7a3a34 : b.active ? 0x2f7d6a : a.status === "idle" ? 0x1d2a33 : 0x0d1014); sm.emissiveIntensity = b.active ? 1.6 : .9; }
+    let label = "", col = "";
+    if (b.meet && meet) { label = "🪑 đang họp"; col = MEET_KIND[meet.kind][1]; }
+    else if (a.flag === "blocked") { label = "■ bị chặn"; col = "#e8a39b"; }
+    else if (a.flag === "waiting") { label = `▲ chờ lượt DEV #${a.queuePos || ""}`; col = "#ecc970"; }
+    else if (a.where === "dev") { label = "◆ đang trên DEV"; col = "#ecc970"; }
+    else if (a.sub) { label = `${a.sub} phiên con`; col = "#8fc0ef"; }
+    else if (b.active) { label = "● đang làm"; col = "#7ccf9b"; }
+    b.bub.style.display = label ? "inline-block" : "none"; b.bub.textContent = label; b.bub.style.color = col; b.bub.style.borderColor = col;
+    b.lab.classList.toggle("sel", selected === a.key);
+    const want = Math.min(a.sub || 0, 6);
+    while (b.subs.children.length < want) b.subs.add(new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 8), new THREE.MeshBasicMaterial({ color: PCOL[a.platform] })));
+    while (b.subs.children.length > want) b.subs.remove(b.subs.children[0]);
+  }
+  for (const e of s.events) { const id = `${e.t}|${e.from}|${e.to}|${e.title}`; if (seen.has(id)) continue; seen.add(id); handle(e, !first && Date.now() - e.t < 120000); }
+  first = false;
+  if (selected) showCard();
+}
+function showCard() {
+  const c = $("card"), a = last && last.agents.find((x) => x.key === selected);
+  for (const k in bots) bots[k].lab.classList.toggle("sel", k === selected);
+  if (!a) { c.style.display = "none"; return; }
+  c.style.display = "block";
+  let info = c.querySelector(".info"); if (!info) { info = h("div", "info"); c.prepend(info); } info.textContent = ""; // phần thông tin vẽ lại mỗi giây, ô nhắn tin giữ nguyên
+  const h4 = h("h4", "", a.name.split(" · ")[0]); const x = h("button", "", "Đóng"); x.onclick = () => { selected = null; c.style.display = "none"; showCard(); }; h4.appendChild(x); info.appendChild(h4);
+  const st = a.flag === "blocked" ? "bị chặn" : a.flag === "waiting" ? `chờ lượt DEV #${a.queuePos || ""}` : a.where === "dev" ? "đang trên DEV" : { active: "đang làm", idle: "đang rảnh", away: "nghỉ lâu", offline: "không đọc được nhật ký" }[a.status];
+  info.append(h("div", "m", `${a.role} · ${pName(a.platform)} · ${st} · hoạt động ${ago(a.lastActive)} trước`));
+  if (a.lastText) info.appendChild(h("p", "", "“" + a.lastText + "”"));
+  window.ChatBox && ChatBox.mount(c, a);
+}
+window.thuTin = (from, to, title, kind = "msg") => handle({ t: Date.now(), kind, from, to, title }, true); // thử hiệu ứng tin nhắn
+let lastMsgAt = 0;
+const es = new EventSource("events");
+es.onmessage = (m) => { lastMsgAt = Date.now(); $("live").className = "live"; try { apply(JSON.parse(m.data)); } catch (e) { console.error(e); } };
+es.onerror = () => { $("live").className = "live off"; };
+setInterval(async () => { if (Date.now() - lastMsgAt < 3000) return; try { const r = await fetch("state", { cache: "no-store" }); if (r.ok) { $("live").className = "live"; apply(await r.json()); } } catch { $("live").className = "live off"; } }, 1000);
+</script>
+<script src="chat-ui.js"></script>
+</body>
+</html>

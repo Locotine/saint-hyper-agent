@@ -6,6 +6,8 @@
     "dist",
     "dist-electron",
     "dist-bridge",
+    "apps/server/src/office3d",
+    "apps/desktop-rust/gen",
     "target",
     "node_modules",
     "bun.lock",

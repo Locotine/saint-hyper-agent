@@ -73,6 +73,8 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
   };
 
   const handleRotateCode = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
       const next = await bridge.rotatePairingToken();
       setState(next);
@@ -86,6 +88,8 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
         title: "Could not rotate pairing code",
         description: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -98,6 +102,8 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
   };
 
   const handleRevokeSession = async (sessionId: string) => {
+    if (busy) return;
+    setBusy(true);
     try {
       const next = await bridge.revokeSession({ sessionId });
       setState(next);
@@ -111,10 +117,14 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
         title: "Could not revoke session",
         description: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleRevokeAll = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
       const next = await bridge.revokeAllSessions();
       setState(next);
@@ -128,6 +138,8 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
         title: "Could not revoke sessions",
         description: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      setBusy(false);
     }
   };
 

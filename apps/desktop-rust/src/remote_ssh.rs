@@ -135,26 +135,47 @@ impl RemoteSshManager {
         }
     }
 
+    pub fn is_valid_ssh_user(value: &str) -> bool {
+        let trimmed = value.trim();
+        !trimmed.is_empty()
+            && trimmed.len() <= 64
+            && !trimmed.starts_with('-')
+            && trimmed
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+    }
+
     pub fn is_valid_ssh_target(value: &str) -> bool {
         let trimmed = value.trim();
         if trimmed.is_empty() || trimmed.len() > 253 || trimmed.starts_with('-') {
             return false;
         }
-        if trimmed.starts_with('[') && trimmed.ends_with(']') {
-            return trimmed[1..trimmed.len() - 1]
-                .chars()
-                .all(|c| c.is_ascii_hexdigit() || c == ':' || c == '.');
+        let host_part = if let Some((user_part, rest_host)) = trimmed.split_once('@') {
+            if !Self::is_valid_ssh_user(user_part) || rest_host.contains('@') {
+                return false;
+            }
+            rest_host
+        } else {
+            trimmed
+        };
+        if host_part.is_empty() || host_part.starts_with('-') {
+            return false;
         }
-        let mut chars = trimmed.chars();
+        if host_part.starts_with('[') && host_part.ends_with(']') {
+            let inner = &host_part[1..host_part.len() - 1];
+            return !inner.is_empty()
+                && inner
+                    .chars()
+                    .all(|c| c.is_ascii_hexdigit() || c == ':' || c == '.');
+        }
+        let mut chars = host_part.chars();
         let Some(first) = chars.next() else {
             return false;
         };
         if !(first.is_ascii_alphanumeric() || first == '_') {
             return false;
         }
-        chars.all(|c| {
-            c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '@' | '%' | ':' | '-')
-        })
+        chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '%' | ':' | '-'))
     }
 
     pub fn normalize_remote_root(value: &str) -> Option<String> {
@@ -177,6 +198,14 @@ impl RemoteSshManager {
             }
         }
         Some(trimmed.to_string())
+    }
+
+    pub fn remote_root_process_pattern(remote_root: &str) -> String {
+        let mut chars = remote_root.chars();
+        match chars.next() {
+            Some(first) => format!("[{first}]{}", chars.as_str()),
+            None => String::new(),
+        }
     }
 
     fn generate_host_key() -> String {
@@ -233,7 +262,37 @@ impl RemoteSshManager {
             .unwrap_or_default()
     }
 
+    fn kill_and_reap(mut child: Child) {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    fn reconcile_tunnels(&self) {
+        let mut dead_hosts = Vec::new();
+        if let Ok(mut tunnels) = self.tunnels.lock() {
+            tunnels.retain(|host, child| match child.try_wait() {
+                Ok(Some(_)) | Err(_) => {
+                    dead_hosts.push(host.clone());
+                    false
+                }
+                Ok(None) => true,
+            });
+        }
+        if !dead_hosts.is_empty() {
+            if let Ok(mut live) = self.live_hosts.lock() {
+                for entry in live.iter_mut() {
+                    if dead_hosts.contains(&entry.host) && entry.phase == "connected" {
+                        entry.phase = "error".to_string();
+                        entry.local_port = None;
+                        entry.message = Some("SSH tunnel closed.".to_string());
+                    }
+                }
+            }
+        }
+    }
+
     pub fn get_state(&self) -> DesktopRemoteSshState {
+        self.reconcile_tunnels();
         let saved = self
             .saved_hosts
             .lock()
@@ -267,13 +326,21 @@ impl RemoteSshManager {
         Some(trimmed.to_string())
     }
 
+    fn sanitize_ssh_user(raw: Option<&str>) -> Option<String> {
+        let trimmed = raw?.trim();
+        if !Self::is_valid_ssh_user(trimmed) {
+            return None;
+        }
+        Some(trimmed.to_string())
+    }
+
     pub fn ssh_connection_option_args(entry: &DesktopRemoteSshSavedHost) -> Vec<String> {
         let mut args = Vec::new();
         if let Some(port) = entry.port.filter(|p| *p > 0) {
             args.push("-p".to_string());
             args.push(port.to_string());
         }
-        if let Some(user) = Self::sanitize_optional_field(entry.user.as_deref()) {
+        if let Some(user) = Self::sanitize_ssh_user(entry.user.as_deref()) {
             if !entry.host.contains('@') {
                 args.push("-l".to_string());
                 args.push(user);
@@ -373,7 +440,7 @@ impl RemoteSshManager {
             },
             label: Self::sanitize_optional_field(input.label.as_deref())
                 .or_else(|| existing.as_ref().and_then(|h| h.label.clone())),
-            user: Self::sanitize_optional_field(input.user.as_deref())
+            user: Self::sanitize_ssh_user(input.user.as_deref())
                 .or_else(|| existing.as_ref().and_then(|h| h.user.clone())),
             port: input.port.filter(|p| *p > 0).or_else(|| existing.as_ref().and_then(|h| h.port)),
             identity_file: Self::sanitize_optional_field(input.identity_file.as_deref())
@@ -443,7 +510,7 @@ impl RemoteSshManager {
                     .auto_connect
                     .or_else(|| existing.as_ref().and_then(|h| h.auto_connect)),
                 label: Self::sanitize_optional_field(input.target.label.as_deref()),
-                user: Self::sanitize_optional_field(input.target.user.as_deref()),
+                user: Self::sanitize_ssh_user(input.target.user.as_deref()),
                 port: input.target.port.filter(|p| *p > 0),
                 identity_file: Self::sanitize_optional_field(input.target.identity_file.as_deref()),
             };
@@ -463,6 +530,13 @@ impl RemoteSshManager {
         }
 
         if prev != host {
+            let replaced = self.tunnels.lock().ok().and_then(|mut tunnels| {
+                let child = tunnels.remove(prev)?;
+                tunnels.insert(host.clone(), child)
+            });
+            if let Some(existing) = replaced {
+                Self::kill_and_reap(existing);
+            }
             if let Ok(mut live_guard) = self.live_hosts.lock() {
                 if let Some(live) = live_guard.iter_mut().find(|h| h.host == prev) {
                     live.host = host.clone();
@@ -507,9 +581,10 @@ impl RemoteSshManager {
                 .or_else(|| saved_entry.as_ref().and_then(|s| s.identity_file.clone())),
         };
         let extra_args = Self::ssh_connection_option_args(&merged);
+        let pattern = Self::remote_root_process_pattern(&remote_root);
 
         let probe_cmd = format!(
-            "printf 'SAINT_SSH_OK\\n'; if pgrep -f '{remote_root}' >/dev/null 2>&1; then printf 'SAINT_SERVER_RUNNING\\n'; else printf 'SAINT_SERVER_STOPPED\\n'; fi"
+            "printf 'SAINT_SSH_OK\\n'; if pgrep -f '{pattern}' >/dev/null 2>&1; then printf 'SAINT_SERVER_RUNNING\\n'; else printf 'SAINT_SERVER_STOPPED\\n'; fi"
         );
         let mut ssh_cmd = Command::new("ssh");
         ssh_cmd.args([
@@ -521,7 +596,7 @@ impl RemoteSshManager {
             "ClearAllForwardings=yes",
         ]);
         ssh_cmd.args(&extra_args);
-        ssh_cmd.arg(&host).arg(&probe_cmd);
+        ssh_cmd.arg("--").arg(&host).arg(&probe_cmd);
         ssh_cmd
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -583,10 +658,16 @@ impl RemoteSshManager {
         ]);
         ssh_cmd.args(&extra_args);
         ssh_cmd
-            .args(["-N", "-L", &format!("{local_port}:127.0.0.1:3773"), &host])
+            .args([
+                "-N",
+                "-L",
+                &format!("{local_port}:127.0.0.1:3773"),
+                "--",
+                &host,
+            ])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::piped());
+            .stderr(Stdio::null());
 
         #[cfg(target_os = "windows")]
         {
@@ -596,10 +677,13 @@ impl RemoteSshManager {
 
         let (phase, message, bound_port) = match ssh_cmd.spawn() {
             Ok(child) => {
-                if let Ok(mut tunnels) = self.tunnels.lock() {
-                    if let Some(mut prev) = tunnels.insert(host.clone(), child) {
-                        let _ = prev.kill();
-                    }
+                let prev = self
+                    .tunnels
+                    .lock()
+                    .ok()
+                    .and_then(|mut tunnels| tunnels.insert(host.clone(), child));
+                if let Some(prev_child) = prev {
+                    Self::kill_and_reap(prev_child);
                 }
                 ("connected".to_string(), None, Some(local_port))
             }
@@ -642,10 +726,13 @@ impl RemoteSshManager {
         if !Self::is_valid_ssh_target(trimmed) {
             return Err("Unknown SSH host.".to_string());
         }
-        if let Ok(mut tunnels) = self.tunnels.lock() {
-            if let Some(mut child) = tunnels.remove(trimmed) {
-                let _ = child.kill();
-            }
+        let removed_child = self
+            .tunnels
+            .lock()
+            .ok()
+            .and_then(|mut tunnels| tunnels.remove(trimmed));
+        if let Some(child) = removed_child {
+            Self::kill_and_reap(child);
         }
         if let Ok(mut saved) = self.saved_hosts.lock() {
             for entry in saved.iter_mut() {
@@ -666,23 +753,39 @@ impl RemoteSshManager {
     }
 
     pub fn stop_server(&self, input: DesktopRemoteSshSavedHost) -> Result<(), String> {
-        let host = input.host.trim();
-        self.disconnect(host)?;
+        let host = input.host.trim().to_string();
+        self.disconnect(&host)?;
         let remote_root = input
             .remote_root
             .as_deref()
             .and_then(Self::normalize_remote_root)
             .unwrap_or_else(|| DEFAULT_REMOTE_ROOT.to_string());
+        let saved_entry = self
+            .saved_hosts
+            .lock()
+            .ok()
+            .and_then(|g| g.iter().find(|h| h.host == host).cloned());
+        let merged = DesktopRemoteSshSavedHost {
+            host: host.clone(),
+            remote_root: Some(remote_root.clone()),
+            host_key: input.host_key,
+            auto_connect: input.auto_connect,
+            label: input.label,
+            user: input.user.or_else(|| saved_entry.as_ref().and_then(|s| s.user.clone())),
+            port: input.port.or_else(|| saved_entry.as_ref().and_then(|s| s.port)),
+            identity_file: input
+                .identity_file
+                .or_else(|| saved_entry.as_ref().and_then(|s| s.identity_file.clone())),
+        };
+        let extra_args = Self::ssh_connection_option_args(&merged);
+        let pattern = Self::remote_root_process_pattern(&remote_root);
         let mut stop_cmd = Command::new("ssh");
+        stop_cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
+        stop_cmd.args(&extra_args);
         stop_cmd
-            .args([
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "ConnectTimeout=5",
-                host,
-                &format!("pkill -f '{remote_root}' >/dev/null 2>&1 || true"),
-            ])
+            .arg("--")
+            .arg(&host)
+            .arg(format!("pkill -f '{pattern}' >/dev/null 2>&1 || true"))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
@@ -697,10 +800,13 @@ impl RemoteSshManager {
 
     pub fn forget_host(&self, host: &str) {
         let trimmed = host.trim();
-        if let Ok(mut tunnels) = self.tunnels.lock() {
-            if let Some(mut child) = tunnels.remove(trimmed) {
-                let _ = child.kill();
-            }
+        let removed_child = self
+            .tunnels
+            .lock()
+            .ok()
+            .and_then(|mut tunnels| tunnels.remove(trimmed));
+        if let Some(child) = removed_child {
+            Self::kill_and_reap(child);
         }
         if let Ok(mut saved) = self.saved_hosts.lock() {
             saved.retain(|h| h.host != trimmed);
@@ -712,6 +818,7 @@ impl RemoteSshManager {
     }
 
     pub fn ws_url_for_host(&self, host: &str) -> Option<String> {
+        self.reconcile_tunnels();
         let live = self.live_hosts.lock().ok()?;
         let found = live.iter().find(|h| h.host == host.trim())?;
         found.local_port.map(|p| format!("ws://127.0.0.1:{p}"))
@@ -749,10 +856,14 @@ impl RemoteSshManager {
     }
 
     pub fn kill_all_tunnels(&self) {
-        if let Ok(mut tunnels) = self.tunnels.lock() {
-            for (_, mut child) in tunnels.drain() {
-                let _ = child.kill();
-            }
+        let children: Vec<Child> = self
+            .tunnels
+            .lock()
+            .ok()
+            .map(|mut tunnels| tunnels.drain().map(|(_, c)| c).collect())
+            .unwrap_or_default();
+        for child in children {
+            Self::kill_and_reap(child);
         }
     }
 }
@@ -785,6 +896,10 @@ mod tests {
         assert!(RemoteSshManager::is_valid_ssh_target("ubuntu@10.0.0.5"));
         assert!(RemoteSshManager::is_valid_ssh_target("[::1]"));
         assert!(!RemoteSshManager::is_valid_ssh_target("-oProxyCommand=evil"));
+        assert!(!RemoteSshManager::is_valid_ssh_target("ubuntu@-oProxyCommand=evil"));
+        assert!(!RemoteSshManager::is_valid_ssh_target("user@host@extra"));
+        assert!(!RemoteSshManager::is_valid_ssh_target("@host"));
+        assert!(!RemoteSshManager::is_valid_ssh_target("user@"));
         assert!(!RemoteSshManager::is_valid_ssh_target(""));
 
         assert_eq!(
@@ -879,6 +994,68 @@ mod tests {
         assert_eq!(renamed.saved_hosts[0].host_key, original_key);
         assert_eq!(renamed.saved_hosts[0].label.as_deref(), Some("Dev Box 2"));
         assert_eq!(renamed.saved_hosts[0].user.as_deref(), Some("bob"));
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn brackets_first_char_in_remote_root_process_pattern() {
+        assert_eq!(
+            RemoteSshManager::remote_root_process_pattern(".saint-remote"),
+            "[.]saint-remote"
+        );
+        assert_eq!(
+            RemoteSshManager::remote_root_process_pattern("custom/saint"),
+            "[c]ustom/saint"
+        );
+        assert_eq!(RemoteSshManager::remote_root_process_pattern(""), "");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rekeys_tunnel_on_host_rename_so_disconnect_by_new_name_kills_it() {
+        let temp_dir = std::env::temp_dir().join(format!("saint-ssh-rename-test-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let paths = SaintPaths::from_base_dir(temp_dir.clone());
+        let manager = RemoteSshManager::new(paths);
+
+        let child = Command::new("sleep")
+            .arg("30")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("failed to spawn sleep 30");
+        manager
+            .tunnels
+            .lock()
+            .unwrap()
+            .insert("devbox".to_string(), child);
+
+        manager
+            .update_host(DesktopRemoteSshUpdateHostInput {
+                previous_host: Some("devbox".to_string()),
+                target: DesktopRemoteSshSavedHost {
+                    host: "devbox-renamed".to_string(),
+                    remote_root: None,
+                    host_key: None,
+                    auto_connect: None,
+                    label: None,
+                    user: None,
+                    port: None,
+                    identity_file: None,
+                },
+            })
+            .unwrap();
+
+        {
+            let tunnels = manager.tunnels.lock().unwrap();
+            assert!(!tunnels.contains_key("devbox"));
+            assert!(tunnels.contains_key("devbox-renamed"));
+        }
+
+        manager.disconnect("devbox-renamed").unwrap();
+        assert!(!manager.tunnels.lock().unwrap().contains_key("devbox-renamed"));
+
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

@@ -1,5 +1,8 @@
 # Beta diagnostics
 
+> [!NOTE]
+> The diagnostics module described here lived in the retired Electron app, whose source has been removed. The Tauri app (`apps/desktop-rust`) has no diagnostics module and sends nothing. This file stays as the reference for the allowlist and redaction rules in `packages/shared`.
+
 Saint Beta ships always-on diagnostics so the team can see crashes and release
 health on real machines instead of waiting for bug reports. This document is the
 authoritative description of what leaves your computer.
@@ -20,7 +23,7 @@ never instantiated: no UI, environment variable, or IPC can enable it.)
 ## What is collected
 
 Thirteen event names, each with a small fixed field set. The full allowlist
-lives in `apps/desktop/src/betaDiagnostics.ts` (`BetaDiagnosticsEventName` and
+lived in the Electron `betaDiagnostics.ts` (`BetaDiagnosticsEventName` and
 the `sanitizeBetaDiagnosticsPayload` schemas); the ingest worker re-validates
 the same allowlist server-side.
 

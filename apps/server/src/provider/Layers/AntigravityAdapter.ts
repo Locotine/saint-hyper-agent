@@ -916,8 +916,8 @@ export function resolveAntigravityCliModelLabel(
     options?.fastMode === true && /^gemini\b/iu.test(parsed.model) ? "low" : undefined;
   const effort =
     parsed.effort ??
-    options?.reasoningEffort?.trim().toLowerCase() ??
     fastModeEffort ??
+    options?.reasoningEffort?.trim().toLowerCase() ??
     discoveredDefaultEffort?.trim().toLowerCase() ??
     DEFAULT_EFFORT_BY_MODEL[parsed.model];
   // Always rebuild the CLI display label. Returning the raw input would preserve

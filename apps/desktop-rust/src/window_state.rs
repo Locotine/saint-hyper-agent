@@ -68,13 +68,18 @@ pub fn resolve_visible_window_bounds(
     minimum_width: i32,
     minimum_height: i32,
 ) -> DesktopWindowBounds {
-    let Some(first_work_area) = display_work_areas.first().copied() else {
+    let valid_areas: Vec<DesktopWindowBounds> = display_work_areas
+        .iter()
+        .copied()
+        .filter(|area| area.width > 0 && area.height > 0)
+        .collect();
+    let Some(first_work_area) = valid_areas.first().copied() else {
         return saved_bounds;
     };
 
     let mut target_work_area = first_work_area;
     let mut largest_intersection = intersection_area(saved_bounds, target_work_area);
-    for &work_area in &display_work_areas[1..] {
+    for &work_area in &valid_areas[1..] {
         let area = intersection_area(saved_bounds, work_area);
         if area > largest_intersection {
             target_work_area = work_area;
@@ -221,15 +226,6 @@ pub fn normalize_agent_cursor_style(
         return None;
     }
     Some(AgentCursorStylePreference { fill, rim, shadow })
-}
-
-pub fn read_agent_cursor_preference(path: &Path) -> Option<AgentCursorStylePreference> {
-    let raw = std::fs::read_to_string(path).ok()?;
-    let parsed: PersistedAgentCursorPreference = serde_json::from_str(&raw).ok()?;
-    if parsed.version != 1 {
-        return None;
-    }
-    normalize_agent_cursor_style(parsed.style)
 }
 
 pub fn write_agent_cursor_preference(

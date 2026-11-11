@@ -19,10 +19,7 @@ import {
 } from "@saint/contracts";
 import { SAINT_DESKTOP_SMOKE_USER_DATA_ENV } from "@saint/shared/desktopIdentity";
 import { Schema, type Effect } from "effect";
-import {
-  startFocusProbe,
-  type FocusProbeExpect,
-} from "../../apps/desktop/src/cuaFixtures/focusProbe.ts";
+import { startFocusProbe, type FocusProbeExpect } from "./focusProbe.ts";
 import { artifactIdentity, PackagedAppInstallationError } from "./packaged-artifact.ts";
 import {
   collectComputerRun,

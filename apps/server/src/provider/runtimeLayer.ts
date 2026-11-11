@@ -14,7 +14,9 @@ import { makeCodexAdapterLive } from "./Layers/CodexAdapter";
 import { makeCursorAdapterLive } from "./Layers/CursorAdapter";
 import { makeDevinAdapterLive } from "./Layers/DevinAdapter";
 import { makeEventNdjsonLogger } from "./Layers/EventNdjsonLogger";
+import { makeAntigravityAcpAdapterLive } from "./Layers/AntigravityAcpAdapter";
 import { makeAntigravityAdapterLive } from "./Layers/AntigravityAdapter";
+import { resolveAntigravityTransport } from "./acp/AntigravityAcpSupport";
 import { makeDroidAdapterLive } from "./Layers/DroidAdapter";
 import { makeGrokAdapterLive } from "./Layers/GrokAdapter";
 import { makeOpenCodeAdapterLive } from "./Layers/OpenCodeAdapter";
@@ -66,9 +68,11 @@ export function makeServerProviderLayer(
       ...(nativeEventLogger ? { nativeEventLogger } : {}),
       resolveServerPassword: resolveProviderServerPassword,
     }).pipe(Layer.provide(agentGatewayCredentialsLayer));
-    const antigravityAdapterLayer = makeAntigravityAdapterLive().pipe(
-      Layer.provide(agentGatewayCredentialsLayer),
-    );
+    const antigravityAdapterLayer = (
+      resolveAntigravityTransport() === "acp"
+        ? makeAntigravityAcpAdapterLive(nativeEventLogger ? { nativeEventLogger } : undefined)
+        : makeAntigravityAdapterLive()
+    ).pipe(Layer.provide(agentGatewayCredentialsLayer));
     const grokAdapterLayer = makeGrokAdapterLive(
       {},
       nativeEventLogger ? { nativeEventLogger } : undefined,

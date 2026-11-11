@@ -110,7 +110,10 @@ type ClaudeSessionQueryMethod =
 export function claudeHistoricalSessionChildEnvironment(
   environment: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv {
-  return environment;
+  return {
+    ...environment,
+    ELECTRON_RUN_AS_NODE: "1",
+  };
 }
 
 async function runClaudeSessionQueryInChildProcess<T>(input: {

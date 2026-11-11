@@ -28,6 +28,7 @@ import {
   ShieldCheckIcon,
   ShieldCodeIcon,
   UsageGaugeIcon,
+  Office3dIcon,
   TasksIcon,
   KeyboardIcon,
   BellIcon,
@@ -47,6 +48,10 @@ import {
   PR_STATE_PRESENTATION_ICONS,
   resolvePrStatePresentation,
 } from "~/components/pullRequest/pullRequestStatePresentation";
+import {
+  Office3dConfirmDialog,
+  setOffice3dConfirmed,
+} from "~/components/office3d/Office3dConfirmDialog";
 import { PinStatusIcon, pinActionLabel } from "~/lib/pin";
 import { useTasksNeedingAttentionCount, useTodoEventSubscription } from "./tasks/useTodos";
 import { THREAD_CONTEXT_MENU_ICONS } from "~/lib/contextMenuIcons";
@@ -1375,6 +1380,8 @@ export default function Sidebar() {
   const isOnSecurity = pathname.startsWith("/security");
   const isOnCyberSecurity = pathname.startsWith("/cyber-security");
   const isOnHostEconomy = pathname.startsWith("/host-economy");
+  const isOnOffice3d = pathname.startsWith("/office-3d");
+  const [office3dConfirmOpen, setOffice3dConfirmOpen] = useState(false);
   const isOnPullRequests = pathname.startsWith("/pull-requests");
   const isOnInbox = pathname.startsWith("/inbox");
   // Lightweight read of automations to drive the sidebar count badge. Shares the
@@ -3992,10 +3999,14 @@ export default function Sidebar() {
                     commandId: newCommandId(),
                     projectId: requestedProjectId,
                     newProjectSpaceId: value.spaceId,
-                    defaultModelSelection: {
-                      provider: "codex",
-                      model: getDefaultModel("codex"),
-                    },
+                    // Same seed as lib/projectCreation: the Settings default provider.
+                    defaultModelSelection:
+                      appSettings.defaultProvider === "pi" || appSettings.defaultProvider === "omp"
+                        ? { provider: "codex", model: getDefaultModel("codex") }
+                        : {
+                            provider: appSettings.defaultProvider,
+                            model: getDefaultModel(appSettings.defaultProvider),
+                          },
                     createdAt: new Date().toISOString(),
                   },
                   { signal: options.signal },
@@ -4406,6 +4417,19 @@ export default function Sidebar() {
           void navigate({ to: "/host-economy" });
         },
       },
+      office3d: {
+        icon: Office3dIcon,
+        label: "Văn phòng 3D",
+        active: isOnOffice3d,
+        badge: null,
+        onClick: () => {
+          if (isOnOffice3d) {
+            void navigate({ to: "/office-3d" });
+            return;
+          }
+          setOffice3dConfirmOpen(true);
+        },
+      },
     }),
     [
       flowsBadge,
@@ -4414,6 +4438,7 @@ export default function Sidebar() {
       isOnSecurity,
       isOnCyberSecurity,
       isOnHostEconomy,
+      isOnOffice3d,
       automationCountBadge,
       handlePrimaryNewThread,
       inboxBadge,
@@ -8069,6 +8094,17 @@ export default function Sidebar() {
           remoteSshState={remoteSshState}
         />
       ) : null}
+      <Office3dConfirmDialog
+        open={office3dConfirmOpen}
+        onConfirm={() => {
+          setOffice3dConfirmed(true);
+          setOffice3dConfirmOpen(false);
+          void navigate({ to: "/office-3d" });
+        }}
+        onCancel={() => {
+          setOffice3dConfirmOpen(false);
+        }}
+      />
     </>
   );
 }

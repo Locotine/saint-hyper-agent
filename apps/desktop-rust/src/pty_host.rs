@@ -1,12 +1,12 @@
 // FILE: pty_host.rs
-// Purpose: Native Rust PTY session manager using `portable-pty` and `vt100`.
-//          Replaces `node-pty` + `@xterm/headless` so the sidecar server needs zero C++ addons.
-//          Exposes both Tauri IPC methods and a local authenticated loopback TCP bridge
+// Purpose: Native Rust PTY host using `portable-pty`.
+//          Replaces `node-pty` so the sidecar server needs zero C++ addons.
+//          Exposes a local authenticated loopback TCP bridge
 //          (`SAINT_RUST_PTY_PORT` / `SAINT_RUST_PTY_TOKEN`) for `apps/server`.
 // Layer: Native Terminal / PTY subsystem (Option 1A+ / 4A).
 
 use base64::Engine as _;
-use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -14,32 +14,6 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use uuid::Uuid;
-
-pub const MAX_RETAINED_EXITED_PTY_SESSIONS: usize = 16;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PtyOpenInput {
-    pub session_id: String,
-    pub cwd: String,
-    pub cols: u16,
-    pub rows: u16,
-    #[serde(default)]
-    pub shell: Option<String>,
-    #[serde(default)]
-    pub env: HashMap<String, String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PtySessionSnapshot {
-    pub session_id: String,
-    pub cwd: String,
-    pub cols: u16,
-    pub rows: u16,
-    pub screen_contents: String,
-    pub running: bool,
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -136,19 +110,48 @@ fn send_exit_or_shutdown_bridge_stream(
     }
 }
 
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (&x, &y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+fn read_bounded_line<R: BufRead>(reader: &mut R, max_bytes: usize) -> std::io::Result<Option<String>> {
+    let mut buf = Vec::new();
+    let n = reader.by_ref().take((max_bytes + 1) as u64).read_until(b'\n', &mut buf)?;
+    if n == 0 {
+        return Ok(None);
+    }
+    if buf.len() > max_bytes && !buf.ends_with(b"\n") {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Bridge frame exceeded maximum line size",
+        ));
+    }
+    String::from_utf8(buf)
+        .map(Some)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+}
+
 fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
     let _ = stream.set_nodelay(true);
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
     let Ok(writer_stream) = stream.try_clone() else {
         return;
     };
     let shutdown_stream = stream.try_clone().ok();
     let writer = Arc::new(Mutex::new(writer_stream));
-    let reader = BufReader::new(stream);
-    let mut lines = reader.lines();
+    let mut reader = BufReader::new(stream);
 
-    let Some(Ok(first_line)) = lines.next() else {
+    let Ok(Some(first_line)) = read_bounded_line(&mut reader, 64 * 1024) else {
         return;
     };
+    let _ = reader.get_ref().set_read_timeout(None);
     let Ok(BridgeClientCommand::Spawn {
         token,
         shell,
@@ -168,7 +171,7 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
         return;
     };
 
-    if token != expected_token {
+    if !constant_time_eq(token.as_bytes(), expected_token.as_bytes()) {
         let _ = send_bridge_event(
             &writer,
             &BridgeServerEvent::Error {
@@ -354,10 +357,7 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
         );
     });
 
-    for line_res in lines {
-        let Ok(line) = line_res else {
-            break;
-        };
+    while let Ok(Some(line)) = read_bounded_line(&mut reader, 2 * 1024 * 1024) {
         if line.trim().is_empty() {
             continue;
         }
@@ -387,6 +387,9 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
                 }
             }
             BridgeClientCommand::Kill => {
+                if pid > 0 {
+                    crate::backend::BackendSupervisor::kill_process_tree(pid);
+                }
                 let _ = child_killer.kill();
                 break;
             }
@@ -394,6 +397,9 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
         }
     }
 
+    if pid > 0 {
+        crate::backend::BackendSupervisor::kill_process_tree(pid);
+    }
     let _ = child_killer.kill();
     std::thread::spawn(move || {
         take_and_drop(&pty_writer);
@@ -401,25 +407,7 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
     });
 }
 
-struct ActivePtySession {
-    cwd: String,
-    cols: u16,
-    rows: u16,
-    master: Box<dyn MasterPty + Send>,
-    writer: Box<dyn Write + Send>,
-    child_killer: Box<dyn ChildKiller + Send + Sync>,
-    parser: Arc<Mutex<vt100::Parser>>,
-    running: Arc<Mutex<bool>>,
-}
-
-impl Drop for ActivePtySession {
-    fn drop(&mut self) {
-        let _ = self.child_killer.kill();
-    }
-}
-
 pub struct PtyHostManager {
-    sessions: Mutex<HashMap<String, ActivePtySession>>,
     bridge_port: u16,
     bridge_token: String,
 }
@@ -447,7 +435,6 @@ impl PtyHostManager {
         }
 
         Self {
-            sessions: Mutex::new(HashMap::new()),
             bridge_port,
             bridge_token,
         }
@@ -459,193 +446,6 @@ impl PtyHostManager {
 
     pub fn bridge_token(&self) -> &str {
         &self.bridge_token
-    }
-
-    fn default_shell() -> String {
-        #[cfg(target_os = "windows")]
-        {
-            std::env::var("COMSPEC").unwrap_or_else(|_| "powershell.exe".to_string())
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
-        }
-    }
-
-    pub fn open_session(&self, input: PtyOpenInput) -> Result<PtySessionSnapshot, String> {
-        let pty_system = native_pty_system();
-        let size = PtySize {
-            rows: input.rows.max(2),
-            cols: input.cols.max(8),
-            pixel_width: 0,
-            pixel_height: 0,
-        };
-        let pair = pty_system
-            .openpty(size)
-            .map_err(|e| format!("Failed to open native PTY: {e}"))?;
-
-        let shell_program = input.shell.unwrap_or_else(Self::default_shell);
-        let mut cmd = CommandBuilder::new(shell_program);
-        cmd.cwd(&input.cwd);
-        for (k, v) in &input.env {
-            cmd.env(k, v);
-        }
-
-        let mut child = pair
-            .slave
-            .spawn_command(cmd)
-            .map_err(|e| format!("Failed to spawn shell in PTY: {e}"))?;
-        let child_killer = child.clone_killer();
-        drop(pair.slave);
-
-        let mut reader = pair
-            .master
-            .try_clone_reader()
-            .map_err(|e| format!("Failed to clone PTY reader: {e}"))?;
-        let writer = pair
-            .master
-            .take_writer()
-            .map_err(|e| format!("Failed to take PTY writer: {e}"))?;
-
-        let parser = Arc::new(Mutex::new(vt100::Parser::new(
-            size.rows,
-            size.cols,
-            5_000,
-        )));
-        let running = Arc::new(Mutex::new(true));
-
-        let parser_clone = Arc::clone(&parser);
-        let running_for_reader = Arc::clone(&running);
-        std::thread::spawn(move || {
-            let mut buf = [0u8; 4096];
-            while let Ok(n) = reader.read(&mut buf) {
-                if n == 0 {
-                    break;
-                }
-                if let Ok(mut guard) = parser_clone.lock() {
-                    guard.process(&buf[..n]);
-                }
-            }
-            if let Ok(mut guard) = running_for_reader.lock() {
-                *guard = false;
-            }
-        });
-
-        let running_for_wait = Arc::clone(&running);
-        std::thread::spawn(move || {
-            let _ = child.wait();
-            if let Ok(mut guard) = running_for_wait.lock() {
-                *guard = false;
-            }
-        });
-
-        let snapshot = PtySessionSnapshot {
-            session_id: input.session_id.clone(),
-            cwd: input.cwd.clone(),
-            cols: size.cols,
-            rows: size.rows,
-            screen_contents: String::new(),
-            running: true,
-        };
-
-        let session = ActivePtySession {
-            cwd: input.cwd,
-            cols: size.cols,
-            rows: size.rows,
-            master: pair.master,
-            writer,
-            child_killer,
-            parser,
-            running,
-        };
-
-        if let Ok(mut map) = self.sessions.lock() {
-            let exited_count = map
-                .values()
-                .filter(|s| !s.running.lock().map(|r| *r).unwrap_or(false))
-                .count();
-            if exited_count >= MAX_RETAINED_EXITED_PTY_SESSIONS {
-                map.retain(|_, s| s.running.lock().map(|r| *r).unwrap_or(false));
-            }
-            map.insert(input.session_id, session);
-        }
-
-        Ok(snapshot)
-    }
-
-    pub fn write_input(&self, session_id: &str, data: &[u8]) -> Result<(), String> {
-        let mut map = self.sessions.lock().map_err(|e| e.to_string())?;
-        let session = map
-            .get_mut(session_id)
-            .ok_or_else(|| format!("Unknown PTY session: {session_id}"))?;
-        session
-            .writer
-            .write_all(data)
-            .and_then(|_| session.writer.flush())
-            .map_err(|e| e.to_string())
-    }
-
-    pub fn resize(&self, session_id: &str, cols: u16, rows: u16) -> Result<(), String> {
-        let mut map = self.sessions.lock().map_err(|e| e.to_string())?;
-        let session = map
-            .get_mut(session_id)
-            .ok_or_else(|| format!("Unknown PTY session: {session_id}"))?;
-        let new_cols = cols.max(8);
-        let new_rows = rows.max(2);
-        session
-            .master
-            .resize(PtySize {
-                rows: new_rows,
-                cols: new_cols,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .map_err(|e| e.to_string())?;
-        session.cols = new_cols;
-        session.rows = new_rows;
-        if let Ok(mut parser) = session.parser.lock() {
-            parser.set_size(new_rows, new_cols);
-        }
-        Ok(())
-    }
-
-    pub fn snapshot(&self, session_id: &str) -> Result<PtySessionSnapshot, String> {
-        let map = self.sessions.lock().map_err(|e| e.to_string())?;
-        let session = map
-            .get(session_id)
-            .ok_or_else(|| format!("Unknown PTY session: {session_id}"))?;
-        let contents = session
-            .parser
-            .lock()
-            .map(|p| p.screen().contents())
-            .unwrap_or_default();
-        let running = session.running.lock().map(|r| *r).unwrap_or(false);
-        Ok(PtySessionSnapshot {
-            session_id: session_id.to_string(),
-            cwd: session.cwd.clone(),
-            cols: session.cols,
-            rows: session.rows,
-            screen_contents: contents,
-            running,
-        })
-    }
-
-    pub fn close_session(&self, session_id: &str) {
-        if let Ok(mut map) = self.sessions.lock() {
-            map.remove(session_id);
-        }
-    }
-
-    pub fn close_all_sessions(&self) {
-        if let Ok(mut map) = self.sessions.lock() {
-            map.clear();
-        }
-    }
-}
-
-impl Drop for PtyHostManager {
-    fn drop(&mut self) {
-        self.close_all_sessions();
     }
 }
 

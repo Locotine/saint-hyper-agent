@@ -1,6 +1,7 @@
 // FILE: providerUsage/providers/antigravity.ts
 // Purpose: Live Antigravity usage fetcher. Reads the agy token file
-// (`antigravity-cli/antigravity-oauth-token`) or Gemini CLI OAuth (`oauth_creds.json`), refreshes
+// (`antigravity-cli/antigravity-oauth-token`), the OS keyring entry agy 1.5+ writes, or Gemini
+// CLI OAuth (`oauth_creds.json`), refreshes
 // through the Google client that issued it, then calls Cloud Code retrieveUserQuotaSummary
 // (falling back to loadCodeAssist + retrieveUserQuota).
 
@@ -192,20 +193,86 @@ export function setAntigravityKeyringReaderForTest(
   cachedKeyringEntry = null;
 }
 
-async function readOsKeyringAntigravityToken(ctx: ProviderUsageContext): Promise<unknown> {
-  if (keyringReaderOverride) {
-    return keyringReaderOverride(ctx);
+function isCachedKeyringTokenExpired(value: unknown, nowMs: number): boolean {
+  const record = asRecord(value);
+  if (!record) return false;
+  const tokenRecord = asRecord(record.token) ?? record;
+  const expiresAtMs =
+    expiryMsFromUnknown(tokenRecord.expiry_date) ??
+    expiryMsFromUnknown(tokenRecord.expiry) ??
+    expiryMsFromUnknown(record.expiry_date) ??
+    expiryMsFromUnknown(record.expiry);
+  return expiresAtMs !== undefined && expiresAtMs <= nowMs;
+}
+
+// zalando/go-keyring (used by agy) stores Secret Service items under `service` + `username`.
+const LINUX_SECRET_TOOL_ARGS = [
+  "lookup",
+  "service",
+  KEYRING_SERVICE,
+  "username",
+  KEYRING_ACCOUNT,
+] as const;
+// Fallback when libsecret-tools is not installed: GNOME and KDE desktops ship the system
+// Python with the libsecret GObject bindings, so this needs nothing extra on those hosts.
+const LINUX_PYTHON_SECRET_SCRIPT = [
+  "import gi, sys",
+  "gi.require_version('Secret', '1')",
+  "from gi.repository import Secret",
+  "schema = Secret.Schema.new('org.freedesktop.Secret.Generic', Secret.SchemaFlags.DONT_MATCH_NAME, {'service': Secret.SchemaAttributeType.STRING, 'username': Secret.SchemaAttributeType.STRING})",
+  `value = Secret.password_lookup_sync(schema, {'service': '${KEYRING_SERVICE}', 'username': '${KEYRING_ACCOUNT}'}, None)`,
+  "sys.stdout.write(value or '')",
+].join("\n");
+
+async function readLinuxSecretService(): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync("secret-tool", [...LINUX_SECRET_TOOL_ARGS], {
+      timeout: KEYRING_TIMEOUT_MS,
+    });
+    if (stdout.trim()) return stdout;
+  } catch {
+    // secret-tool missing or no item; try the Python bindings below.
   }
+  const { stdout } = await execFileAsync("/usr/bin/python3", ["-c", LINUX_PYTHON_SECRET_SCRIPT], {
+    timeout: KEYRING_TIMEOUT_MS,
+  });
+  return stdout;
+}
+
+/** go-keyring wraps some values (macOS) as `go-keyring-base64:` or `go-keyring-encoded:` (hex). */
+export function decodeGoKeyringValue(value: string): string {
+  if (value.startsWith("go-keyring-base64:")) {
+    return Buffer.from(value.slice("go-keyring-base64:".length), "base64").toString("utf8");
+  }
+  if (value.startsWith("go-keyring-encoded:")) {
+    return Buffer.from(value.slice("go-keyring-encoded:".length), "hex").toString("utf8");
+  }
+  return value;
+}
+
+async function readOsKeyringAntigravityToken(ctx: ProviderUsageContext): Promise<unknown> {
   if (ctx.isolateCredentials) return null;
   const resolvedHome = nodePath.resolve(ctx.homeDir);
-  if (resolvedHome !== nodePath.resolve(os.homedir())) return null;
+  if (!keyringReaderOverride && resolvedHome !== nodePath.resolve(os.homedir())) return null;
   const nowMs = ctx.nowMs;
   if (
     cachedKeyringEntry &&
     cachedKeyringEntry.homeDir === resolvedHome &&
-    nowMs < cachedKeyringEntry.expiresAtMs
+    nowMs < cachedKeyringEntry.expiresAtMs &&
+    !isCachedKeyringTokenExpired(cachedKeyringEntry.value, nowMs)
   ) {
     return cachedKeyringEntry.value;
+  }
+  if (keyringReaderOverride) {
+    const parsed = await keyringReaderOverride(ctx);
+    if (parsed !== null && parsed !== undefined) {
+      cachedKeyringEntry = {
+        homeDir: resolvedHome,
+        value: parsed,
+        expiresAtMs: nowMs + KEYRING_CACHE_TTL_MS,
+      };
+    }
+    return parsed;
   }
   try {
     let stdout = "";
@@ -231,20 +298,17 @@ async function readOsKeyringAntigravityToken(ctx: ProviderUsageContext): Promise
       );
       stdout = result.stdout;
     } else if (ctx.platform === "linux") {
-      const result = await execFileAsync(
-        "secret-tool",
-        ["lookup", "service", KEYRING_SERVICE, "account", KEYRING_ACCOUNT],
-        { timeout: KEYRING_TIMEOUT_MS },
-      );
-      stdout = result.stdout;
+      stdout = await readLinuxSecretService();
     }
-    const trimmed = stdout.trim();
+    const trimmed = decodeGoKeyringValue(stdout.trim());
     const parsed = trimmed ? (JSON.parse(trimmed) as unknown) : null;
-    cachedKeyringEntry = {
-      homeDir: resolvedHome,
-      value: parsed,
-      expiresAtMs: nowMs + KEYRING_CACHE_TTL_MS,
-    };
+    if (parsed !== null && parsed !== undefined) {
+      cachedKeyringEntry = {
+        homeDir: resolvedHome,
+        value: parsed,
+        expiresAtMs: nowMs + KEYRING_CACHE_TTL_MS,
+      };
+    }
     return parsed;
   } catch {
     return null;

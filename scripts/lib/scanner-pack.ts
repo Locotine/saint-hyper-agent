@@ -3,7 +3,6 @@
 //          (gitleaks, osv-scanner, trivy, hadolint, nuclei) for every supported host,
 //          each verified against a pinned sha256 from the project's own checksum file.
 //          Kept apart from the remote dependency pack so it stays off the connect hot path.
-//          Read by apps/desktop/src/remoteSshBundle.ts and scripts/build-desktop-artifact.ts.
 // Layer: Desktop artifact build helper
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

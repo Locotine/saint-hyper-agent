@@ -2,9 +2,6 @@ name: Setup workspace
 description: Reproducible dependency setup sized to each CI lane
 
 inputs:
-  electron:
-    description: Install the Electron runtime binary.
-    default: "false"
   scope:
     description: "Install scope: full, static (root and scripts), or runtime (all workspaces)."
     default: "full"
@@ -19,16 +16,11 @@ runs:
       shell: bash
       env:
         WORKSPACE_SCOPE: ${{ inputs.scope }}
-        ELECTRON: ${{ inputs.electron }}
       run: |
         case "$WORKSPACE_SCOPE" in
           full|static|runtime) ;;
           *) echo "::error::Unknown workspace scope: $WORKSPACE_SCOPE"; exit 1 ;;
         esac
-        if [ "$ELECTRON" = "true" ] && [ "$WORKSPACE_SCOPE" = "static" ]; then
-          echo "::error::Electron requires a full or runtime install."
-          exit 1
-        fi
 
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
@@ -53,7 +45,7 @@ runs:
           apps/*/node_modules
           packages/*/node_modules
           scripts/node_modules
-        key: ${{ runner.os }}-${{ runner.arch }}-bun-modules-v2-electron-${{ inputs.electron }}-${{ hashFiles('bun.lock', 'package.json') }}
+        key: ${{ runner.os }}-${{ runner.arch }}-bun-modules-v3-${{ hashFiles('bun.lock', 'package.json') }}
 
     # A modules hit already contains the dependency payload. Restoring a second
     # archive is redundant. The Windows package archive was slower than cold install.
@@ -79,17 +71,9 @@ runs:
           ${{ runner.os }}-${{ runner.arch }}-turbo-v2-${{ hashFiles('bun.lock') }}-${{ github.job }}-${{ strategy.job-index || 0 }}-
           ${{ runner.os }}-${{ runner.arch }}-turbo-v2-${{ hashFiles('bun.lock') }}-
 
-    - name: Cache Electron runtime
-      if: ${{ inputs.electron == 'true' }}
-      uses: actions/cache@v5
-      with:
-        path: ~/.cache/electron
-        key: ${{ runner.os }}-${{ runner.arch }}-electron-${{ hashFiles('bun.lock') }}
-
     - name: Install dependencies
       shell: bash
       env:
-        ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
         WORKSPACE_SCOPE: ${{ inputs.scope }}
       run: |
         # Hosted Windows checks out on D:, while Bun's default home cache is on C:.
@@ -105,17 +89,3 @@ runs:
           static) bun install --frozen-lockfile --filter './' --filter '@saint/scripts' --concurrent-scripts=1 ;;
           runtime) bun install --frozen-lockfile --concurrent-scripts=1 ;;
         esac
-
-    - name: Install Electron test runtime
-      if: ${{ inputs.electron == 'true' }}
-      shell: bash
-      run: |
-        for attempt in 1 2 3; do
-          if node apps/desktop/node_modules/electron/install.js; then
-            exit 0
-          fi
-          if [ "$attempt" -eq 3 ]; then
-            exit 1
-          fi
-          sleep $((attempt * 5))
-        done

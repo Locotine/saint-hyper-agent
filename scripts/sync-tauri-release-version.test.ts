@@ -75,4 +75,37 @@ describe("sync-tauri-release-version", () => {
       rmSync(artifactsDir, { recursive: true, force: true });
     }
   });
+
+  it("prefers signed updater archives (.app.tar.gz / .AppImage) over unsigned installers (.dmg / .deb)", () => {
+    const artifactsDir = mkdtempSync(join(tmpdir(), "saint-tauri-artifacts-priority-"));
+    try {
+      // Alphabetically A_Saint_aarch64.dmg comes before Z_Saint_aarch64.app.tar.gz
+      writeFileSync(join(artifactsDir, "A_Saint_aarch64.dmg"), "dmg-binary");
+      writeFileSync(join(artifactsDir, "Z_Saint_aarch64.app.tar.gz"), "tar-binary");
+      writeFileSync(join(artifactsDir, "Z_Saint_aarch64.app.tar.gz.sig"), "mac-tar-sig\n");
+
+      // Alphabetically A_Saint_amd64.deb comes before Z_Saint_amd64.AppImage
+      writeFileSync(join(artifactsDir, "A_Saint_amd64.deb"), "deb-binary");
+      writeFileSync(join(artifactsDir, "Z_Saint_amd64.AppImage"), "appimage-binary");
+      writeFileSync(join(artifactsDir, "Z_Saint_amd64.AppImage.sig"), "linux-appimage-sig\n");
+
+      const manifest = generateTauriLatestManifest({
+        artifactsDir,
+        version: "v2.4.6",
+        tag: "v2.4.6",
+        repository: "Locotine/saint-hyper-agent",
+      });
+
+      expect(manifest.platforms["darwin-aarch64"]).toEqual({
+        signature: "mac-tar-sig",
+        url: "https://github.com/Locotine/saint-hyper-agent/releases/download/v2.4.6/Z_Saint_aarch64.app.tar.gz",
+      });
+      expect(manifest.platforms["linux-x86_64"]).toEqual({
+        signature: "linux-appimage-sig",
+        url: "https://github.com/Locotine/saint-hyper-agent/releases/download/v2.4.6/Z_Saint_amd64.AppImage",
+      });
+    } finally {
+      rmSync(artifactsDir, { recursive: true, force: true });
+    }
+  });
 });

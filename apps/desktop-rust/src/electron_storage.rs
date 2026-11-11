@@ -108,7 +108,11 @@ pub fn read_electron_leveldb_entries(leveldb_dir: &Path) -> Result<BTreeMap<Stri
                 continue;
             }
             let src_path = entry.path();
-            if src_path.is_file() {
+            let is_regular_file = entry
+                .file_type()
+                .map(|ft| ft.is_file() && !ft.is_symlink())
+                .unwrap_or(false);
+            if is_regular_file {
                 let dst_path = temp_dir.join(&file_name);
                 std::fs::copy(&src_path, &dst_path).map_err(|e| {
                     format!(
@@ -264,11 +268,19 @@ pub fn import_electron_local_storage_from_dir(
                         return;
                     }
                 }
-                if let Err(err) =
-                    std::fs::write(&paths.storage_snapshot_path, format!("{serialized}\n"))
-                {
+                let tmp_path = paths.storage_snapshot_path.with_extension("json.tmp");
+                if let Err(err) = std::fs::write(&tmp_path, format!("{serialized}\n")) {
+                    let _ = std::fs::remove_file(&tmp_path);
                     eprintln!(
-                        "[saint-desktop-rust] Failed to write Electron storage snapshot: {err}"
+                        "[saint-desktop-rust] Failed to write temporary Electron storage snapshot: {err}"
+                    );
+                    record_failed_import_attempt(&paths.state_dir, &marker_path);
+                    return;
+                }
+                if let Err(err) = std::fs::rename(&tmp_path, &paths.storage_snapshot_path) {
+                    let _ = std::fs::remove_file(&tmp_path);
+                    eprintln!(
+                        "[saint-desktop-rust] Failed to commit Electron storage snapshot: {err}"
                     );
                     record_failed_import_attempt(&paths.state_dir, &marker_path);
                     return;
@@ -632,6 +644,36 @@ mod tests {
         assert_eq!(snapshot.entries.len(), 3);
         let reserialized = serde_json::to_string(&snapshot).unwrap();
         assert!(reserialized.len() <= SAINT_STORAGE_SNAPSHOT_MAX_BYTES);
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn skips_symlinks_when_copying_leveldb_directory_entries() {
+        let root = std::env::temp_dir().join(format!(
+            "saint-electron-symlink-test-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let leveldb_dir = root.join("electron-leveldb");
+        std::fs::create_dir_all(&leveldb_dir).unwrap();
+
+        {
+            let mut db = DB::open(&leveldb_dir, Options::default()).unwrap();
+            db.put(
+                &make_chromium_key("saint://app", &encode_latin1("saint:ok")),
+                &encode_latin1("1"),
+            )
+            .unwrap();
+            db.flush().unwrap();
+        }
+
+        // Add a dangling or external symlink inside leveldb_dir; it must be ignored rather than copied.
+        let symlink_path = leveldb_dir.join("999999.ldb");
+        std::os::unix::fs::symlink("/nonexistent/outside-target", &symlink_path).unwrap();
+
+        let entries = read_electron_leveldb_entries(&leveldb_dir).unwrap();
+        assert_eq!(entries.get("saint:ok").map(String::as_str), Some("1"));
 
         let _ = std::fs::remove_dir_all(&root);
     }

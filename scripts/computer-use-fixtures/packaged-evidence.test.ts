@@ -8,7 +8,7 @@ import {
   analyzeFocusSamples,
   type FocusProbeRunResult,
   type FocusProbeSample,
-} from "../../apps/desktop/src/cuaFixtures/focusProbe.ts";
+} from "./focusProbe.ts";
 import { assertLoopbackUrl, waitForSelectedProvider } from "./packaged-client.ts";
 import {
   assertPackagedAppInstallation,

@@ -120,8 +120,8 @@ export function useDesktopTopBarTrafficLightGutterClassName(): string {
 /**
  * Tailwind padding that clears the frameless caption-button cluster.
  *
- * On Windows/Linux the Electron shell can be frameless (`frame: false`, see
- * apps/desktop main) and the renderer owns the minimize/maximize/close buttons.
+ * On Windows/Linux the Electron shell can be frameless (`frame: false`) and the
+ * renderer owns the minimize/maximize/close buttons.
  * They are rendered ONCE as a viewport-fixed cluster pinned to the window's
  * top-right corner (see {@link DesktopWindowControls} mounted in the root route),
  * mirroring how macOS insets its traffic lights at the top-left.

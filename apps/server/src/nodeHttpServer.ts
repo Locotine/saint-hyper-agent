@@ -115,6 +115,14 @@ export function upgradePathAllowsCompression(requestUrl: string | undefined): bo
   return normalizeUpgradePath(requestUrl) === COMPRESSED_UPGRADE_PATH;
 }
 
+export interface RawNodeRequestHandler {
+  readonly handle: (
+    nodeRequest: http.IncomingMessage,
+    nodeResponse: http.ServerResponse,
+  ) => boolean;
+  readonly close?: () => void;
+}
+
 /**
  * Owns the Node HTTP/WebSocket transport so Saint, rather than the platform
  * adapter's 100 MiB default, controls admission before a message is decoded.
@@ -122,6 +130,7 @@ export function upgradePathAllowsCompression(requestUrl: string | undefined): bo
 export const makeBoundedNodeHttpServer = Effect.fnUntraced(function* (
   evaluate: () => http.Server,
   options: ListenOptions,
+  rawRequestHandler?: RawNodeRequestHandler,
 ) {
   const scope = yield* Effect.scope;
   const server = evaluate();
@@ -220,13 +229,24 @@ export const makeBoundedNodeHttpServer = Effect.fnUntraced(function* (
         dispatch(nodeRequest, socket, head);
       };
 
+      const requestHandler = (
+        nodeRequest: http.IncomingMessage,
+        nodeResponse: http.ServerResponse,
+      ) => {
+        if (rawRequestHandler?.handle(nodeRequest, nodeResponse)) {
+          return;
+        }
+        handler(nodeRequest, nodeResponse);
+      };
+
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
-          server.off("request", handler);
+          server.off("request", requestHandler);
           server.off("upgrade", upgradeHandler);
+          rawRequestHandler?.close?.();
         }),
       );
-      server.on("request", handler);
+      server.on("request", requestHandler);
       server.on("upgrade", upgradeHandler);
     }),
   });

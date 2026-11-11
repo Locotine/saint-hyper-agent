@@ -58,7 +58,7 @@ runs:
     - name: Fingerprint native build inputs
       id: key
       shell: bash
-      run: node apps/desktop/scripts/cua-cache-key.mjs
+      run: node apps/desktop-rust/scripts/cua-cache-key.mjs
 
     - name: Restore exact Cua artifact
       id: cache
@@ -81,7 +81,7 @@ runs:
         CACHE_KEY: ${{ steps.key.outputs.key }}
       with:
         script: |
-          const { findCuaArtifact } = await import(`${process.env.GITHUB_WORKSPACE}/apps/desktop/scripts/find-cua-artifact.mjs`);
+          const { findCuaArtifact } = await import(`${process.env.GITHUB_WORKSPACE}/apps/desktop-rust/scripts/find-cua-artifact.mjs`);
           const artifact = await findCuaArtifact(github, context.repo, process.env.CACHE_KEY);
           if (artifact) {
             core.setOutput('artifact-id', artifact.artifactId);
@@ -119,7 +119,7 @@ runs:
         echo "::warning::Prepared Cua key $prepared_key does not match this runner ($CACHE_KEY); rebuilding from the pinned source."
         rm -rf "$RUNNER_TEMP/cua-artifact"
         unset SAINT_CUA_ARTIFACT_DIR SAINT_CUA_SIGN_IDENTITY
-        node apps/desktop/scripts/provision-cua-driver.mjs --arch "$SAINT_CUA_TARGET_ARCH" --destination "$RUNNER_TEMP/cua-artifact"
+        node apps/desktop-rust/scripts/provision-cua-driver.mjs --arch "$SAINT_CUA_TARGET_ARCH" --destination "$RUNNER_TEMP/cua-artifact"
         printf '%s\n' "$CACHE_KEY" > "$RUNNER_TEMP/cua-artifact/build-key.txt"
 
     - name: Build on a valid cache miss
@@ -130,7 +130,7 @@ runs:
       run: |
         set -euo pipefail
         unset SAINT_CUA_ARTIFACT_DIR SAINT_CUA_SIGN_IDENTITY
-        node apps/desktop/scripts/provision-cua-driver.mjs --arch "$SAINT_CUA_TARGET_ARCH" --destination "$RUNNER_TEMP/cua-artifact"
+        node apps/desktop-rust/scripts/provision-cua-driver.mjs --arch "$SAINT_CUA_TARGET_ARCH" --destination "$RUNNER_TEMP/cua-artifact"
         printf '%s\n' "$CACHE_KEY" > "$RUNNER_TEMP/cua-artifact/build-key.txt"
 
     - name: Validate and stage cached Cua
@@ -145,7 +145,7 @@ runs:
         set -euo pipefail
         test "$(cat "$RUNNER_TEMP/cua-artifact/build-key.txt")" = "$CACHE_KEY"
         unset SAINT_CUA_SIGN_IDENTITY
-        node apps/desktop/scripts/provision-cua-driver.mjs --arch "$SAINT_CUA_TARGET_ARCH" --artifact-dir "$RUNNER_TEMP/cua-artifact" --destination "$RUNNER_TEMP/cua-verified"
+        node apps/desktop-rust/scripts/provision-cua-driver.mjs --arch "$SAINT_CUA_TARGET_ARCH" --artifact-dir "$RUNNER_TEMP/cua-artifact" --destination "$RUNNER_TEMP/cua-verified"
         echo "SAINT_CUA_ARTIFACT_DIR=$RUNNER_TEMP/cua-verified" >> "$GITHUB_ENV"
         echo "Cua exact cache hit: $CACHE_HIT; persistent run: $PERSISTENT_RUN; prepared artifact: $PREPARED_ARTIFACT; key: $CACHE_KEY" >> "$GITHUB_STEP_SUMMARY"
 

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Công việc &amp; tiến độ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--panel:#070707;--panel2:#0b0b0b;--line:#1a1a1a;--line2:#242424;--text:#f2f2f2;--mute:#a6a6a6;--mute2:#6b6b6b;--gold:#ecc970;--ok:#7ccf9b;--warn:#ecc970;--bad:#e8a39b;--claude:#d9734a;--codex:#3f8fd9;--mono:"JetBrains Mono",ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Be Vietnam Pro",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;display:grid;grid-template-rows:auto 1fr}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.head{display:grid;grid-template-columns:auto auto 1fr;gap:18px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0a0a0a,#050505)}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:34px;height:34px;border-radius:10px;background:var(--gold);color:#000;display:grid;place-items:center;font-weight:800;font-size:18px}
+.brand b{font-size:16px;display:block}.brand small{font-size:10px;color:var(--mute2);letter-spacing:.18em;text-transform:uppercase}
+.clock{display:flex;align-items:center;gap:12px;padding:0 18px;border-left:1px solid var(--line);border-right:1px solid var(--line)}.clock .t{font-size:26px;font-weight:700}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--ok)}.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 1.4s infinite}
+.live.off{color:var(--bad)}.live.off i{background:var(--bad);animation:none}@keyframes pulse{50%{opacity:.25}}
+.views{justify-self:end;display:flex;gap:6px;flex-wrap:wrap}.views a{font-size:11px;color:var(--mute);text-decoration:none;border:1px solid var(--line2);border-radius:999px;padding:4px 11px}.views a:hover{color:var(--text)}
+main{display:grid;grid-template-columns:1.55fr 1fr;grid-template-rows:minmax(0,1.15fr) minmax(0,1fr);gap:10px;padding:10px;min-height:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:0;min-width:0}
+.panel h2{margin:0;padding:10px 14px 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:700;display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line)}
+.panel h2 em{font-style:normal;letter-spacing:0;text-transform:none;color:var(--mute2);font-weight:500}
+.body{padding:8px 14px 12px;overflow:auto;min-height:0;flex:1}
+/* việc hôm nay */
+.task{display:grid;grid-template-columns:34px minmax(0,1fr) 150px;gap:12px;padding:9px 0;border-bottom:1px solid #121212;cursor:pointer}
+.task:hover{background:#0c0c0c}.task.cur{background:linear-gradient(90deg,rgba(236,201,112,.08),transparent)}
+.task .n{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--mute);text-align:center;padding-top:2px}
+.task.cur .n{color:var(--gold)}
+.task .t{font-size:13.5px;font-weight:600;line-height:1.35}
+.task .who{font-size:11px;color:var(--mute2);margin-top:3px}
+.task .why{font-size:11.5px;color:var(--mute);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.task .why.warn{color:var(--warn)}
+.task .st{text-align:right;font-size:11px;font-weight:700}.task .st small{display:block;color:var(--mute2);font-weight:500;font-family:var(--mono);margin-top:2px}
+.bar{height:6px;border-radius:3px;background:#161616;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;border-radius:0 3px 3px 0}
+.paused{font-size:11.5px;color:var(--mute2);margin-top:10px;line-height:1.5}
+/* nhật ký quyết định */
+.dec{position:relative;padding:0 0 12px 18px;border-left:2px solid #222;margin-left:6px}
+.dec:before{content:"";position:absolute;left:-6px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--gold)}
+.dec:not(:first-child):before{background:#444}
+.dec b{font-family:var(--mono);font-size:11.5px;color:var(--gold)}.dec:not(:first-child) b{color:var(--mute)}
+.dec p{margin:3px 0 0;font-size:12.5px;line-height:1.45;color:#ddd}.dec small{display:block;font-size:11px;color:var(--mute2);margin-top:3px;line-height:1.4}
+/* gói */
+.packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.pk{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;min-width:0}
+.pk:hover{border-color:#333}.pk.hot{border-color:rgba(236,201,112,.4)}
+.pk b{font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk .m{display:flex;justify-content:space-between;font-size:10.5px;color:var(--mute2);margin-top:4px;font-family:var(--mono)}
+.pk .dd{font-size:11px;color:var(--mute);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35}
+.badge{font-size:9.5px;font-weight:800;border-radius:4px;padding:0 5px;margin-left:5px}.badge.red{background:var(--bad);color:#000}.badge.y{background:var(--warn);color:#000}
+/* cần anh + DEV */
+.ask{border-left:3px solid var(--gold);background:#0d0b06;border-radius:8px;padding:6px 10px;margin-bottom:6px;font-size:12px;line-height:1.4}
+.ask.done{border-left-color:#333;background:var(--panel2);color:var(--mute)}
+.ask .h{font-size:10.5px;color:var(--gold);font-weight:700;margin-bottom:2px}.ask.done .h{color:var(--mute2)}
+.devnow{display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;font-size:12.5px}
+.devnow b{font-size:15px}.q{font-size:11.5px;color:var(--mute);padding:3px 0;border-bottom:1px solid #121212}.q b{font-family:var(--mono);color:var(--text);margin-right:6px}
+.sub-h{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute2);font-weight:700;margin:10px 0 6px}
+/* chi tiết */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;z-index:30;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.box{background:#0a0a0a;border:1px solid var(--line2);border-radius:14px;width:min(860px,100%);max-height:88vh;overflow:auto;padding:14px 18px}
+.box h3{margin:0 0 4px;display:flex;justify-content:space-between;gap:10px;font-size:17px}
+.box button{background:none;border:1px solid var(--line2);color:var(--mute);border-radius:8px;cursor:pointer;font:inherit;font-size:12px;padding:3px 10px}
+.it{display:grid;grid-template-columns:90px minmax(0,1fr) 90px;gap:10px;padding:8px 0;border-bottom:1px solid #151515;font-size:12.5px;line-height:1.45}
+.it .id{font-family:var(--mono);font-weight:700}.it .s{text-align:right;font-weight:700;font-size:11.5px}.it small{display:block;color:var(--mute2);margin-top:3px}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.mute{color:var(--mute2)}
+@media (min-width:1101px){body{height:100vh;overflow:hidden}}</style>
+</head>
+<body>
+<header class="head">
+  <div class="brand"><div class="logo">V</div><div><b>Công việc &amp; tiến độ</b><small>Việc hôm nay · quyết định · gói · chờ anh</small></div></div>
+  <div class="clock"><span class="t mono" id="clock">--:--:--</span><span class="live" id="live"><i></i>TRỰC TIẾP</span></div>
+  <nav class="views"><a href="tongquan.html" target="vp3d">Tổng quan</a><a href="board.html" target="vp3d">Bảng điều hành</a><a href="noiquy.html" target="vp3d">Nội quy &amp; đội ngũ</a><a href="hieusuat.html" target="vp3d">Đánh giá nhân sự</a><a href="./" target="vp3d">Văn phòng 3D</a></nav>
+</header>
+<main>
+  <section class="panel"><h2>Việc đang áp dụng <em id="list-meta"></em></h2><div class="body"><div id="tasks"></div><div class="paused" id="paused"></div></div></section>
+  <section class="panel"><h2>Nhật ký quyết định <em>mới nhất trên cùng</em></h2><div class="body" id="decisions"></div></section>
+  <section class="panel"><h2>Tiến độ các gói <em id="pk-meta"></em></h2><div class="body"><div class="packs" id="packs"></div></div></section>
+  <section class="panel"><h2>DEV &amp; chờ anh <em id="ask-meta"></em></h2><div class="body"><div id="devnow"></div><div class="sub-h">Cần anh</div><div id="asks"></div></div></section>
+</main>
+<div class="modal" id="modal"><div class="box" id="box"></div></div>
+<script src="md.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const hhmm = (ms) => new Date(ms).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+const ago = (ms) => { if (!ms) return "–"; const s = Math.max(0, (Date.now() - ms) / 1000); if (s < 60) return Math.round(s) + " giây"; if (s < 3600) return Math.round(s / 60) + " phút"; if (s < 86400) return (s / 3600).toFixed(1).replace(".", ",") + " giờ"; return Math.round(s / 86400) + " ngày"; };
+let D = null, curPack = null;
+const nameOf = (k) => { const a = D && D.agents.find((x) => x.key === k); return a ? a.name.split(" · ")[0] : k; };
+const lstate = (L) => L.live ? "đang chạy" : L.unread ? "chưa đọc được sổ" : L.fail ? "chưa đạt" : "đạt";
+
+function renderTasks() {
+  const v = D.viec || {}, box = $("tasks"); box.textContent = "";
+  $("list-meta").textContent = v.error || (v.file ? `${v.file} · sửa ${ago(v.listAt)} trước` : "chưa có data/UU-TIEN.json — Quản lý ghi bằng vp viec them");
+  const firstOpen = (v.list || []).find((x) => { const t = D.tasks.find((y) => String(y.n) === String(x.n)); return !t || t.state !== "done"; });
+  for (const x of v.list || []) {
+    const t = D.tasks.find((y) => String(y.n) === String(x.n)) || null;
+    const row = h("div", "task" + (firstOpen === x ? " cur" : ""));
+    row.appendChild(h("div", "n", x.n));
+    const mid = h("div"); mid.appendChild(h("div", "t", x.viec));
+    mid.appendChild(h("div", "who", `Chủ: ${x.chu || "chưa giao"}${x.datKhi ? " · Để làm gì: " + x.datKhi : ""}`));
+    if (t && t.state !== "done") {
+      const L = t.last, why = h("div", "why" + (t.stale || (L && L.unread) ? " warn" : ""));
+      why.textContent = `${t.stale ? "⚠ đứng yên " + ago(t.since) + " · " : ""}${t.holder ? nameOf(t.holder) + " · " : ""}${L ? `Lượt DEV ${hhmm(L.t)} ${lstate(L)}: ${L.result || L.state}` : t.note || "chưa có lượt DEV"}`;
+      why.title = why.textContent; mid.appendChild(why);
+    }
+    const pct = !t ? 0 : t.state === "done" ? 100 : t.parts.length ? Math.round((t.parts.filter((p) => p.dat).length / t.parts.length) * 100) : 40;
+    const bar = h("div", "bar"); const f = h("i"); f.style.width = Math.max(pct, t && t.state === "doing" ? 6 : 0) + "%"; f.style.background = !t ? "#2a2a2a" : t.state === "done" ? "var(--ok)" : t.state === "doing" ? "var(--warn)" : "#2a2a2a"; bar.appendChild(f); mid.appendChild(bar);
+    row.appendChild(mid);
+    const st = h("div", "st " + (!t ? "mute" : t.state === "done" ? "ok" : t.state === "doing" ? "warn" : "mute"), !t ? "–" : t.state === "done" ? "● Đạt" : t.state === "doing" ? (firstOpen === x ? "▶ Đang làm" : "▲ Dở") : "○ Chưa làm");
+    if (t) st.appendChild(h("small", t.lanSua >= 3 && t.state !== "done" ? "bad" : "", t.parts.length > 1 ? `${t.parts.filter((p) => p.dat).length}/${t.parts.length} phần · sửa ${t.lanSua}` : `sửa ${t.lanSua}/3`));
+    row.appendChild(st);
+    if (t) row.onclick = () => showTask(x, t);
+    box.appendChild(row);
+  }
+  $("paused").textContent = v.dangDung ? "Đang dừng: " + v.dangDung.replace(/\n/g, " ") : "";
+}
+function showTask(x, t) {
+  const b = $("box"); b.textContent = "";
+  const h3 = h("h3", "", `${x.n} · ${x.viec}`); const c = h("button", "", "Đóng"); c.onclick = closeModal; h3.appendChild(c); b.appendChild(h3);
+  b.appendChild(h("div", "mute", `Chủ: ${x.chu || "chưa giao"}${x.datKhi ? " · Để làm gì: " + x.datKhi : ""}`));
+  const L = t.last;
+  const p = h("div"); p.style.marginTop = "10px"; p.style.fontSize = "13px"; p.style.lineHeight = "1.6";
+  p.append(h("div", "", `Trạng thái: ${t.state === "done" ? "đạt" : t.state === "doing" ? "đang làm" : "chưa làm"} · ${t.parts.filter((q) => q.dat).length}/${t.parts.length || 1} phần đạt · sửa ${t.lanSua}/3`),
+    h("div", "", `Người cầm: ${t.holder ? nameOf(t.holder) : "chưa rõ"}${t.since ? ` · đổi lần cuối ${ago(t.since)} trước` : ""}`));
+  if (L) p.appendChild(h("div", "", `Lượt DEV gần nhất ${hhmm(L.t)} · ${L.pkg} · ${lstate(L)}${L.usd != null ? ` · ${L.usd.toFixed(3).replace(".", ",")} USD` : ""}`));
+  if (L && (L.result || L.raw)) p.appendChild(h("p", "", L.unread ? "Dòng gốc (chưa ghép được): " + L.raw : L.result));
+  if (t.note) { const n = h("p", "mute", "Ghi chú mới nhất: " + t.note); p.appendChild(n); }
+  b.appendChild(p); openModal();
+}
+function renderDecisions() {
+  const box = $("decisions"); box.textContent = "";
+  for (const d of (D.viec && D.viec.history) || []) {
+    const e = h("div", "dec"); e.appendChild(h("b", "", d.tu));
+    const p = h("p"); p.innerHTML = MD.render(d.noiDung).replace(/^<p>|<\/p>$/g, ""); e.appendChild(p);
+    e.appendChild(h("small", "", d.nguon)); box.appendChild(e);
+  }
+}
+function renderPacks() {
+  const box = $("packs"); box.textContent = "";
+  const hot = D.goi.filter((g) => Date.now() - g.at < 6 * 3600000).length;
+  $("pk-meta").textContent = `${D.goi.length} gói · ${hot} gói đổi trong 6 giờ`;
+  for (const g of D.goi) {
+    const c = h("div", "pk" + (Date.now() - g.at < 3600000 ? " hot" : ""));
+    const b = h("b", "", g.ten); if (g.maxLanSua >= 3) b.appendChild(h("span", "badge red", `sửa ${g.maxLanSua}`)); else if (g.maxLanSua === 2) b.appendChild(h("span", "badge y", "sửa 2"));
+    c.appendChild(b);
+    const pct = g.total ? Math.round((g.dat / g.total) * 100) : 0;
+    const bar = h("div", "bar"); const f = h("i"); f.style.width = pct + "%"; f.style.background = pct === 100 ? "var(--ok)" : "var(--warn)"; bar.appendChild(f); c.appendChild(bar);
+    const m = h("div", "m"); m.append(h("span", "", `${g.dat}/${g.total} đạt`), h("span", "", `đổi ${ago(g.at)} trước`)); c.appendChild(m);
+    if (g.dangDo) c.appendChild(h("div", "dd", "Đang dở: " + g.dangDo.body.replace(/\n/g, " ")));
+    c.onclick = () => { curPack = g.ten; showPack(); };
+    box.appendChild(c);
+  }
+}
+function showPack() {
+  const g = D.goi.find((x) => x.ten === curPack); if (!g) return;
+  const b = $("box"); b.textContent = "";
+  const h3 = h("h3", "", `Gói ${g.ten}`); const c = h("button", "", "Đóng"); c.onclick = closeModal; h3.appendChild(c); b.appendChild(h3);
+  b.appendChild(h("div", "mute", `${g.dat}/${g.total} việc đạt · sửa nhiều nhất ${g.maxLanSua} lần · đổi ${ago(g.at)} trước`));
+  if (g.dangDo) { const dd = h("div"); dd.style.margin = "10px 0"; dd.innerHTML = `<div class="sub-h">${MD.esc(g.dangDo.title)}</div>` + MD.render(g.dangDo.body); b.appendChild(dd); }
+  for (const it of g.items) {
+    const r = h("div", "it"); r.appendChild(h("div", "id", it.id));
+    const m = h("div"); m.appendChild(h("div", "", it.yeuCau)); if (it.ghiChu) m.appendChild(h("small", "", it.ghiChu)); r.appendChild(m);
+    const s = h("div", "s " + (it.dat ? "ok" : it.lanSua >= 3 ? "bad" : "warn"), it.dat ? "● Đạt" : "○ Chưa"); s.appendChild(h("small", "", `sửa ${it.lanSua}${it.sha ? " · " + it.sha : ""}`)); r.appendChild(s);
+    b.appendChild(r);
+  }
+  openModal();
+}
+function renderRight() {
+  const dv = D.dev, box = $("devnow"); box.textContent = "";
+  const busy = dv.holder || dv.holderLabel;
+  const top = h("div", "devnow"); top.append(h("b", busy ? "warn" : "ok", busy ? "DEV đang giữ" : "DEV trống"), h("span", "", busy ? `${dv.holder ? nameOf(dv.holder) : dv.holderLabel} · ${dv.package || ""} · ${ago(dv.holderSince)}` : `đã trống ${ago(dv.idleSince)}`)); box.appendChild(top);
+  box.appendChild(h("div", "sub-h", `Hàng chờ lên DEV (${dv.queue.length})`));
+  if (!dv.queue.length) box.appendChild(h("div", "q", "Hàng chờ trống"));
+  for (const q of dv.queue) { const r = h("div", "q"); r.append(h("b", "", "#" + q.n), `${q.agent ? nameOf(q.agent) : q.who} — ${q.what}${q.since ? " · chờ " + ago(q.since) : ""}`); box.appendChild(r); }
+  const a = $("asks"); a.textContent = "";
+  const open = D.canAnh.filter((x) => x.mo), live = D.asks || [];
+  $("ask-meta").textContent = `${open.length} mục chờ trong sổ · ${live.length} mục văn phòng thấy`;
+  for (const x of live) { const e = h("div", "ask"); e.append(h("div", "h", `${ago(x.since)} · ${x.who ? nameOf(x.who) : x.whoLabel || ""}${x.guess ? " · có vẻ" : ""}`), x.text); a.appendChild(e); }
+  for (const x of D.canAnh.slice(0, 12)) { if (live.some((y) => y.id === x.ma)) continue; const e = h("div", "ask" + (x.mo ? "" : " done")); e.append(h("div", "h", `${x.ma} · ${x.luc} · ${x.ai}`), x.viec, h("div", "mute", x.mo ? "Lựa chọn: " + x.luaChon : x.trangThai)); a.appendChild(e); }
+}
+function openModal() { $("modal").classList.add("show"); }
+function closeModal() { $("modal").classList.remove("show"); curPack = null; }
+$("modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
+addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+function render(d) { D = d; renderTasks(); renderDecisions(); renderPacks(); renderRight(); if (curPack) showPack(); }
+// Hỏi máy chủ 5 giây/lần, không giữ kết nối mở: trình duyệt chỉ cho 6 kết nối tới cùng localhost, văn phòng 3D đang mở cả 3 bảng.
+async function load() { try { const r = await fetch("docs", { cache: "no-store" }); render(await r.json()); $("live").className = "live"; } catch { $("live").className = "live off"; } }
+load(); setInterval(load, 5000);
+setInterval(() => { $("clock").textContent = new Date().toLocaleTimeString("vi-VN", { hour12: false }); }, 1000);
+</script>
+</body>
+</html>

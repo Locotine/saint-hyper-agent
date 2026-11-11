@@ -95,7 +95,7 @@ const approvedIdentityLines: readonly ApprovedIdentityLine[] = [
   // These two terms are the cubic time coefficient in the reviewed native
   // patch. Keep the patch and its recorded checksum unchanged.
   ...[0, 1].map((axis) => ({
-    path: "apps/desktop/patches/cua-driver/0001-saint-native.patch",
+    path: "apps/desktop-rust/patches/cua-driver/0001-saint-native.patch",
     line: `+                            + ${retiredShortName} * self.to.${axis}`,
   })),
 ];
@@ -109,9 +109,6 @@ const approvedFixtureBundleIdentityPatterns = new Map<string, RegExp>(
     {
       suffix: "cua-fixture",
       paths: [
-        "apps/desktop/src/cuaFixtures/electron.ts",
-        "apps/desktop/src/cuaFixtures/live.ts",
-        "scripts/computer-use-fixtures/build-electron.mjs",
         "docs/computer-use-cua/evidence/efficiency-implementation-2026-09-08/native/signed-fixture-permission-check.json",
         "docs/computer-use-cua/evidence/fixture-g5-set-value-2026-09-17.report.json",
         "docs/computer-use-cua/evidence/gateway-native-report.json",
@@ -145,9 +142,6 @@ const approvedFixtureBundleIdentityPatterns = new Map<string, RegExp>(
     {
       suffix: "cua-canary",
       paths: [
-        "scripts/computer-use-fixtures/build-canary.mjs",
-        "scripts/computer-use-fixtures/canary-main.ts",
-        "scripts/computer-use-fixtures/live-cert.ts",
         "docs/computer-use-cua/belief-canary-runbook.md",
         "docs/computer-use-cua/handoffs/saint-cu-v2-session-handoff-2026-09-17.md",
         "docs/computer-use-cua/evidence/rev20-realapp-calculator-2026-09-17-report.json",
@@ -167,10 +161,6 @@ const approvedFixtureBundleIdentityPatterns = new Map<string, RegExp>(
         "docs/computer-use-cua/evidence/latency-rev17-probe.ts",
         "docs/computer-use-cua/evidence/latency-rev17-supplement-probe.ts",
       ],
-    },
-    {
-      suffix: "cua-display-cert",
-      paths: ["scripts/computer-use-fixtures/multi-display-cert.ts"],
     },
   ].flatMap(({ suffix, paths }) =>
     paths.map(

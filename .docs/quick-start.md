@@ -25,15 +25,11 @@ bun run start
 ## Desktop artifacts
 
 ```bash
-# Shareable macOS DMG (arm64 by default)
-bun run dist:desktop:dmg
-
-# Linux AppImage
-bun run dist:desktop:linux
-
-# Windows NSIS installer
-bun run dist:desktop:win
+# Tauri app for the current platform (Linux needs the WebKitGTK dev packages)
+bun run build:desktop
 ```
+
+Signed installers for every platform come from `.github/workflows/release-tauri.yml`.
 
 ## Published CLI package
 

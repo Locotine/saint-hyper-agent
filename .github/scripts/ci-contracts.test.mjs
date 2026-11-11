@@ -58,7 +58,6 @@ test("required check, independent static lane and full-history lineage stay inta
   assert.ok(workflow.includes("name: Format, Lint, Typecheck, Test, Browser Test, Build"));
   const staticJob = workflow.split("  static-fast:\n")[1].split("  static-typecheck:\n")[0];
   assert.ok(!staticJob.includes("needs:"));
-  assert.ok(staticJob.includes("node scripts/release-smoke.ts"));
   assert.ok(!workflow.includes("  release_smoke:"));
   assert.ok(workflow.includes("fetch-depth: 0"));
   assert.ok(workflow.includes("git tag --list 'v[0-9]*'"));
@@ -79,7 +78,7 @@ test("filtered scopes preserve lifecycle scripts and the scripts workspace links
 });
 test("Windows install uses the runner-volume cache without changing other platforms", () => {
   const install = setup.match(
-    /- name: Install dependencies[\s\S]*?      run: \|\n([\s\S]*?)(?=\n    - name:)/,
+    /- name: Install dependencies[\s\S]*?      run: \|\n([\s\S]*?)(?=\n    - name:|\n*$)/,
   )?.[1];
   assert.ok(install);
   const command = install

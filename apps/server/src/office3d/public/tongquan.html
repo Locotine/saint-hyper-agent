@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tổng quan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--panel:#070707;--panel2:#0b0b0b;--line:#1a1a1a;--line2:#242424;--text:#f2f2f2;--mute:#a6a6a6;--mute2:#6b6b6b;--gold:#ecc970;--ok:#7ccf9b;--warn:#ecc970;--bad:#e8a39b;--claude:#d9734a;--codex:#3f8fd9;--antigravity:#a87ffb;--mono:"JetBrains Mono",ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Be Vietnam Pro",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.head{display:grid;grid-template-columns:auto auto 1fr;gap:18px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0a0a0a,#050505)}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:34px;height:34px;border-radius:10px;background:var(--gold);color:#000;display:grid;place-items:center;font-weight:800;font-size:18px}
+.brand b{font-size:16px;display:block}.brand small{font-size:10px;color:var(--mute2);letter-spacing:.18em;text-transform:uppercase}
+.clock{font-family:var(--mono);font-size:12px;color:var(--mute);padding:0 18px;border-left:1px solid var(--line);border-right:1px solid var(--line);line-height:1.5}
+.views{justify-self:end;display:flex;gap:6px;flex-wrap:wrap}.views a{font-size:11px;color:var(--mute);text-decoration:none;border:1px solid var(--line2);border-radius:999px;padding:4px 11px}.views a:hover{color:var(--text)}
+main{padding:12px 18px 24px;display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.viec,.tien,.can,.who,.bot .txt,.paused div{overflow-wrap:anywhere}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;min-width:0}
+.kpi small{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute2);font-weight:700}
+.kpi b{display:block;font-size:24px;margin-top:4px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi span{display:block;font-size:11px;color:var(--mute);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi.bad b{color:var(--bad)}.kpi.warn b{color:var(--warn)}.kpi.ok b{color:var(--ok)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.panel h2{margin:0 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.panel h2 em{font-style:normal;letter-spacing:0;text-transform:none;color:var(--mute2);font-weight:500}
+/* bảng việc: mỗi việc một hàng lưới; điện thoại xếp dọc */
+.task{display:grid;grid-template-columns:34px minmax(0,2.1fr) minmax(0,1.1fr) 130px minmax(0,2.4fr) minmax(0,1.5fr) 92px;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line);align-items:start;font-size:12.5px}
+.task.th{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute2);font-weight:700;padding:4px;border-bottom:1px solid var(--line2)}
+.task:last-child{border-bottom:0}
+.n{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--gold)}
+.viec b{display:block;font-size:13.5px}.viec span{display:block;color:var(--mute);font-size:12px;margin-top:3px}
+.who{line-height:1.6}.who .p{display:inline-flex;align-items:center;gap:5px;margin-right:8px;white-space:nowrap}.who small{display:block;color:var(--mute2);font-size:11px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
+.st{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;border:1px solid var(--line2)}
+.st.done{color:var(--ok);border-color:#244a33}.st.doing{color:var(--warn);border-color:#4a3e1f}.st.todo{color:var(--mute)}
+.parts{margin-top:5px;font-family:var(--mono);font-size:10.5px;color:var(--mute2);line-height:1.6}.parts i{font-style:normal;margin-right:6px}.parts i.ok{color:var(--ok)}
+.tien{color:#d6d6d6;font-size:12px;line-height:1.5}.tien small{display:block;color:var(--mute2);font-family:var(--mono);font-size:10.5px;margin-bottom:2px}
+.can{color:var(--warn);font-size:12px;line-height:1.5}.can.none{color:var(--mute2)}
+.han{font-family:var(--mono);font-size:12px}.han.qua{color:var(--bad);font-weight:700}.han small{display:block;font-size:10.5px;color:var(--mute2)}
+.lbl{display:none}
+/* bot */
+.bots{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.bot{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.bot.flag{border-color:#5a2f2a}
+.bot .top{display:flex;align-items:center;gap:8px;min-width:0}.bot .top b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bot .meta{margin-top:4px;font-size:11px;color:var(--mute);display:flex;gap:10px;flex-wrap:wrap;font-family:var(--mono)}
+.bot .txt{margin-top:6px;font-size:12px;color:#cfcfcf;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tag{font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.tag.r{color:var(--bad);border:1px solid #5a2f2a}.tag.y{color:var(--warn);border:1px solid #4a3e1f}.tag.g{color:var(--ok);border:1px solid #244a33}.tag.z{color:var(--mute2);border:1px solid var(--line2)}
+.sp{flex:1}
+.note{font-size:11.5px;color:var(--mute2);line-height:1.6}
+.paused div{font-size:12px;color:var(--mute);padding:4px 0}.paused b{color:#d6d6d6;font-weight:600}
+.err{color:var(--bad);font-size:12.5px}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:900px){
+  .head{grid-template-columns:1fr auto}.clock{display:none}.brand small{display:none}main{padding:12px 16px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .task.th{display:none}
+  .task{grid-template-columns:30px minmax(0,1fr);gap:6px 10px;padding:12px 0}
+  .task>*:not(.n){grid-column:2}
+  .lbl{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute2);font-weight:700;margin-bottom:1px}
+  .bots{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="head">
+  <div class="brand"><div class="logo">V</div><div><b>Tổng quan</b><small>Việc gì · ai làm · tới đâu · nghẽn ở đâu</small></div></div>
+  <div class="clock" id="at">–</div>
+  <nav class="views"><a href="board.html" target="vp3d">Bảng điều hành</a><a href="hopthu.html" target="vp3d">Hòm thư</a><a href="congviec.html" target="vp3d">Công việc</a><a href="noiquy.html" target="vp3d">Nội quy</a><a href="./" target="vp3d">Văn phòng 3D</a></nav>
+</header>
+<main>
+  <section class="kpis" id="kpis"></section>
+  <section class="panel"><h2>Việc đang làm theo thứ tự ưu tiên <em id="uu"></em></h2><div id="tasks"></div></section>
+  <section class="panel"><h2>Các bot đang làm gì <em>đỏ: rảnh mà còn việc, hoặc im quá 2 giờ khi còn việc</em></h2><div class="bots" id="bots"></div></section>
+  <section class="panel paused"><h2>Tạm dừng</h2><div id="paused"></div></section>
+  <p class="note">Chỉ xem. Thứ tự việc lấy từ <code>data/UU-TIEN.json</code> (Quản lý ghi bằng <code>vp viec</code>); trạng thái đạt lấy từ <code>data/goi/&lt;gói&gt;/viec.json</code>; dòng tiến độ là dòng mới nhất trong <code>tien-do.md</code> có nhắc mã mục; số tin là tin hòm thư chưa đóng. Làm mới 10 giây một lần.</p>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const mins = (m) => m == null ? "–" : m < 60 ? Math.round(m) + " phút" : m < 1440 ? (m / 60).toFixed(1).replace(".", ",") + " giờ" : Math.round(m / 1440) + " ngày";
+const ago = (ms) => ms ? mins((Date.now() - ms) / 60000) : "–";
+const hm = (ms) => new Date(ms).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+const dm = (ms) => { const d = new Date(ms), n = new Date(); return d.toDateString() === n.toDateString() ? hm(ms) : hm(ms) + " " + d.getDate() + "/" + (d.getMonth() + 1); };
+const color = (p) => p === "codex" ? "var(--codex)" : p === "antigravity" ? "var(--antigravity)" : "var(--claude)";
+const ST = { done: "Đạt", doing: "Đang làm", todo: "Chưa bắt đầu" };
+const STATUS = { active: "đang chạy", idle: "rảnh", away: "đã đóng", offline: "tắt" };
+let botsBy = {};
+function lbl(el, t) { el.prepend(h("span", "lbl", t)); return el; }
+function render(d) {
+  $("at").textContent = "cập nhật " + new Date(d.at).toLocaleTimeString("vi-VN", { hour12: false });
+  if (d.error) { $("tasks").replaceChildren(h("div", "err", "Lỗi máy chủ: " + d.error)); return; }
+  botsBy = Object.fromEntries(d.bots.map((b) => [b.key, b]));
+  $("uu").textContent = d.uu ? `UU-TIEN.json · ${d.uu.nguoiGhi} · ${d.uu.capNhat ? dm(d.uu.capNhat) : "?"}` : (d.uuErr || "");
+  // ô số
+  const k = $("kpis"); k.textContent = "";
+  const tile = (cls, lab, val, sub) => { const e = h("div", "kpi " + cls); e.append(h("small", "", lab), h("b", "", val)); if (sub) e.appendChild(h("span", "", sub)); k.appendChild(e); };
+  const open = d.rows.filter((r) => r.state !== "done"), late = open.filter((r) => r.quaHan), stuck = open.filter((r) => r.can);
+  tile("", "Việc đang làm", `${open.length}/${d.rows.length}`, `${d.rows.length - open.length} việc đã đạt`);
+  tile(late.length ? "bad" : "ok", "Quá hạn", String(late.length), late.length ? late.map((r) => "#" + r.n).join(" ") : "đúng hạn");
+  tile(stuck.length ? "warn" : "ok", "Đang cần", String(stuck.length), "việc còn ghi điều kiện chờ");
+  const ranh = d.bots.filter((b) => b.ranhConViec), im = d.bots.filter((b) => b.im2h && b.hasWork);
+  tile(ranh.length || im.length ? "bad" : "ok", "Rảnh mà còn việc", String(ranh.length), im.length ? `${im.length} bot im > 2 giờ còn việc` : "");
+  const dv = d.dev;
+  tile(dv.holder || dv.holderLabel ? "warn" : "ok", "DEV.lock", dv.holder || dv.holderLabel ? (dv.holderName || dv.holderLabel) : "trống", dv.holder || dv.holderLabel ? `${dv.package || ""} · ${ago(dv.since)}` : `hàng chờ ${dv.queue}`);
+  const m = d.money; tile(m && m.usd > m.cap * 0.8 ? "bad" : "ok", "Tiền AI hôm nay", m ? "$" + m.usd.toFixed(2) : "–", m ? `trần $${m.cap} · ước tính theo token` : "");
+  // bảng việc
+  const T = $("tasks"); T.textContent = "";
+  const th = h("div", "task th"); for (const x of ["#", "Việc · để làm gì", "Chủ · duyệt", "Trạng thái", "Tiến độ mới nhất", "Đang cần", "Hạn"]) th.appendChild(h("div", "", x)); T.appendChild(th);
+  for (const r of d.rows) {
+    const row = h("div", "task");
+    row.appendChild(h("div", "n", String(r.n)));
+    const v = h("div", "viec"); v.append(h("b", "", r.viec), h("span", "", r.deLamGi)); row.appendChild(v);
+    const w = h("div", "who");
+    for (const o of r.chu) { const p = h("span", "p"); const b = o.key && botsBy[o.key]; const dot = h("i", "dot"); dot.style.background = b ? color(b.platform) : "var(--mute2)"; p.append(dot, o.label); if (b) p.title = `${STATUS[b.status] || b.status} · ${b.lastText}`; w.appendChild(p); }
+    if (r.duyet) w.appendChild(h("small", "", "duyệt: " + r.duyet));
+    row.appendChild(lbl(w, "Chủ · duyệt"));
+    const s = h("div"); s.appendChild(h("span", "st " + r.state, ST[r.state] || r.state));
+    if (r.parts.length) { const p = h("div", "parts"); for (const x of r.parts) p.appendChild(h("i", x.dat ? "ok" : "", (x.dat ? "✓" : "○") + x.id)); if (r.lanSua) p.appendChild(h("i", "", "sửa " + r.lanSua + "/3")); s.appendChild(p); }
+    else s.appendChild(h("div", "parts", "chưa gắn mục viec.json"));
+    if (r.dev) s.appendChild(h("div", "parts", (r.dev.live ? "● đang lên DEV" : r.dev.fail ? "✗ DEV hỏng" : "DEV") + " · " + dm(r.dev.t)));
+    row.appendChild(lbl(s, "Trạng thái"));
+    const tp = h("div", "tien"); if (r.tienDo) tp.append(h("small", "", `${r.tienDo.pkg} · ${dm(r.tienDo.at)}${r.tienDo.hit ? "" : ` · dòng cuối gói, chưa nhắc ${r.tienDo.id || "mục"}`}`), r.tienDo.text); else tp.textContent = "–";
+    row.appendChild(lbl(tp, "Tiến độ mới nhất"));
+    row.appendChild(lbl(h("div", "can" + (r.can ? "" : " none"), r.can || "—"), "Đang cần"));
+    const hn = h("div", "han" + (r.quaHan ? " qua" : "")); if (r.han) { hn.append(dm(r.han)); hn.appendChild(h("small", "", r.state === "done" ? "đã đạt" : r.quaHan ? "quá " + ago(r.han) : "còn " + mins((r.han - Date.now()) / 60000))); } else hn.textContent = "–";
+    row.appendChild(lbl(hn, "Hạn"));
+    T.appendChild(row);
+  }
+  if (!d.rows.length) T.appendChild(h("div", "note", d.uuErr || "UU-TIEN.json chưa có việc nào."));
+  // bot
+  const B = $("bots"); B.textContent = "";
+  for (const b of d.bots) {
+    const flag = b.ranhConViec || (b.im2h && b.hasWork);
+    const c = h("div", "bot" + (flag ? " flag" : ""));
+    const top = h("div", "top"); const dot = h("i", "dot"); dot.style.background = color(b.platform); top.append(dot, h("b", "", b.name), h("span", "sp"));
+    if (b.dev) top.appendChild(h("span", "tag y", "giữ DEV"));
+    if (b.ranhConViec) top.appendChild(h("span", "tag r", "rảnh mà còn việc"));
+    if (b.im2h) top.appendChild(h("span", "tag " + (b.hasWork ? "r" : "z"), "im > 2 giờ"));
+    top.appendChild(h("span", "tag " + (b.status === "active" ? "g" : "z"), STATUS[b.status] || b.status));
+    c.appendChild(top);
+    const meta = h("div", "meta");
+    meta.appendChild(h("span", "", b.status === "active" ? "đang làm" : "rảnh " + mins(b.idleMin)));
+    meta.appendChild(h("span", "", `tin chưa đóng ${b.mail}${b.nhac2 ? ` (nhắc ≥2: ${b.nhac2})` : ""}`));
+    if (b.viec.length) meta.appendChild(h("span", "", "việc " + b.viec.map((n) => "#" + n).join(" ")));
+    c.appendChild(meta);
+    c.appendChild(h("div", "txt", b.lastText || "(chưa có câu trả lời nào)"));
+    B.appendChild(c);
+  }
+  // tạm dừng
+  const P = $("paused"); P.textContent = "";
+  for (const x of d.tamDung) { const e = h("div"); e.append(h("b", "", x.viec), " — " + x.lyDo + (x.tu ? ` (từ ${x.tu})` : "")); P.appendChild(e); }
+  if (!d.tamDung.length) P.appendChild(h("div", "", "Không có."));
+}
+async function load() { try { const r = await fetch("tongquan", { cache: "no-store" }); render(await r.json()); } catch { $("at").textContent = "mất kết nối máy chủ"; } }
+load(); setInterval(load, 10000);
+</script>
+</body>
+</html>

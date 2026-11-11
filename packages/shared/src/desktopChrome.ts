@@ -5,7 +5,7 @@
 //
 // Why this exists:
 //   The native macOS traffic lights are placed by the Electron main process
-//   (apps/desktop), while the chrome bar they must visually sit inside is rendered by
+//   (the desktop shell), while the chrome bar they must visually sit inside is rendered by
 //   the web app (apps/web). Their vertical centers only line up if the two packages
 //   agree on the header height and the dot size. These used to be two hand-synced
 //   magic numbers in different packages and silently drifted (a 12px-dot assumption

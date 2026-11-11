@@ -109,6 +109,9 @@ impl AppSnapHost {
             shortcut,
         };
         if let Ok(serialized) = serde_json::to_string_pretty(&pref) {
+            if let Some(parent) = self.preference_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
             let _ = std::fs::write(&self.preference_path, format!("{serialized}\n"));
         }
     }
@@ -241,10 +244,14 @@ impl AppSnapHost {
         if !cfg!(target_os = "macos") {
             return Err("AppSnap is supported on macOS only.".to_string());
         }
+        let helper = Self::resolve_helper_binary_path();
+        if !helper.is_file() {
+            return Err("AppSnap helper binary is not bundled.".to_string());
+        }
         if let Ok(mut guard) = self.active_requests.lock() {
             guard.insert(request_id.to_string());
         }
-        Ok(serde_json::Value::Null)
+        Err("AppSnap capture requires an active frontmost macOS window.".to_string())
     }
 
     pub fn cancel_capture(&self, request_id: &str) {
@@ -278,6 +285,9 @@ impl AppSnapHost {
     }
 
     pub fn acknowledge_capture(&self, capture_id: &str) {
+        if !Self::is_valid_request_id(capture_id) {
+            return;
+        }
         if let Ok(mut guard) = self.pending_captures.lock() {
             guard.retain(|entry| {
                 entry
@@ -308,7 +318,7 @@ impl AppSnapHost {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap_or_else(|| std::path::Path::new("."))
-            .join("desktop/resources/appsnap/saint-appsnap-helper")
+            .join("desktop-rust/resources/appsnap/saint-appsnap-helper")
     }
 
     pub fn parse_audio_inputs_output(output: &str) -> Vec<DesktopAudioInputDevice> {
@@ -392,7 +402,11 @@ impl AppSnapHost {
             let _ = window_id;
             return Err("AppSnap window capture is supported on macOS only.".to_string());
         }
-        Ok(serde_json::Value::Null)
+        let helper = Self::resolve_helper_binary_path();
+        if !helper.is_file() {
+            return Err("AppSnap helper binary is not bundled.".to_string());
+        }
+        Err("AppSnap window capture failed.".to_string())
     }
 
     pub fn show_permission_guide(&self, pane: &str) -> Option<String> {
@@ -405,7 +419,7 @@ impl AppSnapHost {
     }
 
     pub fn hide_permission_guide(&self) -> String {
-        let next = "hidden".to_string();
+        let next = "closed".to_string();
         if let Ok(mut guard) = self.permission_guide_state.lock() {
             *guard = next.clone();
         }

@@ -10,11 +10,7 @@
 - `bun run build` — Builds contracts, web app, and server through Turbo.
 - `bun run typecheck` — Strict TypeScript checks for all packages.
 - `bun run test` — Runs workspace tests.
-- `bun run dist:desktop:artifact -- --platform <mac|linux|win> --target <target> --arch <arch>` — Builds a desktop artifact for a specific platform/target/arch.
-- `bun run dist:desktop:dmg` — Builds a shareable macOS `.dmg` into `./release`.
-- `bun run dist:desktop:dmg:x64` — Builds an Intel macOS `.dmg`.
-- `bun run dist:desktop:linux` — Builds a Linux AppImage into `./release`.
-- `bun run dist:desktop:win` — Builds a Windows NSIS installer into `./release`.
+- `bun run build:desktop` — Builds the Tauri desktop app (`apps/desktop-rust`) for the current platform.
 
 ## Development compilation
 
@@ -35,22 +31,11 @@ Restart the dev command after changing this flag. Default development rendering
 does not have compiler-generated memoization, so use a production build or the
 opt-in when measuring rendering performance.
 
-## Desktop `.dmg` packaging notes
+## Desktop packaging notes
 
-- Default local builds are unsigned/not notarized unless `--signed` is supplied with the required platform credentials.
-- Production icon sources are centralized in `scripts/lib/brand-assets.ts`. The current macOS source is `assets/prod/black-macos-1024.png` (with the legacy macOS variant alongside it); do not hard-code a separate packaging icon path in docs or scripts.
-- Desktop production windows load the bundled UI from `saint://app/index.html` (not a `127.0.0.1` document URL).
-- Desktop packaging includes `apps/server/dist` (the `saint` backend) and starts it on loopback with an auth token for WebSocket/API traffic.
-- Your tester can still open an unsigned local macOS build by right-clicking the app and choosing **Open** on first launch.
-- To keep staging files for debugging package contents, run: `bun run dist:desktop:dmg -- --keep-stage`.
-- To enable code-signing/notarization when the required credentials are configured, add `--signed`.
-- Windows `--signed` uses Azure Trusted Signing and expects:
-  `AZURE_TRUSTED_SIGNING_ENDPOINT`, `AZURE_TRUSTED_SIGNING_ACCOUNT_NAME`,
-  `AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME`, `AZURE_TRUSTED_SIGNING_PUBLISHER_NAME`,
-  and `AZURE_TRUSTED_SIGNING_SUBJECT_DN`.
-- Azure authentication env vars are also required (for example a service principal with secret):
-  `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`.
-- Release publication has stricter signing/provenance policy than a local artifact build; use `docs/release.md` as the source of truth for release requirements.
+- Production icon sources are centralized in `scripts/lib/brand-assets.ts`; do not hard-code a separate packaging icon path in docs or scripts.
+- The Tauri app bundles the `saint-server` sidecar (`scripts/build-server-sidecar.ts`) and starts it on loopback with an auth token for WebSocket/API traffic.
+- Release signing and publication live in `.github/workflows/release-tauri.yml`; use `docs/release.md` as the source of truth for release requirements.
 
 ## Running multiple dev instances
 

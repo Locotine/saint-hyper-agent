@@ -4,7 +4,7 @@ Saint is a local-first orchestration application with three main runtime surface
 
 - the React web client in `apps/web`;
 - the server/runtime in `apps/server`;
-- the Electron desktop shell in `apps/desktop`.
+- the Tauri desktop shell in `apps/desktop-rust`.
 
 The server owns durable orchestration, provider sessions, Git/worktree state, terminals, automation, device/browser integrations, and the typed HTTP/WebSocket RPC surface. Provider-native protocols stay behind adapter boundaries; the web app consumes Saint contracts rather than talking to coding-agent CLIs directly.
 
@@ -34,8 +34,8 @@ The server owns durable orchestration, provider sessions, Git/worktree state, te
                               durable local state
 
 ┌──────────────────────────────────────────────┐
-│ apps/desktop                                 │
-│ Electron shell · backend supervision         │
+│ apps/desktop-rust                            │
+│ Tauri shell · backend supervision            │
 │ native window/OS integrations                │
 │ loads the same web client                    │
 └──────────────────────────────────────────────┘
@@ -136,7 +136,7 @@ This ownership is why the web client can reload or reconnect without becoming th
 
 ## Desktop shell
 
-`apps/desktop` is a native host, not a second orchestration implementation. It supervises a desktop-scoped Saint backend, loads the shared web UI, and provides OS/Electron integrations such as window lifecycle, native menus/shortcuts, updates, and platform-specific bridges.
+`apps/desktop-rust` is a native Tauri host, not a second orchestration implementation. It supervises a desktop-scoped Saint backend (the `saint-server` sidecar), loads the shared web UI, and provides OS integrations such as window lifecycle, native menus/shortcuts, updates, and platform-specific bridges.
 
 Browser/web mode and desktop mode therefore share the same server contracts and most UI code.
 

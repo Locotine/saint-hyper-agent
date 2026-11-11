@@ -16,6 +16,8 @@
     "computer-use-fixtures/packaged-evidence.test.ts",
     "computer-use-fixtures/packaged-fixture.ts",
     "computer-use-fixtures/packaged-e2e.ts",
+    "computer-use-fixtures/focusProbe.ts",
+    "computer-use-fixtures/focusProbe.test.ts",
     "computer-use-fixtures/browser-benchmark-evidence.ts",
     "computer-use-fixtures/browser-benchmark-evidence.test.ts",
     "computer-use-fixtures/browser-benchmark-observer.ts",

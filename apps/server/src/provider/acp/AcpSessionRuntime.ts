@@ -30,7 +30,10 @@ import { loadAcpSdk, type AcpSdkModule } from "./AcpSdk.ts";
 import { makeAcpNotificationDispatcher } from "./AcpNotificationDispatcher.ts";
 import { SetSessionConfigOptionResponse as SetSessionConfigOptionResponseCodec } from "./AcpExtensions.ts";
 
-import { buildProviderChildEnvironment } from "../../providerChildEnvironment.ts";
+import {
+  buildProviderChildEnvironment,
+  type ProviderChildKind,
+} from "../../providerChildEnvironment.ts";
 import { buildProviderProcessEnv, type ProviderProcessEnvDriver } from "../providerProcessEnv.ts";
 import {
   teardownEffectProcessTree,
@@ -312,6 +315,7 @@ export function buildAcpSpawnProcessEnv(
   spawn: AcpSpawnInput,
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
+  launchProvider: ProviderChildKind = "acp",
 ): NodeJS.ProcessEnv {
   const overlay = spawn.env
     ? Object.fromEntries(
@@ -330,7 +334,7 @@ export function buildAcpSpawnProcessEnv(
     : spawn.env
       ? { ...env, ...overlay }
       : env;
-  return buildProviderChildEnvironment({ provider: "acp", baseEnv: accountIsolatedEnv });
+  return buildProviderChildEnvironment({ provider: launchProvider, baseEnv: accountIsolatedEnv });
 }
 
 /**
@@ -378,6 +382,12 @@ export interface AcpSessionRuntimeOptions {
     metadata: Record<string, unknown> | undefined,
   ) => string | undefined;
   readonly spawn: AcpSpawnInput;
+  /**
+   * Provider identity used for Aegis sandbox state-directory rules and child
+   * environment filtering when an ACP adapter wraps a first-class provider
+   * CLI (e.g. `antigravity`). Defaults to `"acp"`.
+   */
+  readonly launchProvider?: ProviderChildKind;
   /** The thread this process serves, for per-agent RSS/CPU; unset for discovery runs. */
   readonly ownerThreadId?: string;
   readonly cwd: string;
@@ -1499,8 +1509,10 @@ const makeAcpSessionRuntime = (
     // A supplied environment is an exact capability set prepared by the
     // provider boundary. Merging process.env here would silently restore
     // stripped control-plane credentials and launcher capabilities.
+    const launchProvider = options.launchProvider ?? "acp";
     const env = yield* Effect.try({
-      try: () => buildAcpSpawnProcessEnv(options.spawn),
+      try: () =>
+        buildAcpSpawnProcessEnv(options.spawn, process.env, process.platform, launchProvider),
       catch: (cause) => new AcpErrors.AcpSpawnError({ command: options.spawn.command, cause }),
     });
     const ownerThreadId = options.ownerThreadId;
@@ -1508,7 +1520,7 @@ const makeAcpSessionRuntime = (
       ? yield* Effect.promise(() =>
           planProviderLaunch({
             threadId: ownerThreadId,
-            provider: "acp",
+            provider: launchProvider,
             cwd: options.spawn.cwd,
             env,
           }),

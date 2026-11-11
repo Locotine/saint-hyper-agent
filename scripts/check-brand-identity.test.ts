@@ -142,7 +142,7 @@ describe("brand identity guard", () => {
   });
 
   it("allows only the two reviewed cubic expressions in the native patch", () => {
-    const path = "apps/desktop/patches/cua-driver/0001-saint-native.patch";
+    const path = "apps/desktop-rust/patches/cua-driver/0001-saint-native.patch";
     const firstExpression = `+                            + ${shortName} * self.to.0`;
     const expressions = [firstExpression, firstExpression.replace("self.to.0", "self.to.1")];
     expect(findBrandIdentityViolations([{ path, contents: expressions.join("\n") }])).toEqual([]);
@@ -156,13 +156,16 @@ describe("brand identity guard", () => {
     }
     expect(
       findBrandIdentityViolations([
-        { path: "apps/desktop/patches/cua-driver/other.patch", contents: expressions.join("\n") },
+        {
+          path: "apps/desktop-rust/patches/cua-driver/other.patch",
+          contents: expressions.join("\n"),
+        },
       ]),
     ).toHaveLength(2);
   });
 
   it.each([
-    ["apps/desktop/src/cuaFixtures/electron.ts", "cua-fixture"],
+    ["docs/computer-use-cua/evidence/native-fixture-report.json", "cua-fixture"],
     ["apps/server/src/computer/computerSignatureChange.test.ts", "test"],
   ])("preserves only the reviewed fixture identity at %s", (path, suffix) => {
     const bundleId = `${fixtureBundleDomain}.${suffix}`;
@@ -199,7 +202,10 @@ describe("brand identity guard", () => {
         { path: "apps/server/src/computer/new.test.ts", contents: bundleId },
         { path: "docs/computer-use-cua/evidence/new-report.json", contents: bundleId },
         { path: "scripts/computer-use-fixtures/build-canary.mjs", contents: bundleId },
-        { path: "apps/desktop/src/cuaFixtures/electron.ts", contents: `${bundleId}-external` },
+        {
+          path: "docs/computer-use-cua/evidence/native-fixture-report.json",
+          contents: `${bundleId}-external`,
+        },
       ]),
     ).toHaveLength(7);
   });

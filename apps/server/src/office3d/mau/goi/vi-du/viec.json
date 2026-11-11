@@ -1,0 +1,8 @@
+{
+  "goi": "vi-du",
+  "ten": "Ví dụ: cài văn phòng ảo",
+  "viec": [
+    { "id": "V1", "yeu_cau": "Chạy npm run setup và npm start, mở được http://localhost:7788", "kiem_that": "Thấy văn phòng 3D có ít nhất một nhân viên", "dat": true, "bang_chung": "ảnh chụp văn phòng", "sha": "", "lan_sua": 0, "ghi_chu": "" },
+    { "id": "V2", "yeu_cau": "Dán đoạn luật đội vào AGENTS.md / CLAUDE.md của dự án", "kiem_that": "Agent tự chạy vp tiep ở cuối lượt", "dat": false, "bang_chung": "", "sha": "", "lan_sua": 0, "ghi_chu": "" }
+  ]
+}

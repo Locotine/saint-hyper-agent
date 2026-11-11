@@ -220,6 +220,12 @@ claude-sonnet-4-6\tClaude Sonnet 4.6 (Thinking)
     expect(resolveAntigravityCliModelLabel("Gemini 4 Argon", { fastMode: true })).toBe(
       "Gemini 4 Argon (Low)",
     );
+    expect(
+      resolveAntigravityCliModelLabel("Gemini 4 Argon", {
+        reasoningEffort: "high",
+        fastMode: true,
+      }),
+    ).toBe("Gemini 4 Argon (Low)");
     expect(resolveAntigravityCliModelLabel("Gemini 3.8 Flash", { fastMode: true })).toBe(
       "Gemini 3.8 Flash (Low)",
     );

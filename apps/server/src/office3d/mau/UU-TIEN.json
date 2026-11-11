@@ -1,0 +1,18 @@
+{
+  "cap_nhat": "",
+  "nguoi_ghi": "Quản lý",
+  "luat": "Một nguồn duy nhất cho thứ tự việc. Chỉ Quản lý (hoặc Điều phối) sửa bằng vp viec. Trạng thái đạt lấy từ goi/<gói>/viec.json, không ghi ở đây.",
+  "dang_lam": [
+    {
+      "thu_tu": 1,
+      "viec": "Ví dụ: cài văn phòng ảo cho đội",
+      "de_lam_gi": "Chủ văn phòng nhìn thấy cả đội đang làm gì",
+      "muc": ["vi-du:V1", "vi-du:V2"],
+      "chu": "Quản lý",
+      "duyet": "",
+      "can": "",
+      "han": ""
+    }
+  ],
+  "tam_dung": []
+}

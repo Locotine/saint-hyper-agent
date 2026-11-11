@@ -2,7 +2,7 @@
 // certification run can prove zero focus theft. Read-only: it never posts an
 // event, activates an app, or touches another process's state. Output is
 // newline-delimited JSON on stdout; analysis lives in
-// apps/desktop/src/cuaFixtures/focusProbe.ts.
+// scripts/computer-use-fixtures/focusProbe.ts.
 //
 // Usage:
 //   focus-probe --duration <seconds> [--hz <rate>] [--label <text>]

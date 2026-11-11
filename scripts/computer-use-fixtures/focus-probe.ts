@@ -1,7 +1,7 @@
 /**
  * focus-probe: standalone focus-theft meter for fixture and certification
  * runs. Wraps the focus_probe.m sampler binary (NDJSON on stdout) with the
- * analyzer from apps/desktop/src/cuaFixtures/focusProbe.ts and turns the
+ * analyzer from scripts/computer-use-fixtures/focusProbe.ts and turns the
  * result into an assertable exit code plus a JSON report.
  *
  * Usage:
@@ -33,7 +33,7 @@ import {
   type FocusProbeExpect,
   type FocusProbeMeta,
   type FocusProbeSample,
-} from "../../apps/desktop/src/cuaFixtures/focusProbe";
+} from "./focusProbe.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const defaultBinary = "/private/tmp/saint-cua-implementation/focus-probe";

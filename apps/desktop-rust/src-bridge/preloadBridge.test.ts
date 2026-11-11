@@ -10,7 +10,9 @@ import {
 
 function createMockAdapter() {
   const listeners = new Map<string, Set<(payload: unknown) => void>>();
-  const invoke = vi.fn(async (_command: string, _args?: Record<string, unknown>) => undefined);
+  const invoke = vi.fn<(_command: string, _args?: Record<string, unknown>) => Promise<unknown>>(
+    async (_command: string, _args?: Record<string, unknown>) => undefined,
+  );
   const adapter: TauriRuntimeAdapter = {
     invoke: invoke as TauriRuntimeAdapter["invoke"],
     listen: (event, handler) => {
@@ -236,5 +238,67 @@ describe("createTauriDesktopBridge", () => {
 
     await bridge.checkForUpdates();
     expect(invoke).toHaveBeenCalledWith("desktop_update_check");
+  });
+
+  it("normalizes serialized Rust Vec<u8> bytes into Uint8Array and filters invalid guide/quit events", async () => {
+    const { adapter, invoke, emit } = createMockAdapter();
+    invoke.mockImplementation(async (command: string) => {
+      if (
+        command === "desktop_appsnap_capture_current_app" ||
+        command === "desktop_appsnap_capture_window" ||
+        command === "desktop_browser_capture_screenshot"
+      ) {
+        return { name: "shot.png", mimeType: "image/png", bytes: [137, 80, 78, 71] };
+      }
+      if (command === "desktop_appsnap_list_pending_captures") {
+        return [{ id: "cap-1", name: "cap.png", mimeType: "image/png", bytes: [1, 2, 3] }];
+      }
+      return undefined;
+    });
+
+    const bridge = createTauriDesktopBridge({ wsUrl: null, zoomFactor: 1 }, adapter);
+
+    const appCapture = await bridge.appSnap.captureCurrentApp("req-bytes");
+    expect(appCapture?.bytes).toBeInstanceOf(Uint8Array);
+    expect(Array.from(appCapture!.bytes)).toEqual([137, 80, 78, 71]);
+
+    const winCapture = await bridge.appSnap.captureWindow({ windowId: 1 });
+    expect(winCapture.bytes).toBeInstanceOf(Uint8Array);
+
+    const browserShot = await bridge.browser.captureScreenshot({
+      threadId: "t1" as never,
+      tabId: "tab-1",
+    });
+    expect(browserShot.bytes).toBeInstanceOf(Uint8Array);
+
+    const pending = await bridge.appSnap.listPendingCaptures();
+    expect(pending[0]?.bytes).toBeInstanceOf(Uint8Array);
+    expect(Array.from(pending[0]!.bytes)).toEqual([1, 2, 3]);
+
+    const capturedEvents: Array<{ bytes: Uint8Array }> = [];
+    bridge.appSnap.onCaptured((cap) => capturedEvents.push(cap));
+    emit("desktop:appsnap-captured", { id: "cap-2", bytes: [9, 8, 7] });
+    expect(capturedEvents[0]?.bytes).toBeInstanceOf(Uint8Array);
+
+    const guideStates: string[] = [];
+    bridge.appSnap.onPermissionGuideState((s) => guideStates.push(s));
+    emit("desktop:appsnap-permission-guide-state", "shown");
+    emit("desktop:appsnap-permission-guide-state", "closed");
+    emit("desktop:appsnap-permission-guide-state", "granted");
+    expect(guideStates).toEqual(["closed", "granted"]);
+
+    invoke.mockClear();
+    bridge.replyQuitConfirmation({
+      requestId: "   ",
+      phase: "ready",
+      runningCount: 0,
+      chats: [],
+    });
+    bridge.replyQuitConfirmation({
+      requestId: "req-1",
+      phase: "decision",
+      allow: "yes" as unknown as boolean,
+    });
+    expect(invoke).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,7 @@ import {
   analyzeFocusSamples,
   type FocusProbeExpect,
   type FocusProbeRunResult,
-} from "../../apps/desktop/src/cuaFixtures/focusProbe.ts";
+} from "./focusProbe.ts";
 import type { ComputerStatusResult, ComputerWindow } from "@saint/contracts";
 
 /** A fresh host deliberately leaves its physical-input listener idle. The

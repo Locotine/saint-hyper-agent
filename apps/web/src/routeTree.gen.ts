@@ -15,6 +15,7 @@ import { Route as ChatSettingsRouteImport } from './routes/_chat.settings'
 import { Route as ChatSecurityRouteImport } from './routes/_chat.security'
 import { Route as ChatPullRequestsRouteImport } from './routes/_chat.pull-requests'
 import { Route as ChatPluginsRouteImport } from './routes/_chat.plugins'
+import { Route as ChatOffice3dRouteImport } from './routes/_chat.office-3d'
 import { Route as ChatInboxRouteImport } from './routes/_chat.inbox'
 import { Route as ChatHostEconomyRouteImport } from './routes/_chat.host-economy'
 import { Route as ChatAutomationsRouteImport } from './routes/_chat.automations'
@@ -60,6 +61,11 @@ const ChatPullRequestsRoute = ChatPullRequestsRouteImport.update({
 const ChatPluginsRoute = ChatPluginsRouteImport.update({
   id: '/plugins',
   path: '/plugins',
+  getParentRoute: () => ChatRoute,
+} as any)
+const ChatOffice3dRoute = ChatOffice3dRouteImport.update({
+  id: '/office-3d',
+  path: '/office-3d',
   getParentRoute: () => ChatRoute,
 } as any)
 const ChatInboxRoute = ChatInboxRouteImport.update({
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/automations': typeof ChatAutomationsRouteWithChildren
   '/host-economy': typeof ChatHostEconomyRoute
   '/inbox': typeof ChatInboxRoute
+  '/office-3d': typeof ChatOffice3dRoute
   '/plugins': typeof ChatPluginsRoute
   '/pull-requests': typeof ChatPullRequestsRouteWithChildren
   '/security': typeof ChatSecurityRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/$threadId': typeof ChatThreadIdRoute
   '/host-economy': typeof ChatHostEconomyRoute
   '/inbox': typeof ChatInboxRoute
+  '/office-3d': typeof ChatOffice3dRoute
   '/plugins': typeof ChatPluginsRoute
   '/security': typeof ChatSecurityRoute
   '/settings': typeof ChatSettingsRoute
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/_chat/automations': typeof ChatAutomationsRouteWithChildren
   '/_chat/host-economy': typeof ChatHostEconomyRoute
   '/_chat/inbox': typeof ChatInboxRoute
+  '/_chat/office-3d': typeof ChatOffice3dRoute
   '/_chat/plugins': typeof ChatPluginsRoute
   '/_chat/pull-requests': typeof ChatPullRequestsRouteWithChildren
   '/_chat/security': typeof ChatSecurityRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/automations'
     | '/host-economy'
     | '/inbox'
+    | '/office-3d'
     | '/plugins'
     | '/pull-requests'
     | '/security'
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/$threadId'
     | '/host-economy'
     | '/inbox'
+    | '/office-3d'
     | '/plugins'
     | '/security'
     | '/settings'
@@ -276,6 +287,7 @@ export interface FileRouteTypes {
     | '/_chat/automations'
     | '/_chat/host-economy'
     | '/_chat/inbox'
+    | '/_chat/office-3d'
     | '/_chat/plugins'
     | '/_chat/pull-requests'
     | '/_chat/security'
@@ -342,6 +354,13 @@ declare module '@tanstack/react-router' {
       path: '/plugins'
       fullPath: '/plugins'
       preLoaderRoute: typeof ChatPluginsRouteImport
+      parentRoute: typeof ChatRoute
+    }
+    '/_chat/office-3d': {
+      id: '/_chat/office-3d'
+      path: '/office-3d'
+      fullPath: '/office-3d'
+      preLoaderRoute: typeof ChatOffice3dRouteImport
       parentRoute: typeof ChatRoute
     }
     '/_chat/inbox': {
@@ -496,6 +515,7 @@ interface ChatRouteChildren {
   ChatAutomationsRoute: typeof ChatAutomationsRouteWithChildren
   ChatHostEconomyRoute: typeof ChatHostEconomyRoute
   ChatInboxRoute: typeof ChatInboxRoute
+  ChatOffice3dRoute: typeof ChatOffice3dRoute
   ChatPluginsRoute: typeof ChatPluginsRoute
   ChatPullRequestsRoute: typeof ChatPullRequestsRouteWithChildren
   ChatSecurityRoute: typeof ChatSecurityRoute
@@ -518,6 +538,7 @@ const ChatRouteChildren: ChatRouteChildren = {
   ChatAutomationsRoute: ChatAutomationsRouteWithChildren,
   ChatHostEconomyRoute: ChatHostEconomyRoute,
   ChatInboxRoute: ChatInboxRoute,
+  ChatOffice3dRoute: ChatOffice3dRoute,
   ChatPluginsRoute: ChatPluginsRoute,
   ChatPullRequestsRoute: ChatPullRequestsRouteWithChildren,
   ChatSecurityRoute: ChatSecurityRoute,

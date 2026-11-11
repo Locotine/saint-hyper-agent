@@ -30,12 +30,12 @@ const evidence = resolve(outputDirectory, "evidence");
 mkdirSync(evidence, { recursive: true });
 const work = mkdtempSync(join(tmpdir(), "saint-cua-benchmark-"));
 const releasePath = "packages/shared/src/cuaDriverRelease.json";
-const provisionPath = "apps/desktop/scripts/provision-cua-driver.mjs";
+const provisionPath = "apps/desktop-rust/scripts/provision-cua-driver.mjs";
 const exportedPaths = [
   "package.json",
   releasePath,
-  "apps/desktop/patches/cua-driver",
-  "apps/desktop/scripts",
+  "apps/desktop-rust/patches/cua-driver",
+  "apps/desktop-rust/scripts",
   "scripts/lib/build-timing.ts",
   "docs/computer-use-cua/CUA-LICENSE.txt",
 ];
@@ -111,7 +111,7 @@ const snapshots = (
     "Cua license missing from benchmark snapshot.",
   );
   const patch = readFileSync(
-    join(checkout, "apps/desktop/patches/cua-driver/0001-saint-native.patch"),
+    join(checkout, "apps/desktop-rust/patches/cua-driver/0001-saint-native.patch"),
   );
   assert.equal(createHash("sha256").update(patch).digest("hex"), release.patchSha256);
 

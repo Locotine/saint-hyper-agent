@@ -161,6 +161,24 @@ impl BrowserManager {
         &self.capability
     }
 
+    fn constant_time_eq(a: &str, b: &str) -> bool {
+        if a.len() != b.len() {
+            return false;
+        }
+        let mut diff = 0u8;
+        for (x, y) in a.bytes().zip(b.bytes()) {
+            diff |= x ^ y;
+        }
+        diff == 0
+    }
+
+    pub fn stop_rpc_pipe_server(&self) {
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = std::fs::remove_file(&self.pipe_path);
+        }
+    }
+
     fn default_pipe_path() -> String {
         let suffix = format!("{}-{}", std::process::id(), Uuid::new_v4());
         #[cfg(target_os = "windows")]
@@ -169,7 +187,11 @@ impl BrowserManager {
         }
         #[cfg(not(target_os = "windows"))]
         {
-            format!("/tmp/saint-browser-host/{suffix}.sock")
+            let uid = unsafe { libc::geteuid() };
+            let dir = std::env::temp_dir().join(format!("saint-browser-host-{uid}"));
+            dir.join(format!("{suffix}.sock"))
+                .to_string_lossy()
+                .into_owned()
         }
     }
 
@@ -177,13 +199,31 @@ impl BrowserManager {
         let Some(candidate) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
             return "about:blank".to_string();
         };
-        if candidate == "about:blank" {
+        let lower = candidate.to_ascii_lowercase();
+        if lower == "about:blank" {
+            return "about:blank".to_string();
+        }
+        if lower.starts_with("http://")
+            || lower.starts_with("https://")
+            || lower.starts_with("saint-html-preview:")
+        {
             return candidate.to_string();
         }
-        if candidate.starts_with("http://") || candidate.starts_with("https://") {
-            return candidate.to_string();
+        if lower.starts_with("javascript:")
+            || lower.starts_with("data:")
+            || lower.starts_with("file:")
+            || lower.starts_with("vbscript:")
+            || lower.starts_with("blob:")
+        {
+            return "about:blank".to_string();
         }
-        if candidate.starts_with("localhost:") || candidate.starts_with("127.0.0.1:") {
+        if lower == "localhost"
+            || lower.starts_with("localhost:")
+            || lower.starts_with("localhost/")
+            || lower == "127.0.0.1"
+            || lower.starts_with("127.0.0.1:")
+            || lower.starts_with("127.0.0.1/")
+        {
             return format!("http://{candidate}");
         }
         format!("https://{candidate}")
@@ -266,16 +306,31 @@ impl BrowserManager {
         } else if let Some(raw_url) = input.initial_url.as_deref() {
             let url = Self::normalize_url(Some(raw_url));
             if let Some(active_id) = entry.state.active_tab_id.clone() {
+                let (can_back, can_forward) = {
+                    let hist = entry
+                        .history
+                        .entry(active_id.clone())
+                        .or_insert_with(|| (vec!["about:blank".to_string()], 0));
+                    let next_idx = hist.1 + 1;
+                    hist.0.truncate(next_idx);
+                    hist.0.push(url.clone());
+                    hist.1 = hist.0.len() - 1;
+                    (hist.1 > 0, false)
+                };
                 if let Some(tab) = entry.state.tabs.iter_mut().find(|t| t.id == active_id) {
                     tab.url = url.clone();
                     tab.title = Self::default_title_for_url(&url);
-                    tab.last_committed_url = Some(url.clone());
+                    tab.last_committed_url = Some(url);
+                    tab.can_go_back = can_back;
+                    tab.can_go_forward = can_forward;
                 }
             }
         }
 
         if let Ok(mut vis) = self.visible_thread_id.lock() {
-            *vis = Some(input.thread_id);
+            if vis.is_none() || entry.bounds.is_some() {
+                *vis = Some(input.thread_id);
+            }
         }
 
         entry.state.clone()
@@ -486,6 +541,7 @@ impl BrowserManager {
             .map(|t| t.url.clone())
     }
 
+    #[cfg(not(test))]
     pub fn webview_label_for_tab(tab_id: &str) -> String {
         format!("browser-tab-{tab_id}")
     }
@@ -632,10 +688,22 @@ impl BrowserManager {
         let next_state = match tool_name {
             "browser_open" => {
                 let initial_url = str_arg("url").or_else(|| str_arg("initialUrl"));
-                Some(self.open(BrowserOpenInput {
+                let had_tabs = !self.get_state(thread_id).tabs.is_empty();
+                let state = self.open(BrowserOpenInput {
                     thread_id: thread_id.to_string(),
-                    initial_url,
-                }))
+                    initial_url: initial_url.clone(),
+                });
+                if had_tabs {
+                    if let (Some(app), Some(active_id), Some(raw_url)) = (
+                        app_handle,
+                        state.active_tab_id.as_deref(),
+                        initial_url.as_deref(),
+                    ) {
+                        let normalized = Self::normalize_url(Some(raw_url));
+                        self.navigate_native_webview(app, active_id, &normalized);
+                    }
+                }
+                Some(state)
             }
             "browser_navigate" => {
                 let url = str_arg("url").unwrap_or_else(|| "about:blank".to_string());
@@ -713,7 +781,14 @@ impl BrowserManager {
                     tab_id,
                 }))
             }
-            "browser_close" => Some(self.close(thread_id)),
+            "browser_close" => {
+                if let Some(app) = app_handle {
+                    for tab_id in self.tab_ids_for_thread(thread_id) {
+                        self.close_native_webview(app, &tab_id);
+                    }
+                }
+                Some(self.close(thread_id))
+            }
             "browser_tabs" | "browser_snapshot" | "browser_wait" | "browser_evaluate"
             | "browser_click" | "browser_type" | "browser_press" | "browser_hover"
             | "browser_select" | "browser_scroll" | "browser_screenshot" => {
@@ -781,7 +856,7 @@ impl BrowserManager {
                     .get("capability")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                if req_session.is_empty() || req_cap != self.capability {
+                if req_session.is_empty() || !Self::constant_time_eq(req_cap, &self.capability) {
                     serde_json::json!({
                         "jsonrpc": "2.0",
                         "id": id,
@@ -810,6 +885,26 @@ impl BrowserManager {
                 }
             }
             "executeTool" => {
+                let req_session = params
+                    .get("session_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let authorized = session_id_slot
+                    .as_deref()
+                    .map(|expected| !req_session.is_empty() && expected == req_session)
+                    .unwrap_or(false);
+                if !authorized {
+                    return serde_json::to_string(&serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "error": {
+                            "code": -32010,
+                            "message": "Browser authorization denied",
+                        }
+                    }))
+                    .ok();
+                }
+
                 let thread_id = params
                     .get("thread_id")
                     .and_then(|v| v.as_str())
@@ -898,11 +993,27 @@ impl BrowserManager {
             {
                 if let Some(parent) = std::path::Path::new(&pipe_path).parent() {
                     let _ = std::fs::create_dir_all(parent);
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        let _ = std::fs::set_permissions(
+                            parent,
+                            std::fs::Permissions::from_mode(0o700),
+                        );
+                    }
                 }
                 let _ = std::fs::remove_file(&pipe_path);
                 let Ok(listener) = tokio::net::UnixListener::bind(&pipe_path) else {
                     return;
                 };
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(
+                        &pipe_path,
+                        std::fs::Permissions::from_mode(0o600),
+                    );
+                }
                 while let Ok((stream, _)) = listener.accept().await {
                     let mgr = Arc::clone(&manager);
                     let app = app_handle.clone();
@@ -1016,6 +1127,28 @@ mod tests {
         assert!(good_info.contains("\"protocolVersion\":1"));
         assert_eq!(session_id.as_deref(), Some("s1"));
 
+        // executeTool without prior getInfo session or mismatched session_id is rejected
+        let mut unauth_session = None;
+        let unauth_resp = manager
+            .handle_rpc_json_message(
+                None,
+                &mut unauth_session,
+                &serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": 99,
+                    "method": "executeTool",
+                    "params": {
+                        "session_id": "s1",
+                        "thread_id": "thread-rpc-1",
+                        "name": "browser_open",
+                        "arguments": { "url": "localhost:5733" }
+                    }
+                })
+                .to_string(),
+            )
+            .unwrap();
+        assert!(unauth_resp.contains("Browser authorization denied"));
+
         // executeTool browser_open opens the tab for the thread
         let exec_resp = manager
             .handle_rpc_json_message(
@@ -1038,5 +1171,13 @@ mod tests {
             .unwrap();
         assert!(exec_resp.contains("http://localhost:5733"));
         assert!(manager.get_state("thread-rpc-1").open);
+
+        // Dangerous schemes normalize to about:blank
+        let safe = manager.navigate(BrowserNavigateInput {
+            thread_id: "thread-rpc-1".into(),
+            tab_id: None,
+            url: "javascript:alert(1)".into(),
+        });
+        assert_eq!(safe.tabs[0].url, "about:blank");
     }
 }

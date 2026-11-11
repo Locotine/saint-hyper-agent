@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tin nhắn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--panel:#070707;--panel2:#0b0b0b;--line:#1a1a1a;--line2:#242424;--text:#f2f2f2;--mute:#a6a6a6;--mute2:#6b6b6b;--gold:#ecc970;--ok:#7ccf9b;--bad:#e8a39b;--claude:#d9734a;--codex:#3f8fd9;--antigravity:#a87ffb;--mono:"JetBrains Mono",ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Be Vietnam Pro",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.head{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0a0a0a,#050505)}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:34px;height:34px;border-radius:10px;background:var(--gold);color:#000;display:grid;place-items:center;font-weight:800;font-size:18px}
+.brand b{font-size:16px;display:block}.brand small{font-size:10px;color:var(--mute2);letter-spacing:.18em;text-transform:uppercase}
+.views{justify-self:end;display:flex;gap:6px;flex-wrap:wrap}.views a{font-size:11px;color:var(--mute);text-decoration:none;border:1px solid var(--line2);border-radius:999px;padding:4px 11px}.views a:hover{color:var(--text)}
+main{padding:14px 18px 20px;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;max-width:1500px;margin:0 auto}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{font:inherit;font-size:12px;color:var(--mute);background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:5px 12px;cursor:pointer}
+.filters button.on{color:#000;background:var(--gold);border-color:var(--gold);font-weight:700}
+.msg{display:grid;grid-template-columns:70px minmax(0,1fr);gap:12px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.msg.owner{border-color:#4a3e1f}
+.msg time{font-family:var(--mono);font-size:12px;color:var(--mute2)}
+.who{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.who i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.who span{color:var(--mute2);font-weight:500}
+.body{margin-top:5px;font-size:13px;color:#d8d8d8;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.empty{color:var(--mute2);font-size:13px;line-height:1.6;padding:20px 0}
+.note{font-size:11.5px;color:var(--mute2)}
+@media (max-width:900px){.brand small{display:none}main{padding:12px 16px}.msg{grid-template-columns:1fr;gap:4px}}
+</style>
+</head>
+<body>
+<header class="head">
+  <div class="brand"><div class="logo">V</div><div><b>Tin nhắn</b><small>Giám đốc giao việc · các phiên nhắn nhau · 24 giờ</small></div></div>
+  <nav class="views"><a href="./" target="vp3d">Văn phòng 3D</a><a href="board.html" target="vp3d">Bảng điều hành</a><a href="hieusuat.html" target="vp3d">Hiệu suất</a></nav>
+</header>
+<main>
+  <div class="filters" id="filters"></div>
+  <div id="list" style="display:grid;gap:8px"></div>
+  <p class="note">Chỉ xem. Văn phòng đọc tin từ nhật ký phiên (tin bạn gõ cho phiên, và tin các phiên gửi nhau bằng SendMessage hoặc cầu nối Codex). Chuỗi giống khóa đã được che. Tự làm mới 3 giây một lần.</p>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const PCOL = { codex: "#3f8fd9", claude: "#d9734a", antigravity: "#a87ffb", human: "#ecc970" };
+const hm = (ms) => new Date(ms).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+let who = "all", last = null, sig = "";
+function render(s) {
+  last = s;
+  const A = Object.fromEntries(s.agents.map((a) => [a.key, a]));
+  const people = [...new Set(s.events.flatMap((e) => [e.from, e.to]))].filter((k) => A[k]);
+  const F = $("filters"); F.textContent = "";
+  for (const [k, lab] of [["all", "Tất cả"], ["ceo", "Việc Giám đốc giao"], ...people.filter((k) => k !== "ceo").map((k) => [k, A[k].name])]) {
+    const b = h("button", who === k ? "on" : "", lab); b.onclick = () => { who = k; sig = ""; render(last); }; F.appendChild(b);
+  }
+  const evs = s.events.filter((e) => who === "all" || e.from === who || e.to === who).slice().reverse();
+  const nsig = who + "|" + evs.length + "|" + (evs[0] ? evs[0].t : 0); if (nsig === sig) return; sig = nsig;
+  const L = $("list"); L.textContent = "";
+  if (!evs.length) L.appendChild(h("div", "empty", "Chưa có tin nào trong 24 giờ qua."));
+  for (const e of evs) {
+    const f = A[e.from] || { name: e.from, platform: "human" }, t = A[e.to] || { name: e.to, platform: "human" };
+    const m = h("div", "msg" + (e.kind === "ceo" ? " owner" : ""));
+    m.appendChild(h("time", "", hm(e.t)));
+    const c = h("div"); const w = h("div", "who");
+    const d1 = h("i"); d1.style.background = PCOL[f.platform]; const d2 = h("i"); d2.style.background = PCOL[t.platform];
+    w.append(d1, f.name, h("span", "", "→"), d2, t.name);
+    c.append(w, h("div", "body", e.body || e.title)); m.appendChild(c); L.appendChild(m);
+  }
+}
+async function load() { try { const r = await fetch("state", { cache: "no-store" }); if (r.ok) render(await r.json()); } catch {} }
+load(); setInterval(load, 3000);
+</script>
+</body>
+</html>

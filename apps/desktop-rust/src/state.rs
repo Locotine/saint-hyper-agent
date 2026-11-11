@@ -15,13 +15,11 @@ use crate::lan_relay::LanRelayManager;
 use crate::pty_host::PtyHostManager;
 use crate::remote_ssh::RemoteSshManager;
 use crate::updater::UpdaterCoordinator;
-use crate::window_state::{AgentCursorStylePreference, DesktopMenuAccelerators};
+use crate::window_state::DesktopMenuAccelerators;
 
 pub const APP_DISPLAY_NAME: &str = "Saint";
 pub const APP_BUNDLE_ID: &str = "com.locotine.saint";
 pub const DEFAULT_HOME_DIR_NAME: &str = ".saint";
-pub const DESKTOP_SCHEME: &str = "saint";
-pub const LOCAL_HTML_PREVIEW_SCHEME: &str = "saint-html-preview";
 
 #[derive(Debug, Clone)]
 pub struct SaintPaths {
@@ -190,19 +188,12 @@ impl SaintPaths {
         std::fs::create_dir_all(&self.appsnap_captures_dir)?;
         Ok(())
     }
-
-    pub fn log_file_path(&self) -> PathBuf {
-        self.log_dir.join("desktop-main.log")
-    }
 }
 
 pub struct DesktopSharedState {
     pub paths: SaintPaths,
     pub ws_url: RwLock<Option<String>>,
-    pub auth_token: RwLock<Option<String>>,
-    pub zoom_factor: RwLock<f64>,
     pub custom_title_bar_active: bool,
-    pub agent_cursor_style: RwLock<Option<AgentCursorStylePreference>>,
     pub menu_accelerators: RwLock<DesktopMenuAccelerators>,
     pub active_context_menu: Mutex<Option<(String, oneshot::Sender<Option<String>>)>>,
     pub quit_allowed: AtomicBool,
@@ -219,9 +210,6 @@ pub struct DesktopSharedState {
 
 impl DesktopSharedState {
     pub fn new(paths: SaintPaths, custom_title_bar_active: bool) -> Arc<Self> {
-        let initial_cursor = crate::window_state::read_agent_cursor_preference(
-            &paths.agent_cursor_preference_path,
-        );
         let browser = Arc::new(BrowserManager::new());
         let cua_host = Arc::new(CuaDriverHost::new(paths.clone()));
         let appsnap = Arc::new(AppSnapHost::new(paths.clone()));
@@ -240,10 +228,7 @@ impl DesktopSharedState {
         Arc::new(Self {
             paths,
             ws_url: RwLock::new(Some(initial_ws_url)),
-            auth_token: RwLock::new(Some(backend.auth_token().to_string())),
-            zoom_factor: RwLock::new(1.0),
             custom_title_bar_active,
-            agent_cursor_style: RwLock::new(initial_cursor),
             menu_accelerators: RwLock::new(DesktopMenuAccelerators::default()),
             active_context_menu: Mutex::new(None),
             quit_allowed: AtomicBool::new(false),
@@ -269,17 +254,6 @@ impl DesktopSharedState {
         }
     }
 
-    pub fn current_zoom_factor(&self) -> f64 {
-        self.zoom_factor.read().map(|g| *g).unwrap_or(1.0)
-    }
-
-    pub fn set_zoom_factor(&self, factor: f64) -> f64 {
-        let clamped = factor.clamp(0.5, 3.0);
-        if let Ok(mut guard) = self.zoom_factor.write() {
-            *guard = clamped;
-        }
-        clamped
-    }
 }
 
 pub fn is_trusted_external_url(raw: &str) -> bool {
@@ -290,6 +264,12 @@ pub fn is_trusted_external_url(raw: &str) -> bool {
 }
 
 pub fn reveal_path_in_file_manager(target: &Path) -> Result<(), String> {
+    if target.as_os_str().is_empty() {
+        return Err("Target path is empty".to_string());
+    }
+    if !target.exists() {
+        return Err(format!("Path does not exist: {}", target.display()));
+    }
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer.exe")
@@ -309,9 +289,13 @@ pub fn reveal_path_in_file_manager(target: &Path) -> Result<(), String> {
     }
     #[cfg(target_os = "linux")]
     {
-        let parent = target.parent().unwrap_or(target);
+        let open_target = if target.is_dir() {
+            target
+        } else {
+            target.parent().unwrap_or(target)
+        };
         std::process::Command::new("xdg-open")
-            .arg(parent)
+            .arg(open_target)
             .spawn()
             .map_err(|e| e.to_string())?;
         Ok(())

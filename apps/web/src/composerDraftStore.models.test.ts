@@ -6,6 +6,7 @@ import {
   resolvePreferredComposerModelSelection,
   useComposerDraftStore,
 } from "./composerDraftStore";
+import { AppSettingsSchema, LAST_USED_MODEL_VALUE, MODEL_DEFAULT_EFFORT_VALUE } from "./appSettings";
 import { normalizeModelSelection, resolveDefaultModelSelection } from "./composerDraftModels";
 import {
   modelSelection,
@@ -99,7 +100,7 @@ describe("resolvePreferredComposerModelSelection", () => {
     expect(resolved).toEqual({
       provider: "claudeAgent",
       instanceId: "claudeAgent",
-      model: "claude-sonnet-5",
+      model: "claude-opus-5-5",
     });
   });
 });
@@ -1346,5 +1347,21 @@ describe("resolveDefaultModelSelection", () => {
     });
     expect(selection?.model).toBe("claude-opus-4-6");
     expect(selection?.options).toBeUndefined();
+  });
+
+  it("starts new chats on Opus 5.5 medium by default and honors the Last used sentinel", () => {
+    const defaults = AppSettingsSchema.makeUnsafe({});
+    expect(resolveDefaultModelSelection(defaults)).toMatchObject({
+      provider: "claudeAgent",
+      model: "claude-opus-5-5",
+      options: { effort: "medium" },
+    });
+    expect(
+      resolveDefaultModelSelection({ ...defaults, defaultModel: LAST_USED_MODEL_VALUE }),
+    ).toBeNull();
+    expect(
+      resolveDefaultModelSelection({ ...defaults, defaultEffort: MODEL_DEFAULT_EFFORT_VALUE })
+        ?.options,
+    ).toBeUndefined();
   });
 });

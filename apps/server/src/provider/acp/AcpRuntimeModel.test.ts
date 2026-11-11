@@ -631,6 +631,107 @@ describe("AcpRuntimeModel", () => {
     expect(merged.detail).toBeUndefined();
   });
 
+  it("extracts CommandLine from Antigravity run_command tool calls and classifies invoke_subagent", () => {
+    const runCommand = parseSessionUpdateEvent({
+      sessionId: "session-agy",
+      update: {
+        sessionUpdate: "tool_call",
+        toolCallId: "default_api:run_command_0",
+        title: "Run command",
+        kind: "execute",
+        status: "in_progress",
+        rawInput: {
+          CommandLine: "sleep 2 && echo BG_OK",
+          WaitMsBeforeAsync: 500,
+          toolSummary: "Sleep and echo",
+        },
+      },
+    } satisfies Acp.SessionNotification);
+    expect(runCommand.events[0]).toMatchObject({
+      _tag: "ToolCallUpdated",
+      toolCall: {
+        toolCallId: "default_api:run_command_0",
+        kind: "execute",
+        command: "sleep 2 && echo BG_OK",
+        detail: "sleep 2 && echo BG_OK",
+        data: {
+          command: "sleep 2 && echo BG_OK",
+        },
+      },
+    });
+
+    const subagentStarted = parseSessionUpdateEvent({
+      sessionId: "session-agy",
+      update: {
+        sessionUpdate: "tool_call",
+        toolCallId: "default_api:invoke_subagent_0",
+        title: "Run invoke_subagent",
+        kind: "other",
+        status: "in_progress",
+        rawInput: {
+          Model: "inherit",
+          Prompt: "Reply with SUBAGENT_OK only.",
+          Role: "Quick Echo Helper",
+          TypeName: "research",
+        },
+      },
+    } satisfies Acp.SessionNotification);
+    const subagentStartedEvent = subagentStarted.events[0];
+    expect(subagentStartedEvent?._tag).toBe("ToolCallUpdated");
+    if (subagentStartedEvent?._tag !== "ToolCallUpdated") return;
+    expect(subagentStartedEvent.toolCall).toMatchObject({
+      toolCallId: "default_api:invoke_subagent_0",
+      kind: "agent",
+      title: "Quick Echo Helper",
+      status: "inProgress",
+      data: {
+        toolCallId: "default_api:invoke_subagent_0",
+        kind: "agent",
+        tool: "task",
+        prompt: "Reply with SUBAGENT_OK only.",
+      },
+    });
+
+    const subagentCompleted = parseSessionUpdateEvent({
+      sessionId: "session-agy",
+      update: {
+        sessionUpdate: "tool_call_update",
+        toolCallId: "default_api:invoke_subagent_0",
+        status: "completed",
+        content: [
+          {
+            type: "content",
+            content: {
+              type: "text",
+              text: "Subagent launched successfully (conversation_id: abc)",
+            },
+          },
+        ],
+        rawOutput: {
+          output: "Subagent launched successfully (conversation_id: abc)",
+        },
+      },
+    } satisfies Acp.SessionNotification);
+    const subagentCompletedEvent = subagentCompleted.events[0];
+    if (subagentCompletedEvent?._tag !== "ToolCallUpdated") return;
+    const mergedSubagent = mergeToolCallState(
+      subagentStartedEvent.toolCall,
+      subagentCompletedEvent.toolCall,
+    );
+    expect(mergedSubagent).toMatchObject({
+      toolCallId: "default_api:invoke_subagent_0",
+      kind: "agent",
+      title: "Quick Echo Helper",
+      status: "completed",
+      data: {
+        tool: "task",
+        kind: "agent",
+        prompt: "Reply with SUBAGENT_OK only.",
+      },
+    });
+    expect(mergedSubagent.detail).toBeUndefined();
+  });
+
   it("trims padded current mode updates before emitting a mode change", () => {
     const result = parseSessionUpdateEvent({
       sessionId: "session-1",

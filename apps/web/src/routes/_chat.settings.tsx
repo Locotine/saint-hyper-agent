@@ -41,6 +41,8 @@ import {
   normalizeTerminalFontFamily,
   normalizeTerminalFontSizePx,
   isGitTextGenerationSettingsDirty,
+  LAST_USED_MODEL_VALUE,
+  MODEL_DEFAULT_EFFORT_VALUE,
   TERMINAL_FONT_FAMILY_SUGGESTIONS,
   useAppSettings,
 } from "../appSettings";
@@ -139,10 +141,6 @@ import { SETTINGS_PAGE_BACKGROUND_CLASS_NAME } from "../settingsPanelStyles";
 import { isAudioLevelAvailable } from "../lib/audioLevel";
 
 // ── Settings taxonomy ──────────────────────────────────────────────────────
-
-// Select values standing for "no pinned model" and "no pinned effort".
-const LAST_USED_MODEL_VALUE = "__last-used";
-const MODEL_DEFAULT_EFFORT_VALUE = "__model-default";
 
 const UI_DENSITY_OPTIONS = [
   {
@@ -466,8 +464,8 @@ function SettingsRouteView() {
     ...(theme !== "system" ? ["Theme"] : []),
     ...(!isDefaultActiveTheme ? [`${resolvedTheme === "dark" ? "Dark" : "Light"} theme pack`] : []),
     ...(settings.defaultProvider !== defaults.defaultProvider ? ["Default provider"] : []),
-    ...(settings.defaultModel !== undefined ? ["Default model"] : []),
-    ...(settings.defaultEffort !== undefined ? ["Default effort"] : []),
+    ...(settings.defaultModel !== defaults.defaultModel ? ["Default model"] : []),
+    ...(settings.defaultEffort !== defaults.defaultEffort ? ["Default effort"] : []),
     ...(settings.defaultThreadEnvMode !== defaults.defaultThreadEnvMode ? ["New thread mode"] : []),
     ...(settings.anchorSentMessagesToTop !== defaults.anchorSentMessagesToTop
       ? ["Move sent messages to top"]
@@ -704,7 +702,10 @@ function SettingsRouteView() {
                 updateSettings({
                   defaultProvider: value,
                   ...(value !== settings.defaultProvider
-                    ? { defaultModel: undefined, defaultEffort: undefined }
+                    ? {
+                        defaultModel: LAST_USED_MODEL_VALUE,
+                        defaultEffort: MODEL_DEFAULT_EFFORT_VALUE,
+                      }
                     : {}),
                 });
               }}
@@ -738,11 +739,14 @@ function SettingsRouteView() {
               title="Default model"
               description="Model every new chat starts with, so you do not pick it again. Last used keeps the model you chose most recently."
               resetAction={
-                settings.defaultModel !== undefined ? (
+                settings.defaultModel !== defaults.defaultModel ? (
                   <SettingResetButton
                     label="default model"
                     onClick={() =>
-                      updateSettings({ defaultModel: undefined, defaultEffort: undefined })
+                      updateSettings({
+                        defaultModel: defaults.defaultModel,
+                        defaultEffort: defaults.defaultEffort,
+                      })
                     }
                   />
                 ) : null
@@ -752,9 +756,9 @@ function SettingsRouteView() {
                   value={defaultModelOption?.slug ?? LAST_USED_MODEL_VALUE}
                   onValueChange={(value) =>
                     updateSettings({
-                      defaultModel: value === LAST_USED_MODEL_VALUE ? undefined : value,
+                      defaultModel: value,
                       // Effort levels differ per model.
-                      defaultEffort: undefined,
+                      defaultEffort: MODEL_DEFAULT_EFFORT_VALUE,
                     })
                   }
                   ariaLabel="Default model"
@@ -776,10 +780,10 @@ function SettingsRouteView() {
                 title="Default effort"
                 description="Reasoning effort every new chat starts with. Model default leaves it to the model."
                 resetAction={
-                  settings.defaultEffort !== undefined ? (
+                  settings.defaultEffort !== defaults.defaultEffort ? (
                     <SettingResetButton
                       label="default effort"
-                      onClick={() => updateSettings({ defaultEffort: undefined })}
+                      onClick={() => updateSettings({ defaultEffort: defaults.defaultEffort })}
                     />
                   ) : null
                 }
@@ -788,7 +792,7 @@ function SettingsRouteView() {
                     value={defaultEffortLevel?.value ?? MODEL_DEFAULT_EFFORT_VALUE}
                     onValueChange={(value) =>
                       updateSettings({
-                        defaultEffort: value === MODEL_DEFAULT_EFFORT_VALUE ? undefined : value,
+                        defaultEffort: value,
                       })
                     }
                     ariaLabel="Default effort"

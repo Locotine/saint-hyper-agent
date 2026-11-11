@@ -113,6 +113,10 @@ export class RustPtyProcess implements PtyProcess {
       this.clearPendingData();
     }
     if (this.didExit || this.socket.destroyed) return;
+    if (this.paused) {
+      this.paused = false;
+      this.socket.resume();
+    }
     const payload = JSON.stringify({ type: "kill" });
     this.socket.write(`${payload}\n`, () => {
       this.socket.end();
@@ -299,6 +303,7 @@ function spawnRustPtyProcess(
     let settled = false;
     let processHandle: RustPtyProcess | null = null;
     let lineBuffer = "";
+    const lineDecoder = new TextDecoder();
 
     const fail = (message: string, cause?: unknown) => {
       if (settled) return;
@@ -330,7 +335,7 @@ function spawnRustPtyProcess(
     });
 
     socket.on("data", (chunk: Buffer) => {
-      lineBuffer += chunk.toString("utf8");
+      lineBuffer += lineDecoder.decode(chunk, { stream: true });
       let newlineIndex = lineBuffer.indexOf("\n");
       while (newlineIndex !== -1) {
         const line = lineBuffer.slice(0, newlineIndex).trim();

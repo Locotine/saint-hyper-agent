@@ -4,11 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/cua-linux-check.yml"
-      - ".github/scripts/cua-linux-smoke.ts"
-      - "apps/desktop/patches/cua-driver/**"
-      - "apps/desktop/src/cuaDriverHost*"
-      - "apps/desktop/src/linuxCua*"
-      - "apps/desktop/src/linuxEscapeKillSwitchMonitor*"
+      - "apps/desktop-rust/patches/cua-driver/**"
       - "packages/shared/src/cuaDriver*"
   push:
     branches: ["codex/cua-linux-verify-*"]
@@ -23,7 +19,7 @@ concurrency:
 
 jobs:
   linux:
-    name: Linux host, native driver and X11 browser smoke
+    name: Linux native driver checks
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -37,11 +33,9 @@ jobs:
       - uses: ./.github/actions/setup-workspace
         with:
           scope: runtime
-          electron: "true"
 
-      - name: Run Linux admission, host IPC and protocol regressions
+      - name: Run protocol and computer regressions
         run: |
-          bun run --cwd apps/desktop test src/cuaDriverHost.test.ts src/linuxCuaDriverHost.test.ts src/linuxCuaAdmission.test.ts src/linuxEscapeKillSwitchMonitor.test.ts
           bun run --cwd packages/shared test src/cuaDriverProtocol.test.ts src/cuaActionDiagnostics.test.ts
           bun run --cwd apps/server test src/browserAutomation/browserHostRpcClient.test.ts src/computer/ComputerManager.test.ts src/computer/CuaComputerBackend.test.ts
 
@@ -73,8 +67,8 @@ jobs:
           release=packages/shared/src/cuaDriverRelease.json
           source_commit=$(jq -r .source "$release")
           rust_version=$(jq -r .rustVersion "$release")
-          native_patch="$GITHUB_WORKSPACE/apps/desktop/patches/cua-driver/0001-saint-native.patch"
-          linux_patch="$GITHUB_WORKSPACE/apps/desktop/patches/cua-driver/0002-saint-linux-browser.patch"
+          native_patch="$GITHUB_WORKSPACE/apps/desktop-rust/patches/cua-driver/0001-saint-native.patch"
+          linux_patch="$GITHUB_WORKSPACE/apps/desktop-rust/patches/cua-driver/0002-saint-linux-browser.patch"
           test "$(sha256sum "$native_patch" | cut -d ' ' -f 1)" = "$(jq -r .patchSha256 "$release")"
           test "$(sha256sum "$linux_patch" | cut -d ' ' -f 1)" = "$(jq -r .linuxBrowserPatchSha256 "$release")"
           rustup toolchain install "$rust_version" --profile minimal
@@ -97,8 +91,3 @@ jobs:
         run: |
           cargo test --manifest-path "$CUA_NATIVE_SOURCE/libs/cua-driver/rust/Cargo.toml" --locked -p cua-driver-core --lib browser::
           cargo test --manifest-path "$CUA_NATIVE_SOURCE/libs/cua-driver/rust/Cargo.toml" --locked -p cursor-overlay --lib compact
-
-      - name: Exercise the actual host and browser on disposable X11
-        run: |
-          bun build .github/scripts/cua-linux-smoke.ts --target=node --format=cjs --external=electron --outfile=apps/desktop/.smoke/cua-linux-smoke.cjs
-          CUA_LINUX_SMOKE_BINARY="$CUA_NATIVE_SOURCE/libs/cua-driver/rust/target/debug/cua-driver" XDG_SESSION_TYPE=x11 dbus-run-session -- xvfb-run -a ./apps/desktop/node_modules/.bin/electron --no-sandbox apps/desktop/.smoke/cua-linux-smoke.cjs

@@ -37,4 +37,24 @@ describe("buildAcpSpawnProcessEnv", () => {
 
     expect(env).toEqual({ PATH: "/usr/bin", CUSTOM_VALUE: "selected" });
   });
+
+  it("uses the launchProvider credential profile when specified", () => {
+    const env = buildAcpSpawnProcessEnv(
+      { command: "agy", args: ["acp"] },
+      {
+        PATH: "/usr/bin",
+        GEMINI_API_KEY: "gemini-key",
+        GOOGLE_API_KEY: "google-key",
+        OPENAI_API_KEY: "ambient-openai-key",
+        ANTHROPIC_API_KEY: "ambient-anthropic-key",
+      },
+      "linux",
+      "antigravity",
+    );
+
+    expect(env.GEMINI_API_KEY).toBe("gemini-key");
+    expect(env.GOOGLE_API_KEY).toBe("google-key");
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
 });

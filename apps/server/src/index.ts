@@ -25,6 +25,7 @@ if (nodeScriptCandidate) {
   // `capture.cjs`, `agent-gateway-mcp-proxy.mjs`). When invoked with
   // `ELECTRON_RUN_AS_NODE=1 <execPath> <script.cjs> ...args`, strip the embedded
   // entrypoint from `process.argv` and run the target script directly.
+  delete process.env.ELECTRON_RUN_AS_NODE;
   process.argv.splice(1, 1);
   await import(pathToFileURL(nodeScriptCandidate).href);
 } else {

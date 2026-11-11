@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Đánh giá nhân sự AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000;--panel:#070707;--panel2:#0b0b0b;--line:#1a1a1a;--line2:#242424;
+  --text:#f2f2f2;--mute:#a6a6a6;--mute2:#6b6b6b;--gold:#ecc970;
+  --ok:#7ccf9b;--warn:#ecc970;--bad:#e8a39b;--claude:#d9734a;--codex:#3f8fd9;--antigravity:#a87ffb;
+  --p1:#2a9d8f;--p2:#8a6fd6;--p3:#b97a22;--p4:#d95f8f; /* 4 phần điểm, đã qua bộ kiểm màu nền tối */
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Be Vietnam Pro",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.head{display:grid;grid-template-columns:auto auto 1fr;gap:18px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0a0a0a,#050505)}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:34px;height:34px;border-radius:10px;background:var(--gold);color:#000;display:grid;place-items:center;font-weight:800;font-size:18px}
+.brand b{font-size:16px;display:block}
+.brand small{font-size:10px;color:var(--mute2);letter-spacing:.18em;text-transform:uppercase}
+.clock{display:flex;align-items:center;gap:12px;padding:0 18px;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.clock .t{font-size:26px;font-weight:700}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--ok)}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 1.4s infinite}
+.live.off{color:var(--bad)}.live.off i{background:var(--bad);animation:none}
+@keyframes pulse{50%{opacity:.25}}
+.views{justify-self:end;display:flex;gap:6px;flex-wrap:wrap}
+.views a{font-size:11px;color:var(--mute);text-decoration:none;border:1px solid var(--line2);border-radius:999px;padding:4px 11px}
+.views a:hover{color:var(--text);border-color:#3a3a3a}
+main{padding:14px 18px 24px;display:grid;gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;min-width:0}
+.kpi small{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute2);font-weight:700}
+.kpi b{display:block;font-size:24px;margin-top:4px;white-space:nowrap}
+.kpi span{display:block;font-size:11px;color:var(--mute);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.split{display:flex;height:6px;border-radius:3px;overflow:hidden;margin-top:7px;gap:2px;background:var(--panel)}
+.split i{display:block;height:100%}
+.row2{display:grid;grid-template-columns:3fr 2fr;gap:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.ph h2{margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:700}
+.legend{display:flex;gap:12px;font-size:11px;color:var(--mute);flex-wrap:wrap}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+svg text{fill:var(--mute2);font-family:var(--mono);font-size:10px}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute2);font-weight:700;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line2);white-space:nowrap}
+.tbl th.n,.tbl td.n{text-align:right}
+.tbl td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+.tbl tbody tr{cursor:pointer}
+.tbl tbody tr:hover{background:#0e0e0e}
+.tbl tbody tr.sel{background:#121008}
+.who{display:flex;align-items:center;gap:9px;min-width:0}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.who b{font-size:13px;display:block;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.who small{font-size:10.5px;color:var(--mute2);display:block}
+.new{font-size:9px;font-weight:800;letter-spacing:.1em;color:#000;background:var(--gold);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}
+.grade{display:inline-grid;place-items:center;width:30px;height:26px;border-radius:7px;font-weight:800;font-size:14px;border:1px solid}
+.g-A{color:var(--ok);border-color:rgba(124,207,155,.45);background:rgba(124,207,155,.08)}
+.g-B{color:#dcdcdc;border-color:#3a3a3a}
+.g-C{color:var(--warn);border-color:rgba(236,201,112,.45);background:rgba(236,201,112,.07)}
+.g-D{color:var(--bad);border-color:rgba(232,163,155,.45);background:rgba(232,163,155,.07)}
+.g-x{color:var(--mute2);border-color:#2a2a2a}
+.score{display:flex;align-items:center;gap:8px}
+.sbar{display:flex;gap:2px;width:150px;height:10px;background:#141414;border-radius:3px;overflow:hidden}
+.sbar i{display:block;height:100%}
+.sbar i:last-child{border-radius:0 3px 3px 0}
+.st{font-size:11px;font-weight:700}
+.st.active{color:var(--ok)}.st.idle{color:var(--mute)}.st.away,.st.offline{color:var(--mute2)}.st.blocked{color:var(--bad)}.st.waiting{color:var(--warn)}
+.foot{font-size:11.5px;color:var(--mute);line-height:1.6}
+.hq td.n{position:relative}
+.hq .ib{display:inline-block;height:6px;border-radius:3px;margin-left:8px;vertical-align:middle;background:#3a3a3a}
+.hq .ib.bad{background:var(--bad)}.hq .ib.warn{background:var(--warn)}
+.foot b{color:var(--text)}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(440px,100vw);background:rgba(8,8,8,.97);border-left:1px solid var(--line2);z-index:20;transform:translateX(100%);transition:transform .25s;padding:16px 18px;overflow:auto}
+.drawer.show{transform:none}
+.drawer h3{margin:0;font-size:18px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.drawer h3 button{background:none;border:1px solid var(--line2);color:var(--mute);border-radius:8px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer}
+.drawer .m{font-size:12px;color:var(--mute2);margin:4px 0 12px}
+.drawer ul{margin:8px 0 14px;padding-left:18px;font-size:13px;line-height:1.6;color:#dedede}
+.parts{display:grid;gap:7px;margin:10px 0 16px}
+.part{display:grid;grid-template-columns:96px 1fr 44px;gap:8px;align-items:center;font-size:12px;color:var(--mute)}
+.part .tr{height:8px;background:#151515;border-radius:3px;overflow:hidden}
+.part .tr i{display:block;height:100%;border-radius:0 3px 3px 0}
+.tokgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.tokgrid div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.tokgrid small{display:block;font-size:10px;color:var(--mute2);text-transform:uppercase;letter-spacing:.08em}
+.tokgrid b{font-size:15px}
+#tip{position:fixed;pointer-events:none;z-index:30;background:rgba(10,10,10,.96);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;font-size:11.5px;line-height:1.45;color:var(--text);display:none;max-width:260px;white-space:nowrap}
+#tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+.scan{font-size:11px;color:var(--warn)}
+/* điện thoại: bảng thành thẻ */
+@media (max-width: 900px){
+  .head{grid-template-columns:1fr auto;padding:10px 14px}.clock,.brand small{display:none}
+  main{padding:12px 16px 20px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .row2{grid-template-columns:1fr}
+  .tbl thead{display:none}
+  .tbl tr{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;padding:10px 4px;border-bottom:1px solid var(--line)}
+  .tbl td{border:0;padding:0}
+  .tbl td.hide-m{display:none}
+  .tbl td.c-who{grid-column:2}.tbl td.c-grade{grid-column:3;grid-row:1}
+  .tbl td.c-score{grid-column:1 / -1}
+  .tbl td.c-m{grid-column:1 / -1;font-size:11.5px;color:var(--mute)}
+  .sbar{width:100%}
+  .tbl.hq thead{display:table-header-group}.tbl.hq tr{display:table-row;padding:0}.tbl.hq td{display:table-cell;padding:6px 8px;border-bottom:1px solid var(--line)}
+}
+</style>
+</head>
+<body>
+<header class="head">
+  <div class="brand"><div class="logo">V</div><div><b>Đánh giá nhân sự AI</b><small>Hiệu suất · token · xếp loại</small></div></div>
+  <div class="clock"><span class="t mono" id="clock">--:--</span><span class="live" id="live"><i></i>TRỰC TIẾP</span></div>
+  <nav class="views"><a href="./" target="vp3d">Văn phòng 3D</a><a href="board.html" target="vp3d">Bảng điều hành</a><a href="tongquan.html" target="vp3d">Tổng quan</a><a href="tinnhan.html" target="vp3d">Tin nhắn</a></nav>
+</header>
+<main>
+  <section class="kpis" id="kpis"></section>
+  <section class="row2">
+    <div class="panel"><div class="ph"><h2>Token theo giờ · 24 giờ qua</h2><div class="legend"><span><i style="background:var(--codex)"></i>Codex</span><span><i style="background:var(--claude)"></i>Claude</span><span><i style="background:var(--antigravity)"></i>Antigravity</span></div></div><svg id="hourly" width="100%" height="190"></svg></div>
+    <div class="panel"><div class="ph"><h2>Token theo ngày · 7 ngày</h2><div class="legend"><span><i style="background:var(--codex)"></i>Codex</span><span><i style="background:var(--claude)"></i>Claude</span><span><i style="background:var(--antigravity)"></i>Antigravity</span></div></div><svg id="daily" width="100%" height="190"></svg></div>
+  </section>
+  <section class="panel">
+    <div class="ph"><h2>Bảng xếp loại nhân sự</h2><div class="legend"><span><i style="background:var(--p1)"></i>Kết quả /40</span><span><i style="background:var(--p2)"></i>Tin cậy /20</span><span><i style="background:var(--p3)"></i>Chăm chỉ /20</span><span><i style="background:var(--p4)"></i>Tiết kiệm /20</span></div></div>
+    <div style="overflow-x:auto"><table class="tbl"><thead><tr>
+      <th>#</th><th>Nhân sự</th><th>Loại</th><th>Điểm</th><th class="n">Giờ làm 24h</th><th class="n">Việc xong 24h</th><th class="n">Lỗi lệnh</th><th class="n">Lượt DEV 7 ngày</th><th class="n">Tin 24h</th><th class="n">Token 24h</th><th class="n">Token mới / giờ</th><th class="n">Đệm</th><th>24 giờ</th><th>Lúc này</th>
+    </tr></thead><tbody id="rows"></tbody></table></div>
+  </section>
+  <section class="panel foot" id="how">
+    <b>Cách chấm (100 điểm, đo từ nhật ký thật):</b>
+    Kết quả 40: số lượt việc làm xong trong 24 giờ (Claude: câu trả lời kết thúc lượt; Codex: task_complete) mỗi lượt +4, cộng lượt DEV 7 ngày (đạt +12, chưa đạt −4).
+    Tin cậy 20: tỉ lệ lệnh/công cụ chạy không lỗi trong 24 giờ (lỗi 25% trở lên = 0; chưa chạy lệnh nào tính 15). Chăm chỉ 20: số giờ có hoạt động trong 24 giờ (10 giờ trở lên = đủ).
+    Tiết kiệm 20: token mới mỗi giờ làm so với mức giữa của đội cùng nền tảng (bằng hoặc thấp hơn = đủ điểm, gấp 4 lần = 0).
+    Xếp loại: <b>A</b> từ 80, <b>B</b> từ 65, <b>C</b> từ 50, <b>D</b> dưới 50.
+    <br><b>Token:</b> "token mới" là phần tính đủ giá (đầu vào chưa có trong bộ nhớ đệm + đầu ra); "đệm" là phần đọc lại ngữ cảnh cũ, rẻ hơn nhiều. Claude tính cả phiên con (subagent). Điểm là số đo tham khảo, không thay đánh giá chất lượng code.
+  </section>
+</main>
+<aside class="drawer" id="drawer"></aside>
+<div id="tip"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const NS = "http://www.w3.org/2000/svg";
+const s$ = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const PCOL = { codex: "#3f8fd9", claude: "#d9734a", antigravity: "#a87ffb" };
+const pName = (p) => p === "codex" ? "Codex" : p === "antigravity" ? "Antigravity" : "Claude";
+const PART = [["ketqua", "Kết quả", "--p1", 40], ["tincay", "Tin cậy", "--p2", 20], ["chamchi", "Chăm chỉ", "--p3", 20], ["tietkiem", "Tiết kiệm", "--p4", 20]];
+const vn = (x, d = 1) => x.toFixed(d).replace(".", ",");
+function tok(n) { if (!n) return "0"; if (n >= 1e9) return vn(n / 1e9, 2) + " tỷ"; if (n >= 1e6) return vn(n / 1e6, n >= 1e8 ? 0 : 1) + " tr"; if (n >= 1e3) return Math.round(n / 1e3) + " k"; return String(n); }
+const ST = { active: "đang làm", idle: "rảnh", away: "nghỉ lâu", offline: "chưa thấy nhật ký" };
+let data = null, sel = null;
+
+// tooltip dùng chung: phần tử có data-tip
+const tip = $("tip");
+document.addEventListener("mousemove", (e) => {
+  const t = e.target.closest && e.target.closest("[data-tip]");
+  if (!t) { tip.style.display = "none"; return; }
+  tip.innerHTML = t.getAttribute("data-tip"); tip.style.display = "block";
+  const w = tip.offsetWidth; tip.style.left = Math.min(innerWidth - w - 8, e.clientX + 14) + "px"; tip.style.top = (e.clientY + 14) + "px";
+});
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function kpis(d) {
+  const k = $("kpis"); k.textContent = "";
+  const T = d.team, t24 = T.t24.codex + T.t24.claude + (T.t24.antigravity || 0), t7 = T.t7.codex + T.t7.claude + (T.t7.antigravity || 0);
+  const fresh24 = d.rows.reduce((s, r) => s + r.t24.i + r.t24.o, 0);
+  const tile = (lab, val, sub, split) => { const e = h("div", "kpi"); e.append(h("small", "", lab), h("b", "mono", val)); if (sub) e.appendChild(h("span", "", sub)); if (split) { const b = h("div", "split"); for (const [n, c, tt] of split) { const i = h("i"); i.style.flex = String(Math.max(n, 0.0001)); i.style.background = c; i.setAttribute("data-tip", tt); b.appendChild(i); } e.appendChild(b); } k.appendChild(e); };
+  tile("Token 24 giờ", tok(t24), `Codex ${tok(T.t24.codex)} · Claude ${tok(T.t24.claude)} · Antigravity ${tok(T.t24.antigravity || 0)}`, [[T.t24.codex, "var(--codex)", `<i style="background:var(--codex)"></i>Codex ${tok(T.t24.codex)}`], [T.t24.claude, "var(--claude)", `<i style="background:var(--claude)"></i>Claude ${tok(T.t24.claude)}`], [T.t24.antigravity || 0, "var(--antigravity)", `<i style="background:var(--antigravity)"></i>Antigravity ${tok(T.t24.antigravity || 0)}`]]);
+  tile("Token mới 24 giờ", tok(fresh24), `${t24 ? Math.round((fresh24 / t24) * 100) : 0}% tổng — phần tính đủ giá`);
+  tile("Token 7 ngày", tok(t7), `đọc lại từ đệm ${T.all7 ? Math.round((T.c7 / T.all7) * 100) : 0}%`);
+  const q = d.quota;
+  tile("Quỹ Codex tuần", q.usedPct != null ? q.usedPct + "%" : "–", q.resetsAt ? `đặt lại ${new Date(q.resetsAt).toLocaleString("vi-VN", { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : "chưa đọc được", q.usedPct != null ? [[q.usedPct, q.usedPct > 80 ? "var(--bad)" : q.usedPct > 60 ? "var(--warn)" : "var(--ok)", `Đã dùng ${q.usedPct}% quỹ tuần`], [100 - q.usedPct, "#1c1c1c", `Còn ${100 - q.usedPct}%`]] : null);
+  const nNew = d.rows.filter((r) => r.isNew).length;
+  tile("Nhân sự AI", String(d.rows.length), `${d.rows.filter((r) => r.status === "active").length} đang làm${nNew ? ` · ${nNew} người mới` : ""}`);
+  const g = (x) => d.rows.filter((r) => r.score.grade === x).length;
+  tile("Xếp loại", `${g("A")}A · ${g("B")}B`, `${g("C")} loại C · ${g("D")} loại D${g("–") ? ` · ${g("–")} chưa đủ số liệu` : ""}`);
+}
+
+function bars(svg, series, labelOf, every) {
+  svg.textContent = "";
+  const W = svg.clientWidth || 600, Hh = 190, L = 44, R = 6, Tp = 8, B = 22;
+  const max = Math.max(1, ...series.map((x) => x.codex + x.claude + (x.antigravity || 0)));
+  const nice = (() => { const p = Math.pow(10, Math.floor(Math.log10(max))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= max) return m * p; return 10 * p; })();
+  for (let i = 0; i <= 3; i++) { const v = (nice / 3) * i, y = Tp + (Hh - Tp - B) * (1 - v / nice); s$("line", { x1: L, x2: W - R, y1: y, y2: y, stroke: i ? "#161616" : "#2a2a2a" }, svg); const t = s$("text", { x: L - 6, y: y + 3, "text-anchor": "end" }, svg); t.textContent = tok(v); }
+  const n = series.length, slot = (W - L - R) / n, bw = Math.max(3, Math.min(34, slot * .62));
+  series.forEach((x, i) => {
+    const cx = L + slot * i + slot / 2, x0 = cx - bw / 2, base = Hh - B, sc = (Hh - Tp - B) / nice;
+    const hC = x.codex * sc, hL = x.claude * sc, hA = (x.antigravity || 0) * sc;
+    if (hC > 0) s$("rect", { x: x0, y: base - hC, width: bw, height: hC, fill: PCOL.codex, rx: (hL > 0 || hA > 0) ? 0 : Math.min(3, hC / 2) }, svg);
+    if (hL > 0) s$("rect", { x: x0, y: base - hC - hL - (hC > 0 ? 2 : 0), width: bw, height: hL, fill: PCOL.claude, rx: hA > 0 ? 0 : Math.min(3, hL / 2) }, svg);
+    if (hA > 0) s$("rect", { x: x0, y: base - hC - hL - hA - (hC > 0 ? 2 : 0) - (hL > 0 ? 2 : 0), width: bw, height: hA, fill: PCOL.antigravity, rx: Math.min(3, hA / 2) }, svg);
+    const hit = s$("rect", { x: L + slot * i, y: Tp, width: slot, height: Hh - Tp - B, fill: "transparent" }, svg);
+    hit.setAttribute("data-tip", `<b>${labelOf(x)}</b><br><i style="background:${PCOL.codex}"></i>Codex ${tok(x.codex)}<br><i style="background:${PCOL.claude}"></i>Claude ${tok(x.claude)}<br><i style="background:${PCOL.antigravity}"></i>Antigravity ${tok(x.antigravity || 0)}<br>Tổng ${tok(x.codex + x.claude + (x.antigravity || 0))}`);
+    if (i % every === 0 || i === n - 1) { const t = s$("text", { x: cx, y: Hh - 6, "text-anchor": "middle" }, svg); t.textContent = labelOf(x, true); }
+  });
+}
+
+function spark(vals, col) {
+  const W = 96, Hh = 22, s = document.createElementNS(NS, "svg"); s.setAttribute("width", W); s.setAttribute("height", Hh);
+  const max = Math.max(1, ...vals), bw = W / vals.length;
+  vals.forEach((v, i) => { const hh = v ? Math.max(1.5, (v / max) * (Hh - 2)) : 0; if (hh) s$("rect", { x: i * bw + .5, y: Hh - hh, width: Math.max(1, bw - 1), height: hh, fill: col, opacity: .85 }, s); });
+  return s;
+}
+
+function table(d) {
+  const tb = $("rows"); tb.textContent = "";
+  d.rows.forEach((r, i) => {
+    const tr = h("tr"); if (sel === r.key) tr.className = "sel";
+    tr.onclick = () => { sel = r.key; drawer(); table(data); };
+    tr.appendChild(h("td", "mono hide-m", String(i + 1)));
+    const w = h("td", "c-who"); const who = h("div", "who"); const dot = h("i", "dot"); dot.style.background = PCOL[r.platform] || "#888";
+    const nm = h("div"); const b = h("b", "", r.name); if (r.isNew) b.appendChild(h("span", "new", "MỚI")); nm.append(b, h("small", "", `${pName(r.platform)} · ${r.role}`));
+    who.append(dot, nm); w.appendChild(who); tr.appendChild(w);
+    const g = h("td", "c-grade"); g.appendChild(h("span", "grade g-" + (r.score.grade === "–" ? "x" : r.score.grade), r.score.grade)); tr.appendChild(g);
+    const sc = h("td", "c-score"); const sw = h("div", "score"); const sb = h("div", "sbar");
+    for (const [k, lab, c, mx] of PART) { const v = r.score.parts[k]; if (!v) continue; const seg = h("i"); seg.style.width = v + "%"; seg.style.background = `var(${c})`; seg.setAttribute("data-tip", `<i style="background:var(${c})"></i>${lab}: <b>${v}</b>/${mx}`); sb.appendChild(seg); }
+    sw.append(sb, h("span", "mono st", String(r.score.total))); sc.appendChild(sw); tr.appendChild(sc);
+    const td = (txt, cls = "") => { const e = h("td", "n mono hide-m " + cls, txt); tr.appendChild(e); return e; };
+    td(vn(r.hr24) + " h");
+    td(String(r.done.d24)).setAttribute("data-tip", `${r.done.d24} lượt việc xong trong 24 giờ, ${r.done.d7} lượt trong 7 ngày`);
+    td(r.tool.n ? `${r.tool.err}/${r.tool.n}` : "–").setAttribute("data-tip", r.tool.n ? `${r.tool.err} lần lỗi trên ${r.tool.n} lệnh/công cụ trong 24 giờ` : "Chưa chạy lệnh nào trong 24 giờ");
+    td(r.dev.turns ? `${r.dev.ok} / ${r.dev.turns}` : "–").setAttribute("data-tip", r.dev.turns ? `${r.dev.ok} lượt đạt, ${r.dev.fail} lượt chưa đạt` : "Chưa có lượt DEV trong 7 ngày");
+    td(`${r.msg.sent} ↑ ${r.msg.recv} ↓`).setAttribute("data-tip", `Gửi ${r.msg.sent} tin, nhận ${r.msg.recv} tin trong 24 giờ`);
+    td(tok(r.t24.t)).setAttribute("data-tip", `Mới ${tok(r.t24.i + r.t24.o)} (vào ${tok(r.t24.i)}, ra ${tok(r.t24.o)})<br>Đọc lại từ đệm ${tok(r.t24.c)}`);
+    td(r.perHour ? tok(r.perHour) : "–");
+    td(r.cache7 != null ? r.cache7 + "%" : "–");
+    const sp = h("td", "hide-m"); const svg = spark(r.hourly, PCOL[r.platform] || "#888"); svg.setAttribute("data-tip", `Token theo giờ, 24 giờ qua · cao nhất ${tok(Math.max(...r.hourly))}/giờ`); sp.appendChild(svg); tr.appendChild(sp);
+    const stt = r.flag === "blocked" ? ["blocked", "bị chặn"] : [r.status, ST[r.status] || r.status];
+    tr.appendChild(h("td", "hide-m"));
+    tr.lastChild.appendChild(h("span", "st " + stt[0], stt[1]));
+    const m = h("td", "c-m", `${vn(r.hr24)} giờ làm · ${r.done.d24} việc xong · ${tok(r.t24.t)} token 24h · ${stt[1]}`); m.style.display = "none"; tr.appendChild(m);
+    tb.appendChild(tr);
+  });
+  if (matchMedia("(max-width: 900px)").matches) tb.querySelectorAll(".c-m").forEach((e) => (e.style.display = ""));
+}
+
+function drawer() {
+  const dr = $("drawer"), r = data && data.rows.find((x) => x.key === sel);
+  if (!r) { dr.classList.remove("show"); return; }
+  dr.textContent = "";
+  const h3 = h("h3"); const nm = h("span", "", r.name); if (r.isNew) nm.appendChild(h("span", "new", "MỚI"));
+  const x = h("button", "", "Đóng"); x.onclick = () => { sel = null; drawer(); table(data); }; h3.append(nm, x); dr.appendChild(h3);
+  dr.appendChild(h("div", "m", `${pName(r.platform)} · ${r.role}${r.createdAt ? ` · vào làm ${new Date(r.createdAt).toLocaleString("vi-VN")}` : ""}`));
+  const top = h("div", "score"); top.append(h("span", "grade g-" + (r.score.grade === "–" ? "x" : r.score.grade), r.score.grade), h("b", "mono", `${r.score.total}/100`)); dr.appendChild(top);
+  const parts = h("div", "parts");
+  for (const [k, lab, c, mx] of PART) { const v = r.score.parts[k]; const p = h("div", "part"); const trk = h("div", "tr"); const f = h("i"); f.style.width = (v / mx) * 100 + "%"; f.style.background = `var(${c})`; trk.appendChild(f); p.append(h("span", "", lab), trk, h("span", "mono", `${v}/${mx}`)); parts.appendChild(p); }
+  dr.appendChild(parts);
+  dr.appendChild(h("div", "m", "NHẬN XÉT"));
+  const ul = h("ul"); for (const n of r.notes) ul.appendChild(h("li", "", n)); dr.appendChild(ul);
+  const tg = h("div", "tokgrid");
+  for (const [lab, v] of [["Token 24 giờ", r.t24.t], ["Mới 24 giờ", r.t24.i + r.t24.o], ["Đầu ra 24 giờ", r.t24.o], ["Token 7 ngày", r.t7.t], ["Mới 7 ngày", r.t7.i + r.t7.o], ["Đệm 7 ngày", r.t7.c]]) { const c = h("div"); c.append(h("small", "", lab), h("b", "mono", tok(v))); tg.appendChild(c); }
+  dr.appendChild(tg);
+  dr.appendChild(h("div", "m", "TOKEN THEO NGÀY · 7 NGÀY"));
+  const svg = document.createElementNS(NS, "svg"); svg.setAttribute("width", "100%"); svg.setAttribute("height", "190"); dr.appendChild(svg);
+  dr.classList.add("show");
+  const ser = data.team.daily.map((d0, i) => ({ t: d0.t, codex: r.platform === "codex" ? r.daily[i] : 0, claude: r.platform === "claude" ? r.daily[i] : 0, antigravity: r.platform === "antigravity" ? r.daily[i] : 0 }));
+  requestAnimationFrame(() => bars(svg, ser, dayLabel, 1));
+}
+const dayLabel = (x, short) => new Date(x.t).toLocaleDateString("vi-VN", short ? { weekday: "short" } : { weekday: "long", day: "2-digit", month: "2-digit" });
+const hourLabel = (x, short) => { const d = new Date(x.t); return short ? d.getHours() + "h" : `${d.getHours()}:00 – ${d.getHours() + 1}:00`; };
+
+function render(d) {
+  data = d;
+  kpis(d);
+  bars($("hourly"), d.team.hourly, hourLabel, 3);
+  bars($("daily"), d.team.daily, dayLabel, 1);
+  table(d);
+  if (sel) drawer();
+}
+// Số liệu đẩy liên tục mỗi 2 giây; mất kết nối thì tự hỏi lại mỗi 2 giây.
+let lastAt = 0;
+const es = new EventSource("perf-events");
+es.onmessage = (m) => { lastAt = Date.now(); $("live").className = "live"; try { render(JSON.parse(m.data)); } catch (e) { console.error(e); } };
+es.onerror = () => { $("live").className = "live off"; };
+setInterval(async () => {
+  if (Date.now() - lastAt < 5000) return;
+  try { const r = await fetch("perf", { cache: "no-store" }); if (!r.ok) throw 0; lastAt = Date.now(); render(await r.json()); $("live").className = "live"; } catch { $("live").className = "live off"; }
+}, 2000);
+setInterval(() => { $("clock").textContent = new Date().toLocaleTimeString("vi-VN", { hour12: false }); }, 1000);
+addEventListener("resize", () => data && render(data));
+addEventListener("keydown", (e) => { if (e.key === "Escape" && sel) { sel = null; drawer(); table(data); } });
+</script>
+</body>
+</html>

@@ -12,7 +12,6 @@ const scopedRoots = [
   "apps/server/src/provider",
   "apps/server/src/git",
   "apps/server/src/platform",
-  "apps/desktop/src",
 ] as const;
 const scopedFiles = ["apps/server/src/open.ts", "apps/server/src/processRunner.ts"] as const;
 
@@ -85,9 +84,7 @@ function ownsNodeSpawnPolicy(file: string): boolean {
     isProviderOrGit(file) ||
     file.startsWith("apps/server/src/platform/") ||
     file === "apps/server/src/open.ts" ||
-    file === "apps/server/src/processRunner.ts" ||
-    file === "apps/desktop/src/voiceTranscription.ts" ||
-    file === "apps/desktop/src/electronUpdaterSecurity.ts"
+    file === "apps/server/src/processRunner.ts"
   );
 }
 

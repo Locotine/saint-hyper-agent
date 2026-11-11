@@ -4,8 +4,8 @@
 //          for Tauri v2 `externalBin` sidecar packaging via `bun build --compile` (Option 4A).
 // Layer: Build / Packaging script
 
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 interface BunBuildPluginBuilder {
@@ -35,7 +35,25 @@ declare const Bun: {
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const serverEntry = join(repoRoot, "apps/server/src/index.ts");
+const office3dSourceDir = join(repoRoot, "apps/server/src/office3d");
 const binariesDir = join(repoRoot, "apps/desktop-rust/binaries");
+
+function collectOffice3dEmbeddedFiles(dir: string, baseDir = dir): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      Object.assign(out, collectOffice3dEmbeddedFiles(fullPath, baseDir));
+      continue;
+    }
+    if (entry.name.endsWith(".ts")) {
+      continue;
+    }
+    const relPath = relative(baseDir, fullPath).replaceAll("\\", "/");
+    out[relPath] = readFileSync(fullPath, "utf8");
+  }
+  return out;
+}
 
 export function resolveBunCompileTarget(rustTriple: string): {
   readonly bunTarget: string;
@@ -147,6 +165,34 @@ if (import.meta.main) {
             );
             return { contents, loader: "ts" };
           });
+          build.onLoad({ filter: /office3dHttpHandler\.ts$/ }, (args) => {
+            const embeddedFilesJson = JSON.stringify(
+              collectOffice3dEmbeddedFiles(office3dSourceDir),
+            );
+            const original = readFileSync(args.path, "utf8");
+            const fallbackBlock = [
+              `const EMBEDDED_OFFICE_3D_FILES: Readonly<Record<string, string>> = ${embeddedFilesJson};`,
+              `let extractedOffice3dEntry: string | undefined;`,
+              `function ensureEmbeddedOffice3dEntry(): string {`,
+              `  if (extractedOffice3dEntry) return extractedOffice3dEntry;`,
+              `  const fs = requireOffice3d("node:fs") as typeof import("node:fs");`,
+              `  const os = requireOffice3d("node:os") as typeof import("node:os");`,
+              `  const targetRoot = path.join(os.tmpdir(), "saint-office3d-embedded");`,
+              `  for (const [relPath, fileContent] of Object.entries(EMBEDDED_OFFICE_3D_FILES)) {`,
+              `    const destPath = path.join(targetRoot, ...relPath.split("/"));`,
+              `    fs.mkdirSync(path.dirname(destPath), { recursive: true });`,
+              `    fs.writeFileSync(destPath, fileContent, "utf8");`,
+              `  }`,
+              `  extractedOffice3dEntry = path.join(targetRoot, "server.js");`,
+              `  return extractedOffice3dEntry;`,
+              `}`,
+            ].join("\n");
+            const contents = `${original.replace(
+              "return candidates[0]!;",
+              "return ensureEmbeddedOffice3dEntry();",
+            )}\n${fallbackBlock}\n`;
+            return { contents, loader: "ts" };
+          });
         },
       },
     ],
@@ -155,12 +201,13 @@ if (import.meta.main) {
     console.error("[build-server-sidecar] Build failed:", buildResult.logs);
     process.exit(1);
   }
-  if (gnuBinaryPath) {
-    copyFileSync(tripleBinaryPath, gnuBinaryPath);
-  }
-  if (gnullvmBinaryPath) {
-    copyFileSync(tripleBinaryPath, gnullvmBinaryPath);
-  }
-  copyFileSync(tripleBinaryPath, plainBinaryPath);
+  // Unlink first: overwriting a sidecar that is still running fails with ETXTBSY on Linux.
+  const replaceBinary = (destination: string) => {
+    rmSync(destination, { force: true });
+    copyFileSync(tripleBinaryPath, destination);
+  };
+  if (gnuBinaryPath) replaceBinary(gnuBinaryPath);
+  if (gnullvmBinaryPath) replaceBinary(gnullvmBinaryPath);
+  replaceBinary(plainBinaryPath);
   console.log(`[build-server-sidecar] Sidecar ready: ${tripleBinaryPath}`);
 }

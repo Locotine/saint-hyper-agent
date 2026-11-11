@@ -283,6 +283,11 @@ const BUILT_IN_MODEL_SLUGS_BY_PROVIDER: Record<ProviderKind, ReadonlySet<string>
   omp: new Set(getModelOptions("omp").map((option) => option.slug)),
 };
 
+// Stored in place of a model or effort when Settings pins none ("Last used" / "Model default").
+// They match no model slug or effort level, so resolveDefaultModelSelection ignores them.
+export const LAST_USED_MODEL_VALUE = "__last-used";
+export const MODEL_DEFAULT_EFFORT_VALUE = "__model-default";
+
 const withDefaults =
   <
     S extends Schema.Top & Schema.WithoutConstructorDefault,
@@ -606,11 +611,12 @@ export const AppSettingsSchema = Schema.Struct({
   ),
   sourceControlCustomInstructions: SourceControlCustomInstructions.pipe(withDefaults(() => "")),
   uiFontFamily: Schema.String.check(Schema.isMaxLength(256)).pipe(withDefaults(() => "")),
-  defaultProvider: PersistedProviderKind.pipe(withDefaults(() => "codex" as const)),
-  // Model and effort every new chat starts with (Claude and Codex only). Unset: new chats reuse
-  // the most recent model and options.
-  defaultModel: Schema.optional(TrimmedNonEmptyString),
-  defaultEffort: Schema.optional(TrimmedNonEmptyString),
+  defaultProvider: PersistedProviderKind.pipe(withDefaults(() => "claudeAgent" as const)),
+  // Model and effort every new chat starts with (Claude and Codex only). LAST_USED_MODEL_VALUE
+  // makes new chats reuse the most recent model and options; MODEL_DEFAULT_EFFORT_VALUE leaves
+  // the effort to the model.
+  defaultModel: TrimmedNonEmptyString.pipe(withDefaults(() => "claude-opus-5-5")),
+  defaultEffort: TrimmedNonEmptyString.pipe(withDefaults(() => "medium")),
   // Local-only UI preference: providers explicitly hidden from the composer picker.
   // The active/locked provider for a thread is always shown regardless, so users
   // never get stuck on a thread whose provider they later chose to hide.

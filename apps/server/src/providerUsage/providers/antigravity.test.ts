@@ -12,6 +12,7 @@ import { outboundHttp } from "@saint/shared/outboundHttp";
 
 import {
   antigravityUsageFetcher,
+  decodeGoKeyringValue,
   parseAntigravityQuota,
   parseAntigravityQuotaSummary,
   setAntigravityKeyringReaderForTest,
@@ -611,5 +612,96 @@ describe("antigravityUsageFetcher", () => {
       "Claude 5h",
       "Claude Weekly",
     ]);
+  });
+
+  it("does not cache null keyring reads and invalidates cached keyring tokens once their expiry passes", async () => {
+    const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-agy-keyring-cache-"));
+    tempDirs.push(homeDir);
+    let callCount = 0;
+    setAntigravityKeyringReaderForTest(async () => {
+      callCount += 1;
+      if (callCount === 1) return null;
+      if (callCount === 2) {
+        return {
+          token: {
+            access_token: "ya29-short-lived",
+            expiry: new Date(NOW_MS + 30_000).toISOString(),
+          },
+        };
+      }
+      return {
+        token: {
+          access_token: "ya29-rotated-in-keyring",
+          expiry: new Date(NOW_MS + 3_600_000).toISOString(),
+        },
+      };
+    });
+
+    const seenAuthHeaders: string[] = [];
+    stubOutboundFetch(async (url, init) => {
+      const headers = init?.headers as Record<string, string>;
+      if (headers?.Authorization) {
+        seenAuthHeaders.push(headers.Authorization);
+      }
+      const target = String(url);
+      if (isQuotaSummaryUrl(target)) return jsonResponse({ groups: [] });
+      if (target.includes("loadCodeAssist"))
+        return jsonResponse({ currentTier: { id: "free-tier" } });
+      throw new Error(`unexpected url ${target}`);
+    });
+
+    // 1st call: keyring returns null -> needs-auth, not cached.
+    const first = await antigravityUsageFetcher.fetch({
+      homeDir,
+      env: {},
+      platform: "linux",
+      nowMs: NOW_MS,
+    });
+    expect(first.status).toBe("needs-auth");
+    expect(callCount).toBe(1);
+
+    // 2nd call (1s later): keyring is re-read because null was not cached.
+    const second = await antigravityUsageFetcher.fetch({
+      homeDir,
+      env: {},
+      platform: "linux",
+      nowMs: NOW_MS + 1_000,
+    });
+    expect(second.status).toBe("ok");
+    expect(callCount).toBe(2);
+
+    // 3rd call (10s later, before 30s token expiry): serves from cache without calling reader.
+    const third = await antigravityUsageFetcher.fetch({
+      homeDir,
+      env: {},
+      platform: "linux",
+      nowMs: NOW_MS + 10_000,
+    });
+    expect(third.status).toBe("ok");
+    expect(callCount).toBe(2);
+
+    // 4th call (45s later, past 30s token expiry but within 5m cache TTL): bypasses cache & re-reads keyring.
+    const fourth = await antigravityUsageFetcher.fetch({
+      homeDir,
+      env: {},
+      platform: "linux",
+      nowMs: NOW_MS + 45_000,
+    });
+    expect(fourth.status).toBe("ok");
+    expect(callCount).toBe(3);
+    expect(seenAuthHeaders.at(-1)).toBe("Bearer ya29-rotated-in-keyring");
+  });
+});
+
+describe("decodeGoKeyringValue", () => {
+  it("unwraps go-keyring base64 and hex encodings and leaves plain JSON alone", () => {
+    const json = '{"token":{"access_token":"a"}}';
+    expect(decodeGoKeyringValue(json)).toBe(json);
+    expect(decodeGoKeyringValue(`go-keyring-base64:${Buffer.from(json).toString("base64")}`)).toBe(
+      json,
+    );
+    expect(decodeGoKeyringValue(`go-keyring-encoded:${Buffer.from(json).toString("hex")}`)).toBe(
+      json,
+    );
   });
 });

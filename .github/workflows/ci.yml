@@ -96,9 +96,6 @@ jobs:
           - name: Lint
             run: bun run lint
 
-          - name: Exercise release-only workflow steps
-            run: node scripts/release-smoke.ts
-
   static-typecheck:
     name: Static Checks (typecheck)
     runs-on: ubuntu-24.04

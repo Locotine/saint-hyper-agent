@@ -94,7 +94,10 @@ it("does not remerge ambient credentials into Claude import child environments",
       HOME: "/tmp/saint-claude-import",
     });
 
-    assert.deepEqual(environment, { HOME: "/tmp/saint-claude-import" });
+    assert.deepEqual(environment, {
+      HOME: "/tmp/saint-claude-import",
+      ELECTRON_RUN_AS_NODE: "1",
+    });
     assert.equal((environment as NodeJS.ProcessEnv)["ANTHROPIC_API_KEY"], undefined);
   } finally {
     if (original === undefined) {

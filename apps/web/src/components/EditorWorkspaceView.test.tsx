@@ -8,8 +8,8 @@ import { renderToStaticMarkup as renderMarkup } from "react-dom/server";
 import type { ComponentProps, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { EditorWorkspaceView } from "./EditorWorkspaceView";
-import { WorkspaceSearchSidebar } from "./chat/workspaceExplorer";
+import { EditorWorkspaceView, extractDroppedFilePath } from "./EditorWorkspaceView";
+import { setFileReferenceDragData, WorkspaceSearchSidebar } from "./chat/workspaceExplorer";
 import {
   closeFileInSplitGroup,
   createInitialEditorSplitLayout,
@@ -19,6 +19,7 @@ import {
   resizeSplitGroups,
   resolveSplitDropZoneFromPoint,
   storeEditorSplitLayout,
+  syncPrimaryFileIntoSplitLayout,
 } from "../editorViewState";
 import { projectQueryKeys } from "../lib/projectReactQuery";
 import { SidebarProvider } from "./ui/sidebar";
@@ -255,6 +256,8 @@ describe("EditorWorkspaceView", () => {
 
       // Persist per thread in saint.editor.viewStateByThreadId and render EditorWorkspaceView
       storeEditorSplitLayout("thread-split-1", layout);
+      const thread2Layout = createInitialEditorSplitLayout("src/thread2-only.ts");
+      storeEditorSplitLayout("thread-split-2", thread2Layout);
       const restored = readEditorViewState("thread-split-1")?.splitLayout;
       expect(restored?.groups).toHaveLength(2);
 
@@ -270,6 +273,9 @@ describe("EditorWorkspaceView", () => {
       expect(markup).toContain('data-editor-split-group="group-1"');
       expect(markup).toContain('data-editor-split-group="group-2"');
       expect(markup).toContain('aria-label="Resize split editor group"');
+      expect(readEditorViewState("thread-split-2")?.splitLayout?.groups[0]?.openFilePaths).toEqual([
+        "src/thread2-only.ts",
+      ]);
 
       // Moving the last tab out of group-2 closes group-2 automatically
       const merged = moveTabBetweenSplitGroups(layout, "group-2", "src/b.ts", "group-1");
@@ -294,5 +300,94 @@ describe("EditorWorkspaceView", () => {
         value: prevWindow,
       });
     }
+  });
+
+  it("clears the only group when its last tab closes and reopens the tab on re-selecting the same file", () => {
+    const initial = createInitialEditorSplitLayout("src/a.ts");
+    const afterCloseLast = closeFileInSplitGroup(initial, "group-1", "src/a.ts");
+    expect(afterCloseLast.groups).toHaveLength(1);
+    expect(afterCloseLast.groups[0]?.openFilePaths).toEqual([]);
+    expect(afterCloseLast.groups[0]?.selectedFilePath).toBeNull();
+
+    const reopened = syncPrimaryFileIntoSplitLayout(afterCloseLast, "src/a.ts");
+    expect(reopened.groups[0]?.openFilePaths).toEqual(["src/a.ts"]);
+    expect(reopened.groups[0]?.selectedFilePath).toBe("src/a.ts");
+  });
+
+  it("renders WorkspaceFileEditorPane only in a group whose selectedFilePath matches editFilePath", () => {
+    const storage = new Map<string, string>();
+    const prevWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+        },
+      },
+    });
+    try {
+      // group-1 has src/a.ts, group-2 (active) has src/b.ts; editing src/a.ts must stay in group-1.
+      let layout = createInitialEditorSplitLayout("src/a.ts");
+      layout = dropFileOnSplitZone(layout, "group-1", "right", "src/b.ts");
+      expect(layout.activeGroupId).toBe("group-2");
+      storeEditorSplitLayout("thread-edit-group", layout);
+
+      const markup = renderToStaticMarkup(
+        <SidebarProvider>
+          <EditorWorkspaceView
+            {...makeEditorBaseProps()}
+            threadId="thread-edit-group"
+            centerMode="fileEdit"
+            editFilePath="src/a.ts"
+            selectedFilePath="src/b.ts"
+          />
+        </SidebarProvider>,
+      );
+
+      const group1Start = markup.indexOf('data-editor-split-group="group-1"');
+      const group2Start = markup.indexOf('data-editor-split-group="group-2"');
+      expect(group1Start).toBeGreaterThan(-1);
+      expect(group2Start).toBeGreaterThan(group1Start);
+      const group1Markup = markup.slice(group1Start, group2Start);
+      const group2Markup = markup.slice(group2Start);
+
+      expect(group1Markup).toContain("Editing");
+      expect(group2Markup).not.toContain("Editing");
+    } finally {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: prevWindow,
+      });
+    }
+  });
+
+  it("accepts dropped file paths only when dataTransfer includes CHAT_FILE_REFERENCE_DRAG_TYPE", () => {
+    const makeMockDataTransfer = () => {
+      const store = new Map<string, string>();
+      return {
+        effectAllowed: "none",
+        dropEffect: "none",
+        get types() {
+          return Array.from(store.keys());
+        },
+        setData(type: string, value: string) {
+          store.set(type, value);
+        },
+        getData(type: string) {
+          return store.get(type) ?? "";
+        },
+      } as unknown as DataTransfer;
+    };
+
+    const plainOnly = makeMockDataTransfer();
+    plainOnly.setData("text/plain", "https://example.com/not-a-workspace-file");
+    expect(extractDroppedFilePath(plainOnly)).toBeNull();
+
+    const fileReferenceDrag = makeMockDataTransfer();
+    setFileReferenceDragData(fileReferenceDrag, "src/components/EditorWorkspaceView.tsx");
+    expect(extractDroppedFilePath(fileReferenceDrag)).toBe(
+      "src/components/EditorWorkspaceView.tsx",
+    );
   });
 });
