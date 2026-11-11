@@ -8,7 +8,7 @@ import { createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { describe, expect, it } from "vitest";
 
 import { routeTree } from "../routeTree.gen";
-import { resolveCommittedPathname } from "./useCommittedPathname";
+import { type CommittedPathnameHold, resolveCommittedPathname } from "./useCommittedPathname";
 
 interface StoreSnapshot {
   readonly committedPathname: string;
@@ -33,13 +33,17 @@ function createHarness(initialPath: string) {
     isServer: false,
     origin: "http://localhost",
   });
-  let heldPathname: string | null = null;
+  let held: CommittedPathnameHold | null = null;
   const snapshots: StoreSnapshot[] = [];
-  router.__store.subscribe(() => {
+  // The React adapter's stores are subscribable atoms; core types expose only `get`.
+  const routerStore = router.stores.__store as unknown as {
+    subscribe: (listener: () => void) => void;
+  };
+  routerStore.subscribe(() => {
     const state = router.state;
-    heldPathname = resolveCommittedPathname(state, heldPathname);
+    held = resolveCommittedPathname(state, held);
     snapshots.push({
-      committedPathname: heldPathname,
+      committedPathname: held.pathname,
       locationPathname: state.location.pathname,
       ...describeMatches(state.matches),
     });
@@ -48,7 +52,7 @@ function createHarness(initialPath: string) {
   return {
     router,
     snapshots,
-    committedPathname: () => heldPathname,
+    committedPathname: () => held?.pathname ?? null,
     visit: async (path: string) => {
       history.push(path);
       await router.load();
@@ -163,9 +167,27 @@ describe("resolveCommittedPathname", () => {
     const pending = { isLoading: true, location: { pathname: "/thread-b" } };
 
     expect(
-      resolveCommittedPathname({ ...pending, resolvedLocation: { pathname: "/thread-a" } }, null),
+      resolveCommittedPathname({ ...pending, resolvedLocation: { pathname: "/thread-a" } }, null)
+        .pathname,
     ).toBe("/thread-a");
-    expect(resolveCommittedPathname(pending, null)).toBe("/thread-b");
-    expect(resolveCommittedPathname(pending, "/held")).toBe("/held");
+    expect(resolveCommittedPathname(pending, null).pathname).toBe("/thread-b");
+    expect(
+      resolveCommittedPathname(pending, { pathname: "/held", matchId: undefined }).pathname,
+    ).toBe("/held");
+  });
+
+  it("commits the new pathname with the new matches while loading is still set", () => {
+    const held = { pathname: "/", matchId: "/_chat//" };
+    const location = { pathname: "/thread-a" };
+    expect(
+      resolveCommittedPathname({ isLoading: true, location, matches: [{ id: "/_chat//" }] }, held)
+        .pathname,
+    ).toBe("/");
+    expect(
+      resolveCommittedPathname(
+        { isLoading: true, location, matches: [{ id: "/_chat/$threadId/thread-a" }] },
+        held,
+      ).pathname,
+    ).toBe("/thread-a");
   });
 });
