@@ -23,7 +23,7 @@ export function cuaBuildFlags(env) {
   );
 }
 
-export function collectCuaCacheInputs(root, env = process.env) {
+export function collectCuaCacheInputs(root, env = process.env, platform = process.platform) {
   // Compiler paths/wrappers may change bytes at an unchanged path. The release
   // cache supports the selected runner toolchain, not arbitrary wrappers.
   for (const key of Object.keys(env)) {
@@ -53,20 +53,32 @@ export function collectCuaCacheInputs(root, env = process.env) {
       .toSorted()
       .map((name) => `${patchRoot}/${name}`),
   ];
+  const files = Object.fromEntries(paths.map((path) => [path, hashFile(path)]));
+  // Windows stages the pinned upstream binary, checked against its release
+  // checksums; no local toolchain builds it, and the Linux/macOS probes below
+  // (/etc/os-release, cc, dpkg-query) do not exist on Windows runners.
+  if (platform === "win32") {
+    return {
+      platform,
+      arch: process.arch,
+      targetArch: env.SAINT_CUA_TARGET_ARCH || process.arch,
+      files,
+    };
+  }
   return {
-    platform: process.platform,
+    platform,
     arch: process.arch,
     // Apple Silicon also cross-compiles the Intel driver.
     targetArch: env.SAINT_CUA_TARGET_ARCH || process.arch,
     os:
-      process.platform === "darwin"
+      platform === "darwin"
         ? output("sw_vers", ["-productVersion"])
         : readFileSync("/etc/os-release", "utf8"),
     rust: output("rustc", ["-vV"]),
     cargo: output("cargo", ["--version"]),
     compiler: output("cc", ["--version"]),
     sdk:
-      process.platform === "darwin"
+      platform === "darwin"
         ? [
             output("xcodebuild", ["-version"]),
             output("xcrun", ["--show-sdk-version"]),
@@ -89,7 +101,7 @@ export function collectCuaCacheInputs(root, env = process.env) {
             "pkg-config",
           ]),
     flags: cuaBuildFlags(env),
-    files: Object.fromEntries(paths.map((path) => [path, hashFile(path)])),
+    files,
   };
 }
 

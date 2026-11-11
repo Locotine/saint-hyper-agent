@@ -37,4 +37,11 @@ describe("Cua build cache identity", () => {
       expect(cuaCacheKey({ [key]: "before" })).not.toBe(cuaCacheKey({ [key]: "after" }));
     },
   );
+  it("keys the pinned Windows download without probing a native toolchain", () => {
+    const root = new URL("../../../", import.meta.url).pathname;
+    const inputs = collectCuaCacheInputs(root, { SAINT_CUA_TARGET_ARCH: "x64" }, "win32");
+    expect(Object.keys(inputs).toSorted()).toEqual(["arch", "files", "platform", "targetArch"]);
+    expect(inputs.platform).toBe("win32");
+    expect(inputs.files["packages/shared/src/cuaDriverRelease.json"]).toMatch(/^[0-9a-f]{64}$/u);
+  });
 });
