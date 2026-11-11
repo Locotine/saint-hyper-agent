@@ -265,17 +265,20 @@ describe("sidebar leading controls dock", () => {
           })
           .toEqual({ after: "drag", below: "drag" });
         for (const name of ["Toggle thread sidebar", "Back", "Forward"]) {
-          const rect = page
-            .getByRole("button", { name, exact: true })
-            .element()
-            .getBoundingClientRect();
-          expect(
-            nativeDragRegionAt(
-              screen.container,
-              rect.left + rect.width / 2,
-              rect.top + rect.height / 2,
-            ),
-          ).toBe("no-drag");
+          // The route header glides with the panel; poll until it settles under the controls.
+          await expect
+            .poll(() => {
+              const rect = page
+                .getByRole("button", { name, exact: true })
+                .element()
+                .getBoundingClientRect();
+              return nativeDragRegionAt(
+                screen.container,
+                rect.left + rect.width / 2,
+                rect.top + rect.height / 2,
+              );
+            })
+            .toBe("no-drag");
         }
         await toggle.click();
         await expect

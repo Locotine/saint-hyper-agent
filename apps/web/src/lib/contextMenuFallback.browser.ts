@@ -102,7 +102,9 @@ describe("showContextMenuFallback submenus", () => {
           },
           { once: true },
         );
-      await row.hover();
+      // The mouseenter handler closes the menu, so Playwright's post-hover hit check would
+      // retry against a detached row; skip it, the hover itself is what is under test.
+      await row.hover({ force: true });
 
       expect(hadOpenSubmenu).toBe(true);
       expect(document.querySelector('[data-slot^="context-menu"]')).toBeNull();

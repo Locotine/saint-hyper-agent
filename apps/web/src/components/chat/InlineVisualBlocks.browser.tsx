@@ -167,7 +167,7 @@ it("switches tabs and sorts a table by a numeric column", async () => {
   expect(firstColumn()).toEqual(["shared", "web", "server"]);
 
   await screen.getByRole("button", { name: "KB" }).click();
-  expect(firstColumn()).toEqual(["web", "server", "shared"]);
+  await expect.poll(firstColumn).toEqual(["web", "server", "shared"]);
 
   await screen.getByRole("radio", { name: "Notes" }).click();
   await expect.element(screen.getByText("Shiki is the biggest.")).toBeVisible();

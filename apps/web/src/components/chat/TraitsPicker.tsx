@@ -239,10 +239,12 @@ function TraitRadioSection({
   return (
     <MenuGroup>
       {labelTrailing ? (
-        <MenuGroupLabel className="flex items-center justify-between gap-2">
-          {label}
+        // Base UI marks the group label aria-hidden (the group is labelled by it), so a
+        // control inside it would be unreachable; the trailing control sits beside it.
+        <div className="flex items-center justify-between gap-2 pe-2">
+          <MenuGroupLabel className="min-w-0 flex-1 pe-0">{label}</MenuGroupLabel>
           {labelTrailing}
-        </MenuGroupLabel>
+        </div>
       ) : (
         <MenuGroupLabel>{label}</MenuGroupLabel>
       )}

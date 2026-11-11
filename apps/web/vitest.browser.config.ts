@@ -38,6 +38,10 @@ export default mergeConfig(
         provider: playwright(),
         instances: [{ browser: "chromium" }],
         headless: true,
+        // Vitest 4.1.12 / Playwright 1.65 scale the default 414px test frame down in
+        // headless mode, so clicks near its right edge miss their target. A desktop-sized
+        // frame avoids the scaling; specs that need a narrow layout set page.viewport().
+        viewport: { width: 1280, height: 900 },
         api: {
           // Vitest's default 63315 falls inside common Windows/Hyper-V
           // excluded-port ranges. Keep the local browser harness on IPv4 and

@@ -31,7 +31,8 @@ it.each([false, true])(
       const content = page.getByTestId("panel-content").element() as HTMLElement;
 
       await expect.poll(() => content.clientHeight).toBeGreaterThan(0);
-      expect(getComputedStyle(overlay).overflowX).toBe("hidden");
+      // Older Chrome computes clip as hidden next to a scrolling axis; newer keeps clip.
+      expect(["clip", "hidden"]).toContain(getComputedStyle(overlay).overflowX);
       expect(getComputedStyle(overlay).overflowY).toBe("auto");
       expect(content.scrollHeight).toBeGreaterThan(content.clientHeight);
       content.scrollTop = 100;
