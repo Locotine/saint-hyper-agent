@@ -266,6 +266,8 @@ impl BackendSupervisor {
                     exe_dir.join("resources").join("client"),
                     exe_dir.join("..").join("Resources").join("client"),
                     exe_dir.join("..").join("Resources").join("resources").join("client"),
+                    // Linux bundles keep resources in /usr/lib/<product>.
+                    exe_dir.join("..").join("lib").join("Saint").join("client"),
                 ];
                 if cfg!(debug_assertions) {
                     candidates.push(

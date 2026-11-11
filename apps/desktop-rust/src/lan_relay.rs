@@ -771,8 +771,9 @@ async fn handle_relay_connection(
 
     let (mut upstream, upstream_port, rewritten_target) =
         if !is_backend_route && cfg!(debug_assertions) {
-            if let Ok(vite_stream) = TcpStream::connect(("127.0.0.1", 5733)).await {
-                (vite_stream, 5733u16, parsed.target.clone())
+            let dev_port = dev_web_port();
+            if let Ok(vite_stream) = TcpStream::connect(("127.0.0.1", dev_port)).await {
+                (vite_stream, dev_port, parsed.target.clone())
             } else {
                 let s = TcpStream::connect(("127.0.0.1", backend_port))
                     .await
@@ -821,6 +822,15 @@ async fn handle_relay_connection(
     }
 
     Ok(())
+}
+
+/// Port of the Vite dev server the webview uses. The dev runner shifts it off
+/// 5733 when another instance runs, so a fixed port reached the wrong server.
+fn dev_web_port() -> u16 {
+    std::env::var("VITE_DEV_SERVER_URL")
+        .ok()
+        .and_then(|url| url.trim().trim_end_matches('/').rsplit(':').next()?.parse().ok())
+        .unwrap_or(5733)
 }
 
 fn build_unauthorized_json_response() -> String {

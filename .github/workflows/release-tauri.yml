@@ -200,10 +200,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         # Resources are merged here, not in tauri.conf.json, so local builds
-        # without a provisioned driver keep working.
+        # without a provisioned driver keep working. `client` is the web build the
+        # server serves to phones paired over the LAN relay.
         run: >-
           bunx @tauri-apps/cli@^2.4.0 build --target "${{ matrix.rust_target }}"
-          --config '{"bundle":{"resources":{"resources/cua-driver/":"resources/cua-driver/"}}}'
+          --config '{"bundle":{"resources":{"resources/cua-driver/":"resources/cua-driver/","../web/dist/":"client/"}}}'
 
       - name: Stage platform release assets
         shell: bash
