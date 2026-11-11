@@ -86,9 +86,10 @@ jobs:
           echo "tag=v$CLEAN_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Install Linux Tauri & X11 system libraries
+        timeout-minutes: 8
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 --error-on=any update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 install -y \
             libwebkit2gtk-4.1-dev \
             libappindicator3-dev \
             librsvg2-dev \
@@ -136,9 +137,10 @@ jobs:
 
       - name: Install Linux Tauri system libraries
         if: matrix.platform == 'linux'
+        timeout-minutes: 8
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 --error-on=any update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 install -y \
             libwebkit2gtk-4.1-dev \
             libappindicator3-dev \
             librsvg2-dev \
