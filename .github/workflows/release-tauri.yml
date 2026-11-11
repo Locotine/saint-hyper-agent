@@ -178,13 +178,32 @@ jobs:
       - name: Build standalone server sidecar
         run: bun run scripts/build-server-sidecar.ts --target "${{ matrix.rust_target }}"
 
+      # Computer Use needs cua-driver next to the app; without it the server
+      # reports "Cua Driver is not bundled".
+      - name: Provision verified Cua
+        uses: ./.github/actions/provision-cua
+        with:
+          arch: ${{ matrix.arch }}
+
+      - name: Stage Cua driver as a bundle resource
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apps/desktop-rust/resources/cua-driver
+          cp -R "$SAINT_CUA_ARTIFACT_DIR/." apps/desktop-rust/resources/cua-driver/
+
       - name: Build Tauri native bundles
         working-directory: apps/desktop-rust
+        shell: bash
         env:
           CI: "true"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: bunx @tauri-apps/cli@^2.4.0 build --target "${{ matrix.rust_target }}"
+        # Resources are merged here, not in tauri.conf.json, so local builds
+        # without a provisioned driver keep working.
+        run: >-
+          bunx @tauri-apps/cli@^2.4.0 build --target "${{ matrix.rust_target }}"
+          --config '{"bundle":{"resources":{"resources/cua-driver/":"resources/cua-driver/"}}}'
 
       - name: Stage platform release assets
         shell: bash

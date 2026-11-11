@@ -80,9 +80,17 @@ impl CuaDriverHost {
         } else {
             "cua-driver"
         };
-        if let Ok(exe) = std::env::current_exe() {
-            if let Some(dir) = exe.parent() {
-                let candidate = dir.join("resources").join("cua-driver").join(bin_name);
+        // Tauri's resource dir: next to the exe on Windows, `Contents/Resources`
+        // on macOS, `/usr/lib/<product>` (also inside an AppImage) on Linux.
+        if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(PathBuf::from)) {
+            let candidates = [
+                dir.clone(),
+                dir.join("../Resources"),
+                dir.join("../lib/Saint"),
+                dir.join("../lib/saint"),
+            ];
+            for base in candidates {
+                let candidate = base.join("resources").join("cua-driver").join(bin_name);
                 if candidate.is_file() {
                     return candidate;
                 }
