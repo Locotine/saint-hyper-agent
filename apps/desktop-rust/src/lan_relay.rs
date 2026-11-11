@@ -779,6 +779,23 @@ async fn handle_relay_connection(
         || path_only.starts_with("/attachments/")
         || path_only == "/health";
 
+    // Dev builds: Vite serves ~1,400 separate modules, each a new relay
+    // connection; over Tailscale the phone sits on the boot logo for minutes.
+    // Serve the production web build instead when one exists.
+    if cfg!(debug_assertions)
+        && !is_backend_route
+        && (parsed.method == "GET" || parsed.method == "HEAD")
+    {
+        if let Some(dist) = dev_web_dist() {
+            let response = static_file_response(&dist, path_only, parsed.method == "HEAD");
+            client_stream
+                .write_all(&response)
+                .await
+                .map_err(|e| e.to_string())?;
+            return Ok(());
+        }
+    }
+
     let (mut upstream, upstream_port, rewritten_target) =
         if !is_backend_route && cfg!(debug_assertions) {
             let dev_port = dev_web_port();
@@ -848,6 +865,65 @@ fn dev_web_port() -> u16 {
                 .ok()
         })
         .unwrap_or(5733)
+}
+
+/// `apps/web/dist` of this checkout when it has been built (dev builds only).
+fn dev_web_dist() -> Option<std::path::PathBuf> {
+    let dist = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../web/dist");
+    dist.join("index.html").is_file().then_some(dist)
+}
+
+/// A complete HTTP response for `path` under `root`; unknown paths get
+/// `index.html` so client-side routes load the app.
+fn static_file_response(root: &std::path::Path, path: &str, head_only: bool) -> Vec<u8> {
+    let relative = path.trim_start_matches('/');
+    let safe = !relative
+        .split('/')
+        .any(|part| part == ".." || part.contains('\\'));
+    let candidate = root.join(relative);
+    let (file, body) = match (safe && !relative.is_empty())
+        .then(|| std::fs::read(&candidate).ok())
+        .flatten()
+    {
+        Some(body) => (candidate, body),
+        None => {
+            let index = root.join("index.html");
+            match std::fs::read(&index) {
+                Ok(body) => (index, body),
+                Err(_) => return b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec(),
+            }
+        }
+    };
+    let content_type = match file.extension().and_then(|e| e.to_str()).unwrap_or("") {
+        "html" => "text/html; charset=utf-8",
+        "js" | "mjs" => "text/javascript; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "json" | "map" | "webmanifest" => "application/json",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "ico" => "image/x-icon",
+        "woff2" => "font/woff2",
+        "woff" => "font/woff",
+        "wasm" => "application/wasm",
+        _ => "application/octet-stream",
+    };
+    // Hashed assets never change; the HTML shell must be refetched.
+    let cache = if relative.starts_with("assets/") {
+        "public, max-age=31536000, immutable"
+    } else {
+        "no-cache"
+    };
+    let mut out = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nCache-Control: {cache}\r\nConnection: close\r\n\r\n",
+        body.len()
+    )
+    .into_bytes();
+    if !head_only {
+        out.extend_from_slice(&body);
+    }
+    out
 }
 
 fn build_unauthorized_json_response() -> String {
@@ -1409,6 +1485,76 @@ mod tests {
         assert!(
             closed.is_ok(),
             "relay must close a TLS handshake without waiting for the header timeout"
+        );
+    }
+
+    #[test]
+    fn serves_built_web_files_with_spa_fallback_and_no_traversal() {
+        let root = std::env::temp_dir().join(format!(
+            "saint-relay-dist-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(root.join("assets")).unwrap();
+        std::fs::write(root.join("index.html"), "<html>app</html>").unwrap();
+        std::fs::write(root.join("assets/app-1.js"), "console.log(1)").unwrap();
+        let text =
+            |path: &str| String::from_utf8(static_file_response(&root, path, false)).unwrap();
+
+        let js = text("/assets/app-1.js");
+        assert!(
+            js.contains("text/javascript")
+                && js.contains("immutable")
+                && js.ends_with("console.log(1)")
+        );
+        assert!(text("/").ends_with("<html>app</html>"));
+        assert!(text("/thread/abc").ends_with("<html>app</html>"));
+        assert!(text("/../secret").ends_with("<html>app</html>"));
+        let head = text("/assets/app-1.js");
+        assert!(
+            String::from_utf8(static_file_response(&root, "/assets/app-1.js", true))
+                .unwrap()
+                .ends_with("\r\n\r\n")
+        );
+        assert!(head.contains("Content-Length: 14"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn pairing_link_sets_a_session_cookie() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let root = std::env::temp_dir().join(format!(
+            "saint-relay-pair-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let backend = Arc::new(BackendSupervisor::new(
+            crate::state::SaintPaths::from_base_dir(root),
+        ));
+        let manager = LanRelayManager::new(Arc::clone(&backend));
+        let token = manager.get_state().pairing_token;
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (_stop_tx, stop_rx) = watch::channel(false);
+        tokio::spawn(run_relay_accept_loop(
+            listener,
+            stop_rx,
+            Arc::clone(&manager.inner),
+            backend,
+        ));
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        client
+            .write_all(format!("GET /pair?token={token} HTTP/1.1\r\nHost: x\r\nUser-Agent: curl/8.18.0\r\nAccept: */*\r\n\r\n").as_bytes())
+            .await
+            .unwrap();
+        let mut out = String::new();
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            client.read_to_string(&mut out),
+        )
+        .await;
+        assert!(out.starts_with("HTTP/1.1 302"), "pair: {out:?}");
+        assert!(
+            out.contains("Set-Cookie: saint_lan_session="),
+            "pair: {out:?}"
         );
     }
 
