@@ -123,15 +123,10 @@ impl LanRelayManager {
                 host, guard.port, guard.pairing_token
             )
         });
-        let qr_svg = pairing_url
-            .as_deref()
-            .and_then(|url| render_qr_svg(url, 4));
+        let qr_svg = pairing_url.as_deref().and_then(|url| render_qr_svg(url, 4));
 
-        let mut active_sessions: Vec<DesktopLanRelayClientSession> = guard
-            .sessions
-            .values()
-            .map(|s| s.info.clone())
-            .collect();
+        let mut active_sessions: Vec<DesktopLanRelayClientSession> =
+            guard.sessions.values().map(|s| s.info.clone()).collect();
         active_sessions.sort_by(|a, b| b.last_seen_at.cmp(&a.last_seen_at));
 
         DesktopLanRelayState {
@@ -639,7 +634,9 @@ async fn handle_relay_connection(
                 let _ = client_stream.write_all(response.as_bytes()).await;
                 return Ok(());
             }
-            let html = pairing_html_page(Some("Invalid or expired pairing code. Check Settings in Saint Desktop."));
+            let html = pairing_html_page(Some(
+                "Invalid or expired pairing code. Check Settings in Saint Desktop.",
+            ));
             let response = format!(
                 "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Length: {}\r\n\r\n{}",
                 html.len(),
@@ -668,7 +665,10 @@ async fn handle_relay_connection(
             .headers
             .iter()
             .any(|(k, v)| k.eq_ignore_ascii_case("upgrade") && v.eq_ignore_ascii_case("websocket"));
-        if !is_upgrade && parsed.method == "GET" && (path_only == "/" || !path_only.starts_with("/api/")) {
+        if !is_upgrade
+            && parsed.method == "GET"
+            && (path_only == "/" || !path_only.starts_with("/api/"))
+        {
             let redirect = "HTTP/1.1 302 Found\r\nLocation: /pair\r\nCache-Control: no-store\r\nContent-Length: 0\r\n\r\n";
             let _ = client_stream.write_all(redirect.as_bytes()).await;
         } else {
@@ -690,9 +690,20 @@ async fn handle_relay_connection(
         || path_only.starts_with("/attachments/")
         || path_only == "/health";
 
-    let (mut upstream, upstream_port, rewritten_target) = if !is_backend_route && cfg!(debug_assertions) {
-        if let Ok(vite_stream) = TcpStream::connect(("127.0.0.1", 5733)).await {
-            (vite_stream, 5733u16, parsed.target.clone())
+    let (mut upstream, upstream_port, rewritten_target) =
+        if !is_backend_route && cfg!(debug_assertions) {
+            if let Ok(vite_stream) = TcpStream::connect(("127.0.0.1", 5733)).await {
+                (vite_stream, 5733u16, parsed.target.clone())
+            } else {
+                let s = TcpStream::connect(("127.0.0.1", backend_port))
+                    .await
+                    .map_err(|e| e.to_string())?;
+                (
+                    s,
+                    backend_port,
+                    append_auth_token_to_target(&parsed.target, backend_token),
+                )
+            }
         } else {
             let s = TcpStream::connect(("127.0.0.1", backend_port))
                 .await
@@ -702,17 +713,7 @@ async fn handle_relay_connection(
                 backend_port,
                 append_auth_token_to_target(&parsed.target, backend_token),
             )
-        }
-    } else {
-        let s = TcpStream::connect(("127.0.0.1", backend_port))
-            .await
-            .map_err(|e| e.to_string())?;
-        (
-            s,
-            backend_port,
-            append_auth_token_to_target(&parsed.target, backend_token),
-        )
-    };
+        };
 
     // Rewrite request line and Host/Origin headers so loopback guards on `saint-server` succeed
     let forward_header = build_forwarded_request_header(
@@ -850,12 +851,48 @@ struct QrVersionSpec {
 }
 
 const QR_SPECS: &[QrVersionSpec] = &[
-    QrVersionSpec { size: 21, total_data_codewords: 19, ec_codewords_per_block: 7, num_blocks: 1, alignment_centers: &[] },
-    QrVersionSpec { size: 25, total_data_codewords: 34, ec_codewords_per_block: 10, num_blocks: 1, alignment_centers: &[6, 18] },
-    QrVersionSpec { size: 29, total_data_codewords: 55, ec_codewords_per_block: 15, num_blocks: 1, alignment_centers: &[6, 22] },
-    QrVersionSpec { size: 33, total_data_codewords: 80, ec_codewords_per_block: 20, num_blocks: 1, alignment_centers: &[6, 26] },
-    QrVersionSpec { size: 37, total_data_codewords: 108, ec_codewords_per_block: 26, num_blocks: 1, alignment_centers: &[6, 30] },
-    QrVersionSpec { size: 41, total_data_codewords: 136, ec_codewords_per_block: 18, num_blocks: 2, alignment_centers: &[6, 34] },
+    QrVersionSpec {
+        size: 21,
+        total_data_codewords: 19,
+        ec_codewords_per_block: 7,
+        num_blocks: 1,
+        alignment_centers: &[],
+    },
+    QrVersionSpec {
+        size: 25,
+        total_data_codewords: 34,
+        ec_codewords_per_block: 10,
+        num_blocks: 1,
+        alignment_centers: &[6, 18],
+    },
+    QrVersionSpec {
+        size: 29,
+        total_data_codewords: 55,
+        ec_codewords_per_block: 15,
+        num_blocks: 1,
+        alignment_centers: &[6, 22],
+    },
+    QrVersionSpec {
+        size: 33,
+        total_data_codewords: 80,
+        ec_codewords_per_block: 20,
+        num_blocks: 1,
+        alignment_centers: &[6, 26],
+    },
+    QrVersionSpec {
+        size: 37,
+        total_data_codewords: 108,
+        ec_codewords_per_block: 26,
+        num_blocks: 1,
+        alignment_centers: &[6, 30],
+    },
+    QrVersionSpec {
+        size: 41,
+        total_data_codewords: 136,
+        ec_codewords_per_block: 18,
+        num_blocks: 2,
+        alignment_centers: &[6, 34],
+    },
 ];
 
 fn gf_mul(mut a: u8, mut b: u8) -> u8 {
@@ -1008,10 +1045,7 @@ pub fn render_qr_svg(payload: &str, border: usize) -> Option<String> {
     // Alignment patterns
     for &ar in spec.alignment_centers {
         for &ac in spec.alignment_centers {
-            if (ar < 9 && ac < 9)
-                || (ar < 9 && ac > n - 10)
-                || (ar > n - 10 && ac < 9)
-            {
+            if (ar < 9 && ac < 9) || (ar < 9 && ac > n - 10) || (ar > n - 10 && ac < 9) {
                 continue;
             }
             for dr in 0..5 {
@@ -1069,8 +1103,21 @@ pub fn render_qr_svg(payload: &str, border: usize) -> Option<String> {
     // Format information for ECC Level L (01) + Mask 0 (000) => 0x77C4
     let format_bits: u16 = 0x77C4;
     let format_coords_a = [
-        (8, 0), (8, 1), (8, 2), (8, 3), (8, 4), (8, 5), (8, 7), (8, 8),
-        (7, 8), (5, 8), (4, 8), (3, 8), (2, 8), (1, 8), (0, 8),
+        (8, 0),
+        (8, 1),
+        (8, 2),
+        (8, 3),
+        (8, 4),
+        (8, 5),
+        (8, 7),
+        (8, 8),
+        (7, 8),
+        (5, 8),
+        (4, 8),
+        (3, 8),
+        (2, 8),
+        (1, 8),
+        (0, 8),
     ];
     for (i, &(r, c)) in format_coords_a.iter().enumerate() {
         modules[r][c] = ((format_bits >> i) & 1) != 0;

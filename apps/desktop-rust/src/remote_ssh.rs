@@ -179,10 +179,7 @@ impl RemoteSshManager {
     }
 
     pub fn normalize_remote_root(value: &str) -> Option<String> {
-        let trimmed = value
-            .trim()
-            .trim_start_matches("~/")
-            .trim_end_matches('/');
+        let trimmed = value.trim().trim_start_matches("~/").trim_end_matches('/');
         if trimmed.is_empty() {
             return None;
         }
@@ -320,7 +317,10 @@ impl RemoteSshManager {
 
     fn sanitize_optional_field(raw: Option<&str>) -> Option<String> {
         let trimmed = raw?.trim();
-        if trimmed.is_empty() || trimmed.starts_with('-') || trimmed.chars().any(|c| c == '\0' || c == '\n' || c == '\r') {
+        if trimmed.is_empty()
+            || trimmed.starts_with('-')
+            || trimmed.chars().any(|c| c == '\0' || c == '\n' || c == '\r')
+        {
             return None;
         }
         Some(trimmed.to_string())
@@ -405,11 +405,9 @@ impl RemoteSshManager {
         }
         let normalized_root = match input.remote_root.as_deref() {
             None | Some("") => None,
-            Some(raw) => Some(
-                Self::normalize_remote_root(raw).ok_or_else(|| {
-                    "The remote folder must be a relative path inside the home folder.".to_string()
-                })?,
-            ),
+            Some(raw) => Some(Self::normalize_remote_root(raw).ok_or_else(|| {
+                "The remote folder must be a relative path inside the home folder.".to_string()
+            })?),
         };
         let prev = previous_host
             .map(str::trim)
@@ -442,7 +440,10 @@ impl RemoteSshManager {
                 .or_else(|| existing.as_ref().and_then(|h| h.label.clone())),
             user: Self::sanitize_ssh_user(input.user.as_deref())
                 .or_else(|| existing.as_ref().and_then(|h| h.user.clone())),
-            port: input.port.filter(|p| *p > 0).or_else(|| existing.as_ref().and_then(|h| h.port)),
+            port: input
+                .port
+                .filter(|p| *p > 0)
+                .or_else(|| existing.as_ref().and_then(|h| h.port)),
             identity_file: Self::sanitize_optional_field(input.identity_file.as_deref())
                 .or_else(|| existing.as_ref().and_then(|h| h.identity_file.clone())),
         };
@@ -450,7 +451,10 @@ impl RemoteSshManager {
         if promote_to_front {
             saved_guard.retain(|h| h.host != prev && h.host != host);
             saved_guard.insert(0, entry.clone());
-        } else if let Some(pos) = saved_guard.iter().position(|h| h.host == prev || h.host == host) {
+        } else if let Some(pos) = saved_guard
+            .iter()
+            .position(|h| h.host == prev || h.host == host)
+        {
             saved_guard[pos] = entry.clone();
             let mut idx = 0;
             saved_guard.retain(|h| {
@@ -475,11 +479,9 @@ impl RemoteSshManager {
         }
         let normalized_root = match input.target.remote_root.as_deref() {
             None | Some("") => None,
-            Some(raw) => Some(
-                Self::normalize_remote_root(raw).ok_or_else(|| {
-                    "The remote folder must be a relative path inside the home folder.".to_string()
-                })?,
-            ),
+            Some(raw) => Some(Self::normalize_remote_root(raw).ok_or_else(|| {
+                "The remote folder must be a relative path inside the home folder.".to_string()
+            })?),
         };
         let prev = input
             .previous_host
@@ -515,7 +517,10 @@ impl RemoteSshManager {
                 identity_file: Self::sanitize_optional_field(input.target.identity_file.as_deref()),
             };
 
-            if let Some(pos) = saved_guard.iter().position(|h| h.host == prev || h.host == host) {
+            if let Some(pos) = saved_guard
+                .iter()
+                .position(|h| h.host == prev || h.host == host)
+            {
                 saved_guard[pos] = entry;
                 let mut idx = 0;
                 saved_guard.retain(|h| {
@@ -574,8 +579,12 @@ impl RemoteSshManager {
             host_key: input.host_key,
             auto_connect: input.auto_connect,
             label: input.label,
-            user: input.user.or_else(|| saved_entry.as_ref().and_then(|s| s.user.clone())),
-            port: input.port.or_else(|| saved_entry.as_ref().and_then(|s| s.port)),
+            user: input
+                .user
+                .or_else(|| saved_entry.as_ref().and_then(|s| s.user.clone())),
+            port: input
+                .port
+                .or_else(|| saved_entry.as_ref().and_then(|s| s.port)),
             identity_file: input
                 .identity_file
                 .or_else(|| saved_entry.as_ref().and_then(|s| s.identity_file.clone())),
@@ -771,8 +780,12 @@ impl RemoteSshManager {
             host_key: input.host_key,
             auto_connect: input.auto_connect,
             label: input.label,
-            user: input.user.or_else(|| saved_entry.as_ref().and_then(|s| s.user.clone())),
-            port: input.port.or_else(|| saved_entry.as_ref().and_then(|s| s.port)),
+            user: input
+                .user
+                .or_else(|| saved_entry.as_ref().and_then(|s| s.user.clone())),
+            port: input
+                .port
+                .or_else(|| saved_entry.as_ref().and_then(|s| s.port)),
             identity_file: input
                 .identity_file
                 .or_else(|| saved_entry.as_ref().and_then(|s| s.identity_file.clone())),
@@ -887,7 +900,10 @@ mod tests {
               User ubuntu
         ";
         let hosts = RemoteSshManager::parse_ssh_config_hosts(sample);
-        assert_eq!(hosts, vec!["dev-box".to_string(), "prod.internal".to_string()]);
+        assert_eq!(
+            hosts,
+            vec!["dev-box".to_string(), "prod.internal".to_string()]
+        );
     }
 
     #[test]
@@ -895,8 +911,12 @@ mod tests {
         assert!(RemoteSshManager::is_valid_ssh_target("devbox"));
         assert!(RemoteSshManager::is_valid_ssh_target("ubuntu@10.0.0.5"));
         assert!(RemoteSshManager::is_valid_ssh_target("[::1]"));
-        assert!(!RemoteSshManager::is_valid_ssh_target("-oProxyCommand=evil"));
-        assert!(!RemoteSshManager::is_valid_ssh_target("ubuntu@-oProxyCommand=evil"));
+        assert!(!RemoteSshManager::is_valid_ssh_target(
+            "-oProxyCommand=evil"
+        ));
+        assert!(!RemoteSshManager::is_valid_ssh_target(
+            "ubuntu@-oProxyCommand=evil"
+        ));
         assert!(!RemoteSshManager::is_valid_ssh_target("user@host@extra"));
         assert!(!RemoteSshManager::is_valid_ssh_target("@host"));
         assert!(!RemoteSshManager::is_valid_ssh_target("user@"));
@@ -1013,7 +1033,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn rekeys_tunnel_on_host_rename_so_disconnect_by_new_name_kills_it() {
-        let temp_dir = std::env::temp_dir().join(format!("saint-ssh-rename-test-{}", Uuid::new_v4()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("saint-ssh-rename-test-{}", Uuid::new_v4()));
         std::fs::create_dir_all(&temp_dir).unwrap();
         let paths = SaintPaths::from_base_dir(temp_dir.clone());
         let manager = RemoteSshManager::new(paths);
@@ -1054,7 +1075,11 @@ mod tests {
         }
 
         manager.disconnect("devbox-renamed").unwrap();
-        assert!(!manager.tunnels.lock().unwrap().contains_key("devbox-renamed"));
+        assert!(!manager
+            .tunnels
+            .lock()
+            .unwrap()
+            .contains_key("devbox-renamed"));
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
