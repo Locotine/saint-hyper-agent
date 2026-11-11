@@ -1,6 +1,6 @@
 // FILE: LanRelaySettingsSection.tsx
 // Purpose: Mobile LAN & Tailscale Relay controls with QR code pairing and active device session
-//          revocation, shared between System tools and Remote hosts settings panels.
+//          revocation, shown in the Remote hosts settings panel.
 // Layer: Settings UI components
 // Exports: LanRelaySettingsSection
 
@@ -8,9 +8,11 @@ import type { DesktopLanRelayState } from "@saint/contracts";
 import { useEffect, useState } from "react";
 
 import { Button } from "~/components/ui/button";
+import { SelectItem } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { toastManager } from "~/components/ui/toast";
 import { copyTextToClipboard } from "~/hooks/useCopyToClipboard";
+import { SettingsSelectControl } from "./SettingControls";
 import { SettingsListRow, SettingsRow, SettingsSection } from "./SettingsPanelPrimitives";
 
 function lanRelayBridge() {
@@ -43,10 +45,12 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
   const bridge = lanRelayBridge();
   if (!props.active || !bridge || !state) return null;
 
-  const handleToggleEnabled = async (enabled: boolean) => {
+  const handleToggleEnabled = async (enabled: boolean, bindAddress?: string) => {
     setBusy(true);
     try {
-      const next = await bridge.setEnabled({ enabled });
+      const next = await bridge.setEnabled(
+        bindAddress === undefined ? { enabled } : { enabled, bindAddress },
+      );
       setState(next);
       if (next.error) {
         toastManager.add({
@@ -54,11 +58,14 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
           title: "Could not start Mobile & LAN Relay",
           description: next.error,
         });
-      } else {
+      } else if (enabled || bindAddress === undefined) {
+        // Picking an interface while the relay is off only stores the choice.
         toastManager.add({
           type: "success",
           title: enabled ? "Mobile & LAN Relay enabled" : "Mobile & LAN Relay stopped",
-          ...(enabled && next.pairingUrl ? { description: `Listening on port ${next.port}` } : {}),
+          ...(enabled && next.bindAddress
+            ? { description: `Listening on ${next.bindAddress}:${next.port}` }
+            : {}),
         });
       }
     } catch (error) {
@@ -146,21 +153,20 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
   const qrDataUrl = state.qrSvg
     ? `data:image/svg+xml;utf8,${encodeURIComponent(state.qrSvg)}`
     : null;
-  const allAddresses = [
-    ...state.lanAddresses.map((ip) => ({ ip, kind: "LAN" as const })),
-    ...state.tailscaleAddresses.map((ip) => ({ ip, kind: "Tailscale" as const })),
-  ];
+  const selectedInterface = state.interfaces.find((iface) => iface.address === state.bindAddress);
+  const interfaceLabel = (iface: (typeof state.interfaces)[number]) =>
+    `${iface.name} (${iface.kind === "tailscale" ? "Tailscale" : "LAN"}) · ${iface.address}`;
 
   return (
     <SettingsSection title="Mobile & LAN access">
       <SettingsRow
         title="Enable LAN / Tailscale relay"
-        description="Expose a token-gated reverse proxy on 0.0.0.0 so you can pair your phone or tablet over Wi-Fi or Tailscale while keeping the core server bound to 127.0.0.1."
+        description="Expose a token-gated reverse proxy on one network interface so you can pair your phone or tablet over Wi-Fi or Tailscale while keeping the core server bound to 127.0.0.1."
         status={
           state.error ? (
             <span className="text-destructive">{state.error}</span>
           ) : state.enabled ? (
-            `Listening on 0.0.0.0:${state.port} — pairing code ${state.pairingToken}`
+            `Listening on ${state.bindAddress}:${state.port} — pairing code ${state.pairingToken}`
           ) : (
             "Off (local loopback only)"
           )
@@ -168,7 +174,7 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
         control={
           <Switch
             checked={state.enabled}
-            disabled={busy}
+            disabled={busy || state.interfaces.length === 0}
             onCheckedChange={(checked) => void handleToggleEnabled(Boolean(checked))}
             aria-label="Enable LAN and Tailscale relay"
           />
@@ -202,34 +208,48 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
                   ) : null}
                 </div>
               </div>
-              {allAddresses.length > 0 ? (
+              {state.bindAddress ? (
                 <div className="space-y-1">
-                  <div className="font-medium text-foreground">Detected network endpoints</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {allAddresses.map(({ ip, kind }) => {
-                      const url = `http://${ip}:${state.port}/pair?token=${state.pairingToken}`;
-                      return (
-                        <Button
-                          key={`${kind}-${ip}`}
-                          size="chip"
-                          variant="outline"
-                          onClick={() => void handleCopyUrl(url)}
-                        >
-                          {kind}: {ip}:{state.port}
-                        </Button>
-                      );
-                    })}
-                  </div>
+                  <div className="font-medium text-foreground">Pairing link</div>
+                  <Button
+                    size="chip"
+                    variant="outline"
+                    onClick={() => void handleCopyUrl(state.pairingUrl!)}
+                  >
+                    http://{state.bindAddress}:{state.port}
+                  </Button>
                 </div>
-              ) : (
-                <div className="text-muted-foreground">
-                  No private LAN or Tailscale IPv4 interface detected.
-                </div>
-              )}
+              ) : null}
             </div>
           </div>
         ) : null}
       </SettingsRow>
+
+      <SettingsRow
+        title="Network interface"
+        description="The relay listens only on this address. Pick the Wi-Fi or Tailscale interface your phone can reach."
+        status={
+          state.interfaces.length === 0
+            ? "No private LAN or Tailscale IPv4 interface detected."
+            : undefined
+        }
+        control={
+          <SettingsSelectControl
+            value={state.bindAddress}
+            disabled={busy || state.interfaces.length === 0}
+            onValueChange={(address) => void handleToggleEnabled(state.enabled, address)}
+            ariaLabel="Relay network interface"
+            triggerClassName="w-full sm:w-72"
+            valueContent={selectedInterface ? interfaceLabel(selectedInterface) : "None"}
+          >
+            {state.interfaces.map((iface) => (
+              <SelectItem hideIndicator key={iface.address} value={iface.address}>
+                {interfaceLabel(iface)}
+              </SelectItem>
+            ))}
+          </SettingsSelectControl>
+        }
+      />
 
       {state.activeSessions.length > 0 ? (
         <>

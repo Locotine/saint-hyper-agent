@@ -699,15 +699,11 @@ function RemoteHostListRow(props: {
           <Button type="button" size="xs" variant="ghost" disabled={busy} onClick={props.onEdit}>
             Edit
           </Button>
-          <Button
-            type="button"
-            size="xs"
-            variant="destructive-outline"
-            disabled={busy}
-            onClick={props.onStop}
-          >
-            Stop server
-          </Button>
+          {connected ? (
+            <Button type="button" size="xs" variant="destructive-outline" onClick={props.onStop}>
+              Stop server
+            </Button>
+          ) : null}
           <Button type="button" size="xs" variant="ghost" disabled={busy} onClick={props.onDelete}>
             Delete
           </Button>

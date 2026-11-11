@@ -104,5 +104,29 @@ describe("RemoteHostsSettingsPanel", () => {
       "Setting up a managed Saint server on buildbox — Installing dependencies…",
     );
     expect(markup).toContain("Cancel");
+    expect(markup).not.toContain("Stop server");
+  });
+
+  it("hides Stop server when the host failed to connect", () => {
+    mockStateRef.current = {
+      configHosts: [],
+      defaultRemoteRoot: ".saint-remote",
+      savedHosts: [{ host: "offline-box", remoteRoot: null }],
+      hosts: [
+        {
+          host: "offline-box",
+          hostKey: "cafebabe",
+          epoch: 1,
+          remoteRoot: ".saint-remote",
+          phase: "error",
+          message: "Could not reach the host (ssh exit 255): Connection reset by peer",
+          localPort: null,
+        },
+      ],
+    };
+
+    const markup = renderToStaticMarkup(<RemoteHostsSettingsPanel active={true} />);
+    expect(markup).toContain("Connect");
+    expect(markup).not.toContain("Stop server");
   });
 });

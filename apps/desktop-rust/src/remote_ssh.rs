@@ -259,6 +259,49 @@ impl RemoteSshManager {
             .unwrap_or_default()
     }
 
+    /// Waits until the forwarded local port accepts connections or ssh exits.
+    /// ssh opens the `-L` listener only after authentication succeeds, so an
+    /// accepting port means the tunnel is up; an exit means it never was.
+    fn wait_for_tunnel(mut child: Child, local_port: u16) -> Result<Child, String> {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+        let addr = std::net::SocketAddr::from(([127, 0, 0, 1], local_port));
+        loop {
+            if let Ok(Some(status)) = child.try_wait() {
+                let mut stderr = String::new();
+                if let Some(mut pipe) = child.stderr.take() {
+                    let _ = std::io::Read::read_to_string(&mut pipe, &mut stderr);
+                }
+                let detail = stderr
+                    .lines()
+                    .map(str::trim)
+                    .filter(|l| !l.is_empty())
+                    .last()
+                    .unwrap_or("no output from ssh");
+                let code = status
+                    .code()
+                    .map_or("signal".to_string(), |c| c.to_string());
+                return Err(format!(
+                    "Could not reach the host (ssh exit {code}): {detail}"
+                ));
+            }
+            let timeout = std::time::Duration::from_millis(200);
+            if std::net::TcpStream::connect_timeout(&addr, timeout).is_ok() {
+                // Drain stderr so a chatty ssh never blocks on a full pipe.
+                if let Some(mut pipe) = child.stderr.take() {
+                    std::thread::spawn(move || {
+                        let _ = std::io::copy(&mut pipe, &mut std::io::sink());
+                    });
+                }
+                return Ok(child);
+            }
+            if std::time::Instant::now() >= deadline {
+                Self::kill_and_reap(child);
+                return Err("Timed out waiting for the SSH tunnel to open.".to_string());
+            }
+            std::thread::sleep(timeout);
+        }
+    }
+
     fn kill_and_reap(mut child: Child) {
         let _ = child.kill();
         let _ = child.wait();
@@ -676,7 +719,7 @@ impl RemoteSshManager {
             ])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .stderr(Stdio::piped());
 
         #[cfg(target_os = "windows")]
         {
@@ -684,7 +727,11 @@ impl RemoteSshManager {
             ssh_cmd.creation_flags(0x0800_0000);
         }
 
-        let (phase, message, bound_port) = match ssh_cmd.spawn() {
+        let spawned = ssh_cmd
+            .spawn()
+            .map_err(|err| format!("Failed to start SSH tunnel: {err}"))
+            .and_then(|child| Self::wait_for_tunnel(child, local_port));
+        let (phase, message, bound_port) = match spawned {
             Ok(child) => {
                 let prev = self
                     .tunnels
@@ -696,11 +743,7 @@ impl RemoteSshManager {
                 }
                 ("connected".to_string(), None, Some(local_port))
             }
-            Err(err) => (
-                "error".to_string(),
-                Some(format!("Failed to start SSH tunnel: {err}")),
-                None,
-            ),
+            Err(message) => ("error".to_string(), Some(message), None),
         };
 
         let next_state = {

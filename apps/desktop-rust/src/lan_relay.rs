@@ -44,12 +44,19 @@ pub struct DesktopLanRelayClientSession {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DesktopLanRelayInterface {
+    pub name: String,
+    pub address: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DesktopLanRelayState {
     pub enabled: bool,
     pub port: u16,
-    pub lan_addresses: Vec<String>,
-    pub tailscale_addresses: Vec<String>,
-    pub preferred_host: Option<String>,
+    pub interfaces: Vec<DesktopLanRelayInterface>,
+    pub bind_address: Option<String>,
     pub pairing_token: String,
     pub pairing_url: Option<String>,
     pub qr_svg: Option<String>,
@@ -62,6 +69,7 @@ pub struct DesktopLanRelayState {
 pub struct DesktopLanRelaySetEnabledInput {
     pub enabled: bool,
     pub port: Option<u16>,
+    pub bind_address: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -79,6 +87,8 @@ struct StoredRelaySession {
 struct RelayInner {
     enabled: bool,
     port: u16,
+    /// Address the relay listens on; never 0.0.0.0. None picks the primary interface.
+    bind_address: Option<Ipv4Addr>,
     pairing_token: String,
     error: Option<String>,
     stop_tx: Option<watch::Sender<bool>>,
@@ -97,6 +107,7 @@ impl LanRelayManager {
             inner: Arc::new(Mutex::new(RelayInner {
                 enabled: false,
                 port: DEFAULT_LAN_RELAY_PORT,
+                bind_address: None,
                 pairing_token: generate_pairing_token(),
                 error: None,
                 stop_tx: None,
@@ -106,18 +117,16 @@ impl LanRelayManager {
     }
 
     pub fn get_state(&self) -> DesktopLanRelayState {
-        let (lan_addresses, tailscale_addresses) = discover_network_addresses();
-        let preferred_host = lan_addresses
-            .first()
-            .cloned()
-            .or_else(|| tailscale_addresses.first().cloned());
+        let interfaces = discover_network_interfaces();
 
         let guard = match self.inner.lock() {
             Ok(g) => g,
             Err(poisoned) => poisoned.into_inner(),
         };
+        let bind_address =
+            resolve_bind_address(guard.bind_address, &interfaces).map(|ip| ip.to_string());
 
-        let pairing_url = preferred_host.as_ref().map(|host| {
+        let pairing_url = bind_address.as_ref().map(|host| {
             format!(
                 "http://{}:{}/pair?token={}",
                 host, guard.port, guard.pairing_token
@@ -132,9 +141,8 @@ impl LanRelayManager {
         DesktopLanRelayState {
             enabled: guard.enabled,
             port: guard.port,
-            lan_addresses,
-            tailscale_addresses,
-            preferred_host,
+            interfaces,
+            bind_address,
             pairing_token: guard.pairing_token.clone(),
             pairing_url,
             qr_svg,
@@ -147,6 +155,7 @@ impl LanRelayManager {
         &self,
         enabled: bool,
         requested_port: Option<u16>,
+        requested_bind_address: Option<String>,
     ) -> DesktopLanRelayState {
         // Stop existing listener if any
         {
@@ -162,21 +171,31 @@ impl LanRelayManager {
             if let Some(p) = requested_port.filter(|p| *p >= 1024) {
                 guard.port = p;
             }
+            if let Some(ip) = requested_bind_address.and_then(|a| a.parse::<Ipv4Addr>().ok()) {
+                guard.bind_address = Some(ip);
+            }
         }
 
         if !enabled {
             return self.get_state();
         }
 
-        let port = {
+        let (port, stored_bind) = {
             let guard = match self.inner.lock() {
                 Ok(g) => g,
                 Err(p) => p.into_inner(),
             };
-            guard.port
+            (guard.port, guard.bind_address)
+        };
+        let Some(bind_ip) = resolve_bind_address(stored_bind, &discover_network_interfaces())
+        else {
+            if let Ok(mut guard) = self.inner.lock() {
+                guard.error = Some("No LAN or Tailscale interface found to listen on.".to_string());
+            }
+            return self.get_state();
         };
 
-        let bind_addr = SocketAddr::from(([0, 0, 0, 0], port));
+        let bind_addr = SocketAddr::from((bind_ip, port));
         match TcpListener::bind(bind_addr).await {
             Ok(listener) => {
                 let actual_port = listener.local_addr().map(|a| a.port()).unwrap_or(port);
@@ -204,7 +223,7 @@ impl LanRelayManager {
                     Err(p) => p.into_inner(),
                 };
                 guard.enabled = false;
-                guard.error = Some(format!("Could not bind 0.0.0.0:{port}: {err}"));
+                guard.error = Some(format!("Could not bind {bind_ip}:{port}: {err}"));
             }
         }
 
@@ -291,89 +310,149 @@ pub fn classify_ipv4_address(ip: Ipv4Addr) -> Option<&'static str> {
     None
 }
 
-pub fn discover_network_addresses() -> (Vec<String>, Vec<String>) {
-    let mut lan = Vec::new();
-    let mut tailscale = Vec::new();
-
-    // 1. Primary outbound LAN IP via UDP socket routing table lookup (no packets sent)
-    if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
-        if socket.connect("8.8.8.8:80").is_ok() {
-            if let Ok(SocketAddr::V4(local)) = socket.local_addr() {
-                let ip = *local.ip();
-                match classify_ipv4_address(ip) {
-                    Some("lan") => lan.push(ip.to_string()),
-                    Some("tailscale") => tailscale.push(ip.to_string()),
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    // 2. Also probe Tailscale CGNAT routing table (100.100.100.100:80 is Tailscale MagicDNS)
-    if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
-        if socket.connect("100.100.100.100:80").is_ok() {
-            if let Ok(SocketAddr::V4(local)) = socket.local_addr() {
-                let ip = *local.ip();
-                if classify_ipv4_address(ip) == Some("tailscale") {
-                    let s = ip.to_string();
-                    if !tailscale.contains(&s) {
-                        tailscale.push(s);
-                    }
-                }
-            }
-        }
-    }
-
-    // 3. Parse platform interface addresses for any additional adapters (Wi-Fi, Ethernet, Tailscale)
-    for ip in list_system_ipv4_addresses() {
-        let s = ip.to_string();
-        match classify_ipv4_address(ip) {
-            Some("lan") if !lan.contains(&s) => lan.push(s),
-            Some("tailscale") if !tailscale.contains(&s) => tailscale.push(s),
-            _ => {}
-        }
-    }
-
-    (lan, tailscale)
+/// Picks the stored address while its interface is still up, else the primary interface.
+fn resolve_bind_address(
+    stored: Option<Ipv4Addr>,
+    interfaces: &[DesktopLanRelayInterface],
+) -> Option<Ipv4Addr> {
+    let available = |ip: &Ipv4Addr| interfaces.iter().any(|i| i.address == ip.to_string());
+    stored
+        .filter(available)
+        .or_else(|| interfaces.first().and_then(|i| i.address.parse().ok()))
 }
 
-fn list_system_ipv4_addresses() -> Vec<Ipv4Addr> {
-    let mut out = Vec::new();
+/// Private LAN and Tailscale IPv4 interfaces, primary route first. Container
+/// bridges are left out because a phone cannot reach them.
+pub fn discover_network_interfaces() -> Vec<DesktopLanRelayInterface> {
+    let primary = UdpSocket::bind("0.0.0.0:0").ok().and_then(|socket| {
+        socket.connect("8.8.8.8:80").ok()?;
+        match socket.local_addr().ok()? {
+            SocketAddr::V4(local) => Some(*local.ip()),
+            SocketAddr::V6(_) => None,
+        }
+    });
+    let mut out: Vec<DesktopLanRelayInterface> = Vec::new();
+    for (name, ip) in list_system_ipv4_interfaces() {
+        let Some(kind) = classify_ipv4_address(ip) else {
+            continue;
+        };
+        if is_virtual_interface_name(&name) || out.iter().any(|i| i.address == ip.to_string()) {
+            continue;
+        }
+        out.push(DesktopLanRelayInterface {
+            name,
+            address: ip.to_string(),
+            kind: kind.to_string(),
+        });
+    }
+    // Primary route first, then LAN before Tailscale.
+    out.sort_by_key(|i| {
+        (
+            Some(i.address.as_str()) != primary.map(|p| p.to_string()).as_deref(),
+            i.kind != "lan",
+        )
+    });
+    out
+}
+
+fn is_virtual_interface_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    [
+        "docker", "br-", "veth", "virbr", "vmnet", "vboxnet", "cni", "flannel", "podman", "lxc",
+    ]
+    .iter()
+    .any(|prefix| lower.starts_with(prefix))
+        || lower.contains("vethernet")
+}
+
+fn list_system_ipv4_interfaces() -> Vec<(String, Ipv4Addr)> {
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
-        if let Ok(output) = std::process::Command::new("ipconfig")
+        std::process::Command::new("ipconfig")
             .creation_flags(0x0800_0000)
             .output()
-        {
-            if let Ok(text) = String::from_utf8(output.stdout) {
-                for line in text.lines() {
-                    if let Some((_, right)) = line.split_once(':') {
-                        let candidate = right.trim();
-                        if let Ok(ip) = candidate.parse::<Ipv4Addr>() {
-                            out.push(ip);
-                        }
-                    }
-                }
-            }
-        }
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|text| parse_ipconfig(&text))
+            .unwrap_or_default()
     }
     #[cfg(not(target_os = "windows"))]
     {
-        for (prog, args) in [
-            ("ip", &["-4", "-o", "addr", "show"][..]),
-            ("ifconfig", &[][..]),
-        ] {
-            if let Ok(output) = std::process::Command::new(prog).args(args).output() {
-                if let Ok(text) = String::from_utf8(output.stdout) {
-                    for token in text.split_whitespace() {
-                        let ip_str = token.split('/').next().unwrap_or(token);
-                        if let Ok(ip) = ip_str.parse::<Ipv4Addr>() {
-                            if !out.contains(&ip) {
-                                out.push(ip);
-                            }
-                        }
-                    }
+        let run = |prog: &str, args: &[&str]| {
+            std::process::Command::new(prog)
+                .args(args)
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+        };
+        let from_ip = run("ip", &["-4", "-o", "addr", "show"])
+            .map(|t| parse_ip_addr_oneline(&t))
+            .unwrap_or_default();
+        if !from_ip.is_empty() {
+            return from_ip;
+        }
+        run("ifconfig", &[])
+            .map(|t| parse_ifconfig(&t))
+            .unwrap_or_default()
+    }
+}
+
+/// `ip -4 -o addr show`: `2: wlan0    inet 192.168.1.5/24 brd 192.168.1.255 ...`
+#[cfg_attr(target_os = "windows", allow(dead_code))]
+fn parse_ip_addr_oneline(text: &str) -> Vec<(String, Ipv4Addr)> {
+    text.lines()
+        .filter_map(|line| {
+            let tokens: Vec<&str> = line.split_whitespace().collect();
+            let name = tokens.get(1)?.trim_end_matches(':').split('@').next()?;
+            let inet = tokens.iter().position(|t| *t == "inet")?;
+            let ip = tokens.get(inet + 1)?.split('/').next()?.parse().ok()?;
+            Some((name.to_string(), ip))
+        })
+        .collect()
+}
+
+/// BSD/macOS `ifconfig`: an unindented `en0: flags=...` header, then `\tinet 192.168.1.5 netmask ...`.
+#[cfg_attr(target_os = "windows", allow(dead_code))]
+fn parse_ifconfig(text: &str) -> Vec<(String, Ipv4Addr)> {
+    let mut out = Vec::new();
+    let mut current = String::new();
+    for line in text.lines() {
+        if !line.starts_with(char::is_whitespace) && !line.is_empty() {
+            current = line.split(':').next().unwrap_or("").trim().to_string();
+            continue;
+        }
+        let tokens: Vec<&str> = line.split_whitespace().collect();
+        if tokens.first() == Some(&"inet") {
+            let raw = tokens.get(1).map(|t| t.trim_start_matches("addr:"));
+            if let Some(ip) = raw.and_then(|t| t.parse().ok()) {
+                out.push((current.clone(), ip));
+            }
+        }
+    }
+    out
+}
+
+/// Windows `ipconfig`: `Wireless LAN adapter Wi-Fi:` then `   IPv4 Address. . . : 192.168.1.5(Preferred)`.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+fn parse_ipconfig(text: &str) -> Vec<(String, Ipv4Addr)> {
+    let mut out = Vec::new();
+    let mut current = String::new();
+    for line in text.lines() {
+        if !line.starts_with(char::is_whitespace) && line.trim_end().ends_with(':') {
+            let header = line.trim_end().trim_end_matches(':');
+            current = header
+                .split_once(" adapter ")
+                .map(|(_, name)| name)
+                .unwrap_or(header)
+                .to_string();
+            continue;
+        }
+        if line.contains("IPv4") {
+            if let Some((_, right)) = line.split_once(':') {
+                let candidate = right.trim().split('(').next().unwrap_or("").trim();
+                if let Ok(ip) = candidate.parse() {
+                    out.push((current.clone(), ip));
                 }
             }
         }
@@ -1100,33 +1179,24 @@ pub fn render_qr_svg(payload: &str, border: usize) -> Option<String> {
         right -= 2;
     }
 
-    // Format information for ECC Level L (01) + Mask 0 (000) => 0x77C4
+    // Format information for ECC Level L (01) + Mask 0 (000) => 0x77C4.
+    // Bit i goes to the positions ISO/IEC 18004 fixes for it (row, column).
     let format_bits: u16 = 0x77C4;
-    let format_coords_a = [
-        (8, 0),
-        (8, 1),
-        (8, 2),
-        (8, 3),
-        (8, 4),
-        (8, 5),
-        (8, 7),
-        (8, 8),
-        (7, 8),
-        (5, 8),
-        (4, 8),
-        (3, 8),
-        (2, 8),
-        (1, 8),
-        (0, 8),
-    ];
-    for (i, &(r, c)) in format_coords_a.iter().enumerate() {
-        modules[r][c] = ((format_bits >> i) & 1) != 0;
+    let bit = |i: usize| ((format_bits >> i) & 1) != 0;
+    for i in 0..6 {
+        modules[i][8] = bit(i);
     }
-    for i in 0..7 {
-        modules[n - 1 - i][8] = ((format_bits >> i) & 1) != 0;
+    modules[7][8] = bit(6);
+    modules[8][8] = bit(7);
+    modules[8][7] = bit(8);
+    for i in 9..15 {
+        modules[8][14 - i] = bit(i);
     }
-    for i in 7..15 {
-        modules[8][n - 15 + i] = ((format_bits >> i) & 1) != 0;
+    for i in 0..8 {
+        modules[8][n - 1 - i] = bit(i);
+    }
+    for i in 8..15 {
+        modules[n - 15 + i][8] = bit(i);
     }
 
     // Render SVG path
@@ -1171,6 +1241,32 @@ mod tests {
         );
         assert_eq!(classify_ipv4_address(Ipv4Addr::new(127, 0, 0, 1)), None);
         assert_eq!(classify_ipv4_address(Ipv4Addr::new(169, 254, 1, 1)), None);
+    }
+
+    #[test]
+    fn parses_interface_names_and_skips_broadcast_addresses() {
+        let ip = "1: lo    inet 127.0.0.1/8 scope host lo\\       valid_lft forever\n\
+                  3: wlp0s20f3    inet 192.168.110.133/24 brd 192.168.110.255 scope global\n";
+        assert_eq!(
+            parse_ip_addr_oneline(ip),
+            vec![
+                ("lo".to_string(), Ipv4Addr::new(127, 0, 0, 1)),
+                ("wlp0s20f3".to_string(), Ipv4Addr::new(192, 168, 110, 133)),
+            ]
+        );
+        let mac = "en0: flags=8863<UP> mtu 1500\n\tinet 10.0.0.7 netmask 0xffffff00 broadcast 10.0.0.255\n";
+        assert_eq!(
+            parse_ifconfig(mac),
+            vec![("en0".to_string(), Ipv4Addr::new(10, 0, 0, 7))]
+        );
+        let win = "Wireless LAN adapter Wi-Fi:\r\n\r\n   IPv4 Address. . . . . . . . . . . : 192.168.1.20(Preferred)\r\n   Subnet Mask . . . . . . . . . . . : 255.255.255.0\r\n";
+        assert_eq!(
+            parse_ipconfig(win),
+            vec![("Wi-Fi".to_string(), Ipv4Addr::new(192, 168, 1, 20))]
+        );
+        assert!(is_virtual_interface_name("docker0"));
+        assert!(is_virtual_interface_name("br-1a2b3c"));
+        assert!(!is_virtual_interface_name("tailscale0"));
     }
 
     #[test]

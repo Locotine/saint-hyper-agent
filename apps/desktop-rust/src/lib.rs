@@ -1069,7 +1069,7 @@ async fn desktop_lan_relay_set_enabled(
 ) -> Result<DesktopLanRelayState, String> {
     let next = state
         .lan_relay
-        .set_enabled(input.enabled, input.port)
+        .set_enabled(input.enabled, input.port, input.bind_address)
         .await;
     emit_window_event(&window, "desktop:lan-relay-state", &next);
     Ok(next)

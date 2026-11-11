@@ -1100,12 +1100,19 @@ export interface DesktopLanRelayClientSession {
   readonly lastSeenAt: string;
 }
 
+export interface DesktopLanRelayInterface {
+  readonly name: string;
+  readonly address: string;
+  readonly kind: "lan" | "tailscale";
+}
+
 export interface DesktopLanRelayState {
   readonly enabled: boolean;
   readonly port: number;
-  readonly lanAddresses: readonly string[];
-  readonly tailscaleAddresses: readonly string[];
-  readonly preferredHost: string | null;
+  /** Private LAN and Tailscale IPv4 interfaces, primary route first. */
+  readonly interfaces: readonly DesktopLanRelayInterface[];
+  /** Address the relay listens on (never 0.0.0.0); null when no interface is up. */
+  readonly bindAddress: string | null;
   readonly pairingToken: string;
   readonly pairingUrl: string | null;
   readonly qrSvg: string | null;
@@ -1270,6 +1277,7 @@ export interface DesktopBridge {
     setEnabled: (input: {
       readonly enabled: boolean;
       readonly port?: number;
+      readonly bindAddress?: string;
     }) => Promise<DesktopLanRelayState>;
     rotatePairingToken: () => Promise<DesktopLanRelayState>;
     revokeSession: (input: { readonly sessionId: string }) => Promise<DesktopLanRelayState>;
