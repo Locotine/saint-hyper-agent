@@ -1408,9 +1408,17 @@ impl RemoteSshManager {
                 .map(|p| Box::new(p) as Box<dyn std::io::Read + Send>),
         );
         let deadline = Instant::now() + timeout;
+        // A disconnect or stop while this runs ends it at once (a stop's own scripts start later).
+        let generation = self.generation(&entry.host);
+        let mut cancelled = false;
         let status = loop {
             match child.try_wait() {
                 Ok(Some(status)) => break Some(status),
+                Ok(None) if self.generation(&entry.host) != generation => {
+                    cancelled = true;
+                    Self::kill_and_reap(child);
+                    break None;
+                }
                 Ok(None) if Instant::now() < deadline => {
                     std::thread::sleep(Duration::from_millis(100))
                 }
@@ -1427,6 +1435,9 @@ impl RemoteSshManager {
             stdout: stdout.join().unwrap_or_default(),
             stderr: stderr.join().unwrap_or_default(),
         };
+        if cancelled {
+            return Err(CONNECT_CANCELLED.to_string());
+        }
         if status.is_none() {
             return Err(format!(
                 "ssh to {} timed out.\n{}",
@@ -1461,7 +1472,12 @@ impl RemoteSshManager {
             .spawn()
             .map_err(|err| format!("Failed to start SSH tunnel: {err}"))?;
         let deadline = Instant::now() + Duration::from_secs(30);
+        let generation = self.generation(&entry.host);
         loop {
+            if self.generation(&entry.host) != generation {
+                Self::kill_and_reap(child);
+                return Err(CONNECT_CANCELLED.to_string());
+            }
             if let Ok(Some(status)) = child.try_wait() {
                 let mut stderr = String::new();
                 if let Some(mut pipe) = child.stderr.take() {
