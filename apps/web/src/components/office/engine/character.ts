@@ -1,29 +1,47 @@
 // FILE: character.ts
-// Purpose: One office character: the buffalo rig stepped at 24fps through animation phases,
-//          tile-path walking at constant speed, name label and speech bubble. Every awaited
-//          step can be interrupted so a newer behaviour script takes over immediately.
+// Purpose: One office buffalo: an AnimatedSprite from its skin atlas, tile-path walking at
+//          constant speed, and a floating overlay (nameplate with provider icon, tier badge,
+//          status bubbles, speech). Every awaited step can be interrupted so a newer behaviour
+//          script takes over immediately.
 // Layer: Web office renderer
 // Exports: Character, FEET_OFFSET
 
-import { Container, Graphics, Text } from "pixi.js";
+import {
+  AnimatedSprite,
+  Container,
+  Graphics,
+  type NineSliceSprite,
+  Sprite,
+  Text,
+  type Ticker,
+} from "pixi.js";
 
 import {
-  ANIM_FPS,
-  ANIMS,
   WALK_SPEED,
-  phaseFrames,
-  type AnimPhase,
+  animFps,
+  walkDirection,
   type OfficeAnim,
+  type OfficeDirection,
 } from "../officeBehavior.logic";
-import { createBuffaloRig, poseFor, type BuffaloRig } from "./buffaloRig";
+import type { Point } from "../officeLayout.logic";
+import {
+  BUBBLE_SPRITES,
+  TYPING_BUBBLE_FRAMES,
+  type OfficeBubble,
+  type SkinId,
+} from "../officeModel.logic";
+import type { OfficeAssets } from "./officeAssets";
 
 /** Feet sit this far below a tile's centre so characters stand on the lower half of the tile. */
 export const FEET_OFFSET = 14;
-
-interface Point {
-  readonly x: number;
-  readonly y: number;
-}
+/** The overlay floats above the horns; seated, it clears the raised monitor too. */
+const OVERLAY_Y = -66;
+const SEATED_OVERLAY_Y = -82;
+/** Buffaloes read a touch larger than the furniture, as in the reference image. */
+const BODY_SCALE = 1.15;
+const NAMEPLATE_BORDER = 10;
+const ICON_SIZE = 14;
+const BUBBLE_SCALE = 0.75;
 
 type Waiter = () => void;
 
@@ -34,111 +52,158 @@ export interface CharacterStyle {
 
 export class Character {
   readonly container = new Container();
-  private readonly rig: BuffaloRig;
-  private readonly body = new Container();
-  private readonly label = new Container();
-  private readonly labelText: Text;
-  private readonly labelBg = new Graphics();
-  private readonly bubble = new Container();
-  private readonly bubbleText: Text;
-  private readonly bubbleBg = new Graphics();
+  /** Lives in the engine's UI layer so desks in front never cover it. */
+  readonly overlay = new Container();
+  private readonly body: AnimatedSprite;
   private readonly selection = new Graphics();
+  private readonly plate: Container = new Container();
+  private readonly plateBg: NineSliceSprite;
+  private readonly plateText: Text;
+  private readonly plateIcon: Sprite;
+  private badge: Sprite | null = null;
+  private readonly bubbles = new Container();
+  private readonly typing: AnimatedSprite;
+  private readonly speech = new Container();
+  private readonly speechBg: NineSliceSprite;
+  private readonly speechText: Text;
 
   x = 0;
   y = 0;
   facing: 1 | -1 = 1;
   seated = false;
-  anim: OfficeAnim = "standby";
-  private phase: AnimPhase = "loop";
-  private frames: number[] = phaseFrames("standby", "loop");
-  private frameIndex = 0;
-  private frameAcc = 0;
-  private looping = true;
-  private phaseWaiter: Waiter | null = null;
+  /** Fixed zIndex inside a desk group while seated; null sorts by feet y on the floor. */
+  layerZ: number | null = null;
+  direction: OfficeDirection = "SW";
+  anim: OfficeAnim = "idle";
+  private skin: SkinId;
+  private walkAnim: OfficeAnim = "walk";
+  private onceWaiter: Waiter | null = null;
   private path: Point[] = [];
   private arriveWaiter: Waiter | null = null;
-  private tween: { from: Point; to: Point } | null = null;
-  private bubbleUntil = 0;
-  private bubblePinned: string | null = null;
+  private speechUntil = 0;
   private clock = 0;
+  private bubbleKey = "";
 
-  constructor(style: CharacterStyle) {
-    this.rig = createBuffaloRig();
-    this.body.addChild(this.rig.root);
-    this.labelText = new Text({
-      text: "",
-      style: { fontFamily: style.fontFamily, fontSize: style.fontSize, fill: 0xffffff },
-    });
-    this.labelText.resolution = 3;
-    this.labelText.anchor.set(0.5, 0);
-    this.label.addChild(this.labelBg, this.labelText);
-    this.bubbleText = new Text({
-      text: "",
-      style: { fontFamily: style.fontFamily, fontSize: style.fontSize, fill: 0x1c1c1c },
-    });
-    this.bubbleText.resolution = 3;
-    this.bubbleText.anchor.set(0.5, 1);
-    this.bubble.addChild(this.bubbleBg, this.bubbleText);
-    this.bubble.visible = false;
-    this.container.addChild(this.selection, this.body, this.label, this.bubble);
+  constructor(
+    private readonly assets: OfficeAssets,
+    skin: SkinId,
+    style: CharacterStyle,
+  ) {
+    this.skin = skin;
+    this.body = new AnimatedSprite(assets.animation(skin, "SW", "idle"));
+    this.body.autoUpdate = false;
+    this.body.anchor.set(0.5, 0.85);
+    this.body.scale.set(BODY_SCALE);
+    this.container.addChild(this.selection, this.body);
     this.container.eventMode = "static";
     this.container.cursor = "pointer";
-    this.applyFrame();
+
+    this.plateBg = assets.nineSlice("ui/nameplate_light_9slice.png", NAMEPLATE_BORDER);
+    this.plateIcon = assets.sprite("ui/provider_local.png");
+    this.plateIcon.width = ICON_SIZE;
+    this.plateIcon.height = ICON_SIZE;
+    this.plateText = new Text({
+      text: "",
+      style: { fontFamily: style.fontFamily, fontSize: style.fontSize, fill: 0x1e2028 },
+    });
+    this.plateText.resolution = 3;
+    this.plateText.anchor.set(0, 0.5);
+    this.plate.addChild(this.plateBg, this.plateIcon, this.plateText);
+
+    this.typing = assets.animated(TYPING_BUBBLE_FRAMES);
+    this.typing.autoUpdate = false;
+    this.typing.animationSpeed = 4 / 60;
+    this.typing.play();
+
+    this.speechBg = assets.nineSlice("ui/speech_frame_light_9slice.png", 12);
+    this.speechText = new Text({
+      text: "",
+      style: { fontFamily: style.fontFamily, fontSize: style.fontSize, fill: 0x1e2028 },
+    });
+    this.speechText.resolution = 3;
+    this.speechText.anchor.set(0.5, 0.5);
+    this.speech.addChild(this.speechBg, this.speechText);
+    this.speech.visible = false;
+
+    this.overlay.addChild(this.plate, this.bubbles, this.speech);
+    this.overlay.eventMode = "none";
+    this.play("SW", "idle");
   }
 
-  setColors(scarf: number, horn: number): void {
-    this.rig.setColors(scarf, horn);
+  setSkin(skin: SkinId): void {
+    if (skin === this.skin) return;
+    this.skin = skin;
+    this.play(this.direction, this.anim, this.body.loop);
   }
 
-  setLabel(text: string): void {
-    if (this.labelText.text === text) return;
-    this.labelText.text = text;
-    const w = this.labelText.width + 12;
-    const h = this.labelText.height + 4;
-    this.labelBg
-      .clear()
-      .roundRect(-w / 2, -2, w, h, h / 2)
-      .fill({ color: 0x1c1c1c, alpha: 0.78 });
+  /** Nameplate text, provider icon and tier badge (null for specialists). */
+  setLabel(text: string, providerIcon: string, badge: string | null): void {
+    this.plateIcon.texture = this.assets.texture(providerIcon);
+    if (this.badge?.label !== badge) {
+      this.badge?.destroy();
+      this.badge = null;
+      if (badge) {
+        this.badge = this.assets.sprite(badge);
+        this.badge.label = badge;
+        this.overlay.addChild(this.badge);
+      }
+    }
+    this.plateText.text = text;
+    const pad = 7;
+    const w = pad + ICON_SIZE + 4 + this.plateText.width + pad;
+    const h = Math.max(20, this.plateText.height + 6);
+    this.plateBg.width = w;
+    this.plateBg.height = h;
+    this.plateBg.position.set(-w / 2, -h);
+    this.plateIcon.position.set(-w / 2 + pad + ICON_SIZE / 2, -h / 2);
+    this.plateText.position.set(-w / 2 + pad + ICON_SIZE + 4, -h / 2);
+    if (this.badge) this.badge.position.set(-w / 2 - 14, -h / 2 + 10);
+    this.layoutBubbles(w, h);
   }
 
-  /** Keeps label and bubble a constant on-screen size whatever the zoom. */
+  setBubbles(list: readonly OfficeBubble[]): void {
+    const key = list.join(",");
+    if (key === this.bubbleKey) return;
+    this.bubbleKey = key;
+    this.bubbles.removeChildren().forEach((child) => {
+      if (child !== this.typing) child.destroy();
+    });
+    for (const bubble of list) {
+      const sprite = bubble === "typing" ? this.typing : this.assets.sprite(BUBBLE_SPRITES[bubble]);
+      sprite.anchor.set(0.5, 0.95);
+      sprite.scale.set(BUBBLE_SCALE);
+      this.bubbles.addChild(sprite);
+    }
+    this.layoutBubbles(this.plateBg.width, this.plateBg.height);
+  }
+
+  private layoutBubbles(plateWidth: number, plateHeight: number): void {
+    this.bubbles.children.forEach((child, i) => child.position.set(i * 30, 0));
+    this.bubbles.position.set(plateWidth / 2 - 4, -plateHeight - 2);
+    this.speech.position.set(0, -plateHeight - (this.bubbles.children.length > 0 ? 34 : 4));
+  }
+
+  /** Keeps the overlay a constant on-screen size whatever the zoom. */
   setUiScale(scale: number): void {
-    this.label.scale.set(scale);
-    this.bubble.scale.set(scale);
-    this.label.position.set(0, 6);
-    this.bubble.position.set(0, -92);
+    this.overlay.scale.set(scale);
   }
 
   setSelected(selected: boolean): void {
     this.selection.clear();
-    if (selected) this.selection.ellipse(0, 0, 26, 9).stroke({ color: 0x4f8ef7, width: 2.5 });
+    if (selected) this.selection.ellipse(0, 0, 22, 8).stroke({ color: 0x4f8ef7, width: 2.5 });
   }
 
-  /** Shows `text` for `seconds`; a pinned text (status icon) stays until cleared. */
+  /** Shows `text` in a speech frame for `seconds`. */
   speak(text: string, seconds: number): void {
-    this.bubbleUntil = this.clock + seconds;
-    this.drawBubble(text);
-  }
-
-  pin(text: string | null): void {
-    this.bubblePinned = text;
-    if (text) this.drawBubble(text);
-    else if (this.clock >= this.bubbleUntil) this.bubble.visible = false;
-  }
-
-  private drawBubble(text: string): void {
-    this.bubbleText.text = text;
-    const w = Math.max(24, this.bubbleText.width + 14);
-    const h = this.bubbleText.height + 8;
-    this.bubbleBg
-      .clear()
-      .roundRect(-w / 2, -h - 2, w, h, 8)
-      .fill(0xffffff)
-      .stroke({ color: 0x000000, alpha: 0.12, width: 1 })
-      .poly([-5, -3, 5, -3, 0, 4])
-      .fill(0xffffff);
-    this.bubbleText.position.set(0, -6);
-    this.bubble.visible = true;
+    this.speechUntil = this.clock + seconds;
+    this.speechText.text = text;
+    const w = this.speechText.width + 20;
+    const h = this.speechText.height + 12;
+    this.speechBg.width = w;
+    this.speechBg.height = h;
+    this.speechBg.position.set(-w / 2, -h);
+    this.speechText.position.set(0, -h / 2);
+    this.speech.visible = true;
   }
 
   place(point: Point): void {
@@ -151,56 +216,44 @@ export class Character {
   /** Wakes every pending wait so the script that owned them can notice it was superseded. */
   interrupt(): void {
     this.path = [];
-    this.tween = null;
-    const waiters = [this.phaseWaiter, this.arriveWaiter];
-    this.phaseWaiter = null;
+    const waiters = [this.onceWaiter, this.arriveWaiter];
+    this.onceWaiter = null;
     this.arriveWaiter = null;
+    delete this.body.onComplete;
     for (const waiter of waiters) waiter?.();
   }
 
-  /** Plays the whole animation once; resolves at its last frame. */
-  playOnce(anim: OfficeAnim, tween?: { from: Point; to: Point }): Promise<void> {
-    this.tween = tween ?? null;
-    this.setFrames(
-      anim,
-      "loop",
-      Array.from({ length: ANIMS[anim].frames }, (_, i) => i),
-      false,
-    );
-    return new Promise((resolve) => {
-      this.phaseWaiter = resolve;
-    });
+  private play(direction: OfficeDirection, anim: OfficeAnim, loop = true): void {
+    this.direction = direction;
+    this.anim = anim;
+    this.body.textures = this.assets.animation(this.skin, direction, anim);
+    this.body.animationSpeed = animFps(anim) / 60;
+    this.body.loop = loop;
+    this.body.gotoAndPlay(0);
   }
 
-  /** Plays the enter segment (if any) then loops; resolves once the loop starts. */
-  playLoop(anim: OfficeAnim): Promise<void> {
-    this.tween = null;
-    const enter = phaseFrames(anim, "enter");
-    if (enter.length === 0) {
-      this.setFrames(anim, "loop", phaseFrames(anim, "loop"), true);
-      return Promise.resolve();
-    }
-    this.setFrames(anim, "enter", enter, false);
+  /** Loops an animation until something else plays. */
+  playLoop(direction: OfficeDirection, anim: OfficeAnim): void {
+    delete this.body.onComplete;
+    this.play(direction, anim);
+  }
+
+  /** Plays an animation once; resolves at its last frame. */
+  playOnce(direction: OfficeDirection, anim: OfficeAnim): Promise<void> {
+    this.play(direction, anim, false);
     return new Promise((resolve) => {
-      this.phaseWaiter = () => {
-        this.setFrames(anim, "loop", phaseFrames(anim, "loop"), true);
+      this.onceWaiter = resolve;
+      this.body.onComplete = () => {
+        this.onceWaiter = null;
         resolve();
       };
     });
   }
 
-  /** Plays the current loop's exit segment, if it has one. */
-  playExit(): Promise<void> {
-    const exit = this.phase === "loop" ? phaseFrames(this.anim, "exit") : [];
-    if (exit.length === 0) return Promise.resolve();
-    this.setFrames(this.anim, "exit", exit, false);
-    return new Promise((resolve) => {
-      this.phaseWaiter = resolve;
-    });
-  }
-
-  walk(points: readonly Point[]): Promise<void> {
+  /** Walks the points at WALK_SPEED with `anim` (walk, coffee_walk or carry_report). */
+  walk(points: readonly Point[], anim: OfficeAnim = "walk"): Promise<void> {
     this.path = [...points];
+    this.walkAnim = anim;
     if (this.path.length === 0) return Promise.resolve();
     return new Promise((resolve) => {
       this.arriveWaiter = resolve;
@@ -211,47 +264,12 @@ export class Character {
     return this.path.length > 0;
   }
 
-  private setFrames(anim: OfficeAnim, phase: AnimPhase, frames: number[], loop: boolean): void {
-    this.anim = anim;
-    this.phase = phase;
-    this.frames = frames.length > 0 ? frames : [0];
-    this.frameIndex = 0;
-    this.frameAcc = 0;
-    this.looping = loop;
-    this.applyFrame();
-  }
-
-  tick(dt: number): void {
+  tick(dt: number, ticker: Ticker): void {
     this.clock += dt;
-    if (this.bubble.visible && !this.bubblePinned && this.clock >= this.bubbleUntil) {
-      this.bubble.visible = false;
-    } else if (this.bubblePinned && this.clock >= this.bubbleUntil) {
-      if (this.bubbleText.text !== this.bubblePinned) this.drawBubble(this.bubblePinned);
-    }
-
+    if (this.speech.visible && this.clock >= this.speechUntil) this.speech.visible = false;
     if (this.path.length > 0) this.stepWalk(dt);
-
-    this.frameAcc += dt * ANIM_FPS;
-    while (this.frameAcc >= 1) {
-      this.frameAcc -= 1;
-      if (this.frameIndex < this.frames.length - 1) {
-        this.frameIndex += 1;
-      } else if (this.looping) {
-        this.frameIndex = 0;
-      } else {
-        const waiter = this.phaseWaiter;
-        this.phaseWaiter = null;
-        this.frameAcc = 0;
-        waiter?.();
-        break;
-      }
-    }
-    if (this.tween && this.phase === "loop" && !this.looping) {
-      const t = Math.min(1, (this.frameIndex + 1) / this.frames.length);
-      this.x = this.tween.from.x + (this.tween.to.x - this.tween.from.x) * t;
-      this.y = this.tween.from.y + (this.tween.to.y - this.tween.from.y) * t;
-    }
-    this.applyFrame();
+    this.body.update(ticker);
+    if (this.typing.parent) this.typing.update(ticker);
     this.syncTransform();
   }
 
@@ -262,14 +280,13 @@ export class Character {
       const dx = target.x - this.x;
       const dy = target.y - this.y;
       const distance = Math.hypot(dx, dy);
-      // Flip only on a real horizontal move; vertical steps keep the last facing.
       if (Math.abs(dx) > 0.5) this.facing = dx > 0 ? 1 : -1;
-      const walkAnim: OfficeAnim = Math.abs(dx) >= Math.abs(dy) ? "walking_h" : "walking_up";
-      if (this.anim !== walkAnim) {
+      const direction = walkDirection(dx, dy, this.facing);
+      if (this.anim !== this.walkAnim || this.direction !== direction) {
         // Keep the stride phase when turning a corner so the legs do not snap.
-        const keep = this.anim === "walking_h" || this.anim === "walking_up" ? this.frameIndex : 0;
-        this.setFrames(walkAnim, "loop", phaseFrames(walkAnim, "loop"), true);
-        this.frameIndex = keep % this.frames.length;
+        const keep = this.anim === this.walkAnim ? this.body.currentFrame : 0;
+        this.play(direction, this.walkAnim);
+        this.body.gotoAndPlay(keep % this.body.totalFrames);
       }
       if (distance <= budget) {
         this.x = target.x;
@@ -283,26 +300,25 @@ export class Character {
       }
     }
     if (this.path.length === 0) {
-      this.setFrames("standby", "loop", phaseFrames("standby", "loop"), true);
+      const holding = this.walkAnim === "coffee_walk";
+      this.play(this.direction, holding ? "coffee_idle" : "idle");
       const waiter = this.arriveWaiter;
       this.arriveWaiter = null;
       waiter?.();
     }
   }
 
-  private applyFrame(): void {
-    this.rig.apply(poseFor(this.anim, this.frames[this.frameIndex] ?? 0));
-  }
-
   private syncTransform(): void {
     // Sub-pixel positions: rounding at a fractional zoom makes walking shimmer.
     this.container.position.set(this.x, this.y);
-    this.body.scale.x = this.facing;
-    this.container.zIndex = this.y;
+    this.overlay.position.set(this.x, this.y + (this.seated ? SEATED_OVERLAY_Y : OVERLAY_Y));
+    this.container.zIndex = this.layerZ ?? this.y;
   }
 
   destroy(): void {
     this.interrupt();
+    if (!this.typing.parent) this.typing.destroy();
     this.container.destroy({ children: true });
+    this.overlay.destroy({ children: true });
   }
 }

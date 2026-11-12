@@ -1,5 +1,7 @@
 // FILE: useOfficeState.ts
-// Purpose: Reads Saint's thread summaries and turns them into office desks, one per thread.
+// Purpose: Reads Saint's thread summaries and turns them into office desks, one per thread:
+//          tier (root, nested, specialist), skin, provider and duty. In development a mock
+//          office can replace the store data.
 // Layer: Web office hook over the normalized store
 // Exports: useOfficeState, OfficeDeskView
 
@@ -12,11 +14,26 @@ import { useStore, type AppState } from "~/store";
 import { createSidebarThreadSummariesSelector } from "~/storeSelectors";
 import type { SidebarThreadSummary } from "~/types";
 
-import type { OfficeEngineAgent } from "./engine/officeEngine";
-import { assignOfficeDesks, deriveDuty, threadProvider, type DutyState } from "./officeModel.logic";
+import type { OfficeEngineAgent, OfficeEngineState } from "./engine/officeEngine";
+import { firstLeafDesk } from "./officeLayout.logic";
+import { mockOffice } from "./officeMock";
+import {
+  EMPTY_ASSIGNMENT,
+  ROOT_SKIN,
+  assignOfficeDesks,
+  deriveDuty,
+  inferAgentSkin,
+  threadFinishedMs,
+  threadProvider,
+  type DutyState,
+  type OfficeAssignment,
+  type OfficeThread,
+  type OfficeTier,
+} from "./officeModel.logic";
 
 export interface OfficeDeskView {
-  readonly desk: number;
+  /** Desk index, or null for an agent without a desk (mock agents pinned at an amenity). */
+  readonly desk: number | null;
   readonly role: string;
   readonly thread: SidebarThreadSummary | null;
   readonly duty: DutyState;
@@ -26,7 +43,6 @@ export interface OfficeDeskView {
 }
 
 const selectSidebarThreads = createSidebarThreadSummariesSelector();
-const EMPTY_DESKS: readonly (ThreadId | null)[] = [];
 const LABEL_MAX = 14;
 const SPEECH_MAX = 28;
 /** Recency filtering only needs coarse time. */
@@ -42,36 +58,73 @@ function latestActivitySummary(state: AppState, threadId: ThreadId): string {
   return (lastId && state.activityByThreadId?.[threadId]?.[lastId]?.summary) || "";
 }
 
-export function useOfficeState(): {
+/** Desk index, tier and roster role for every seated thread. */
+function seatsOf(assignment: OfficeAssignment, roaming: readonly ThreadId[]) {
+  const seats: { threadId: ThreadId; desk: number | null; tier: OfficeTier; role: string }[] = [];
+  if (assignment.root) {
+    seats.push({ threadId: assignment.root, desk: 0, tier: "root", role: "Supervisor" });
+  }
+  assignment.nested.forEach((threadId, i) =>
+    seats.push({ threadId, desk: 1 + i, tier: "nested", role: "Sub-supervisor" }),
+  );
+  const leafStart = firstLeafDesk(assignment.nested.length);
+  assignment.leaves.forEach((threadId, i) => {
+    if (threadId)
+      seats.push({ threadId, desk: leafStart + i, tier: "leaf", role: `Desk ${i + 1}` });
+  });
+  for (const threadId of roaming) seats.push({ threadId, desk: null, tier: "leaf", role: "Away" });
+  return seats;
+}
+
+export function useOfficeState(options: { readonly demo?: boolean } = {}): {
   readonly desks: readonly OfficeDeskView[];
   readonly agents: readonly OfficeEngineAgent[];
+  readonly layout: OfficeEngineState["layout"];
 } {
-  const threads = useStore(selectSidebarThreads);
-  const coordinatorThreadIds = useCoordinatorThreadIds();
+  const demo = import.meta.env.DEV && options.demo === true;
+  const storeThreads = useStore(selectSidebarThreads);
+  const storeCoordinators = useCoordinatorThreadIds();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
     return () => window.clearInterval(timer);
   }, []);
 
-  const previousDesks = useRef<readonly (ThreadId | null)[]>(EMPTY_DESKS);
+  const mock = useMemo(() => (demo ? mockOffice(Date.now()) : null), [demo]);
+  const threads: readonly OfficeThread[] = mock?.threads ?? storeThreads;
+  const coordinatorThreadIds = mock?.coordinatorThreadIds ?? storeCoordinators;
+
+  const previousDesks = useRef<OfficeAssignment>(EMPTY_ASSIGNMENT);
   const assignment = useMemo(
     () =>
-      assignOfficeDesks({ threads, coordinatorThreadIds, previous: previousDesks.current, now }),
-    [threads, coordinatorThreadIds, now],
+      assignOfficeDesks({
+        threads: mock ? threads.filter((thread) => !mock.roaming.has(thread.id)) : threads,
+        coordinatorThreadIds,
+        previous: mock?.seating ?? previousDesks.current,
+        now,
+      }),
+    [threads, coordinatorThreadIds, mock, now],
   );
   useEffect(() => {
-    previousDesks.current = assignment.desks;
-  }, [assignment.desks]);
+    previousDesks.current = assignment;
+  }, [assignment]);
 
+  const seats = useMemo(
+    () =>
+      seatsOf(
+        assignment,
+        mock
+          ? threads.filter((thread) => mock.roaming.has(thread.id)).map((thread) => thread.id)
+          : [],
+      ),
+    [assignment, mock, threads],
+  );
   // Joined into one string so the selector result is stable between unrelated store updates.
-  const deskIdsKey = assignment.desks.join("|");
+  const deskIdsKey = seats.map((seat) => seat.threadId).join("|");
   const speechKey = useStore(
     useCallback(
       (state: AppState) =>
-        assignment.desks
-          .map((threadId) => (threadId ? latestActivitySummary(state, threadId) : ""))
-          .join("\u0000"),
+        seats.map((seat) => latestActivitySummary(state, seat.threadId)).join("\u0000"),
       // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the desk ids
       [deskIdsKey],
     ),
@@ -79,40 +132,56 @@ export function useOfficeState(): {
 
   return useMemo(() => {
     const byId = new Map(threads.map((thread) => [thread.id, thread]));
+    const dutyById = new Map(threads.map((thread) => [thread.id, deriveDuty(thread)]));
+    const workingParents = new Set(
+      threads
+        .filter((thread) => thread.parentThreadId && dutyById.get(thread.id) === "working")
+        .map((thread) => thread.parentThreadId as string),
+    );
     const speeches = speechKey.split("\u0000");
-    const desks = assignment.desks.map((threadId, desk): OfficeDeskView => {
-      const thread = threadId ? (byId.get(threadId) ?? null) : null;
-      const speech = speeches[desk] ? truncate(speeches[desk], SPEECH_MAX) : null;
-      return {
-        desk,
-        role: desk === 0 ? "Supervisor" : `Desk ${desk + 1}`,
-        thread,
-        duty: thread ? deriveDuty(thread) : "idle",
-        provider: thread ? threadProvider(thread) : null,
-        status: thread
-          ? resolveThreadStatusPill({
-              thread,
-              hasPendingApprovals: thread.hasPendingApprovals,
-              hasPendingUserInput: thread.hasPendingUserInput,
-            })
-          : null,
+    const rows = seats.flatMap((seat, i) => {
+      const thread = byId.get(seat.threadId);
+      if (!thread) return [];
+      const duty = dutyById.get(thread.id) ?? "idle";
+      const speech = speeches[i] ? truncate(speeches[i], SPEECH_MAX) : null;
+      const provider = threadProvider(thread);
+      const demoActivity = mock?.activities.get(thread.id);
+      const desk: OfficeDeskView = {
+        desk: seat.desk,
+        role: seat.role,
+        // Mock threads carry only the fields the office reads.
+        thread: thread as SidebarThreadSummary,
+        duty,
+        provider,
+        status: resolveThreadStatusPill({
+          thread,
+          hasPendingApprovals: thread.hasPendingApprovals,
+          hasPendingUserInput: thread.hasPendingUserInput,
+        }),
         speech,
       };
+      const agent: OfficeEngineAgent = {
+        threadId: thread.id,
+        desk: seat.desk,
+        tier: seat.tier,
+        skin: seat.tier === "root" ? ROOT_SKIN : inferAgentSkin(thread),
+        provider,
+        label: truncate(thread.title, LABEL_MAX),
+        duty,
+        speech,
+        parentThreadId: thread.parentThreadId ?? null,
+        hasWorkingChildren: workingParents.has(thread.id),
+        finishedAt: threadFinishedMs(thread),
+        ...(demoActivity ? { demoActivity } : {}),
+      };
+      return [{ desk, agent }];
     });
-    const agents = desks.flatMap((desk): OfficeEngineAgent[] =>
-      desk.thread
-        ? [
-            {
-              threadId: desk.thread.id,
-              desk: desk.desk,
-              label: truncate(desk.thread.title, LABEL_MAX),
-              duty: desk.duty,
-              speech: desk.speech,
-              parentThreadId: desk.thread.parentThreadId ?? null,
-            },
-          ]
-        : [],
-    );
-    return { desks: desks.filter((desk) => desk.thread !== null), agents };
-  }, [assignment, speechKey, threads]);
+    return {
+      desks: rows
+        .map((row) => row.desk)
+        .toSorted((a, b) => (a.desk ?? Infinity) - (b.desk ?? Infinity)),
+      agents: rows.map((row) => row.agent),
+      layout: { nested: assignment.nested.length, leaves: assignment.leaves.length },
+    };
+  }, [assignment, seats, speechKey, threads, mock]);
 }

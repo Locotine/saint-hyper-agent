@@ -3,21 +3,26 @@ import { describe, expect, it } from "vitest";
 
 import { findPath } from "./astar";
 import {
-  ANIMS,
-  agentColors,
   dutyAction,
-  hueDistance,
   idleCandidates,
-  phaseFrames,
   pickIdleActivity,
+  seatedAnim,
   shouldLeave,
   standbySeconds,
+  walkDirection,
 } from "./officeBehavior.logic";
-import { officeFitBoost, officeLayout } from "./officeLayout.logic";
+import { firstLeafDesk, officeFitBoost, officeLayout } from "./officeLayout.logic";
 import {
+  EMPTY_ASSIGNMENT,
+  SKIN_KEYWORDS,
   assignOfficeDesks,
+  clearSkinCache,
   deriveDuty,
-  monitorColor,
+  deskSprites,
+  inferAgentSkin,
+  mapProvider,
+  monitorSprite,
+  statusBubbles,
   type OfficeThread,
 } from "./officeModel.logic";
 
@@ -109,34 +114,74 @@ describe("deriveDuty", () => {
   });
 });
 
+const assign = (
+  threads: OfficeThread[],
+  coordinators: string[] = [],
+  previous = EMPTY_ASSIGNMENT,
+) =>
+  assignOfficeDesks({
+    threads,
+    coordinatorThreadIds: new Set(coordinators),
+    previous,
+    now: NOW,
+  });
+
 describe("assignOfficeDesks", () => {
-  it("seats a coordinator at the supervisor desk and everyone else, without a cap", () => {
-    const result = assignOfficeDesks({
-      threads: [
+  it("seats a coordinator at the root desk and everyone else, without a cap", () => {
+    const result = assign(
+      [
         thread("quiet"),
         running("busy"),
         running("needs", { hasPendingApprovals: true }),
         thread("coord"),
         ...["a", "b", "c", "d", "e", "f"].map((id) => running(id)),
       ],
-      coordinatorThreadIds: new Set(["coord"]),
-      previous: [],
-      now: NOW,
-    });
-    expect(result.desks[0]).toBe("coord");
-    expect(result.desks[1]).toBe("needs");
-    expect(result.desks).toHaveLength(10);
-    expect(result.desks.at(-1)).toBe("quiet");
+      ["coord"],
+    );
+    expect(result.root).toBe("coord");
+    expect(result.nested).toEqual([]);
+    expect(result.leaves[0]).toBe("needs");
+    expect(result.leaves).toHaveLength(9);
+    expect(result.leaves.at(-1)).toBe("quiet");
   });
 
-  it("uses a parent with a live subagent as supervisor when no coordinator exists", () => {
-    const result = assignOfficeDesks({
-      threads: [thread("parent"), running("child", { parentThreadId: "parent" as ThreadId })],
-      coordinatorThreadIds: new Set(),
-      previous: [],
-      now: NOW,
-    });
-    expect(result.desks).toEqual(["parent", "child"]);
+  it("makes a top-level parent the root and a parent with live children nested", () => {
+    const result = assign([
+      thread("parent"),
+      running("lead", { parentThreadId: "parent" as ThreadId }),
+      running("worker", { parentThreadId: "lead" as ThreadId }),
+    ]);
+    expect(result.root).toBe("parent");
+    expect(result.nested).toEqual(["lead"]);
+    expect(result.leaves).toEqual(["worker"]);
+  });
+
+  it("never makes a subagent the root", () => {
+    const result = assign([
+      running("child", { parentThreadId: "gone" as ThreadId }),
+      running("grandchild", { parentThreadId: "child" as ThreadId }),
+    ]);
+    expect(result.root).toBeNull();
+    expect(result.nested).toEqual(["child"]);
+  });
+
+  it("demotes a nested supervisor once its last child is done", () => {
+    const first = assign([
+      thread("parent"),
+      running("lead", { parentThreadId: "parent" as ThreadId }),
+      running("worker", { parentThreadId: "lead" as ThreadId }),
+    ]);
+    const next = assign(
+      [
+        thread("parent"),
+        running("lead", { parentThreadId: "parent" as ThreadId }),
+        thread("worker", { parentThreadId: "lead" as ThreadId }),
+      ],
+      [],
+      first,
+    );
+    expect(next.nested).toEqual([]);
+    expect(next.leaves).toEqual(["worker", "lead"]);
   });
 
   it("keeps threads at their desks, fills gaps, and drops stale threads", () => {
@@ -144,25 +189,30 @@ describe("assignOfficeDesks", () => {
       updatedAt: new Date(NOW - 3 * 60 * 60_000).toISOString(),
       createdAt: new Date(NOW - 3 * 60 * 60_000).toISOString(),
     });
-    const result = assignOfficeDesks({
-      threads: [stale, running("a"), running("c")],
-      coordinatorThreadIds: new Set(),
-      previous: [null, "gone" as ThreadId, null, "c" as ThreadId],
-      now: NOW,
+    const result = assign([stale, running("a"), running("c")], [], {
+      root: null,
+      nested: [],
+      leaves: ["gone" as ThreadId, null, "c" as ThreadId],
     });
-    expect(result.desks).toEqual([null, "a", null, "c"]);
+    expect(result.leaves).toEqual(["a", null, "c"]);
   });
 });
 
 describe("officeLayout", () => {
-  it.each([1, 6, 7, 13])("fits %i desks and reaches every seat from the door", (count) => {
-    const layout = officeLayout(count);
-    expect(layout.desks.length).toBeGreaterThanOrEqual(count);
-    expect(layout.cols).toBe(17);
-    expect(layout.rows).toBe(count <= 6 ? 14 : 14 + 4 * Math.ceil((count - 6) / 2));
+  it.each([
+    [0, 0],
+    [1, 4],
+    [2, 7],
+    [3, 12],
+  ])("fits %i nested and %i specialist desks, all reachable from the door", (nested, leaves) => {
+    const layout = officeLayout({ nested, leaves });
+    expect(layout.desks.length).toBe(firstLeafDesk(nested) + Math.max(4, leaves + (leaves % 2)));
+    expect(layout.desks[0]?.tier).toBe("root");
+    expect(layout.desks.filter((slot) => slot.tier === "nested")).toHaveLength(nested);
+    expect(layout.cols).toBe(12);
     for (const slot of layout.desks) {
-      expect(slot.stand.c).toBe(slot.seat.c - slot.facing);
       expect(layout.isBlocked(slot.stand.c, slot.stand.r)).toBe(false);
+      for (const cell of slot.desk) expect(layout.isBlocked(cell.c, cell.r)).toBe(true);
       const path = findPath(
         layout.cols,
         layout.rows,
@@ -172,18 +222,30 @@ describe("officeLayout", () => {
       );
       expect(path).not.toBeNull();
     }
-    for (const spot of [layout.spots.water, layout.spots.treadmill, layout.spots.toilet]) {
+    for (const spot of [layout.spots.coffee, layout.spots.treadmill, layout.spots.toilet]) {
       expect(
         findPath(layout.cols, layout.rows, layout.isBlocked, layout.spots.door, spot),
       ).not.toBeNull();
     }
   });
 
-  it("faces the left column right and the right column left", () => {
-    const [left, right] = officeLayout(2).desks;
-    expect(left?.facing).toBe(1);
-    expect(right?.facing).toBe(-1);
-    expect(left?.boss).toBe(true);
+  it("puts the root on top, a lone nested desk centred below it, then two specialist columns", () => {
+    const layout = officeLayout({ nested: 1, leaves: 4 });
+    const [root, nested, left, right, nextLeft] = layout.desks;
+    expect(nested!.anchor.x).toBe(root!.anchor.x);
+    expect(nested!.anchor.y).toBeGreaterThan(root!.anchor.y);
+    expect(left!.anchor.y).toBeGreaterThan(nested!.anchor.y);
+    expect(left!.anchor.y).toBe(right!.anchor.y);
+    expect(left!.anchor.x).toBeLessThan(root!.anchor.x);
+    expect(right!.anchor.x).toBeGreaterThan(root!.anchor.x);
+    expect(nextLeft!.anchor.y).toBeGreaterThan(left!.anchor.y);
+    expect(nextLeft!.variant).toBe(2);
+  });
+
+  it("keeps specialist desks in place when the first nested supervisor appears", () => {
+    const before = officeLayout({ nested: 0, leaves: 4 }).desks.slice(firstLeafDesk(0));
+    const after = officeLayout({ nested: 1, leaves: 4 }).desks.slice(firstLeafDesk(1));
+    expect(after.map((slot) => slot.anchor)).toEqual(before.map((slot) => slot.anchor));
   });
 
   it("eases the first-fit zoom from 1.1 to 1", () => {
@@ -193,15 +255,81 @@ describe("officeLayout", () => {
   });
 });
 
-describe("animation segments", () => {
-  it("splits enter, loop and exit like Marvis", () => {
-    expect(phaseFrames("standby", "enter")).toHaveLength(18);
-    expect(phaseFrames("standby", "loop")[0]).toBe(18);
-    expect(phaseFrames("sleeping", "loop")).toHaveLength(47);
-    expect(phaseFrames("sleeping", "exit")).toEqual(Array.from({ length: 19 }, (_, i) => 47 + i));
-    expect(phaseFrames("pooping", "exit")[0]).toBe(65);
-    expect(phaseFrames("running_treadmill", "enter")).toHaveLength(27);
-    expect(ANIMS.working.frames).toBe(67);
+const skinOf = (fields: Partial<OfficeThread>, id = "t") => {
+  clearSkinCache();
+  return inferAgentSkin({
+    id: id as ThreadId,
+    title: "",
+    subagentRole: null,
+    subagentNickname: null,
+    ...fields,
+  });
+};
+
+describe("providers and skins", () => {
+  it("maps provider kinds onto palette providers", () => {
+    expect(mapProvider("claudeAgent")).toBe("claude");
+    expect(mapProvider("codex")).toBe("openai");
+    expect(mapProvider("antigravity")).toBe("antigravity");
+    for (const other of ["cursor", "grok", "droid", "opencode", "pi", "devin", "omp"] as const) {
+      expect(mapProvider(other)).toBe("local");
+    }
+    expect(mapProvider(null)).toBe("local");
+  });
+
+  it.each(SKIN_KEYWORDS.flatMap(([skin, words]) => words.map((word) => [word, skin] as const)))(
+    "maps the keyword %s onto %s",
+    (word, skin) => {
+      expect(skinOf({ title: `Please ${word.toUpperCase()} now` })).toBe(skin);
+    },
+  );
+
+  it("prefers role, then nickname, then title, first group wins", () => {
+    expect(skinOf({ subagentRole: "explore", subagentNickname: "browser", title: "fix" })).toBe(
+      "skin_06_search_agent",
+    );
+    expect(skinOf({ subagentNickname: "terminal", title: "fix" })).toBe("skin_04_computer_agent");
+    expect(skinOf({ title: "browser ui fix" })).toBe("skin_03_browser_agent");
+  });
+
+  it("matches whole words only", () => {
+    // "app" in "happy", "ui" in "guidebook", "web" in "webbing", "build" and "fix" inside words.
+    const fallback = skinOf({ title: "" }, "x");
+    expect(skinOf({ title: "happy guidebook webbing" }, "x")).toBe(fallback);
+    expect(skinOf({ title: "rebuilding happy fixtures" }, "x")).toBe(fallback);
+    expect(skinOf({ title: "browser-qa" })).toBe("skin_03_browser_agent");
+  });
+
+  it("falls back to a stable hash over the worker skins and caches per thread", () => {
+    const a = skinOf({ title: "zzz" }, "thread-a");
+    expect(skinOf({ title: "zzz" }, "thread-a")).toBe(a);
+    expect(a).not.toBe("skin_01_supervisor");
+    const seen = new Set(
+      Array.from({ length: 40 }, (_, i) => skinOf({ title: "zzz" }, `thread-${i}`)),
+    );
+    expect(seen.size).toBeGreaterThan(2);
+    clearSkinCache();
+    const thread = { id: "keep" as ThreadId, subagentRole: null, subagentNickname: null };
+    expect(inferAgentSkin({ ...thread, title: "explore" })).toBe("skin_06_search_agent");
+    expect(inferAgentSkin({ ...thread, title: "fix the ui" })).toBe("skin_06_search_agent");
+  });
+
+  it("picks furniture, monitors and bubbles per tier and duty", () => {
+    expect(deskSprites("root").desk).toBe("env/desk_supervisor_large.png");
+    expect(deskSprites("nested").backrest).toBe("env/chair_sub_supervisor_backrest.png");
+    expect(deskSprites("nested").badge).toBe("ui/badge_nested_supervisor.png");
+    expect(deskSprites("leaf", 4).desk).toBe("env/desk_specialist_05.png");
+    expect(deskSprites("leaf", 5).desk).toBe("env/desk_specialist_01.png");
+    expect(deskSprites("leaf").badge).toBeNull();
+    expect(monitorSprite("working", "skin_02_file_agent")).toBe("env/monitor_working.png");
+    expect(monitorSprite("working", "skin_05_app_agent")).toBe("env/monitor_working_green.png");
+    expect(monitorSprite("input", null)).toBe("env/monitor_pending.png");
+    expect(monitorSprite("error", null)).toBe("env/monitor_error.png");
+    expect(monitorSprite(null, null)).toBe("env/monitor_off.png");
+    expect(statusBubbles("working", false)).toEqual(["typing"]);
+    expect(statusBubbles("approval", true)).toEqual(["typing", "question"]);
+    expect(statusBubbles("error", false)).toEqual(["alert"]);
+    expect(statusBubbles("idle", false)).toEqual([]);
   });
 });
 
@@ -215,6 +343,24 @@ describe("behaviour", () => {
     expect(dutyAction("working", "idle", false)).toBe("COMPLETE");
     expect(dutyAction("error", "idle", false)).toBe("IDLE");
     expect(dutyAction("working", "working", false)).toBeNull();
+  });
+
+  it("picks the seated pose", () => {
+    const base = { nested: false, hasWorkingChildren: false, swap: false, idle: null };
+    expect(seatedAnim({ ...base, duty: "working" })).toBe("sit_type");
+    expect(seatedAnim({ ...base, duty: "working", hasWorkingChildren: true })).toBe("sit_rest");
+    expect(seatedAnim({ ...base, duty: "working", nested: true, swap: true })).toBe("sit_rest");
+    expect(seatedAnim({ ...base, duty: "working", nested: true })).toBe("sit_type");
+    expect(seatedAnim({ ...base, duty: "idle", idle: "fresh" })).toBe("coffee_idle");
+    expect(seatedAnim({ ...base, duty: "idle", idle: "sleep" })).toBe("doze");
+  });
+
+  it("walks with the sprite direction of each step", () => {
+    expect(walkDirection(10, 0, -1)).toBe("SE");
+    expect(walkDirection(-10, 0, 1)).toBe("SW");
+    expect(walkDirection(0, -10, 1)).toBe("NE");
+    expect(walkDirection(0, -10, -1)).toBe("NW");
+    expect(walkDirection(0, 10, -1)).toBe("SW");
   });
 
   it("keeps the treadmill, toilet and slacking desk exclusive", () => {
@@ -233,19 +379,5 @@ describe("behaviour", () => {
     expect(shouldLeave(5, () => 0.6)).toBe(false);
     expect(standbySeconds(() => 0)).toBe(10);
     expect(standbySeconds(() => 1)).toBe(30);
-  });
-
-  it("gives each thread stable colours with horn and scarf hues apart", () => {
-    const a = agentColors("thread-a");
-    expect(agentColors("thread-a")).toEqual(a);
-    expect(agentColors("thread-b").scarf).not.toBe(a.scarf);
-    for (const id of ["x", "y", "z", "a-long-thread-id", "0"]) {
-      const colors = agentColors(id);
-      expect(hueDistance(colors.scarfHue, colors.hornHue)).toBeGreaterThanOrEqual(30);
-    }
-  });
-
-  it("maps duty onto monitor colour", () => {
-    expect(monitorColor("working")).not.toBe(monitorColor(null));
   });
 });

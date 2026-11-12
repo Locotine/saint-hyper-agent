@@ -13,11 +13,11 @@ export function OfficeWidgetView() {
   const office = useOfficeState();
   const [selectedThreadId, setSelectedThreadId] = useState<ThreadId | null>(null);
   const engineState = useMemo(
-    () => ({ agents: office.agents, selectedThreadId }),
-    [office.agents, selectedThreadId],
+    () => ({ agents: office.agents, layout: office.layout, selectedThreadId }),
+    [office.agents, office.layout, selectedThreadId],
   );
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#f7f7f7] dark:bg-[#1c1c1c]">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#f7f7f7]">
       {/* Grab strip: Tauri moves the frameless window from elements marked as drag regions. */}
       <div data-tauri-drag-region className="drag-region h-3 shrink-0 cursor-grab" />
       <OfficeCanvas className="flex-1" state={engineState} onSelect={setSelectedThreadId} />

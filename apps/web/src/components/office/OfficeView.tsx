@@ -90,7 +90,8 @@ function DeskRow(props: {
 
 export function OfficeView() {
   const navigate = useNavigate();
-  const office = useOfficeState();
+  const [demo, setDemo] = useState(false);
+  const office = useOfficeState({ demo });
   const [selectedThreadId, setSelectedThreadId] = useState<ThreadId | null>(null);
   const selected = office.desks.find((desk) => desk.thread?.id === selectedThreadId) ?? null;
   const activity = useRecentActivity(selectedThreadId);
@@ -99,8 +100,12 @@ export function OfficeView() {
     typeof window === "undefined" ? undefined : window.desktopBridge?.officeWidget;
 
   const engineState = useMemo(
-    () => ({ agents: office.agents, selectedThreadId: selected?.thread?.id ?? null }),
-    [office.agents, selected],
+    () => ({
+      agents: office.agents,
+      layout: office.layout,
+      selectedThreadId: selected?.thread?.id ?? null,
+    }),
+    [office.agents, office.layout, selected],
   );
   const openThread = useCallback(
     (threadId: ThreadId) => {
@@ -131,7 +136,7 @@ export function OfficeView() {
           <div className="flex flex-col gap-0.5">
             {office.desks.map((desk) => (
               <DeskRow
-                key={desk.desk}
+                key={desk.thread?.id ?? desk.desk}
                 desk={desk}
                 selected={desk === selected}
                 onSelect={() =>
@@ -174,11 +179,23 @@ export function OfficeView() {
             ) : null}
           </DisclosureRegion>
         </aside>
-        <OfficeCanvas
-          className="flex-1 bg-[#f7f7f7] dark:bg-[#1c1c1c]"
-          state={engineState}
-          onSelect={setSelectedThreadId}
-        />
+        <div className="relative flex min-h-0 min-w-0 flex-1">
+          <OfficeCanvas
+            className="flex-1 bg-[#f7f7f7]"
+            state={engineState}
+            onSelect={setSelectedThreadId}
+          />
+          {import.meta.env.DEV ? (
+            <Button
+              size="xs"
+              variant="outline"
+              className="absolute top-2 right-2"
+              onClick={() => setDemo((value) => !value)}
+            >
+              {demo ? "Live data" : "Mock demo"}
+            </Button>
+          ) : null}
+        </div>
       </div>
     </RouteSurface>
   );
