@@ -325,7 +325,7 @@ pub fn resolve_window_translucency() -> Option<&'static str> {
 }
 
 pub fn apply_window_material(
-    window: &tauri::WebviewWindow,
+    window: &tauri::Window,
     input: DesktopWindowMaterial,
 ) -> bool {
     let _clamped_radius = input

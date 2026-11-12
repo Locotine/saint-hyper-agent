@@ -71,7 +71,7 @@ fn cleanup_all_managed_resources(state: &DesktopSharedState) {
 }
 
 pub fn emit_window_event<T: serde::Serialize>(
-    window: &tauri::WebviewWindow,
+    window: &tauri::Webview,
     event: &str,
     payload: &T,
 ) {
@@ -174,7 +174,8 @@ async fn desktop_confirm(app: tauri::AppHandle, message: String) -> Result<bool,
 }
 
 #[tauri::command]
-fn desktop_set_theme(window: tauri::WebviewWindow, theme: String) -> Result<(), String> {
+fn desktop_set_theme(webview: tauri::Webview, theme: String) -> Result<(), String> {
+    let window = webview.window();
     let parsed = match theme.as_str() {
         "dark" => Some(tauri::Theme::Dark),
         "light" => Some(tauri::Theme::Light),
@@ -185,9 +186,10 @@ fn desktop_set_theme(window: tauri::WebviewWindow, theme: String) -> Result<(), 
 
 #[tauri::command]
 fn desktop_set_window_material(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     input: DesktopWindowMaterial,
 ) -> bool {
+    let window = webview.window();
     apply_window_material(&window, input)
 }
 
@@ -227,11 +229,12 @@ fn append_context_menu_submenu<R: tauri::Runtime>(
 #[tauri::command]
 async fn desktop_context_menu(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     items: Vec<DesktopContextMenuItem>,
     position: Option<ContextMenuPosition>,
 ) -> Result<Option<String>, String> {
+    let window = webview.window();
     let nodes = build_context_menu_nodes(&items, 1);
     if nodes.is_empty() {
         return Ok(None);
@@ -484,14 +487,16 @@ fn desktop_show_in_folder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn desktop_window_minimize(window: tauri::WebviewWindow) -> Result<(), String> {
+fn desktop_window_minimize(webview: tauri::Webview) -> Result<(), String> {
+    let window = webview.window();
     window.minimize().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn desktop_window_toggle_maximize(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
 ) -> Result<DesktopWindowState, String> {
+    let window = webview.window();
     let is_max = window.is_maximized().unwrap_or(false);
     if is_max {
         window.unmaximize().map_err(|e| e.to_string())?;
@@ -502,17 +507,19 @@ fn desktop_window_toggle_maximize(
         is_maximized: window.is_maximized().unwrap_or(false),
         is_fullscreen: window.is_fullscreen().unwrap_or(false),
     };
-    emit_window_event(&window, "desktop:window-state", &state);
+    emit_window_event(&webview, "desktop:window-state", &state);
     Ok(state)
 }
 
 #[tauri::command]
-fn desktop_window_close(window: tauri::WebviewWindow) -> Result<(), String> {
+fn desktop_window_close(webview: tauri::Webview) -> Result<(), String> {
+    let window = webview.window();
     window.close().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn desktop_window_get_state(window: tauri::WebviewWindow) -> DesktopWindowState {
+fn desktop_window_get_state(webview: tauri::Webview) -> DesktopWindowState {
+    let window = webview.window();
     DesktopWindowState {
         is_maximized: window.is_maximized().unwrap_or(false),
         is_fullscreen: window.is_fullscreen().unwrap_or(false),
@@ -793,7 +800,7 @@ async fn run_update_download(
 #[tauri::command]
 async fn desktop_update_install(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
 ) -> Result<DesktopUpdateActionResult, String> {
     use tauri_plugin_updater::UpdaterExt;
@@ -806,7 +813,7 @@ async fn desktop_update_install(
             state: installing,
         });
     }
-    emit_window_event(&window, "desktop:update-state", &installing);
+    emit_window_event(&webview, "desktop:update-state", &installing);
 
     if let Ok(updater) = app.updater() {
         if let Ok(Some(update)) = updater.check().await {
@@ -836,7 +843,7 @@ async fn desktop_update_install(
                     #[cfg(windows)]
                     app.request_restart();
                     let err_state = state.updater.mark_error("install", err.to_string());
-                    emit_window_event(&window, "desktop:update-state", &err_state);
+                    emit_window_event(&webview, "desktop:update-state", &err_state);
                     return Ok(DesktopUpdateActionResult {
                         accepted: true,
                         completed: false,
@@ -853,7 +860,7 @@ async fn desktop_update_install(
     let err_state = state
         .updater
         .mark_error("install", "No downloaded update is ready to install.".to_string());
-    emit_window_event(&window, "desktop:update-state", &err_state);
+    emit_window_event(&webview, "desktop:update-state", &err_state);
     Ok(DesktopUpdateActionResult {
         accepted: true,
         completed: false,
@@ -877,9 +884,10 @@ struct NotificationShowInput {
 #[tauri::command]
 fn desktop_notifications_show(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     input: NotificationShowInput,
 ) -> Result<bool, String> {
+    let window = webview.window();
     use tauri_plugin_notification::NotificationExt;
     if input.title.trim().is_empty() {
         return Ok(false);
@@ -921,12 +929,12 @@ fn desktop_appsnap_get_state(
 
 #[tauri::command]
 fn desktop_appsnap_set_enabled(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     enabled: bool,
 ) -> DesktopAppSnapState {
     let next = state.appsnap.set_enabled(enabled);
-    emit_window_event(&window, "desktop:appsnap-state", &next);
+    emit_window_event(&webview, "desktop:appsnap-state", &next);
     next
 }
 
@@ -940,35 +948,35 @@ fn desktop_appsnap_check_shortcut(
 
 #[tauri::command]
 fn desktop_appsnap_set_shortcut(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     shortcut: serde_json::Value,
 ) -> DesktopAppSnapShortcutUpdateResult {
     let res = state.appsnap.set_shortcut(shortcut);
-    emit_window_event(&window, "desktop:appsnap-state", &res.state);
+    emit_window_event(&webview, "desktop:appsnap-state", &res.state);
     res
 }
 
 #[tauri::command]
 fn desktop_appsnap_request_permissions(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     permissions: Option<Vec<String>>,
 ) -> DesktopAppSnapState {
     let next = state.appsnap.request_permissions(permissions);
-    emit_window_event(&window, "desktop:appsnap-state", &next);
+    emit_window_event(&webview, "desktop:appsnap-state", &next);
     next
 }
 
 #[tauri::command]
 fn desktop_appsnap_start_permission_setup(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     permissions: Vec<String>,
 ) -> Result<DesktopAppSnapState, String> {
     let next = state.appsnap.start_permission_setup(permissions)?;
-    emit_window_event(&window, "desktop:appsnap-permission-guide-state", &"visible");
-    emit_window_event(&window, "desktop:appsnap-state", &next);
+    emit_window_event(&webview, "desktop:appsnap-permission-guide-state", &"visible");
+    emit_window_event(&webview, "desktop:appsnap-state", &next);
     Ok(next)
 }
 
@@ -1032,22 +1040,22 @@ fn desktop_appsnap_restart_app(
 
 #[tauri::command]
 fn desktop_appsnap_show_permission_guide(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     pane: String,
 ) {
     if let Some(guide_state) = state.appsnap.show_permission_guide(&pane) {
-        emit_window_event(&window, "desktop:appsnap-permission-guide-state", &guide_state);
+        emit_window_event(&webview, "desktop:appsnap-permission-guide-state", &guide_state);
     }
 }
 
 #[tauri::command]
 fn desktop_appsnap_hide_permission_guide(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
 ) {
     let guide_state = state.appsnap.hide_permission_guide();
-    emit_window_event(&window, "desktop:appsnap-permission-guide-state", &guide_state);
+    emit_window_event(&webview, "desktop:appsnap-permission-guide-state", &guide_state);
 }
 
 #[tauri::command]
@@ -1062,7 +1070,7 @@ async fn desktop_remote_ssh_get_state(
 
 #[tauri::command]
 async fn desktop_remote_ssh_connect(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     host: DesktopRemoteSshSavedHost,
 ) -> Result<DesktopRemoteSshHostState, String> {
@@ -1074,13 +1082,13 @@ async fn desktop_remote_ssh_connect(
     })
     .await
     .map_err(|e| e.to_string())??;
-    emit_window_event(&window, "desktop:remote-ssh-state", &full_state);
+    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
     Ok(host_state)
 }
 
 #[tauri::command]
 async fn desktop_remote_ssh_disconnect(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     host: String,
 ) -> Result<(), String> {
@@ -1091,13 +1099,13 @@ async fn desktop_remote_ssh_disconnect(
     })
     .await
     .map_err(|e| e.to_string())??;
-    emit_window_event(&window, "desktop:remote-ssh-state", &full_state);
+    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
     Ok(())
 }
 
 #[tauri::command]
 async fn desktop_remote_ssh_stop_server(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     host: DesktopRemoteSshSavedHost,
 ) -> Result<(), String> {
@@ -1108,19 +1116,19 @@ async fn desktop_remote_ssh_stop_server(
     })
     .await
     .map_err(|e| e.to_string())??;
-    emit_window_event(&window, "desktop:remote-ssh-state", &full_state);
+    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
     Ok(())
 }
 
 #[tauri::command]
 fn desktop_remote_ssh_forget(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     host: String,
 ) {
     state.remote_ssh.forget_host(&host);
     let full_state = state.remote_ssh.get_state();
-    emit_window_event(&window, "desktop:remote-ssh-state", &full_state);
+    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
 }
 
 #[tauri::command]
@@ -1136,12 +1144,12 @@ async fn desktop_remote_ssh_test_host(
 
 #[tauri::command]
 fn desktop_remote_ssh_update_host(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: DesktopRemoteSshUpdateHostInput,
 ) -> Result<DesktopRemoteSshState, String> {
     let full_state = state.remote_ssh.update_host(input)?;
-    emit_window_event(&window, "desktop:remote-ssh-state", &full_state);
+    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
     Ok(full_state)
 }
 
@@ -1173,7 +1181,7 @@ async fn desktop_lan_relay_get_state(
 
 #[tauri::command]
 async fn desktop_lan_relay_set_enabled(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: DesktopLanRelaySetEnabledInput,
 ) -> Result<DesktopLanRelayState, String> {
@@ -1181,50 +1189,50 @@ async fn desktop_lan_relay_set_enabled(
         .lan_relay
         .set_enabled(input.enabled, input.port, input.bind_address)
         .await;
-    emit_window_event(&window, "desktop:lan-relay-state", &next);
+    emit_window_event(&webview, "desktop:lan-relay-state", &next);
     Ok(next)
 }
 
 #[tauri::command]
 fn desktop_lan_relay_rotate_pairing_token(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
 ) -> DesktopLanRelayState {
     let next = state.lan_relay.rotate_pairing_token();
-    emit_window_event(&window, "desktop:lan-relay-state", &next);
+    emit_window_event(&webview, "desktop:lan-relay-state", &next);
     next
 }
 
 #[tauri::command]
 fn desktop_lan_relay_revoke_session(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: DesktopLanRelayRevokeSessionInput,
 ) -> DesktopLanRelayState {
     let next = state.lan_relay.revoke_session(&input.session_id);
-    emit_window_event(&window, "desktop:lan-relay-state", &next);
+    emit_window_event(&webview, "desktop:lan-relay-state", &next);
     next
 }
 
 #[tauri::command]
 fn desktop_lan_relay_revoke_all_sessions(
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
 ) -> DesktopLanRelayState {
     let next = state.lan_relay.revoke_all_sessions();
-    emit_window_event(&window, "desktop:lan-relay-state", &next);
+    emit_window_event(&webview, "desktop:lan-relay-state", &next);
     next
 }
 
 #[tauri::command]
 fn desktop_browser_open(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserOpenInput,
 ) -> ThreadBrowserState {
     let next = state.browser.open(input);
-    emit_window_event(&window, "desktop:browser-state", &next);
+    emit_window_event(&webview, "desktop:browser-state", &next);
     state.browser.sync_native_webviews(&app);
     next
 }
@@ -1232,7 +1240,7 @@ fn desktop_browser_open(
 #[tauri::command]
 fn desktop_browser_close(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserThreadInput,
 ) -> ThreadBrowserState {
@@ -1240,7 +1248,7 @@ fn desktop_browser_close(
         state.browser.close_native_webview(&app, &tab_id);
     }
     let next = state.browser.close(&input.thread_id);
-    emit_window_event(&window, "desktop:browser-state", &next);
+    emit_window_event(&webview, "desktop:browser-state", &next);
     state.browser.sync_native_webviews(&app);
     next
 }
@@ -1287,7 +1295,7 @@ fn desktop_browser_detach_webview(_input: BrowserAttachWebviewInput) {}
 #[tauri::command]
 fn desktop_browser_request_copy_link(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserTabInput,
 ) {
@@ -1296,7 +1304,7 @@ fn desktop_browser_request_copy_link(
         if url != "about:blank" && !url.is_empty() {
             let _ = app.clipboard().write_text(&url);
             emit_window_event(
-                &window,
+                &webview,
                 "desktop:browser-copy-link",
                 &serde_json::json!({
                     "threadId": input.thread_id,
@@ -1335,13 +1343,13 @@ fn desktop_browser_capture_preview(_input: BrowserTabInput) -> Option<String> {
 #[tauri::command]
 fn desktop_browser_navigate(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserNavigateInput,
 ) -> ThreadBrowserState {
     let explicit_tab_id = input.tab_id.clone();
     let next = state.browser.navigate(input);
-    emit_window_event(&window, "desktop:browser-state", &next);
+    emit_window_event(&webview, "desktop:browser-state", &next);
     let target_tab_id = explicit_tab_id.or_else(|| next.active_tab_id.clone());
     if let Some(tab_id) = target_tab_id.as_deref() {
         if let Some(url) = state.browser.tab_url(&next.thread_id, tab_id) {
@@ -1364,14 +1372,14 @@ fn desktop_browser_reload(
 #[tauri::command]
 fn desktop_browser_go_back(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserTabInput,
 ) -> ThreadBrowserState {
     let tab_id = input.tab_id.clone();
     let thread_id = input.thread_id.clone();
     let next = state.browser.go_back(input);
-    emit_window_event(&window, "desktop:browser-state", &next);
+    emit_window_event(&webview, "desktop:browser-state", &next);
     if let Some(url) = state.browser.tab_url(&thread_id, &tab_id) {
         state.browser.navigate_native_webview(&app, &tab_id, &url);
     }
@@ -1381,14 +1389,14 @@ fn desktop_browser_go_back(
 #[tauri::command]
 fn desktop_browser_go_forward(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserTabInput,
 ) -> ThreadBrowserState {
     let tab_id = input.tab_id.clone();
     let thread_id = input.thread_id.clone();
     let next = state.browser.go_forward(input);
-    emit_window_event(&window, "desktop:browser-state", &next);
+    emit_window_event(&webview, "desktop:browser-state", &next);
     if let Some(url) = state.browser.tab_url(&thread_id, &tab_id) {
         state.browser.navigate_native_webview(&app, &tab_id, &url);
     }
@@ -1398,12 +1406,12 @@ fn desktop_browser_go_forward(
 #[tauri::command]
 fn desktop_browser_new_tab(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserNewTabInput,
 ) -> ThreadBrowserState {
     let next = state.browser.new_tab(input);
-    emit_window_event(&window, "desktop:browser-state", &next);
+    emit_window_event(&webview, "desktop:browser-state", &next);
     state.browser.sync_native_webviews(&app);
     next
 }
@@ -1411,13 +1419,13 @@ fn desktop_browser_new_tab(
 #[tauri::command]
 fn desktop_browser_close_tab(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserTabInput,
 ) -> ThreadBrowserState {
     state.browser.close_native_webview(&app, &input.tab_id);
     let next = state.browser.close_tab(input);
-    emit_window_event(&window, "desktop:browser-state", &next);
+    emit_window_event(&webview, "desktop:browser-state", &next);
     state.browser.sync_native_webviews(&app);
     next
 }
@@ -1425,12 +1433,12 @@ fn desktop_browser_close_tab(
 #[tauri::command]
 fn desktop_browser_select_tab(
     app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
+    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserTabInput,
 ) -> ThreadBrowserState {
     let next = state.browser.select_tab(input);
-    emit_window_event(&window, "desktop:browser-state", &next);
+    emit_window_event(&webview, "desktop:browser-state", &next);
     state.browser.sync_native_webviews(&app);
     next
 }
@@ -1684,7 +1692,7 @@ pub fn run() {
                             *guard = Some(request_id.clone());
                         }
                         emit_window_event(
-                            &window_for_events,
+                            window_for_events.as_ref(),
                             "desktop:quit-confirmation-request",
                             &DesktopQuitConfirmationRequest {
                                 request_id: request_id.clone(),
@@ -1719,7 +1727,7 @@ pub fn run() {
                         is_maximized: window_for_events.is_maximized().unwrap_or(false),
                         is_fullscreen: window_for_events.is_fullscreen().unwrap_or(false),
                     };
-                    emit_window_event(&window_for_events, "desktop:window-state", &win_state);
+                    emit_window_event(window_for_events.as_ref(), "desktop:window-state", &win_state);
                 }
                 if matches!(
                     event,
