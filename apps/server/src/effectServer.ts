@@ -3,7 +3,18 @@ import { ProviderSessionRuntimeRepositoryLive } from "./persistence/Layers/Provi
 import http from "node:http";
 
 import type { ServerSettingsError } from "@saint/contracts";
-import { Effect, Exit, FileSystem, Layer, Option, Path, Schema, Scope, ServiceMap } from "effect";
+import {
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Schema,
+  Scope,
+  ServiceMap,
+} from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
@@ -168,16 +179,38 @@ export function startServerRuntimePipeline<R>(input: {
   readonly subscriptionsScope: Scope.Scope;
 }): Effect.Effect<void, never, R> {
   return Effect.gen(function* () {
-    yield* Scope.provide(input.orchestrationReactor.start, input.subscriptionsScope);
-    yield* input.reconcileRestartStuckTurns;
+    yield* warnIfStartupStepStalls(
+      "orchestrationReactor",
+      Scope.provide(input.orchestrationReactor.start, input.subscriptionsScope),
+    );
+    yield* warnIfStartupStepStalls("reconcileRestartStuckTurns", input.reconcileRestartStuckTurns);
     // The reconciliation above terminalizes durable turn projections without a
     // provider terminal event. Remove their replay-ledger rows now so the next
     // process start cannot replay state-dependent commands against the terminal
     // projection.
     yield* input.orchestrationReactor.reconcileSettledOpenTurns;
-    for (const reactor of input.reactors) {
-      yield* Scope.provide(reactor.start(), input.subscriptionsScope);
+    for (const [index, reactor] of input.reactors.entries()) {
+      yield* warnIfStartupStepStalls(
+        `reactor ${index}`,
+        Scope.provide(reactor.start(), input.subscriptionsScope),
+      );
     }
+  });
+}
+
+const STARTUP_STEP_STALL_WARNING = "5 seconds";
+
+/** A step that never finishes leaves the server "still starting" forever; name it in the log. */
+function warnIfStartupStepStalls<A, E, R>(
+  step: string,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> {
+  return Effect.gen(function* () {
+    const warning = yield* Effect.logWarning("server startup step is still running", { step }).pipe(
+      Effect.delay(STARTUP_STEP_STALL_WARNING),
+      Effect.forkDetach,
+    );
+    return yield* effect.pipe(Effect.ensuring(Fiber.interrupt(warning)));
   });
 }
 
