@@ -3602,6 +3602,7 @@ version = "1.2.3"
 dependencies = [
  "base64 0.22.1",
  "dirs 6.0.0",
+ "gtk",
  "libc",
  "png",
  "portable-pty",

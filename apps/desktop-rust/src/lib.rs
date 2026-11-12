@@ -309,6 +309,25 @@ async fn desktop_context_menu(
 fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<String> {
     use base64::Engine as _;
     use tauri_plugin_clipboard_manager::ClipboardExt;
+    let encode = |png: Vec<u8>| {
+        format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(png)
+        )
+    };
+    // GNOME Wayland has no data-control protocol, so arboard cannot read the clipboard
+    // there; wl-paste can.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        if let Ok(out) = std::process::Command::new("wl-paste")
+            .args(["--no-newline", "--type", "image/png"])
+            .output()
+        {
+            if out.status.success() && out.stdout.starts_with(b"\x89PNG") {
+                return Some(encode(out.stdout));
+            }
+        }
+    }
     let image = app.clipboard().read_image().ok()?;
     let mut png_bytes = Vec::new();
     {
@@ -318,10 +337,7 @@ fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<String> {
         let mut writer = encoder.write_header().ok()?;
         writer.write_image_data(image.rgba()).ok()?;
     }
-    Some(format!(
-        "data:image/png;base64,{}",
-        base64::engine::general_purpose::STANDARD.encode(png_bytes)
-    ))
+    Some(encode(png_bytes))
 }
 
 #[tauri::command]
@@ -1511,6 +1527,10 @@ fn build_initialization_script(state: &DesktopSharedState) -> String {
 }
 
 pub fn run() {
+    // The window class must match StartupWMClass in the launcher that
+    // scripts/linux/install-saint.sh writes, or the dock shows a separate "saint-desktop" icon.
+    #[cfg(target_os = "linux")]
+    gtk::glib::set_prgname(Some("saint"));
     let paths = SaintPaths::resolve();
     let _ = paths.ensure_directories();
 
