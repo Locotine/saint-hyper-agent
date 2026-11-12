@@ -1264,7 +1264,7 @@ export async function listWorkspaceDirectories(
           dirent.name.length > 0 &&
           dirent.name !== "." &&
           dirent.name !== ".." &&
-          dirent.name !== ".git" &&
+          (input.includeHidden === true || dirent.name !== ".git") &&
           (dirent.isDirectory() || (input.includeFiles === true && dirent.isFile())),
       )
       .toSorted((left, right) => {

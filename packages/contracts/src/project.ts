@@ -65,6 +65,8 @@ export const ProjectListDirectoriesInput = Schema.Struct({
     PositiveInt.check(Schema.isLessThanOrEqualTo(PROJECT_DIRECTORY_LIST_MAX_DEPTH)),
   ),
   includeFiles: Schema.optional(Schema.Boolean),
+  /** Also list `.git`, which the Explorer hides unless its "Show hidden items" toggle is on. */
+  includeHidden: Schema.optional(Schema.Boolean),
 });
 export type ProjectListDirectoriesInput = typeof ProjectListDirectoriesInput.Type;
 

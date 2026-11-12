@@ -520,6 +520,18 @@ describe("listWorkspaceDirectories", () => {
     ]);
   });
 
+  it("lists .git only when hidden items are asked for", async () => {
+    const cwd = makeTempDir("saint-workspace-list-directories-");
+    writeFile(cwd, ".git/HEAD", "ref");
+    writeFile(cwd, ".github/ci.yml", "on: push");
+
+    const names = async (includeHidden: boolean) =>
+      (await listWorkspaceDirectories({ cwd, includeHidden })).entries.map((e) => e.name);
+
+    expect(await names(false)).toEqual([".github"]);
+    expect(await names(true)).toEqual([".git", ".github"]);
+  });
+
   it("rejects relative paths that escape the workspace root", async () => {
     const cwd = makeTempDir("saint-workspace-list-directories-");
     writeFile(cwd, "docs/guide.md", "# guide");

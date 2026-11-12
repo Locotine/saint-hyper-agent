@@ -24,8 +24,12 @@ import { resolveWorkspaceFileReferenceBatched } from "./workspaceFileReferenceBa
 
 export const projectQueryKeys = {
   all: ["projects"] as const,
-  listDirectories: (cwd: string | null, relativePath: string | null, includeFiles: boolean) =>
-    ["projects", "list-directories", cwd, relativePath, includeFiles] as const,
+  listDirectories: (
+    cwd: string | null,
+    relativePath: string | null,
+    includeFiles: boolean,
+    includeHidden = false,
+  ) => ["projects", "list-directories", cwd, relativePath, includeFiles, includeHidden] as const,
   readFile: (cwd: string | null, relativePath: string | null) =>
     ["projects", "read-file", cwd, relativePath] as const,
   localPreviewGrant: (path: string | null) => ["projects", "local-preview-grant", path] as const,
@@ -260,16 +264,18 @@ export function projectListDirectoriesQueryOptions(input: {
   cwd: string | null;
   relativePath?: string | null;
   includeFiles?: boolean;
+  includeHidden?: boolean;
   enabled?: boolean;
   staleTime?: number;
   hostId?: HostId;
 }) {
   const relativePath = input.relativePath?.trim() || null;
   const includeFiles = input.includeFiles ?? true;
+  const includeHidden = input.includeHidden ?? false;
   const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions<ProjectListDirectoriesResult>({
     queryKey: withHostKey(
-      projectQueryKeys.listDirectories(input.cwd, relativePath, includeFiles),
+      projectQueryKeys.listDirectories(input.cwd, relativePath, includeFiles, includeHidden),
       hostId,
     ),
     queryFn: async () => {
@@ -280,6 +286,7 @@ export function projectListDirectoriesQueryOptions(input: {
       return api.projects.listDirectories({
         cwd: input.cwd,
         includeFiles,
+        ...(includeHidden ? { includeHidden } : {}),
         ...(relativePath ? { relativePath } : {}),
       });
     },

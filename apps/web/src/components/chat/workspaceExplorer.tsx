@@ -43,12 +43,15 @@ import {
   ArrowLeftIcon,
   ArrowUpIcon,
   DownloadIcon,
+  EyeIcon,
   FolderIcon,
   RefreshCwIcon,
   RotateCcwIcon,
 } from "~/lib/icons";
 import { getSyntaxHighlighterPromise, getSyntaxLanguageForPath } from "~/lib/syntaxHighlighting";
 import { cn } from "~/lib/utils";
+import { useLocalStorage } from "~/hooks/useLocalStorage";
+import { Schema } from "effect";
 import {
   folderNameOfWorkspaceRoot,
   joinChildWorkspaceRoot,
@@ -188,6 +191,13 @@ export function setFileReferenceDragData(dataTransfer: DataTransfer, path: strin
   dataTransfer.setData("text/plain", path);
 }
 
+const SHOW_HIDDEN_STORAGE_KEY = "saint:explorer:show-hidden";
+
+/** Whether the Explorer lists everything it hides by default (`.git`, `.saint*`, build caches). */
+function useExplorerShowHidden() {
+  return useLocalStorage(SHOW_HIDDEN_STORAGE_KEY, false, Schema.Boolean);
+}
+
 function shouldShowExplorerEntry(entry: ProjectFileSystemEntry): boolean {
   if (entry.kind !== "directory") {
     return true;
@@ -205,6 +215,7 @@ function shouldShowExplorerEntry(entry: ProjectFileSystemEntry): boolean {
 export function useExplorerEntryPrefetch(cwd: string | null) {
   const queryClient = useQueryClient();
   const hostId = useHostId();
+  const [showHidden] = useExplorerShowHidden();
   return (entry: Pick<ProjectFileSystemEntry, "path" | "kind">) => {
     if (!cwd) {
       return;
@@ -215,6 +226,7 @@ export function useExplorerEntryPrefetch(cwd: string | null) {
           cwd,
           relativePath: entry.path,
           includeFiles: true,
+          includeHidden: showHidden,
           hostId,
         }),
       );
@@ -366,11 +378,13 @@ function WorkspaceDirectory(props: {
 }) {
   const { selectedPaths } = props.selection;
   const hostId = useHostId();
+  const [showHidden] = useExplorerShowHidden();
   const query = useQuery(
     projectListDirectoriesQueryOptions({
       cwd: props.cwd,
       relativePath: props.relativePath,
       includeFiles: true,
+      includeHidden: showHidden,
       hostId,
     }),
   );
@@ -389,70 +403,72 @@ function WorkspaceDirectory(props: {
 
   return (
     <>
-      {(query.data?.entries ?? []).filter(shouldShowExplorerEntry).map((entry) => {
-        if (entry.kind !== "directory") {
+      {(query.data?.entries ?? [])
+        .filter((entry) => showHidden || shouldShowExplorerEntry(entry))
+        .map((entry) => {
+          if (entry.kind !== "directory") {
+            return (
+              <ExplorerRow
+                key={entry.path}
+                entry={entry}
+                depth={props.depth}
+                selected={
+                  selectedPaths
+                    ? selectedPaths.has(entry.path)
+                    : entry.path === props.selectedFilePath
+                }
+                expanded={false}
+                selection={props.selection}
+                onSelectFile={props.onSelectFile}
+                onPrefetchEntry={props.onPrefetchEntry}
+                onEntryContextMenu={props.onEntryContextMenu}
+              />
+            );
+          }
+          const expanded = props.expandedDirectories.has(entry.path);
           return (
-            <ExplorerRow
+            <Collapsible
               key={entry.path}
-              entry={entry}
-              depth={props.depth}
-              selected={
-                selectedPaths
-                  ? selectedPaths.has(entry.path)
-                  : entry.path === props.selectedFilePath
-              }
-              expanded={false}
-              selection={props.selection}
-              onSelectFile={props.onSelectFile}
-              onPrefetchEntry={props.onPrefetchEntry}
-              onEntryContextMenu={props.onEntryContextMenu}
-            />
-          );
-        }
-        const expanded = props.expandedDirectories.has(entry.path);
-        return (
-          <Collapsible
-            key={entry.path}
-            open={expanded}
-            onOpenChange={() => props.onToggleDirectory(entry.path)}
-          >
-            <CollapsibleTrigger
-              render={
-                <ExplorerRow
-                  entry={entry}
-                  depth={props.depth}
-                  selected={selectedPaths?.has(entry.path) ?? false}
-                  expanded={expanded}
-                  dropTarget={entry.path === props.dropDirectory}
+              open={expanded}
+              onOpenChange={() => props.onToggleDirectory(entry.path)}
+            >
+              <CollapsibleTrigger
+                render={
+                  <ExplorerRow
+                    entry={entry}
+                    depth={props.depth}
+                    selected={selectedPaths?.has(entry.path) ?? false}
+                    expanded={expanded}
+                    dropTarget={entry.path === props.dropDirectory}
+                    selection={props.selection}
+                    onSelectFile={props.onSelectFile}
+                    onNavigateIntoDirectory={props.onNavigateIntoDirectory}
+                    onPrefetchEntry={props.onPrefetchEntry}
+                    onEntryContextMenu={props.onEntryContextMenu}
+                  />
+                }
+              />
+              {/* Keep children mounted only while open (plus the closing transition Base UI
+                manages) so the height animation plays and lazy listings stay cached. */}
+              <CollapsiblePanel>
+                <WorkspaceDirectory
+                  cwd={props.cwd}
+                  relativePath={entry.path}
+                  depth={props.depth + 1}
+                  selectedFilePath={props.selectedFilePath}
                   selection={props.selection}
+                  expandedDirectories={props.expandedDirectories}
+                  dropDirectory={props.dropDirectory}
                   onSelectFile={props.onSelectFile}
+                  onToggleDirectory={props.onToggleDirectory}
                   onNavigateIntoDirectory={props.onNavigateIntoDirectory}
                   onPrefetchEntry={props.onPrefetchEntry}
                   onEntryContextMenu={props.onEntryContextMenu}
                 />
-              }
-            />
-            {/* Keep children mounted only while open (plus the closing transition Base UI
-                manages) so the height animation plays and lazy listings stay cached. */}
-            <CollapsiblePanel>
-              <WorkspaceDirectory
-                cwd={props.cwd}
-                relativePath={entry.path}
-                depth={props.depth + 1}
-                selectedFilePath={props.selectedFilePath}
-                selection={props.selection}
-                expandedDirectories={props.expandedDirectories}
-                dropDirectory={props.dropDirectory}
-                onSelectFile={props.onSelectFile}
-                onToggleDirectory={props.onToggleDirectory}
-                onNavigateIntoDirectory={props.onNavigateIntoDirectory}
-                onPrefetchEntry={props.onPrefetchEntry}
-                onEntryContextMenu={props.onEntryContextMenu}
-              />
-            </CollapsiblePanel>
-          </Collapsible>
-        );
-      })}
+              </CollapsiblePanel>
+            </Collapsible>
+          );
+        })}
     </>
   );
 }
@@ -1138,6 +1154,28 @@ function ExplorerDownloadButton(props: {
   );
 }
 
+// Lists or hides `.git`, `.saint*` and build-cache folders; remembered on this device.
+function ExplorerShowHiddenButton() {
+  const [showHidden, setShowHidden] = useExplorerShowHidden();
+  return (
+    <IconButton
+      label={showHidden ? "Hide hidden items" : "Show hidden items"}
+      tooltip={
+        showHidden ? "Hide .git, .saint and build folders" : "Show .git, .saint and build folders"
+      }
+      tooltipSide="bottom"
+      aria-pressed={showHidden}
+      className={cn(
+        "shrink-0 hover:text-foreground",
+        showHidden ? "text-foreground" : "text-muted-foreground",
+      )}
+      onClick={() => setShowHidden(!showHidden)}
+    >
+      <EyeIcon className="size-3.5" />
+    </IconButton>
+  );
+}
+
 // Dynamically invalidates and refetches every folder listing, file search index, and open file
 // of the workspace on the host the Explorer shows so newly created folders/files appear immediately.
 function ExplorerRefreshButton(props: { workspaceRoot: string }) {
@@ -1350,6 +1388,7 @@ export function WorkspaceExplorerSidebar(props: {
                 onDownload={downloadSelection.download}
               />
             ) : null}
+            {effectiveWorkspaceRoot ? <ExplorerShowHiddenButton /> : null}
             {effectiveWorkspaceRoot ? (
               <ExplorerRefreshButton workspaceRoot={effectiveWorkspaceRoot} />
             ) : null}
