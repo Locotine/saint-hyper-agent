@@ -60,6 +60,25 @@ export type SearchableModelOption = {
 
 const THREAD_MENTION_SUGGESTION_LIMIT = 20;
 
+// One menu item per skill object, so the menu can keep each row (and skip re-rendering it)
+// while only the filter text changes.
+const skillMenuItems = new WeakMap<ProviderSkillDescriptor, ComposerCommandItem>();
+
+function skillMenuItem(skill: ProviderSkillDescriptor): ComposerCommandItem {
+  let item = skillMenuItems.get(skill);
+  if (!item) {
+    item = {
+      id: `skill:${skill.path}`,
+      type: "skill",
+      skill,
+      label: skill.interface?.displayName ?? skill.name,
+      description: skill.interface?.shortDescription ?? skill.description ?? skill.path,
+    };
+    skillMenuItems.set(skill, item);
+  }
+  return item;
+}
+
 function threadSuggestionTitle(title: string): string {
   return title.trim() || "Untitled thread";
 }
@@ -493,26 +512,14 @@ export function useComposerCommandMenuItems(input: {
       providerSkills,
       query,
       buildSkillSearchFields,
-    ).map((skill) => ({
-      id: `skill:${skill.path}`,
-      type: "skill" as const,
-      skill,
-      label: skill.interface?.displayName ?? skill.name,
-      description: skill.interface?.shortDescription ?? skill.description ?? skill.path,
-    }));
+    ).map(skillMenuItem);
     return [...builtInItems, ...rankedProviderCommandItems, ...skillItems];
   }
 
   if (composerTrigger.kind === "skill") {
     const query = normalizeProviderDiscoveryText(composerTrigger.query);
     return rankProviderDiscoveryItems(providerSkills, query, buildSkillSearchFields).map(
-      (skill) => ({
-        id: `skill:${skill.path}`,
-        type: "skill" as const,
-        skill,
-        label: skill.interface?.displayName ?? skill.name,
-        description: skill.interface?.shortDescription ?? skill.description ?? skill.path,
-      }),
+      skillMenuItem,
     );
   }
 

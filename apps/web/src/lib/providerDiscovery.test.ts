@@ -106,4 +106,20 @@ describe("rankProviderDiscoveryItems", () => {
 
     expect(ranked.map((skill) => skill.name)).toEqual(["workflow-kit:feature-delivery"]);
   });
+
+  it("normalizes an item's search fields once across keystrokes", () => {
+    const skills = [makeSkill({ name: "review" }), makeSkill({ name: "retro" })];
+    let calls = 0;
+    const fields = (skill: ProviderSkillDescriptor) => {
+      calls += 1;
+      return buildSkillSearchFields(skill);
+    };
+
+    expect(rankProviderDiscoveryItems(skills, "r", fields).map((s) => s.name)).toEqual([
+      "review",
+      "retro",
+    ]);
+    expect(rankProviderDiscoveryItems(skills, "ret", fields).map((s) => s.name)).toEqual(["retro"]);
+    expect(calls).toBe(2);
+  });
 });

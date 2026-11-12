@@ -37,7 +37,9 @@ import {
   COMPOSER_MENU_PANEL_GROUP_LABEL_CLASS_NAME,
   ComposerMenuPanel,
   type ComposerMenuPanelGroup,
+  type ComposerMenuPanelRow,
 } from "./ComposerMenuPanel";
+import { useStableCallback } from "~/hooks/useStableCallback";
 
 function humanizeProviderCommandName(command: string): string {
   return command
@@ -347,6 +349,38 @@ function CommandNoticeBadge(props: { notice: string }) {
   );
 }
 
+// One row per item object and theme. Items that stay the same object across keystrokes (skills)
+// keep their row, so the memoized panel rows skip re-rendering while only the filter changes.
+const rowCache = new WeakMap<
+  ComposerCommandItem,
+  { theme: "light" | "dark"; row: ComposerMenuPanelRow }
+>();
+
+function commandMenuRow(item: ComposerCommandItem, theme: "light" | "dark"): ComposerMenuPanelRow {
+  const cached = rowCache.get(item);
+  if (cached?.theme === theme) return cached.row;
+  const row: ComposerMenuPanelRow = {
+    id: item.id,
+    icon: commandMenuItemGlyph(item, theme),
+    title:
+      item.type === "slash-command" || item.type === "provider-native-command"
+        ? commandMenuTitle(item)
+        : item.label,
+    secondary: commandMenuSecondaryText(item),
+    trailing:
+      item.type === "provider-native-command" && item.notice ? (
+        <span className="inline-flex items-center gap-1.5">
+          {commandMenuTrailingMeta(item)}
+          <CommandNoticeBadge notice={item.notice.detail} />
+        </span>
+      ) : (
+        commandMenuTrailingMeta(item)
+      ),
+  };
+  rowCache.set(item, { theme, row });
+  return row;
+}
+
 export function ComposerCommandMenu(props: {
   items: ComposerCommandItem[];
   resolvedTheme: "light" | "dark";
@@ -366,36 +400,21 @@ export function ComposerCommandMenu(props: {
   const panelGroups: ComposerMenuPanelGroup[] = groups.map((group) => ({
     id: group.id,
     label: group.label,
-    rows: group.items.map((item) => ({
-      id: item.id,
-      icon: commandMenuItemGlyph(item, props.resolvedTheme),
-      title:
-        item.type === "slash-command" || item.type === "provider-native-command"
-          ? commandMenuTitle(item)
-          : item.label,
-      secondary: commandMenuSecondaryText(item),
-      trailing:
-        item.type === "provider-native-command" && item.notice ? (
-          <span className="inline-flex items-center gap-1.5">
-            {commandMenuTrailingMeta(item)}
-            <CommandNoticeBadge notice={item.notice.detail} />
-          </span>
-        ) : (
-          commandMenuTrailingMeta(item)
-        ),
-    })),
+    rows: group.items.map((item) => commandMenuRow(item, props.resolvedTheme)),
   }));
   const itemsById = new Map(props.items.map((item) => [item.id, item]));
+  // One identity across keystrokes, so memoized rows are not re-rendered for a new handler.
+  const selectRow = useStableCallback((rowId: string) => {
+    const item = itemsById.get(rowId);
+    if (item) props.onSelect(item);
+  });
 
   return (
     <ComposerMenuPanel
       groups={panelGroups}
       activeRowId={props.activeItemId}
       onHighlightRow={props.onHighlightedItemChange}
-      onSelectRow={(rowId) => {
-        const item = itemsById.get(rowId);
-        if (item) props.onSelect(item);
-      }}
+      onSelectRow={selectRow}
       footer={
         props.triggerKind === "mention" ? (
           /* This footer is informational copy, not a selectable result group. */

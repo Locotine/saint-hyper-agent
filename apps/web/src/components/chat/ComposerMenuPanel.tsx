@@ -4,7 +4,7 @@
 // Layer: Chat composer presentation
 // Depends on: Command primitives and the shared composer picker style tokens.
 
-import { memo, useEffect, useRef, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, type ReactNode } from "react";
 
 import { cn } from "~/lib/utils";
 import {
@@ -63,6 +63,10 @@ export function ComposerMenuPanel(props: {
   surfaceClassName?: string;
 }) {
   const rowRefs = useRef<Record<string, HTMLElement | null>>({});
+  // One identity for every row: a new ref closure per render would defeat the row memo.
+  const registerRow = useCallback((rowId: string, node: HTMLElement | null) => {
+    rowRefs.current[rowId] = node;
+  }, []);
   const hasRows = props.groups.some((group) => group.rows.length > 0);
   const activeRowId = props.activeRowId;
 
@@ -99,9 +103,7 @@ export function ComposerMenuPanel(props: {
                       key={row.id}
                       row={row}
                       isActive={props.activeRowId === row.id}
-                      rowRef={(node) => {
-                        rowRefs.current[row.id] = node;
-                      }}
+                      registerRow={registerRow}
                       onHighlight={props.onHighlightRow}
                       onSelect={props.onSelectRow}
                     />
@@ -118,27 +120,26 @@ export function ComposerMenuPanel(props: {
   );
 }
 
-// Props are destructured rather than read off a `props` object: `rowRef` lands on a JSX `ref`,
-// which makes React Compiler treat it as a ref — and through `props.rowRef` that verdict spreads
-// to the whole `props` object, so every later `props.x` read looks like a ref access during render
-// and the component bails out of compilation entirely. Separate bindings keep the verdict on
-// `rowRef` alone. Do not collapse these back into a `props` parameter.
+// Props are destructured rather than read off a `props` object: a value used in a JSX `ref`
+// makes React Compiler treat the whole `props` object as a ref, so every later `props.x` read
+// looks like a ref access during render and the component bails out of compilation. Separate
+// bindings keep that verdict on `registerRow` alone. Do not collapse them into `props`.
 const ComposerMenuPanelItem = memo(function ComposerMenuPanelItem({
   row,
   isActive,
-  rowRef,
+  registerRow,
   onHighlight,
   onSelect,
 }: {
   row: ComposerMenuPanelRow;
   isActive: boolean;
-  rowRef: (node: HTMLElement | null) => void;
+  registerRow: (rowId: string, node: HTMLElement | null) => void;
   onHighlight: (rowId: string | null) => void;
   onSelect: (rowId: string) => void;
 }) {
   return (
     <CommandItem
-      ref={rowRef}
+      ref={(node) => registerRow(row.id, node)}
       value={row.id}
       disabled={row.disabled ?? false}
       className={cn(

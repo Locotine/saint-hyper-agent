@@ -146,28 +146,61 @@ function scoreNormalizedDiscoveryText(
   return null;
 }
 
-function scoreProviderDiscoverySearchFieldsForNormalizedQuery(
-  normalizedQuery: string,
-  fields: readonly ProviderDiscoverySearchField[],
-): number | null {
-  if (!normalizedQuery) {
-    return 0;
-  }
+interface NormalizedSearchField {
+  value: string;
+  weight: number;
+}
 
+// Search fields normalized once per item object and field builder. Discovery lists (skills,
+// plugins) are stable query data, so each keystroke only scores instead of re-normalizing every
+// description again. Primitive items are not cached.
+const normalizedFieldCache = new WeakMap<
+  (item: never) => readonly ProviderDiscoverySearchField[],
+  WeakMap<object, readonly NormalizedSearchField[]>
+>();
+
+function normalizeFields(
+  fields: readonly ProviderDiscoverySearchField[],
+): readonly NormalizedSearchField[] {
+  return fields.map((field) => ({
+    value: normalizeProviderDiscoveryText(field.value ?? undefined),
+    weight: field.weight ?? 0,
+  }));
+}
+
+function normalizedFieldsFor<T>(
+  item: T,
+  fieldsForItem: (item: T) => readonly ProviderDiscoverySearchField[],
+): readonly NormalizedSearchField[] {
+  if (typeof item !== "object" || item === null) {
+    return normalizeFields(fieldsForItem(item));
+  }
+  const builder = fieldsForItem as (item: never) => readonly ProviderDiscoverySearchField[];
+  let byItem = normalizedFieldCache.get(builder);
+  if (!byItem) {
+    byItem = new WeakMap();
+    normalizedFieldCache.set(builder, byItem);
+  }
+  let fields = byItem.get(item);
+  if (!fields) {
+    fields = normalizeFields(fieldsForItem(item));
+    byItem.set(item, fields);
+  }
+  return fields;
+}
+
+function scoreNormalizedFields(
+  normalizedQuery: string,
+  fields: readonly NormalizedSearchField[],
+): number | null {
   let bestScore: number | null = null;
   for (const field of fields) {
-    const fieldWeight = field.weight ?? 0;
-    const normalizedValue = normalizeProviderDiscoveryText(field.value ?? undefined);
-    const fieldScore = scoreNormalizedDiscoveryText(normalizedValue, normalizedQuery, {
-      allowFuzzy: fieldWeight === 0,
+    const fieldScore = scoreNormalizedDiscoveryText(field.value, normalizedQuery, {
+      allowFuzzy: field.weight === 0,
     });
-    if (fieldScore === null) {
-      continue;
-    }
-    const weightedScore = fieldWeight + fieldScore;
-    if (bestScore === null || weightedScore < bestScore) {
-      bestScore = weightedScore;
-    }
+    if (fieldScore === null) continue;
+    const weightedScore = field.weight + fieldScore;
+    if (bestScore === null || weightedScore < bestScore) bestScore = weightedScore;
   }
   return bestScore;
 }
@@ -184,9 +217,9 @@ export function rankProviderDiscoveryItems<T>(
 
   return items
     .map((item, index): RankedProviderDiscoveryItem<T> | null => {
-      const score = scoreProviderDiscoverySearchFieldsForNormalizedQuery(
+      const score = scoreNormalizedFields(
         normalizedQuery,
-        fieldsForItem(item),
+        normalizedFieldsFor(item, fieldsForItem),
       );
       return score === null ? null : { item, score, index };
     })
