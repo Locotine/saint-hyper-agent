@@ -109,7 +109,12 @@ describe("applyRemoteDepsPatches", () => {
     const run = (command: string, args: string[], cwd: string) => {
       calls.push({ command, args, cwd });
     };
-    const patch = { packageName: "open", patchPath: "patches/open.patch", fileName: "open.patch" };
+    const patch = {
+      packageName: "open",
+      spec: "10.2.0",
+      patchPath: "patches/open.patch",
+      fileName: "open.patch",
+    };
 
     applyRemoteDepsPatches("/repo", nodeModules, [patch], run);
     expect(calls).toEqual([
