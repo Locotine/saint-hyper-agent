@@ -56,7 +56,9 @@ export function createHostShellPump(input: {
     fence.applyEvent(item);
   });
   const unwatchState = transport.onStateChange((state) => {
-    if (state === "closed" || state === "incompatible") {
+    // A dropped socket comes back as "connecting" and retries forever, so it must read stale
+    // too: auto-reconnect only restarts a host's server (which may have exited) when stale.
+    if (state === "connecting" || state === "closed" || state === "incompatible") {
       // The transport restarts the stream and sends a new snapshot, which re-bases the fence.
       fence.reset();
       status("stale");

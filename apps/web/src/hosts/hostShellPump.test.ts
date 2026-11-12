@@ -123,6 +123,13 @@ describe("createHostShellPump", () => {
     expect(host.threadIds()).toEqual(["thread-1"]);
   });
 
+  it("goes stale while the transport reconnects to a host whose server is gone", async () => {
+    const host = await setup();
+    host.push(snapshotItem(5));
+    host.state("connecting");
+    expect(host.statuses.at(-1)).toBe("stale");
+  });
+
   it("stops cleanly: nothing more is applied and the stored data stays", async () => {
     const host = await setup();
     host.push(snapshotItem(5));
