@@ -1,16 +1,19 @@
 // FILE: remote_ssh.rs
-// Purpose: Manages Remote SSH hosts, `~/.ssh/config` host discovery, and SSH tunnels
+// Purpose: Manages Remote SSH hosts, `~/.ssh/config` host discovery, the remote Saint server
+//          install/start/stop (scripts in `remote_ssh_scripts.rs`) and SSH tunnels
 //          (Option 3.3-A).
 // Layer: Desktop Remote SSH subsystem.
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 use std::net::TcpListener;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
+use crate::remote_ssh_scripts as scripts;
 use crate::state::SaintPaths;
 
 pub const DEFAULT_REMOTE_ROOT: &str = ".saint-remote";
@@ -117,22 +120,125 @@ struct PersistedSavedHostsEnvelope {
     hosts: Vec<DesktopRemoteSshSavedHost>,
 }
 
+/// Non-interactive ssh: never prompt for a password or host key inside the app.
+const SSH_BASE_OPTIONS: [&str; 8] = [
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ConnectTimeout=15",
+    "-o",
+    "ServerAliveInterval=15",
+    "-o",
+    "ServerAliveCountMax=3",
+];
+const PROBE_TIMEOUT: Duration = Duration::from_secs(60);
+const UPLOAD_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const INSTALL_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+const START_TIMEOUT: Duration = Duration::from_secs(2 * 60);
+const STOP_TIMEOUT: Duration = Duration::from_secs(60);
+
+enum SshInput {
+    Text(String),
+    File(PathBuf),
+}
+
+struct SshRun {
+    code: Option<i32>,
+    stdout: String,
+    stderr: String,
+}
+
+/// The remote server a host's tunnel forwards to, kept across reconnects.
+struct Session {
+    token: String,
+    local_port: u16,
+}
+
 pub struct RemoteSshManager {
     paths: SaintPaths,
     saved_hosts: Mutex<Vec<DesktopRemoteSshSavedHost>>,
     live_hosts: Mutex<Vec<DesktopRemoteSshHostState>>,
     tunnels: Mutex<HashMap<String, Child>>,
+    sessions: Mutex<HashMap<String, Session>>,
+    // ponytail: one connect at a time across hosts; per-host locks if parallel connects matter.
+    connect_lock: Mutex<()>,
+    client_id: String,
 }
 
 impl RemoteSshManager {
     pub fn new(paths: SaintPaths) -> Self {
         let initial_saved = Self::read_saved_hosts(&paths.remote_ssh_hosts_path);
+        let client_id = Self::ensure_client_id(&paths.state_dir.join("remote-ssh-client-id"));
         Self {
             paths,
             saved_hosts: Mutex::new(initial_saved),
             live_hosts: Mutex::new(Vec::new()),
             tunnels: Mutex::new(HashMap::new()),
+            sessions: Mutex::new(HashMap::new()),
+            connect_lock: Mutex::new(()),
+            client_id,
         }
+    }
+
+    fn is_client_id(value: &str) -> bool {
+        let Some((name, hex)) = value.rsplit_once('-') else {
+            return false;
+        };
+        let first_ok = name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
+        first_ok
+            && name.len() <= 41
+            && name
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
+            && hex.len() == 8
+            && hex.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f'))
+    }
+
+    /// This desktop's name on remote hosts (`<user>-<8 hex>`), shared with the Electron build's
+    /// file so threads created there stay visible. One remote server partitions data by it.
+    fn ensure_client_id(path: &Path) -> String {
+        if let Ok(saved) = std::fs::read_to_string(path) {
+            if Self::is_client_id(saved.trim()) {
+                return saved.trim().to_string();
+            }
+        }
+        let user = std::env::var("USER")
+            .or_else(|_| std::env::var("USERNAME"))
+            .unwrap_or_default()
+            .to_lowercase();
+        let mut name = String::new();
+        for c in user.chars() {
+            if c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-' {
+                name.push(c);
+            } else if !name.ends_with('-') {
+                name.push('-');
+            }
+        }
+        let name: String = name
+            .trim_start_matches(['-', '_'])
+            .trim_end_matches('-')
+            .chars()
+            .take(32)
+            .collect();
+        let name = if name.is_empty() {
+            "user".to_string()
+        } else {
+            name
+        };
+        let id = format!("{name}-{}", &Uuid::new_v4().simple().to_string()[..8]);
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(path, &id);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        }
+        id
     }
 
     pub fn is_valid_ssh_user(value: &str) -> bool {
@@ -257,49 +363,6 @@ impl RemoteSshManager {
             .ok()
             .map(|raw| Self::parse_ssh_config_hosts(&raw))
             .unwrap_or_default()
-    }
-
-    /// Waits until the forwarded local port accepts connections or ssh exits.
-    /// ssh opens the `-L` listener only after authentication succeeds, so an
-    /// accepting port means the tunnel is up; an exit means it never was.
-    fn wait_for_tunnel(mut child: Child, local_port: u16) -> Result<Child, String> {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
-        let addr = std::net::SocketAddr::from(([127, 0, 0, 1], local_port));
-        loop {
-            if let Ok(Some(status)) = child.try_wait() {
-                let mut stderr = String::new();
-                if let Some(mut pipe) = child.stderr.take() {
-                    let _ = std::io::Read::read_to_string(&mut pipe, &mut stderr);
-                }
-                let detail = stderr
-                    .lines()
-                    .map(str::trim)
-                    .filter(|l| !l.is_empty())
-                    .last()
-                    .unwrap_or("no output from ssh");
-                let code = status
-                    .code()
-                    .map_or("signal".to_string(), |c| c.to_string());
-                return Err(format!(
-                    "Could not reach the host (ssh exit {code}): {detail}"
-                ));
-            }
-            let timeout = std::time::Duration::from_millis(200);
-            if std::net::TcpStream::connect_timeout(&addr, timeout).is_ok() {
-                // Drain stderr so a chatty ssh never blocks on a full pipe.
-                if let Some(mut pipe) = child.stderr.take() {
-                    std::thread::spawn(move || {
-                        let _ = std::io::copy(&mut pipe, &mut std::io::sink());
-                    });
-                }
-                return Ok(child);
-            }
-            if std::time::Instant::now() >= deadline {
-                Self::kill_and_reap(child);
-                return Err("Timed out waiting for the SSH tunnel to open.".to_string());
-            }
-            std::thread::sleep(timeout);
-        }
     }
 
     fn kill_and_reap(mut child: Child) {
@@ -681,10 +744,14 @@ impl RemoteSshManager {
         }
     }
 
+    /// Installs this build's server on the host when needed, starts it (or reuses the one
+    /// running), then forwards a local loopback port to it. Connects run one at a time, so a
+    /// second caller waits and then finds the host connected.
     pub fn connect(
         &self,
         input: DesktopRemoteSshSavedHost,
     ) -> Result<DesktopRemoteSshHostState, String> {
+        let _serial = self.connect_lock.lock().map_err(|e| e.to_string())?;
         let entry = self.upsert_saved_entry(None, input, true)?;
         let host = entry.host.clone();
         let host_key = entry
@@ -695,82 +762,506 @@ impl RemoteSshManager {
             .remote_root
             .clone()
             .unwrap_or_else(|| DEFAULT_REMOTE_ROOT.to_string());
-        let local_port = Self::reserve_local_port();
-        let extra_args = Self::ssh_connection_option_args(&entry);
 
-        // Spawn non-interactive SSH port forward (`ssh -N -L <localPort>:127.0.0.1:3773 <host>`)
-        let mut ssh_cmd = Command::new("ssh");
-        ssh_cmd.args([
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=10",
-            "-o",
-            "ExitOnForwardFailure=yes",
-        ]);
-        ssh_cmd.args(&extra_args);
-        ssh_cmd
-            .args([
-                "-N",
-                "-L",
-                &format!("{local_port}:127.0.0.1:3773"),
-                "--",
-                &host,
-            ])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped());
+        // The tunnel outlives a server that exited after idling; reconnect when it no longer answers.
+        self.reconcile_tunnels();
+        let live_port = self
+            .sessions
+            .lock()
+            .ok()
+            .and_then(|s| s.get(&host).map(|s| s.local_port));
+        let connected = self.live_hosts.lock().ok().is_some_and(|live| {
+            live.iter()
+                .any(|h| h.host == host && h.phase == "connected" && h.remote_root == remote_root)
+        });
+        if connected && live_port.is_some_and(|p| Self::answers_health(p, Duration::from_secs(5))) {
+            if let Some(state) = self.host_state(&host) {
+                return Ok(state);
+            }
+        }
 
+        match self.run_connect(&entry, &remote_root, &host_key) {
+            Ok(state) => Ok(state),
+            Err(message) => {
+                if let Some(child) = self.tunnels.lock().ok().and_then(|mut t| t.remove(&host)) {
+                    Self::kill_and_reap(child);
+                }
+                eprintln!("[remote-ssh] {host} failed: {message}");
+                Ok(self.set_phase(&host, &host_key, &remote_root, "error", Some(message)))
+            }
+        }
+    }
+
+    fn run_connect(
+        &self,
+        entry: &DesktopRemoteSshSavedHost,
+        remote_root: &str,
+        host_key: &str,
+    ) -> Result<DesktopRemoteSshHostState, String> {
+        let host = entry.host.as_str();
+        let identity = self.install_identity()?;
+        let target = scripts::Target {
+            remote_root,
+            store_root: DEFAULT_REMOTE_ROOT,
+            identity: &identity,
+        };
+        let step = |phase: &str| {
+            eprintln!("[remote-ssh] {host} {phase}");
+            self.set_phase(host, host_key, remote_root, phase, None);
+        };
+        if let Some(child) = self.tunnels.lock().ok().and_then(|mut t| t.remove(host)) {
+            Self::kill_and_reap(child);
+        }
+
+        step("checking");
+        let probe_run = self.run_script(entry, &scripts::probe_script(&target)?, PROBE_TIMEOUT)?;
+        let probe = scripts::parse_probe(&probe_run.stdout)
+            .ok_or_else(|| Self::failure_message("reach the host", &probe_run))?;
+        if !scripts::is_node_supported(probe.node_version.as_deref()) {
+            return Err(format!(
+                "{} is required on {host} {}",
+                scripts::NODE_REQUIREMENT,
+                probe
+                    .node_version
+                    .as_deref()
+                    .map_or("(node was not found).".to_string(), |v| format!(
+                        "(found {v})."
+                    )),
+            ));
+        }
+        if let Some(server) = probe
+            .server
+            .as_ref()
+            .filter(|s| scripts::compare_install_versions(&s.version, &identity.version) > 0)
+        {
+            // Never downgrade a server another desktop of this account runs: both would keep
+            // restarting each other's version.
+            return Err(format!(
+                "{host} already runs Saint {}, newer than this computer's {}. Update Saint on this computer to connect.",
+                server.version, identity.version
+            ));
+        }
+
+        let (remote_port, token) = match probe.server.filter(|s| s.version == identity.version) {
+            Some(server) => (server.port, server.token),
+            None => {
+                if !probe.installed {
+                    if !probe.tar {
+                        return Err(format!("tar is required on {host} to install Saint."));
+                    }
+                    let dir = self.install_dir()?;
+                    step("uploading");
+                    let upload = self.run_ssh(
+                        entry,
+                        &scripts::upload_command(&target),
+                        SshInput::File(dir.join("bundle.tar.gz")),
+                        UPLOAD_TIMEOUT,
+                    )?;
+                    if upload.code != Some(0) {
+                        return Err(Self::failure_message("upload the server", &upload));
+                    }
+                    if !probe.deps_installed {
+                        let deps = self.run_ssh(
+                            entry,
+                            &scripts::deps_upload_command(&target),
+                            SshInput::File(dir.join("deps.tar.gz")),
+                            UPLOAD_TIMEOUT,
+                        )?;
+                        if deps.code != Some(0) {
+                            return Err(Self::failure_message("upload the dependencies", &deps));
+                        }
+                    }
+                    step("installing");
+                    let install = self.run_script(
+                        entry,
+                        &scripts::install_script(&target)?,
+                        INSTALL_TIMEOUT,
+                    )?;
+                    if !scripts::has_report(&install.stdout, "installed") {
+                        return Err(Self::failure_message("install the server", &install));
+                    }
+                }
+                step("starting");
+                let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+                let dev_url = cfg!(debug_assertions).then_some("http://localhost:5733");
+                let start = self.run_script(
+                    entry,
+                    &scripts::start_script(&target, &token, dev_url)?,
+                    START_TIMEOUT,
+                )?;
+                let port = scripts::parse_started_port(&start.stdout)
+                    .ok_or_else(|| Self::failure_message("start the server", &start))?;
+                (port, token)
+            }
+        };
+
+        step("tunneling");
+        // Keep the local port across reconnects so open windows reconnect to the same URL.
+        let mut local_port = self
+            .sessions
+            .lock()
+            .ok()
+            .and_then(|s| s.get(host).map(|s| s.local_port))
+            .unwrap_or_else(Self::reserve_local_port);
+        let child = match self.open_tunnel(entry, local_port, remote_port) {
+            Ok(child) => child,
+            Err(_) => {
+                // The kept port may be taken now; windows re-read the URL on reconnect.
+                local_port = Self::reserve_local_port();
+                self.open_tunnel(entry, local_port, remote_port)?
+            }
+        };
+        if let Some(prev) = self
+            .tunnels
+            .lock()
+            .ok()
+            .and_then(|mut t| t.insert(host.to_string(), child))
+        {
+            Self::kill_and_reap(prev);
+        }
+        let token_changed = {
+            let mut sessions = self.sessions.lock().map_err(|e| e.to_string())?;
+            let changed = sessions.get(host).map_or(true, |s| s.token != token);
+            sessions.insert(host.to_string(), Session { token, local_port });
+            changed
+        };
+        let mut state = self.set_phase(host, host_key, remote_root, "connected", None);
+        if token_changed {
+            // A client builds a new transport per epoch; the token is part of its URL.
+            if let Ok(mut live) = self.live_hosts.lock() {
+                if let Some(h) = live.iter_mut().find(|h| h.host == host) {
+                    h.epoch += 1;
+                    state = h.clone();
+                }
+            }
+        }
+        Ok(state)
+    }
+
+    fn host_state(&self, host: &str) -> Option<DesktopRemoteSshHostState> {
+        self.live_hosts
+            .lock()
+            .ok()?
+            .iter()
+            .find(|h| h.host == host)
+            .cloned()
+    }
+
+    fn set_phase(
+        &self,
+        host: &str,
+        host_key: &str,
+        remote_root: &str,
+        phase: &str,
+        message: Option<String>,
+    ) -> DesktopRemoteSshHostState {
+        let local_port = if phase == "connected" {
+            self.sessions
+                .lock()
+                .ok()
+                .and_then(|s| s.get(host).map(|s| s.local_port))
+        } else {
+            None
+        };
+        let Ok(mut live) = self.live_hosts.lock() else {
+            return DesktopRemoteSshHostState {
+                host: host.to_string(),
+                host_key: Some(host_key.to_string()),
+                epoch: 0,
+                remote_root: remote_root.to_string(),
+                phase: phase.to_string(),
+                message,
+                local_port,
+            };
+        };
+        let idx = match live.iter().position(|h| h.host == host) {
+            Some(i) => i,
+            None => {
+                live.push(DesktopRemoteSshHostState {
+                    host: host.to_string(),
+                    host_key: None,
+                    epoch: 0,
+                    remote_root: String::new(),
+                    phase: String::new(),
+                    message: None,
+                    local_port: None,
+                });
+                live.len() - 1
+            }
+        };
+        let h = &mut live[idx];
+        h.host_key = Some(host_key.to_string());
+        h.remote_root = remote_root.to_string();
+        h.phase = phase.to_string();
+        h.message = message;
+        h.local_port = local_port;
+        h.clone()
+    }
+
+    /// Files `scripts/stage-remote-install.ts` staged: the bundle, the dependency pack and
+    /// `identity.json`. Packaged apps carry them as the `remote-install` resource.
+    fn install_dir(&self) -> Result<PathBuf, String> {
+        let mut candidates: Vec<PathBuf> = std::env::var_os("SAINT_REMOTE_INSTALL_DIR")
+            .map(PathBuf::from)
+            .into_iter()
+            .collect();
+        if let Some(exe_dir) = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(Path::to_path_buf))
+        {
+            candidates.extend([
+                exe_dir.join("remote-install"),
+                exe_dir.join("resources").join("remote-install"),
+                exe_dir.join("..").join("Resources").join("remote-install"),
+                exe_dir
+                    .join("..")
+                    .join("lib")
+                    .join("Saint")
+                    .join("remote-install"),
+            ]);
+        }
+        if cfg!(debug_assertions) {
+            candidates
+                .push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/remote-install"));
+        }
+        candidates
+            .into_iter()
+            .find(|dir| dir.join("identity.json").is_file())
+            .ok_or_else(|| {
+                "This Saint build ships no remote server bundle. Run `bun run --cwd apps/desktop-rust build:remote-install`.".to_string()
+            })
+    }
+
+    fn install_identity(&self) -> Result<scripts::InstallIdentity, String> {
+        let path = self.install_dir()?.join("identity.json");
+        let raw = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        serde_json::from_str(&raw).map_err(|e| format!("{}: {e}", path.display()))
+    }
+
+    fn failure_message(action: &str, run: &SshRun) -> String {
+        let detail = Self::tail(if run.stderr.trim().is_empty() {
+            &run.stdout
+        } else {
+            &run.stderr
+        });
+        let code = run.code.map_or("signal".to_string(), |c| c.to_string());
+        if detail.is_empty() {
+            format!("Could not {action} (ssh exit {code}).")
+        } else {
+            format!("Could not {action} (ssh exit {code}): {detail}")
+        }
+    }
+
+    fn tail(text: &str) -> String {
+        let trimmed = text.trim();
+        let chars: Vec<char> = trimmed.chars().collect();
+        if chars.len() > 2000 {
+            format!(
+                "…{}",
+                chars[chars.len() - 2000..].iter().collect::<String>()
+            )
+        } else {
+            trimmed.to_string()
+        }
+    }
+
+    fn ssh_command(entry: &DesktopRemoteSshSavedHost) -> Command {
+        let mut cmd = Command::new("ssh");
+        cmd.args(SSH_BASE_OPTIONS);
+        cmd.args(Self::ssh_connection_option_args(entry));
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
-            ssh_cmd.creation_flags(0x0800_0000);
+            cmd.creation_flags(0x0800_0000);
         }
+        cmd
+    }
 
-        let spawned = ssh_cmd
-            .spawn()
-            .map_err(|err| format!("Failed to start SSH tunnel: {err}"))
-            .and_then(|child| Self::wait_for_tunnel(child, local_port));
-        let (phase, message, bound_port) = match spawned {
-            Ok(child) => {
-                let prev = self
-                    .tunnels
-                    .lock()
-                    .ok()
-                    .and_then(|mut tunnels| tunnels.insert(host.clone(), child));
-                if let Some(prev_child) = prev {
-                    Self::kill_and_reap(prev_child);
-                }
-                ("connected".to_string(), None, Some(local_port))
-            }
-            Err(message) => ("error".to_string(), Some(message), None),
-        };
+    fn run_script(
+        &self,
+        entry: &DesktopRemoteSshSavedHost,
+        script: &str,
+        timeout: Duration,
+    ) -> Result<SshRun, String> {
+        self.run_ssh(
+            entry,
+            scripts::LOGIN_SHELL_COMMAND,
+            SshInput::Text(script.to_string()),
+            timeout,
+        )
+    }
 
-        let next_state = {
-            let mut live_guard = self.live_hosts.lock().map_err(|e| e.to_string())?;
-            let next_epoch = live_guard
-                .iter()
-                .find(|h| h.host == host)
-                .map(|h| h.epoch + 1)
-                .unwrap_or(1);
-            let state = DesktopRemoteSshHostState {
-                host: host.clone(),
-                host_key: Some(host_key),
-                epoch: next_epoch,
-                remote_root,
-                phase,
-                message,
-                local_port: bound_port,
-            };
-            if let Some(existing) = live_guard.iter_mut().find(|h| h.host == host) {
-                *existing = state.clone();
+    /// Runs one remote command with `input` on its stdin and collects its output.
+    fn run_ssh(
+        &self,
+        entry: &DesktopRemoteSshSavedHost,
+        remote_command: &str,
+        input: SshInput,
+        timeout: Duration,
+    ) -> Result<SshRun, String> {
+        let mut cmd = Self::ssh_command(entry);
+        cmd.args([
+            "-o",
+            "ClearAllForwardings=yes",
+            "--",
+            &entry.host,
+            remote_command,
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+        let mut child = cmd.spawn().map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                "The ssh command was not found on this computer.".to_string()
             } else {
-                live_guard.push(state.clone());
+                format!("Failed to start ssh: {e}")
             }
-            state
+        })?;
+        let mut stdin = child.stdin.take();
+        // A remote that exits early closes stdin; its exit code and stderr report why.
+        let writer = std::thread::spawn(move || {
+            let Some(pipe) = stdin.as_mut() else { return };
+            let _ = match input {
+                SshInput::Text(text) => std::io::Write::write_all(pipe, text.as_bytes()),
+                SshInput::File(path) => std::fs::File::open(path)
+                    .and_then(|mut file| std::io::copy(&mut file, pipe).map(|_| ())),
+            };
+        });
+        let read = |pipe: Option<Box<dyn std::io::Read + Send>>| {
+            std::thread::spawn(move || {
+                let mut buf = Vec::new();
+                if let Some(mut p) = pipe {
+                    let _ = p.read_to_end(&mut buf);
+                }
+                String::from_utf8_lossy(&buf).into_owned()
+            })
         };
+        let stdout = read(
+            child
+                .stdout
+                .take()
+                .map(|p| Box::new(p) as Box<dyn std::io::Read + Send>),
+        );
+        let stderr = read(
+            child
+                .stderr
+                .take()
+                .map(|p| Box::new(p) as Box<dyn std::io::Read + Send>),
+        );
+        let deadline = Instant::now() + timeout;
+        let status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break Some(status),
+                Ok(None) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(100))
+                }
+                _ => {
+                    // Killing ssh ends the remote shell's stdin; the next install clears what it left.
+                    Self::kill_and_reap(child);
+                    break None;
+                }
+            }
+        };
+        let _ = writer.join();
+        let run = SshRun {
+            code: status.and_then(|s| s.code()),
+            stdout: stdout.join().unwrap_or_default(),
+            stderr: stderr.join().unwrap_or_default(),
+        };
+        if status.is_none() {
+            return Err(format!(
+                "ssh to {} timed out.\n{}",
+                entry.host,
+                Self::tail(&run.stderr)
+            ));
+        }
+        Ok(run)
+    }
 
-        Ok(next_state)
+    /// Spawns `ssh -N -L` and waits until the remote server answers /health through it.
+    /// No ExitOnForwardFailure: a taken port from the user's own ssh config forwards would
+    /// kill the tunnel; our own forward is proven by the /health wait.
+    fn open_tunnel(
+        &self,
+        entry: &DesktopRemoteSshSavedHost,
+        local_port: u16,
+        remote_port: u16,
+    ) -> Result<Child, String> {
+        let mut cmd = Self::ssh_command(entry);
+        cmd.args([
+            "-N",
+            "-L",
+            &format!("127.0.0.1:{local_port}:127.0.0.1:{remote_port}"),
+            "--",
+            &entry.host,
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
+        let mut child = cmd
+            .spawn()
+            .map_err(|err| format!("Failed to start SSH tunnel: {err}"))?;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            if let Ok(Some(status)) = child.try_wait() {
+                let mut stderr = String::new();
+                if let Some(mut pipe) = child.stderr.take() {
+                    let _ = std::io::Read::read_to_string(&mut pipe, &mut stderr);
+                }
+                let code = status
+                    .code()
+                    .map_or("signal".to_string(), |c| c.to_string());
+                return Err(format!(
+                    "SSH tunnel to {} exited (code {code}): {}",
+                    entry.host,
+                    Self::tail(&stderr)
+                ));
+            }
+            if Self::answers_health(local_port, Duration::from_secs(2)) {
+                // Drain stderr so a chatty ssh never blocks on a full pipe.
+                if let Some(mut pipe) = child.stderr.take() {
+                    std::thread::spawn(move || {
+                        let _ = std::io::copy(&mut pipe, &mut std::io::sink());
+                    });
+                }
+                return Ok(child);
+            }
+            if Instant::now() >= deadline {
+                Self::kill_and_reap(child);
+                return Err(format!(
+                    "The SSH tunnel to {} did not reach the remote server.",
+                    entry.host
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(300));
+        }
+    }
+
+    /// `GET /health` on a loopback port, without any proxy.
+    fn answers_health(port: u16, timeout: Duration) -> bool {
+        use std::io::{Read, Write};
+        let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+        let Ok(mut stream) = std::net::TcpStream::connect_timeout(&addr, timeout) else {
+            return false;
+        };
+        let _ = stream.set_read_timeout(Some(timeout));
+        let _ = stream.set_write_timeout(Some(timeout));
+        if stream
+            .write_all(b"GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+            .is_err()
+        {
+            return false;
+        }
+        let mut head = [0u8; 16];
+        let mut read = 0;
+        while read < head.len() {
+            match stream.read(&mut head[read..]) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => read += n,
+            }
+        }
+        let line = String::from_utf8_lossy(&head[..read]);
+        line.starts_with("HTTP/1.") && line.get(9..10) == Some("2")
     }
 
     pub fn disconnect(&self, host: &str) -> Result<(), String> {
@@ -833,24 +1324,19 @@ impl RemoteSshManager {
                 .identity_file
                 .or_else(|| saved_entry.as_ref().and_then(|s| s.identity_file.clone())),
         };
-        let extra_args = Self::ssh_connection_option_args(&merged);
-        let pattern = Self::remote_root_process_pattern(&remote_root);
-        let mut stop_cmd = Command::new("ssh");
-        stop_cmd.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]);
-        stop_cmd.args(&extra_args);
-        stop_cmd
-            .arg("--")
-            .arg(&host)
-            .arg(format!("pkill -f '{pattern}' >/dev/null 2>&1 || true"))
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            stop_cmd.creation_flags(0x0800_0000);
+        let identity = self.install_identity()?;
+        let target = scripts::Target {
+            remote_root: &remote_root,
+            store_root: DEFAULT_REMOTE_ROOT,
+            identity: &identity,
+        };
+        let run = self.run_script(&merged, &scripts::stop_script(&target)?, STOP_TIMEOUT)?;
+        if !scripts::has_report(&run.stdout, "stopped") {
+            return Err(Self::failure_message("stop the remote server", &run));
         }
-        let _ = stop_cmd.status();
+        if let Ok(mut sessions) = self.sessions.lock() {
+            sessions.remove(&host);
+        }
         Ok(())
     }
 
@@ -871,13 +1357,23 @@ impl RemoteSshManager {
         if let Ok(mut live) = self.live_hosts.lock() {
             live.retain(|h| h.host != trimmed);
         }
+        if let Ok(mut sessions) = self.sessions.lock() {
+            sessions.remove(trimmed);
+        }
     }
 
     pub fn ws_url_for_host(&self, host: &str) -> Option<String> {
         self.reconcile_tunnels();
         let live = self.live_hosts.lock().ok()?;
         let found = live.iter().find(|h| h.host == host.trim())?;
-        found.local_port.map(|p| format!("ws://127.0.0.1:{p}"))
+        found.local_port?;
+        let sessions = self.sessions.lock().ok()?;
+        let session = sessions.get(host.trim())?;
+        // The remote server is client-scoped: every socket carries its token and this desktop's id.
+        Some(format!(
+            "ws://127.0.0.1:{}/?token={}&client={}",
+            session.local_port, session.token, self.client_id
+        ))
     }
 
     pub fn download_files(

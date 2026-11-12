@@ -177,6 +177,13 @@ jobs:
       - name: Build preload bridge (@saint/desktop-rust)
         run: bun run --cwd apps/desktop-rust build:bridge
 
+      # Remote SSH hosts get the server bundle (apps/server/dist/remote) plus the committed
+      # dependency pack; the app uploads them from the `remote-install` resource.
+      - name: Build and stage the Remote SSH server bundle
+        run: |
+          bun run --cwd apps/server build
+          bun run --cwd apps/desktop-rust build:remote-install
+
       - name: Build standalone server sidecar
         run: bun run scripts/build-server-sidecar.ts --target "${{ matrix.rust_target }}"
 
@@ -219,7 +226,7 @@ jobs:
         # server serves to phones paired over the LAN relay.
         run: >-
           bunx @tauri-apps/cli@^2.4.0 build --target "${{ matrix.rust_target }}"
-          --config '{"bundle":{"resources":{"resources/cua-driver/":"resources/cua-driver/","../web/dist/":"client/"}}}'
+          --config '{"bundle":{"resources":{"resources/cua-driver/":"resources/cua-driver/","resources/remote-install/":"remote-install/","../web/dist/":"client/"}}}'
 
       - name: Stage platform release assets
         shell: bash

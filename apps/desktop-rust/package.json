@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run build:bridge && node scripts/run-with-rust.mjs bunx @tauri-apps/cli@^2.4.0 dev",
-    "build": "bun run build:bridge && bun run build:sidecar && node scripts/run-with-rust.mjs cargo build --release",
+    "dev": "bun run build:bridge && bun run build:remote-install --optional && node scripts/run-with-rust.mjs bunx @tauri-apps/cli@^2.4.0 dev",
+    "build": "bun run build:bridge && bun run build:sidecar && bun run build:remote-install && node scripts/run-with-rust.mjs cargo build --release",
     "build:bridge": "node scripts/run-with-rust.mjs bun build src-bridge/preloadBridge.ts --target=browser --format=iife --outfile=dist-bridge/preloadBridge.iife.js",
+    "build:remote-install": "bun scripts/stage-remote-install.ts",
     "build:sidecar": "node scripts/run-with-rust.mjs bun run ../../scripts/build-server-sidecar.ts",
     "check:rust": "bun run build:bridge && node scripts/run-with-rust.mjs cargo check --all-targets",
     "test:rust": "bun run build:bridge && node scripts/run-with-rust.mjs cargo test",

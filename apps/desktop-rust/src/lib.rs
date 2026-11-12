@@ -11,6 +11,7 @@ mod electron_storage;
 mod lan_relay;
 mod pty_host;
 mod remote_ssh;
+mod remote_ssh_scripts;
 mod state;
 mod updater;
 mod window_state;
