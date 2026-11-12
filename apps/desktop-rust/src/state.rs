@@ -214,6 +214,9 @@ impl DesktopSharedState {
         let cua_host = Arc::new(CuaDriverHost::new(paths.clone()));
         let appsnap = Arc::new(AppSnapHost::new(paths.clone()));
         let remote_ssh = Arc::new(RemoteSshManager::new(paths.clone()));
+        remote_ssh.start_monitor();
+        // Hosts connected when the app last ran come back; their rows show any failure.
+        remote_ssh.auto_connect_saved_hosts();
         let pty_host = Arc::new(PtyHostManager::new());
         let updater = Arc::new(UpdaterCoordinator::new());
         let backend = Arc::new(BackendSupervisor::new(paths.clone()));

@@ -114,6 +114,13 @@ pub struct DesktopWorkspaceDownloadResult {
     pub failures: Vec<DesktopWorkspaceFailedFile>,
 }
 
+/// Where workspace downloads go: a file chosen in a Save dialog (already confirmed to replace),
+/// or a folder where a taken name gets " (1)" instead of being replaced.
+pub enum DownloadDestination {
+    File(PathBuf),
+    Directory(PathBuf),
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct PersistedSavedHostsEnvelope {
     version: u32,
@@ -137,6 +144,7 @@ const INSTALL_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 const START_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 const STOP_TIMEOUT: Duration = Duration::from_secs(60);
 
+#[derive(Clone)]
 enum SshInput {
     Text(String),
     File(PathBuf),
@@ -152,7 +160,16 @@ struct SshRun {
 struct Session {
     token: String,
     local_port: u16,
+    remote_port: u16,
 }
+
+/// Waits between tries to bring a dropped tunnel back; the schedule ends in an error.
+const RECONNECT_BACKOFF: [u64; 5] = [1, 2, 5, 15, 30];
+/// How long a shared ssh connection outlives its last script run.
+const CONTROL_PERSIST_SECONDS: u32 = 120;
+/// sun_path is 104 bytes on macOS; `%C` expands to 40 hex digits.
+const MAX_CONTROL_PATH_LENGTH: usize = 100;
+const MIGRATE_TIMEOUT: Duration = Duration::from_secs(90);
 
 pub struct RemoteSshManager {
     paths: SaintPaths,
@@ -163,12 +180,20 @@ pub struct RemoteSshManager {
     // ponytail: one connect at a time across hosts; per-host locks if parallel connects matter.
     connect_lock: Mutex<()>,
     client_id: String,
+    /// This desktop's own folder from before the default was shared (`<store>/clients/<id>`),
+    /// when it had connected before. A host where it still holds data keeps using it.
+    legacy_root: Option<String>,
+    /// The folder a host without its own uses, settled once per host.
+    default_roots: Mutex<HashMap<String, String>>,
+    reconnecting: Mutex<BTreeSet<String>>,
 }
 
 impl RemoteSshManager {
     pub fn new(paths: SaintPaths) -> Self {
         let initial_saved = Self::read_saved_hosts(&paths.remote_ssh_hosts_path);
-        let client_id = Self::ensure_client_id(&paths.state_dir.join("remote-ssh-client-id"));
+        let (client_id, existed) =
+            Self::ensure_client_id(&paths.state_dir.join("remote-ssh-client-id"));
+        let legacy_root = existed.then(|| format!("{DEFAULT_REMOTE_ROOT}/clients/{client_id}"));
         Self {
             paths,
             saved_hosts: Mutex::new(initial_saved),
@@ -177,6 +202,9 @@ impl RemoteSshManager {
             sessions: Mutex::new(HashMap::new()),
             connect_lock: Mutex::new(()),
             client_id,
+            legacy_root,
+            default_roots: Mutex::new(HashMap::new()),
+            reconnecting: Mutex::new(BTreeSet::new()),
         }
     }
 
@@ -199,10 +227,11 @@ impl RemoteSshManager {
 
     /// This desktop's name on remote hosts (`<user>-<8 hex>`), shared with the Electron build's
     /// file so threads created there stay visible. One remote server partitions data by it.
-    fn ensure_client_id(path: &Path) -> String {
+    /// Returns the id and whether it was saved before this run.
+    fn ensure_client_id(path: &Path) -> (String, bool) {
         if let Ok(saved) = std::fs::read_to_string(path) {
             if Self::is_client_id(saved.trim()) {
-                return saved.trim().to_string();
+                return (saved.trim().to_string(), true);
             }
         }
         let user = std::env::var("USER")
@@ -238,7 +267,7 @@ impl RemoteSshManager {
             use std::os::unix::fs::PermissionsExt;
             let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
         }
-        id
+        (id, false)
     }
 
     pub fn is_valid_ssh_user(value: &str) -> bool {
@@ -370,7 +399,9 @@ impl RemoteSshManager {
         let _ = child.wait();
     }
 
-    fn reconcile_tunnels(&self) {
+    /// Drops exited tunnels; a connected host whose tunnel exited turns `reconnecting` and is
+    /// returned so the monitor can bring it back.
+    fn reconcile_tunnels(&self) -> Vec<String> {
         let mut dead_hosts = Vec::new();
         if let Ok(mut tunnels) = self.tunnels.lock() {
             tunnels.retain(|host, child| match child.try_wait() {
@@ -385,13 +416,19 @@ impl RemoteSshManager {
             if let Ok(mut live) = self.live_hosts.lock() {
                 for entry in live.iter_mut() {
                     if dead_hosts.contains(&entry.host) && entry.phase == "connected" {
-                        entry.phase = "error".to_string();
+                        eprintln!("[remote-ssh] {} tunnel closed, reconnecting", entry.host);
+                        entry.phase = "reconnecting".to_string();
                         entry.local_port = None;
-                        entry.message = Some("SSH tunnel closed.".to_string());
+                        entry.message = None;
                     }
                 }
+                dead_hosts.retain(|h| {
+                    live.iter()
+                        .any(|e| &e.host == h && e.phase == "reconnecting")
+                });
             }
         }
+        dead_hosts
     }
 
     pub fn get_state(&self) -> DesktopRemoteSshState {
@@ -758,10 +795,16 @@ impl RemoteSshManager {
             .host_key
             .clone()
             .unwrap_or_else(Self::generate_host_key);
-        let remote_root = entry
-            .remote_root
-            .clone()
-            .unwrap_or_else(|| DEFAULT_REMOTE_ROOT.to_string());
+        let remote_root = match entry.remote_root.clone() {
+            Some(root) => root,
+            None => match self.resolve_default_root(&entry) {
+                Ok(root) => root,
+                Err(message) => {
+                    let root = DEFAULT_REMOTE_ROOT;
+                    return Ok(self.set_phase(&host, &host_key, root, "error", Some(message)));
+                }
+            },
+        };
 
         // The tunnel outlives a server that exited after idling; reconnect when it no longer answers.
         self.reconcile_tunnels();
@@ -780,7 +823,7 @@ impl RemoteSshManager {
             }
         }
 
-        match self.run_connect(&entry, &remote_root, &host_key) {
+        match self.run_connect(&entry, &remote_root, &host_key, false) {
             Ok(state) => Ok(state),
             Err(message) => {
                 if let Some(child) = self.tunnels.lock().ok().and_then(|mut t| t.remove(&host)) {
@@ -797,6 +840,8 @@ impl RemoteSshManager {
         entry: &DesktopRemoteSshSavedHost,
         remote_root: &str,
         host_key: &str,
+        // A background reconnect keeps its `reconnecting` phase instead of flashing the steps.
+        quiet: bool,
     ) -> Result<DesktopRemoteSshHostState, String> {
         let host = entry.host.as_str();
         let identity = self.install_identity()?;
@@ -805,15 +850,22 @@ impl RemoteSshManager {
             store_root: DEFAULT_REMOTE_ROOT,
             identity: &identity,
         };
+        let started_at = Instant::now();
         let step = |phase: &str| {
-            eprintln!("[remote-ssh] {host} {phase}");
-            self.set_phase(host, host_key, remote_root, phase, None);
+            eprintln!(
+                "[remote-ssh] {host} {phase} +{}ms",
+                started_at.elapsed().as_millis()
+            );
+            if !quiet {
+                self.set_phase(host, host_key, remote_root, phase, None);
+            }
         };
         if let Some(child) = self.tunnels.lock().ok().and_then(|mut t| t.remove(host)) {
             Self::kill_and_reap(child);
         }
 
         step("checking");
+        self.ensure_control_master(entry);
         let probe_run = self.run_script(entry, &scripts::probe_script(&target)?, PROBE_TIMEOUT)?;
         let probe = scripts::parse_probe(&probe_run.stdout)
             .ok_or_else(|| Self::failure_message("reach the host", &probe_run))?;
@@ -842,7 +894,11 @@ impl RemoteSshManager {
             ));
         }
 
-        let (remote_port, token) = match probe.server.filter(|s| s.version == identity.version) {
+        let (remote_port, token) = match probe
+            .server
+            .clone()
+            .filter(|s| s.version == identity.version)
+        {
             Some(server) => (server.port, server.token),
             None => {
                 if !probe.installed {
@@ -881,6 +937,7 @@ impl RemoteSshManager {
                         return Err(Self::failure_message("install the server", &install));
                     }
                 }
+                self.install_scanners(entry, &target, &probe);
                 step("starting");
                 let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
                 let dev_url = cfg!(debug_assertions).then_some("http://localhost:5733");
@@ -922,7 +979,14 @@ impl RemoteSshManager {
         let token_changed = {
             let mut sessions = self.sessions.lock().map_err(|e| e.to_string())?;
             let changed = sessions.get(host).map_or(true, |s| s.token != token);
-            sessions.insert(host.to_string(), Session { token, local_port });
+            sessions.insert(
+                host.to_string(),
+                Session {
+                    token,
+                    local_port,
+                    remote_port,
+                },
+            );
             changed
         };
         let mut state = self.set_phase(host, host_key, remote_root, "connected", None);
@@ -1091,7 +1155,8 @@ impl RemoteSshManager {
         )
     }
 
-    /// Runs one remote command with `input` on its stdin and collects its output.
+    /// Runs one remote command with `input` on its stdin and collects its output. When ssh
+    /// refused a key this host's config names as too open, tightens it and runs once more.
     fn run_ssh(
         &self,
         entry: &DesktopRemoteSshSavedHost,
@@ -1099,7 +1164,160 @@ impl RemoteSshManager {
         input: SshInput,
         timeout: Duration,
     ) -> Result<SshRun, String> {
+        let run = self.run_ssh_once(entry, remote_command, &input, timeout)?;
+        if Self::fix_key_permissions(entry, &run.stderr) {
+            return self.run_ssh_once(entry, remote_command, &input, timeout);
+        }
+        Ok(run)
+    }
+
+    /// ssh refuses a private key others can read ("bad permissions") and then fails every
+    /// connect. Only a key this host's own ssh config names is touched: stderr can carry a
+    /// server banner, which must not choose the file.
+    fn fix_key_permissions(entry: &DesktopRemoteSshSavedHost, stderr: &str) -> bool {
+        let Some(key) = stderr
+            .split("Load key \"")
+            .nth(1)
+            .and_then(|rest| rest.split_once("\": bad permissions"))
+            .map(|(path, _)| path.to_string())
+        else {
+            return false;
+        };
+        let home = dirs::home_dir().unwrap_or_default();
+        let resolve = |p: &str| {
+            let p = match p.strip_prefix("~/") {
+                Some(rest) => home.join(rest),
+                None => PathBuf::from(p),
+            };
+            std::fs::canonicalize(&p).unwrap_or(p)
+        };
+        let Ok(output) = Self::ssh_command(entry)
+            .args(["-G", "--", &entry.host])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+        else {
+            return false;
+        };
+        let target = resolve(&key);
+        let configured = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter_map(|l| l.trim().strip_prefix("identityfile "))
+            .any(|file| resolve(file) == target);
+        if !configured {
+            return false;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(e) = std::fs::set_permissions(&key, std::fs::Permissions::from_mode(0o600)) {
+                eprintln!("[remote-ssh] could not fix permissions of {key}: {e}");
+                return false;
+            }
+            eprintln!("[remote-ssh] set {key} to owner-only (ssh refused it as too open)");
+            true
+        }
+        #[cfg(not(unix))]
+        false
+    }
+
+    /// `ControlPath` for shared connections, or None where sharing is off (Windows OpenSSH
+    /// has no ControlMaster) or the socket path would be too long.
+    fn control_path(&self) -> Option<String> {
+        if cfg!(windows) {
+            return None;
+        }
+        let dir = self.paths.state_dir.join("ssh");
+        std::fs::create_dir_all(&dir).ok()?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+        }
+        let path = format!("{}/%C", dir.to_str()?.trim_end_matches('/'));
+        (path.len() - 2 + 40 <= MAX_CONTROL_PATH_LENGTH).then_some(path)
+    }
+
+    /// Starts a background master connection the scripts of one connect share (`-f` returns
+    /// once authenticated); it exits CONTROL_PERSIST_SECONDS after its last script. A failure
+    /// only means each script connects on its own.
+    fn ensure_control_master(&self, entry: &DesktopRemoteSshSavedHost) {
+        let Some(path) = self.control_path() else {
+            return;
+        };
+        let path_option = format!("ControlPath={path}");
+        let detached = |args: &[&str]| -> Option<i32> {
+            let mut cmd = Command::new("ssh");
+            cmd.args(args)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            let mut child = cmd.spawn().ok()?;
+            let deadline = Instant::now() + Duration::from_secs(20);
+            loop {
+                match child.try_wait() {
+                    Ok(Some(status)) => return status.code(),
+                    Ok(None) if Instant::now() < deadline => {
+                        std::thread::sleep(Duration::from_millis(100))
+                    }
+                    _ => {
+                        Self::kill_and_reap(child);
+                        return None;
+                    }
+                }
+            }
+        };
+        let conn = Self::ssh_connection_option_args(entry);
+        let conn: Vec<&str> = conn.iter().map(String::as_str).collect();
+        let mut check = vec!["-o", &path_option];
+        check.extend(&conn);
+        check.extend(["-O", "check", "--", &entry.host]);
+        if detached(&check) == Some(0) {
+            return;
+        }
+        let persist = format!("ControlPersist={CONTROL_PERSIST_SECONDS}");
+        let mut master: Vec<&str> = SSH_BASE_OPTIONS.to_vec();
+        master.extend(&conn);
+        master.extend([
+            "-o",
+            "ClearAllForwardings=yes",
+            "-o",
+            &path_option,
+            "-o",
+            "ControlMaster=yes",
+            "-o",
+            &persist,
+            "-N",
+            "-f",
+            "--",
+            &entry.host,
+        ]);
+        let code = detached(&master);
+        if code != Some(0) {
+            eprintln!(
+                "[remote-ssh] no shared connection to {} (exit {code:?})",
+                entry.host
+            );
+        }
+    }
+
+    fn run_ssh_once(
+        &self,
+        entry: &DesktopRemoteSshSavedHost,
+        remote_command: &str,
+        input: &SshInput,
+        timeout: Duration,
+    ) -> Result<SshRun, String> {
         let mut cmd = Self::ssh_command(entry);
+        // ControlMaster=no uses a live shared connection and connects alone otherwise.
+        if let Some(path) = self.control_path() {
+            cmd.args([
+                "-o".to_string(),
+                "ControlMaster=no".to_string(),
+                "-o".to_string(),
+                format!("ControlPath={path}"),
+            ]);
+        }
         cmd.args([
             "-o",
             "ClearAllForwardings=yes",
@@ -1119,6 +1337,7 @@ impl RemoteSshManager {
         })?;
         let mut stdin = child.stdin.take();
         // A remote that exits early closes stdin; its exit code and stderr report why.
+        let input = input.clone();
         let writer = std::thread::spawn(move || {
             let Some(pipe) = stdin.as_mut() else { return };
             let _ = match input {
@@ -1298,19 +1517,14 @@ impl RemoteSshManager {
     pub fn stop_server(&self, input: DesktopRemoteSshSavedHost) -> Result<(), String> {
         let host = input.host.trim().to_string();
         self.disconnect(&host)?;
-        let remote_root = input
-            .remote_root
-            .as_deref()
-            .and_then(Self::normalize_remote_root)
-            .unwrap_or_else(|| DEFAULT_REMOTE_ROOT.to_string());
         let saved_entry = self
             .saved_hosts
             .lock()
             .ok()
             .and_then(|g| g.iter().find(|h| h.host == host).cloned());
-        let merged = DesktopRemoteSshSavedHost {
+        let mut merged = DesktopRemoteSshSavedHost {
             host: host.clone(),
-            remote_root: Some(remote_root.clone()),
+            remote_root: None,
             host_key: input.host_key,
             auto_connect: input.auto_connect,
             label: input.label,
@@ -1324,13 +1538,42 @@ impl RemoteSshManager {
                 .identity_file
                 .or_else(|| saved_entry.as_ref().and_then(|s| s.identity_file.clone())),
         };
+        let remote_root = match input.remote_root.as_deref().filter(|r| !r.is_empty()) {
+            Some(raw) => Self::normalize_remote_root(raw).ok_or_else(|| {
+                "The remote folder must be a relative path inside the home folder.".to_string()
+            })?,
+            None => self.resolve_default_root(&merged)?,
+        };
+        merged.remote_root = Some(remote_root.clone());
+        let host_key = merged.host_key.clone().unwrap_or_default();
+        self.set_phase(&host, &host_key, &remote_root, "stopping", None);
+        let result = self.run_stop(&merged, &remote_root);
+        match &result {
+            Ok(()) => self.set_phase(&host, &host_key, &remote_root, "idle", None),
+            Err(message) => self.set_phase(
+                &host,
+                &host_key,
+                &remote_root,
+                "error",
+                Some(message.clone()),
+            ),
+        };
+        result
+    }
+
+    fn run_stop(
+        &self,
+        merged: &DesktopRemoteSshSavedHost,
+        remote_root: &str,
+    ) -> Result<(), String> {
+        let host = merged.host.clone();
         let identity = self.install_identity()?;
         let target = scripts::Target {
-            remote_root: &remote_root,
+            remote_root,
             store_root: DEFAULT_REMOTE_ROOT,
             identity: &identity,
         };
-        let run = self.run_script(&merged, &scripts::stop_script(&target)?, STOP_TIMEOUT)?;
+        let run = self.run_script(merged, &scripts::stop_script(&target)?, STOP_TIMEOUT)?;
         if !scripts::has_report(&run.stdout, "stopped") {
             return Err(Self::failure_message("stop the remote server", &run));
         }
@@ -1338,6 +1581,225 @@ impl RemoteSshManager {
             sessions.remove(&host);
         }
         Ok(())
+    }
+
+    /// The folder a host without its own uses: the account-wide default, shared by every
+    /// desktop of the remote account. This desktop's older `clients/<id>` folder is moved into
+    /// it by the first connect; where that cannot be done it keeps being used. Settled once.
+    fn resolve_default_root(&self, entry: &DesktopRemoteSshSavedHost) -> Result<String, String> {
+        if let Some(root) = self
+            .default_roots
+            .lock()
+            .ok()
+            .and_then(|r| r.get(&entry.host).cloned())
+        {
+            return Ok(root);
+        }
+        let mut root = DEFAULT_REMOTE_ROOT.to_string();
+        if let Some(legacy) = self.legacy_root.as_deref() {
+            let identity = self.install_identity()?;
+            let target = scripts::Target {
+                remote_root: legacy,
+                store_root: DEFAULT_REMOTE_ROOT,
+                identity: &identity,
+            };
+            self.ensure_control_master(entry);
+            let run = self.run_script(
+                entry,
+                &scripts::migrate_root_script(&target)?,
+                MIGRATE_TIMEOUT,
+            )?;
+            if run.code != Some(0) {
+                return Err(Self::failure_message("reach the host", &run));
+            }
+            if scripts::has_report(&run.stdout, "migrated") {
+                eprintln!(
+                    "[remote-ssh] {} moved {legacy}/home into {root}/home",
+                    entry.host
+                );
+            } else if scripts::has_report(&run.stdout, "legacy") {
+                root = legacy.to_string();
+            }
+        }
+        if let Ok(mut roots) = self.default_roots.lock() {
+            roots.insert(entry.host.clone(), root.clone());
+        }
+        Ok(root)
+    }
+
+    /// Uploads this host's scanner pack when it lacks this pack version. The scanners are
+    /// optional: a failure is logged and the server still starts without them.
+    fn install_scanners(
+        &self,
+        entry: &DesktopRemoteSshSavedHost,
+        target: &scripts::Target,
+        probe: &scripts::ProbeReport,
+    ) {
+        if target.identity.scanners_version.is_none() || probe.scanners_installed {
+            return;
+        }
+        let Some(platform) = probe.platform.as_deref() else {
+            return;
+        };
+        let Ok(dir) = self.install_dir() else { return };
+        let pack = dir.join(format!("scanner-{platform}.tar.gz"));
+        if !pack.is_file() {
+            return;
+        }
+        let result = (|| {
+            eprintln!(
+                "[remote-ssh] {} uploading the scanner pack ({platform})",
+                entry.host
+            );
+            let upload = self.run_ssh(
+                entry,
+                &scripts::scanner_upload_command(target, platform)?,
+                SshInput::File(pack.clone()),
+                UPLOAD_TIMEOUT,
+            )?;
+            if upload.code != Some(0) {
+                return Err(Self::failure_message("upload", &upload));
+            }
+            let install = self.run_script(
+                entry,
+                &scripts::scanner_install_script(target, platform)?,
+                INSTALL_TIMEOUT,
+            )?;
+            if !scripts::has_report(&install.stdout, "scanners") {
+                return Err(Self::failure_message("install", &install));
+            }
+            Ok(())
+        })();
+        if let Err(message) = result {
+            eprintln!(
+                "[remote-ssh] {} scanner pack skipped: {message}",
+                entry.host
+            );
+        }
+    }
+
+    /// Watches tunnels and brings a dropped one back in the background.
+    pub fn start_monitor(self: &std::sync::Arc<Self>) {
+        let weak = std::sync::Arc::downgrade(self);
+        std::thread::spawn(move || loop {
+            std::thread::sleep(Duration::from_secs(2));
+            let Some(manager) = weak.upgrade() else {
+                return;
+            };
+            for host in manager.reconcile_tunnels() {
+                let worker = std::sync::Arc::clone(&manager);
+                std::thread::spawn(move || worker.run_reconnect(&host));
+            }
+        });
+    }
+
+    fn still_reconnecting(&self, host: &str) -> bool {
+        self.host_state(host)
+            .is_some_and(|h| h.phase == "reconnecting")
+    }
+
+    /// First try re-opens the tunnel to the same remote port and token, keeping the client URL
+    /// and epoch. Later tries run a full connect, which reuses a live server or restarts one.
+    /// A disconnect (phase leaves `reconnecting`) ends the loop.
+    fn run_reconnect(&self, host: &str) {
+        let Ok(mut active) = self.reconnecting.lock() else {
+            return;
+        };
+        if !active.insert(host.to_string()) {
+            return;
+        }
+        drop(active);
+        let mut last = String::new();
+        let mut done = false;
+        for (attempt, delay) in RECONNECT_BACKOFF.iter().enumerate() {
+            let wake = Instant::now() + Duration::from_secs(*delay);
+            while Instant::now() < wake && self.still_reconnecting(host) {
+                std::thread::sleep(Duration::from_millis(200));
+            }
+            let Ok(_serial) = self.connect_lock.lock() else {
+                break;
+            };
+            let (Some(state), Some(entry)) = (
+                self.host_state(host).filter(|h| h.phase == "reconnecting"),
+                self.saved_hosts
+                    .lock()
+                    .ok()
+                    .and_then(|s| s.iter().find(|h| h.host == host).cloned()),
+            ) else {
+                done = true;
+                break;
+            };
+            let host_key = state.host_key.clone().unwrap_or_default();
+            let session = self
+                .sessions
+                .lock()
+                .ok()
+                .and_then(|s| s.get(host).map(|s| (s.local_port, s.remote_port)));
+            let result = match session {
+                Some((local, remote)) if attempt == 0 => {
+                    self.open_tunnel(&entry, local, remote).map(|child| {
+                        if let Some(prev) = self
+                            .tunnels
+                            .lock()
+                            .ok()
+                            .and_then(|mut t| t.insert(host.to_string(), child))
+                        {
+                            Self::kill_and_reap(prev);
+                        }
+                        self.set_phase(host, &host_key, &state.remote_root, "connected", None)
+                    })
+                }
+                _ => self.run_connect(&entry, &state.remote_root, &host_key, true),
+            };
+            match result {
+                Ok(_) => {
+                    done = true;
+                    break;
+                }
+                Err(message) => {
+                    eprintln!(
+                        "[remote-ssh] {host} reconnect {} failed: {message}",
+                        attempt + 1
+                    );
+                    last = message;
+                }
+            }
+        }
+        if !done {
+            if let Some(state) = self.host_state(host).filter(|h| h.phase == "reconnecting") {
+                self.set_phase(
+                    host,
+                    &state.host_key.unwrap_or_default(),
+                    &state.remote_root,
+                    "error",
+                    Some(format!("Lost the SSH tunnel to {host}: {last}")),
+                );
+            }
+        }
+        if let Ok(mut active) = self.reconnecting.lock() {
+            active.remove(host);
+        }
+    }
+
+    /// Reconnects every saved host the user did not disconnect, once per app run. A failure
+    /// shows on that host's row; it never blocks the others.
+    pub fn auto_connect_saved_hosts(self: &std::sync::Arc<Self>) {
+        let targets: Vec<DesktopRemoteSshSavedHost> = self
+            .saved_hosts
+            .lock()
+            .map(|s| {
+                s.iter()
+                    .filter(|h| h.auto_connect != Some(false))
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
+        for entry in targets {
+            let manager = std::sync::Arc::clone(self);
+            std::thread::spawn(move || {
+                let _ = manager.connect(entry);
+            });
+        }
     }
 
     pub fn forget_host(&self, host: &str) {
@@ -1376,35 +1838,159 @@ impl RemoteSshManager {
         ))
     }
 
-    pub fn download_files(
+    /// Download URLs for a connected host's workspace files, rebuilt from its own tunnel so the
+    /// renderer cannot point the desktop at any other URL. Each item keeps only `cwd`, `path`
+    /// and a plain `fileName`.
+    pub fn download_requests(
         &self,
-        input: DesktopWorkspaceDownloadInput,
-    ) -> Result<DesktopWorkspaceDownloadResult, String> {
+        input: &DesktopWorkspaceDownloadInput,
+    ) -> Result<Vec<(String, String)>, String> {
         if !Self::is_valid_ssh_target(&input.host) {
             return Err("Unknown SSH host.".to_string());
         }
-        if input.items.is_empty() {
-            return Ok(DesktopWorkspaceDownloadResult {
-                canceled: false,
-                saved: Vec::new(),
-                failures: Vec::new(),
-            });
+        let invalid = || "This download request is not valid.".to_string();
+        let (port, token) = self
+            .sessions
+            .lock()
+            .ok()
+            .and_then(|s| {
+                s.get(input.host.trim())
+                    .map(|s| (s.local_port, s.token.clone()))
+            })
+            .filter(|_| self.ws_url_for_host(&input.host).is_some())
+            .ok_or_else(invalid)?;
+        if input.items.len() > 1000 {
+            return Err(invalid());
         }
-        if self.ws_url_for_host(&input.host).is_none() {
-            return Err("Remote SSH host is not connected.".to_string());
+        input
+            .items
+            .iter()
+            .map(|item| {
+                let name = &item.file_name;
+                let plain = !name.is_empty()
+                    && name.chars().count() <= 255
+                    && name.trim() == name
+                    && name != "."
+                    && name != ".."
+                    && !name.contains(['/', '\\', '\0']);
+                if item.cwd.is_empty() || item.path.is_empty() || !plain {
+                    return Err(invalid());
+                }
+                let mut url =
+                    url::Url::parse(&format!("http://127.0.0.1:{port}/api/workspace/download"))
+                        .map_err(|e| e.to_string())?;
+                url.query_pairs_mut()
+                    .append_pair("cwd", &item.cwd)
+                    .append_pair("path", &item.path)
+                    .append_pair("token", &token)
+                    // A shared remote server scopes the download to this desktop's projects.
+                    .append_pair("client", &self.client_id);
+                Ok((url.to_string(), name.clone()))
+            })
+            .collect()
+    }
+
+    /// Downloads each file in turn; one failure does not stop the rest. A chosen file is
+    /// replaced only once its download finished; in a chosen folder a taken name gets " (1)".
+    pub async fn save_downloads(
+        requests: Vec<(String, String)>,
+        destination: DownloadDestination,
+    ) -> DesktopWorkspaceDownloadResult {
+        let client = reqwest::Client::builder().no_proxy().build();
+        let mut saved = Vec::new();
+        let mut failures = Vec::new();
+        for (url, file_name) in requests {
+            let result = async {
+                let client = client.as_ref().map_err(|e| e.to_string())?;
+                let mut response = client.get(&url).send().await.map_err(|e| e.to_string())?;
+                if !response.status().is_success() {
+                    let status = response.status().as_u16();
+                    let body: Option<serde_json::Value> = response.json().await.ok();
+                    return Err(body
+                        .and_then(|b| b.get("error")?.as_str().map(str::to_string))
+                        .unwrap_or_else(|| format!("Download failed with status {status}.")));
+                }
+                let (mut file, final_path, temp) =
+                    Self::open_download_target(&destination, &file_name)?;
+                let written = async {
+                    while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+                        std::io::Write::write_all(&mut file, &chunk).map_err(|e| e.to_string())?;
+                    }
+                    Ok::<_, String>(())
+                }
+                .await;
+                drop(file);
+                let written_path = temp.clone().unwrap_or_else(|| final_path.clone());
+                if let Err(e) = written.and_then(|_| match &temp {
+                    Some(t) => std::fs::rename(t, &final_path).map_err(|e| e.to_string()),
+                    None => Ok(()),
+                }) {
+                    let _ = std::fs::remove_file(&written_path);
+                    return Err(e);
+                }
+                Ok(final_path)
+            }
+            .await;
+            match result {
+                Ok(path) => saved.push(DesktopWorkspaceSavedFile {
+                    file_name,
+                    path: path.to_string_lossy().into_owned(),
+                }),
+                Err(message) => failures.push(DesktopWorkspaceFailedFile { file_name, message }),
+            }
         }
-        Ok(DesktopWorkspaceDownloadResult {
+        DesktopWorkspaceDownloadResult {
             canceled: false,
-            saved: Vec::new(),
-            failures: input
-                .items
-                .into_iter()
-                .map(|item| DesktopWorkspaceFailedFile {
-                    file_name: item.file_name,
-                    message: "Remote workspace download stream unavailable.".to_string(),
-                })
-                .collect(),
-        })
+            saved,
+            failures,
+        }
+    }
+
+    /// The open file, its final path, and the temporary path it is renamed from (file target).
+    fn open_download_target(
+        destination: &DownloadDestination,
+        file_name: &str,
+    ) -> Result<(std::fs::File, PathBuf, Option<PathBuf>), String> {
+        let create = |p: &Path| {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(p)
+        };
+        match destination {
+            DownloadDestination::File(path) => {
+                let base = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let temp =
+                    path.with_file_name(format!(".{base}.{}.download", Uuid::new_v4().simple()));
+                let file = create(&temp).map_err(|e| e.to_string())?;
+                Ok((file, path.clone(), Some(temp)))
+            }
+            DownloadDestination::Directory(dir) => {
+                let (stem, ext) = match file_name.rfind('.') {
+                    Some(dot) if dot > 0 => (&file_name[..dot], &file_name[dot..]),
+                    _ => (file_name, ""),
+                };
+                for index in 0..=999 {
+                    let candidate = if index == 0 {
+                        file_name.to_string()
+                    } else {
+                        format!("{stem} ({index}){ext}")
+                    };
+                    let path = dir.join(&candidate);
+                    match create(&path) {
+                        Ok(file) => return Ok((file, path, None)),
+                        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                        Err(e) => return Err(e.to_string()),
+                    }
+                }
+                Err(format!(
+                    "Too many files are already named like {file_name}."
+                ))
+            }
+        }
     }
 
     pub fn kill_all_tunnels(&self) {

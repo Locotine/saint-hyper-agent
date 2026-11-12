@@ -133,6 +133,23 @@ FS.rmSync(outDir, { recursive: true, force: true });
 FS.mkdirSync(outDir, { recursive: true });
 FS.writeFileSync(Path.join(outDir, "bundle.tar.gz"), tarGz(entries));
 FS.copyFileSync(Path.join(depsDir, "deps.tar.gz"), Path.join(outDir, "deps.tar.gz"));
+
+// The security-scanner pack (`bun run scanners:pack`) is optional: a host gets only its own
+// `scanner-<platform>-<arch>.tar.gz`, once per pack version.
+const scannerDir = Path.join(repoRoot, "apps/server/scanner-pack");
+let scannersVersion: string | undefined;
+if (FS.existsSync(Path.join(scannerDir, "scanners.json"))) {
+  const lock = readJson(Path.join(scannerDir, "scanners.json"));
+  if (typeof lock.version !== "string" || !/^[0-9a-f]{12}$/u.test(lock.version)) {
+    throw new Error("The scanner pack lock has no version.");
+  }
+  scannersVersion = lock.version;
+  for (const name of FS.readdirSync(scannerDir)) {
+    if (/^scanner-(darwin|linux)-(arm64|x64)\.tar\.gz$/u.test(name)) {
+      FS.copyFileSync(Path.join(scannerDir, name), Path.join(outDir, name));
+    }
+  }
+}
 const identity = {
   version: `${appVersion}-${bundleHash.digest("hex").slice(0, 12)}`,
   depsHash: descriptor.sha256.slice(0, 12),
@@ -140,6 +157,7 @@ const identity = {
   depsTrees,
   // The host runs this to verify a shared install; shipped here so Rust keeps no copy.
   treeHashScript: REMOTE_TREE_HASH_SCRIPT,
+  ...(scannersVersion ? { scannersVersion } : {}),
 };
 FS.writeFileSync(Path.join(outDir, "identity.json"), `${JSON.stringify(identity, null, 2)}\n`);
 console.log(`[remote-install] staged ${identity.version} (${entries.length} files) in ${outDir}`);

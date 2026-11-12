@@ -1,8 +1,7 @@
 // FILE: remote_ssh_scripts.rs
 // Purpose: POSIX shell scripts piped to a Remote SSH host to install, start and stop a Saint
 //          server there, plus parsers for their `SAINT_REMOTE ` reports.
-// Layer: Desktop Remote SSH utility (ported from the Electron `remoteSshScripts.ts`; the
-//        security-scanner pack is not ported: Tauri builds ship none).
+// Layer: Desktop Remote SSH utility (ported from the Electron `remoteSshScripts.ts`).
 
 use serde::Deserialize;
 
@@ -30,6 +29,9 @@ pub struct InstallIdentity {
     pub deps_trees: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     pub tree_hash_script: Option<String>,
+    /// Version of the security-scanner pack this build ships; absent when it ships none.
+    #[serde(default)]
+    pub scanners_version: Option<String>,
 }
 
 pub struct Target<'a> {
@@ -107,6 +109,7 @@ fn preamble(t: &Target) -> Result<String, String> {
         r#"case "$shared" in /*) ;; *) shared="" ;; esac"#.into(),
     ];
     lines.extend(auto_store_preamble_lines(id)?);
+    lines.extend(scanner_preamble_lines(id)?);
     lines.push(
         r#"version_ready() {
   [ -f "$1/versions/$version/.installed" ] || return 1
@@ -182,6 +185,115 @@ fi"#
     ])
 }
 
+fn checked_scanners_version(id: &InstallIdentity) -> Result<&str, String> {
+    match id.scanners_version.as_deref() {
+        Some(v) if is_hex(v, 8, 64) => Ok(v),
+        Some(v) => Err(format!(
+            "Unsupported scanner pack version for a remote install: {v}"
+        )),
+        None => Err("This Saint build ships no scanner pack.".into()),
+    }
+}
+
+fn check_scanner_platform(platform: &str) -> Result<(), String> {
+    match platform.split_once('-') {
+        Some(("darwin" | "linux", "arm64" | "x64")) => Ok(()),
+        _ => Err(format!(
+            "Unsupported scanner platform for a remote install: {platform}"
+        )),
+    }
+}
+
+/// The scanner pack lives in the store next to versions/ and deps/, one folder per pack
+/// version, so it uploads once per host and every install folder reuses it.
+fn scanner_preamble_lines(id: &InstallIdentity) -> Result<Vec<String>, String> {
+    if id.scanners_version.is_none() {
+        return Ok(Vec::new());
+    }
+    let version = checked_scanners_version(id)?;
+    Ok(vec![
+        r#"scanner_pa=$(node -p 'process.platform + "-" + process.arch' 2>/dev/null || echo none)"#
+            .into(),
+        format!(r#"scanner_root="$store_root/scanners/{version}""#),
+        r#"scanner_dir="$scanner_root/scanners/$scanner_pa""#.into(),
+    ])
+}
+
+/// Unpacks one `scanner-<platform>-<arch>.tar.gz` from stdin into this folder's staging.
+pub fn scanner_upload_command(t: &Target, platform: &str) -> Result<String, String> {
+    let version = checked_scanners_version(t.identity)?;
+    check_scanner_platform(platform)?;
+    let staging = format!(
+        r#""$HOME/"{}"#,
+        quote_shell(&format!("{}/staging/scanners-{version}", t.remote_root))
+    );
+    let dir = format!("{staging}/{}", quote_shell(&format!("scanners/{platform}")));
+    Ok(format!(
+        "sh -c {}",
+        quote_shell(&format!(
+            "set -eu; rm -rf {staging}; mkdir -p {dir}; tar -xzf - -C {dir}"
+        ))
+    ))
+}
+
+/// Publishes the uploaded scanner pack to `scanners/<version>/` with one atomic rename.
+pub fn scanner_install_script(t: &Target, platform: &str) -> Result<String, String> {
+    let version = checked_scanners_version(t.identity)?;
+    check_scanner_platform(platform)?;
+    let quoted = quote_shell(platform);
+    Ok(format!(
+        r#"{preamble}
+{PUBLISH_FUNCTION}
+scanner_staging="$root/staging/scanners-{version}"
+if [ ! -d "$scanner_staging/scanners/{platform}" ] || [ -z "$(ls -A "$scanner_staging/scanners/{platform}")" ]; then
+  echo "Saint did not upload its scanner pack." >&2
+  exit 1
+fi
+if [ "$scanner_pa" != {quoted} ]; then
+  echo "The scanner pack is for {platform}, this host is $scanner_pa." >&2
+  exit 1
+fi
+mkdir -p "$store_root/scanners"
+chmod -R go-w "$scanner_staging"
+: >"$scanner_staging/.installed"
+publish "$scanner_staging" "$scanner_root"
+rmdir "$root/staging" 2>/dev/null || true
+report '{{"kind":"scanners"}}'
+"#,
+        preamble = preamble(t)?,
+    ))
+}
+
+/// Moves this desktop's older folder's data (`<remote_root>/home`, `remote_root` being that
+/// older folder) into the account's shared folder, stopping its server first. When the shared
+/// folder already has data, or another desktop is moving right now, the older folder keeps
+/// being used: two databases are never merged. Reports `migrated` or `legacy`, or nothing
+/// when there was nothing to move.
+pub fn migrate_root_script(t: &Target) -> Result<String, String> {
+    Ok(format!(
+        r#"{preamble}
+{SERVER_ALIVE_FUNCTION}
+shared_home="$store_root/home"
+if [ ! -d "$root/home" ]; then exit 0; fi
+lock="$store_root/.migrating"
+mkdir -p "$store_root"
+[ -n "$(find "$lock" -maxdepth 0 -mmin +10 2>/dev/null)" ] && rmdir "$lock" 2>/dev/null || true
+if [ -e "$shared_home" ] || ! mkdir "$lock" 2>/dev/null; then
+  report '{{"kind":"legacy"}}'
+  exit 0
+fi
+trap 'rmdir "$lock" 2>/dev/null || true' EXIT
+{STOP_SERVER_LINES}
+if mv "$root/home" "$shared_home"; then
+  report '{{"kind":"migrated"}}'
+else
+  report '{{"kind":"legacy"}}'
+fi
+"#,
+        preamble = preamble(t)?,
+    ))
+}
+
 const SERVER_ALIVE_FUNCTION: &str = r#"server_alive() {
   [ -f "$run_dir/server.pid" ] || return 1
   pid=$(cat "$run_dir/server.pid" 2>/dev/null || true)
@@ -213,13 +325,21 @@ installed=false
 if [ "$install_dir" != "$store/$version" ] || version_ready "$store_root"; then installed=true; fi
 deps=false
 if [ -f "$deps_store/$deps_key/.installed" ]; then deps=true; fi
+host_platform=$(node -p 'process.platform + "-" + process.arch' 2>/dev/null || true)
+scanners=false
+{scanners_check}
 server=null
 if server_alive && [ -f "$run_dir/server.json" ] && [ -f "$run_dir/token" ]; then
   server="{{\"info\":$(cat "$run_dir/server.json"),\"token\":\"$(cat "$run_dir/token")\"}}"
 fi
-report "{{\"kind\":\"probe\",\"node\":\"$node_version\",\"tar\":$tar_ok,\"installed\":$installed,\"deps\":$deps,\"server\":$server}}"
+report "{{\"kind\":\"probe\",\"node\":\"$node_version\",\"tar\":$tar_ok,\"installed\":$installed,\"deps\":$deps,\"platform\":\"$host_platform\",\"scanners\":$scanners,\"server\":$server}}"
 "#,
-        preamble(t)?
+        preamble(t)?,
+        scanners_check = if t.identity.scanners_version.is_some() {
+            r#"if [ -f "$scanner_root/.installed" ] && [ -d "$scanner_dir" ]; then scanners=true; fi"#
+        } else {
+            ""
+        },
     ))
 }
 
@@ -407,6 +527,7 @@ quote() {{ printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }}
   echo 'export SAINT_PROVIDER_RUNTIME_IDLE_STOP_MS={PROVIDER_RUNTIME_IDLE_STOP_MS}'
   echo 'export SAINT_IDLE_EXIT_MS={SERVER_IDLE_EXIT_MS}'
   echo 'export SAINT_CLIENT_SCOPED=1'
+{scanner_env}
   echo "echo \$\$ >$(quote "$run_dir/server.pid")"
   echo "exec node {SERVER_NODE_FLAGS} $(quote "$install_dir/dist/index.mjs") --mode web --host 127.0.0.1 --port $port --home-dir $(quote "$root/home") --no-browser{dev_url_flag} >>$(quote "$run_dir/server.log") 2>&1"
 }} >"$run_dir/server.sh"
@@ -472,11 +593,28 @@ if [ -n "$auto_shared" ] && [ -d "$auto_shared/versions" ]; then
     [ -n "$(find "$leftover" -maxdepth 0 -mmin +1440 2>/dev/null)" ] && rm -rf "$leftover"
   done
 fi
+{scanner_cleanup}
 if [ "$root/versions" != "$store" ]; then rm -rf "$root/versions"; fi
 report "{{\"kind\":\"started\",\"port\":$port}}"
 "#,
         preamble = preamble(t)?,
         token = quote_shell(token),
+        scanner_env = if t.identity.scanners_version.is_some() {
+            r#"  if [ -f "$scanner_root/.installed" ] && [ -d "$scanner_dir" ]; then
+    echo "export SAINT_SCANNER_DIR=$(quote "$scanner_dir")"
+  fi"#
+        } else {
+            ""
+        },
+        scanner_cleanup = if t.identity.scanners_version.is_some() {
+            r#"for old in "$store_root"/scanners/*; do
+  [ -d "$old" ] || continue
+  [ "$old" = "$scanner_root" ] && continue
+  [ -n "$(find "$old" -maxdepth 0 -mmin +1440 2>/dev/null)" ] && rm -rf "$old"
+done"#
+        } else {
+            ""
+        },
     ))
 }
 
@@ -516,6 +654,9 @@ pub struct ProbeReport {
     pub tar: bool,
     pub installed: bool,
     pub deps_installed: bool,
+    /// `<platform>-<arch>` of the host's `node`, the scanner pack to upload.
+    pub platform: Option<String>,
+    pub scanners_installed: bool,
     pub server: Option<ProbeServer>,
 }
 
@@ -543,6 +684,12 @@ pub fn parse_probe(stdout: &str) -> Option<ProbeReport> {
         tar: r.get("tar").and_then(|v| v.as_bool()) == Some(true),
         installed: r.get("installed").and_then(|v| v.as_bool()) == Some(true),
         deps_installed: r.get("deps").and_then(|v| v.as_bool()) == Some(true),
+        platform: r
+            .get("platform")
+            .and_then(|v| v.as_str())
+            .filter(|p| !p.is_empty())
+            .map(str::to_string),
+        scanners_installed: r.get("scanners").and_then(|v| v.as_bool()) == Some(true),
         server,
     })
 }
@@ -628,7 +775,8 @@ mod tests {
             deps_hash: "7947d66a8643".into(),
             bundle_tree: None,
             deps_trees: Default::default(),
-            tree_hash_script: None,
+            tree_hash_script: Some("process.exit(0)".into()),
+            scanners_version: Some("0123456789ab".into()),
         }
     }
 
@@ -645,6 +793,8 @@ mod tests {
             install_script(&t).unwrap(),
             start_script(&t, "abc123", Some("http://localhost:5733")).unwrap(),
             stop_script(&t).unwrap(),
+            migrate_root_script(&t).unwrap(),
+            scanner_install_script(&t, "linux-x64").unwrap(),
         ] {
             let mut child = std::process::Command::new("sh")
                 .arg("-n")

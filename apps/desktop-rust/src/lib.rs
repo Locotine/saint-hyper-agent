@@ -1179,11 +1179,49 @@ fn desktop_remote_ssh_ws_url(
 }
 
 #[tauri::command]
-fn desktop_remote_ssh_download_files(
+async fn desktop_remote_ssh_download_files(
+    app: tauri::AppHandle,
     state: State<'_, Arc<DesktopSharedState>>,
     input: DesktopWorkspaceDownloadInput,
 ) -> Result<DesktopWorkspaceDownloadResult, String> {
-    state.remote_ssh.download_files(input)
+    use crate::remote_ssh::DownloadDestination;
+    use tauri_plugin_dialog::DialogExt;
+    let requests = state.remote_ssh.download_requests(&input)?;
+    let canceled = DesktopWorkspaceDownloadResult {
+        canceled: true,
+        saved: Vec::new(),
+        failures: Vec::new(),
+    };
+    if requests.is_empty() {
+        return Ok(DesktopWorkspaceDownloadResult {
+            canceled: false,
+            ..canceled
+        });
+    }
+    let downloads = dirs::download_dir();
+    let destination = if let [(_, file_name)] = requests.as_slice() {
+        let mut dialog = app.dialog().file().set_file_name(file_name);
+        if let Some(dir) = downloads.as_ref() {
+            dialog = dialog.set_directory(dir);
+        }
+        match dialog.blocking_save_file().and_then(|f| f.into_path().ok()) {
+            Some(path) => DownloadDestination::File(path),
+            None => return Ok(canceled),
+        }
+    } else {
+        let mut dialog = app
+            .dialog()
+            .file()
+            .set_title(format!("Download {} files", requests.len()));
+        if let Some(dir) = downloads.as_ref() {
+            dialog = dialog.set_directory(dir);
+        }
+        match dialog.blocking_pick_folder().and_then(|f| f.into_path().ok()) {
+            Some(path) => DownloadDestination::Directory(path),
+            None => return Ok(canceled),
+        }
+    };
+    Ok(crate::remote_ssh::RemoteSshManager::save_downloads(requests, destination).await)
 }
 
 #[tauri::command]
