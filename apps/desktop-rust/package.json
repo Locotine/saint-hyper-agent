@@ -14,7 +14,7 @@
     "typecheck": "node ../../node_modules/@typescript/native/bin/tsc --noEmit --tsBuildInfoFile node_modules/.cache/typescript-native.tsbuildinfo",
     "typecheck:native": "bun run typecheck",
     "typecheck:legacy": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests --maxWorkers=25%"
   },
   "devDependencies": {
     "@saint/contracts": "workspace:*",

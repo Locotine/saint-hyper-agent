@@ -501,7 +501,7 @@
     "typecheck": "node ../../node_modules/@typescript/native/bin/tsc --noEmit",
     "typecheck:native": "bun run typecheck",
     "typecheck:legacy": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --maxWorkers=25%"
   },
   "dependencies": {
     "@saint/contracts": "workspace:*",
