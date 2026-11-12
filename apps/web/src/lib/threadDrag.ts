@@ -1,9 +1,10 @@
 // FILE: threadDrag.ts
 // Purpose: Shared native drag contract for dragging a thread row (sidebar, activity view) onto chat surfaces.
 // Layer: Web UI helpers
-// Exports: THREAD_DRAG_MIME, ThreadDragPayload, beginThreadDrag, endThreadDrag, getActiveThreadDragId, isThreadDragTransfer, readThreadDragPayload, THREAD_MENTION_DROPZONE_ATTRIBUTE, isWithinThreadMentionDropzone
+// Exports: THREAD_DRAG_MIME, ThreadDragPayload, beginThreadDrag, endThreadDrag, getActiveThreadDrag,isThreadDragTransfer, readThreadDragPayload, THREAD_MENTION_DROPZONE_ATTRIBUTE, isWithinThreadMentionDropzone
 
 import { type ThreadId } from "@saint/contracts";
+import { type HostId, LOCAL_HOST_ID, parseHostId } from "@saint/shared/hostId";
 
 // Custom MIME so external file drops on the composer (which listen for `Files`) cannot trigger us.
 export const THREAD_DRAG_MIME = "application/x-saint-thread";
@@ -13,18 +14,20 @@ export const THREAD_MENTION_DROPZONE_ATTRIBUTE = "data-thread-mention-dropzone";
 
 export interface ThreadDragPayload {
   threadId: ThreadId;
+  /** The host the thread lives on; a drop target ignores another host's thread. */
+  hostId: HostId;
 }
 
 // Browsers hide drag data until `drop`, so hover feedback that depends on which
 // thread is being dragged reads it from here instead.
-let activeThreadDragId: ThreadId | null = null;
+let activeThreadDrag: ThreadDragPayload | null = null;
 
-export function getActiveThreadDragId(): ThreadId | null {
-  return activeThreadDragId;
+export function getActiveThreadDrag(): ThreadDragPayload | null {
+  return activeThreadDrag;
 }
 
 export function endThreadDrag(): void {
-  activeThreadDragId = null;
+  activeThreadDrag = null;
 }
 
 export function beginThreadDrag(
@@ -35,10 +38,11 @@ export function beginThreadDrag(
     readonly clientY: number;
   },
   threadId: ThreadId,
+  hostId: HostId = LOCAL_HOST_ID,
 ): void {
-  activeThreadDragId = threadId;
+  activeThreadDrag = { threadId, hostId };
   event.dataTransfer.effectAllowed = "copyMove";
-  event.dataTransfer.setData(THREAD_DRAG_MIME, JSON.stringify({ threadId }));
+  event.dataTransfer.setData(THREAD_DRAG_MIME, JSON.stringify(activeThreadDrag));
   const dragImage = event.currentTarget;
   if (dragImage instanceof HTMLElement) {
     const rect = dragImage.getBoundingClientRect();
@@ -64,9 +68,12 @@ export function readThreadDragPayload(
   try {
     const raw = dataTransfer.getData(THREAD_DRAG_MIME);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<ThreadDragPayload>;
+    const parsed = JSON.parse(raw) as { threadId?: unknown; hostId?: unknown };
     if (typeof parsed.threadId === "string" && parsed.threadId.length > 0) {
-      return { threadId: parsed.threadId as ThreadId };
+      // A drag without a known host is this computer's thread.
+      const hostId =
+        (typeof parsed.hostId === "string" ? parseHostId(parsed.hostId) : null) ?? LOCAL_HOST_ID;
+      return { threadId: parsed.threadId as ThreadId, hostId };
     }
   } catch {
     return null;

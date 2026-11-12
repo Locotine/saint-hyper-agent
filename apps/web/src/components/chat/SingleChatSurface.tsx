@@ -1,4 +1,4 @@
-import { LOCAL_HOST_ID, scopeThread } from "@saint/shared/hostId";
+import { scopeThread, threadRouteParam } from "@saint/shared/hostId";
 import { useHostHandle } from "~/hosts/hostScope";
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 import { isWorkspaceRelativePathSafe } from "@saint/shared/path";
@@ -193,9 +193,8 @@ export function SingleChatSurface(props: {
 }) {
   const chatHost = useHostHandle();
   // A connected host's thread routes by its host-qualified id (`/$threadId` for this computer's).
-  const isRemoteHost = chatHost.hostId !== LOCAL_HOST_ID;
   const routeThreadParam = (threadId: ThreadId): string =>
-    isRemoteHost ? scopeThread(chatHost.hostId, threadId) : threadId;
+    threadRouteParam(chatHost.hostId, threadId);
   const navigate = useNavigate();
   const createSplitView = useSplitViewStore((store) => store.createFromThread);
   const createSplitViewFromDrop = useSplitViewStore((store) => store.createFromDrop);
@@ -645,10 +644,10 @@ export function SingleChatSurface(props: {
   };
 
   const handleSplitSurface = () => {
-    // Split views hold this computer's threads only.
-    if (!props.projectId || isRemoteHost) return;
+    if (!props.projectId) return;
+    // The split holds this chat's host; the drop overlay keeps other hosts' threads out.
     const splitViewId = createSplitView({
-      hostId: LOCAL_HOST_ID,
+      hostId: chatHost.hostId,
       sourceThreadId: props.threadId,
       ownerProjectId: props.projectId,
     });
@@ -667,10 +666,10 @@ export function SingleChatSurface(props: {
     direction: SplitDirection;
     side: SplitDropSide;
   }) => {
-    if (!props.projectId || isRemoteHost) return;
+    if (!props.projectId) return;
     if (payload.threadId === props.threadId) return;
     const splitViewId = createSplitViewFromDrop({
-      hostId: LOCAL_HOST_ID,
+      hostId: chatHost.hostId,
       sourceThreadId: props.threadId,
       ownerProjectId: props.projectId,
       droppedThreadId: payload.threadId,

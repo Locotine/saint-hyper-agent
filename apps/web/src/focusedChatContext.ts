@@ -3,7 +3,7 @@
 // Layer: Route-aware UI helpers
 // Exports: hook used by shortcut, discovery, and thread creation flows
 
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 import { ThreadId, type ThreadId as ThreadIdType } from "@saint/contracts";
 import { useMemo } from "react";
 import { useParams } from "@tanstack/react-router";
@@ -42,8 +42,12 @@ export function useFocusedChatContext(): FocusedChatContext {
     select: (params) => (params.threadId ? ThreadId.makeUnsafe(params.threadId) : null),
   });
   const routeSearch = useDiffRouteSearch();
+  // A remote chat, split or not, is not one of this computer's threads (same as its scoped route id).
   const activeSplitView = useSplitViewStore(
-    useMemo(() => selectSplitView(routeSearch.splitViewId ?? null), [routeSearch.splitViewId]),
+    useMemo(
+      () => selectSplitView(routeSearch.splitViewId ?? null, LOCAL_HOST_ID),
+      [routeSearch.splitViewId],
+    ),
   );
   const focusedThreadId = activeSplitView
     ? resolveSplitViewFocusedPaneThreadId(activeSplitView)

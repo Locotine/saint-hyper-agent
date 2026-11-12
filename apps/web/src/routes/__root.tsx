@@ -1254,8 +1254,12 @@ function EventRouter() {
         : null,
   });
   const routeSearch = useDiffRouteSearch();
+  // Another host's split streams its panes from that host (SplitChatSurface), not through these leases.
   const activeSplitView = useSplitViewStore(
-    useMemo(() => selectSplitView(routeSearch.splitViewId ?? null), [routeSearch.splitViewId]),
+    useMemo(
+      () => selectSplitView(routeSearch.splitViewId ?? null, LOCAL_HOST_ID),
+      [routeSearch.splitViewId],
+    ),
   );
   const hostThreadIds = useMemo(
     () =>

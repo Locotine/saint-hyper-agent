@@ -39,3 +39,18 @@ export function resolveActiveSplitView(input: {
 export function isSplitRoute(search: DiffRouteSearch): boolean {
   return typeof search.splitViewId === "string" && search.splitViewId.length > 0;
 }
+
+/**
+ * The surface a thread route shows. A split route waits for the persisted splits to load, as
+ * this computer's route does, since choosing before then flashes a single chat; it then shows
+ * its split, or one chat when that split is gone.
+ */
+export function resolveRouteChatSurface(input: {
+  search: DiffRouteSearch;
+  splitView: SplitView | null;
+  splitViewsHydrated: boolean;
+}): "hold" | "split" | "single" {
+  if (!isSplitRoute(input.search)) return "single";
+  if (!input.splitViewsHydrated) return "hold";
+  return input.splitView ? "split" : "single";
+}

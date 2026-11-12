@@ -6,9 +6,10 @@
 import { useEffect, useState, type DragEvent } from "react";
 import { type ThreadId } from "@saint/contracts";
 
+import { useHostId } from "~/hosts/hostScope";
 import { isComposerDropzoneInternalDragTransition } from "./useComposerDropzone";
 import {
-  getActiveThreadDragId,
+  getActiveThreadDrag,
   isThreadDragTransfer,
   readThreadDragPayload,
   THREAD_MENTION_DROPZONE_ATTRIBUTE,
@@ -30,15 +31,18 @@ export function useComposerThreadMentionDrop(input: {
   readonly onDropThread: (threadId: ThreadId) => void;
 }) {
   const { disabled = false, currentThreadId, onDropThread } = input;
+  // A mention names a thread by its raw id, so it only resolves on the composer's own host.
+  const hostId = useHostId();
   const [isThreadDragOverComposer, setIsThreadDragOverComposer] = useState(false);
 
-  const acceptsDrag = (event: DragEvent<HTMLElement>): boolean =>
-    isThreadDragTransfer(event.dataTransfer) &&
-    canDropThreadMention({
-      disabled,
-      currentThreadId,
-      draggedThreadId: getActiveThreadDragId(),
-    });
+  const acceptsDrag = (event: DragEvent<HTMLElement>): boolean => {
+    const drag = getActiveThreadDrag();
+    return (
+      isThreadDragTransfer(event.dataTransfer) &&
+      (drag === null || drag.hostId === hostId) &&
+      canDropThreadMention({ disabled, currentThreadId, draggedThreadId: drag?.threadId ?? null })
+    );
+  };
 
   const onDragEnterOrOver = (event: DragEvent<HTMLElement>) => {
     if (!acceptsDrag(event)) return;
@@ -61,6 +65,7 @@ export function useComposerThreadMentionDrop(input: {
     const payload = readThreadDragPayload(event.dataTransfer);
     if (
       !payload ||
+      payload.hostId !== hostId ||
       !canDropThreadMention({ disabled, currentThreadId, draggedThreadId: payload.threadId })
     ) {
       return;

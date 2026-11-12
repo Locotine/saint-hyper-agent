@@ -6,9 +6,9 @@
 // Note: raw <button>s for autocomplete-suggestion rows and tab-title activate
 // regions are intentional — list-row and tab semantics, not shadcn Buttons.
 
-import { scopeThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeThread } from "@saint/shared/hostId";
 import { useHostId } from "~/hosts/hostScope";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
@@ -55,6 +55,9 @@ import {
   NATIVE_SURFACE_OCCLUSION_SYNC_EVENT,
 } from "~/lib/nativeSurfaceOcclusion";
 import { serverLocalServersQueryOptions } from "~/lib/serverReactQuery";
+import { remoteServerForwarder } from "~/lib/remoteServerForward";
+import { useRemoteSshState } from "~/hooks/useRemoteSshState";
+import { remoteHostAlias } from "./settings/remoteHostsSettingsModel";
 import { cn, isMacNavigatorPlatform } from "~/lib/utils";
 
 import {
@@ -496,8 +499,10 @@ function BrowserLocalServersHome({
   onNavigate,
   onRefresh,
   servers,
+  title,
 }: {
   activeTabId: string | null;
+  title: string;
   loading: boolean;
   onNavigate: (url: string, tabId: string | null) => void;
   onRefresh: () => void;
@@ -509,7 +514,7 @@ function BrowserLocalServersHome({
     <div className="absolute inset-0 z-20 flex flex-col overflow-hidden bg-[#0d0d0d] text-white">
       <div className="mx-auto flex h-full w-full max-w-[52rem] flex-col px-8 py-9">
         <div className="flex shrink-0 items-center justify-between">
-          <p className="text-[15px] font-medium text-white/35">Local</p>
+          <p className="text-[15px] font-medium text-white/35">{title}</p>
           <Button
             type="button"
             variant="ghost"
@@ -673,7 +678,21 @@ export function BrowserPanel({
   const loading = activeTab?.isLoading ?? false;
   const activeTabIsBlank = isBlankBrowserTabUrl(activeTab);
   const showLocalServersHome = isLiveRuntime && workspaceReady && (!activeTab || activeTabIsBlank);
-  const localServersQuery = useQuery(serverLocalServersQueryOptions(showLocalServersHome));
+  // A remote chat lists its host's servers, opened through an SSH forward where the desktop
+  // can forward; elsewhere the home keeps listing this computer's servers.
+  const isRemoteChat = hostId !== LOCAL_HOST_ID;
+  const remoteSshState = useRemoteSshState(isRemoteChat);
+  const remoteAlias = remoteHostAlias(remoteSshState, hostId);
+  const openRemoteServer = useMemo(
+    () => (isRemoteChat ? remoteServerForwarder(remoteAlias) : null),
+    [isRemoteChat, remoteAlias],
+  );
+  const localServersQuery = useQuery(
+    serverLocalServersQueryOptions({
+      enabled: showLocalServersHome,
+      ...(openRemoteServer ? { hostId } : {}),
+    }),
+  );
   const activeTabStatus = activeTab?.status ?? "suspended";
   const browserChromeStatus = resolveBrowserChromeStatus({
     localError,
@@ -1507,6 +1526,25 @@ export function BrowserPanel({
     [api, ensureLiveRuntime, runBrowserAction, threadId, upsertThreadState],
   );
 
+  const onOpenHomeServer = useCallback(
+    (url: string, tabId: string | null) => {
+      if (!openRemoteServer) {
+        onOpenLocalServer(url, tabId);
+        return;
+      }
+      void openRemoteServer(url).then(
+        (localUrl) => onOpenLocalServer(localUrl, tabId),
+        (error: unknown) =>
+          toastManager.add({
+            type: "error",
+            title: "Could not forward the server's port",
+            description: error instanceof Error ? error.message : String(error),
+          }),
+      );
+    },
+    [onOpenLocalServer, openRemoteServer],
+  );
+
   const onCreateTab = useCallback(() => {
     if (!api) {
       return;
@@ -2041,9 +2079,10 @@ export function BrowserPanel({
               <BrowserLocalServersHome
                 activeTabId={activeTab?.id ?? null}
                 loading={localServersQuery.isLoading || localServersQuery.isFetching}
-                onNavigate={onOpenLocalServer}
+                onNavigate={onOpenHomeServer}
                 onRefresh={() => void localServersQuery.refetch()}
                 servers={localServersQuery.data?.servers ?? []}
+                title={openRemoteServer ? (remoteAlias ?? "Remote") : "Local"}
               />
             ) : null}
           </div>

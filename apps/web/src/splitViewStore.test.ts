@@ -1,4 +1,11 @@
-import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
+import {
+  LOCAL_HOST_ID,
+  parseScopedThreadId,
+  scopeLocalThread,
+  sshHostId,
+  threadRouteParam,
+  unscopeThread,
+} from "@saint/shared/hostId";
 // FILE: splitViewStore.test.ts
 // Purpose: Verify tree-aware split view state operations: drop creation, perpendicular subdivision,
 // pane focus/ratio mutations, deleted-thread collapse semantics, and v1 -> v2 persisted-state migration.
@@ -11,6 +18,7 @@ import {
   resolveSplitViewFocusedThreadId,
   resolveSplitViewPaneIdForThread,
   resolveSplitViewThreadIds,
+  selectSplitView,
   useSplitViewStore,
   type LeafPane,
   type SplitNode,
@@ -103,6 +111,38 @@ describe("splitViewStore", () => {
     expect((root.first as LeafPane).threadId).toBe(THREAD_B);
     expect((root.second as LeafPane).threadId).toBe(THREAD_A);
     expect(splitView.focusedPaneId).toBe(root.first.id);
+  });
+
+  it("opens a remote host's split only on that host's routes, with host-qualified pane routes", () => {
+    const remote = sshHostId("0a1b2c3d");
+    const store = useSplitViewStore.getState();
+    const remoteSplitId = store.createFromDrop({
+      hostId: remote,
+      sourceThreadId: THREAD_A,
+      ownerProjectId: PROJECT_ID,
+      droppedThreadId: THREAD_B,
+      direction: "horizontal",
+      side: "second",
+    });
+    const localSplitId = store.createFromThread({
+      hostId: LOCAL_HOST_ID,
+      sourceThreadId: THREAD_C,
+      ownerProjectId: PROJECT_ID,
+    });
+    const state = useSplitViewStore.getState();
+
+    expect(selectSplitView(remoteSplitId, remote)(state)?.id).toBe(remoteSplitId);
+    expect(selectSplitView(remoteSplitId, LOCAL_HOST_ID)(state)).toBeNull();
+    expect(selectSplitView(localSplitId, remote)(state)).toBeNull();
+    expect(selectSplitView(localSplitId, LOCAL_HOST_ID)(state)?.id).toBe(localSplitId);
+    expect(selectSplitView(remoteSplitId)(state)?.id).toBe(remoteSplitId);
+
+    // Every pane of the remote split routes back to the same host, so the route reopens the split.
+    for (const threadId of resolveSplitViewThreadIds(snapshot(remoteSplitId))) {
+      const scoped = parseScopedThreadId(threadRouteParam(remote, threadId));
+      expect(scoped && unscopeThread(scoped)).toEqual({ hostId: remote, threadId });
+    }
+    expect(threadRouteParam(LOCAL_HOST_ID, THREAD_C)).toBe(THREAD_C);
   });
 
   it("writes host-scoped split views to the v2 key and leaves v1 for a rollback", async () => {

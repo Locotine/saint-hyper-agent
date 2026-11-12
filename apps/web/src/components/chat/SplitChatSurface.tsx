@@ -1,4 +1,5 @@
 import { type ProjectId, type ProviderKind, type ThreadId, type TurnId } from "@saint/contracts";
+import { threadRouteParam } from "@saint/shared/hostId";
 import { useNavigate } from "@tanstack/react-router";
 import {
   type CSSProperties,
@@ -32,6 +33,8 @@ import {
 } from "./floatingBrowserRequestStore";
 import { useBrowserPanelDesktopBridge } from "../../hooks/useBrowserPanelDesktopBridge";
 import { useHandleNewChat } from "../../hooks/useHandleNewChat";
+import { useHostId } from "../../hosts/hostScope";
+import { useHostThreadDetail } from "../../hosts/hostThreadDetail";
 import type { ChatRightPanel } from "../../diffRouteSearch";
 import { stripDiffSearchParams } from "../../diffRouteSearch";
 import {
@@ -358,6 +361,8 @@ function SplitPaneSurface(props: {
   }) => void;
 }) {
   const paneScopeId = splitViewPaneScopeId(props.splitView.id, props.paneId);
+  // Another host's pane streams its thread from that host; this computer's panes are leased by the root.
+  useHostThreadDetail(useHostId(), props.threadId);
   const dockState = useRightDockStore(selectRightDockState(props.threadId));
   const terminalPane =
     dockState.panes.find(
@@ -480,8 +485,11 @@ function SplitPaneSurface(props: {
 // rebuild every thread's message/activity lists on each streaming flush for no benefit.
 const selectThreadShells = createThreadShellsSelector();
 
+/** Every pane shows a thread of the surrounding `HostScope`'s host, the split's host. */
 export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadId: ThreadId }) {
   const navigate = useNavigate();
+  // Routes keep a remote thread's host: `/$threadId` takes its host-qualified id.
+  const hostId = useHostId();
   const { handleNewChat } = useHandleNewChat();
   const threads = useStore(selectThreadShells);
   const projects = useStore((store) => store.projects);
@@ -509,7 +517,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
     if (!activeSplitView) {
       void navigate({
         to: "/$threadId",
-        params: { threadId: props.routeThreadId },
+        params: { threadId: threadRouteParam(hostId, props.routeThreadId) },
         replace: true,
         search: (previous) => ({
           ...stripDiffSearchParams(previous),
@@ -526,12 +534,12 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
       const fallbackThreadId = onlyThreadId ?? props.routeThreadId;
       if (!fallbackThreadId) {
         removeSplitView(activeSplitView.id);
-        void handleNewChat();
+        void handleNewChat({ hostProjectId: activeSplitView.ownerProjectId });
         return;
       }
       void navigate({
         to: "/$threadId",
-        params: { threadId: fallbackThreadId },
+        params: { threadId: threadRouteParam(hostId, fallbackThreadId) },
         replace: true,
         search: (previous) => ({
           ...stripDiffSearchParams(previous),
@@ -558,7 +566,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
     if (normalizedFocusedThreadId && props.routeThreadId !== normalizedFocusedThreadId) {
       void navigate({
         to: "/$threadId",
-        params: { threadId: normalizedFocusedThreadId },
+        params: { threadId: threadRouteParam(hostId, normalizedFocusedThreadId) },
         replace: true,
         search: (previous) => ({
           ...stripDiffSearchParams(previous),
@@ -569,6 +577,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
   }, [
     activeSplitView,
     handleNewChat,
+    hostId,
     navigate,
     props.routeThreadId,
     removeSplitView,
@@ -586,7 +595,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
     }
     void navigate({
       to: "/$threadId",
-      params: { threadId: nextThreadId },
+      params: { threadId: threadRouteParam(hostId, nextThreadId) },
       replace: true,
       search: (previous) => ({
         ...stripDiffSearchParams(previous),
@@ -728,7 +737,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
       if (decision.kind !== "single-thread") return;
       void navigate({
         to: "/$threadId",
-        params: { threadId: decision.threadId },
+        params: { threadId: threadRouteParam(hostId, decision.threadId) },
         replace: true,
         search: (previous) => ({
           ...stripDiffSearchParams(previous),
@@ -750,7 +759,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
     if (survivingThreadId) {
       void navigate({
         to: "/$threadId",
-        params: { threadId: survivingThreadId },
+        params: { threadId: threadRouteParam(hostId, survivingThreadId) },
         replace: true,
         search: (previous) => ({
           ...stripDiffSearchParams(previous),
@@ -780,7 +789,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
     if (decision.kind === "single-thread") {
       void navigate({
         to: "/$threadId",
-        params: { threadId: decision.threadId },
+        params: { threadId: threadRouteParam(hostId, decision.threadId) },
         replace: true,
         search: (previous) => ({
           ...stripDiffSearchParams(previous),
@@ -793,7 +802,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
     if (decision.kind === "split-thread") {
       void navigate({
         to: "/$threadId",
-        params: { threadId: decision.threadId },
+        params: { threadId: threadRouteParam(hostId, decision.threadId) },
         replace: true,
         search: (previous) => ({
           ...stripDiffSearchParams(previous),
@@ -803,7 +812,8 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
       return;
     }
 
-    void handleNewChat();
+    // The new chat opens on the split's host; this computer's opens in the home chat.
+    void handleNewChat({ hostProjectId: activeSplitView.ownerProjectId });
   };
 
   const handleSetRatio = (nodeId: PaneId, ratio: number) => {
@@ -831,7 +841,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
     startTransition(() => {
       void navigate({
         to: "/$threadId",
-        params: { threadId: payload.droppedThreadId },
+        params: { threadId: threadRouteParam(hostId, payload.droppedThreadId) },
         replace: true,
         search: () => ({ splitViewId: activeSplitView.id }),
       });
@@ -874,7 +884,7 @@ export function SplitChatSurface(props: { splitViewId: SplitViewId; routeThreadI
 
     void navigate({
       to: "/$threadId",
-      params: { threadId },
+      params: { threadId: threadRouteParam(hostId, threadId) },
       replace: true,
       search: (previous) => ({
         ...stripDiffSearchParams(previous),

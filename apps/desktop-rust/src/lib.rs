@@ -1180,6 +1180,18 @@ fn desktop_remote_ssh_ws_url(
 }
 
 #[tauri::command]
+async fn desktop_remote_ssh_forward_port(
+    state: State<'_, Arc<DesktopSharedState>>,
+    host: String,
+    remote_port: u16,
+) -> Result<String, String> {
+    let remote_ssh = Arc::clone(&state.remote_ssh);
+    tokio::task::spawn_blocking(move || remote_ssh.forward_port(&host, remote_port))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn desktop_remote_ssh_download_files(
     app: tauri::AppHandle,
     state: State<'_, Arc<DesktopSharedState>>,
@@ -1904,6 +1916,7 @@ pub fn run() {
             desktop_remote_ssh_test_host,
             desktop_remote_ssh_update_host,
             desktop_remote_ssh_ws_url,
+            desktop_remote_ssh_forward_port,
             desktop_remote_ssh_download_files,
             desktop_lan_relay_get_state,
             desktop_lan_relay_set_enabled,

@@ -1,9 +1,10 @@
-import { LOCAL_HOST_ID } from "@saint/shared/hostId";
+import { type HostId, LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { describe, expect, it } from "vitest";
 
 import { ProjectId, ThreadId } from "@saint/contracts";
 import type { SplitView } from "./splitViewStore";
 import {
+  resolveHostThreadSplit,
   resolvePreferredSplitForCommand,
   resolveThreadCommandActivation,
 } from "./threadActivation.logic";
@@ -243,5 +244,60 @@ describe("resolvePreferredSplitForCommand", () => {
     });
 
     expect(result).toEqual({ splitViewId: "split-other", paneId: "split-other-pane-first" });
+  });
+});
+
+describe("resolveHostThreadSplit", () => {
+  const HOST = "ssh:devbox" as HostId;
+  const hostSplit = {
+    ...makeSplitViewFixture({
+      id: "split-host",
+      sourceThreadId: THREAD_A,
+      firstThreadId: THREAD_A,
+      secondThreadId: THREAD_B,
+      focusOn: "first",
+    }),
+    hostId: HOST,
+  };
+  const localSplit = makeSplitViewFixture({
+    id: "split-local",
+    sourceThreadId: THREAD_C,
+    firstThreadId: THREAD_C,
+    secondThreadId: THREAD_B,
+    focusOn: "first",
+  });
+  const splitViewsById = { "split-host": hostSplit, "split-local": localSplit };
+
+  it("focuses the pane of the open split holding the host's thread", () => {
+    expect(
+      resolveHostThreadSplit({
+        hostId: HOST,
+        threadId: THREAD_B,
+        routeSplitViewId: "split-host",
+        splitViewsById,
+      }),
+    ).toEqual({ splitViewId: "split-host", paneId: "split-host-pane-second" });
+  });
+
+  it("restores the host's persisted split when another view is open", () => {
+    expect(
+      resolveHostThreadSplit({
+        hostId: HOST,
+        threadId: THREAD_B,
+        routeSplitViewId: "split-local",
+        splitViewsById,
+      }),
+    ).toEqual({ splitViewId: "split-host", paneId: "split-host-pane-second" });
+  });
+
+  it("ignores another host's splits and threads outside any split", () => {
+    expect(
+      resolveHostThreadSplit({
+        hostId: HOST,
+        threadId: THREAD_C,
+        routeSplitViewId: "split-local",
+        splitViewsById,
+      }),
+    ).toBeNull();
   });
 });

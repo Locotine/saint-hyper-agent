@@ -8,7 +8,7 @@
 import type { ProjectAgentSummary, ProjectId, ThreadId } from "@saint/contracts";
 import { resolveThreadWorkspaceCwd } from "@saint/shared/threadEnvironment";
 import { LOCAL_HOST_ID, scopeThread, unscopeThread, type HostId } from "@saint/shared/hostId";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useState, useSyncExternalStore } from "react";
 
 import { getProviderInstanceOptions, useAppSettings } from "~/appSettings";
@@ -33,6 +33,7 @@ import {
 } from "~/lib/threadHandoff";
 import { canForkThread, dispatchThreadFork } from "~/lib/threadFork";
 import { buildThreadContextMenuItems } from "~/lib/threadContextMenuItems";
+import { beginThreadDrag, endThreadDrag } from "~/lib/threadDrag";
 import {
   SNOOZE_PRESETS,
   dispatchThreadSnoozedUntil,
@@ -41,6 +42,8 @@ import {
 } from "~/lib/threadSnooze";
 import { cn } from "~/lib/utils";
 import { usePinnedThreadsStore } from "~/pinnedThreadsStore";
+import { useSplitViewStore } from "~/splitViewStore";
+import { resolveHostThreadSplit } from "~/threadActivation.logic";
 import { getThreadFromState } from "~/threadDerivation";
 import { showReactContextMenu } from "./ReactContextMenu";
 import { RenameThreadDialog } from "./RenameThreadDialog";
@@ -171,6 +174,7 @@ function RemoteThreadRowBody(props: {
   const scopedId = scopeThread(hostId, threadId);
   const summary = useHostThreadSummary(hostId, entry.id);
   const navigate = useNavigate();
+  const router = useRouter();
   const { settings } = useAppSettings();
   const providerStatuses = useProviderStatusesForLocalConfig();
   const { continueThreadHandoff, createThreadHandoff, createTranscriptHandoff } =
@@ -195,7 +199,22 @@ function RemoteThreadRowBody(props: {
       title,
       description: error instanceof Error ? error.message : String(error),
     });
-  const open = () => void navigate({ to: "/$threadId", params: { threadId: scopedId } });
+  // Like this computer's rows: a thread held by a split focuses its pane instead of leaving it.
+  const open = () => {
+    const splitViews = useSplitViewStore.getState();
+    const split = resolveHostThreadSplit({
+      hostId,
+      threadId,
+      routeSplitViewId: router.state.location.search.splitViewId,
+      splitViewsById: splitViews.splitViewsById,
+    });
+    if (split) splitViews.setFocusedPane(split.splitViewId, split.paneId);
+    void navigate({
+      to: "/$threadId",
+      params: { threadId: scopedId },
+      ...(split ? { search: () => ({ splitViewId: split.splitViewId }) } : {}),
+    });
+  };
 
   const togglePinned = () => {
     const pins = usePinnedThreadsStore.getState();
@@ -423,6 +442,9 @@ function RemoteThreadRowBody(props: {
             pinned ? "pl-2" : null,
             "pr-2",
           )}
+          draggable
+          onDragStart={(event) => beginThreadDrag(event, threadId, hostId)}
+          onDragEnd={endThreadDrag}
           onClick={open}
           onDoubleClick={(event) => {
             event.preventDefault();

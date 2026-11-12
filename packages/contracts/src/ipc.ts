@@ -1264,6 +1264,15 @@ export interface DesktopBridge {
     /** The loopback WebSocket URL of a connected host's server, or null while it is down. */
     wsUrl: (host: string) => Promise<string | null>;
     /**
+     * Forwards a connected host's loopback `remotePort` (a dev server) to a free local port
+     * over SSH and resolves to its local URL. One forward per (host, port), closed when the
+     * host disconnects or the app quits. Absent where the shell cannot forward (Electron).
+     */
+    forwardPort?: (input: {
+      readonly host: string;
+      readonly remotePort: number;
+    }) => Promise<string>;
+    /**
      * Saves files from a connected host's workspace on this computer: one Save dialog for a
      * single file, a folder dialog for several. Main fetches only that host's own tunnelled
      * download route.

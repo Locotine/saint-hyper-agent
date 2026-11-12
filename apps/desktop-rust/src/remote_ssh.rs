@@ -176,6 +176,9 @@ pub struct RemoteSshManager {
     saved_hosts: Mutex<Vec<DesktopRemoteSshSavedHost>>,
     live_hosts: Mutex<Vec<DesktopRemoteSshHostState>>,
     tunnels: Mutex<HashMap<String, Child>>,
+    /// Remote dev-server ports forwarded for the Browser panel: (host, remote port) to the
+    /// local port and its `ssh -N -L`. Closed with the host's tunnel.
+    port_forwards: Mutex<HashMap<(String, u16), (u16, Child)>>,
     sessions: Mutex<HashMap<String, Session>>,
     // ponytail: one connect at a time across hosts; per-host locks if parallel connects matter.
     connect_lock: Mutex<()>,
@@ -204,6 +207,7 @@ impl RemoteSshManager {
             saved_hosts: Mutex::new(initial_saved),
             live_hosts: Mutex::new(Vec::new()),
             tunnels: Mutex::new(HashMap::new()),
+            port_forwards: Mutex::new(HashMap::new()),
             sessions: Mutex::new(HashMap::new()),
             connect_lock: Mutex::new(()),
             client_id,
@@ -684,6 +688,10 @@ impl RemoteSshManager {
         }
 
         if prev != host {
+            // Like disconnect: bump before closing, so a connect or port forward still running
+            // under the old name gives up instead of recording itself under a name now gone.
+            self.cancel_connects(prev);
+            self.close_port_forwards(Some(prev));
             let replaced = self.tunnels.lock().ok().and_then(|mut tunnels| {
                 let child = tunnels.remove(prev)?;
                 tunnels.insert(host.clone(), child)
@@ -981,12 +989,13 @@ impl RemoteSshManager {
             .ok()
             .and_then(|s| s.get(host).map(|s| s.local_port))
             .unwrap_or_else(Self::reserve_local_port);
-        let child = match self.open_tunnel(entry, local_port, remote_port) {
+        let health = |port| Self::answers_health(port, Duration::from_secs(2));
+        let child = match self.open_tunnel(entry, local_port, remote_port, health) {
             Ok(child) => child,
             Err(_) => {
                 // The kept port may be taken now; windows re-read the URL on reconnect.
                 local_port = Self::reserve_local_port();
-                self.open_tunnel(entry, local_port, remote_port)?
+                self.open_tunnel(entry, local_port, remote_port, health)?
             }
         };
         if self.generation(host) != generation {
@@ -1448,14 +1457,15 @@ impl RemoteSshManager {
         Ok(run)
     }
 
-    /// Spawns `ssh -N -L` and waits until the remote server answers /health through it.
-    /// No ExitOnForwardFailure: a taken port from the user's own ssh config forwards would
-    /// kill the tunnel; our own forward is proven by the /health wait.
+    /// Spawns `ssh -N -L` and waits until `ready(local_port)` holds (for Saint's own tunnel, the
+    /// remote server answers /health). No ExitOnForwardFailure: a taken port from the user's
+    /// own ssh config forwards would kill the tunnel; our own forward is proven by `ready`.
     fn open_tunnel(
         &self,
         entry: &DesktopRemoteSshSavedHost,
         local_port: u16,
         remote_port: u16,
+        ready: impl Fn(u16) -> bool,
     ) -> Result<Child, String> {
         let mut cmd = Self::ssh_command(entry);
         cmd.args([
@@ -1492,7 +1502,7 @@ impl RemoteSshManager {
                     Self::tail(&stderr)
                 ));
             }
-            if Self::answers_health(local_port, Duration::from_secs(2)) {
+            if ready(local_port) {
                 // Drain stderr so a chatty ssh never blocks on a full pipe.
                 if let Some(mut pipe) = child.stderr.take() {
                     std::thread::spawn(move || {
@@ -1545,6 +1555,7 @@ impl RemoteSshManager {
             return Err("Unknown SSH host.".to_string());
         }
         self.cancel_connects(trimmed);
+        self.close_port_forwards(Some(trimmed));
         let removed_child = self
             .tunnels
             .lock()
@@ -1804,8 +1815,11 @@ impl RemoteSshManager {
                 .ok()
                 .and_then(|s| s.get(host).map(|s| (s.local_port, s.remote_port)));
             let result = match session {
-                Some((local, remote)) if attempt == 0 => {
-                    self.open_tunnel(&entry, local, remote).and_then(|child| {
+                Some((local, remote)) if attempt == 0 => self
+                    .open_tunnel(&entry, local, remote, |port| {
+                        Self::answers_health(port, Duration::from_secs(2))
+                    })
+                    .and_then(|child| {
                         if self.generation(host) != generation {
                             Self::kill_and_reap(child);
                             return Err(CONNECT_CANCELLED.to_string());
@@ -1819,8 +1833,7 @@ impl RemoteSshManager {
                             Self::kill_and_reap(prev);
                         }
                         Ok(self.set_phase(host, &host_key, &state.remote_root, "connected", None))
-                    })
-                }
+                    }),
                 _ => self.run_connect(&entry, &state.remote_root, &host_key, true, generation),
             };
             match result {
@@ -1877,6 +1890,7 @@ impl RemoteSshManager {
     pub fn forget_host(&self, host: &str) {
         let trimmed = host.trim();
         self.cancel_connects(trimmed);
+        self.close_port_forwards(Some(trimmed));
         let removed_child = self
             .tunnels
             .lock()
@@ -2066,7 +2080,132 @@ impl RemoteSshManager {
         }
     }
 
+    /// Forwards a connected host's loopback `remote_port` to a free local port and returns its
+    /// URL; a live forward of the same (host, port) is reused.
+    pub fn forward_port(&self, host: &str, remote_port: u16) -> Result<String, String> {
+        let host = host.trim();
+        if !Self::is_valid_ssh_target(host) || remote_port == 0 {
+            return Err("This port forward request is not valid.".to_string());
+        }
+        if self.ws_url_for_host(host).is_none() {
+            return Err(format!("{host} is not connected."));
+        }
+        if let Some(url) = self.live_forward_url(host, remote_port) {
+            return Ok(url);
+        }
+        let entry = self
+            .saved_hosts
+            .lock()
+            .ok()
+            .and_then(|g| g.iter().find(|h| h.host == host).cloned())
+            .ok_or_else(|| format!("{host} is not a saved SSH host."))?;
+        let generation = self.generation(host);
+        let local_port = Self::reserve_local_port();
+        // ssh listens on the local port once authenticated.
+        let accepts = |port| {
+            let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+            std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(2)).is_ok()
+        };
+        let child = self.open_tunnel(&entry, local_port, remote_port, accepts)?;
+        // ssh accepts on the local port whatever the remote side does; prove the dev server does.
+        if !Self::forward_reaches_server(local_port, Duration::from_millis(1500)) {
+            Self::kill_and_reap(child);
+            return Err(format!(
+                "Nothing on {host} accepts connections on port {remote_port}. Start the server, then try again."
+            ));
+        }
+        // A concurrent request for the same port may have finished first; keep its forward.
+        if let Some(url) = self.live_forward_url(host, remote_port) {
+            Self::kill_and_reap(child);
+            return Ok(url);
+        }
+        self.record_forward(host, remote_port, generation, local_port, child)
+    }
+
+    /// Keeps a finished forward unless its host was disconnected or renamed since `generation`.
+    fn record_forward(
+        &self,
+        host: &str,
+        remote_port: u16,
+        generation: u64,
+        local_port: u16,
+        child: Child,
+    ) -> Result<String, String> {
+        let Ok(mut forwards) = self.port_forwards.lock() else {
+            Self::kill_and_reap(child);
+            return Err("The port forward could not be recorded.".to_string());
+        };
+        // Disconnect and rename bump the generation before closing forwards, so checking it under
+        // the lock keeps a forward that finished meanwhile from outliving the host's name.
+        if self.generation(host) != generation {
+            drop(forwards);
+            Self::kill_and_reap(child);
+            return Err(CONNECT_CANCELLED.to_string());
+        }
+        forwards.insert((host.to_string(), remote_port), (local_port, child));
+        Ok(Self::forward_url(local_port))
+    }
+
+    /// Whether a forwarded port reaches a listening server. ssh accepts the local connection
+    /// first and closes it once the remote side refuses, so an early EOF or reset means nothing
+    /// listens there; a server that stays silent (HTTP waits for the request) or speaks does.
+    // ponytail: a refusal slower than `timeout` (very high latency link) still reads as success.
+    fn forward_reaches_server(local_port: u16, timeout: Duration) -> bool {
+        use std::io::{ErrorKind, Read};
+        let addr = std::net::SocketAddr::from(([127, 0, 0, 1], local_port));
+        let Ok(mut stream) = std::net::TcpStream::connect_timeout(&addr, timeout) else {
+            return false;
+        };
+        let _ = stream.set_read_timeout(Some(timeout));
+        match stream.read(&mut [0u8; 1]) {
+            Ok(0) => false,
+            Ok(_) => true,
+            Err(err) => matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut),
+        }
+    }
+
+    fn forward_url(local_port: u16) -> String {
+        format!("http://127.0.0.1:{local_port}/")
+    }
+
+    /// The URL of a still-running forward of (host, remote_port); an exited one is dropped.
+    fn live_forward_url(&self, host: &str, remote_port: u16) -> Option<String> {
+        let mut forwards = self.port_forwards.lock().ok()?;
+        let key = (host.to_string(), remote_port);
+        let (local_port, child) = forwards.get_mut(&key)?;
+        if matches!(child.try_wait(), Ok(None)) {
+            return Some(Self::forward_url(*local_port));
+        }
+        if let Some((_, child)) = forwards.remove(&key) {
+            Self::kill_and_reap(child);
+        }
+        None
+    }
+
+    /// Closes the port forwards of `host`, or of every host when None.
+    fn close_port_forwards(&self, host: Option<&str>) {
+        let closed: Vec<Child> = self
+            .port_forwards
+            .lock()
+            .ok()
+            .map(|mut forwards| {
+                let keys: Vec<(String, u16)> = forwards
+                    .keys()
+                    .filter(|(h, _)| host.map_or(true, |host| h == host))
+                    .cloned()
+                    .collect();
+                keys.iter()
+                    .filter_map(|key| forwards.remove(key).map(|(_, child)| child))
+                    .collect()
+            })
+            .unwrap_or_default();
+        for child in closed {
+            Self::kill_and_reap(child);
+        }
+    }
+
     pub fn kill_all_tunnels(&self) {
+        self.close_port_forwards(None);
         let children: Vec<Child> = self
             .tunnels
             .lock()
@@ -2226,6 +2365,130 @@ mod tests {
             "[c]ustom/saint"
         );
         assert_eq!(RemoteSshManager::remote_root_process_pattern(""), "");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reuses_a_live_port_forward_and_closes_it_on_disconnect() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("saint-ssh-forward-test-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let manager = RemoteSshManager::new(SaintPaths::from_base_dir(temp_dir.clone()));
+        let sleep = |secs: &str| {
+            Command::new("sleep")
+                .arg(secs)
+                .stdin(Stdio::null())
+                .spawn()
+                .expect("failed to spawn sleep")
+        };
+        let mut exited = sleep("0");
+        let _ = exited.wait();
+        {
+            let mut forwards = manager.port_forwards.lock().unwrap();
+            forwards.insert(("devbox".to_string(), 5173), (41001, sleep("30")));
+            forwards.insert(("devbox".to_string(), 3000), (41002, exited));
+            forwards.insert(("other".to_string(), 5173), (41003, sleep("30")));
+        }
+
+        assert_eq!(
+            manager.live_forward_url("devbox", 5173).as_deref(),
+            Some("http://127.0.0.1:41001/")
+        );
+        // An exited forward is dropped so the next request opens a fresh one.
+        assert_eq!(manager.live_forward_url("devbox", 3000), None);
+        assert!(!manager
+            .port_forwards
+            .lock()
+            .unwrap()
+            .contains_key(&("devbox".to_string(), 3000)));
+        // Only a connected host forwards ports.
+        assert!(manager.forward_port("devbox", 5173).is_err());
+        assert!(manager.forward_port("-oProxyCommand=x", 5173).is_err());
+
+        manager.disconnect("devbox").unwrap();
+        {
+            let forwards = manager.port_forwards.lock().unwrap();
+            assert!(!forwards.contains_key(&("devbox".to_string(), 5173)));
+            assert!(forwards.contains_key(&("other".to_string(), 5173)));
+        }
+        manager.kill_all_tunnels();
+        assert!(manager.port_forwards.lock().unwrap().is_empty());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn forward_probe_tells_a_listening_server_from_a_refused_channel() {
+        use std::net::TcpListener;
+        let reaches =
+            |port| RemoteSshManager::forward_reaches_server(port, Duration::from_millis(300));
+        // Stands in for ssh after the remote refused: accept, then close at once.
+        let refused = TcpListener::bind("127.0.0.1:0").unwrap();
+        let refused_port = refused.local_addr().unwrap().port();
+        let closer = std::thread::spawn(move || drop(refused.accept()));
+        assert!(!reaches(refused_port));
+        closer.join().unwrap();
+        // A dev server holds the connection open, waiting for the request.
+        let listening = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listening_port = listening.local_addr().unwrap().port();
+        let holder = std::thread::spawn(move || {
+            let held = listening.accept();
+            std::thread::sleep(Duration::from_millis(600));
+            drop(held);
+        });
+        assert!(reaches(listening_port));
+        holder.join().unwrap();
+        // Nothing listening on the local port at all.
+        assert!(!reaches(refused_port));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn host_rename_drops_a_port_forward_that_finishes_under_the_old_name() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("saint-ssh-forward-rename-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let manager = RemoteSshManager::new(SaintPaths::from_base_dir(temp_dir.clone()));
+        let sleep = || {
+            Command::new("sleep")
+                .arg("30")
+                .stdin(Stdio::null())
+                .spawn()
+                .expect("failed to spawn sleep")
+        };
+        // A forward of "devbox" starts before the rename and finishes after it.
+        let generation = manager.generation("devbox");
+        manager
+            .update_host(DesktopRemoteSshUpdateHostInput {
+                previous_host: Some("devbox".to_string()),
+                target: DesktopRemoteSshSavedHost {
+                    host: "devbox-renamed".to_string(),
+                    remote_root: None,
+                    host_key: None,
+                    auto_connect: None,
+                    label: None,
+                    user: None,
+                    port: None,
+                    identity_file: None,
+                },
+            })
+            .unwrap();
+        assert_eq!(
+            manager.record_forward("devbox", 5173, generation, 41001, sleep()),
+            Err(CONNECT_CANCELLED.to_string())
+        );
+        assert!(manager.port_forwards.lock().unwrap().is_empty());
+        // A forward started after the rename is kept.
+        let generation = manager.generation("devbox-renamed");
+        assert_eq!(
+            manager
+                .record_forward("devbox-renamed", 5173, generation, 41002, sleep())
+                .as_deref(),
+            Ok("http://127.0.0.1:41002/")
+        );
+        manager.kill_all_tunnels();
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 
     #[cfg(unix)]

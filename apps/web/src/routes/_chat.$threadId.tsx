@@ -76,8 +76,9 @@ function ChatThreadRouteContent() {
   );
   const draftThreadExists = draftThreadState !== null;
   const routeThreadExists = threadExists || draftThreadExists;
+  // Another host's split opens on that host's route (RemoteThreadSurface) only.
   const splitView = useSplitViewStore(
-    useMemo(() => selectSplitView(search.splitViewId ?? null), [search.splitViewId]),
+    useMemo(() => selectSplitView(search.splitViewId ?? null, LOCAL_HOST_ID), [search.splitViewId]),
   );
   const splitViewsHydrated = useSplitViewStore((store) => store.hasHydrated);
   const activeProjectId = resolveSingleProjectId({

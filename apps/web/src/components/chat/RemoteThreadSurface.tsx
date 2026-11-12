@@ -1,20 +1,25 @@
 // FILE: RemoteThreadSurface.tsx
 // Purpose: A connected SSH host's thread in the app window: the chat reads the host's store and
-//          sends through the host's API. While the host is offline the last loaded chat stays
-//          readable; one never loaded says why it cannot open.
+//          sends through the host's API. A split view of that host's threads renders here too.
+//          While the host is offline the last loaded chat stays readable; one never loaded says
+//          why it cannot open.
 // Layer: Chat surface
 // Exports: RemoteThreadSurface
 
 import type { ThreadId } from "@saint/contracts";
-import type { HostId } from "@saint/shared/hostId";
-import { useSyncExternalStore } from "react";
+import { threadRouteParam, type HostId } from "@saint/shared/hostId";
+import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 
 import { useRemoteSshState } from "~/hooks/useRemoteSshState";
 import { HostScope } from "~/hosts/hostScope";
 import { hostStores } from "~/hosts/hostStores";
 import { useHostThreadDetail } from "~/hosts/hostThreadDetail";
-import type { DiffRouteSearch } from "~/diffRouteSearch";
+import { type DiffRouteSearch, stripDiffSearchParams } from "~/diffRouteSearch";
+import { isSplitRoute, resolveRouteChatSurface } from "~/splitViewRoute";
+import { selectSplitView, useSplitViewStore } from "~/splitViewStore";
 import { SingleChatSurface } from "./SingleChatSurface";
+import { SplitChatSurface } from "./SplitChatSurface";
 import { remoteHostAlias } from "../settings/remoteHostsSettingsModel";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
@@ -35,7 +40,30 @@ export function RemoteThreadSurface(props: {
     hostStores.subscribe,
     () => hostStores.get(hostId).getState().sidebarThreadSummaryById[threadId]?.projectId ?? null,
   );
-  useHostThreadDetail(hostId, threadId);
+  const routeSplitViewId = props.search.splitViewId ?? null;
+  // A split opens only on its own host; a stale id or another host's split falls back to one chat.
+  const splitView = useSplitViewStore(
+    useMemo(() => selectSplitView(routeSplitViewId, hostId), [routeSplitViewId, hostId]),
+  );
+  const splitViewsHydrated = useSplitViewStore((store) => store.hasHydrated);
+  const surface = resolveRouteChatSurface({
+    search: props.search,
+    splitView,
+    splitViewsHydrated,
+  });
+  const staleSplitRoute = surface === "single" && isSplitRoute(props.search);
+  // Split panes stream their own threads, the route's included.
+  useHostThreadDetail(hostId, surface === "single" ? threadId : null);
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (!staleSplitRoute) return;
+    void navigate({
+      to: "/$threadId",
+      params: { threadId: threadRouteParam(hostId, threadId) },
+      replace: true,
+      search: (previous) => ({ ...stripDiffSearchParams(previous), splitViewId: undefined }),
+    });
+  }, [hostId, navigate, staleSplitRoute, threadId]);
   const live = useSyncExternalStore(
     hostStores.subscribe,
     () => hostStores.status(hostId).status === "live",
@@ -45,6 +73,8 @@ export function RemoteThreadSurface(props: {
     () => hostStores.get(hostId).getState().threadDetailSyncById?.[threadId] === "synced",
   );
   const alias = useHostAlias(hostId);
+
+  if (surface === "hold") return null;
 
   if (!live && !loaded) {
     return (
@@ -65,8 +95,12 @@ export function RemoteThreadSurface(props: {
             <AlertDescription>{`${alias} is offline, so this chat is read-only. ${RECONNECT_HINT}`}</AlertDescription>
           </Alert>
         )}
-        {/* The same surface as this computer's chats: right dock, Explorer and Browser included. */}
-        <SingleChatSurface threadId={threadId} search={props.search} projectId={projectId} />
+        {/* The same surfaces as this computer's chats: right dock, Explorer and Browser included. */}
+        {surface === "split" && splitView ? (
+          <SplitChatSurface splitViewId={splitView.id} routeThreadId={threadId} />
+        ) : (
+          <SingleChatSurface threadId={threadId} search={props.search} projectId={projectId} />
+        )}
       </div>
     </HostScope>
   );

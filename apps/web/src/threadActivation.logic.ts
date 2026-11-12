@@ -3,6 +3,7 @@
 // Exports: split-aware activation resolvers shared by sidebar click, keyboard, and search flows.
 
 import type { ThreadId } from "@saint/contracts";
+import type { HostId } from "@saint/shared/hostId";
 import {
   resolveSplitViewPaneIdForThread,
   type PaneId,
@@ -80,4 +81,27 @@ export function resolvePreferredSplitForCommand(input: {
   );
   const match = sourceMatch ?? (matchingSplits.length === 1 ? matchingSplits[0] : null);
   return match ? { splitViewId: match.splitView.id, paneId: match.paneId } : null;
+}
+
+/**
+ * The split a host's thread opens in from its sidebar row, as `resolvePreferredSplitForCommand`
+ * decides for this computer's rows, over that host's splits only: the route's split first.
+ */
+export function resolveHostThreadSplit(input: {
+  hostId: HostId;
+  threadId: ThreadId;
+  routeSplitViewId: string | null | undefined;
+  splitViewsById: Readonly<Record<SplitViewId, SplitView | undefined>>;
+}): { splitViewId: SplitViewId; paneId: PaneId } | null {
+  const hostSplitViewsById: Record<SplitViewId, SplitView | undefined> = {};
+  for (const splitView of Object.values(input.splitViewsById)) {
+    if (splitView?.hostId === input.hostId) hostSplitViewsById[splitView.id] = splitView;
+  }
+  return resolvePreferredSplitForCommand({
+    activeSplitView: input.routeSplitViewId
+      ? (hostSplitViewsById[input.routeSplitViewId] ?? null)
+      : null,
+    splitViewsById: hostSplitViewsById,
+    threadId: input.threadId,
+  });
 }

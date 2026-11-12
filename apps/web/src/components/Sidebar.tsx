@@ -1506,8 +1506,12 @@ export default function Sidebar() {
   const routeSearch = useDiffRouteSearch();
   const settingsSectionSearch = useSearch({ strict: false }) as Record<string, unknown>;
   const activeSettingsSection = normalizeSettingsSection(settingsSectionSearch.section);
+  // The sidebar acts on this computer's threads; another host's split is not one of its splits.
   const activeSplitView = useSplitViewStore(
-    useMemo(() => selectSplitView(routeSearch.splitViewId ?? null), [routeSearch.splitViewId]),
+    useMemo(
+      () => selectSplitView(routeSearch.splitViewId ?? null, LOCAL_HOST_ID),
+      [routeSearch.splitViewId],
+    ),
   );
   const splitViewsById = useSplitViewStore((store) => store.splitViewsById);
 

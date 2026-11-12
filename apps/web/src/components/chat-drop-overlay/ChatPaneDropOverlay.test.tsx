@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { ThreadId } from "@saint/contracts";
+import { type HostId, LOCAL_HOST_ID, sshHostId } from "@saint/shared/hostId";
 
 import { getDropZoneFromPointer, isThreadDragPayloadAllowed } from "./ChatPaneDropOverlay";
 
@@ -56,18 +57,30 @@ describe("getDropZoneFromPointer", () => {
 });
 
 describe("isThreadDragPayloadAllowed", () => {
+  const LOCAL = { hostId: LOCAL_HOST_ID as HostId };
   it("rejects drops only for already mounted threads", () => {
     expect(
       isThreadDragPayloadAllowed(
-        { threadId: THREAD_A },
-        { excludedThreadIds: new Set([THREAD_A]) },
+        { threadId: THREAD_A, ...LOCAL },
+        { excludedThreadIds: new Set([THREAD_A]), ...LOCAL },
       ),
     ).toBe(false);
     expect(
       isThreadDragPayloadAllowed(
-        { threadId: THREAD_B },
-        { excludedThreadIds: new Set([THREAD_A]) },
+        { threadId: THREAD_B, ...LOCAL },
+        { excludedThreadIds: new Set([THREAD_A]), ...LOCAL },
       ),
+    ).toBe(true);
+  });
+
+  it("rejects another host's thread so a split stays on one host", () => {
+    const remote = sshHostId("0a1b2c3d");
+    expect(isThreadDragPayloadAllowed({ threadId: THREAD_B, ...LOCAL }, { hostId: remote })).toBe(
+      false,
+    );
+    expect(isThreadDragPayloadAllowed({ threadId: THREAD_B, hostId: remote }, LOCAL)).toBe(false);
+    expect(
+      isThreadDragPayloadAllowed({ threadId: THREAD_B, hostId: remote }, { hostId: remote }),
     ).toBe(true);
   });
 });

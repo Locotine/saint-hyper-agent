@@ -5,10 +5,13 @@
 
 import { useEffect, useRef, type DragEvent as ReactDragEvent, type ReactNode } from "react";
 import { type ThreadId } from "@saint/contracts";
+import { type HostId } from "@saint/shared/hostId";
+
+import { useHostId } from "../../hosts/hostScope";
 
 import { type SplitDirection, type SplitDropSide } from "../../splitViewStore";
 import {
-  getActiveThreadDragId,
+  getActiveThreadDrag,
   isThreadDragTransfer,
   isWithinThreadMentionDropzone,
   readThreadDragPayload,
@@ -22,6 +25,8 @@ export type DropZone = "top" | "bottom" | "left" | "right";
 
 export interface ThreadDropRules {
   excludedThreadIds?: ReadonlySet<ThreadId> | undefined;
+  /** The surface's host: a thread from another host never joins it (splits stay single-host). */
+  hostId: HostId;
 }
 
 const DROP_ZONE_PREVIEW_CLASS: Record<DropZone, string> = {
@@ -127,12 +132,14 @@ export function isThreadDragPayloadAllowed(
   payload: ThreadDragPayload,
   rules: ThreadDropRules,
 ): boolean {
+  if (payload.hostId !== rules.hostId) return false;
   if (rules.excludedThreadIds?.has(payload.threadId)) return false;
   return true;
 }
 
 export function ChatPaneDropOverlay(props: ChatPaneDropOverlayProps) {
   const { onDrop, canDropInDirection, excludedThreadIds, paneScopeId, className, children } = props;
+  const hostId = useHostId();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const rectRef = useRef<DOMRect | null>(null);
@@ -190,15 +197,8 @@ export function ChatPaneDropOverlay(props: ChatPaneDropOverlayProps) {
     const zone = getZoneForEvent(event);
     if (!zone) return null;
     // Drag data is unreadable until `drop`; fall back to the in-app drag source.
-    const activeThreadId = getActiveThreadDragId();
-    const payload =
-      parseThreadDragPayload(event) ?? (activeThreadId ? { threadId: activeThreadId } : null);
-    if (
-      payload &&
-      !isThreadDragPayloadAllowed(payload, {
-        excludedThreadIds,
-      })
-    ) {
+    const payload = parseThreadDragPayload(event) ?? getActiveThreadDrag();
+    if (payload && !isThreadDragPayloadAllowed(payload, { excludedThreadIds, hostId })) {
       return null;
     }
     return zone;
@@ -257,7 +257,7 @@ export function ChatPaneDropOverlay(props: ChatPaneDropOverlayProps) {
     resetOverlayState();
 
     if (!zone || !payload) return;
-    if (!isThreadDragPayloadAllowed(payload, { excludedThreadIds })) return;
+    if (!isThreadDragPayloadAllowed(payload, { excludedThreadIds, hostId })) return;
     const { direction, side } = dropZoneToDirectionSide(zone);
     onDrop({ ...payload, direction, side });
   };

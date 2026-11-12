@@ -235,6 +235,8 @@ export function createTauriDesktopBridge(
           testHost: (host) => adapter.invoke("desktop_remote_ssh_test_host", { host }),
           updateHost: (input) => adapter.invoke("desktop_remote_ssh_update_host", { input }),
           wsUrl: (host) => adapter.invoke("desktop_remote_ssh_ws_url", { host }),
+          forwardPort: ({ host, remotePort }) =>
+            adapter.invoke("desktop_remote_ssh_forward_port", { host, remotePort }),
           downloadFiles: (input) => adapter.invoke("desktop_remote_ssh_download_files", { input }),
           onState: (listener) =>
             adapter.listen("desktop:remote-ssh-state", (state) => {

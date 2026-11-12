@@ -392,9 +392,12 @@ export function resolveSplitViewPaneIdForThread(
   return null;
 }
 
-export function selectSplitView(splitViewId: SplitViewId | null) {
-  return (store: SplitViewStore) =>
-    splitViewId ? (store.splitViewsById[splitViewId] ?? null) : null;
+/** With `hostId`, another host's split reads as missing: a route opens only its own host's split. */
+export function selectSplitView(splitViewId: SplitViewId | null, hostId?: HostId) {
+  return (store: SplitViewStore) => {
+    const splitView = splitViewId ? (store.splitViewsById[splitViewId] ?? null) : null;
+    return hostId === undefined || splitView?.hostId === hostId ? splitView : null;
+  };
 }
 
 // --- store ---

@@ -686,7 +686,10 @@ export default function ChatView({
     useThreadHandoff();
   const rawSearch = useDiffRouteSearch();
   const activeSplitView = useSplitViewStore(
-    useMemo(() => selectSplitView(rawSearch.splitViewId ?? null), [rawSearch.splitViewId]),
+    useMemo(
+      () => selectSplitView(rawSearch.splitViewId ?? null, chatHost.hostId),
+      [rawSearch.splitViewId, chatHost.hostId],
+    ),
   );
   const removeThreadFromSplitViews = useSplitViewStore((store) => store.removeThreadFromSplitViews);
   const { resolvedTheme } = useTheme();
@@ -1155,7 +1158,7 @@ export default function ChatView({
         useTerminalStateStore
           .getState()
           .clearTerminalState(scopeThread(chatHost.hostId, terminalThreadId));
-        removeThreadFromSplitViews(LOCAL_HOST_ID, terminalThreadId);
+        removeThreadFromSplitViews(chatHost.hostId, terminalThreadId);
         if (activeSplitView) {
           const nextSplitView = useSplitViewStore.getState().splitViewsById[activeSplitView.id];
           const nextThreadId = nextSplitView
@@ -1171,7 +1174,8 @@ export default function ChatView({
             return;
           }
         }
-        await handleNewChat();
+        // A remote chat's new chat opens on its host, in the closed chat's project.
+        await handleNewChat({ hostProjectId: activeProjectId });
       };
 
       try {
@@ -1183,7 +1187,14 @@ export default function ChatView({
         });
       }
     },
-    [chatHost, activeSplitView, handleNewChat, navigate, removeThreadFromSplitViews],
+    [
+      chatHost,
+      activeProjectId,
+      activeSplitView,
+      handleNewChat,
+      navigate,
+      removeThreadFromSplitViews,
+    ],
   );
   const {
     terminalState,
@@ -5572,15 +5583,6 @@ export default function ChatView({
         chatHost.store.getState().sidebarThreadSummaryById[nextThreadId]?.projectId ??
         activeProjectId;
       if (!ownerProjectId) return;
-      // Split views hold this computer's threads only (a remote route renders one chat), so a
-      // remote row just opens its thread instead of leaving an unreachable split behind.
-      if (chatHost.hostId !== LOCAL_HOST_ID) {
-        void navigate({
-          to: "/$threadId",
-          params: { threadId: threadRouteParam(chatHost.hostId, nextThreadId) },
-        });
-        return;
-      }
       const splitViewId = useSplitViewStore.getState().createFromThread({
         hostId: chatHost.hostId,
         sourceThreadId: nextThreadId,
