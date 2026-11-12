@@ -91,6 +91,7 @@ describe("createRemoteServerInstallManifest", () => {
     expect(manifest.bundledPatches).toEqual([
       {
         packageName: "@pierre/diffs",
+        spec: "1.3.5",
         patchPath: "patches/@pierre%2Fdiffs@1.3.5.patch",
         fileName: "@pierre%2Fdiffs@1.3.5.patch",
       },

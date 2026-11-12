@@ -8,6 +8,8 @@
 /** A Bun patch the remote applies after `npm install`, since npm never reads `patchedDependencies`. */
 export interface RemoteServerPatch {
   readonly packageName: string;
+  /** Version spec the patch is keyed to in `patchedDependencies`, e.g. `1.3.5`. */
+  readonly spec: string;
   /** Path of the patch file relative to the repository root, e.g. `patches/x.patch`. */
   readonly patchPath: string;
   /** Basename the patch is shipped under inside the install bundle's `patches/` folder. */
@@ -154,7 +156,7 @@ export function createRemoteServerInstallManifest(
     const parts = splitPatchedDependencyKey(key);
     if (!parts || typeof patchPath !== "string") continue;
     const [packageName, spec] = parts;
-    const patch = { packageName, patchPath, fileName: patchFileName(patchPath) };
+    const patch = { packageName, spec, patchPath, fileName: patchFileName(patchPath) };
     if (dependencies[packageName] === undefined) {
       bundledPatches.push(patch);
       continue;

@@ -107,6 +107,14 @@ function verifyBundledPatches() {
         }
         const contents = fs.readFileSync(path.join(repoRoot, patch.patchPath), "utf8");
         for (const root of roots) {
+          // The patch applies to one version (`name@spec`); another copy of the package the
+          // bundle inlines (a different version a workspace depends on) is never patched.
+          const installed = JSON.parse(
+            fs.readFileSync(path.join(root, "package.json"), "utf8"),
+          ) as {
+            version?: string;
+          };
+          if (installed.version !== patch.spec) continue;
           for (const expectation of parsePatchAddedLines(contents)) {
             const file = path.join(root, expectation.file);
             const source = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
