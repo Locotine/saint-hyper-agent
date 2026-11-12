@@ -45,7 +45,6 @@ import { registerSidechatCreator } from "../lib/sidechatCreatorRegistry";
 import { downloadUrlAsBlob } from "../lib/browserDownload";
 import { resolveHostHttpUrl } from "../lib/wsHttpUrl";
 import { useComposerDraftStore } from "../composerDraftStore";
-import { useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import { dispatchThreadGoal, dispatchThreadGoalPaused } from "../threadGoal";
 import {
@@ -294,7 +293,7 @@ export function useComposerSlashCommands(input: {
       }
 
       try {
-        await dispatchThreadGoal(activeThread.id, goal, options);
+        await dispatchThreadGoal(activeThread.id, goal, options, chatHost.hostId);
         return true;
       } catch (error) {
         toastManager.add({
@@ -321,7 +320,7 @@ export function useComposerSlashCommands(input: {
         return false;
       }
       try {
-        await dispatchThreadGoalPaused(activeThread.id, paused);
+        await dispatchThreadGoalPaused(activeThread.id, paused, chatHost.hostId);
         return true;
       } catch (error) {
         toastManager.add({
@@ -333,7 +332,7 @@ export function useComposerSlashCommands(input: {
         return false;
       }
     },
-    [activeThread, isServerThread],
+    [chatHost, activeThread, isServerThread],
   );
 
   const runGoalSlashCommand = useCallback(
@@ -559,7 +558,7 @@ export function useComposerSlashCommands(input: {
               useComposerDraftStore.getState().draftsByThreadId[
                 scopeThread(chatHost.hostId, sidechatThreadId)
               ]?.runtimeMode ??
-              getThreadFromState(useStore.getState(), sidechatThreadId)?.runtimeMode ??
+              getThreadFromState(chatHost.store.getState(), sidechatThreadId)?.runtimeMode ??
               runtimeMode,
             prompt,
           }),

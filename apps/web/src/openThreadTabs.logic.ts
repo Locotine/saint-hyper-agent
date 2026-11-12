@@ -7,7 +7,13 @@
 
 import type { ProjectId, ProviderKind, ThreadId } from "@saint/contracts";
 import { arrayMove } from "@dnd-kit/sortable";
-import { localThreadId, parseScopedThreadId, type ScopedThreadId } from "@saint/shared/hostId";
+import {
+  type HostId,
+  localThreadId,
+  parseScopedThreadId,
+  type ScopedThreadId,
+  unscopeThread,
+} from "@saint/shared/hostId";
 import { isSidechatThread } from "@saint/shared/sidechatThread";
 
 import { resolveThreadStatusPill } from "./components/Sidebar.logic";
@@ -96,9 +102,20 @@ export function normalizeOpenThreadTabIds(input: unknown): ScopedThreadId[] {
   return threadIds;
 }
 
-/** The raw ids of this computer's open threads, in tab order. Other hosts have no tab UI yet. */
+/** The raw ids of this computer's open threads, in tab order. */
 export function localOpenThreadIds(threadIds: readonly ScopedThreadId[]): ThreadId[] {
   return threadIds.flatMap((scoped) => localThreadId(scoped) ?? []);
+}
+
+/** The raw ids of one host's open threads, in tab order: a chat's strip shows only its host's tabs. */
+export function hostOpenThreadIds(
+  threadIds: readonly ScopedThreadId[],
+  hostId: HostId,
+): ThreadId[] {
+  return threadIds.flatMap((scoped) => {
+    const ref = unscopeThread(scoped);
+    return ref.hostId === hostId ? [ref.threadId] : [];
+  });
 }
 
 /**

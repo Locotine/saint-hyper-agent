@@ -1164,7 +1164,7 @@ export default function ChatView({
           if (nextSplitView && nextThreadId) {
             await navigate({
               to: "/$threadId",
-              params: { threadId: nextThreadId },
+              params: { threadId: threadRouteParam(chatHost.hostId, nextThreadId) },
               replace: true,
               search: () => ({ splitViewId: nextSplitView.id }),
             });
@@ -1353,7 +1353,7 @@ export default function ChatView({
         if (storedDraftThread.threadId !== threadId) {
           await navigate({
             to: "/$threadId",
-            params: { threadId: storedDraftThread.threadId },
+            params: { threadId: threadRouteParam(chatHost.hostId, storedDraftThread.threadId) },
           });
         }
         return;
@@ -1380,10 +1380,11 @@ export default function ChatView({
       });
       await navigate({
         to: "/$threadId",
-        params: { threadId: nextThreadId },
+        params: { threadId: threadRouteParam(chatHost.hostId, nextThreadId) },
       });
     },
     [
+      chatHost,
       activeProject,
       clearProjectDraftThreadId,
       getDraftThread,
@@ -2571,7 +2572,7 @@ export default function ChatView({
   const connectorsMentionable =
     MCP_CONNECTORS_ON && providerSupportsMcpConnectors(selectedProvider);
   const connectorsQuery = useQuery({
-    ...mcpConnectorsQueryOptions(),
+    ...mcpConnectorsQueryOptions(chatHost.hostId),
     enabled: connectorsMentionable,
   });
   const mentionableConnectors = useMemo(
@@ -2848,7 +2849,7 @@ export default function ChatView({
     }
     void navigate({
       to: "/$threadId",
-      params: { threadId },
+      params: { threadId: threadRouteParam(chatHost.hostId, threadId) },
       replace: true,
       search: (previous) => {
         const rest = stripDiffSearchParams(previous);
@@ -2857,7 +2858,7 @@ export default function ChatView({
           : { ...rest, panel: "diff", diff: "1" };
       },
     });
-  }, [diffEnvironmentPending, diffOpen, navigate, onToggleDiffPanel, threadId]);
+  }, [chatHost, diffEnvironmentPending, diffOpen, navigate, onToggleDiffPanel, threadId]);
   const onToggleBrowser = useCallback(() => {
     if (onToggleBrowserPanel) {
       onToggleBrowserPanel();
@@ -2865,14 +2866,14 @@ export default function ChatView({
     }
     void navigate({
       to: "/$threadId",
-      params: { threadId },
+      params: { threadId: threadRouteParam(chatHost.hostId, threadId) },
       replace: true,
       search: (previous) => {
         const rest = stripDiffSearchParams(previous);
         return browserOpen ? { ...rest, panel: undefined } : { ...rest, panel: "browser" };
       },
     });
-  }, [browserOpen, navigate, onToggleBrowserPanel, threadId]);
+  }, [browserOpen, chatHost, navigate, onToggleBrowserPanel, threadId]);
   const openBrowserUrl = useCallback(
     (url: string) => {
       const api = chatHost.api();
@@ -2890,7 +2891,7 @@ export default function ChatView({
       }
       void navigate({
         to: "/$threadId",
-        params: { threadId },
+        params: { threadId: threadRouteParam(chatHost.hostId, threadId) },
         replace: true,
         search: (previous) => ({
           ...stripDiffSearchParams(previous),
@@ -5333,7 +5334,7 @@ export default function ChatView({
     navigateToThread: (nextThreadId, options) =>
       navigate({
         to: "/$threadId",
-        params: { threadId: nextThreadId },
+        params: { threadId: threadRouteParam(chatHost.hostId, nextThreadId) },
         ...(options?.splitViewId ? { search: () => ({ splitViewId: options.splitViewId }) } : {}),
       }),
     handleClearConversation: async () => {
@@ -5488,7 +5489,7 @@ export default function ChatView({
       }
       void navigate({
         to: "/$threadId",
-        params: { threadId },
+        params: { threadId: threadRouteParam(chatHost.hostId, threadId) },
         search: (previous) => {
           const rest = stripDiffSearchParams(previous);
           return filePath
@@ -5503,7 +5504,7 @@ export default function ChatView({
         },
       });
     },
-    [diffEnvironmentPending, navigate, onOpenTurnDiffPanel, threadId],
+    [chatHost, diffEnvironmentPending, navigate, onOpenTurnDiffPanel, threadId],
   );
   const onReviewComposerLiveChanges = useCallback(() => {
     if (!activeTurnLiveDiffState.turnId) {
@@ -5571,6 +5572,15 @@ export default function ChatView({
         chatHost.store.getState().sidebarThreadSummaryById[nextThreadId]?.projectId ??
         activeProjectId;
       if (!ownerProjectId) return;
+      // Split views hold this computer's threads only (a remote route renders one chat), so a
+      // remote row just opens its thread instead of leaving an unreachable split behind.
+      if (chatHost.hostId !== LOCAL_HOST_ID) {
+        void navigate({
+          to: "/$threadId",
+          params: { threadId: threadRouteParam(chatHost.hostId, nextThreadId) },
+        });
+        return;
+      }
       const splitViewId = useSplitViewStore.getState().createFromThread({
         hostId: chatHost.hostId,
         sourceThreadId: nextThreadId,
@@ -5860,6 +5870,7 @@ export default function ChatView({
   const handleRenameActiveThread = async (newTitle: string) => {
     const outcome = await dispatchThreadRename({
       hostApi: chatHost.api(),
+      hostId: chatHost.hostId,
       threadId: activeThread.id,
       newTitle,
       unchangedTitles: [activeThread.title],

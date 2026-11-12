@@ -18,6 +18,7 @@ import {
   serverStopLocalServerMutationOptions,
 } from "~/lib/serverReactQuery";
 import { StatusDot } from "~/components/ui/status-chip";
+import { useHostId } from "~/hosts/hostScope";
 import { cn } from "~/lib/utils";
 import {
   ENVIRONMENT_ROW_CLASS_NAME,
@@ -124,9 +125,11 @@ function LocalServersPlaceholder({
 
 export function EnvironmentLocalServersSection({ enabled }: { enabled: boolean }) {
   const queryClient = useQueryClient();
-  const localServersQuery = useQuery(serverLocalServersQueryOptions(enabled));
+  // A remote chat's panel lists (and stops) the servers on its host, not on this computer.
+  const hostId = useHostId();
+  const localServersQuery = useQuery(serverLocalServersQueryOptions({ enabled, hostId }));
   const stopLocalServerMutation = useMutation(
-    serverStopLocalServerMutationOptions({ queryClient }),
+    serverStopLocalServerMutationOptions({ queryClient, hostId }),
   );
 
   const servers = localServersQuery.data?.servers ?? [];

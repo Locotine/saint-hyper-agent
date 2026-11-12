@@ -450,6 +450,7 @@ async fn desktop_office_widget_toggle(
     .transparent(true)
     .always_on_top(true)
     .skip_taskbar(true)
+    .disable_drag_drop_handler()
     .initialization_script(&init_script);
     if let Ok(Some(monitor)) = app.primary_monitor() {
         let scale = monitor.scale_factor();
@@ -1691,6 +1692,7 @@ pub fn run() {
                     .decorations(!state.custom_title_bar_active)
                     .visible(true)
                     .focused(true)
+                    .disable_drag_drop_handler()
                     .initialization_script(&init_script);
 
             if let Some(ref persisted) = saved_window {

@@ -287,7 +287,7 @@ export function useChatAutomationCreation({
             createdAt: new Date().toISOString(),
           },
           api,
-          { force: true },
+          { force: true, hostId: chatHost.hostId },
         );
         if (result === "unavailable") {
           toastManager.add({
@@ -307,7 +307,9 @@ export function useChatAutomationCreation({
           projectInstructions: inheritedProjectInstructions,
         });
         if (inheritedThreadNotes !== threadNotes && inheritedThreadNotes.trim().length > 0) {
-          void dispatchThreadNotes(activeThread.id, inheritedThreadNotes).catch(() => undefined);
+          void dispatchThreadNotes(activeThread.id, inheritedThreadNotes, chatHost.hostId).catch(
+            () => undefined,
+          );
         }
 
         return activeThread.id;

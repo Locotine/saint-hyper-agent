@@ -4,6 +4,7 @@
 // idempotent helper so concurrent draft promotion callers do not surface duplicate
 // `thread.create` invariant failures as user-visible toasts.
 
+import type { HostId } from "@saint/shared/hostId";
 import {
   type ModelSelection,
   type NativeApi,
@@ -80,6 +81,7 @@ export async function dispatchThreadTitleRegeneration(
 export async function dispatchThreadRename(input: {
   // The API of the machine the thread lives on; this computer's by default.
   hostApi?: NativeApi | undefined;
+  hostId?: HostId | undefined;
   threadId: ThreadId;
   newTitle: string;
   unchangedTitles: readonly string[];
@@ -134,6 +136,7 @@ export async function dispatchThreadRename(input: {
         createdAt: new Date().toISOString(),
       },
       api,
+      input.hostId ? { hostId: input.hostId } : {},
     );
     if (promotionResult === "exists") {
       await api.orchestration.dispatchCommand({

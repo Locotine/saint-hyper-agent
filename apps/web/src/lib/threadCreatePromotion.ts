@@ -4,10 +4,10 @@
 // Exports: promoteThreadCreate, isDuplicateThreadCreateError
 
 import type { ClientOrchestrationCommand, NativeApi, ThreadId } from "@saint/contracts";
-import { LOCAL_HOST_ID } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { markPromotedDraftThreads } from "../composerDraftStore";
 import { readLocalNativeApi } from "../nativeApi";
-import { useStore } from "../store";
+import { hostStores } from "../hosts/hostStores";
 import { getThreadFromState } from "../threadDerivation";
 
 type ThreadCreateCommand = Extract<ClientOrchestrationCommand, { type: "thread.create" }>;
@@ -16,6 +16,8 @@ type PromoteThreadCreateResult = "created" | "exists" | "unavailable";
 interface PromoteThreadCreateOptions {
   // Draft-aware callers use this when React knows the route is still local.
   readonly force?: boolean;
+  // The host `api` talks to; its store and drafts are the ones reconciled. Defaults to this computer.
+  readonly hostId?: HostId;
 }
 
 const inFlightThreadCreateById = new Map<ThreadId, Promise<PromoteThreadCreateResult>>();
@@ -38,12 +40,14 @@ function isDuplicateThreadCreateError(error: unknown, threadId: ThreadId): boole
 async function recoverPromotedThreadFromShellSnapshot(
   api: NativeApi,
   threadId: ThreadId,
+  hostId: HostId,
 ): Promise<boolean> {
+  const store = hostStores.get(hostId);
   const snapshot = await api.orchestration.getShellSnapshot();
-  useStore.getState().syncServerShellSnapshot(snapshot);
-  markPromotedDraftThreads(LOCAL_HOST_ID, new Set(snapshot.threads.map((thread) => thread.id)));
+  store.getState().syncServerShellSnapshot(snapshot);
+  markPromotedDraftThreads(hostId, new Set(snapshot.threads.map((thread) => thread.id)));
   // getThreadFromState returns undefined for an unknown thread, never null.
-  return getThreadFromState(useStore.getState(), threadId) !== undefined;
+  return getThreadFromState(store.getState(), threadId) !== undefined;
 }
 
 async function dispatchPromoteThreadCreate(
@@ -51,21 +55,22 @@ async function dispatchPromoteThreadCreate(
   command: ThreadCreateCommand,
   options: PromoteThreadCreateOptions = {},
 ): Promise<PromoteThreadCreateResult> {
-  if (!options.force && getThreadFromState(useStore.getState(), command.threadId)) {
-    markPromotedDraftThreads(LOCAL_HOST_ID, new Set([command.threadId]));
+  const hostId = options.hostId ?? LOCAL_HOST_ID;
+  if (!options.force && getThreadFromState(hostStores.get(hostId).getState(), command.threadId)) {
+    markPromotedDraftThreads(hostId, new Set([command.threadId]));
     return "exists";
   }
 
   try {
     await api.orchestration.dispatchCommand(command);
-    markPromotedDraftThreads(LOCAL_HOST_ID, new Set([command.threadId]));
+    markPromotedDraftThreads(hostId, new Set([command.threadId]));
     return "created";
   } catch (error) {
     if (!isDuplicateThreadCreateError(error, command.threadId)) {
       throw error;
     }
     try {
-      if (await recoverPromotedThreadFromShellSnapshot(api, command.threadId)) {
+      if (await recoverPromotedThreadFromShellSnapshot(api, command.threadId, hostId)) {
         return "exists";
       }
     } catch {

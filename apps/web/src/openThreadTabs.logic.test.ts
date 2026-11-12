@@ -14,6 +14,7 @@ import {
   closeOpenThreadTab,
   closeOpenThreadTabs,
   createOpenThreadTabCloseQueue,
+  hostOpenThreadIds,
   localOpenThreadIds,
   moveOpenThreadTab,
   pruneOpenThreadTabs,
@@ -96,6 +97,12 @@ describe("open thread tab list", () => {
   it("lists only this computer's threads for rendering", () => {
     const remote = scopeThread(remoteHost, ThreadId.makeUnsafe("r"));
     expect(localOpenThreadIds([local("a"), remote, local("b")])).toEqual(["a", "b"]);
+  });
+
+  it("lists one host's threads for that host's strip", () => {
+    const remote = scopeThread(remoteHost, ThreadId.makeUnsafe("r"));
+    expect(hostOpenThreadIds([local("a"), remote, local("b")], remoteHost)).toEqual(["r"]);
+    expect(hostOpenThreadIds([local("a"), remote], LOCAL_HOST_ID)).toEqual(["a"]);
   });
 
   it("prunes only by the caller's rule, so another host's tabs survive a local prune", () => {

@@ -3,8 +3,8 @@
 // Layer: Web hook
 // Exports: useThreadHandoff
 
-import { apiFor, useHostId } from "~/hosts/hostScope";
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { apiFor, hostHandle, useHostId } from "~/hosts/hostScope";
+import { scopeThread, threadRouteParam } from "@saint/shared/hostId";
 import { useNavigate } from "@tanstack/react-router";
 import {
   PROVIDER_DISPLAY_NAMES,
@@ -30,7 +30,7 @@ import {
 import { resolveProviderSendAvailabilityWithRefresh } from "../lib/providerAvailability";
 import { newCommandId, newMessageId, newThreadId } from "../lib/utils";
 import { readLocalNativeApi } from "../nativeApi";
-import { useStore } from "../store";
+import { type HostStore, useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import { type Thread } from "../types";
 
@@ -41,9 +41,11 @@ const PROVIDER_HANDOFF_OUTCOME_TIMEOUT_MS = 120_000;
 function waitForProviderHandoffOutcome(
   threadId: Thread["id"],
   commandId: string,
+  // The chat host's store: a remote thread's outcome never lands in this computer's.
+  store: HostStore,
 ): Promise<ProviderHandoffOutcome> {
   const read = () =>
-    resolveProviderHandoffOutcome(getThreadFromState(useStore.getState(), threadId), commandId);
+    resolveProviderHandoffOutcome(getThreadFromState(store.getState(), threadId), commandId);
   const initial = read();
   if (initial.status !== "pending") {
     return Promise.resolve(initial);
@@ -54,7 +56,7 @@ function waitForProviderHandoffOutcome(
       unsubscribe();
       resolve(outcome);
     };
-    const unsubscribe = useStore.subscribe(() => {
+    const unsubscribe = store.subscribe(() => {
       const outcome = read();
       if (outcome.status !== "pending") {
         finish(outcome);
@@ -161,7 +163,7 @@ export function useThreadHandoff() {
     // The composer shows the provider the next message goes to.
     useComposerDraftStore
       .getState()
-      .setModelSelectionAndSticky(scopeLocalThread(thread.id), modelSelection);
+      .setModelSelectionAndSticky(scopeThread(hostId, thread.id), modelSelection);
     await prepared.api.orchestration.dispatchCommand({
       type: "thread.meta.update",
       commandId,
@@ -170,7 +172,11 @@ export function useThreadHandoff() {
       providerHandoff: true,
       ...(options?.stopBackgroundTasks ? { providerHandoffStopsBackgroundTasks: true } : {}),
     });
-    const outcome = await waitForProviderHandoffOutcome(thread.id, commandId);
+    const outcome = await waitForProviderHandoffOutcome(
+      thread.id,
+      commandId,
+      hostHandle(hostId).store,
+    );
     const targetName = PROVIDER_DISPLAY_NAMES[targetProvider] ?? targetProvider;
     if (outcome.status === "failed" && outcome.blockedByBackgroundTasks) {
       throw new ProviderHandoffBackgroundTasksError(thread.modelSelection.provider, targetProvider);
@@ -233,13 +239,16 @@ export function useThreadHandoff() {
       });
     }
 
-    copyTransferableComposerState(scopeLocalThread(thread.id), scopeLocalThread(nextThreadId));
+    copyTransferableComposerState(
+      scopeThread(hostId, thread.id),
+      scopeThread(hostId, nextThreadId),
+    );
 
     const snapshot = await api.orchestration.getShellSnapshot();
     syncServerShellSnapshot(snapshot);
     await navigate({
       to: "/$threadId",
-      params: { threadId: nextThreadId },
+      params: { threadId: threadRouteParam(hostId, nextThreadId) },
     });
 
     return nextThreadId;
@@ -310,7 +319,10 @@ export function useThreadHandoff() {
 
     const snapshot = await api.orchestration.getShellSnapshot();
     syncServerShellSnapshot(snapshot);
-    await navigate({ to: "/$threadId", params: { threadId: nextThreadId } });
+    await navigate({
+      to: "/$threadId",
+      params: { threadId: threadRouteParam(hostId, nextThreadId) },
+    });
     return nextThreadId;
   };
 

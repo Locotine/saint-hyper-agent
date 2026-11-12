@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import type { EditorFileEdits, ProjectReadFileResult } from "@saint/contracts";
+import { sshHostId } from "@saint/shared/hostId";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const { api } = vi.hoisted(() => ({
@@ -282,4 +283,14 @@ it("reports failed navigation reads without discarding partial results or retryi
   expect(entryForUri(editorUri(queryClient, "/project", "available.ts"))?.model.getValue()).toBe(
     "// available.ts",
   );
+});
+
+it("binds a remote host's file to that host's editor session", () => {
+  const queryClient = client();
+  const handle = acquireEditorModel(queryClient, "/remote-project", "a.ts", "x", 0, {
+    hostId: sshHostId("a1b2c3d4"),
+  });
+  handles.push(handle);
+  // Saves go through the session, so it must target the host the file lives on.
+  expect(handle.entry.session?.hostId).toBe(sshHostId("a1b2c3d4"));
 });

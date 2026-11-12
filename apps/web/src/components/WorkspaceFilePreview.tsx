@@ -574,6 +574,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
       void refetchFreshProjectFileQuery(queryClient, {
         cwd: workspaceRoot,
         relativePath: requestedFilePath,
+        hostId,
       });
       // The read-only change gutter and any mounted Source control / diff pane
       // render from the active working-tree diff queries, so refresh them now
@@ -593,6 +594,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
       }
     },
     [
+      hostId,
       fileIsImage,
       fileIsPdf,
       queryClient,
@@ -724,8 +726,9 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
     void refetchFreshProjectFileQuery(queryClient, {
       cwd: workspaceRoot,
       relativePath: filePath,
+      hostId,
     });
-  }, [fileIsImage, fileIsPdf, filePath, queryClient, showHtmlPreview, workspaceRoot]);
+  }, [fileIsImage, fileIsPdf, filePath, hostId, queryClient, showHtmlPreview, workspaceRoot]);
 
   const handleEditBufferReload = editor.reloadFromDisk;
   // Wait for the file read before asking for the working-tree diff: while the

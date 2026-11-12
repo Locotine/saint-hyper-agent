@@ -8,6 +8,14 @@ import { sshHostId } from "@saint/shared/hostId";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { makeReadModelThread, makeShellSnapshot } from "../storeTestFixtures";
+
+const draftCalls = vi.hoisted(() => ({ marked: [] as unknown[][], finalized: [] as unknown[][] }));
+vi.mock("../composerDraftStore", () => ({
+  markPromotedDraftThreads: (hostId: unknown, ids: Set<string>) =>
+    draftCalls.marked.push([hostId, [...ids]]),
+  finalizePromotedDraftThreads: (hostId: unknown, ids: Set<string>) =>
+    draftCalls.finalized.push([hostId, [...ids]]),
+}));
 import { createHostShellPump, type HostShellStatus } from "./hostShellPump";
 
 const hostA = sshHostId("a1b2c3d4");
@@ -49,6 +57,7 @@ async function setup() {
   const request = vi.fn(async () => undefined);
   const statuses: HostShellStatus[] = [];
   const pump = createHostShellPump({
+    hostId: hostA,
     store,
     transport: {
       subscribe: (_channel, listener) => {
@@ -159,5 +168,24 @@ describe("createHostShellPump", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(messages.at(-1)).toBe("no stream");
+  });
+});
+
+describe("createHostShellPump draft promotion", () => {
+  it("settles this host's drafts once its server has the thread", async () => {
+    draftCalls.marked.length = 0;
+    draftCalls.finalized.length = 0;
+    const host = await setup();
+    host.push(snapshotItem(5));
+    host.push(threadUpserted(6, "promoted"));
+    expect(draftCalls.marked).toEqual([
+      [hostA, ["thread-1"]],
+      [hostA, ["promoted"]],
+    ]);
+    // Neither thread has a turn or session yet, so their drafts are not finalized.
+    expect(draftCalls.finalized).toEqual([
+      [hostA, []],
+      [hostA, []],
+    ]);
   });
 });

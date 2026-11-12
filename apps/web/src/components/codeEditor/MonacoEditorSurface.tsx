@@ -21,6 +21,7 @@ import { formatSelectionLabel } from "~/lib/chatReferences";
 import { contextMenuGroup } from "~/lib/contextMenuGroup";
 import { serverConfigQueryOptions } from "~/lib/serverReactQuery";
 import { useWorkspaceFileOpener } from "~/lib/workspaceFileOpener";
+import { useHostId } from "~/hosts/hostScope";
 import { readLocalNativeApi } from "~/nativeApi";
 import { RenameDialog } from "../RenameDialog";
 import { WorkspaceFileEditorNoticeBar } from "../chat/WorkspaceFileEditorChrome";
@@ -159,7 +160,8 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
   const keybindings = useQuery(serverConfigQueryOptions()).data?.keybindings ?? EMPTY_KEYBINDINGS;
   const cwd = props.workspaceRoot ?? null;
   const diff = props.original !== undefined;
-  const debugStore = cwd ? getEditorDebugStore(client, cwd) : null;
+  const hostId = useHostId();
+  const debugStore = cwd ? getEditorDebugStore(client, cwd, hostId) : null;
   const containerRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<Controller | null>(null);
   const [controller, setController] = useState<Controller | null>(null);
@@ -547,6 +549,7 @@ export default function MonacoEditorSurface(props: SurfaceProps) {
       initial.fileName,
       initial.value,
       initial.valueVersion,
+      { hostId },
     );
     const { entry } = handle;
     let active: Controller | null = null;

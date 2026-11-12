@@ -8,7 +8,14 @@
 
 import type { ProjectId, ThreadId } from "@saint/contracts";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { LOCAL_HOST_ID, scopeLocalThread, unscopeThread } from "@saint/shared/hostId";
+import {
+  LOCAL_HOST_ID,
+  parseScopedThreadId,
+  scopeLocalThread,
+  scopeThread,
+  threadRouteParam,
+  unscopeThread,
+} from "@saint/shared/hostId";
 import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -21,11 +28,12 @@ import {
 import {
   buildOpenThreadTabs,
   canKeepOpenThreadTab,
-  localOpenThreadIds,
+  hostOpenThreadIds,
   type OpenThreadTab,
   type OpenThreadTabSource,
 } from "../openThreadTabs.logic";
 import { useOpenThreadTabsStore } from "../openThreadTabsStore";
+import { useHostId } from "../hosts/hostScope";
 import { useStore } from "../store";
 import { selectThreadActivities } from "../threadDerivation";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
@@ -42,7 +50,11 @@ export function useOpenThreadTabs(input: {
 }): OpenThreadTab[] {
   const { activeThreadId } = input;
   const scopedThreadIds = useOpenThreadTabsStore((state) => state.threadIds);
-  const threadIds = useMemo(() => localOpenThreadIds(scopedThreadIds), [scopedThreadIds]);
+  const hostId = useHostId();
+  const threadIds = useMemo(
+    () => hostOpenThreadIds(scopedThreadIds, hostId),
+    [scopedThreadIds, hostId],
+  );
   const pruneThreadTabs = useOpenThreadTabsStore((state) => state.pruneThreadTabs);
   const threadsHydrated = useStore((state) => state.threadsHydrated);
   const activeComposerSendThreadIds = useSyncExternalStore(
@@ -70,7 +82,7 @@ export function useOpenThreadTabs(input: {
     useShallow((state) =>
       threadIds.map(
         (threadId) =>
-          selectThreadTerminalState(state.terminalStateByThreadId, scopeLocalThread(threadId))
+          selectThreadTerminalState(state.terminalStateByThreadId, scopeThread(hostId, threadId))
             .entryPoint === "terminal",
       ),
     ),
@@ -80,14 +92,15 @@ export function useOpenThreadTabs(input: {
   // Between prunes, tab derivation already hides ids that cannot keep a tab.
   const didPruneRef = useRef(false);
   useEffect(() => {
-    if (!threadsHydrated || didPruneRef.current) return;
+    // Only this computer's snapshot is authoritative; a remote chat's strip leaves pruning to local chats.
+    if (hostId !== LOCAL_HOST_ID || !threadsHydrated || didPruneRef.current) return;
     didPruneRef.current = true;
     const { draftThreadsByThreadId } = useComposerDraftStore.getState();
     const { sidebarThreadSummaryById } = useStore.getState();
     pruneThreadTabs((scoped) => {
-      const { hostId, threadId } = unscopeThread(scoped);
-      // Only this computer's snapshot is authoritative here; another host's tabs stay.
-      if (hostId !== LOCAL_HOST_ID) return true;
+      const { hostId: tabHostId, threadId } = unscopeThread(scoped);
+      // Another host's tabs stay.
+      if (tabHostId !== LOCAL_HOST_ID) return true;
       return (
         threadId === activeThreadId ||
         canKeepOpenThreadTab(
@@ -96,7 +109,7 @@ export function useOpenThreadTabs(input: {
         )
       );
     });
-  }, [activeThreadId, pruneThreadTabs, threadsHydrated]);
+  }, [activeThreadId, hostId, pruneThreadTabs, threadsHydrated]);
 
   const sources = threadIds.map((threadId, index): OpenThreadTabSource => {
     const summary = summaries[index];
@@ -126,12 +139,13 @@ export function useOpenThreadTabs(input: {
  * thread's tab paints in the same frame as the thread itself.
  */
 export function useRecordOpenThreadTab(threadId: ThreadId | null): void {
+  const hostId = useHostId();
   const openThreadTab = useOpenThreadTabsStore((state) => state.openThreadTab);
   useLayoutEffect(() => {
     if (threadId) {
-      openThreadTab(scopeLocalThread(threadId));
+      openThreadTab(scopeThread(hostId, threadId));
     }
-  }, [openThreadTab, threadId]);
+  }, [hostId, openThreadTab, threadId]);
 }
 
 /**
@@ -140,25 +154,28 @@ export function useRecordOpenThreadTab(threadId: ThreadId | null): void {
  * header per pane, so there is no strip to keep showing.
  */
 export function useActivateThreadTab(): (threadId: ThreadId) => Promise<void> {
+  const hostId = useHostId();
   const navigate = useNavigate();
   const { prewarmThreadDetail } = useThreadDetailPrewarm();
   const openChatThreadPage = useTerminalStateStore((state) => state.openChatThreadPage);
   const openTerminalThreadPage = useTerminalStateStore((state) => state.openTerminalThreadPage);
 
   return (threadId) => {
-    prewarmThreadDetail(threadId);
+    // The prewarm reads this computer's server; a remote thread loads through its host surface.
+    if (hostId === LOCAL_HOST_ID) prewarmThreadDetail(threadId);
+    const scoped = scopeThread(hostId, threadId);
     const { entryPoint } = selectThreadTerminalState(
       useTerminalStateStore.getState().terminalStateByThreadId,
-      scopeLocalThread(threadId),
+      scoped,
     );
     if (entryPoint === "terminal") {
-      openTerminalThreadPage(scopeLocalThread(threadId));
+      openTerminalThreadPage(scoped);
     } else {
-      openChatThreadPage(scopeLocalThread(threadId));
+      openChatThreadPage(scoped);
     }
     return navigate({
       to: "/$threadId",
-      params: { threadId },
+      params: { threadId: threadRouteParam(hostId, threadId) },
       search: (previous) => ({ ...stripDiffSearchParams(previous), splitViewId: undefined }),
     });
   };
@@ -170,11 +187,16 @@ export function useActivateThreadTab(): (threadId: ThreadId) => Promise<void> {
  */
 export function useReadRouteThreadId(): () => ThreadId | null {
   const router = useRouter();
+  const hostId = useHostId();
   return () => {
     for (const match of router.state.matches) {
       const threadId = (match.params as { threadId?: unknown }).threadId;
       if (typeof threadId === "string") {
-        return threadId as ThreadId;
+        // Remote routes carry the host-qualified id; callers compare bare ids of their host.
+        const scoped = parseScopedThreadId(threadId);
+        if (scoped === null) return threadId as ThreadId;
+        const ref = unscopeThread(scoped);
+        return ref.hostId === hostId ? ref.threadId : (threadId as ThreadId);
       }
     }
     return null;

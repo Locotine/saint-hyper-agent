@@ -99,6 +99,28 @@ describe("ThreadSearchQuery", () => {
     ]);
   });
 
+  it("filters to the owner's projects before the limit", async () => {
+    const result = await runSearchTest(
+      Effect.gen(function* () {
+        yield* seed;
+        const sql = yield* SqlClient.SqlClient;
+        yield* sql`
+          INSERT INTO projection_projects (
+            project_id, title, workspace_root, scripts_json, kind, created_at, updated_at, deleted_at,
+            owner_client_id
+          )
+          VALUES ('project-alice', 'Alice', '/work/alice', '{}', 'project',
+            '2026-09-01T09:00:00.000Z', '2026-09-01T09:00:00.000Z', NULL, 'alice')
+        `;
+        yield* sql`UPDATE projection_threads SET project_id = 'project-alice' WHERE thread_id = 'thread-old'`;
+        const search = yield* ThreadSearchQuery;
+        // thread-new (another owner) is newer; a post-limit filter would return nothing.
+        return yield* search.searchThreads({ query: "refund webhook", limit: 1 }, "alice");
+      }),
+    );
+    expect(result.matches.map((match) => match.threadId)).toEqual(["thread-old"]);
+  });
+
   it("requires every token even beyond the first eight", async () => {
     const result = await runSearchTest(
       Effect.gen(function* () {

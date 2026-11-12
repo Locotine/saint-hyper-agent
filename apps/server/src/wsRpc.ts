@@ -1724,16 +1724,10 @@ const makeWsRpcHandlersLayer = () =>
         [ORCHESTRATION_WS_METHODS.searchThreads]: (input) =>
           rpcEffect(
             Effect.gen(function* () {
-              const result = yield* threadSearchQuery.searchThreads(input);
+              // Filter by owner inside the query: filtering after LIMIT left a scoped client with
+              // few or no hits when other clients' threads matched first.
               const scope = yield* CurrentClientScope;
-              if (scope === null) return result;
-              const readModel = yield* orchestrationEngine.getReadModel();
-              return {
-                ...result,
-                matches: result.matches.filter(
-                  (match) => threadOwner(readModel, match.threadId) === scope,
-                ),
-              };
+              return yield* threadSearchQuery.searchThreads(input, scope);
             }),
             "Failed to search threads",
           ),

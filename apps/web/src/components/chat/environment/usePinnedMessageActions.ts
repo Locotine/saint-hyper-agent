@@ -11,6 +11,7 @@ import {
 } from "@saint/contracts";
 import { useEffect, useRef } from "react";
 
+import { useHostId } from "~/hosts/hostScope";
 import { toastManager } from "~/components/ui/toast";
 import {
   addPin,
@@ -73,6 +74,7 @@ export function usePinnedMessageActions({
   activeThreadId,
   pinnedMessages,
 }: UsePinnedMessageActionsInput): UsePinnedMessageActionsResult {
+  const hostId = useHostId();
   const pinnedMessagesRef = useRef<readonly PinnedMessage[]>(pinnedMessages);
   const activePinnedThreadIdRef = useRef<ThreadId | null>(activeThreadId);
 
@@ -91,7 +93,7 @@ export function usePinnedMessageActions({
       const removedPinIndex = pins.findIndex((pin) => pin.messageId === messageId);
       const removedPin = removedPinIndex >= 0 ? pins[removedPinIndex] : undefined;
       pinnedMessagesRef.current = removePin(pins, messageId);
-      void dispatchPinnedMessageRemove(threadId, messageId).catch((error) => {
+      void dispatchPinnedMessageRemove(threadId, messageId, hostId).catch((error) => {
         if (removedPin) {
           pinnedMessagesRef.current = restorePinAtIndex(
             pinnedMessagesRef.current,
@@ -114,7 +116,7 @@ export function usePinnedMessageActions({
     const pinnedAt = new Date().toISOString();
     const optimisticPin = { messageId, label: null, done: false, pinnedAt };
     pinnedMessagesRef.current = addPin(pins, messageId, pinnedAt);
-    void dispatchPinnedMessageAdd(threadId, messageId).catch((error) => {
+    void dispatchPinnedMessageAdd(threadId, messageId, hostId).catch((error) => {
       const currentPin = pinnedMessagesRef.current.find(
         (candidate) => candidate.messageId === messageId,
       );
@@ -137,7 +139,7 @@ export function usePinnedMessageActions({
     const previousDone = pin.done === true;
     const done = !previousDone;
     pinnedMessagesRef.current = togglePinDone(pinnedMessagesRef.current, messageId);
-    void dispatchPinnedMessageDoneSet(threadId, messageId, done).catch((error) => {
+    void dispatchPinnedMessageDoneSet(threadId, messageId, done, hostId).catch((error) => {
       const currentPin = pinnedMessagesRef.current.find(
         (candidate) => candidate.messageId === messageId,
       );
@@ -162,7 +164,7 @@ export function usePinnedMessageActions({
       return;
     }
     pinnedMessagesRef.current = removePin(pinnedMessagesRef.current, messageId);
-    void dispatchPinnedMessageRemove(threadId, messageId).catch((error) => {
+    void dispatchPinnedMessageRemove(threadId, messageId, hostId).catch((error) => {
       pinnedMessagesRef.current = restorePinAtIndex(
         pinnedMessagesRef.current,
         removedPin,
@@ -183,7 +185,7 @@ export function usePinnedMessageActions({
     const previousLabel = previousPin?.label ?? null;
     const nextLabel = normalizePinLabel(label);
     pinnedMessagesRef.current = setPinLabel(pinnedMessagesRef.current, messageId, label);
-    void dispatchPinnedMessageLabelSet(threadId, messageId, label).catch((error) => {
+    void dispatchPinnedMessageLabelSet(threadId, messageId, label, hostId).catch((error) => {
       const currentPin = pinnedMessagesRef.current.find(
         (candidate) => candidate.messageId === messageId,
       );
@@ -200,7 +202,7 @@ export function usePinnedMessageActions({
 
   const handleNotesChange = async (threadId: ThreadId, notes: string) => {
     try {
-      await dispatchThreadNotes(threadId, notes);
+      await dispatchThreadNotes(threadId, notes, hostId);
     } catch (error) {
       handleThreadNotesDispatchError(error);
       throw error;

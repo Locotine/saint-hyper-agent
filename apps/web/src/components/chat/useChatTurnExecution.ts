@@ -415,6 +415,7 @@ export function useChatTurnExecution({
               createdAt: messageCreatedAt,
             },
             api,
+            { hostId: chatHost.hostId },
           );
           createdServerThreadForLocalDraft = true;
           // `thread.create` does not carry notes, so seed the freshly created
@@ -422,7 +423,7 @@ export function useChatTurnExecution({
           // dedicated meta update. Best-effort: a failure here must not abort the turn.
           if (inheritedThreadNotes !== threadNotes && inheritedThreadNotes.trim().length > 0) {
             try {
-              await dispatchThreadNotes(threadIdForSend, inheritedThreadNotes);
+              await dispatchThreadNotes(threadIdForSend, inheritedThreadNotes, chatHost.hostId);
             } catch {
               // Seeding is non-critical; project instructions can still be copied
               // into the notepad manually from the Environment panel.
@@ -433,9 +434,14 @@ export function useChatTurnExecution({
           const draftGoalForSend = activeThread.goal?.trim() ?? "";
           if (draftGoalForSend.length > 0) {
             try {
-              await dispatchThreadGoal(threadIdForSend, draftGoalForSend, {
-                startBehavior: "defer",
-              });
+              await dispatchThreadGoal(
+                threadIdForSend,
+                draftGoalForSend,
+                {
+                  startBehavior: "defer",
+                },
+                chatHost.hostId,
+              );
             } catch {
               // Non-critical: the goal can be set again with /goal on the live thread.
             }

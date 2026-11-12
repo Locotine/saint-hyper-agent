@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 const { api } = vi.hoisted(() => ({
   api: { editor: { debugStart: vi.fn(), debugAction: vi.fn(), debugPoll: vi.fn() } },
 }));
-vi.mock("~/nativeApi", () => ({ ensureLocalNativeApi: () => api }));
+vi.mock("~/hosts/hostApi", () => ({ apiFor: () => api }));
 vi.mock("~/lib/workspaceEditorSession", () => ({
   flushWorkspaceEditors: vi.fn().mockResolvedValue(true),
 }));

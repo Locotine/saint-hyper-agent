@@ -20,7 +20,8 @@ import {
 } from "@saint/shared/pinnedMessages";
 
 import { newCommandId } from "./lib/utils";
-import { readLocalNativeApi } from "./nativeApi";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { apiFor } from "./hosts/hostApi";
 
 // Strip the most common leading block markers (headings, list bullets, blockquotes)
 // and inline emphasis so an auto-derived label reads as plain prose.
@@ -145,8 +146,9 @@ async function dispatchSidepanelCommand(
         readonly threadId: ThreadId;
         readonly notes: string;
       },
+  hostId: HostId,
 ): Promise<void> {
-  const api = readLocalNativeApi();
+  const api = apiFor(hostId);
   if (!api) {
     return;
   }
@@ -156,47 +158,73 @@ async function dispatchSidepanelCommand(
   });
 }
 
-export function dispatchPinnedMessageAdd(threadId: ThreadId, messageId: MessageId): Promise<void> {
-  return dispatchSidepanelCommand({ type: "thread.pinned-message.add", threadId, messageId });
+export function dispatchPinnedMessageAdd(
+  threadId: ThreadId,
+  messageId: MessageId,
+  hostId: HostId = LOCAL_HOST_ID,
+): Promise<void> {
+  return dispatchSidepanelCommand(
+    { type: "thread.pinned-message.add", threadId, messageId },
+    hostId,
+  );
 }
 
 export function dispatchPinnedMessageRemove(
   threadId: ThreadId,
   messageId: MessageId,
+  hostId: HostId = LOCAL_HOST_ID,
 ): Promise<void> {
-  return dispatchSidepanelCommand({ type: "thread.pinned-message.remove", threadId, messageId });
+  return dispatchSidepanelCommand(
+    { type: "thread.pinned-message.remove", threadId, messageId },
+    hostId,
+  );
 }
 
 export function dispatchPinnedMessageDoneSet(
   threadId: ThreadId,
   messageId: MessageId,
   done: boolean,
+  hostId: HostId = LOCAL_HOST_ID,
 ): Promise<void> {
-  return dispatchSidepanelCommand({
-    type: "thread.pinned-message.done.set",
-    threadId,
-    messageId,
-    done,
-  });
+  return dispatchSidepanelCommand(
+    {
+      type: "thread.pinned-message.done.set",
+      threadId,
+      messageId,
+      done,
+    },
+    hostId,
+  );
 }
 
 export function dispatchPinnedMessageLabelSet(
   threadId: ThreadId,
   messageId: MessageId,
   label: string | null,
+  hostId: HostId = LOCAL_HOST_ID,
 ): Promise<void> {
-  return dispatchSidepanelCommand({
-    type: "thread.pinned-message.label.set",
-    threadId,
-    messageId,
-    label: normalizePinLabel(label),
-  });
+  return dispatchSidepanelCommand(
+    {
+      type: "thread.pinned-message.label.set",
+      threadId,
+      messageId,
+      label: normalizePinLabel(label),
+    },
+    hostId,
+  );
 }
 
-export function dispatchThreadNotes(threadId: ThreadId, notes: string): Promise<void> {
-  return dispatchSidepanelCommand({
-    type: "thread.meta.update",
-    threadId,
-    notes: clampThreadNotes(notes),
-  });
+export function dispatchThreadNotes(
+  threadId: ThreadId,
+  notes: string,
+  hostId: HostId = LOCAL_HOST_ID,
+): Promise<void> {
+  return dispatchSidepanelCommand(
+    {
+      type: "thread.meta.update",
+      threadId,
+      notes: clampThreadNotes(notes),
+    },
+    hostId,
+  );
 }

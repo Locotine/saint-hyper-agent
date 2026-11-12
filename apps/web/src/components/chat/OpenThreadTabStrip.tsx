@@ -8,7 +8,7 @@
 //             thread context menu.
 
 import type { ProjectId, ResolvedKeybindingsConfig, ThreadId } from "@saint/contracts";
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeThread } from "@saint/shared/hostId";
 import { useEffect, useState, type RefObject } from "react";
 
 import { useComposerDraftStore } from "~/composerDraftStore";
@@ -21,6 +21,7 @@ import {
 } from "~/hooks/useOpenThreadTabs";
 import { useOptimisticTabSelection } from "~/hooks/useOptimisticTabSelection";
 import { useStableCallback } from "~/hooks/useStableCallback";
+import { useHostId } from "~/hosts/hostScope";
 import { resolveShortcutCommand } from "~/keybindings";
 import { PlusSignIcon, TerminalIcon } from "~/lib/icons";
 import { isTerminalFocused } from "~/lib/terminalFocus";
@@ -30,7 +31,7 @@ import {
   closeOpenThreadTab,
   closeOpenThreadTabs,
   createOpenThreadTabCloseQueue,
-  localOpenThreadIds,
+  hostOpenThreadIds,
   type OpenThreadTab,
   type OpenThreadTabCloseScope,
   replaceLastTabWithFreshChat,
@@ -66,6 +67,7 @@ export function OpenThreadTabStrip(props: {
   onNewThread: (() => void) | null;
 }) {
   const { activeThreadId, keybindings } = props;
+  const hostId = useHostId();
   useRecordOpenThreadTab(activeThreadId);
   const tabs = useOpenThreadTabs({ activeThreadId });
   const closeThreadTab = useOpenThreadTabsStore((state) => state.closeThreadTab);
@@ -112,33 +114,37 @@ export function OpenThreadTabStrip(props: {
   const closeTab = (threadId: ThreadId, projectId: ProjectId) => {
     cancelTabSelection();
     void enqueueClose(() => {
-      const openThreadIds = localOpenThreadIds(useOpenThreadTabsStore.getState().threadIds);
+      const openThreadIds = hostOpenThreadIds(useOpenThreadTabsStore.getState().threadIds, hostId);
       return closeOpenThreadTab({
         // The tabs as clicked, minus any an earlier queued close has since dropped.
         tabs: tabs.filter((tab) => openThreadIds.includes(tab.threadId)),
         closedThreadId: threadId,
         activeThreadId: readRouteThreadId(),
-        closeTab: (closedThreadId) => closeThreadTab(scopeLocalThread(closedThreadId)),
+        closeTab: (closedThreadId) => closeThreadTab(scopeThread(hostId, closedThreadId)),
         openTab: activateThreadTab,
-        replaceLastTab: replaceLastTabWithFreshChat(() => {
-          const project = projects.find((candidate) => candidate.id === projectId);
-          // An unsent draft hidden from the strip is still open: go back to it with its
-          // text instead of minting a fresh chat that would discard it.
-          const openDraft = useComposerDraftStore
-            .getState()
-            .getDraftThreadByProjectId(projectId, "chat");
-          const reuseOpenDraft =
-            openDraft !== null &&
-            useOpenThreadTabsStore.getState().threadIds.includes(openDraft.threadId);
-          return handleNewThread(projectId, {
-            fresh: !reuseOpenDraft,
-            // Home and Hubs use their container workspace; ordinary projects keep
-            // their chosen local/worktree default through handleNewThread.
-            ...(project && project.kind !== "project"
-              ? { envMode: "local" as const, branch: null, worktreePath: null }
-              : {}),
-          });
-        }),
+        // The fresh-chat replacement creates a thread on this computer; a remote host's last tab stays.
+        replaceLastTab:
+          hostId !== LOCAL_HOST_ID
+            ? undefined
+            : replaceLastTabWithFreshChat(() => {
+                const project = projects.find((candidate) => candidate.id === projectId);
+                // An unsent draft hidden from the strip is still open: go back to it with its
+                // text instead of minting a fresh chat that would discard it.
+                const openDraft = useComposerDraftStore
+                  .getState()
+                  .getDraftThreadByProjectId(projectId, "chat");
+                const reuseOpenDraft =
+                  openDraft !== null &&
+                  useOpenThreadTabsStore.getState().threadIds.includes(openDraft.threadId);
+                return handleNewThread(projectId, {
+                  fresh: !reuseOpenDraft,
+                  // Home and Hubs use their container workspace; ordinary projects keep
+                  // their chosen local/worktree default through handleNewThread.
+                  ...(project && project.kind !== "project"
+                    ? { envMode: "local" as const, branch: null, worktreePath: null }
+                    : {}),
+                });
+              }),
         readRouteThreadId,
       });
     }).then((result) => {
@@ -173,7 +179,7 @@ export function OpenThreadTabStrip(props: {
   const closeTabsInScope = (anchorThreadId: ThreadId, scope: OpenThreadTabCloseScope) => {
     cancelTabSelection();
     void enqueueClose(() => {
-      const openThreadIds = localOpenThreadIds(useOpenThreadTabsStore.getState().threadIds);
+      const openThreadIds = hostOpenThreadIds(useOpenThreadTabsStore.getState().threadIds, hostId);
       return closeOpenThreadTabs({
         closedThreadIds: resolveOpenThreadTabsInCloseScope(
           // The tabs as right-clicked, minus any an earlier queued close has since dropped.
@@ -184,7 +190,7 @@ export function OpenThreadTabStrip(props: {
         keptThreadId: anchorThreadId,
         activeThreadId: readRouteThreadId(),
         closeTabs: (threadIds) => {
-          const closed = new Set(threadIds.map(scopeLocalThread));
+          const closed = new Set(threadIds.map((threadId) => scopeThread(hostId, threadId)));
           pruneThreadTabs((threadId) => !closed.has(threadId));
         },
         openTab: activateThreadTab,
@@ -210,7 +216,9 @@ export function OpenThreadTabStrip(props: {
       );
       if (row) closeTabsInScope(tab.threadId, row.scope);
     };
+    // The sidebar's thread menu acts on this computer's threads; a remote tab gets only its close rows.
     if (
+      hostId === LOCAL_HOST_ID &&
       showThreadContextMenu(tab.threadId, position, {
         extraItems: closeItems,
         onExtraAction: onCloseAction,
@@ -232,7 +240,7 @@ export function OpenThreadTabStrip(props: {
       activeKey={shownThreadId}
       selectionAria="current"
       onMove={(threadId, overThreadId) =>
-        moveThreadTab(scopeLocalThread(threadId), scopeLocalThread(overThreadId))
+        moveThreadTab(scopeThread(hostId, threadId), scopeThread(hostId, overThreadId))
       }
       tabs={tabs.map((tab) => {
         const active = tab.threadId === shownThreadId;

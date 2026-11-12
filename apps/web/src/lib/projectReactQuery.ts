@@ -84,9 +84,16 @@ const activeProjectFileRefreshes = new WeakMap<
  */
 export function refetchFreshProjectFileQuery(
   queryClient: QueryClient,
-  input: { readonly cwd: string | null; readonly relativePath: string | null },
+  input: {
+    readonly cwd: string | null;
+    readonly relativePath: string | null;
+    readonly hostId?: HostId;
+  },
 ): Promise<void> {
-  const queryKey = projectQueryKeys.readFile(input.cwd, input.relativePath);
+  const queryKey = withHostKey(
+    projectQueryKeys.readFile(input.cwd, input.relativePath),
+    input.hostId ?? LOCAL_HOST_ID,
+  );
   const refreshKey = JSON.stringify(queryKey);
   let refreshes = activeProjectFileRefreshes.get(queryClient);
   if (!refreshes) {

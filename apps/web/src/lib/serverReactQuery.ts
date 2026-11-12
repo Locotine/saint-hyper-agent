@@ -356,14 +356,17 @@ export function serverLocalServersQueryOptions(
         enabled?: boolean;
         refetchInterval?: number | false;
         staleTime?: number;
+        // The machine whose listening servers are listed; this computer by default.
+        hostId?: HostId;
       } = true,
 ) {
   const options = typeof input === "boolean" ? { enabled: input } : input;
   const enabled = options.enabled ?? true;
+  const hostId = options.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: serverQueryKeys.localServers(),
+    queryKey: withHostKey(serverQueryKeys.localServers(), hostId),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = usageApi(hostId);
       return api.server.listLocalServers();
     },
     enabled,
@@ -419,11 +422,15 @@ export function studioThreadOutputsQueryOptions(input: {
   });
 }
 
-export function serverStopLocalServerMutationOptions(input: { queryClient: QueryClient }) {
+export function serverStopLocalServerMutationOptions(input: {
+  queryClient: QueryClient;
+  hostId?: HostId;
+}) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return mutationOptions({
     mutationKey: serverMutationKeys.stopLocalServer(),
     mutationFn: async (server: ServerStopLocalServerInput) => {
-      const api = ensureLocalNativeApi();
+      const api = usageApi(hostId);
       return api.server.stopLocalServer(server);
     },
     onSettled: () => {

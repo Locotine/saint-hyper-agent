@@ -638,16 +638,22 @@ export function providerAgentsQueryOptions(input: {
   binaryPath?: string | null;
   cwd?: string | null;
   enabled?: boolean;
+  // The host whose providers are listed; this computer by default.
+  hostId?: HostId;
 }) {
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: providerDiscoveryQueryKeys.agents(
-      input.provider,
-      input.instanceId ?? null,
-      input.binaryPath ?? null,
-      input.cwd ?? null,
+    queryKey: withHostKey(
+      providerDiscoveryQueryKeys.agents(
+        input.provider,
+        input.instanceId ?? null,
+        input.binaryPath ?? null,
+        input.cwd ?? null,
+      ),
+      hostId,
     ),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       return api.provider.listAgents({
         provider: input.provider,
         ...(input.instanceId ? { instanceId: input.instanceId } : {}),

@@ -70,6 +70,8 @@ export function buildThreadSearchExcerpt(
 export interface ThreadSearchQueryShape {
   readonly searchThreads: (
     input: OrchestrationSearchThreadsInput,
+    /** A scoped server's calling client: only its own projects' threads match, before the limit. */
+    ownerClientId?: string | null,
   ) => Effect.Effect<OrchestrationSearchThreadsResult, PersistenceSqlError>;
 }
 
@@ -81,7 +83,7 @@ export class ThreadSearchQuery extends ServiceMap.Service<
 export const makeThreadSearchQuery = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
 
-  const searchThreads: ThreadSearchQueryShape["searchThreads"] = (input) =>
+  const searchThreads: ThreadSearchQueryShape["searchThreads"] = (input, ownerClientId) =>
     Effect.gen(function* () {
       const tokens = tokenizeThreadSearchQuery(input.query);
       if (tokens.length === 0) {
@@ -124,6 +126,7 @@ export const makeThreadSearchQuery = Effect.gen(function* () {
             AND messages.is_streaming = 0
             AND messages.role IN ('user', 'assistant')
             AND ${tokenPredicates}
+            ${ownerClientId != null ? sql`AND projects.owner_client_id = ${ownerClientId}` : sql``}
         ),
         ranked AS (
           SELECT

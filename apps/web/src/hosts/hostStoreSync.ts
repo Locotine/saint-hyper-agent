@@ -21,6 +21,7 @@ export interface HostStoreSyncDeps {
     url: string,
   ) => HostConnectionLease<HostShellTransport>;
   readonly startPump: (input: {
+    hostId: HostId;
     store: HostStore;
     transport: HostShellTransport;
     onStatus: (status: HostShellStatus, message?: string) => void;
@@ -62,6 +63,7 @@ export function createHostStoreSync(deps: HostStoreSyncDeps) {
         const lease = deps.acquire(hostId, state.epoch, url);
         entry.release = lease.release;
         entry.stop = deps.startPump({
+          hostId,
           store: deps.store(hostId),
           transport: lease.transport,
           onStatus: (status, message) => deps.setStatus(hostId, status, message),

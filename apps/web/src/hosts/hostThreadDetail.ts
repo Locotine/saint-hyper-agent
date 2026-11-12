@@ -8,7 +8,17 @@
 
 import type { NativeApi, OrchestrationEvent, ThreadId } from "@saint/contracts";
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useSyncExternalStore } from "react";
+
+import { refreshGitQueriesForCwdsAfterActivity } from "../lib/gitReactQuery";
+import { invalidateProjectFileQueriesForCwdsAfterActivity } from "../lib/projectReactQuery";
+import {
+  getProjectFileInvalidationThreadIdForEvent,
+  getTurnDiffInvalidationThreadIdForEvent,
+  resolveGitInvalidationCwdForThreadId,
+  shouldInvalidateGitQueriesForEvent,
+} from "../routes/-rootEventInvalidation";
 
 import type { HostStore } from "../store";
 import { hostStores } from "./hostStores";
@@ -26,6 +36,8 @@ export function followHostThread(input: {
   readonly store: Pick<HostStore, "getState">;
   readonly threadId: ThreadId;
   readonly onError?: (error: unknown) => void;
+  /** Live events after they land in the store (not the snapshot), for cache refreshes. */
+  readonly onEventsApplied?: (events: readonly OrchestrationEvent[]) => void;
 }): () => void {
   const { api, store, threadId } = input;
   let stopped = false;
@@ -42,6 +54,7 @@ export function followHostThread(input: {
     if (fresh.length === 0) return;
     store.getState().applyOrchestrationEvents(fresh);
     appliedSequence = fresh.at(-1)?.sequence ?? appliedSequence;
+    input.onEventsApplied?.(fresh);
   };
 
   const unsubscribe = api.onThreadEvent((item) => {
@@ -83,6 +96,7 @@ export function followHostThread(input: {
  * offline keeps the last detail in its store (read-only); the stream resumes on a new connection.
  */
 export function useHostThreadDetail(hostId: HostId, threadId: ThreadId | null): void {
+  const queryClient = useQueryClient();
   const live = useSyncExternalStore(
     hostStores.subscribe,
     () => hostStores.status(hostId).status === "live",
@@ -97,6 +111,21 @@ export function useHostThreadDetail(hostId: HostId, threadId: ThreadId | null): 
       store,
       threadId,
       onError: () => store.getState().markThreadDetailSyncFailed(threadId),
+      // Same refresh as this computer's event router: an agent editing the host's files must
+      // refresh the Explorer, open previews and git status (their keys start with the cwd).
+      onEventsApplied: (events) => {
+        const touchesFiles = events.some(
+          (event) =>
+            getProjectFileInvalidationThreadIdForEvent(event) !== null ||
+            getTurnDiffInvalidationThreadIdForEvent(event) !== null,
+        );
+        const touchesGit = events.some(shouldInvalidateGitQueriesForEvent);
+        if (!touchesFiles && !touchesGit) return;
+        const cwd = resolveGitInvalidationCwdForThreadId(store.getState(), threadId);
+        if (!cwd) return;
+        if (touchesFiles) invalidateProjectFileQueriesForCwdsAfterActivity(queryClient, [cwd]);
+        if (touchesGit || touchesFiles) refreshGitQueriesForCwdsAfterActivity(queryClient, [cwd]);
+      },
     });
-  }, [hostId, threadId, live]);
+  }, [hostId, threadId, live, queryClient]);
 }

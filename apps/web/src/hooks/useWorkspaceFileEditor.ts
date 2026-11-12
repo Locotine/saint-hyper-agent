@@ -78,8 +78,10 @@ export function useWorkspaceFileEditorBuffer(
 
 export function useWorkspaceFileEditor(input: UseWorkspaceFileEditorInput) {
   const client = useQueryClient();
+  const hostId = useHostId();
   const fileQuery = useQuery(
     projectReadFileQueryOptions({
+      hostId,
       cwd: input.cwd,
       relativePath: input.filePath,
       enabled: input.enabled,
@@ -88,10 +90,15 @@ export function useWorkspaceFileEditor(input: UseWorkspaceFileEditorInput) {
   const controller = useWorkspaceFileEditorBuffer({ ...input, file: fileQuery.data });
   const onFileChange = useCallback(() => {
     if (!input.cwd) return;
-    void refetchFreshProjectFileQuery(client, { cwd: input.cwd, relativePath: input.filePath });
+    void refetchFreshProjectFileQuery(client, {
+      cwd: input.cwd,
+      relativePath: input.filePath,
+      hostId,
+    });
     void refreshGitAfterFileWrite(client, input.cwd).catch(() => undefined);
-  }, [client, input.cwd, input.filePath]);
+  }, [client, hostId, input.cwd, input.filePath]);
   useProjectFileChangeSubscription({
+    hostId,
     cwd: input.cwd,
     relativePath: fileQuery.data?.relativePath ?? null,
     enabled: input.enabled,

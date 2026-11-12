@@ -399,6 +399,7 @@ export function useProviderModelCatalog(input: {
   const claudeDynamicAgentsQuery = useQuery(
     providerAgentsQueryOptions({
       provider: "claudeAgent",
+      hostId: catalogHostId,
       ...selectedInstanceQueryOption("claudeAgent"),
       enabled: shouldDiscoverProvider("claudeAgent", agentDiscoveryPolicy === "eager-core"),
     }),
@@ -406,6 +407,7 @@ export function useProviderModelCatalog(input: {
   const codexDynamicAgentsQuery = useQuery(
     providerAgentsQueryOptions({
       provider: "codex",
+      hostId: catalogHostId,
       ...selectedInstanceQueryOption("codex"),
       enabled: shouldDiscoverProvider("codex", agentDiscoveryPolicy === "eager-core"),
     }),
@@ -413,12 +415,17 @@ export function useProviderModelCatalog(input: {
   const openCodeDynamicAgentsQuery = useQuery(
     providerAgentsQueryOptions({
       provider: "opencode",
+      hostId: catalogHostId,
       ...selectedInstanceQueryOption("opencode"),
-      binaryPath: readProviderOptionString(
-        getProviderStartOptions(settings, selectedInstanceQueryOption("opencode").instanceId)
-          ?.opencode,
-        "binaryPath",
-      ),
+      // A binary path in this computer's settings means nothing on a remote host.
+      binaryPath:
+        catalogHostId === LOCAL_HOST_ID
+          ? readProviderOptionString(
+              getProviderStartOptions(settings, selectedInstanceQueryOption("opencode").instanceId)
+                ?.opencode,
+              "binaryPath",
+            )
+          : null,
       cwd: discoveryCwd,
       enabled: openCodeModelDiscoveryEnabled,
     }),

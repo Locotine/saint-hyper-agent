@@ -57,6 +57,16 @@ describe("followHostThread", () => {
     expect(sequences(t.state.applyOrchestrationEvents)).toEqual([[6], [7]]);
   });
 
+  it("reports the live events it applied, so file caches can refresh", () => {
+    const t = setup();
+    const onEventsApplied = vi.fn();
+    followHostThread({ api: t.api, store: t.store, threadId, onEventsApplied });
+    t.emit(t.snapshot(5));
+    t.emit(t.event(5));
+    t.emit(t.event(6));
+    expect(sequences(onEventsApplied)).toEqual([[6]]);
+  });
+
   it("re-bases on the snapshot a reconnect sends", () => {
     const t = setup();
     followHostThread({ api: t.api, store: t.store, threadId });

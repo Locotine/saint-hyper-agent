@@ -8,7 +8,8 @@ import type {
   EditorDebugSnapshot,
   EditorDebugStartInput,
 } from "@saint/contracts";
-import { ensureLocalNativeApi } from "~/nativeApi";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { apiFor } from "~/hosts/hostApi";
 import { flushWorkspaceEditors } from "~/lib/workspaceEditorSession";
 
 type Watch = { expression: string; value: string; variablesReference: number };
@@ -63,6 +64,7 @@ export class EditorDebugStore {
   constructor(
     readonly client: QueryClient,
     readonly cwd: string,
+    readonly hostId: HostId = LOCAL_HOST_ID,
   ) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
@@ -77,7 +79,7 @@ export class EditorDebugStore {
     this.update({ error: error instanceof Error ? error.message : "Debugger operation failed." });
   clearError = () => this.update({ error: null });
   private api() {
-    const api = ensureLocalNativeApi().editor;
+    const api = apiFor(this.hostId)?.editor;
     if (!api?.debugStart || !api.debugAction || !api.debugPoll)
       throw new Error(
         "This server does not support debugging. Update the server to use this feature.",
@@ -463,16 +465,21 @@ export class EditorDebugStore {
     }
   }
 }
-export function getEditorDebugStore(client: QueryClient, cwd: string) {
+export function getEditorDebugStore(
+  client: QueryClient,
+  cwd: string,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
+  const key = hostId === LOCAL_HOST_ID ? cwd : `${hostId}\0${cwd}`;
   let registry = registries.get(client);
   if (!registry) {
     registry = new Map();
     registries.set(client, registry);
   }
-  let store = registry.get(cwd);
+  let store = registry.get(key);
   if (!store) {
-    store = new EditorDebugStore(client, cwd);
-    registry.set(cwd, store);
+    store = new EditorDebugStore(client, cwd, hostId);
+    registry.set(key, store);
   }
   return store;
 }

@@ -1,19 +1,20 @@
 import type { HubWorkItem, ProjectId } from "@saint/contracts";
 import { useEffect, useState } from "react";
 
-import { readLocalNativeApi } from "~/nativeApi";
+import { apiFor, useHostId } from "~/hosts/hostScope";
 import { mergeHubWorkItems } from "./hubWorkItems";
 
 const EMPTY_WORK_ITEMS: readonly HubWorkItem[] = [];
 
 export function useHubWorkItems(projectId: ProjectId | null) {
+  const hostId = useHostId();
   const [state, setState] = useState<{
     projectId: ProjectId | null;
     items: readonly HubWorkItem[];
   }>({ projectId: null, items: EMPTY_WORK_ITEMS });
 
   useEffect(() => {
-    const api = readLocalNativeApi();
+    const api = apiFor(hostId);
     if (!projectId || !api?.projectAgent) return;
     let disposed = false;
     const apply = (items: readonly HubWorkItem[]) => {
@@ -42,7 +43,7 @@ export function useHubWorkItems(projectId: ProjectId | null) {
       unsubscribeEvents();
       void api.projectAgent.unsubscribe({ projectId }).catch(() => undefined);
     };
-  }, [projectId]);
+  }, [hostId, projectId]);
 
   return state.projectId === projectId ? state.items : EMPTY_WORK_ITEMS;
 }

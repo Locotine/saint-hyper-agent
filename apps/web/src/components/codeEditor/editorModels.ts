@@ -15,7 +15,8 @@ import type {
   EditorLocation,
 } from "@saint/contracts";
 import type { QueryClient } from "@tanstack/react-query";
-import { ensureLocalNativeApi } from "~/nativeApi";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { apiFor } from "~/hosts/hostApi";
 import {
   getWorkspaceEditorSession,
   getUnsavedWorkspaceEditorDocuments,
@@ -102,6 +103,12 @@ export function supportsProjectIntelligence(entry: EditorModelEntry) {
   );
 }
 
+function editorModelKey(hostId: HostId, cwd: string, relativePath: string): string {
+  return JSON.stringify(
+    hostId === LOCAL_HOST_ID ? [cwd, relativePath] : [hostId, cwd, relativePath],
+  );
+}
+
 /** One Monaco text model per native document session. The session remains the only disk writer. */
 export function acquireEditorModel(
   client: QueryClient,
@@ -109,14 +116,18 @@ export function acquireEditorModel(
   relativePath: string,
   value: string,
   sourceVersion: number,
-  options: { surface?: boolean } = {},
+  options: { surface?: boolean; hostId?: HostId } = {},
 ) {
   const surface = options.surface ?? true;
+  const hostId = options.hostId ?? LOCAL_HOST_ID;
   const store = registry(client);
-  const key = cwd === null ? `standalone:${++nextStandalone}` : JSON.stringify([cwd, relativePath]);
+  // The host is part of the key: the same path on two machines is two different files.
+  const key =
+    cwd === null ? `standalone:${++nextStandalone}` : editorModelKey(hostId, cwd, relativePath);
   let entry = store.entries.get(key);
   if (!entry) {
-    const session = cwd !== null ? getWorkspaceEditorSession(client, cwd, relativePath) : null;
+    const session =
+      cwd !== null ? getWorkspaceEditorSession(client, cwd, relativePath, hostId) : null;
     const snapshot = session?.getSnapshot();
     const model = monaco.editor.createModel(
       snapshot?.key ? snapshot.value : value,
@@ -271,7 +282,12 @@ function loadDependencyModel(entry: EditorModelEntry, relativePath: string): Pro
       entry.dependencies.size + entry.loading.size >= MAX_DEPENDENCY_MODELS
     )
       throw new Error("Too many files are held for peek views.");
-    const session = getWorkspaceEditorSession(entry.client, cwd, relativePath);
+    const session = getWorkspaceEditorSession(
+      entry.client,
+      cwd,
+      relativePath,
+      entry.session?.hostId ?? LOCAL_HOST_ID,
+    );
     let contents = session.getSnapshot().value;
     const peer = [...registry(entry.client).entries.values()]
       .find(
@@ -287,7 +303,11 @@ function loadDependencyModel(entry: EditorModelEntry, relativePath: string): Pro
     } else if (!session.dirty && !session.saving) {
       // Cancel a read in flight for the pane first, as the session's reload does,
       // so this fetch is never deduplicated onto an older request.
-      const readOptions = projectReadFileQueryOptions({ cwd, relativePath });
+      const readOptions = projectReadFileQueryOptions({
+        cwd,
+        relativePath,
+        hostId: session.hostId,
+      });
       await entry.client.cancelQueries({ queryKey: readOptions.queryKey, exact: true });
       const data = await entry.client.fetchQuery({ ...readOptions, staleTime: 0 });
       if (data.relativePath !== relativePath) throw new Error("The file resolved elsewhere.");
@@ -304,7 +324,7 @@ function loadDependencyModel(entry: EditorModelEntry, relativePath: string): Pro
         relativePath,
         contents,
         session.getSnapshot().version,
-        { surface: false },
+        { surface: false, hostId: session.hostId },
       );
       entry.dependencies.set(relativePath, handle.release);
     }
@@ -390,7 +410,8 @@ export async function requestIntelligence(
   } = {},
 ): Promise<EditorIntelligenceResult | undefined> {
   if (!supportsProjectIntelligence(entry)) return undefined;
-  const api = ensureLocalNativeApi().editor;
+  // Ask the server that owns the file: a remote host's cwd means nothing to this computer.
+  const api = apiFor(entry.session?.hostId ?? LOCAL_HOST_ID)?.editor;
   if (!api) {
     setEditorServiceStatus(
       entry,
@@ -472,16 +493,22 @@ async function prepareEditorEdits(source: EditorModelEntry, files: readonly Edit
         const readOptions = projectReadFileQueryOptions({
           cwd: source.cwd,
           relativePath: file.relativePath,
+          hostId: source.session?.hostId ?? LOCAL_HOST_ID,
         });
         await source.client.cancelQueries({ queryKey: readOptions.queryKey, exact: true });
         const data = await source.client.fetchQuery({ ...readOptions, staleTime: 0 });
         const reason = resolveWorkspaceFileEditorReadOnlyReason(data);
         if (reason || data.relativePath !== file.relativePath)
           throw new Error(reason ?? "Edit target resolved to a different file.");
-        const session = getWorkspaceEditorSession(source.client, source.cwd!, file.relativePath);
+        const session = getWorkspaceEditorSession(
+          source.client,
+          source.cwd!,
+          file.relativePath,
+          source.session?.hostId ?? LOCAL_HOST_ID,
+        );
         session.load(data);
         let target = registry(source.client).entries.get(
-          JSON.stringify([source.cwd, file.relativePath]),
+          editorModelKey(session.hostId, source.cwd!, file.relativePath),
         );
         if (!target) {
           const handle = acquireEditorModel(
@@ -490,7 +517,7 @@ async function prepareEditorEdits(source: EditorModelEntry, files: readonly Edit
             file.relativePath,
             session.getSnapshot().value,
             session.getSnapshot().version,
-            { surface: false },
+            { surface: false, hostId: session.hostId },
           );
           acquired.push(handle);
           target = handle.entry;

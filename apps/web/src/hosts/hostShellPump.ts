@@ -9,8 +9,12 @@ import {
   ORCHESTRATION_WS_CHANNELS,
   ORCHESTRATION_WS_METHODS,
   type OrchestrationShellStreamItem,
+  type ThreadId,
 } from "@saint/contracts";
 
+import type { HostId } from "@saint/shared/hostId";
+
+import { finalizePromotedDraftThreads, markPromotedDraftThreads } from "../composerDraftStore";
 import type { HostStore } from "../store";
 import { createShellFence } from "./shellFence";
 
@@ -28,11 +32,27 @@ export interface HostShellTransport {
 
 /** Returns a stop function. */
 export function createHostShellPump(input: {
+  /** Settles this host's drafts once its server has the thread, like this computer's root route. */
+  readonly hostId?: HostId;
   readonly store: Pick<HostStore, "getState">;
   readonly transport: HostShellTransport;
   readonly onStatus?: (status: HostShellStatus, message?: string) => void;
 }): () => void {
-  const { store, transport, onStatus } = input;
+  const { hostId, store, transport, onStatus } = input;
+  const reconcileDrafts = (
+    threads: ReadonlyArray<{ id: ThreadId; latestTurn: unknown; session: unknown }>,
+  ) => {
+    if (!hostId) return;
+    markPromotedDraftThreads(hostId, new Set(threads.map((thread) => thread.id)));
+    finalizePromotedDraftThreads(
+      hostId,
+      new Set(
+        threads
+          .filter((thread) => thread.latestTurn !== null || thread.session !== null)
+          .map((thread) => thread.id),
+      ),
+    );
+  };
   let stopped = false;
   const fence = createShellFence({
     syncServerShellSnapshot: (snapshot) => store.getState().syncServerShellSnapshot(snapshot),
@@ -49,11 +69,14 @@ export function createHostShellPump(input: {
     if (item.kind === "snapshot") {
       // Authoritative: prunes what the host no longer has. Only a live pump gets here, so an
       // offline host is never pruned by silence.
-      fence.applySnapshot(item.snapshot, { force: true });
+      fence.applySnapshot(item.snapshot, {
+        force: true,
+        afterSync: () => reconcileDrafts(item.snapshot.threads),
+      });
       status("live");
       return;
     }
-    fence.applyEvent(item);
+    if (fence.applyEvent(item) && item.kind === "thread-upserted") reconcileDrafts([item.thread]);
   });
   const unwatchState = transport.onStateChange((state) => {
     // A dropped socket comes back as "connecting" and retries forever, so it must read stale

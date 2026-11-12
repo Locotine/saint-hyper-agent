@@ -63,7 +63,7 @@ import { useOptimisticTabSelection } from "../../hooks/useOptimisticTabSelection
 import {
   closeOpenThreadTab,
   createOpenThreadTabCloseQueue,
-  localOpenThreadIds,
+  hostOpenThreadIds,
 } from "../../openThreadTabs.logic";
 import { useOpenThreadTabsStore } from "../../openThreadTabsStore";
 import { StatusDot } from "~/components/ui/status-chip";
@@ -315,7 +315,10 @@ function EditorRailTabs(props: {
     // Same close flow as the chat header strip: the active chat's tab goes only once the
     // route has left it, so a guarded navigation keeps it in both places.
     void enqueueClose(() => {
-      const openThreadIds = localOpenThreadIds(useOpenThreadTabsStore.getState().threadIds);
+      const openThreadIds = hostOpenThreadIds(
+        useOpenThreadTabsStore.getState().threadIds,
+        chatHost.hostId,
+      );
       return closeOpenThreadTab({
         tabs: chatTabs.filter((tab) => openThreadIds.includes(tab.threadId)),
         closedThreadId: threadId,

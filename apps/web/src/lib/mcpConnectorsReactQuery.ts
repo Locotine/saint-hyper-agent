@@ -6,14 +6,17 @@
 
 import { queryOptions } from "@tanstack/react-query";
 
-import { ensureLocalNativeApi } from "~/nativeApi";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+
+import { projectApiFor, withHostKey } from "./projectReactQuery";
 
 export const MCP_CONNECTORS_QUERY_KEY = ["server", "mcpConnectors"] as const;
 
-export function mcpConnectorsQueryOptions() {
+/** `hostId`: whose connectors a chat can mention; a remote session only receives its host's. */
+export function mcpConnectorsQueryOptions(hostId: HostId = LOCAL_HOST_ID) {
   return queryOptions({
-    queryKey: MCP_CONNECTORS_QUERY_KEY,
-    queryFn: () => ensureLocalNativeApi().server.listMcpConnectors(),
+    queryKey: withHostKey(MCP_CONNECTORS_QUERY_KEY, hostId),
+    queryFn: () => projectApiFor(hostId).server.listMcpConnectors(),
     staleTime: 5_000,
     // Remote and browser-hosted clients get a definitive refusal (connectors
     // are managed on the loopback instance); retrying only repeats it.
