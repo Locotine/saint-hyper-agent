@@ -263,6 +263,9 @@ export function createTauriDesktopBridge(
     showContextMenu: (items, position) =>
       adapter.invoke("desktop_context_menu", { items, position: position ?? null }),
     openExternal: (url) => adapter.invoke("desktop_open_external", { url }),
+    officeWidget: {
+      toggle: () => adapter.invoke("desktop_office_widget_toggle"),
+    },
     showInFolder: (path) => adapter.invoke("desktop_show_in_folder", { path }),
     shell: {
       showInFolder: (path) => adapter.invoke("desktop_show_in_folder", { path }),

@@ -1235,6 +1235,11 @@ export interface DesktopBridge {
   downloadUpdate: () => Promise<DesktopUpdateActionResult>;
   installUpdate: () => Promise<DesktopUpdateActionResult>;
   onUpdateState: (listener: (state: DesktopUpdateState) => void) => () => void;
+  /** The floating always-on-top office window. Absent where the shell has no second window. */
+  officeWidget?: {
+    /** Shows the widget, or closes it when open; resolves to whether it is now open. */
+    toggle: () => Promise<boolean>;
+  };
   /**
    * Remote SSH hosts: run a Saint server on another machine and use it through
    * an SSH tunnel, in its own window or by switching the app window onto it.

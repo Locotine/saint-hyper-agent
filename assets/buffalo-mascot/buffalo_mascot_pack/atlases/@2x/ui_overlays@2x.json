@@ -1,0 +1,356 @@
+{
+  "frames": {
+    "ui/bubble_zzz.png": {
+      "frame": {
+        "x": 6,
+        "y": 6,
+        "w": 72,
+        "h": 80
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 72,
+        "h": 80
+      },
+      "sourceSize": {
+        "w": 72,
+        "h": 80
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.95
+      }
+    },
+    "ui/bubble_alert.png": {
+      "frame": {
+        "x": 84,
+        "y": 6,
+        "w": 72,
+        "h": 80
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 72,
+        "h": 80
+      },
+      "sourceSize": {
+        "w": 72,
+        "h": 80
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.95
+      }
+    },
+    "ui/bubble_question.png": {
+      "frame": {
+        "x": 162,
+        "y": 6,
+        "w": 72,
+        "h": 80
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 72,
+        "h": 80
+      },
+      "sourceSize": {
+        "w": 72,
+        "h": 80
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.95
+      }
+    },
+    "ui/bubble_done_tick.png": {
+      "frame": {
+        "x": 240,
+        "y": 6,
+        "w": 72,
+        "h": 80
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 72,
+        "h": 80
+      },
+      "sourceSize": {
+        "w": 72,
+        "h": 80
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.95
+      }
+    },
+    "ui/bubble_typing_00.png": {
+      "frame": {
+        "x": 318,
+        "y": 6,
+        "w": 72,
+        "h": 80
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 72,
+        "h": 80
+      },
+      "sourceSize": {
+        "w": 72,
+        "h": 80
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.95
+      }
+    },
+    "ui/bubble_typing_01.png": {
+      "frame": {
+        "x": 396,
+        "y": 6,
+        "w": 72,
+        "h": 80
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 72,
+        "h": 80
+      },
+      "sourceSize": {
+        "w": 72,
+        "h": 80
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.95
+      }
+    },
+    "ui/bubble_typing_02.png": {
+      "frame": {
+        "x": 474,
+        "y": 6,
+        "w": 72,
+        "h": 80
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 72,
+        "h": 80
+      },
+      "sourceSize": {
+        "w": 72,
+        "h": 80
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.95
+      }
+    },
+    "ui/speech_frame_light_9slice.png": {
+      "frame": {
+        "x": 552,
+        "y": 6,
+        "w": 128,
+        "h": 96
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 128,
+        "h": 96
+      },
+      "sourceSize": {
+        "w": 128,
+        "h": 96
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "borders": {
+        "left": 28,
+        "right": 28,
+        "top": 28,
+        "bottom": 28
+      }
+    },
+    "ui/speech_frame_dark_9slice.png": {
+      "frame": {
+        "x": 686,
+        "y": 6,
+        "w": 128,
+        "h": 96
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 128,
+        "h": 96
+      },
+      "sourceSize": {
+        "w": 128,
+        "h": 96
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1.0
+      },
+      "borders": {
+        "left": 28,
+        "right": 28,
+        "top": 28,
+        "bottom": 28
+      }
+    },
+    "ui/speech_tail_light.png": {
+      "frame": {
+        "x": 820,
+        "y": 6,
+        "w": 32,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 24
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.0
+      }
+    },
+    "ui/speech_tail_dark.png": {
+      "frame": {
+        "x": 858,
+        "y": 6,
+        "w": 32,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 24
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.0
+      }
+    },
+    "ui/nameplate_dark_9slice.png": {
+      "frame": {
+        "x": 6,
+        "y": 108,
+        "w": 128,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 128,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 128,
+        "h": 48
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "borders": {
+        "left": 20,
+        "right": 20,
+        "top": 16,
+        "bottom": 16
+      }
+    },
+    "ui/nameplate_light_9slice.png": {
+      "frame": {
+        "x": 140,
+        "y": 108,
+        "w": 128,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 128,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 128,
+        "h": 48
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "borders": {
+        "left": 20,
+        "right": 20,
+        "top": 16,
+        "bottom": 16
+      }
+    }
+  },
+  "meta": {
+    "app": "https://www.codeandweb.com/texturepacker",
+    "version": "1.0",
+    "image": "ui_overlays@2x.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 902,
+      "h": 162
+    },
+    "scale": "2",
+    "tile_grid_1x": {
+      "width": 64,
+      "height": 32,
+      "ratio": "2:1"
+    }
+  }
+}

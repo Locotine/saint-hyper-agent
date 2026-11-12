@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChatRouteImport } from './routes/_chat'
+import { Route as OfficeWidgetRouteImport } from './routes/office-widget'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as ChatThreadIdRouteImport } from './routes/_chat.$threadId'
 import { Route as ChatAutomationsRouteImport } from './routes/_chat.automations'
@@ -36,6 +37,11 @@ import { Route as ChatTasksIndexRouteImport } from './routes/_chat.tasks.index'
 
 const ChatRoute = ChatRouteImport.update({
   id: '/_chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfficeWidgetRoute = OfficeWidgetRouteImport.update({
+  id: '/office-widget',
+  path: '/office-widget',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
@@ -158,6 +164,7 @@ const ChatTasksIndexRoute = ChatTasksIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
+  '/office-widget': typeof OfficeWidgetRoute
   '/$threadId': typeof ChatThreadIdRoute
   '/automations': typeof ChatAutomationsRouteWithChildren
   '/host-economy': typeof ChatHostEconomyRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/tasks/': typeof ChatTasksIndexRoute
 }
 export interface FileRoutesByTo {
+  '/office-widget': typeof OfficeWidgetRoute
   '/$threadId': typeof ChatThreadIdRoute
   '/host-economy': typeof ChatHostEconomyRoute
   '/inbox': typeof ChatInboxRoute
@@ -207,6 +215,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_chat': typeof ChatRouteWithChildren
+  '/office-widget': typeof OfficeWidgetRoute
   '/_chat/$threadId': typeof ChatThreadIdRoute
   '/_chat/automations': typeof ChatAutomationsRouteWithChildren
   '/_chat/host-economy': typeof ChatHostEconomyRoute
@@ -235,6 +244,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/office-widget'
     | '/$threadId'
     | '/automations'
     | '/host-economy'
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/office-widget'
     | '/$threadId'
     | '/host-economy'
     | '/inbox'
@@ -283,6 +294,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_chat'
+    | '/office-widget'
     | '/_chat/$threadId'
     | '/_chat/automations'
     | '/_chat/host-economy'
@@ -310,6 +322,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
+  OfficeWidgetRoute: typeof OfficeWidgetRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -319,6 +332,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/office-widget': {
+      id: '/office-widget'
+      path: '/office-widget'
+      fullPath: '/office-widget'
+      preLoaderRoute: typeof OfficeWidgetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_chat/': {
@@ -560,6 +580,7 @@ const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
+  OfficeWidgetRoute: OfficeWidgetRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

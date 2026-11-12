@@ -164,13 +164,6 @@ const buildCmd = Command.make(
       yield* fs.chmod(path.join(deviceHelperTarget, "build.sh"), 0o755);
       yield* Effect.log("[cli] Bundled iOS Simulator helper sources into dist/device-helper");
 
-      const office3dSource = path.join(serverDir, "src/office3d");
-      const office3dTarget = path.join(serverDir, "dist/office3d");
-      if (yield* fs.exists(office3dSource)) {
-        yield* fs.copy(office3dSource, office3dTarget);
-        yield* Effect.log("[cli] Bundled 3D Office assets into dist/office3d");
-      }
-
       const webDist = path.join(repoRoot, "apps/web/dist");
       const clientTarget = path.join(serverDir, "dist/client");
 

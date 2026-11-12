@@ -61,7 +61,6 @@ import { ServerSettingsService } from "./serverSettings";
 import { makeServerReadiness } from "./server/readiness";
 import { makeServerShutdownController, type ServerShutdownController } from "./serverShutdown";
 import { makeBoundedNodeHttpServer } from "./nodeHttpServer";
-import { makeOffice3dRequestHandler } from "./office3d/office3dHttpHandler";
 import { makeWebsocketRpcRoutesLayer } from "./wsRpc";
 import { makeWsConnectionSessions, WsConnectionSessions } from "./wsConnectionSessions";
 import { startServerIdleExit } from "./idleExit";
@@ -236,15 +235,10 @@ export const createEffectServer = Effect.fn(function* (
   // Keep embedded/test callers safe if they construct ServerConfig without
   // passing through the CLI's loopback-default resolution.
   const listenOptions = { host: config.host ?? "127.0.0.1", port: config.port };
-  const office3dRequestHandler = makeOffice3dRequestHandler(config);
-  const httpServer = yield* makeBoundedNodeHttpServer(
-    () => {
-      nodeServer = http.createServer();
-      return nodeServer;
-    },
-    listenOptions,
-    office3dRequestHandler,
-  ).pipe(
+  const httpServer = yield* makeBoundedNodeHttpServer(() => {
+    nodeServer = http.createServer();
+    return nodeServer;
+  }, listenOptions).pipe(
     Effect.mapError((cause) => new ServerLifecycleError({ operation: "httpServerListen", cause })),
   );
 

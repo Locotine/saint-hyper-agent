@@ -1,0 +1,21 @@
+COMMERCIAL ASSET OWNERSHIP & ROYALTY-FREE LICENSE
+==================================================
+Asset Pack: Buffalo Isometric Office Mascot & VOMT-Style Asset Suite (@1x / @2x)
+Issued Date: 2026-11-11
+
+1. GRANT OF FULL COMMERCIAL RIGHTS
+The recipient/developer is granted a perpetual, worldwide, irrevocable, royalty-free,
+exclusive commercial and personal license to use, modify, repack, distribute, embed,
+and monetize all PNG spritesheets, modular rig layers, TexturePacker JSON atlases,
+color palettes, and procedural generation code contained in this archive across
+unlimited software applications, desktop apps (Electron/Rust/Web), games, and services.
+
+2. NO ATTRIBUTION REQUIRED
+No credit or attribution is required in UI, documentation, or source distributions.
+Provider badges are intentionally omitted per specification so project-native Saint icons
+may be overlaid freely.
+
+3. ORIGINAL PROCEDURAL GEOMETRY
+All sprites in this package are procedurally generated from scratch using custom
+2:1 isometric vector/polygon geometry featuring the custom Vietnamese Water Buffalo
+character rig, distinct from third-party proprietary mascot files.

@@ -48,10 +48,6 @@ import {
   PR_STATE_PRESENTATION_ICONS,
   resolvePrStatePresentation,
 } from "~/components/pullRequest/pullRequestStatePresentation";
-import {
-  Office3dConfirmDialog,
-  setOffice3dConfirmed,
-} from "~/components/office3d/Office3dConfirmDialog";
 import { PinStatusIcon, pinActionLabel } from "~/lib/pin";
 import { useTasksNeedingAttentionCount, useTodoEventSubscription } from "./tasks/useTodos";
 import { THREAD_CONTEXT_MENU_ICONS } from "~/lib/contextMenuIcons";
@@ -1381,7 +1377,6 @@ export default function Sidebar() {
   const isOnCyberSecurity = pathname.startsWith("/cyber-security");
   const isOnHostEconomy = pathname.startsWith("/host-economy");
   const isOnOffice3d = pathname.startsWith("/office-3d");
-  const [office3dConfirmOpen, setOffice3dConfirmOpen] = useState(false);
   const isOnPullRequests = pathname.startsWith("/pull-requests");
   const isOnInbox = pathname.startsWith("/inbox");
   // Lightweight read of automations to drive the sidebar count badge. Shares the
@@ -4420,15 +4415,11 @@ export default function Sidebar() {
       },
       office3d: {
         icon: Office3dIcon,
-        label: "Văn phòng 3D",
+        label: "Văn phòng ảo",
         active: isOnOffice3d,
         badge: null,
         onClick: () => {
-          if (isOnOffice3d) {
-            void navigate({ to: "/office-3d" });
-            return;
-          }
-          setOffice3dConfirmOpen(true);
+          void navigate({ to: "/office-3d" });
         },
       },
     }),
@@ -8095,17 +8086,6 @@ export default function Sidebar() {
           remoteSshState={remoteSshState}
         />
       ) : null}
-      <Office3dConfirmDialog
-        open={office3dConfirmOpen}
-        onConfirm={() => {
-          setOffice3dConfirmed(true);
-          setOffice3dConfirmOpen(false);
-          void navigate({ to: "/office-3d" });
-        }}
-        onCancel={() => {
-          setOffice3dConfirmOpen(false);
-        }}
-      />
     </>
   );
 }

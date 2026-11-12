@@ -26,6 +26,7 @@ import {
   type ErrorComponentProps,
   useNavigate,
   useParams,
+  useRouterState,
 } from "@tanstack/react-router";
 import {
   Suspense,
@@ -310,6 +311,11 @@ function RootRouteView() {
   useNativeFontSmoothing();
   useSyncDesktopTopBarTrafficLightGutterZoom();
   useTheme();
+  // The floating office window shares this bundle but is not an app window: no window
+  // controls, dialogs, notifications, or coordinators, which the main window already runs.
+  const isOfficeWidget = useRouterState({
+    select: (state) => state.location.pathname === "/office-widget",
+  });
   const [compatibilityIssue, setCompatibilityIssue] = useState<WsCompatibilityError | null>(() =>
     readLatestWsCompatibilityIssue(),
   );
@@ -337,7 +343,7 @@ function RootRouteView() {
   // it last in document order guarantees that subtraction wins. (z above dialogs/toasts
   // so it also stays clickable while a modal is open.)
   const desktopWindowControls = <DesktopWindowControls className="fixed top-0 right-0 z-[250]" />;
-  const desktopChrome = (
+  const desktopChrome = isOfficeWidget ? null : (
     <>
       <RunningChatsQuitCoordinator />
       {desktopWindowControls}
@@ -364,6 +370,15 @@ function RootRouteView() {
           </div>
         </div>
         {desktopChrome}
+      </>
+    );
+  }
+
+  if (isOfficeWidget) {
+    return (
+      <>
+        <EventRouter />
+        <Outlet />
       </>
     );
   }
