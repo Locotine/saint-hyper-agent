@@ -1204,9 +1204,10 @@ mod linux_overlay {
     use std::sync::Mutex;
 
     /// Panel rect per tab webview (logical pixels from the window's content origin).
-    static RECTS: Mutex<Option<HashMap<String, (i32, i32, i32, i32)>>> = Mutex::new(None);
+    type Rect = (i32, i32, i32, i32);
+    static RECTS: Mutex<Option<HashMap<String, Rect>>> = Mutex::new(None);
 
-    fn rect_for(name: &str) -> Option<(i32, i32, i32, i32)> {
+    fn rect_for(name: &str) -> Option<Rect> {
         RECTS.lock().ok()?.as_ref()?.get(name).copied()
     }
 
