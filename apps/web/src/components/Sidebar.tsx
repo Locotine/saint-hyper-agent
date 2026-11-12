@@ -4415,7 +4415,7 @@ export default function Sidebar() {
       },
       office3d: {
         icon: Office3dIcon,
-        label: "Văn phòng ảo",
+        label: "Virtual Office",
         active: isOnOffice3d,
         badge: null,
         onClick: () => {

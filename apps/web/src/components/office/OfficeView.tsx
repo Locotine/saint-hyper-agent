@@ -113,7 +113,7 @@ export function OfficeView() {
     <RouteSurface>
       <RouteSurfaceHeader>
         <div className="flex min-w-0 flex-1 items-center gap-2 [-webkit-app-region:no-drag]">
-          <h2 className="truncate text-ui-lg font-medium text-foreground">Văn phòng ảo</h2>
+          <h2 className="truncate text-ui-lg font-medium text-foreground">Virtual Office</h2>
           <span className="shrink-0 text-ui leading-snug text-muted-foreground/70">
             {workingCount} busy
           </span>
