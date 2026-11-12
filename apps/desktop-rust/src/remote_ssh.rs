@@ -186,7 +186,12 @@ pub struct RemoteSshManager {
     /// The folder a host without its own uses, settled once per host.
     default_roots: Mutex<HashMap<String, String>>,
     reconnecting: Mutex<BTreeSet<String>>,
+    /// Bumped by disconnect, stop and forget: a connect or reconnect that started under an older
+    /// value gives up instead of bringing the server back the user just stopped.
+    generations: Mutex<HashMap<String, u64>>,
 }
+
+const CONNECT_CANCELLED: &str = "Connection cancelled.";
 
 impl RemoteSshManager {
     pub fn new(paths: SaintPaths) -> Self {
@@ -205,6 +210,7 @@ impl RemoteSshManager {
             legacy_root,
             default_roots: Mutex::new(HashMap::new()),
             reconnecting: Mutex::new(BTreeSet::new()),
+            generations: Mutex::new(HashMap::new()),
         }
     }
 
@@ -788,6 +794,7 @@ impl RemoteSshManager {
         &self,
         input: DesktopRemoteSshSavedHost,
     ) -> Result<DesktopRemoteSshHostState, String> {
+        let generation = self.generation(input.host.trim());
         let _serial = self.connect_lock.lock().map_err(|e| e.to_string())?;
         let entry = self.upsert_saved_entry(None, input, true)?;
         let host = entry.host.clone();
@@ -795,6 +802,12 @@ impl RemoteSshManager {
             .host_key
             .clone()
             .unwrap_or_else(Self::generate_host_key);
+        // Stopped or disconnected while this connect waited for the previous one.
+        if self.generation(&host) != generation {
+            return self
+                .host_state(&host)
+                .ok_or_else(|| CONNECT_CANCELLED.to_string());
+        }
         let remote_root = match entry.remote_root.clone() {
             Some(root) => root,
             None => match self.resolve_default_root(&entry) {
@@ -823,11 +836,14 @@ impl RemoteSshManager {
             }
         }
 
-        match self.run_connect(&entry, &remote_root, &host_key, false) {
+        match self.run_connect(&entry, &remote_root, &host_key, false, generation) {
             Ok(state) => Ok(state),
             Err(message) => {
                 if let Some(child) = self.tunnels.lock().ok().and_then(|mut t| t.remove(&host)) {
                     Self::kill_and_reap(child);
+                }
+                if message == CONNECT_CANCELLED {
+                    return self.host_state(&host).ok_or(message);
                 }
                 eprintln!("[remote-ssh] {host} failed: {message}");
                 Ok(self.set_phase(&host, &host_key, &remote_root, "error", Some(message)))
@@ -842,6 +858,7 @@ impl RemoteSshManager {
         host_key: &str,
         // A background reconnect keeps its `reconnecting` phase instead of flashing the steps.
         quiet: bool,
+        generation: u64,
     ) -> Result<DesktopRemoteSshHostState, String> {
         let host = entry.host.as_str();
         let identity = self.install_identity()?;
@@ -851,7 +868,10 @@ impl RemoteSshManager {
             identity: &identity,
         };
         let started_at = Instant::now();
-        let step = |phase: &str| {
+        let step = |phase: &str| -> Result<(), String> {
+            if self.generation(host) != generation {
+                return Err(CONNECT_CANCELLED.to_string());
+            }
             eprintln!(
                 "[remote-ssh] {host} {phase} +{}ms",
                 started_at.elapsed().as_millis()
@@ -859,12 +879,13 @@ impl RemoteSshManager {
             if !quiet {
                 self.set_phase(host, host_key, remote_root, phase, None);
             }
+            Ok(())
         };
         if let Some(child) = self.tunnels.lock().ok().and_then(|mut t| t.remove(host)) {
             Self::kill_and_reap(child);
         }
 
-        step("checking");
+        step("checking")?;
         self.ensure_control_master(entry);
         let probe_run = self.run_script(entry, &scripts::probe_script(&target)?, PROBE_TIMEOUT)?;
         let probe = scripts::parse_probe(&probe_run.stdout)
@@ -906,7 +927,7 @@ impl RemoteSshManager {
                         return Err(format!("tar is required on {host} to install Saint."));
                     }
                     let dir = self.install_dir()?;
-                    step("uploading");
+                    step("uploading")?;
                     let upload = self.run_ssh(
                         entry,
                         &scripts::upload_command(&target),
@@ -927,7 +948,7 @@ impl RemoteSshManager {
                             return Err(Self::failure_message("upload the dependencies", &deps));
                         }
                     }
-                    step("installing");
+                    step("installing")?;
                     let install = self.run_script(
                         entry,
                         &scripts::install_script(&target)?,
@@ -938,7 +959,7 @@ impl RemoteSshManager {
                     }
                 }
                 self.install_scanners(entry, &target, &probe);
-                step("starting");
+                step("starting")?;
                 let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
                 let dev_url = cfg!(debug_assertions).then_some("http://localhost:5733");
                 let start = self.run_script(
@@ -952,7 +973,7 @@ impl RemoteSshManager {
             }
         };
 
-        step("tunneling");
+        step("tunneling")?;
         // Keep the local port across reconnects so open windows reconnect to the same URL.
         let mut local_port = self
             .sessions
@@ -968,6 +989,10 @@ impl RemoteSshManager {
                 self.open_tunnel(entry, local_port, remote_port)?
             }
         };
+        if self.generation(host) != generation {
+            Self::kill_and_reap(child);
+            return Err(CONNECT_CANCELLED.to_string());
+        }
         if let Some(prev) = self
             .tunnels
             .lock()
@@ -1000,6 +1025,21 @@ impl RemoteSshManager {
             }
         }
         Ok(state)
+    }
+
+    fn generation(&self, host: &str) -> u64 {
+        self.generations
+            .lock()
+            .ok()
+            .and_then(|g| g.get(host).copied())
+            .unwrap_or(0)
+    }
+
+    /// Makes every connect and reconnect of `host` that is running or waiting give up.
+    fn cancel_connects(&self, host: &str) {
+        if let Ok(mut generations) = self.generations.lock() {
+            *generations.entry(host.to_string()).or_insert(0) += 1;
+        }
     }
 
     fn host_state(&self, host: &str) -> Option<DesktopRemoteSshHostState> {
@@ -1488,6 +1528,7 @@ impl RemoteSshManager {
         if !Self::is_valid_ssh_target(trimmed) {
             return Err("Unknown SSH host.".to_string());
         }
+        self.cancel_connects(trimmed);
         let removed_child = self
             .tunnels
             .lock()
@@ -1547,7 +1588,13 @@ impl RemoteSshManager {
         merged.remote_root = Some(remote_root.clone());
         let host_key = merged.host_key.clone().unwrap_or_default();
         self.set_phase(&host, &host_key, &remote_root, "stopping", None);
-        let result = self.run_stop(&merged, &remote_root);
+        // A connect already past its last check may still be starting the server; wait for it
+        // (disconnect above made it give up at its next step) so the stop runs last.
+        let result = self
+            .connect_lock
+            .lock()
+            .map_err(|e| e.to_string())
+            .and_then(|_serial| self.run_stop(&merged, &remote_root));
         match &result {
             Ok(()) => self.set_phase(&host, &host_key, &remote_root, "idle", None),
             Err(message) => self.set_phase(
@@ -1709,6 +1756,7 @@ impl RemoteSshManager {
             return;
         }
         drop(active);
+        let generation = self.generation(host);
         let mut last = String::new();
         let mut done = false;
         for (attempt, delay) in RECONNECT_BACKOFF.iter().enumerate() {
@@ -1719,6 +1767,10 @@ impl RemoteSshManager {
             let Ok(_serial) = self.connect_lock.lock() else {
                 break;
             };
+            if self.generation(host) != generation {
+                done = true;
+                break;
+            }
             let (Some(state), Some(entry)) = (
                 self.host_state(host).filter(|h| h.phase == "reconnecting"),
                 self.saved_hosts
@@ -1737,7 +1789,11 @@ impl RemoteSshManager {
                 .and_then(|s| s.get(host).map(|s| (s.local_port, s.remote_port)));
             let result = match session {
                 Some((local, remote)) if attempt == 0 => {
-                    self.open_tunnel(&entry, local, remote).map(|child| {
+                    self.open_tunnel(&entry, local, remote).and_then(|child| {
+                        if self.generation(host) != generation {
+                            Self::kill_and_reap(child);
+                            return Err(CONNECT_CANCELLED.to_string());
+                        }
                         if let Some(prev) = self
                             .tunnels
                             .lock()
@@ -1746,10 +1802,10 @@ impl RemoteSshManager {
                         {
                             Self::kill_and_reap(prev);
                         }
-                        self.set_phase(host, &host_key, &state.remote_root, "connected", None)
+                        Ok(self.set_phase(host, &host_key, &state.remote_root, "connected", None))
                     })
                 }
-                _ => self.run_connect(&entry, &state.remote_root, &host_key, true),
+                _ => self.run_connect(&entry, &state.remote_root, &host_key, true, generation),
             };
             match result {
                 Ok(_) => {
@@ -1804,6 +1860,7 @@ impl RemoteSshManager {
 
     pub fn forget_host(&self, host: &str) {
         let trimmed = host.trim();
+        self.cancel_connects(trimmed);
         let removed_child = self
             .tunnels
             .lock()
