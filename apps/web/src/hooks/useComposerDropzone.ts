@@ -7,6 +7,7 @@ import { useEffect, useRef, type ClipboardEvent, type DragEvent } from "react";
 
 import { CHAT_FILE_REFERENCE_DRAG_TYPE } from "~/lib/chatReferences";
 import { isDroppedComposerDirectory, splitDroppedComposerFiles } from "~/lib/composerDropPaths";
+import { readDesktopClipboardImageFile } from "~/lib/desktopClipboard";
 
 export interface ComposerDropzoneFileSplit {
   readonly imageFiles: File[];
@@ -197,6 +198,15 @@ export function useComposerDropzone(input: {
     const files = collectComposerClipboardFiles(event.clipboardData);
     if (disabled) {
       if (files.length > 0) event.preventDefault();
+      return;
+    }
+    if (files.length === 0) {
+      // WebKitGTK (Linux desktop) exposes no files for a pasted image; ask the desktop shell.
+      if (event.clipboardData.getData("text/plain") === "") {
+        void readDesktopClipboardImageFile().then((file) => {
+          if (file) handleSplitFiles({ imageFiles: [file], genericFiles: [] });
+        });
+      }
       return;
     }
     const handled = handleSplitFiles(splitComposerDropzoneFiles(files));

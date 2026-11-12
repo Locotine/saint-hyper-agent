@@ -71,7 +71,8 @@ function RemoteFolderPickerContent(props: {
       if (!api) throw new Error("The host's server is unavailable.");
       return api.filesystem.browse({ partialPath: browsePath(directory) });
     },
-    retry: false,
+    // A host reconnect swaps the transport mid-request; the retry reads the new one.
+    retry: (failureCount, error) => failureCount < 2 && error.message === "Transport disposed",
     staleTime: 5_000,
   });
 

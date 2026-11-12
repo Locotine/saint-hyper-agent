@@ -1166,6 +1166,8 @@ export interface DesktopBridge {
   };
   clipboard?: {
     writeImagePngDataUrl: (dataUrl: string) => Promise<boolean>;
+    /** The clipboard image as a PNG data URL, or null when it holds none. */
+    readImagePngDataUrl?: () => Promise<string | null>;
   };
   windowControls?: {
     minimize: () => Promise<void>;

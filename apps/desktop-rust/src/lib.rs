@@ -300,6 +300,27 @@ async fn desktop_context_menu(
     }
 }
 
+// WebKitGTK hands the page no files for a pasted screenshot, so the composer asks for the
+// clipboard image here when a paste carries neither files nor text.
+#[tauri::command]
+fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<String> {
+    use base64::Engine as _;
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    let image = app.clipboard().read_image().ok()?;
+    let mut png_bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut png_bytes, image.width(), image.height());
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().ok()?;
+        writer.write_image_data(image.rgba()).ok()?;
+    }
+    Some(format!(
+        "data:image/png;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(png_bytes)
+    ))
+}
+
 #[tauri::command]
 fn desktop_clipboard_write_image(app: tauri::AppHandle, data_url: String) -> bool {
     use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -1753,6 +1774,7 @@ pub fn run() {
             desktop_set_window_material,
             desktop_context_menu,
             desktop_clipboard_write_image,
+            desktop_clipboard_read_image_png,
             desktop_set_menu_shortcuts,
             desktop_quit_confirmation_response,
             desktop_open_external,

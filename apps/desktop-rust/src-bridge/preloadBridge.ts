@@ -273,6 +273,7 @@ export function createTauriDesktopBridge(
     clipboard: {
       writeImagePngDataUrl: (dataUrl) =>
         adapter.invoke("desktop_clipboard_write_image", { dataUrl }),
+      readImagePngDataUrl: () => adapter.invoke("desktop_clipboard_read_image_png"),
     },
     windowControls: {
       minimize: () => adapter.invoke("desktop_window_minimize"),
