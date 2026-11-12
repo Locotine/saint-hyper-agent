@@ -1219,17 +1219,20 @@ mod linux_overlay {
             w.round() as i32,
             h.round() as i32,
         );
-        if let Ok(mut guard) = RECTS.lock() {
+        let changed = RECTS.lock().ok().and_then(|mut guard| {
             guard
                 .get_or_insert_with(HashMap::new)
-                .insert(label.to_string(), rect);
-        }
+                .insert(label.to_string(), rect)
+        }) != Some(rect);
         let label = label.to_string();
         let _ = webview.with_webview(move |platform| {
             let child: gtk::Widget = platform.inner().upcast();
             child.set_widget_name(&label);
             let Some(parent) = child.parent() else { return };
             let overlay = match parent.clone().downcast::<gtk::Overlay>() {
+                // Placed already: relayout only for a new rect. Each relayout makes the app
+                // report its panel bounds again, so an unconditional one never settles.
+                Ok(_) if !changed => return,
                 Ok(overlay) => overlay,
                 Err(_) => {
                     let Ok(vbox) = parent.downcast::<gtk::Box>() else {
@@ -1243,7 +1246,8 @@ mod linux_overlay {
                     overlay
                 }
             };
-            overlay.queue_resize();
+            // Re-run child placement without a new size request for the app webview.
+            overlay.queue_allocate();
         });
     }
 
