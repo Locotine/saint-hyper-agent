@@ -599,6 +599,12 @@ impl BrowserManager {
         if let Some(existing) = app.get_webview(&label) {
             let _ = existing.set_position(pos);
             let _ = existing.set_size(size);
+            #[cfg(target_os = "linux")]
+            linux_overlay::place(
+                &existing,
+                &label,
+                (bounds.x, bounds.y, bounds.width, bounds.height),
+            );
             if let Some(zoom) = zoom_factor.filter(|z| z.is_finite() && *z > 0.1) {
                 let _ = existing.set_zoom(zoom);
             }
@@ -615,6 +621,12 @@ impl BrowserManager {
         let builder =
             tauri::webview::WebviewBuilder::new(&label, tauri::WebviewUrl::External(parsed_url));
         if let Ok(created) = main_window.add_child(builder, pos, size) {
+            #[cfg(target_os = "linux")]
+            linux_overlay::place(
+                &created,
+                &label,
+                (bounds.x, bounds.y, bounds.width, bounds.height),
+            );
             if let Some(zoom) = zoom_factor.filter(|z| z.is_finite() && *z > 0.1) {
                 let _ = created.set_zoom(zoom);
             }
@@ -1179,5 +1191,87 @@ mod tests {
             url: "javascript:alert(1)".into(),
         });
         assert_eq!(safe.tabs[0].url, "about:blank");
+    }
+}
+
+/// Linux places browser tabs over the app with a `gtk::Overlay`. Tauri packs every child
+/// webview into the window's vertical `gtk::Box`, so without this a tab renders stacked
+/// under the app (full width, below it) instead of inside its panel.
+#[cfg(all(target_os = "linux", not(test)))]
+mod linux_overlay {
+    use gtk::prelude::*;
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+
+    /// Panel rect per tab webview (logical pixels from the window's content origin).
+    static RECTS: Mutex<Option<HashMap<String, (i32, i32, i32, i32)>>> = Mutex::new(None);
+
+    fn rect_for(name: &str) -> Option<(i32, i32, i32, i32)> {
+        RECTS.lock().ok()?.as_ref()?.get(name).copied()
+    }
+
+    /// Moves `webview` (a tab) into the overlay above the main webview and gives it `rect`.
+    pub fn place(webview: &tauri::Webview, label: &str, rect: (f64, f64, f64, f64)) {
+        let (x, y, w, h) = rect;
+        let rect = (
+            x.round() as i32,
+            y.round() as i32,
+            w.round() as i32,
+            h.round() as i32,
+        );
+        if let Ok(mut guard) = RECTS.lock() {
+            guard
+                .get_or_insert_with(HashMap::new)
+                .insert(label.to_string(), rect);
+        }
+        let label = label.to_string();
+        let _ = webview.with_webview(move |platform| {
+            let child: gtk::Widget = platform.inner().upcast();
+            child.set_widget_name(&label);
+            let Some(parent) = child.parent() else { return };
+            let overlay = match parent.clone().downcast::<gtk::Overlay>() {
+                Ok(overlay) => overlay,
+                Err(_) => {
+                    let Ok(vbox) = parent.downcast::<gtk::Box>() else {
+                        return;
+                    };
+                    let Some(overlay) = overlay_in(&vbox, &child) else {
+                        return;
+                    };
+                    vbox.remove(&child);
+                    overlay.add_overlay(&child);
+                    overlay
+                }
+            };
+            overlay.queue_resize();
+        });
+    }
+
+    /// The overlay inside the window box, created around the main webview on first use.
+    fn overlay_in(vbox: &gtk::Box, tab: &gtk::Widget) -> Option<gtk::Overlay> {
+        let children = vbox.children();
+        if let Some(existing) = children
+            .iter()
+            .find_map(|w| w.clone().downcast::<gtk::Overlay>().ok())
+        {
+            return Some(existing);
+        }
+        // The app's own webview is the box's other WebKit child.
+        let main = children
+            .iter()
+            .find(|w| *w != tab && w.type_().name() == "WebKitWebView")?
+            .clone();
+        let position = vbox.child_position(&main);
+        let overlay = gtk::Overlay::new();
+        overlay.connect_get_child_position(|_, widget| {
+            let (x, y, w, h) = rect_for(widget.widget_name().as_str())?;
+            Some(gtk::Rectangle::new(x, y, w.max(1), h.max(1)))
+        });
+        vbox.remove(&main);
+        overlay.add(&main);
+        vbox.pack_start(&overlay, true, true, 0);
+        vbox.reorder_child(&overlay, position);
+        overlay.show();
+        Some(overlay)
     }
 }
