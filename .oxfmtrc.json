@@ -7,6 +7,7 @@
     "dist-electron",
     "dist-bridge",
     "apps/server/src/office3d",
+    "assets/buffalo_mascot_pack",
     "apps/desktop-rust/gen",
     "target",
     "node_modules",

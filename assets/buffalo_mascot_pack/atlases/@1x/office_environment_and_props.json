@@ -1,0 +1,1316 @@
+{
+  "frames": {
+    "props/coffee_cup.png": {
+      "frame": {
+        "x": 2,
+        "y": 2,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "props/dumbbell.png": {
+      "frame": {
+        "x": 36,
+        "y": 2,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "props/report_sheet.png": {
+      "frame": {
+        "x": 70,
+        "y": 2,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "props/gamepad.png": {
+      "frame": {
+        "x": 104,
+        "y": 2,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "props/folder_yellow.png": {
+      "frame": {
+        "x": 138,
+        "y": 2,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "props/globe_blue.png": {
+      "frame": {
+        "x": 172,
+        "y": 2,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "props/laptop_silver.png": {
+      "frame": {
+        "x": 206,
+        "y": 2,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "props/cube_blue.png": {
+      "frame": {
+        "x": 240,
+        "y": 2,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "props/magnifier_purple.png": {
+      "frame": {
+        "x": 274,
+        "y": 2,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "env/floor_white.png": {
+      "frame": {
+        "x": 308,
+        "y": 2,
+        "w": 64,
+        "h": 38
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 38
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 38
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5263157894736842
+      }
+    },
+    "env/rug_zone_work.png": {
+      "frame": {
+        "x": 374,
+        "y": 2,
+        "w": 64,
+        "h": 38
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 38
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 38
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5263157894736842
+      }
+    },
+    "env/rug_zone_lounge.png": {
+      "frame": {
+        "x": 440,
+        "y": 2,
+        "w": 64,
+        "h": 38
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 38
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 38
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5263157894736842
+      }
+    },
+    "env/rug_zone_gym.png": {
+      "frame": {
+        "x": 506,
+        "y": 2,
+        "w": 64,
+        "h": 38
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 38
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 38
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5263157894736842
+      }
+    },
+    "env/wall_straight_sw.png": {
+      "frame": {
+        "x": 572,
+        "y": 2,
+        "w": 70,
+        "h": 110
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 110
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 110
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8272727272727273
+      }
+    },
+    "env/wall_straight_se.png": {
+      "frame": {
+        "x": 644,
+        "y": 2,
+        "w": 70,
+        "h": 110
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 110
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 110
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8272727272727273
+      }
+    },
+    "env/wall_corner_north.png": {
+      "frame": {
+        "x": 716,
+        "y": 2,
+        "w": 70,
+        "h": 110
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 110
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 110
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8272727272727273
+      }
+    },
+    "env/door_office_sw.png": {
+      "frame": {
+        "x": 788,
+        "y": 2,
+        "w": 70,
+        "h": 110
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 110
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 110
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8272727272727273
+      }
+    },
+    "env/door_office_se.png": {
+      "frame": {
+        "x": 860,
+        "y": 2,
+        "w": 70,
+        "h": 110
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 110
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 110
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8272727272727273
+      }
+    },
+    "env/wc_door_free_green.png": {
+      "frame": {
+        "x": 932,
+        "y": 2,
+        "w": 70,
+        "h": 110
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 110
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 110
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8272727272727273
+      }
+    },
+    "env/wc_door_busy_red.png": {
+      "frame": {
+        "x": 2,
+        "y": 114,
+        "w": 70,
+        "h": 110
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 110
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 110
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8272727272727273
+      }
+    },
+    "env/window_glass_sw.png": {
+      "frame": {
+        "x": 74,
+        "y": 114,
+        "w": 70,
+        "h": 110
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 110
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 110
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8272727272727273
+      }
+    },
+    "env/window_glass_se.png": {
+      "frame": {
+        "x": 146,
+        "y": 114,
+        "w": 70,
+        "h": 110
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 110
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 110
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8272727272727273
+      }
+    },
+    "env/desk_supervisor_large.png": {
+      "frame": {
+        "x": 218,
+        "y": 114,
+        "w": 130,
+        "h": 90
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 130,
+        "h": 90
+      },
+      "sourceSize": {
+        "w": 130,
+        "h": 90
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/desk_specialist_01.png": {
+      "frame": {
+        "x": 350,
+        "y": 114,
+        "w": 110,
+        "h": 78
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 110,
+        "h": 78
+      },
+      "sourceSize": {
+        "w": 110,
+        "h": 78
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/desk_specialist_02.png": {
+      "frame": {
+        "x": 462,
+        "y": 114,
+        "w": 110,
+        "h": 78
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 110,
+        "h": 78
+      },
+      "sourceSize": {
+        "w": 110,
+        "h": 78
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/desk_specialist_03.png": {
+      "frame": {
+        "x": 574,
+        "y": 114,
+        "w": 110,
+        "h": 78
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 110,
+        "h": 78
+      },
+      "sourceSize": {
+        "w": 110,
+        "h": 78
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/desk_specialist_04.png": {
+      "frame": {
+        "x": 686,
+        "y": 114,
+        "w": 110,
+        "h": 78
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 110,
+        "h": 78
+      },
+      "sourceSize": {
+        "w": 110,
+        "h": 78
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/desk_specialist_05.png": {
+      "frame": {
+        "x": 798,
+        "y": 114,
+        "w": 110,
+        "h": 78
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 110,
+        "h": 78
+      },
+      "sourceSize": {
+        "w": 110,
+        "h": 78
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/chair_supervisor_seat.png": {
+      "frame": {
+        "x": 910,
+        "y": 114,
+        "w": 55,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 55,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 55,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    },
+    "env/chair_supervisor_backrest.png": {
+      "frame": {
+        "x": 967,
+        "y": 114,
+        "w": 55,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 55,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 55,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    },
+    "env/chair_supervisor_full.png": {
+      "frame": {
+        "x": 2,
+        "y": 226,
+        "w": 55,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 55,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 55,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    },
+    "env/chair_specialist_seat.png": {
+      "frame": {
+        "x": 59,
+        "y": 226,
+        "w": 55,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 55,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 55,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    },
+    "env/chair_specialist_backrest.png": {
+      "frame": {
+        "x": 116,
+        "y": 226,
+        "w": 55,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 55,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 55,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    },
+    "env/chair_specialist_full.png": {
+      "frame": {
+        "x": 173,
+        "y": 226,
+        "w": 55,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 55,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 55,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    },
+    "env/monitor_off.png": {
+      "frame": {
+        "x": 230,
+        "y": 226,
+        "w": 48,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/monitor_working.png": {
+      "frame": {
+        "x": 280,
+        "y": 226,
+        "w": 48,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/monitor_working_green.png": {
+      "frame": {
+        "x": 330,
+        "y": 226,
+        "w": 48,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/monitor_pending.png": {
+      "frame": {
+        "x": 380,
+        "y": 226,
+        "w": 48,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/monitor_error.png": {
+      "frame": {
+        "x": 430,
+        "y": 226,
+        "w": 48,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/coffee_counter_station.png": {
+      "frame": {
+        "x": 480,
+        "y": 226,
+        "w": 130,
+        "h": 95
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 130,
+        "h": 95
+      },
+      "sourceSize": {
+        "w": 130,
+        "h": 95
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/coffee_machine.png": {
+      "frame": {
+        "x": 612,
+        "y": 226,
+        "w": 48,
+        "h": 54
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 54
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 54
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.75
+      }
+    },
+    "env/gym_mat.png": {
+      "frame": {
+        "x": 662,
+        "y": 226,
+        "w": 100,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 100,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 100,
+        "h": 60
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.55
+      }
+    },
+    "env/dumbbell_rack.png": {
+      "frame": {
+        "x": 764,
+        "y": 226,
+        "w": 75,
+        "h": 70
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 75,
+        "h": 70
+      },
+      "sourceSize": {
+        "w": 75,
+        "h": 70
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.76
+      }
+    },
+    "env/treadmill.png": {
+      "frame": {
+        "x": 841,
+        "y": 226,
+        "w": 90,
+        "h": 80
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 90,
+        "h": 80
+      },
+      "sourceSize": {
+        "w": 90,
+        "h": 80
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.76
+      }
+    },
+    "env/beanbag_orange.png": {
+      "frame": {
+        "x": 933,
+        "y": 226,
+        "w": 64,
+        "h": 56
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 56
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 56
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.78
+      }
+    },
+    "env/tv_console_unit.png": {
+      "frame": {
+        "x": 2,
+        "y": 323,
+        "w": 100,
+        "h": 88
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 100,
+        "h": 88
+      },
+      "sourceSize": {
+        "w": 100,
+        "h": 88
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.74
+      }
+    },
+    "env/wc_toilet.png": {
+      "frame": {
+        "x": 104,
+        "y": 323,
+        "w": 52,
+        "h": 60
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 52,
+        "h": 60
+      },
+      "sourceSize": {
+        "w": 52,
+        "h": 60
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.78
+      }
+    },
+    "env/plant_pot.png": {
+      "frame": {
+        "x": 158,
+        "y": 323,
+        "w": 48,
+        "h": 68
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 68
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 68
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.85
+      }
+    },
+    "env/whiteboard_sw.png": {
+      "frame": {
+        "x": 208,
+        "y": 323,
+        "w": 70,
+        "h": 75
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 75
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 75
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.75
+      }
+    },
+    "env/whiteboard_se.png": {
+      "frame": {
+        "x": 280,
+        "y": 323,
+        "w": 70,
+        "h": 75
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 70,
+        "h": 75
+      },
+      "sourceSize": {
+        "w": 70,
+        "h": 75
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.75
+      }
+    },
+    "env/desk_sub_supervisor.png": {
+      "frame": {
+        "x": 352,
+        "y": 323,
+        "w": 120,
+        "h": 84
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 120,
+        "h": 84
+      },
+      "sourceSize": {
+        "w": 120,
+        "h": 84
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.72
+      }
+    },
+    "env/chair_sub_supervisor_seat.png": {
+      "frame": {
+        "x": 474,
+        "y": 323,
+        "w": 55,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 55,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 55,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    },
+    "env/chair_sub_supervisor_backrest.png": {
+      "frame": {
+        "x": 531,
+        "y": 323,
+        "w": 55,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 55,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 55,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    },
+    "env/chair_sub_supervisor_full.png": {
+      "frame": {
+        "x": 588,
+        "y": 323,
+        "w": 55,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 55,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 55,
+        "h": 64
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    }
+  },
+  "meta": {
+    "app": "https://www.codeandweb.com/texturepacker",
+    "version": "2.0-tauri-marvis",
+    "image": "office_environment_and_props.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 1024,
+      "h": 413
+    },
+    "scale": "1",
+    "projection": {
+      "camera_pitch_deg": 28,
+      "desk_axis_deg": 0,
+      "runtime": "tauri-v2"
+    }
+  }
+}
