@@ -1720,6 +1720,17 @@ pub fn run() {
                 win_builder = win_builder.inner_size(1360.0, 860.0).center();
             }
 
+            // GTK draws the title bar itself on Wayland and reads its buttons from
+            // gtk-decoration-layout, whose built-in default is "menu:close". Without a desktop
+            // settings daemon that default wins and the window has no minimize/maximize buttons.
+            #[cfg(target_os = "linux")]
+            if let Some(settings) = gtk::Settings::default() {
+                use gtk::prelude::GtkSettingsExt;
+                let layout = settings.gtk_decoration_layout().map(|s| s.to_string());
+                if !layout.as_deref().is_some_and(|l| l.contains("minimize")) {
+                    settings.set_gtk_decoration_layout(Some(":minimize,maximize,close"));
+                }
+            }
             let window = win_builder.build()?;
             let _ = window.show();
             let _ = window.set_focus();
