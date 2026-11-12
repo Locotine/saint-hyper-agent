@@ -204,7 +204,11 @@ impl BackendSupervisor {
                 c.arg("--port").arg(port.to_string());
                 c
             }
-        } else if let Some(sidecar_path) = bundled_sidecar {
+        } else if let Some(sidecar_path) = bundled_sidecar.filter(|_| {
+            // Tauri copies `binaries/saint-server` next to the debug exe, so a dev build would
+            // otherwise run that stale compiled server instead of the checkout's source.
+            std::env::var_os("SAINT_DEV_USE_SIDECAR").is_some()
+        }) {
             let mut c = Command::new(sidecar_path);
             c.arg("--port").arg(port.to_string());
             c
@@ -533,7 +537,9 @@ impl BackendSupervisor {
         soft_timeout: Duration,
         max_ceiling: Duration,
     ) -> Result<(), String> {
+        // Loopback only: an inherited HTTP(S)_PROXY must never carry the readiness probe.
         let client = reqwest::Client::builder()
+            .no_proxy()
             .timeout(Duration::from_millis(1500))
             .build()
             .map_err(|e| e.to_string())?;
@@ -554,8 +560,13 @@ impl BackendSupervisor {
             if let Some(exit_err) = self.check_child_exited() {
                 return Err(exit_err);
             }
-            if let Ok(resp) = client.get(&health_url).send().await {
-                if resp.status().is_success() {
+            let last_probe: String;
+            match client.get(&health_url).send().await {
+                Err(err) => last_probe = format!("request failed: {err}"),
+                Ok(resp) if !resp.status().is_success() => {
+                    last_probe = format!("HTTP {}", resp.status());
+                }
+                Ok(resp) => {
                     let body = resp.text().await.unwrap_or_default();
                     let still_starting = serde_json::from_str::<serde_json::Value>(&body)
                         .ok()
@@ -564,12 +575,13 @@ impl BackendSupervisor {
                     if !still_starting {
                         return Ok(());
                     }
+                    last_probe = "startupReady is false".to_string();
                 }
             }
             let now = tokio::time::Instant::now();
             if now >= next_soft_log {
                 eprintln!(
-                    "[saint-desktop-rust] saint-server is still starting at {base_url} ({:?} elapsed)...",
+                    "[saint-desktop-rust] saint-server is still starting at {base_url} ({:?} elapsed; last probe: {last_probe})...",
                     start.elapsed()
                 );
                 while next_soft_log <= now {
