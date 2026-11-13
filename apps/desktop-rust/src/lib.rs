@@ -1656,7 +1656,6 @@ pub fn run() {
                     .decorations(!state.custom_title_bar_active)
                     .visible(true)
                     .focused(true)
-                    .disable_drag_drop_handler()
                     .initialization_script(&init_script);
 
             if let Some(ref persisted) = saved_window {
@@ -1714,6 +1713,58 @@ pub fn run() {
             ));
             let last_normal_for_events = Arc::clone(&last_normal_bounds);
             window.on_window_event(move |event| {
+                // The native drop handler owns OS file drops, so the page never sees the files.
+                // Hand the paths to whatever element sits under the cursor.
+                if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, position }) =
+                    event
+                {
+                    use base64::Engine as _;
+                    // Images ride along as data URLs so the composer attaches them with a preview.
+                    let files: Vec<serde_json::Value> = paths
+                        .iter()
+                        .map(|p| {
+                            let mime = match p
+                                .extension()
+                                .and_then(|e| e.to_str())
+                                .map(|e| e.to_ascii_lowercase())
+                                .as_deref()
+                            {
+                                Some("png") => Some("image/png"),
+                                Some("jpg" | "jpeg") => Some("image/jpeg"),
+                                Some("gif") => Some("image/gif"),
+                                Some("webp") => Some("image/webp"),
+                                _ => None,
+                            };
+                            let data_url = mime.and_then(|mime| {
+                                let small = std::fs::metadata(p)
+                                    .is_ok_and(|m| m.len() <= 20 * 1024 * 1024);
+                                if !small {
+                                    return None;
+                                }
+                                let bytes = std::fs::read(p).ok()?;
+                                Some(format!(
+                                    "data:{mime};base64,{}",
+                                    base64::engine::general_purpose::STANDARD.encode(bytes)
+                                ))
+                            });
+                            serde_json::json!({
+                                "path": p.to_string_lossy(),
+                                "dataUrl": data_url,
+                            })
+                        })
+                        .collect();
+                    if let Ok(paths_json) = serde_json::to_string(&files) {
+                        let js = format!(
+                            "(() => {{ const r = window.devicePixelRatio || 1; \
+                             const el = document.elementFromPoint({x} / r, {y} / r); \
+                             el?.dispatchEvent(new CustomEvent(\"saint:native-file-drop\", \
+                             {{ bubbles: true, detail: {{ files: {paths_json} }} }})); }})();",
+                            x = position.x,
+                            y = position.y,
+                        );
+                        let _ = window_for_events.eval(&js);
+                    }
+                }
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     if !state_for_window.quit_allowed.load(Ordering::SeqCst) {
                         api.prevent_close();

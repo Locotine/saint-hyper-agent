@@ -25,6 +25,14 @@ const rootElement = document.getElementById("root") as HTMLElement;
 
 document.title = APP_DISPLAY_NAME;
 
+// A file dropped where no drop zone takes it would make the webview navigate to that file and
+// replace the whole app (WebKitGTK shows a blank window). Bubble phase, so real drop zones run first.
+const blockStrayFileDrop = (event: DragEvent) => {
+  if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+};
+window.addEventListener("dragover", blockStrayFileDrop);
+window.addEventListener("drop", blockStrayFileDrop);
+
 if (isElectron) {
   document.documentElement.dataset.runtime = "electron";
   // Desktop windows backed by macOS vibrancy or the Hyprland compositor blur are transparent
