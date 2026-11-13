@@ -1761,10 +1761,14 @@ pub fn run() {
                 saved_window.as_ref().map(|w| w.bounds.clone()),
             ));
             let last_normal_for_events = Arc::clone(&last_normal_bounds);
-            window.on_window_event(move |event| {
-                if let tauri::WindowEvent::DragDrop(drag) = event {
-                    forward_file_drag(&app_for_window, drag);
+            // A webview window reports OS file drags as webview events, not window events.
+            let app_for_drag = app_handle.clone();
+            window.on_webview_event(move |event| {
+                if let tauri::WebviewEvent::DragDrop(drag) = event {
+                    forward_file_drag(&app_for_drag, drag);
                 }
+            });
+            window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     if !state_for_window.quit_allowed.load(Ordering::SeqCst) {
                         api.prevent_close();
