@@ -4338,37 +4338,6 @@ export default function ChatView({
     removeComposerDraftFile(threadId, fileId);
   };
 
-  const appendComposerPathMentions = (paths: readonly string[]) => {
-    for (const absolutePath of paths) {
-      appendComposerPromptText(threadId, formatComposerMentionToken(absolutePath), chatHost.hostId);
-    }
-  };
-  // Tauri's native drop handler delivers OS file drops as paths, images also as data URLs
-  // (see the desktop shell): images attach with a preview, everything else becomes an @mention.
-  type NativeDroppedFile = { readonly path: string; readonly dataUrl?: string | null };
-  const latestNativeFileDropRef = useRef<(files: readonly NativeDroppedFile[]) => void>(() => {});
-  latestNativeFileDropRef.current = (files) => {
-    if (isSidechatExpired || files.length === 0) return;
-    const images = files.filter((file) => file.dataUrl);
-    appendComposerPathMentions(files.filter((file) => !file.dataUrl).map((file) => file.path));
-    void Promise.all(
-      images.map(async (file) => {
-        const blob = await (await fetch(file.dataUrl!)).blob();
-        return new File([blob], file.path.split(/[\\/]/).pop() || "image", { type: blob.type });
-      }),
-    ).then((imageFiles) => addComposerImages(imageFiles));
-    focusComposer();
-  };
-  const chatViewNativeDropRef = useCallback((element: HTMLDivElement | null) => {
-    if (!element) return;
-    const onNativeDrop = (event: Event) => {
-      const files = (event as CustomEvent<{ files?: NativeDroppedFile[] }>).detail?.files ?? [];
-      latestNativeFileDropRef.current(files);
-    };
-    element.addEventListener("saint:native-file-drop", onNativeDrop);
-    return () => element.removeEventListener("saint:native-file-drop", onNativeDrop);
-  }, []);
-
   const {
     onComposerPaste,
     onComposerDragEnter,
@@ -4384,7 +4353,15 @@ export default function ChatView({
     },
     appendReferenceText: (referenceText) =>
       appendComposerPromptText(threadId, referenceText, chatHost.hostId),
-    appendPathMentions: appendComposerPathMentions,
+    appendPathMentions: (paths) => {
+      for (const absolutePath of paths) {
+        appendComposerPromptText(
+          threadId,
+          formatComposerMentionToken(absolutePath),
+          chatHost.hostId,
+        );
+      }
+    },
     dragDepthRef,
     focusComposer,
     setIsDragOverComposer,
@@ -6835,7 +6812,6 @@ export default function ChatView({
 
   const chatView = (
     <div
-      ref={chatViewNativeDropRef}
       className={cn(
         "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
         CHAT_BACKGROUND_CLASS_NAME,
