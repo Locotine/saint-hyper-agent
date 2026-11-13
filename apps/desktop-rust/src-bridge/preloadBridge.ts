@@ -508,10 +508,138 @@ export function createTauriDesktopBridge(
   } satisfies DesktopBridge;
 }
 
+interface NativeDragFile {
+  readonly path: string;
+  readonly isDirectory: boolean;
+}
+
+interface NativeDragPayload {
+  readonly type: "enter" | "over" | "drop" | "leave";
+  readonly files?: readonly NativeDragFile[];
+  readonly x?: number;
+  readonly y?: number;
+}
+
+const DROP_MIME_BY_EXTENSION: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  pdf: "application/pdf",
+  txt: "text/plain",
+  md: "text/markdown",
+  json: "application/json",
+};
+
+function droppedFile(entry: NativeDragFile, bytes: BlobPart[]): File {
+  const name = entry.path.split(/[\\/]/).pop() || entry.path;
+  const extension = name.includes(".") ? (name.split(".").pop() ?? "").toLowerCase() : "";
+  const type = entry.isDirectory ? "" : (DROP_MIME_BY_EXTENSION[extension] ?? "");
+  const file = new File(bytes, name, { type });
+  // The bridge's getPathForFile reads this, as Electron's File.path did.
+  Object.defineProperty(file, "path", { value: entry.path });
+  return file;
+}
+
+function dragDataTransfer(entries: readonly NativeDragFile[], files: readonly File[]) {
+  return {
+    types: ["Files"],
+    files,
+    items: files.map((file, index) => ({
+      kind: "file",
+      type: file.type,
+      getAsFile: () => file,
+      webkitGetAsEntry: () => ({
+        isDirectory: entries[index]?.isDirectory === true,
+        isFile: entries[index]?.isDirectory !== true,
+        name: file.name,
+      }),
+    })),
+    dropEffect: "none",
+    effectAllowed: "all",
+    getData: () => "",
+    setData: () => {},
+    clearData: () => {},
+  };
+}
+
+/**
+ * WebKitGTK hands the page no files for an OS drop, so the native handler takes the drop and
+ * this replays it as DOM drag events on the element under the pointer: the page's own HTML5
+ * drop zones (composer, Explorer, folder pickers) keep working unchanged.
+ */
+export function installNativeFileDragReplay(adapter: TauriRuntimeAdapter): void {
+  let entries: readonly NativeDragFile[] = [];
+  let placeholders: File[] = [];
+  let target: Element | null = null;
+
+  const pointAt = (payload: NativeDragPayload) => {
+    const ratio = window.devicePixelRatio || 1;
+    const clientX = (payload.x ?? 0) / ratio;
+    const clientY = (payload.y ?? 0) / ratio;
+    return { clientX, clientY, element: document.elementFromPoint(clientX, clientY) };
+  };
+  const fire = (
+    element: Element | null,
+    type: string,
+    files: readonly File[],
+    point: { clientX: number; clientY: number },
+    relatedTarget: Element | null = null,
+  ): void => {
+    if (!element) return;
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, ...point });
+    Object.defineProperty(event, "dataTransfer", { value: dragDataTransfer(entries, files) });
+    Object.defineProperty(event, "relatedTarget", { value: relatedTarget });
+    element.dispatchEvent(event);
+  };
+
+  adapter.listen("desktop:file-drag", (raw) => {
+    const payload = raw as NativeDragPayload;
+    if (payload.type === "leave") {
+      fire(target, "dragleave", placeholders, { clientX: 0, clientY: 0 });
+      target = null;
+      return;
+    }
+    if (payload.files) {
+      entries = payload.files;
+      placeholders = entries.map((entry) => droppedFile(entry, []));
+    }
+    const point = pointAt(payload);
+    if (payload.type === "drop") {
+      const dropEntries = entries;
+      const dropTarget = point.element;
+      target = null;
+      void Promise.all(
+        dropEntries.map(async (entry) => {
+          if (entry.isDirectory) return droppedFile(entry, []);
+          const base64 = await adapter.invoke<string>("desktop_read_dropped_file", {
+            path: entry.path,
+          });
+          const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+          return droppedFile(entry, [bytes]);
+        }),
+      )
+        .then((files) => fire(dropTarget, "drop", files, point))
+        .catch((error: unknown) => console.error("[saint] file drop failed", error));
+      return;
+    }
+    if (point.element !== target) {
+      fire(target, "dragleave", placeholders, point, point.element);
+      fire(point.element, "dragenter", placeholders, point, target);
+      target = point.element;
+    }
+    fire(target, "dragover", placeholders, point);
+  });
+}
+
 if (typeof window !== "undefined" && !window.desktopBridge) {
   const boot = window.__SAINT_TAURI_BOOT__ ?? {
     wsUrl: null,
     zoomFactor: 1,
   };
-  window.desktopBridge = createTauriDesktopBridge(boot);
+  const adapter = createDefaultTauriAdapter();
+  window.desktopBridge = createTauriDesktopBridge(boot, adapter);
+  installNativeFileDragReplay(adapter);
 }

@@ -304,6 +304,51 @@ async fn desktop_context_menu(
     }
 }
 
+// Paths of the OS drag in progress: the page may read only these files.
+static DROPPED_PATHS: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+fn forward_file_drag(app: &tauri::AppHandle, drag: &tauri::DragDropEvent) {
+    let describe = |paths: &[PathBuf]| -> Vec<serde_json::Value> {
+        paths
+            .iter()
+            .map(|p| serde_json::json!({ "path": p.to_string_lossy(), "isDirectory": p.is_dir() }))
+            .collect()
+    };
+    let payload = match drag {
+        tauri::DragDropEvent::Enter { paths, position } => {
+            if let Ok(mut guard) = DROPPED_PATHS.lock() {
+                *guard = paths.clone();
+            }
+            serde_json::json!({ "type": "enter", "files": describe(paths), "x": position.x, "y": position.y })
+        }
+        tauri::DragDropEvent::Over { position } => {
+            serde_json::json!({ "type": "over", "x": position.x, "y": position.y })
+        }
+        tauri::DragDropEvent::Drop { paths, position } => {
+            if let Ok(mut guard) = DROPPED_PATHS.lock() {
+                *guard = paths.clone();
+            }
+            serde_json::json!({ "type": "drop", "files": describe(paths), "x": position.x, "y": position.y })
+        }
+        tauri::DragDropEvent::Leave => serde_json::json!({ "type": "leave" }),
+        _ => return,
+    };
+    emit_app_event(app, "desktop:file-drag", &payload);
+}
+
+// Bytes of one file from the last OS drop, base64; refuses any other path.
+#[tauri::command]
+fn desktop_read_dropped_file(path: String) -> Result<String, String> {
+    use base64::Engine as _;
+    let path = PathBuf::from(path);
+    let allowed = DROPPED_PATHS.lock().map(|g| g.contains(&path)).unwrap_or(false);
+    if !allowed {
+        return Err("not a dropped file".into());
+    }
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
 // WebKitGTK hands the page no files for a pasted screenshot, so the composer asks for the
 // clipboard image here when a paste carries neither files nor text.
 #[tauri::command]
@@ -1656,7 +1701,10 @@ pub fn run() {
                     .decorations(!state.custom_title_bar_active)
                     .visible(true)
                     .focused(true)
-                    .disable_drag_drop_handler()
+                    // WebKitGTK gives the page no files for an OS drop, so the native handler takes
+                    // it and the bridge replays it as DOM drag events (see `forward_file_drag`).
+                    // A drop WebKit still handles must not open the file in place of the app.
+                    .on_navigation(|url| url.scheme() != "file")
                     .initialization_script(&init_script);
 
             if let Some(ref persisted) = saved_window {
@@ -1714,6 +1762,9 @@ pub fn run() {
             ));
             let last_normal_for_events = Arc::clone(&last_normal_bounds);
             window.on_window_event(move |event| {
+                if let tauri::WindowEvent::DragDrop(drag) = event {
+                    forward_file_drag(&app_for_window, drag);
+                }
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     if !state_for_window.quit_allowed.load(Ordering::SeqCst) {
                         api.prevent_close();
@@ -1813,6 +1864,7 @@ pub fn run() {
             desktop_context_menu,
             desktop_clipboard_write_image,
             desktop_clipboard_read_image_png,
+            desktop_read_dropped_file,
             desktop_set_menu_shortcuts,
             desktop_quit_confirmation_response,
             desktop_open_external,
