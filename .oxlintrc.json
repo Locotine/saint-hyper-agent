@@ -5,7 +5,6 @@
     "dist",
     "dist-electron",
     "dist-bridge",
-    "apps/server/src/office3d/public/vendor",
     "target",
     "node_modules",
     "bun.lock",
@@ -22,6 +21,26 @@
   "rules": {
     "react-in-jsx-scope": "off",
     "eslint/no-shadow": "off",
-    "eslint/no-await-in-loop": "off"
+    "eslint/no-await-in-loop": "off",
+    // React Compiler rules (oxlint >= 1.90) share one analysis pass that peaks at ~7 GB on
+    // ChatView.tsx and OOM-kills the app when lint runs alongside it. Re-enable once oxlint
+    // bounds that pass's memory.
+    "react/capitalized-calls": "off",
+    "react/error-boundaries": "off",
+    "react/exhaustive-effect-dependencies": "off",
+    "react/globals": "off",
+    "react/hooks": "off",
+    "react/immutability": "off",
+    "react/incompatible-library": "off",
+    "react/memo-dependencies": "off",
+    "react/no-deriving-state-in-effects": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/purity": "off",
+    "react/refs": "off",
+    "react/set-state-in-effect": "off",
+    "react/set-state-in-render": "off",
+    "react/static-components": "off",
+    "react/use-memo": "off",
+    "react/void-use-memo": "off"
   }
 }
