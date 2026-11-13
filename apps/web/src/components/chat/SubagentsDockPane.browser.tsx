@@ -3,6 +3,7 @@ import "../../index.css";
 import { ProjectId, ThreadId } from "@saint/contracts";
 import { page, userEvent } from "vitest/browser";
 import { beforeEach, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "vitest-browser-react";
 import type { ReactNode } from "react";
 import { collectLeaves } from "../../splitView.logic";
@@ -25,7 +26,8 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
   useNavigate: () => state.navigate,
 }));
-vi.mock("../../nativeApi", () => ({
+vi.mock("../../nativeApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../nativeApi")>()),
   readLocalNativeApi: () => ({ orchestration: { dispatchCommand: state.dispatch } }),
 }));
 vi.mock("./useSubagentStripSource", () => ({
@@ -121,7 +123,11 @@ it("opens the subagent dock in a split pane, keeps its destination in that pane,
     (leaf) => leaf.threadId === parent,
   )!;
   useRightDockStore.getState().openPane(parent, { kind: "subagents" });
-  const screen = await render(<SplitChatSurface splitViewId={split} routeThreadId={parent} />);
+  const screen = await render(
+    <QueryClientProvider client={new QueryClient()}>
+      <SplitChatSurface splitViewId={split} routeThreadId={parent} />
+    </QueryClientProvider>,
+  );
   try {
     await expect
       .element(page.getByRole("button", { name: "Open subagent Scout (Running)" }))
