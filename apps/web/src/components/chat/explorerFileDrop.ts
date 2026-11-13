@@ -12,6 +12,7 @@ import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { type DragEvent as ReactDragEvent, useState } from "react";
 
 import { CHAT_FILE_REFERENCE_DRAG_TYPE } from "~/lib/chatReferences";
+import { projectQueryKeys } from "~/lib/projectReactQuery";
 import { uploadFilesToWorkspace } from "~/lib/workspaceUpload";
 import { toastManager } from "../ui/toast";
 import { explorerMovableEntries } from "./explorerSelection";
@@ -88,10 +89,18 @@ function isOsFileDrag(event: ReactDragEvent): boolean {
   return types.includes("Files") && !types.includes(CHAT_FILE_REFERENCE_DRAG_TYPE);
 }
 
+// Base key lengths come from the key builders, so a new key segment cannot silently stop
+// the refresh from matching.
+const LOCAL_KEY_LENGTH_BY_KIND: Record<string, number> = {
+  "list-directories": projectQueryKeys.listDirectories("", "", true).length,
+  "search-entries": projectQueryKeys.searchEntries("", "", 0).length,
+  "read-file": projectQueryKeys.readFile("", "").length,
+};
+
 /**
- * Refetches every cached directory listing of `cwd` on `hostId`. Listings are keyed
- * ["projects", "list-directories", cwd, folder, includeFiles] with the host id appended for
- * remote hosts, so a local refresh must not touch a remote host's listing of the same path.
+ * Refetches every cached directory listing of `cwd` on `hostId`. Remote hosts append their
+ * host id after the usual key (`withHostKey`), so a local refresh must not touch a remote
+ * host's listing of the same path.
  */
 export function invalidateExplorerDirectories(
   queryClient: QueryClient,
@@ -101,16 +110,11 @@ export function invalidateExplorerDirectories(
   return queryClient.invalidateQueries({
     predicate: ({ queryKey }) => {
       if (queryKey[0] !== "projects" || queryKey[2] !== cwd) return false;
-      if (queryKey[1] === "list-directories") {
-        return hostId === LOCAL_HOST_ID ? queryKey.length === 5 : queryKey[5] === hostId;
-      }
-      if (queryKey[1] === "search-entries") {
-        return hostId === LOCAL_HOST_ID ? queryKey.length === 6 : queryKey[6] === hostId;
-      }
-      if (queryKey[1] === "read-file") {
-        return hostId === LOCAL_HOST_ID ? queryKey.length === 4 : queryKey[4] === hostId;
-      }
-      return false;
+      const localLength = LOCAL_KEY_LENGTH_BY_KIND[String(queryKey[1])];
+      if (localLength === undefined) return false;
+      return hostId === LOCAL_HOST_ID
+        ? queryKey.length === localLength
+        : queryKey[localLength] === hostId;
     },
   });
 }

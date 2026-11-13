@@ -1,7 +1,13 @@
 import { LOCAL_HOST_ID, sshHostId } from "@saint/shared/hostId";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { explorerDropDirectoryFor, useExplorerFileDrop } from "./explorerFileDrop";
+import { projectQueryKeys, withHostKey } from "~/lib/projectReactQuery";
+
+import {
+  explorerDropDirectoryFor,
+  invalidateExplorerDirectories,
+  useExplorerFileDrop,
+} from "./explorerFileDrop";
 
 const mocks = vi.hoisted(() => ({
   upload: vi.fn(),
@@ -119,5 +125,22 @@ describe("useExplorerFileDrop", () => {
 
   it("has no handlers without a workspace", () => {
     expect(useExplorerFileDrop(null, vi.fn(), LOCAL_HOST_ID).handlers).toEqual({});
+  });
+});
+
+describe("invalidateExplorerDirectories", () => {
+  it("matches listings keyed by the current key builders, only on the given host", async () => {
+    let predicate: ((query: { queryKey: readonly unknown[] }) => boolean) | undefined;
+    const queryClient = {
+      invalidateQueries: (filters: { predicate: typeof predicate }) => {
+        predicate = filters.predicate;
+        return Promise.resolve();
+      },
+    };
+    await invalidateExplorerDirectories(queryClient as never, "/repo", LOCAL_HOST_ID);
+    const local = projectQueryKeys.listDirectories("/repo", "src", true, true);
+    const remote = withHostKey(local, sshHostId("a1b2c3d4"));
+    expect(predicate?.({ queryKey: local })).toBe(true);
+    expect(predicate?.({ queryKey: remote })).toBe(false);
   });
 });
