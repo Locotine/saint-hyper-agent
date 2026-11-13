@@ -108,7 +108,6 @@ export const NewThreadIcon: LucideIcon = centralIconWrapper("compose-pencil");
 // Command palette (⌘K) action glyphs: one Central outline set so the rows read as a family.
 export const ImportThreadIcon: LucideIcon = centralIconWrapper("import");
 export const UsageGaugeIcon: LucideIcon = centralIconWrapper("gauge");
-export const Office3dIcon: LucideIcon = centralIconWrapper("ar-cube-3");
 export const BugReportIcon: LucideIcon = centralIconWrapper("bug");
 export const UserIcon: LucideIcon = centralIconWrapper("user");
 /** The "+" affordance behind every add/create action (Add project, activity header). */

@@ -35,7 +35,6 @@ describe("rail item order", () => {
       "security",
       "cyberSecurity",
       "hostEconomy",
-      "office3d",
     ]);
   });
 
@@ -53,7 +52,6 @@ describe("rail item order", () => {
       "security",
       "cyberSecurity",
       "hostEconomy",
-      "office3d",
     ]);
     expect(normalizeRailItemOrder(["home", "spaces", "inbox"]).slice(0, 3)).toEqual([
       "home",
@@ -86,7 +84,6 @@ describe("rail item order", () => {
       "security",
       "cyberSecurity",
       "hostEconomy",
-      "office3d",
     ]);
     expect(
       buildRailItemOrder({
@@ -112,7 +109,6 @@ describe("rail item order", () => {
       "security",
       "cyberSecurity",
       "hostEconomy",
-      "office3d",
     ]);
     expect(isRailItemAvailable("inbox", { studioAvailable: false, inboxAvailable: true })).toBe(
       true,
@@ -172,7 +168,6 @@ describe("railItemShowsPanel", () => {
     expect(railItemShowsPanel("tasks")).toBe(false);
     expect(railItemShowsPanel("pullRequests")).toBe(false);
     expect(railItemShowsPanel("inbox")).toBe(false);
-    expect(railItemShowsPanel("office3d")).toBe(false);
     for (const id of ["home", "spaces", "automations", "studio", "settings"] as const) {
       expect(railItemShowsPanel(id)).toBe(true);
     }
@@ -186,7 +181,6 @@ describe("railItemForPathname", () => {
     expect(railItemForPathname("/tasks")).toBe("tasks");
     expect(railItemForPathname("/pull-requests/42")).toBe("pullRequests");
     expect(railItemForPathname("/automations")).toBe("automations");
-    expect(railItemForPathname("/office-3d")).toBe("office3d");
     expect(railItemForPathname("/studio/abc")).toBe("studio");
     expect(railItemForPathname("/groups")).toBe("studio");
     expect(railItemForPathname("/hubs")).toBe("studio");

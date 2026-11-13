@@ -417,54 +417,6 @@ fn desktop_quit_confirmation_response(
     }
 }
 
-const OFFICE_WIDGET_LABEL: &str = "office-widget";
-const OFFICE_WIDGET_WIDTH: f64 = 360.0;
-const OFFICE_WIDGET_HEIGHT: f64 = 240.0;
-const OFFICE_WIDGET_MARGIN: f64 = 16.0;
-
-/// Opens the floating office in the top-right corner, or closes it when it is open.
-/// Async so window creation does not run on (and deadlock) the main thread on Windows.
-#[tauri::command]
-async fn desktop_office_widget_toggle(
-    app: tauri::AppHandle,
-    state: State<'_, Arc<DesktopSharedState>>,
-) -> Result<bool, String> {
-    if let Some(widget) = app.get_webview_window(OFFICE_WIDGET_LABEL) {
-        widget.close().map_err(|e| e.to_string())?;
-        return Ok(false);
-    }
-    // The widget loads the same bundle; the hash route picks the office-only view.
-    let init_script = format!(
-        "{}\nif (!window.location.hash.startsWith('#/office-widget')) window.location.hash = '#/office-widget';",
-        build_initialization_script(&state)
-    );
-    let mut builder = WebviewWindowBuilder::new(
-        &app,
-        OFFICE_WIDGET_LABEL,
-        WebviewUrl::App("index.html".into()),
-    )
-    .title(format!("{APP_DISPLAY_NAME} Office"))
-    .inner_size(OFFICE_WIDGET_WIDTH, OFFICE_WIDGET_HEIGHT)
-    .min_inner_size(240.0, 160.0)
-    .decorations(false)
-    .transparent(true)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .disable_drag_drop_handler()
-    .initialization_script(&init_script);
-    if let Ok(Some(monitor)) = app.primary_monitor() {
-        let scale = monitor.scale_factor();
-        let origin = monitor.position().to_logical::<f64>(scale);
-        let size = monitor.size().to_logical::<f64>(scale);
-        builder = builder.position(
-            origin.x + size.width - OFFICE_WIDGET_WIDTH - OFFICE_WIDGET_MARGIN,
-            origin.y + OFFICE_WIDGET_MARGIN,
-        );
-    }
-    builder.build().map_err(|e| e.to_string())?;
-    Ok(true)
-}
-
 #[tauri::command]
 fn desktop_open_external(url: String) -> Result<bool, String> {
     if !is_trusted_external_url(&url) {
@@ -1762,12 +1714,6 @@ pub fn run() {
             ));
             let last_normal_for_events = Arc::clone(&last_normal_bounds);
             window.on_window_event(move |event| {
-                // The floating office never outlives the app window it mirrors.
-                if matches!(event, tauri::WindowEvent::Destroyed) {
-                    if let Some(widget) = app_for_window.get_webview_window(OFFICE_WIDGET_LABEL) {
-                        let _ = widget.close();
-                    }
-                }
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     if !state_for_window.quit_allowed.load(Ordering::SeqCst) {
                         api.prevent_close();
@@ -1870,7 +1816,6 @@ pub fn run() {
             desktop_set_menu_shortcuts,
             desktop_quit_confirmation_response,
             desktop_open_external,
-            desktop_office_widget_toggle,
             desktop_show_in_folder,
             desktop_window_minimize,
             desktop_window_toggle_maximize,

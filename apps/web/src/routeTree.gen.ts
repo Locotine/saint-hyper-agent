@@ -10,13 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ChatRouteImport } from './routes/_chat'
-import { Route as OfficeWidgetRouteImport } from './routes/office-widget'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as ChatThreadIdRouteImport } from './routes/_chat.$threadId'
 import { Route as ChatAutomationsRouteImport } from './routes/_chat.automations'
 import { Route as ChatHostEconomyRouteImport } from './routes/_chat.host-economy'
 import { Route as ChatInboxRouteImport } from './routes/_chat.inbox'
-import { Route as ChatOffice3dRouteImport } from './routes/_chat.office-3d'
 import { Route as ChatPluginsRouteImport } from './routes/_chat.plugins'
 import { Route as ChatPullRequestsRouteImport } from './routes/_chat.pull-requests'
 import { Route as ChatSecurityRouteImport } from './routes/_chat.security'
@@ -37,11 +35,6 @@ import { Route as ChatTasksIndexRouteImport } from './routes/_chat.tasks.index'
 
 const ChatRoute = ChatRouteImport.update({
   id: '/_chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OfficeWidgetRoute = OfficeWidgetRouteImport.update({
-  id: '/office-widget',
-  path: '/office-widget',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
@@ -67,11 +60,6 @@ const ChatHostEconomyRoute = ChatHostEconomyRouteImport.update({
 const ChatInboxRoute = ChatInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
-  getParentRoute: () => ChatRoute,
-} as any)
-const ChatOffice3dRoute = ChatOffice3dRouteImport.update({
-  id: '/office-3d',
-  path: '/office-3d',
   getParentRoute: () => ChatRoute,
 } as any)
 const ChatPluginsRoute = ChatPluginsRouteImport.update({
@@ -164,12 +152,10 @@ const ChatTasksIndexRoute = ChatTasksIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
-  '/office-widget': typeof OfficeWidgetRoute
   '/$threadId': typeof ChatThreadIdRoute
   '/automations': typeof ChatAutomationsRouteWithChildren
   '/host-economy': typeof ChatHostEconomyRoute
   '/inbox': typeof ChatInboxRoute
-  '/office-3d': typeof ChatOffice3dRoute
   '/plugins': typeof ChatPluginsRoute
   '/pull-requests': typeof ChatPullRequestsRouteWithChildren
   '/security': typeof ChatSecurityRoute
@@ -189,11 +175,9 @@ export interface FileRoutesByFullPath {
   '/tasks/': typeof ChatTasksIndexRoute
 }
 export interface FileRoutesByTo {
-  '/office-widget': typeof OfficeWidgetRoute
   '/$threadId': typeof ChatThreadIdRoute
   '/host-economy': typeof ChatHostEconomyRoute
   '/inbox': typeof ChatInboxRoute
-  '/office-3d': typeof ChatOffice3dRoute
   '/plugins': typeof ChatPluginsRoute
   '/security': typeof ChatSecurityRoute
   '/settings': typeof ChatSettingsRoute
@@ -215,12 +199,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_chat': typeof ChatRouteWithChildren
-  '/office-widget': typeof OfficeWidgetRoute
   '/_chat/$threadId': typeof ChatThreadIdRoute
   '/_chat/automations': typeof ChatAutomationsRouteWithChildren
   '/_chat/host-economy': typeof ChatHostEconomyRoute
   '/_chat/inbox': typeof ChatInboxRoute
-  '/_chat/office-3d': typeof ChatOffice3dRoute
   '/_chat/plugins': typeof ChatPluginsRoute
   '/_chat/pull-requests': typeof ChatPullRequestsRouteWithChildren
   '/_chat/security': typeof ChatSecurityRoute
@@ -244,12 +226,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/office-widget'
     | '/$threadId'
     | '/automations'
     | '/host-economy'
     | '/inbox'
-    | '/office-3d'
     | '/plugins'
     | '/pull-requests'
     | '/security'
@@ -269,11 +249,9 @@ export interface FileRouteTypes {
     | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/office-widget'
     | '/$threadId'
     | '/host-economy'
     | '/inbox'
-    | '/office-3d'
     | '/plugins'
     | '/security'
     | '/settings'
@@ -294,12 +272,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_chat'
-    | '/office-widget'
     | '/_chat/$threadId'
     | '/_chat/automations'
     | '/_chat/host-economy'
     | '/_chat/inbox'
-    | '/_chat/office-3d'
     | '/_chat/plugins'
     | '/_chat/pull-requests'
     | '/_chat/security'
@@ -322,7 +298,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
-  OfficeWidgetRoute: typeof OfficeWidgetRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -332,13 +307,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof ChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/office-widget': {
-      id: '/office-widget'
-      path: '/office-widget'
-      fullPath: '/office-widget'
-      preLoaderRoute: typeof OfficeWidgetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_chat/': {
@@ -374,13 +342,6 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof ChatInboxRouteImport
-      parentRoute: typeof ChatRoute
-    }
-    '/_chat/office-3d': {
-      id: '/_chat/office-3d'
-      path: '/office-3d'
-      fullPath: '/office-3d'
-      preLoaderRoute: typeof ChatOffice3dRouteImport
       parentRoute: typeof ChatRoute
     }
     '/_chat/plugins': {
@@ -535,7 +496,6 @@ interface ChatRouteChildren {
   ChatAutomationsRoute: typeof ChatAutomationsRouteWithChildren
   ChatHostEconomyRoute: typeof ChatHostEconomyRoute
   ChatInboxRoute: typeof ChatInboxRoute
-  ChatOffice3dRoute: typeof ChatOffice3dRoute
   ChatPluginsRoute: typeof ChatPluginsRoute
   ChatPullRequestsRoute: typeof ChatPullRequestsRouteWithChildren
   ChatSecurityRoute: typeof ChatSecurityRoute
@@ -558,7 +518,6 @@ const ChatRouteChildren: ChatRouteChildren = {
   ChatAutomationsRoute: ChatAutomationsRouteWithChildren,
   ChatHostEconomyRoute: ChatHostEconomyRoute,
   ChatInboxRoute: ChatInboxRoute,
-  ChatOffice3dRoute: ChatOffice3dRoute,
   ChatPluginsRoute: ChatPluginsRoute,
   ChatPullRequestsRoute: ChatPullRequestsRouteWithChildren,
   ChatSecurityRoute: ChatSecurityRoute,
@@ -580,7 +539,6 @@ const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
-  OfficeWidgetRoute: OfficeWidgetRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

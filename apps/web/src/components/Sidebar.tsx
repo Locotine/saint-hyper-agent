@@ -28,7 +28,6 @@ import {
   ShieldCheckIcon,
   ShieldCodeIcon,
   UsageGaugeIcon,
-  Office3dIcon,
   TasksIcon,
   KeyboardIcon,
   BellIcon,
@@ -1376,7 +1375,6 @@ export default function Sidebar() {
   const isOnSecurity = pathname.startsWith("/security");
   const isOnCyberSecurity = pathname.startsWith("/cyber-security");
   const isOnHostEconomy = pathname.startsWith("/host-economy");
-  const isOnOffice3d = pathname.startsWith("/office-3d");
   const isOnPullRequests = pathname.startsWith("/pull-requests");
   const isOnInbox = pathname.startsWith("/inbox");
   // Lightweight read of automations to drive the sidebar count badge. Shares the
@@ -4417,15 +4415,6 @@ export default function Sidebar() {
           void navigate({ to: "/host-economy" });
         },
       },
-      office3d: {
-        icon: Office3dIcon,
-        label: "Virtual Office",
-        active: isOnOffice3d,
-        badge: null,
-        onClick: () => {
-          void navigate({ to: "/office-3d" });
-        },
-      },
     }),
     [
       flowsBadge,
@@ -4434,7 +4423,6 @@ export default function Sidebar() {
       isOnSecurity,
       isOnCyberSecurity,
       isOnHostEconomy,
-      isOnOffice3d,
       automationCountBadge,
       handlePrimaryNewThread,
       inboxBadge,
