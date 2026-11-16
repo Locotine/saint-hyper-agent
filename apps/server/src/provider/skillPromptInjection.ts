@@ -10,6 +10,7 @@ import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 
 import type { ProviderKind, ProviderSkillReference } from "@saint/contracts";
+import { isWorkspaceRootWithin } from "@saint/shared/threadWorkspace";
 
 // Per-skill cap keeps a single oversized SKILL.md from eating the turn budget.
 const MAX_INLINE_SKILL_CONTENT_CHARS = 24_000;
@@ -36,24 +37,6 @@ function pathSegments(path: string): Set<string> {
   );
 }
 
-function normalizeForComparison(filePath: string): string {
-  const normalized = nodePath.normalize(filePath).replace(/[\\/]+$/, "");
-  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
-}
-
-function isPathWithinRoot(targetPath: string, rootPath: string): boolean {
-  const normalizedTarget = normalizeForComparison(targetPath);
-  const normalizedRoot = normalizeForComparison(rootPath);
-  if (!normalizedRoot) {
-    return false;
-  }
-  return (
-    normalizedTarget === normalizedRoot ||
-    normalizedTarget.startsWith(`${normalizedRoot}/`) ||
-    normalizedTarget.startsWith(`${normalizedRoot}\\`)
-  );
-}
-
 export interface ShouldInlineSkillOptions {
   readonly workspaceCwd?: string | undefined;
   readonly homeDir?: string | undefined;
@@ -74,15 +57,15 @@ export function shouldInlineSkillForProvider(
       // natively, but does not load home `~/.agents/skills`.
       const homeDir = options?.homeDir ?? nodeOs.homedir();
       if (
-        isPathWithinRoot(skillPath, nodePath.join(homeDir, ".agents")) ||
-        isPathWithinRoot(skillPath, nodePath.join(homeDir, "_agents"))
+        isWorkspaceRootWithin(skillPath, nodePath.join(homeDir, ".agents")) ||
+        isWorkspaceRootWithin(skillPath, nodePath.join(homeDir, "_agents"))
       ) {
         return true;
       }
       if (options?.workspaceCwd) {
         return !(
-          isPathWithinRoot(skillPath, nodePath.join(options.workspaceCwd, ".agents")) ||
-          isPathWithinRoot(skillPath, nodePath.join(options.workspaceCwd, "_agents"))
+          isWorkspaceRootWithin(skillPath, nodePath.join(options.workspaceCwd, ".agents")) ||
+          isWorkspaceRootWithin(skillPath, nodePath.join(options.workspaceCwd, "_agents"))
         );
       }
       // Without a known workspace, inline so the skill is never silently dropped.
