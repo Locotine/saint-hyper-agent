@@ -119,6 +119,10 @@ export function generateTauriLatestManifest(options: {
       (f) => /(x86_64|x64)/u.test(f) && f.endsWith(".app.tar.gz"),
     ),
     "linux-x86_64": signedBundle("linux-x86_64", (f) => f.endsWith(".AppImage")),
+    // The updater looks up `<os>-<arch>-<installer>` before `<os>-<arch>`, so a
+    // .deb install gets the .deb (installed through pkexec) and an AppImage
+    // install keeps swapping its AppImage.
+    "linux-x86_64-deb": signedBundle("linux-x86_64-deb", (f) => f.endsWith(".deb")),
   };
 
   return {

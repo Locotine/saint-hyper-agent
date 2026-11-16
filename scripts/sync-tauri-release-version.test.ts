@@ -57,6 +57,7 @@ describe("sync-tauri-release-version", () => {
       ["Saint_2.4.6_arm64.app.tar.gz", "mac-arm-sig"],
       ["Saint_2.4.6_x64.app.tar.gz", "mac-x64-sig"],
       ["Saint_2.4.6_amd64.AppImage", "linux-sig"],
+      ["Saint_2.4.6_amd64.deb", "linux-deb-sig"],
     ] as const) {
       writeFileSync(join(dir, name), "binary");
       writeFileSync(join(dir, `${name}.sig`), `${sig}\n`);
@@ -83,6 +84,7 @@ describe("sync-tauri-release-version", () => {
         "darwin-aarch64": { signature: "mac-arm-sig", url: `${base}/Saint_2.4.6_arm64.app.tar.gz` },
         "darwin-x86_64": { signature: "mac-x64-sig", url: `${base}/Saint_2.4.6_x64.app.tar.gz` },
         "linux-x86_64": { signature: "linux-sig", url: `${base}/Saint_2.4.6_amd64.AppImage` },
+        "linux-x86_64-deb": { signature: "linux-deb-sig", url: `${base}/Saint_2.4.6_amd64.deb` },
       });
     } finally {
       rmSync(artifactsDir, { recursive: true, force: true });
@@ -105,6 +107,9 @@ describe("sync-tauri-release-version", () => {
       rmSync(join(artifactsDir, "Saint_2.4.6_amd64.AppImage.sig"));
       writeFileSync(join(artifactsDir, "Saint_2.4.6_x64.app.tar.gz.sig"), "mac-x64-sig\n");
       expect(generate).toThrow(/linux-x86_64/u);
+      writeFileSync(join(artifactsDir, "Saint_2.4.6_amd64.AppImage.sig"), "linux-sig\n");
+      rmSync(join(artifactsDir, "Saint_2.4.6_amd64.deb.sig"));
+      expect(generate).toThrow(/linux-x86_64-deb/u);
     } finally {
       rmSync(artifactsDir, { recursive: true, force: true });
     }

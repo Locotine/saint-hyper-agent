@@ -61,7 +61,8 @@ if ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
   fi
 fi
 
-# A .deb install would show a second menu entry and never update. Builds from
+# A .deb install alongside the AppImage would show a second menu entry and both
+# would update separately; keep one. Builds from
 # before the rename were packaged under the upstream name, matched exactly here
 # (a looser prefix would also catch unrelated packages such as syncthing).
 if command -v dpkg-query >/dev/null 2>&1; then

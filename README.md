@@ -130,6 +130,7 @@ The current release is **1.2.2**. Download it from [GitHub Releases](https://git
 | Platform              | Artifact                         | Install                                                                         |
 | --------------------- | -------------------------------- | ------------------------------------------------------------------------------- |
 | Linux x86_64          | `Saint_<version>_amd64.AppImage` | Make it executable and run it.                                                  |
+| Ubuntu/Debian x86_64  | `Saint_<version>_amd64.deb`      | `sudo apt install ./Saint_<version>_amd64.deb`. Needs Ubuntu 24.04+/Debian 13+. |
 | Windows x64           | `Saint_<version>_x64-setup.exe`  | Run the NSIS installer. Unsigned builds show a SmartScreen warning.             |
 | macOS (Apple Silicon) | `Saint_<version>_aarch64.dmg`    | Open the disk image and drag Saint to Applications. Requires macOS 13 or later. |
 | macOS (Intel)         | `Saint_<version>_x64.dmg`        | Same as Apple Silicon.                                                          |

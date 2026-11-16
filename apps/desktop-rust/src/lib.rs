@@ -17,7 +17,7 @@ mod updater;
 mod window_state;
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
@@ -634,6 +634,24 @@ fn desktop_update_get_state(state: State<'_, Arc<DesktopSharedState>>) -> Deskto
 // background so the sidebar offers "restart to update" without a manual check.
 const AUTO_UPDATE_STARTUP_DELAY: std::time::Duration = std::time::Duration::from_secs(15);
 const AUTO_UPDATE_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(4 * 60 * 60);
+// The updater's HTTP client has no timeout of its own, so a stalled GitHub
+// connection used to leave the update in "checking"/"downloading" forever and
+// stop the poll loop with it.
+const UPDATE_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+const UPDATE_DOWNLOAD_STALL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+const UPDATE_DOWNLOAD_STALL_POLL: std::time::Duration = std::time::Duration::from_secs(5);
+
+async fn check_for_update_with_timeout(
+    updater: &tauri_plugin_updater::Updater,
+) -> Result<Option<tauri_plugin_updater::Update>, String> {
+    match tokio::time::timeout(UPDATE_CHECK_TIMEOUT, updater.check()).await {
+        Ok(result) => result.map_err(|err| err.to_string()),
+        Err(_) => Err(format!(
+            "Timed out after {}s checking for updates.",
+            UPDATE_CHECK_TIMEOUT.as_secs()
+        )),
+    }
+}
 
 fn spawn_auto_update_poll(app: tauri::AppHandle, state: Arc<DesktopSharedState>) {
     if !state.updater.get_state().enabled {
@@ -655,7 +673,18 @@ async fn desktop_update_check(
     app: tauri::AppHandle,
     state: State<'_, Arc<DesktopSharedState>>,
 ) -> Result<DesktopUpdateState, String> {
-    Ok(run_update_check(&app, state.inner()).await)
+    let next = run_update_check(&app, state.inner()).await;
+    // A manual check (sidebar or Settings) must start the download too: the web
+    // disables the button while an update is "available", so without this the
+    // update sat on "Preparing" until the next 4 h poll.
+    if next.status == "available" {
+        let app = app.clone();
+        let state = Arc::clone(state.inner());
+        tauri::async_runtime::spawn(async move {
+            run_update_download(&app, &state).await;
+        });
+    }
+    Ok(next)
 }
 
 async fn run_update_check(
@@ -679,7 +708,7 @@ async fn run_update_check(
         }
     };
 
-    let next_state = match updater.check().await {
+    let next_state = match check_for_update_with_timeout(&updater).await {
         Ok(Some(update)) => {
             let candidate = update.version.clone();
             let current = state.updater.get_state().current_version;
@@ -692,7 +721,7 @@ async fn run_update_check(
             }
         }
         Ok(None) => state.updater.mark_up_to_date(now_iso8601()),
-        Err(err) => state.updater.mark_error("check", err.to_string()),
+        Err(err) => state.updater.mark_error("check", err),
     };
 
     emit_app_event(app, "desktop:update-state", &next_state);
@@ -735,7 +764,7 @@ async fn run_update_download(
         };
     };
 
-    match updater.check().await {
+    match check_for_update_with_timeout(&updater).await {
         Ok(Some(update)) => {
             let version = update.version.clone();
             let current = state.updater.get_state().current_version;
@@ -753,19 +782,44 @@ async fn run_update_download(
             let state_progress = Arc::clone(state);
             let app_progress = app.clone();
             let mut transferred: u64 = 0;
-            let download_res = update
-                .download(
-                    move |chunk_len, total_len| {
-                        transferred += chunk_len as u64;
-                        if let Some(total) = total_len.filter(|t| *t > 0) {
-                            let pct = (transferred as f64 / total as f64) * 100.0;
+            let mut last_whole_pct: i64 = -1;
+            let started = std::time::Instant::now();
+            let last_progress_ms = Arc::new(AtomicU64::new(0));
+            let progress_ms = Arc::clone(&last_progress_ms);
+            let download = update.download(
+                move |chunk_len, total_len| {
+                    progress_ms.store(started.elapsed().as_millis() as u64, Ordering::Relaxed);
+                    transferred += chunk_len as u64;
+                    if let Some(total) = total_len.filter(|t| *t > 0) {
+                        let pct = (transferred as f64 / total as f64) * 100.0;
+                        // One event per whole percent instead of one per network chunk.
+                        let whole = pct.floor() as i64;
+                        if whole != last_whole_pct {
+                            last_whole_pct = whole;
                             let next = state_progress.updater.update_download_progress(pct);
                             emit_app_event(&app_progress, "desktop:update-state", &next);
                         }
-                    },
-                    || {},
-                )
-                .await;
+                    }
+                },
+                || {},
+            );
+            let stall_ms = UPDATE_DOWNLOAD_STALL_TIMEOUT.as_millis() as u64;
+            let stalled = async {
+                loop {
+                    tokio::time::sleep(UPDATE_DOWNLOAD_STALL_POLL).await;
+                    let now = started.elapsed().as_millis() as u64;
+                    if now.saturating_sub(last_progress_ms.load(Ordering::Relaxed)) > stall_ms {
+                        break;
+                    }
+                }
+            };
+            let download_res: Result<Vec<u8>, String> = tokio::select! {
+                res = download => res.map_err(|err| err.to_string()),
+                () = stalled => Err(format!(
+                    "Update download stalled: no data for {}s.",
+                    UPDATE_DOWNLOAD_STALL_TIMEOUT.as_secs()
+                )),
+            };
 
             match download_res {
                 Ok(bytes) => {
@@ -781,7 +835,7 @@ async fn run_update_download(
                     }
                 }
                 Err(err) => {
-                    let err_state = state.updater.mark_error("download", err.to_string());
+                    let err_state = state.updater.mark_error("download", err);
                     emit_app_event(app, "desktop:update-state", &err_state);
                     DesktopUpdateActionResult {
                         accepted: true,
@@ -831,7 +885,7 @@ async fn desktop_update_install(
     emit_window_event(&webview, "desktop:update-state", &installing);
 
     if let Ok(updater) = app.updater() {
-        if let Ok(Some(update)) = updater.check().await {
+        if let Ok(Some(update)) = check_for_update_with_timeout(&updater).await {
             let candidate = update.version.clone();
             let current = state.updater.get_state().current_version;
             if is_update_version_allowed_for_stable(&candidate)

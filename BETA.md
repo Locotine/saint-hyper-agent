@@ -180,7 +180,7 @@ identity at runtime; on packaged builds the embedded value wins over the env var
 
 Releases are built and published by the `Release Desktop` workflow (`.github/workflows/release.yml`) on GitHub. The updater reads the repository anonymously, so it must stay public.
 
-1. Push a tag `vX.Y.Z` (Stable) or `vX.Y.Z-beta.N` (Beta) to `main`. The workflow builds macOS (arm64 and x64), Windows (NSIS) and Linux (AppImage), then publishes the release with the installers, `latest*.yml` and `saint*.yml` manifests, the server tarball, and the helper scripts below. Run it by hand with `workflow_dispatch` and `publish_release: false` to build without publishing.
+1. Push a tag `vX.Y.Z` (Stable) or `vX.Y.Z-beta.N` (Beta) to `main`. The workflow builds macOS (arm64 and x64), Windows (NSIS) and Linux (AppImage and `.deb`), then publishes the release with the installers, `latest*.yml` and `saint*.yml` manifests, the server tarball, and the helper scripts below. Run it by hand with `workflow_dispatch` and `publish_release: false` to build without publishing.
 
 2. Local builds embed the same feed when `SAINT_DESKTOP_UPDATE_REPOSITORY=Locotine/saint-hyper-agent` (or `GITHUB_REPOSITORY`) is set at build time:
 
@@ -193,7 +193,7 @@ Releases are built and published by the `Release Desktop` workflow (`.github/wor
 
    Every release also carries `scripts/linux/install-saint.sh` and the one-time Beta → Stable copy scripts `scripts/copy-saint-beta-data.sh` (macOS/Linux) and `scripts/copy-saint-beta-data.ps1` (Windows). Users run `bash install-saint.sh` after downloading the Stable AppImage: it copies it to `~/Applications/saint.AppImage` (a name without a version, so updates overwrite it in place), adds the menu entry, icon and `saint://` handler, offers to install `libfuse2` and to remove an older `.deb` (including packages from older builds), and `--uninstall` removes it again. The copy scripts move `~/.saint-beta/userdata` into `~/.saint/userdata` with both apps quit, skip runtime entries the same way the in-app Stable → Beta copy does, and keep the replaced Stable data as a backup.
 
-3. Installed apps check the newest release and update in place on Windows (NSIS) and Linux (AppImage only; a `.deb` never updates). macOS installs only builds signed and notarized with a Developer ID. An unsigned Mac sees the update, fails to install it, and after two failures offers the GitHub release page for a manual download.
+3. Installed apps check the newest release and update in place on Windows (NSIS) and Linux (the AppImage is swapped in place; a `.deb` install downloads the new `.deb` and installs it through `pkexec`, which asks for the user's password). macOS installs only builds signed and notarized with a Developer ID. An unsigned Mac sees the update, fails to install it, and after two failures offers the GitHub release page for a manual download.
 
 Builds that read the retired GitLab feed (1.0.10 to 1.0.14) never see GitHub releases. Install a GitHub-fed build once by hand. Each flavor only takes its own lane (see [Update channel isolation](#update-channel-isolation)): Saint takes `vX.Y.Z` releases and Saint Beta takes `-beta.N` releases.
 

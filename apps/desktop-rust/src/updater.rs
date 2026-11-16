@@ -428,4 +428,36 @@ mod tests {
         assert!(err_state.can_retry);
         assert_eq!(err_state.install_failure_count, 1);
     }
+
+    #[test]
+    fn manual_check_result_can_start_download_and_stalled_download_can_retry() {
+        let coord = UpdaterCoordinator::new();
+        coord.set_enabled_for_test(true);
+
+        // desktop_update_check starts the download as soon as a check finds an update.
+        let (accepted_check, _) = coord.begin_check();
+        assert!(accepted_check);
+        coord.mark_available("1.3.0".to_string(), "2026-11-16T00:00:00Z".to_string());
+        let (accepted_dl, downloading) = coord.begin_download();
+        assert!(accepted_dl);
+        assert_eq!(downloading.status, "downloading");
+
+        // A stalled or timed-out download returns to "available" with a retryable error
+        // instead of staying in "downloading".
+        let stalled = coord.mark_error("download", "Update download stalled".to_string());
+        assert_eq!(stalled.status, "available");
+        assert_eq!(stalled.error_context.as_deref(), Some("download"));
+        assert!(stalled.can_retry);
+        let (retry_dl, _) = coord.begin_download();
+        assert!(retry_dl);
+
+        // A check that times out leaves the poll loop free to check again.
+        coord.mark_error("download", "again".to_string());
+        let (recheck, _) = coord.begin_check();
+        assert!(recheck);
+        let timed_out = coord.mark_error("check", "Timed out".to_string());
+        assert!(timed_out.can_retry);
+        let (recheck_again, _) = coord.begin_check();
+        assert!(recheck_again);
+    }
 }

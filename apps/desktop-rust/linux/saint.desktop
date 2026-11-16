@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name={{name}}
+Comment=Saint desktop build
+Exec={{exec}} %U
+Icon={{icon}}
+StartupWMClass=saint
+Terminal=false
+Type=Application
+Categories=Development;
+MimeType=x-scheme-handler/saint;

@@ -228,6 +228,47 @@ jobs:
           bunx @tauri-apps/cli@^2.4.0 build --target "${{ matrix.rust_target }}"
           --config '{"bundle":{"resources":{"resources/cua-driver/":"resources/cua-driver/","resources/remote-install/":"remote-install/","../web/dist/":"client/"}}}'
 
+      # The .deb updates itself through the `linux-x86_64-deb` entry in latest.json,
+      # which needs a minisign signature next to it. Sign it here if the bundler did
+      # not, then check the package metadata a Debian/Ubuntu install depends on.
+      - name: Sign and check Debian package
+        if: matrix.platform == 'linux'
+        working-directory: apps/desktop-rust
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mapfile -t debs < <(find "target/${{ matrix.rust_target }}/release/bundle/deb" -maxdepth 1 -name '*.deb')
+          if [ "${#debs[@]}" -ne 1 ]; then
+            echo "Expected one .deb, found ${#debs[@]}" >&2
+            exit 1
+          fi
+          deb="${debs[0]}"
+          if [ ! -s "$deb.sig" ]; then
+            echo "Bundler did not sign $deb; signing it."
+            bunx @tauri-apps/cli@^2.4.0 signer sign "$deb"
+          fi
+          test -s "$deb.sig"
+          dpkg-deb --info "$deb"
+          depends="$(dpkg-deb --field "$deb" Depends)"
+          case "$depends" in
+            *libwebkit2gtk-4.1-0*) ;;
+            *) echo "Depends is missing libwebkit2gtk-4.1-0: $depends" >&2; exit 1 ;;
+          esac
+          root="$(mktemp -d)"
+          dpkg-deb -x "$deb" "$root"
+          test -x "$root/usr/bin/saint-desktop"
+          test -x "$root/usr/bin/saint-server"
+          # backend.rs and cua_host.rs resolve resources from /usr/lib/Saint.
+          test -f "$root/usr/lib/Saint/client/index.html"
+          desktop="$(find "$root/usr/share/applications" -name '*.desktop' | head -n1)"
+          cat "$desktop"
+          grep -q '^StartupWMClass=saint$' "$desktop"
+          grep -q '^MimeType=x-scheme-handler/saint;$' "$desktop"
+          find "$root/usr" -maxdepth 3 | sort
+
       - name: Stage platform release assets
         shell: bash
         run: |
