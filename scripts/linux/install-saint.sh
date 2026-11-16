@@ -39,9 +39,13 @@ fi
 
 source_image="${1:-}"
 if [[ -z "$source_image" ]]; then
-  # Saint-<version>-x86_64.AppImage; Saint-Beta-* is a different app.
-  source_image="$(ls -t "$HOME"/Downloads/Saint-[0-9]*.AppImage 2>/dev/null | head -n 1 || true)"
-  [[ -n "$source_image" ]] || fail "No Saint-<version>-x86_64.AppImage in ~/Downloads. Pass its path."
+  # Saint-Hyper-Agent_<version>_amd64.AppImage (Tauri), Saint_<version>_amd64.AppImage
+  # (Tauri before the rename) or Saint-<version>-x86_64.AppImage (Electron);
+  # Saint-Beta-* is a different app.
+  source_image="$(ls -t "$HOME"/Downloads/Saint-Hyper-Agent_[0-9]*.AppImage \
+    "$HOME"/Downloads/Saint_[0-9]*.AppImage "$HOME"/Downloads/Saint-[0-9]*.AppImage 2>/dev/null \
+    | head -n 1 || true)"
+  [[ -n "$source_image" ]] || fail "No Saint-Hyper-Agent_<version>_amd64.AppImage in ~/Downloads. Pass its path."
 fi
 [[ -f "$source_image" ]] || fail "$source_image does not exist."
 

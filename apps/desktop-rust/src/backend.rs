@@ -270,7 +270,9 @@ impl BackendSupervisor {
                     exe_dir.join("resources").join("client"),
                     exe_dir.join("..").join("Resources").join("client"),
                     exe_dir.join("..").join("Resources").join("resources").join("client"),
-                    // Linux bundles keep resources in /usr/lib/<product>.
+                    // Linux bundles keep resources in /usr/lib/<product>; "Saint"
+                    // is the product name of builds before the rename.
+                    exe_dir.join("..").join("lib").join("Saint Hyper Agent").join("client"),
                     exe_dir.join("..").join("lib").join("Saint").join("client"),
                 ];
                 if cfg!(debug_assertions) {

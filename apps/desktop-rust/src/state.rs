@@ -17,7 +17,7 @@ use crate::remote_ssh::RemoteSshManager;
 use crate::updater::UpdaterCoordinator;
 use crate::window_state::DesktopMenuAccelerators;
 
-pub const APP_DISPLAY_NAME: &str = "Saint";
+pub const APP_DISPLAY_NAME: &str = "Saint Hyper Agent";
 pub const APP_BUNDLE_ID: &str = "com.locotine.saint";
 pub const DEFAULT_HOME_DIR_NAME: &str = ".saint";
 

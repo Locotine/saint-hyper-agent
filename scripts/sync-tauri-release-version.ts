@@ -106,7 +106,7 @@ export function generateTauriLatestManifest(options: {
     return { signature, url: `${downloadBaseUrl}/${encodeURIComponent(fileName)}` };
   };
 
-  // Tauri names both macOS archives `Saint.app.tar.gz`; the release workflow
+  // Tauri names both macOS archives `<productName>.app.tar.gz`; the release workflow
   // renames them with the matrix arch (`arm64` / `x64`) before upload.
   const platforms: Record<string, TauriUpdaterPlatformEntry> = {
     "windows-x86_64": signedBundle("windows-x86_64", (f) => f.endsWith("-setup.exe")),

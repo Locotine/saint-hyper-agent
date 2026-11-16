@@ -86,6 +86,7 @@ impl CuaDriverHost {
             let candidates = [
                 dir.clone(),
                 dir.join("../Resources"),
+                dir.join("../lib/Saint Hyper Agent"),
                 dir.join("../lib/Saint"),
                 dir.join("../lib/saint"),
             ];

@@ -127,17 +127,19 @@ Configure the shell to match the way you work with light and dark themes, typogr
 
 The current release is **1.2.2**. Download it from [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
 
-| Platform              | Artifact                         | Install                                                                         |
-| --------------------- | -------------------------------- | ------------------------------------------------------------------------------- |
-| Linux x86_64          | `Saint_<version>_amd64.AppImage` | Make it executable and run it.                                                  |
-| Ubuntu/Debian x86_64  | `Saint_<version>_amd64.deb`      | `sudo apt install ./Saint_<version>_amd64.deb`. Needs Ubuntu 24.04+/Debian 13+. |
-| Windows x64           | `Saint_<version>_x64-setup.exe`  | Run the NSIS installer. Unsigned builds show a SmartScreen warning.             |
-| macOS (Apple Silicon) | `Saint_<version>_aarch64.dmg`    | Open the disk image and drag Saint to Applications. Requires macOS 13 or later. |
-| macOS (Intel)         | `Saint_<version>_x64.dmg`        | Same as Apple Silicon.                                                          |
+| Platform              | Artifact                                     | Install                                                                                     |
+| --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Linux x86_64          | `Saint-Hyper-Agent_<version>_amd64.AppImage` | Make it executable and run it.                                                              |
+| Ubuntu/Debian x86_64  | `Saint-Hyper-Agent_<version>_amd64.deb`      | `sudo apt install ./Saint-Hyper-Agent_<version>_amd64.deb`. Needs Ubuntu 24.04+/Debian 13+. |
+| Windows x64           | `Saint-Hyper-Agent_<version>_x64-setup.exe`  | Run the NSIS installer. Unsigned builds show a SmartScreen warning.                         |
+| macOS (Apple Silicon) | `Saint-Hyper-Agent_<version>_aarch64.dmg`    | Open the disk image and drag Saint Hyper Agent to Applications. Requires macOS 13 or later. |
+| macOS (Intel)         | `Saint-Hyper-Agent_<version>_x64.dmg`        | Same as Apple Silicon.                                                                      |
+
+The Debian package is named `saint-hyper-agent`. Builds up to 1.2.9 were packaged as `saint`, which clashes with Debian's unrelated `saint` package (2.5.0), so system updates replaced the app; the new package replaces and removes the old `saint` 1.x package on install.
 
 The desktop app is built with Tauri (`apps/desktop-rust`). The Electron app is retired from 1.2.1 and its source has been removed from this repository, and Electron installs up to 1.1.17 do not update to the Tauri app on their own. Quit the Electron app, then install the Tauri build from GitHub Releases. Threads, projects and server settings in `~/.saint` carry over; UI state kept in the Electron window (pinned items, open tabs, composer drafts) does not.
 
-macOS builds are not notarized yet. If macOS refuses to open Saint, choose **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/Saint.app` once.
+macOS builds are not notarized yet. If macOS refuses to open Saint Hyper Agent, choose **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine "/Applications/Saint Hyper Agent.app"` once (`/Applications/Saint.app` for builds before the rename).
 
 Saint Beta is retired. To move Beta data into Saint once, quit both apps and run `scripts/copy-saint-beta-data.sh` (macOS/Linux) or `scripts/copy-saint-beta-data.ps1` (Windows) from this repository. The Stable data it replaces is kept as a backup. See [CHANGELOG](./CHANGELOG.md) for release notes.
 

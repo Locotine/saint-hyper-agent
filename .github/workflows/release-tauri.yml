@@ -261,8 +261,11 @@ jobs:
           dpkg-deb -x "$deb" "$root"
           test -x "$root/usr/bin/saint-desktop"
           test -x "$root/usr/bin/saint-server"
-          # backend.rs and cua_host.rs resolve resources from /usr/lib/Saint.
-          test -f "$root/usr/lib/Saint/client/index.html"
+          test "$(dpkg-deb --field "$deb" Package)" = saint-hyper-agent
+          # backend.rs and cua_host.rs resolve resources from /usr/lib/<productName>.
+          test -f "$root/usr/lib/Saint Hyper Agent/client/index.html"
+          # Desktop environments only look up icon sizes the hicolor theme lists.
+          test -f "$root/usr/share/icons/hicolor/256x256/apps/saint-desktop.png"
           desktop="$(find "$root/usr/share/applications" -name '*.desktop' | head -n1)"
           cat "$desktop"
           grep -q '^StartupWMClass=saint$' "$desktop"
@@ -286,7 +289,14 @@ jobs:
               -name "*.sig" \
             \) -exec cp -v {} release-tauri-assets/ \;
           fi
-          # Tauri names both macOS updater archives `Saint.app.tar.gz`; add the
+          # Tauri names artifacts after productName ("Saint Hyper Agent"). GitHub turns
+          # spaces in asset names into dots, which would break the URLs in latest.json
+          # and the electron-updater feeds, so use hyphens before upload.
+          for f in release-tauri-assets/*\ *; do
+            [ -e "$f" ] || continue
+            mv -v "$f" "release-tauri-assets/$(basename "$f" | tr ' ' '-')"
+          done
+          # Tauri names both macOS updater archives `<productName>.app.tar.gz`; add the
           # arch so the merged release keeps both and latest.json can tell them apart.
           if [ "${{ matrix.platform }}" = "mac" ]; then
             for f in release-tauri-assets/*.app.tar.gz release-tauri-assets/*.app.tar.gz.sig; do

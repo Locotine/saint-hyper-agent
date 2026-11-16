@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Saint",
-  "version": "1.2.9",
+  "productName": "Saint Hyper Agent",
+  "version": "1.2.10",
   "identifier": "com.locotine.saint",
   "build": {
     "beforeDevCommand": "bun run --cwd ../web dev",
@@ -22,14 +22,25 @@
     "targets": ["nsis", "app", "dmg", "appimage", "deb"],
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/saint-server"],
-    "icon": ["icons/icon.ico", "icons/icon.icns", "icons/icon.png"],
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.icns",
+      "icons/icon.png",
+      "icons/32x32.png",
+      "icons/64x64.png",
+      "icons/128x128.png",
+      "icons/256x256.png",
+      "icons/512x512.png"
+    ],
     "macOS": {
       "minimumSystemVersion": "13.0",
       "entitlements": "entitlements.mac.plist"
     },
     "linux": {
       "deb": {
-        "desktopTemplate": "linux/saint.desktop"
+        "desktopTemplate": "linux/saint.desktop",
+        "conflicts": ["saint (<< 2)"],
+        "replaces": ["saint (<< 2)"]
       }
     },
     "windows": {

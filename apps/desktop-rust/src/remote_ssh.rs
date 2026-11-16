@@ -1129,6 +1129,11 @@ impl RemoteSshManager {
                 exe_dir
                     .join("..")
                     .join("lib")
+                    .join("Saint Hyper Agent")
+                    .join("remote-install"),
+                exe_dir
+                    .join("..")
+                    .join("lib")
                     .join("Saint")
                     .join("remote-install"),
             ]);
