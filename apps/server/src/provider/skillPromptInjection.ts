@@ -6,6 +6,7 @@
 // Exports: shouldInlineSkillForProvider, buildInlineSkillInstructions
 
 import * as fs from "node:fs/promises";
+import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 
 import type { ProviderKind, ProviderSkillReference } from "@saint/contracts";
@@ -35,11 +36,58 @@ function pathSegments(path: string): Set<string> {
   );
 }
 
-export function shouldInlineSkillForProvider(provider: ProviderKind, skillPath: string): boolean {
+function normalizeForComparison(filePath: string): string {
+  const normalized = nodePath.normalize(filePath).replace(/[\\/]+$/, "");
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isPathWithinRoot(targetPath: string, rootPath: string): boolean {
+  const normalizedTarget = normalizeForComparison(targetPath);
+  const normalizedRoot = normalizeForComparison(rootPath);
+  if (!normalizedRoot) {
+    return false;
+  }
+  return (
+    normalizedTarget === normalizedRoot ||
+    normalizedTarget.startsWith(`${normalizedRoot}/`) ||
+    normalizedTarget.startsWith(`${normalizedRoot}\\`)
+  );
+}
+
+export interface ShouldInlineSkillOptions {
+  readonly workspaceCwd?: string | undefined;
+  readonly homeDir?: string | undefined;
+}
+
+export function shouldInlineSkillForProvider(
+  provider: ProviderKind,
+  skillPath: string,
+  options?: ShouldInlineSkillOptions,
+): boolean {
   const segments = pathSegments(skillPath);
   switch (provider) {
-    case "antigravity":
+    case "antigravity": {
+      if (!(segments.has(".agents") || segments.has("_agents"))) {
+        return true;
+      }
+      // `agy` loads workspace `<workspace>/.agents` and `<workspace>/_agents`
+      // natively, but does not load home `~/.agents/skills`.
+      const homeDir = options?.homeDir ?? nodeOs.homedir();
+      if (
+        isPathWithinRoot(skillPath, nodePath.join(homeDir, ".agents")) ||
+        isPathWithinRoot(skillPath, nodePath.join(homeDir, "_agents"))
+      ) {
+        return true;
+      }
+      if (options?.workspaceCwd) {
+        return !(
+          isPathWithinRoot(skillPath, nodePath.join(options.workspaceCwd, ".agents")) ||
+          isPathWithinRoot(skillPath, nodePath.join(options.workspaceCwd, "_agents"))
+        );
+      }
+      // Without a known workspace, inline so the skill is never silently dropped.
       return true;
+    }
     case "codex":
       // Codex loads .codex and .agents skills natively, plus ~/.saint/skills
       // registered via skills/extraRoots/set. Only foreign provider roots
@@ -65,7 +113,7 @@ export function shouldInlineSkillForProvider(provider: ProviderKind, skillPath: 
       // folder is portable and must be inlined.
       return CROSS_PROVIDER_SKILL_DIR_NAMES.some((dir) => segments.has(dir));
     default:
-      // Antigravity/Grok/Droid/OpenCode have no native skill support.
+      // Grok/Droid/OpenCode have no native skill support.
       return true;
   }
 }
@@ -74,9 +122,14 @@ export async function buildInlineSkillInstructions(input: {
   readonly provider: ProviderKind;
   readonly skills: ReadonlyArray<ProviderSkillReference>;
   readonly maxChars: number;
+  readonly workspaceCwd?: string | undefined;
+  readonly homeDir?: string | undefined;
 }): Promise<string> {
   const inlineSkills = input.skills.filter((skill) =>
-    shouldInlineSkillForProvider(input.provider, skill.path),
+    shouldInlineSkillForProvider(input.provider, skill.path, {
+      workspaceCwd: input.workspaceCwd,
+      homeDir: input.homeDir,
+    }),
   );
   if (inlineSkills.length === 0 || input.maxChars <= 0) {
     return "";

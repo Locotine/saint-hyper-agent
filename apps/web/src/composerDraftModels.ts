@@ -65,7 +65,14 @@ export const LegacyCodexFields = Schema.Struct({
 
 export type LegacyCodexFields = typeof LegacyCodexFields.Type;
 
-const ANTIGRAVITY_REASONING_EFFORT_SET = new Set(["low", "medium", "high", "thinking"]);
+const ANTIGRAVITY_REASONING_EFFORT_SET = new Set([
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "thinking",
+]);
 
 export interface EffectiveComposerModelState {
   selectedModel: ModelSlug;

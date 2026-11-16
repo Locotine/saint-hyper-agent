@@ -2317,6 +2317,8 @@ export const checkAntigravityProviderStatus = (
     }
     const version = versionProbe.result;
     const parsedVersion = parseGenericCliVersion(`${version.stdout}\n${version.stderr}`);
+    const supportsAutoRuntimeMode =
+      parsedVersion !== null && compareSemverVersions(parsedVersion, "1.5.4") >= 0;
     if (
       parsedVersion !== null &&
       compareSemverVersions(parsedVersion, MINIMUM_ANTIGRAVITY_CLI_VERSION) < 0
@@ -2329,6 +2331,7 @@ export const checkAntigravityProviderStatus = (
         available: false,
         authStatus: "unknown",
         version: parsedVersion,
+        supportsAutoRuntimeMode,
         checkedAt,
         message: `Antigravity CLI ${parsedVersion} is too old for Saint. Upgrade to ${MINIMUM_ANTIGRAVITY_CLI_VERSION} or newer.`,
       } satisfies ServerProviderStatus;
@@ -2351,8 +2354,30 @@ export const checkAntigravityProviderStatus = (
         available: true,
         authStatus: "authenticated",
         version: parsedVersion,
+        supportsAutoRuntimeMode,
         checkedAt,
         message: "Antigravity CLI is installed, authenticated, and returned available models.",
+      } satisfies ServerProviderStatus;
+    }
+    if (
+      Result.isSuccess(models) &&
+      Option.isSome(models.success) &&
+      /not logged into antigravity/iu.test(
+        `${models.success.value.stdout}\n${models.success.value.stderr}`,
+      )
+    ) {
+      return {
+        provider: ANTIGRAVITY_PROVIDER,
+        instanceId: ANTIGRAVITY_PROVIDER,
+        driver: ANTIGRAVITY_PROVIDER,
+        status: "error",
+        available: true,
+        authStatus: "unauthenticated",
+        version: parsedVersion,
+        supportsAutoRuntimeMode,
+        checkedAt,
+        message:
+          "Antigravity CLI is not authenticated. Run `agy` (or `agy acp --login`) and try again.",
       } satisfies ServerProviderStatus;
     }
     return {
@@ -2363,6 +2388,7 @@ export const checkAntigravityProviderStatus = (
       available: true,
       authStatus: "unknown",
       version: parsedVersion,
+      supportsAutoRuntimeMode,
       checkedAt,
       message: "Antigravity CLI is installed, but Saint could not verify login by listing models.",
     } satisfies ServerProviderStatus;

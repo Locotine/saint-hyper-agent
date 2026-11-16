@@ -58,6 +58,7 @@ export function makeFakeAcpSessionRuntime(
     setConfigOption: () => Effect.succeed({} as Acp.SetSessionConfigOptionResponse),
     setModel: () => Effect.void,
     forkSession: () => Effect.succeed({} as Acp.ForkSessionResponse),
+    closeSession: () => Effect.void,
     request: () => Effect.succeed({}),
     notify: () => Effect.void,
   } as AcpSessionRuntimeShape;

@@ -3475,12 +3475,14 @@ const make = Effect.gen(function* () {
       // text-only subagent steering channel.
       const steerProvider = (providerThread.session?.providerName ??
         providerThread.modelSelection.provider) as ProviderKind;
+      const steerWorkspaceCwd = yield* resolveProjectedThreadWorkspaceCwd(providerThread);
       const steerSkillInlineText =
         input.skills !== undefined && input.skills.length > 0
           ? yield* Effect.tryPromise(() =>
               buildInlineSkillInstructions({
                 provider: steerProvider,
                 skills: input.skills ?? [],
+                ...(steerWorkspaceCwd ? { workspaceCwd: steerWorkspaceCwd } : {}),
                 maxChars: Math.max(
                   0,
                   PROVIDER_SEND_TURN_MAX_INPUT_CHARS -
@@ -3938,6 +3940,8 @@ const make = Effect.gen(function* () {
       goal: activeThreadGoal(thread),
       text: `${composeProviderInput(selectedBootstrapContext)}${mentionContextSuffix}`,
     });
+    const providerWorkspaceCwd =
+      activeSession.cwd ?? (yield* resolveProjectedThreadWorkspaceCwd(thread));
     // Portable skills fallback: providers that cannot load the referenced skill
     // file natively get the skill instructions inlined into the prompt.
     const skillInlineText =
@@ -3946,6 +3950,7 @@ const make = Effect.gen(function* () {
             buildInlineSkillInstructions({
               provider: selectedProvider as ProviderKind,
               skills: input.skills ?? [],
+              ...(providerWorkspaceCwd ? { workspaceCwd: providerWorkspaceCwd } : {}),
               maxChars: Math.max(
                 0,
                 PROVIDER_SEND_TURN_MAX_INPUT_CHARS -
@@ -4024,8 +4029,6 @@ const make = Effect.gen(function* () {
       ...(modelForTurn !== undefined ? { modelSelection: modelForTurn } : {}),
       ...(input.interactionMode !== undefined ? { interactionMode: input.interactionMode } : {}),
     };
-    const providerWorkspaceCwd =
-      activeSession.cwd ?? (yield* resolveProjectedThreadWorkspaceCwd(thread));
     // Baseline capture may time out, but provider execution must never bypass
     // an Undo that still owns this checkout. Keep the activation wait outside
     // the baseline deadline and release it after provider admission/cleanup.

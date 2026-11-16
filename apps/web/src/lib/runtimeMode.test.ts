@@ -9,9 +9,22 @@ import {
 } from "./runtimeMode";
 
 describe("runtime mode provider support", () => {
-  it("offers AI-reviewed auto mode to Codex and Claude Code", () => {
+  it("offers AI-reviewed auto mode to Codex, Claude Code, and Antigravity", () => {
     expect(providerSupportsAutoRuntimeMode("codex")).toBe(true);
     expect(providerSupportsAutoRuntimeMode("claudeAgent")).toBe(true);
+    expect(providerSupportsAutoRuntimeMode("antigravity")).toBe(true);
+    expect(
+      providerModelSupportsAutoRuntimeMode("antigravity", undefined, {
+        provider: "antigravity",
+        driver: "antigravity",
+        instanceId: "antigravity",
+        status: "ready",
+        available: true,
+        authStatus: "authenticated",
+        supportsAutoRuntimeMode: true,
+        checkedAt: new Date(0).toISOString(),
+      }),
+    ).toBe(true);
   });
 
   it("falls back to supervised mode for providers without auto review", () => {
@@ -82,11 +95,12 @@ describe("runtime mode provider support", () => {
 });
 
 describe("runtimeModePresentation", () => {
-  it("describes each mode with the provider's own mechanism for Claude and Codex", () => {
+  it("describes each mode with the provider's own mechanism for Claude, Codex, and Antigravity", () => {
     expect(runtimeModePresentation("auto", "claudeAgent").description).toContain("classifier");
     expect(runtimeModePresentation("approval-required", "codex").description).toContain(
       "Read-only sandbox",
     );
+    expect(runtimeModePresentation("auto", "antigravity").description).toContain("sandbox");
     expect(runtimeModePresentation("auto", "codex").label).toBe(
       RUNTIME_MODE_PRESENTATION.auto.label,
     );

@@ -3199,6 +3199,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
       Effect.gen(function* () {
         const status = yield* checkAntigravityProviderStatus("/custom/bin/agy");
         assert.strictEqual(status.status, "ready");
+        assert.strictEqual(status.supportsAutoRuntimeMode, false);
       }).pipe(
         Effect.provide(
           mockSpawnerLayer((args, command, env) => {
@@ -3210,6 +3211,62 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
           }),
         ),
       ),
+    );
+
+    it.effect(
+      "reports unauthenticated when agy models prints login prompt and gates Auto by version 1.5.4",
+      () =>
+        Effect.gen(function* () {
+          const unauthStatus = yield* checkAntigravityProviderStatus();
+          assert.strictEqual(unauthStatus.status, "error");
+          assert.strictEqual(unauthStatus.available, true);
+          assert.strictEqual(unauthStatus.authStatus, "unauthenticated");
+          assert.strictEqual(unauthStatus.supportsAutoRuntimeMode, true);
+          assert.include(unauthStatus.message, "agy acp --login");
+        }).pipe(
+          Effect.provide(
+            mockSpawnerLayer((args) => {
+              const joined = args.join(" ");
+              if (joined === "--version") {
+                return { stdout: "1.5.9\n", stderr: "", code: 0 };
+              }
+              if (joined === "models") {
+                return {
+                  stdout: "",
+                  stderr: "You are not logged into Antigravity.\n",
+                  code: 1,
+                };
+              }
+              throw new Error(`Unexpected args: ${joined}`);
+            }),
+          ),
+        ),
+    );
+
+    it.effect("gates Antigravity Auto mode support at CLI version 1.5.4", () =>
+      Effect.gen(function* () {
+        const legacyStatus = yield* checkAntigravityProviderStatus().pipe(
+          Effect.provide(
+            mockSpawnerLayer((args) =>
+              args.join(" ") === "--version"
+                ? { stdout: "1.5.3\n", stderr: "", code: 0 }
+                : { stdout: "Gemini 3.8 Flash (Medium)\n", stderr: "", code: 0 },
+            ),
+          ),
+        );
+        assert.strictEqual(legacyStatus.supportsAutoRuntimeMode, false);
+
+        const modernStatus = yield* checkAntigravityProviderStatus().pipe(
+          Effect.provide(
+            mockSpawnerLayer((args) =>
+              args.join(" ") === "--version"
+                ? { stdout: "1.5.4\n", stderr: "", code: 0 }
+                : { stdout: "Gemini 3.8 Flash (Medium)\n", stderr: "", code: 0 },
+            ),
+          ),
+        );
+        assert.strictEqual(modernStatus.supportsAutoRuntimeMode, true);
+      }),
     );
   });
 

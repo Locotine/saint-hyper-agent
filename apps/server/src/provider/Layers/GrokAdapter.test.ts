@@ -22,7 +22,6 @@ import {
   buildGrokModelDiscoveryEnv,
   buildGrokPromptMeta,
   buildGrokTurnPromptText,
-  extractGrokTerminalPlanMarkdown,
   isGrokContextCompactionToolCall,
   isRenderableGrokAssistantDelta,
   mergeGrokModelDescriptors,
@@ -34,6 +33,7 @@ import {
   scopeGrokRuntimeItemIdForTurn,
   scopeGrokToolCallStateForTurn,
 } from "./GrokAdapter.ts";
+import { extractTerminalPlanMarkdown } from "../planMode.ts";
 import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -218,14 +218,14 @@ describe("Grok native plan approval", () => {
 
   it("uses a terminal Plan response as a proposal when Grok omits the extension", () => {
     expect(
-      extractGrokTerminalPlanMarkdown({
+      extractTerminalPlanMarkdown({
         interactionMode: "plan",
         capturedPlanFingerprint: undefined,
         assistantText: "\n# Plan\n\n- Implement safely\n",
       }),
     ).toBe("# Plan\n\n- Implement safely");
     expect(
-      extractGrokTerminalPlanMarkdown({
+      extractTerminalPlanMarkdown({
         interactionMode: "plan",
         capturedPlanFingerprint: "# Native plan",
         assistantText: "# Duplicate",

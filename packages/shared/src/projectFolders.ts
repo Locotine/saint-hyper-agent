@@ -9,8 +9,12 @@ import type { ProviderKind } from "@saint/contracts";
 import { PROVIDER_DESCRIPTOR_BY_KIND } from "./providerMetadata";
 import { isWorkspaceRootWithin, normalizeWorkspaceRootForComparison } from "./threadWorkspace";
 
-/** Providers that can grant extra folders natively: Codex writable roots, Claude additional directories. */
-const MULTI_FOLDER_PROVIDERS: ReadonlySet<string> = new Set(["codex", "claudeAgent"]);
+/** Providers that can grant extra folders natively: Codex writable roots, Claude/Antigravity additional directories. */
+const MULTI_FOLDER_PROVIDERS: ReadonlySet<string> = new Set([
+  "codex",
+  "claudeAgent",
+  "antigravity",
+]);
 
 /** Worktree mode would isolate only the primary folder while the others are edited live. */
 export const PROJECT_FOLDERS_WORKTREE_ISSUE =
@@ -29,7 +33,7 @@ export function projectFoldersSessionIssue(input: {
   if (input.worktree) return PROJECT_FOLDERS_WORKTREE_ISSUE;
   if (!MULTI_FOLDER_PROVIDERS.has(input.provider)) {
     const name = PROVIDER_DESCRIPTOR_BY_KIND[input.provider as ProviderKind]?.displayName;
-    return `${name ?? input.provider} cannot access a project's additional folders. Use Codex or Claude for this multi-folder project.`;
+    return `${name ?? input.provider} cannot access a project's additional folders. Use Codex, Claude, or Antigravity for this multi-folder project.`;
   }
   return null;
 }

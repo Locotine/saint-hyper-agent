@@ -38,3 +38,15 @@ export function extractProposedPlanMarkdown(text: string | undefined): string | 
   const planMarkdown = match?.[1]?.trim();
   return planMarkdown && planMarkdown.length > 0 ? planMarkdown : undefined;
 }
+
+export function extractTerminalPlanMarkdown(input: {
+  readonly interactionMode: ProviderInteractionMode | undefined;
+  readonly capturedPlanFingerprint: string | undefined;
+  readonly assistantText: string;
+}): string | undefined {
+  if (input.interactionMode !== "plan" || input.capturedPlanFingerprint !== undefined) {
+    return undefined;
+  }
+  const planMarkdown = input.assistantText.trim();
+  return planMarkdown.length > 0 ? planMarkdown : undefined;
+}

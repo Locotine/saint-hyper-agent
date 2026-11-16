@@ -11,6 +11,7 @@ import type {
   AntigravityModelOptions,
   ProviderInteractionMode,
   ProviderModelDescriptor,
+  RuntimeMode,
   ThreadTokenUsageSnapshot,
 } from "@saint/contracts";
 import type { SaintDesktopFlavor } from "@saint/shared/desktopIdentity";
@@ -20,11 +21,12 @@ import { Effect, Layer, Scope, ServiceMap } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
 import { buildProviderChildEnvironment } from "../../providerChildEnvironment.ts";
+import { ProviderAdapterValidationError } from "../Errors.ts";
 import {
   parseAntigravityCliModelLabel,
   resolveAntigravityModelMaxTokens,
 } from "../Layers/AntigravityAdapter.ts";
-import { computeUsagePercent, nonNegativeInteger } from "../tokenUsage.ts";
+import { computeUsagePercent, nonNegativeInteger, positiveInteger } from "../tokenUsage.ts";
 import {
   availableAuthMethodIds,
   findSelectConfig,
@@ -87,7 +89,7 @@ export function resolveAntigravityCliBinaryPath(
       options.homeDir ?? env.HOME?.trim() ?? env.USERPROFILE?.trim() ?? nodeOs.homedir();
     const pathExists =
       options.pathExists ??
-      ((candidate: string) => resolveExecutable(candidate, { platform, env }) !== undefined);
+      ((candidate: string) => resolveExecutable(candidate, { platform, env }) !== null);
     const candidates = [
       nodePath.join(homeDir, ".gemini", "antigravity-cli", "bin", name),
       nodePath.join(homeDir, ".local", "bin", name),
@@ -160,7 +162,7 @@ export const resolveAntigravityAcpAuthMethodId = (
       errorMessage: "Antigravity ACP authentication is unavailable.",
       data: {
         authMethods: [...authMethodIds],
-        detail: "Run `agy auth login` or configure GEMINI_API_KEY before starting a session.",
+        detail: "Run `agy` (or `agy acp --login`) to sign in, or set GEMINI_API_KEY.",
       },
     });
   });
@@ -204,8 +206,12 @@ const THOUGHT_LEVEL_LABELS: Readonly<Record<string, string>> = {
   low: "Low",
   medium: "Medium",
   high: "High",
+  xhigh: "XHigh",
+  max: "Max",
   thinking: "Thinking",
 };
+
+const EFFORT_SORT_ORDER = ["low", "medium", "high", "xhigh", "max", "thinking"] as const;
 
 function formatThoughtLevelLabel(value: string): string {
   const normalized = value.trim().toLowerCase();
@@ -389,16 +395,63 @@ export interface AntigravityAcpModeSelectionErrorContext {
     | "session/get_config_options";
 }
 
+export function resolveAntigravityAcpModeId(input: {
+  readonly runtimeMode: RuntimeMode;
+  readonly interactionMode: ProviderInteractionMode | undefined;
+  readonly availableModeIds: ReadonlySet<string>;
+}): Effect.Effect<string | undefined, ProviderAdapterValidationError> {
+  const { runtimeMode, interactionMode, availableModeIds } = input;
+  const targetModeId =
+    interactionMode === "plan" ? "plan" : runtimeMode === "auto" ? "auto" : "default";
+
+  if (availableModeIds.size === 0) {
+    const requiredBy =
+      interactionMode === "plan"
+        ? "plan interaction mode"
+        : runtimeMode === "approval-required" || runtimeMode === "auto"
+          ? `runtime mode "${runtimeMode}"`
+          : undefined;
+    if (requiredBy) {
+      return Effect.fail(
+        new ProviderAdapterValidationError({
+          provider: "antigravity",
+          operation: "resolveAntigravityAcpModeId",
+          issue: `Requested ${requiredBy} requires the ACP session to expose modes, but none were reported.`,
+        }),
+      );
+    }
+    return Effect.succeed(undefined);
+  }
+
+  if (!availableModeIds.has(targetModeId)) {
+    if (runtimeMode === "full-access" && interactionMode !== "plan") {
+      return Effect.succeed(undefined);
+    }
+    const requiredBy =
+      interactionMode === "plan" ? "plan interaction mode" : `runtime mode "${runtimeMode}"`;
+    return Effect.fail(
+      new ProviderAdapterValidationError({
+        provider: "antigravity",
+        operation: "resolveAntigravityAcpModeId",
+        issue: `Requested ${requiredBy} does not match any available ACP mode. Available modes: ${[
+          ...availableModeIds,
+        ].join(", ")}`,
+      }),
+    );
+  }
+
+  return Effect.succeed(targetModeId);
+}
+
 export function applyAntigravityAcpInteractionMode<E>(input: {
   readonly runtime: Pick<
     AcpSessionRuntimeShape,
     "getConfigOptions" | "getModeState" | "setConfigOption" | "setMode"
   >;
+  readonly runtimeMode: RuntimeMode;
   readonly interactionMode?: ProviderInteractionMode | undefined;
   readonly mapError: (context: AntigravityAcpModeSelectionErrorContext) => E;
-}): Effect.Effect<void, E> {
-  const preferredModes =
-    input.interactionMode === "plan" ? (["plan"] as const) : (["auto", "default"] as const);
+}): Effect.Effect<void, E | ProviderAdapterValidationError> {
   return Effect.gen(function* () {
     const modeState = yield* input.runtime.getModeState.pipe(
       Effect.mapError((cause) => input.mapError({ cause, method: "session/get_mode_state" })),
@@ -415,7 +468,11 @@ export function applyAntigravityAcpInteractionMode<E>(input: {
       ...(modeState?.availableModes.map((mode) => mode.id) ?? []),
       ...(modeConfig ? flattenConfigOptions(modeConfig.options).map((opt) => opt.value) : []),
     ]);
-    const targetModeId = preferredModes.find((candidate) => availableModeIds.has(candidate));
+    const targetModeId = yield* resolveAntigravityAcpModeId({
+      runtimeMode: input.runtimeMode,
+      interactionMode: input.interactionMode,
+      availableModeIds,
+    });
     if (!targetModeId) {
       return;
     }
@@ -458,8 +515,55 @@ export function applyAntigravityAcpInteractionMode<E>(input: {
   });
 }
 
+export interface AntigravityAcpModelInfo {
+  readonly modelId?: string | undefined;
+  readonly name: string;
+}
+
+function collectAvailableModelEffortsBySlug(
+  availableModels: ReadonlyArray<AntigravityAcpModelInfo> | null | undefined,
+): Map<string, ReadonlyArray<{ readonly value: string; readonly label: string }>> {
+  const grouped = new Map<string, string[]>();
+  if (!availableModels) {
+    return new Map();
+  }
+  for (const model of availableModels) {
+    const parsed = parseAntigravityCliModelLabel(model.name);
+    const slug = (parsed?.model ?? model.name).trim().toLowerCase();
+    const effort = parsed?.effort?.trim().toLowerCase();
+    if (!slug || !effort) {
+      continue;
+    }
+    const existing = grouped.get(slug) ?? [];
+    if (!existing.includes(effort)) {
+      existing.push(effort);
+      grouped.set(slug, existing);
+    }
+  }
+  const result = new Map<
+    string,
+    ReadonlyArray<{ readonly value: string; readonly label: string }>
+  >();
+  for (const [slug, efforts] of grouped) {
+    const sorted = efforts.toSorted((left, right) => {
+      const leftIndex = EFFORT_SORT_ORDER.indexOf(left as (typeof EFFORT_SORT_ORDER)[number]);
+      const rightIndex = EFFORT_SORT_ORDER.indexOf(right as (typeof EFFORT_SORT_ORDER)[number]);
+      return (
+        (leftIndex < 0 ? EFFORT_SORT_ORDER.length : leftIndex) -
+        (rightIndex < 0 ? EFFORT_SORT_ORDER.length : rightIndex)
+      );
+    });
+    result.set(
+      slug,
+      sorted.map((value) => ({ value, label: formatThoughtLevelLabel(value) })),
+    );
+  }
+  return result;
+}
+
 export function parseAntigravityAcpConfigModels(
   configOptions: ReadonlyArray<Acp.SessionConfigOption>,
+  availableModels?: ReadonlyArray<AntigravityAcpModelInfo> | null,
 ): ReadonlyArray<ProviderModelDescriptor> {
   const modelConfig = findSelectConfig(configOptions, {
     id: ANTIGRAVITY_MODEL_CONFIG_ID,
@@ -473,15 +577,21 @@ export function parseAntigravityAcpConfigModels(
     category: "thought_level",
   });
   const advertisedThoughtEfforts = thoughtConfig
-    ? flattenConfigOptions(thoughtConfig.options).map((option) => ({
-        value: option.value.trim().toLowerCase(),
-        label: option.name.trim() || formatThoughtLevelLabel(option.value),
-      }))
+    ? flattenConfigOptions(thoughtConfig.options).map((option) => {
+        const value = option.value.trim().toLowerCase();
+        return {
+          value,
+          label:
+            THOUGHT_LEVEL_LABELS[value] ??
+            (option.name.trim() || formatThoughtLevelLabel(option.value)),
+        };
+      })
     : [
         { value: "low", label: "Low" },
         { value: "medium", label: "Medium" },
         { value: "high", label: "High" },
       ];
+  const effortsBySlug = collectAvailableModelEffortsBySlug(availableModels);
 
   const seen = new Set<string>();
   const descriptors: ProviderModelDescriptor[] = [];
@@ -494,15 +604,16 @@ export function parseAntigravityAcpConfigModels(
     seen.add(slug);
     const isGemini = /^gemini\b/iu.test(slug);
     const fixedEffort = parsed?.effort?.trim().toLowerCase();
+    const geminiEfforts = effortsBySlug.get(slug.toLowerCase()) ?? advertisedThoughtEfforts;
     const supportedReasoningEfforts = isGemini
-      ? advertisedThoughtEfforts
+      ? geminiEfforts
       : fixedEffort
         ? [{ value: fixedEffort, label: formatThoughtLevelLabel(fixedEffort) }]
         : [];
     const defaultReasoningEffort = isGemini
-      ? advertisedThoughtEfforts.some((entry) => entry.value === ANTIGRAVITY_DEFAULT_THOUGHT_LEVEL)
+      ? geminiEfforts.some((entry) => entry.value === ANTIGRAVITY_DEFAULT_THOUGHT_LEVEL)
         ? ANTIGRAVITY_DEFAULT_THOUGHT_LEVEL
-        : advertisedThoughtEfforts[0]?.value
+        : geminiEfforts[0]?.value
       : fixedEffort;
 
     descriptors.push({
@@ -523,6 +634,7 @@ export function buildAntigravityPromptUsageSnapshot(input: {
   readonly usage: Acp.Usage | null | undefined;
   readonly model: string;
   readonly previousTotalProcessedTokens: number;
+  readonly maxTokens?: number | undefined;
 }):
   | {
       readonly snapshot: ThreadTokenUsageSnapshot;
@@ -545,7 +657,8 @@ export function buildAntigravityPromptUsageSnapshot(input: {
   if (usedTokens <= 0) {
     return undefined;
   }
-  const maxTokens = resolveAntigravityModelMaxTokens(input.model);
+  const maxTokens =
+    positiveInteger(input.maxTokens) ?? resolveAntigravityModelMaxTokens(input.model);
   const usedPercent = computeUsagePercent(usedTokens, maxTokens);
   const nextTotalProcessedTokens = Math.max(
     input.previousTotalProcessedTokens + outputTokens + reasoningOutputTokens,

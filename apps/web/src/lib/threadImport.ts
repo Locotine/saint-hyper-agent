@@ -12,7 +12,7 @@ import type { ProviderInstanceOption } from "../appSettings";
 
 export type ThreadImportProviderKind = Extract<
   ProviderKind,
-  "codex" | "claudeAgent" | "cursor" | "droid" | "opencode" | "omp"
+  "codex" | "claudeAgent" | "cursor" | "antigravity" | "droid" | "opencode" | "omp"
 >;
 
 export interface ThreadImportTarget {
@@ -28,6 +28,7 @@ function supportsThreadImportProvider(
     provider === "codex" ||
     provider === "claudeAgent" ||
     provider === "cursor" ||
+    provider === "antigravity" ||
     provider === "droid" ||
     provider === "opencode" ||
     provider === "omp"

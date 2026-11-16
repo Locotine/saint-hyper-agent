@@ -52,6 +52,7 @@ import type { ProviderServiceShape } from "../provider/Services/ProviderService"
 import type { ServerSettingsShape } from "../serverSettings";
 import { parseManagedWorktreeWorkspaceRoot } from "../workspace/managedWorktree";
 import {
+  mapAntigravitySnapshotMessages,
   mapClaudeSessionMessages,
   mapCodexSnapshotMessages,
   mapFactorySnapshotMessages,
@@ -73,6 +74,8 @@ function providerResumeCursorForImport(provider: ProviderKind, externalId: strin
   switch (provider) {
     case "claudeAgent":
       return { resume: externalId };
+    case "antigravity":
+      return { sessionId: externalId };
     case "droid":
     case "omp":
       return { schemaVersion: 1, sessionId: externalId };
@@ -364,7 +367,7 @@ export function makeImportThreadHandler(options: ImportThreadHandlerOptions) {
   });
 
   const resolveImportedProviderThreadContext = Effect.fn(function* (input: {
-    readonly provider: "codex" | "droid" | "opencode" | "omp";
+    readonly provider: "codex" | "antigravity" | "droid" | "opencode" | "omp";
     readonly externalId: string;
     readonly providerInstanceId: ProviderInstanceId;
     readonly projectWorkspaceRoot: string;
@@ -709,8 +712,35 @@ export function makeImportThreadHandler(options: ImportThreadHandlerOptions) {
           }
         : thread.modelSelection;
 
+    const antigravityImportSnapshot =
+      provider === "antigravity"
+        ? yield* Effect.gen(function* () {
+            const adapter = yield* options.providerAdapterRegistry.getByProvider("antigravity");
+            if (!adapter.readExternalThread) {
+              return null;
+            }
+            return yield* adapter
+              .readExternalThread({
+                externalThreadId: externalId,
+                providerInstanceId: resolvedProvider.instance.instanceId,
+                ...(cwd ? { cwd } : {}),
+                ...(providerOptions ? { providerOptions } : {}),
+              })
+              .pipe(
+                Effect.mapError((cause) =>
+                  importMessagesError(
+                    cause instanceof Error && cause.message.length > 0
+                      ? cause.message
+                      : `Antigravity session '${externalId}' was not found on this machine.`,
+                  ),
+                ),
+              );
+          })
+        : null;
+
     const importedProviderContext =
       (provider === "codex" ||
+        provider === "antigravity" ||
         provider === "droid" ||
         provider === "opencode" ||
         provider === "omp") &&
@@ -721,7 +751,11 @@ export function makeImportThreadHandler(options: ImportThreadHandlerOptions) {
             providerInstanceId: resolvedProvider.instance.instanceId,
             projectWorkspaceRoot: project.workspaceRoot,
             ...(cwd ? { fallbackCwd: cwd } : {}),
-            ...(provider === "omp" ? { prefetchedSnapshot: ompImportSnapshot } : {}),
+            ...(provider === "omp"
+              ? { prefetchedSnapshot: ompImportSnapshot }
+              : provider === "antigravity" && antigravityImportSnapshot !== null
+                ? { prefetchedSnapshot: antigravityImportSnapshot }
+                : {}),
             ...(providerOptions ? { providerOptions } : {}),
           })
         : null;
@@ -793,6 +827,16 @@ export function makeImportThreadHandler(options: ImportThreadHandlerOptions) {
           provider,
           threadId: thread.id,
           importedAt: session.updatedAt,
+        });
+      } else if (provider === "antigravity" && antigravityImportSnapshot) {
+        yield* dispatchImportedMessages({
+          threadId: body.threadId,
+          messages: mapAntigravitySnapshotMessages({
+            threadId: body.threadId,
+            turns: antigravityImportSnapshot.turns,
+            importedAt: session.updatedAt,
+          }),
+          createdAt: session.updatedAt,
         });
       } else if (provider === "omp") {
         if (!ompImportSnapshot) {

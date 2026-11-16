@@ -343,3 +343,39 @@ export function mapOmpSnapshotMessages(input: {
     }),
   );
 }
+
+export function mapAntigravitySnapshotMessages(input: {
+  readonly importedAt: string;
+  readonly threadId: ThreadId;
+  readonly turns: ReadonlyArray<{ readonly items: ReadonlyArray<unknown> }>;
+}): ReadonlyArray<ThreadHandoffImportedMessage> {
+  let messageIndex = 0;
+  return input.turns.flatMap((turn, turnIndex) =>
+    turn.items.flatMap((item, itemIndex) => {
+      if (!item || typeof item !== "object") return [];
+      const candidate = item as {
+        readonly type?: unknown;
+        readonly role?: unknown;
+        readonly text?: unknown;
+      };
+      if (candidate.type !== "antigravityMessage") return [];
+      const role =
+        candidate.role === "user" ? "user" : candidate.role === "assistant" ? "assistant" : null;
+      const text = typeof candidate.text === "string" ? candidate.text.trim() : "";
+      if (!role || !text) return [];
+      const createdAt = new Date(Date.parse(input.importedAt) + messageIndex).toISOString();
+      messageIndex += 1;
+      return [
+        {
+          messageId: MessageId.makeUnsafe(
+            `import:${String(input.threadId)}:antigravity:${turnIndex}:${itemIndex}`,
+          ),
+          role,
+          text,
+          createdAt,
+          updatedAt: createdAt,
+        },
+      ];
+    }),
+  );
+}

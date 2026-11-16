@@ -3059,7 +3059,9 @@ export default function Sidebar() {
                 ? `Imported OpenCode session${suffix ? ` ${suffix}` : ""}`
                 : provider === "omp"
                   ? `Imported Oh My Pi session${suffix ? ` ${suffix}` : ""}`
-                  : `Imported Codex thread${suffix ? ` ${suffix}` : ""}`;
+                  : provider === "antigravity"
+                    ? `Imported Antigravity session${suffix ? ` ${suffix}` : ""}`
+                    : `Imported Codex thread${suffix ? ` ${suffix}` : ""}`;
       let createdThread = false;
 
       try {

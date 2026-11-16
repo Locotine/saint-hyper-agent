@@ -40,7 +40,8 @@ which tool policy treats as trusted.
 | Codex                         | Yes, in the per-thread config only (re-sent on every credential renewal)                     |
 | OpenCode                      | Yes, through `mcp.add` on the managed server; a connector that fails to start is skipped     |
 | Cursor, Grok, Droid, Oh My Pi | Only when the agent advertises ACP HTTP MCP support; the stdio proxy carries no MCP sessions |
-| Pi, Devin, Antigravity        | No                                                                                           |
+| Pi, Devin                     | No                                                                                           |
+| Antigravity                   | No (`agy` loads its own `mcp_config.json`)                                                   |
 
 Running sessions keep the connector set they started with. A disconnected connector answers its
 remaining calls with a JSON-RPC error.

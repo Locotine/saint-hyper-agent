@@ -51,6 +51,12 @@ export const RUNTIME_MODE_PRESENTATION: Record<
 const PROVIDER_RUNTIME_MODE_DESCRIPTIONS: Partial<
   Record<ProviderKind, Record<RuntimeMode, string>>
 > = {
+  antigravity: {
+    "approval-required": "Antigravity asks before editing files or running commands",
+    auto: "Antigravity edits workspace files and runs commands in its terminal sandbox; asks before external actions",
+    "full-access":
+      "No sandbox: Antigravity runs every action without asking, with full access to your computer",
+  },
   claudeAgent: {
     "approval-required": "Claude asks before editing files, running commands, or using the web",
     auto: "Claude Code's auto mode: a classifier approves or blocks each action and asks you when unsure",

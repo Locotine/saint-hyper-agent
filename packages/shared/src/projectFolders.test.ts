@@ -85,9 +85,10 @@ describe("buildProjectFoldersPreamble", () => {
 });
 
 describe("projectFoldersSessionIssue", () => {
-  it("allows local Codex and Claude chats", () => {
+  it("allows local Codex, Claude, and Antigravity chats", () => {
     expect(projectFoldersSessionIssue({ provider: "codex", worktree: false })).toBeNull();
     expect(projectFoldersSessionIssue({ provider: "claudeAgent", worktree: false })).toBeNull();
+    expect(projectFoldersSessionIssue({ provider: "antigravity", worktree: false })).toBeNull();
   });
 
   it("refuses worktree chats", () => {
@@ -98,7 +99,7 @@ describe("projectFoldersSessionIssue", () => {
 
   it("refuses providers that cannot be granted the extra folders", () => {
     expect(projectFoldersSessionIssue({ provider: "opencode", worktree: false })).toBe(
-      "OpenCode cannot access a project's additional folders. Use Codex or Claude for this multi-folder project.",
+      "OpenCode cannot access a project's additional folders. Use Codex, Claude, or Antigravity for this multi-folder project.",
     );
   });
 });

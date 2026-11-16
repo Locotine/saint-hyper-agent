@@ -546,6 +546,28 @@ locations (`~/.opencode/bin`, `~/.bun/bin`, npm/pnpm/yarn global bins, Homebrew,
 Volta, asdf, mise, proto, Deno, nvm/fnm). Set an explicit binary path in
 provider settings only when the install lives somewhere else entirely.
 
+### Antigravity
+
+Saint runs Antigravity over `agy acp` by default (with `SAINT_ANTIGRAVITY_TRANSPORT=print`
+retained as a fallback).
+
+- **Runtime modes**: **Supervised** maps to ACP `default` mode and routes permission requests to
+  Saint approval cards. **Auto** maps to ACP `auto` mode (`agy` `1.5.4` or newer when the account
+  supports it; otherwise rejected before sending). **Full access** runs in ACP `default` mode while
+  Saint automatically approves requests.
+- **Plan mode**: Switches ACP mode to `plan`, extracts the plan markdown from `plan.md` artifact
+  writes (falling back to the final assistant text), and renders the shared proposed-plan card with
+  the **Implement** follow-up action.
+- **Skills**: Workspace skills in `<workspace>/.agents` and `<workspace>/_agents` are loaded
+  natively by `agy`; home skills (`~/.agents/skills`) and other provider roots are inlined into the
+  prompt.
+- **Multi-folder projects**: Extra project folders are forwarded through ACP `additionalDirectories`
+  on `session/new`, `session/load`, and `session/resume` when advertised in `sessionCapabilities`.
+- **Thread import**: Imports existing `agy` CLI sessions by session ID via `session/load` replay
+  and resumes them natively via `session/resume`. Import is text-only (images and tool calls stay
+  out of scope) and starts a new user message on distinct replayed `messageId`s or assistant
+  activity.
+
 ### Claude Artifacts, `/design` and `/slides`
 
 Claude Code keeps [Artifacts](https://code.claude.com/docs/en/artifacts) off by default for Agent

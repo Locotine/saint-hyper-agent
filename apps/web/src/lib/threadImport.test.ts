@@ -26,11 +26,21 @@ describe("thread import targets", () => {
         isDefault: false,
         supported: true,
       },
+      {
+        instanceId: "antigravity",
+        provider: "antigravity",
+        driver: "antigravity",
+        label: "Antigravity",
+        enabled: true,
+        isDefault: true,
+        supported: true,
+      },
     ]);
 
     expect(candidates).toEqual([
       { provider: "codex", instanceId: "codex", label: "Codex" },
       { provider: "codex", instanceId: "codex_work", label: "Work" },
+      { provider: "antigravity", instanceId: "antigravity", label: "Antigravity" },
     ]);
   });
 

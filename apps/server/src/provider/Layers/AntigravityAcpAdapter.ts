@@ -107,11 +107,14 @@ import {
 import {
   applyAntigravityAcpInteractionMode,
   applyAntigravityAcpModelSelection,
+  type AntigravityAcpModelInfo,
   type AntigravityAcpRuntimeSettings,
+  buildAntigravityAcpProcessEnv,
   buildAntigravityPromptUsageSnapshot,
   DEFAULT_ANTIGRAVITY_ACP_MODEL,
   makeAntigravityAcpRuntime,
   parseAntigravityAcpConfigModels,
+  resolveAntigravityCliBinaryPath,
 } from "../acp/AntigravityAcpSupport.ts";
 import { forkViaAcpRuntime } from "../acp/acpFork.ts";
 import { makeSessionTeardownGate } from "../acp/SessionTeardownGate.ts";
@@ -125,13 +128,17 @@ import {
   ProviderAdapterSessionNotFoundError,
   ProviderAdapterValidationError,
 } from "../Errors.ts";
+import { extractTerminalPlanMarkdown } from "../planMode.ts";
 import { loadProviderPromptImageBlocks } from "../promptAttachments.ts";
 import { appendProviderReferencesPromptBlock } from "../promptReferenceProjection.ts";
 import {
   AntigravityAdapter,
   type AntigravityAdapterShape,
 } from "../Services/AntigravityAdapter.ts";
-import { PROVIDER_ADAPTER_RUNTIME_EVENT_BUFFER_CAPACITY } from "../Services/ProviderAdapter.ts";
+import {
+  PROVIDER_ADAPTER_RUNTIME_EVENT_BUFFER_CAPACITY,
+  type ProviderThreadSnapshot,
+} from "../Services/ProviderAdapter.ts";
 import { settleConcurrentTeardowns } from "../settleConcurrentTeardowns.ts";
 import { snapshotProviderTurns } from "../snapshotProviderTurns.ts";
 import { type EventNdjsonLogger, makeEventNdjsonLogger } from "./EventNdjsonLogger.ts";
@@ -164,6 +171,27 @@ const ANTIGRAVITY_STARTUP_REPLAY_MAX_WAIT_MS = 3_000;
 const ANTIGRAVITY_MODEL_DISCOVERY_CACHE_MS = 5 * 60_000;
 const ANTIGRAVITY_MODEL_DISCOVERY_TIMEOUT_MS = 30_000;
 const ANTIGRAVITY_DISCOVERY_CACHE_MAX_ENTRIES = 16;
+const ANTIGRAVITY_COMMAND_DISCOVERY_WAIT_MS = 500;
+const ANTIGRAVITY_COMMAND_DISCOVERY_POLL_MS = 25;
+
+function readDiscoveryAvailableCommands(
+  runtime: Pick<AcpSessionRuntimeShape, "getAvailableCommands">,
+): Effect.Effect<ReadonlyArray<Acp.AvailableCommand>> {
+  return Effect.gen(function* () {
+    const deadline = Date.now() + ANTIGRAVITY_COMMAND_DISCOVERY_WAIT_MS;
+    while (true) {
+      const commands = yield* runtime.getAvailableCommands.pipe(
+        Effect.timeoutOption(2_000),
+        Effect.map(Option.getOrElse((): ReadonlyArray<Acp.AvailableCommand> => [])),
+        Effect.catch(() => Effect.succeed([] as ReadonlyArray<Acp.AvailableCommand>)),
+      );
+      if (commands.length > 0 || Date.now() >= deadline) {
+        return commands;
+      }
+      yield* Effect.sleep(ANTIGRAVITY_COMMAND_DISCOVERY_POLL_MS);
+    }
+  });
+}
 
 const ANTIGRAVITY_PLAN_MODE_PROMPT_PREFIX = [
   "Saint Antigravity plan mode is active.",
@@ -209,6 +237,42 @@ function isAntigravityAcpDebugEnabled(): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Resolves the configured binary path and discovery cache key shared by
+ * `listModels` and `listCommands` so cached slash commands stay scoped to the
+ * same resolved binary path and environment.
+ */
+export function resolveAntigravityDiscoveryCacheKey(input: {
+  readonly binaryPath?: string | undefined;
+  readonly environment?: Readonly<Record<string, string>> | undefined;
+}): {
+  readonly configuredBinaryPath: string | undefined;
+  readonly cacheKey: string;
+} {
+  const configuredBinaryPath = input.binaryPath?.trim() || undefined;
+  const discoveryEnv = buildAntigravityAcpProcessEnv(
+    configuredBinaryPath !== undefined || input.environment !== undefined
+      ? {
+          ...(configuredBinaryPath !== undefined ? { binaryPath: configuredBinaryPath } : {}),
+          ...(input.environment !== undefined ? { environment: input.environment } : {}),
+        }
+      : undefined,
+  );
+  const resolvedBinaryPath = resolveAntigravityCliBinaryPath(configuredBinaryPath, {
+    env: discoveryEnv,
+  });
+  const environmentEntries =
+    input.environment !== undefined
+      ? Object.entries(input.environment).toSorted(([left], [right]) => left.localeCompare(right))
+      : [];
+  const normalizedEnvironment =
+    environmentEntries.length > 0 ? Object.fromEntries(environmentEntries) : null;
+  return {
+    configuredBinaryPath,
+    cacheKey: [resolvedBinaryPath, JSON.stringify(normalizedEnvironment)].join("\u0000"),
+  };
 }
 
 export function resolveAntigravitySessionCwd(
@@ -284,6 +348,41 @@ export function isAntigravityBackgroundCommandToolCall(toolCall: AcpToolCallStat
   return false;
 }
 
+export function extractAntigravityPlanArtifactMarkdown(
+  toolCall: AcpToolCallState,
+): string | undefined {
+  if (toolCall.kind !== "edit") {
+    return undefined;
+  }
+  const rawInput = isRecord(toolCall.data.rawInput) ? toolCall.data.rawInput : undefined;
+  const locations = Array.isArray(toolCall.data.locations) ? toolCall.data.locations : [];
+  const locationPath = locations.find(
+    (entry): entry is { readonly path: string } =>
+      isRecord(entry) && typeof entry.path === "string",
+  )?.path;
+  const inputPath = typeof rawInput?.Path === "string" ? rawInput.Path : undefined;
+  const targetPath = (inputPath ?? locationPath ?? toolCall.detail ?? "").trim();
+  if (!/(?:^|[\\/_-])plan\.md$/iu.test(targetPath)) {
+    return undefined;
+  }
+  const rawContent = typeof rawInput?.Content === "string" ? rawInput.Content.trim() : "";
+  if (rawContent.length > 0) {
+    return rawContent;
+  }
+  const contentEntries = Array.isArray(toolCall.data.content) ? toolCall.data.content : [];
+  for (const entry of contentEntries) {
+    if (
+      isRecord(entry) &&
+      entry.type === "diff" &&
+      typeof entry.newText === "string" &&
+      entry.newText.trim().length > 0
+    ) {
+      return entry.newText.trim();
+    }
+  }
+  return undefined;
+}
+
 export function shouldIgnoreAntigravityInterrupt(
   requestedTurnId: TurnId | undefined,
   activeTurnId: TurnId | undefined,
@@ -322,6 +421,9 @@ interface AntigravityAcpSessionContext {
   readonly turns: Array<{ id: TurnId; items: Array<unknown> }>;
   lastPlanFingerprint: string | undefined;
   activeInteractionMode: ProviderInteractionMode | undefined;
+  activePlanResponseText: string;
+  activePlanArtifactMarkdown: string | undefined;
+  lastContextWindowSize: number | undefined;
   activeTurnId: TurnId | undefined;
   activeTurnHadAssistantContent: boolean;
   readonly activeAssistantItemsWithContent: Set<string>;
@@ -373,6 +475,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
       string,
       {
         readonly models: ReadonlyArray<ProviderModelDescriptor>;
+        readonly commands: ReadonlyArray<Acp.AvailableCommand>;
         readonly expiresAt: number;
       }
     >();
@@ -609,14 +712,6 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
               issue: `Expected provider '${PROVIDER}' but received '${input.provider}'.`,
             });
           }
-          if (input.runtimeMode !== "full-access") {
-            return yield* new ProviderAdapterValidationError({
-              provider: PROVIDER,
-              operation: "session/start",
-              issue:
-                "Antigravity CLI currently requires Full access mode. Select Full access to use this provider.",
-            });
-          }
           yield* sessionTeardownGate.awaitPending(input.threadId);
           const cwd = resolveAntigravitySessionCwd(input.cwd, serverConfig);
           if (cwd === undefined) {
@@ -683,6 +778,9 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
             antigravitySettings: effectiveSettings,
             childProcessSpawner,
             cwd,
+            ...(input.additionalDirectories && input.additionalDirectories.length > 0
+              ? { additionalDirectories: input.additionalDirectories }
+              : {}),
             ...(resumeSessionId ? { resumeSessionId } : {}),
             clientCapabilities: { elicitation: { form: {} } },
             clientInfo: { name: "Saint", version: "0.0.0" },
@@ -882,6 +980,9 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
             turns: [],
             lastPlanFingerprint: undefined,
             activeInteractionMode: undefined,
+            activePlanResponseText: "",
+            activePlanArtifactMarkdown: undefined,
+            lastContextWindowSize: undefined,
             activeTurnId: undefined,
             activeTurnHadAssistantContent: false,
             activeAssistantItemsWithContent: new Set(),
@@ -1005,6 +1106,12 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                     ctx.turnToolCallIds.set(event.toolCall.toolCallId, activeTurnId);
                     yield* logNative(ctx.threadId, "session/update", event.rawPayload);
                     yield* emitNestedTaskLifecycle(ctx, event.toolCall, activeTurnId);
+                    if (ctx.activeInteractionMode === "plan") {
+                      const planArtifact = extractAntigravityPlanArtifactMarkdown(event.toolCall);
+                      if (planArtifact !== undefined) {
+                        ctx.activePlanArtifactMarkdown = planArtifact;
+                      }
+                    }
                     const failedToolDetail = readAcpFailedToolDetail(event.toolCall);
                     if (failedToolDetail !== undefined) {
                       ctx.activeTurnFailedToolDetail = failedToolDetail;
@@ -1063,6 +1170,12 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                     const scopedItemId = event.itemId
                       ? scopeAntigravityRuntimeItemIdForTurn(activeTurnId, event.itemId)
                       : undefined;
+                    if (
+                      event.streamKind !== "reasoning_text" &&
+                      ctx.activeInteractionMode === "plan"
+                    ) {
+                      ctx.activePlanResponseText += event.text;
+                    }
                     if (isRenderableAntigravityAssistantDelta(event)) {
                       ctx.activeTurnHadAssistantContent = true;
                       if (scopedItemId !== undefined) {
@@ -1085,10 +1198,10 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                     return;
                   }
                   case "UsageUpdated": {
-                    const activeTurnId = ctx.activeTurnId;
-                    if (activeTurnId === undefined) {
-                      return;
+                    if (event.usage.maxTokens !== undefined) {
+                      ctx.lastContextWindowSize = event.usage.maxTokens;
                     }
+                    const activeTurnId = ctx.activeTurnId;
                     yield* logNative(ctx.threadId, "session/update", event.rawPayload);
                     recordAcpSessionCost(ctx, event.cost);
                     yield* offerRuntimeEvent(
@@ -1292,6 +1405,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
             });
             yield* applyAntigravityAcpInteractionMode({
               runtime: ctx.acp,
+              runtimeMode: ctx.session.runtimeMode,
               interactionMode,
               mapError: ({ cause, method }) =>
                 mapAcpToAdapterError(PROVIDER, input.threadId, method, cause),
@@ -1372,6 +1486,8 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         ctx.nestedTaskLifecycleByToolCallId.clear();
         ctx.turnHasNestedWork = false;
         ctx.activeInteractionMode = interactionMode;
+        ctx.activePlanResponseText = "";
+        ctx.activePlanArtifactMarkdown = undefined;
         ctx.lastPlanFingerprint = undefined;
         ctx.lastTurnActivityAt = Date.now();
         const { lastError: _lastError, ...sessionWithoutLastError } = ctx.session;
@@ -1456,6 +1572,34 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                   return;
                 }
                 yield* cancelAgentGatewayTurn(ctx.gatewaySessionLease, turnId);
+                const terminalPlanMarkdown =
+                  ctx.activeInteractionMode === "plan" && ctx.lastPlanFingerprint === undefined
+                    ? (ctx.activePlanArtifactMarkdown ??
+                      extractTerminalPlanMarkdown({
+                        interactionMode: ctx.activeInteractionMode,
+                        capturedPlanFingerprint: ctx.lastPlanFingerprint,
+                        assistantText: ctx.activePlanResponseText,
+                      }))
+                    : undefined;
+                if (terminalPlanMarkdown !== undefined) {
+                  ctx.lastPlanFingerprint = terminalPlanMarkdown;
+                  yield* offerRuntimeEvent(ctx.lifecycleGeneration, {
+                    type: "turn.proposed.completed",
+                    ...(yield* makeEventStamp()),
+                    provider: PROVIDER,
+                    threadId: input.threadId,
+                    turnId,
+                    payload: { planMarkdown: terminalPlanMarkdown },
+                    raw: {
+                      source: "acp.jsonrpc",
+                      method:
+                        ctx.activePlanArtifactMarkdown !== undefined
+                          ? "saint.antigravity.plan-artifact"
+                          : "saint.antigravity.terminal-plan-response",
+                      payload: result,
+                    },
+                  });
+                }
                 if (!clearAcpActiveTurn(ctx, turnId)) {
                   return;
                 }
@@ -1468,6 +1612,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                   usage: result.usage,
                   model,
                   previousTotalProcessedTokens: ctx.totalProcessedTokens,
+                  maxTokens: ctx.lastContextWindowSize,
                 });
                 if (usageSnapshot) {
                   ctx.totalProcessedTokens = usageSnapshot.nextTotalProcessedTokens;
@@ -1664,6 +1809,192 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         };
       });
 
+    const readExternalThread: NonNullable<AntigravityAdapterShape["readExternalThread"]> = (
+      input,
+    ) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fallbackCwd =
+            resolveAntigravitySessionCwd(input.cwd, serverConfig) ?? process.cwd();
+          const providerAntigravityOptions = input.providerOptions?.antigravity;
+          const runtime = yield* runtimeFactory({
+            antigravitySettings: {
+              ...(providerAntigravityOptions?.binaryPath !== undefined
+                ? { binaryPath: providerAntigravityOptions.binaryPath }
+                : {}),
+              ...(providerAntigravityOptions?.environment !== undefined
+                ? { environment: providerAntigravityOptions.environment }
+                : {}),
+            },
+            childProcessSpawner,
+            cwd: fallbackCwd,
+            resumeSessionId: input.externalThreadId,
+            sessionSetupMode: "load-only",
+            clientInfo: { name: "Saint Thread Import", version: "0.0.0" },
+          });
+
+          const replayedTurns: Array<{
+            id: TurnId;
+            items: Array<{ type: "antigravityMessage"; role: "user" | "assistant"; text: string }>;
+          }> = [];
+          let currentUserText = "";
+          let currentUserMessageId: string | undefined;
+          let currentAssistantText = "";
+          let currentAssistantMessageId: string | undefined;
+          let sawAssistantActivity = false;
+          const flushTurn = () => {
+            const items: Array<{
+              type: "antigravityMessage";
+              role: "user" | "assistant";
+              text: string;
+            }> = [];
+            if (currentUserText.trim().length > 0) {
+              items.push({ type: "antigravityMessage", role: "user", text: currentUserText });
+            }
+            if (currentAssistantText.trim().length > 0) {
+              items.push({
+                type: "antigravityMessage",
+                role: "assistant",
+                text: currentAssistantText,
+              });
+            }
+            if (items.length > 0) {
+              replayedTurns.push({
+                id: TurnId.makeUnsafe(
+                  `antigravity:${input.externalThreadId}:${replayedTurns.length}`,
+                ),
+                items,
+              });
+            }
+            currentUserText = "";
+            currentUserMessageId = undefined;
+            currentAssistantText = "";
+            currentAssistantMessageId = undefined;
+            sawAssistantActivity = false;
+          };
+
+          yield* runtime.handleSessionUpdate((notification) =>
+            Effect.sync(() => {
+              if (notification.sessionId !== input.externalThreadId) {
+                return;
+              }
+              const update = notification.update;
+              if (update.sessionUpdate === "user_message_chunk") {
+                const messageId =
+                  typeof update.messageId === "string" && update.messageId.trim().length > 0
+                    ? update.messageId.trim()
+                    : undefined;
+                if (
+                  sawAssistantActivity ||
+                  (currentUserText.length > 0 &&
+                    (messageId !== undefined || currentUserMessageId !== undefined) &&
+                    messageId !== currentUserMessageId)
+                ) {
+                  flushTurn();
+                }
+                currentUserMessageId = messageId;
+                if (update.content.type === "text") {
+                  currentUserText += update.content.text;
+                }
+                return;
+              }
+              if (update.sessionUpdate === "agent_message_chunk") {
+                sawAssistantActivity = true;
+                const messageId =
+                  typeof update.messageId === "string" && update.messageId.trim().length > 0
+                    ? update.messageId.trim()
+                    : undefined;
+                if (
+                  currentAssistantText.length > 0 &&
+                  (messageId !== undefined || currentAssistantMessageId !== undefined) &&
+                  messageId !== currentAssistantMessageId
+                ) {
+                  flushTurn();
+                }
+                currentAssistantMessageId = messageId;
+                if (update.content.type === "text") {
+                  currentAssistantText += update.content.text;
+                }
+                return;
+              }
+              if (
+                update.sessionUpdate === "agent_thought_chunk" ||
+                update.sessionUpdate === "tool_call" ||
+                update.sessionUpdate === "tool_call_update" ||
+                update.sessionUpdate === "plan"
+              ) {
+                sawAssistantActivity = true;
+              }
+            }),
+          );
+
+          const started = yield* runtime
+            .start()
+            .pipe(Effect.timeoutOption(ANTIGRAVITY_ACP_REQUEST_TIMEOUT_MS));
+          const startedResult = yield* Option.match(started, {
+            onNone: () => Effect.fail(antigravityAcpTimeoutError("session/load")),
+            onSome: Effect.succeed,
+          });
+
+          return yield* Effect.gen(function* () {
+            yield* runtime.awaitLoadReplayReady.pipe(
+              Effect.timeoutOption(ANTIGRAVITY_STARTUP_REPLAY_MAX_WAIT_MS),
+            );
+            flushTurn();
+
+            let resolvedCwd = input.cwd?.trim() || undefined;
+            if (
+              !resolvedCwd &&
+              startedResult.initializeResult.agentCapabilities?.sessionCapabilities?.list != null
+            ) {
+              const listResult = yield* runtime.request("session/list", {}).pipe(
+                Effect.timeoutOption(5_000),
+                Effect.map(Option.getOrUndefined),
+                Effect.catch(() => Effect.succeed(undefined)),
+              );
+              if (isRecord(listResult) && Array.isArray(listResult.sessions)) {
+                const match = listResult.sessions.find(
+                  (entry) =>
+                    isRecord(entry) &&
+                    entry.sessionId === input.externalThreadId &&
+                    typeof entry.cwd === "string" &&
+                    entry.cwd.trim().length > 0,
+                );
+                if (isRecord(match) && typeof match.cwd === "string") {
+                  resolvedCwd = match.cwd.trim();
+                }
+              }
+            }
+
+            return {
+              threadId: ThreadId.makeUnsafe(input.externalThreadId),
+              ...(resolvedCwd ? { cwd: resolvedCwd } : {}),
+              turns: replayedTurns,
+            } satisfies ProviderThreadSnapshot;
+          }).pipe(
+            Effect.ensuring(
+              startedResult.initializeResult.agentCapabilities?.sessionCapabilities?.close != null
+                ? runtime.closeSession().pipe(Effect.ignore)
+                : Effect.void,
+            ),
+          );
+        }),
+      ).pipe(
+        Effect.mapError((cause) =>
+          cause instanceof ProviderAdapterRequestError
+            ? cause
+            : new ProviderAdapterRequestError({
+                provider: PROVIDER,
+                method: "thread/read",
+                detail:
+                  cause instanceof Error
+                    ? cause.message
+                    : `Failed to load Antigravity session '${input.externalThreadId}'.`,
+                cause,
+              }),
+        ),
+      );
+
     const rollbackThread: AntigravityAdapterShape["rollbackThread"] = (threadId, numTurns) =>
       Effect.gen(function* () {
         yield* requireSession(threadId);
@@ -1805,17 +2136,43 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         supportsPluginDiscovery: false,
         supportsRuntimeModelList: true,
         supportsThreadCompaction: false,
-        supportsThreadImport: false,
+        supportsThreadImport: true,
       } satisfies ProviderComposerCapabilities);
+
+    const mapAcpCommands = (commands: ReadonlyArray<Acp.AvailableCommand>) =>
+      commands.map((command) => ({
+        name: command.name,
+        ...(command.description ? { description: command.description } : {}),
+        ...(command.input?.hint ? { argumentHint: command.input.hint } : {}),
+      }));
 
     const listCommands: NonNullable<AntigravityAdapterShape["listCommands"]> = (input) =>
       Effect.gen(function* () {
         const ctx = input.threadId ? sessions.get(ThreadId.makeUnsafe(input.threadId)) : undefined;
         if (!ctx || ctx.stopped) {
+          const { cacheKey } = resolveAntigravityDiscoveryCacheKey(input);
+          const readCached = () => {
+            const cached = modelDiscoveryCache.get(cacheKey);
+            return cached && cached.expiresAt > Date.now() ? cached.commands : undefined;
+          };
+          // The cache is in-memory and expires, so after a server restart (models
+          // come from the persisted catalog) or 5 minutes, rerun discovery to refill it.
+          let commands = readCached();
+          const fromCache = commands !== undefined;
+          if (commands === undefined) {
+            yield* listModels({
+              provider: PROVIDER,
+              cwd: input.cwd,
+              ...(input.instanceId ? { instanceId: input.instanceId } : {}),
+              ...(input.binaryPath ? { binaryPath: input.binaryPath } : {}),
+              ...(input.environment ? { environment: input.environment } : {}),
+            }).pipe(Effect.ignore);
+            commands = readCached() ?? [];
+          }
           return {
-            commands: [],
+            commands: mapAcpCommands(commands),
             source: "antigravity.acp",
-            cached: false,
+            cached: fromCache,
           } satisfies ProviderListCommandsResult;
         }
         const commands = yield* ctx.acp.getAvailableCommands.pipe(
@@ -1824,11 +2181,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
           ),
         );
         return {
-          commands: commands.map((command) => ({
-            name: command.name,
-            ...(command.description ? { description: command.description } : {}),
-            ...(command.input?.hint ? { argumentHint: command.input.hint } : {}),
-          })),
+          commands: mapAcpCommands(commands),
           source: "antigravity.acp",
           cached: false,
         } satisfies ProviderListCommandsResult;
@@ -1837,8 +2190,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
     const listModels: NonNullable<AntigravityAdapterShape["listModels"]> = (input) =>
       discoveryLock.withPermits(1)(
         Effect.gen(function* () {
-          const binaryPath = input.binaryPath?.trim() || "agy";
-          const cacheKey = [binaryPath, JSON.stringify(input.environment ?? null)].join("\u0000");
+          const { configuredBinaryPath, cacheKey } = resolveAntigravityDiscoveryCacheKey(input);
           const cached = modelDiscoveryCache.get(cacheKey);
           if (cached && cached.expiresAt > Date.now()) {
             return {
@@ -1849,20 +2201,49 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
           }
 
           const cwd = resolveAntigravitySessionCwd(input.cwd, serverConfig) ?? process.cwd();
-          const discoveredModels = yield* Effect.scoped(
+          const discovered = yield* Effect.scoped(
             Effect.gen(function* () {
               const runtime = yield* runtimeFactory({
                 antigravitySettings: {
-                  binaryPath,
+                  ...(configuredBinaryPath !== undefined
+                    ? { binaryPath: configuredBinaryPath }
+                    : {}),
                   ...(input.environment ? { environment: input.environment } : {}),
                 },
                 childProcessSpawner,
                 cwd,
                 clientInfo: { name: "Saint Model Discovery", version: "0.0.0" },
               });
-              yield* runtime.start();
-              const configOptions = yield* runtime.getConfigOptions;
-              return parseAntigravityAcpConfigModels(configOptions);
+              const started = yield* runtime.start();
+              return yield* Effect.gen(function* () {
+                const configOptions = yield* runtime.getConfigOptions;
+                const setupResultRecord: Record<string, unknown> | undefined = isRecord(
+                  started.sessionSetupResult,
+                )
+                  ? started.sessionSetupResult
+                  : undefined;
+                const setupModels =
+                  setupResultRecord && isRecord(setupResultRecord.models)
+                    ? setupResultRecord.models.availableModels
+                    : undefined;
+                const availableModels = Array.isArray(setupModels)
+                  ? setupModels.filter(
+                      (entry): entry is AntigravityAcpModelInfo =>
+                        isRecord(entry) && typeof entry.name === "string",
+                    )
+                  : undefined;
+                const commands = yield* readDiscoveryAvailableCommands(runtime);
+                return {
+                  models: parseAntigravityAcpConfigModels(configOptions, availableModels),
+                  commands,
+                };
+              }).pipe(
+                Effect.ensuring(
+                  started.initializeResult.agentCapabilities?.sessionCapabilities?.close != null
+                    ? runtime.closeSession().pipe(Effect.ignore)
+                    : Effect.void,
+                ),
+              );
             }),
           ).pipe(
             Effect.timeoutOption(ANTIGRAVITY_MODEL_DISCOVERY_TIMEOUT_MS),
@@ -1891,12 +2272,13 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
             }
           }
           modelDiscoveryCache.set(cacheKey, {
-            models: discoveredModels,
+            models: discovered.models,
+            commands: discovered.commands,
             expiresAt: Date.now() + ANTIGRAVITY_MODEL_DISCOVERY_CACHE_MS,
           });
 
           return {
-            models: [...discoveredModels],
+            models: [...discovered.models],
             source: "antigravity.acp",
             cached: false,
           } satisfies ProviderListModelsResult;
@@ -1927,6 +2309,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
       listSessions,
       hasSession,
       readThread,
+      readExternalThread,
       rollbackThread,
       forkThread,
       stopAll,

@@ -391,7 +391,9 @@ export interface AcpSessionRuntimeOptions {
   /** The thread this process serves, for per-agent RSS/CPU; unset for discovery runs. */
   readonly ownerThreadId?: string;
   readonly cwd: string;
+  readonly additionalDirectories?: ReadonlyArray<string>;
   readonly resumeSessionId?: string;
+  readonly sessionSetupMode?: "resume-or-load" | "load-only";
   readonly clientCapabilities?: Acp.InitializeRequest["clientCapabilities"];
   readonly clientInfo: {
     readonly name: string;
@@ -586,6 +588,7 @@ export interface AcpSessionRuntimeShape {
   readonly forkSession: (
     payload: Omit<Acp.ForkSessionRequest, "sessionId">,
   ) => Effect.Effect<Acp.ForkSessionResponse, AcpErrors.AcpError>;
+  readonly closeSession: () => Effect.Effect<void, AcpErrors.AcpError>;
   readonly request: (
     method: string,
     payload: unknown,
@@ -1942,21 +1945,43 @@ const makeAcpSessionRuntime = (
           let resumedExistingSession = false;
           let sessionSetupMethod: AcpSessionRuntimeStartResult["sessionSetupMethod"] = "new";
 
+          const requestedAdditionalDirectories =
+            options.additionalDirectories
+              ?.map((dir) => resolveAcpSessionCwd(dir.trim()))
+              .filter((dir) => dir.length > 0) ?? [];
+          const supportsAdditionalDirectories =
+            initializeResult.agentCapabilities?.sessionCapabilities?.additionalDirectories != null;
+          if (requestedAdditionalDirectories.length > 0 && !supportsAdditionalDirectories) {
+            return yield* new AcpErrors.AcpRequestError({
+              code: -32601,
+              errorMessage:
+                "ACP agent does not advertise sessionCapabilities.additionalDirectories; refusing to drop additional project folders.",
+              data: { additionalDirectories: requestedAdditionalDirectories },
+            });
+          }
+          const additionalDirectoriesField =
+            requestedAdditionalDirectories.length > 0
+              ? { additionalDirectories: requestedAdditionalDirectories }
+              : {};
+
           if (options.resumeSessionId) {
+            const loadOnly = options.sessionSetupMode === "load-only";
             const resumePayload = {
               sessionId: options.resumeSessionId,
               cwd: sessionCwd,
               mcpServers,
+              ...additionalDirectoriesField,
               ...(options.sessionMeta ? { _meta: options.sessionMeta } : {}),
             } satisfies Acp.ResumeSessionRequest;
             const supportsResume =
-              initializeResult.agentCapabilities?.sessionCapabilities?.resume != null;
+              !loadOnly && initializeResult.agentCapabilities?.sessionCapabilities?.resume != null;
             const supportsLoad = initializeResult.agentCapabilities?.loadSession === true;
             if (!supportsResume && !supportsLoad) {
               return yield* new AcpErrors.AcpRequestError({
                 code: -32601,
-                errorMessage:
-                  "ACP agent cannot reopen the requested session because it advertises neither session/resume nor session/load.",
+                errorMessage: loadOnly
+                  ? "ACP agent cannot load the requested session because it does not advertise loadSession."
+                  : "ACP agent cannot reopen the requested session because it advertises neither session/resume nor session/load.",
               });
             }
             const resumed = yield* supportsResume
@@ -1974,6 +1999,7 @@ const makeAcpSessionRuntime = (
                     sessionId: options.resumeSessionId,
                     cwd: sessionCwd,
                     mcpServers,
+                    ...additionalDirectoriesField,
                     ...(options.sessionMeta ? { _meta: options.sessionMeta } : {}),
                   } satisfies Acp.LoadSessionRequest;
                   return withStartupTimeout(
@@ -2001,6 +2027,7 @@ const makeAcpSessionRuntime = (
             const createPayload = {
               cwd: sessionCwd,
               mcpServers,
+              ...additionalDirectoriesField,
               ...(options.sessionMeta ? { _meta: options.sessionMeta } : {}),
             } satisfies Acp.NewSessionRequest;
             const created = yield* withStartupTimeout(
@@ -2325,6 +2352,18 @@ const makeAcpSessionRuntime = (
               ),
             );
           }),
+        ),
+      closeSession: () =>
+        getStartedState.pipe(
+          Effect.flatMap((started) =>
+            started.initializeResult.agentCapabilities?.sessionCapabilities?.close != null
+              ? runLoggedRequest(
+                  "session/close",
+                  { sessionId: started.sessionId },
+                  acp.agent.closeSession({ sessionId: started.sessionId }),
+                ).pipe(Effect.asVoid)
+              : Effect.void,
+          ),
         ),
       request: (method, payload) =>
         runLoggedRequest(method, payload, acp.raw.request(method, payload)),

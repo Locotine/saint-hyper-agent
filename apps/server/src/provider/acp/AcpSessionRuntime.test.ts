@@ -791,3 +791,119 @@ describe("AcpSessionRuntime startup timeouts", () => {
     TEST_TIMEOUT_MS,
   );
 });
+
+describe("AcpSessionRuntime additionalDirectories", () => {
+  const runWithAgent = (
+    agentApp: OfficialAcp.AgentApp,
+    runtimeOptions: Partial<Parameters<typeof AcpSessionRuntime.layer>[0]>,
+  ) => {
+    const clientToAgent = Effect.runSync(Queue.unbounded<Uint8Array>());
+    const agentToClient = Effect.runSync(Queue.unbounded<Uint8Array>());
+    const agentInput = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        return Effect.runPromise(Queue.take(clientToAgent)).then((chunk) =>
+          controller.enqueue(chunk),
+        );
+      },
+    });
+    const agentOutput = new WritableStream<Uint8Array>({
+      write(chunk) {
+        return Effect.runPromise(Queue.offer(agentToClient, chunk)).then(() => undefined);
+      },
+    });
+    const spawnerLayer = Layer.succeed(
+      ChildProcessSpawner.ChildProcessSpawner,
+      ChildProcessSpawner.make(() =>
+        Effect.sync(() => {
+          agentApp.connect(OfficialAcp.ndJsonStream(agentOutput, agentInput));
+          return ChildProcessSpawner.makeHandle({
+            pid: ChildProcessSpawner.ProcessId(0x7ff_f_fffd),
+            exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+            isRunning: Effect.succeed(true),
+            kill: () => Effect.void,
+            stdin: Sink.forEach((chunk: Uint8Array) => Queue.offer(clientToAgent, chunk)),
+            stdout: Stream.fromQueue(agentToClient),
+            stderr: Stream.never,
+            all: Stream.never,
+            getInputFd: () => Sink.drain,
+            getOutputFd: () => Stream.never,
+          });
+        }),
+      ),
+    );
+    const layer = AcpSessionRuntime.layer({
+      spawn: { command: "in-memory-acp-agent", args: [] },
+      cwd: "/tmp/primary",
+      clientInfo: { name: "saint-test", version: "0.0.0" },
+      authPolicy: "on-demand",
+      teardownProcessTree: async () => ({ escalated: false, signalErrors: [] }),
+      ...runtimeOptions,
+    }).pipe(Layer.provide(spawnerLayer));
+    return Effect.gen(function* () {
+      const runtime = yield* AcpSessionRuntime;
+      return yield* runtime.start();
+    }).pipe(Effect.provide(layer), Effect.scoped);
+  };
+
+  it("sends additionalDirectories on session/new, session/resume, and session/load only when advertised", async () => {
+    const newPayloads: Array<OfficialAcp.NewSessionRequest> = [];
+    const resumePayloads: Array<OfficialAcp.ResumeSessionRequest> = [];
+    const loadPayloads: Array<OfficialAcp.LoadSessionRequest> = [];
+
+    const capableAgent = OfficialAcp.agent({ name: "capable-agent" })
+      .onRequest(OfficialAcp.methods.agent.initialize, () => ({
+        protocolVersion: 1,
+        agentCapabilities: {
+          loadSession: true,
+          sessionCapabilities: { resume: {}, additionalDirectories: {} },
+        },
+        authMethods: [],
+      }))
+      .onRequest(OfficialAcp.methods.agent.session.new, (ctx) => {
+        newPayloads.push(ctx.params);
+        return { sessionId: "new-1" };
+      })
+      .onRequest(OfficialAcp.methods.agent.session.resume, (ctx) => {
+        resumePayloads.push(ctx.params);
+        return {};
+      })
+      .onRequest(OfficialAcp.methods.agent.session.load, (ctx) => {
+        loadPayloads.push(ctx.params);
+        return {};
+      });
+
+    await Effect.runPromise(
+      runWithAgent(capableAgent, { additionalDirectories: ["/tmp/extra-a", "/tmp/extra-b"] }),
+    );
+    await Effect.runPromise(
+      runWithAgent(capableAgent, {
+        resumeSessionId: "new-1",
+        additionalDirectories: ["/tmp/extra-a"],
+      }),
+    );
+    await Effect.runPromise(
+      runWithAgent(capableAgent, {
+        resumeSessionId: "new-1",
+        sessionSetupMode: "load-only",
+        additionalDirectories: ["/tmp/extra-b"],
+      }),
+    );
+
+    expect(newPayloads[0]?.additionalDirectories).toEqual(["/tmp/extra-a", "/tmp/extra-b"]);
+    expect(resumePayloads[0]?.additionalDirectories).toEqual(["/tmp/extra-a"]);
+    expect(loadPayloads[0]?.additionalDirectories).toEqual(["/tmp/extra-b"]);
+
+    const incapableAgent = OfficialAcp.agent({ name: "incapable-agent" })
+      .onRequest(OfficialAcp.methods.agent.initialize, () => ({
+        protocolVersion: 1,
+        agentCapabilities: {},
+        authMethods: [],
+      }))
+      .onRequest(OfficialAcp.methods.agent.session.new, () => ({ sessionId: "must-fail" }));
+
+    const failure = await Effect.runPromise(
+      Effect.flip(runWithAgent(incapableAgent, { additionalDirectories: ["/tmp/extra-a"] })),
+    );
+    expect(failure.message).toContain("additionalDirectories");
+  });
+});

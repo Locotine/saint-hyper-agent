@@ -10,6 +10,7 @@ describe("runtime mode compatibility", () => {
   it("limits Auto to providers with a native reviewer", () => {
     expect(providerSupportsAutoRuntimeMode("codex")).toBe(true);
     expect(providerSupportsAutoRuntimeMode("claudeAgent")).toBe(true);
+    expect(providerSupportsAutoRuntimeMode("antigravity")).toBe(true);
     expect(providerSupportsAutoRuntimeMode("opencode")).toBe(false);
     expect(providerSupportsAutoRuntimeMode("cursor")).toBe(false);
   });

@@ -73,8 +73,45 @@ describe("shouldInlineSkillForProvider", () => {
     }
   });
 
+  it("skips workspace .agents/_agents skills for Antigravity, inlines when workspaceCwd is omitted, and inlines home/foreign roots", () => {
+    expect(
+      shouldInlineSkillForProvider("antigravity", "/repo/.agents/skills/reviewer/SKILL.md", {
+        workspaceCwd: "/repo",
+        homeDir: "/Users/me",
+      }),
+    ).toBe(false);
+    expect(
+      shouldInlineSkillForProvider("antigravity", "/repo/_agents/skills/reviewer/SKILL.md", {
+        workspaceCwd: "/repo",
+        homeDir: "/Users/me",
+      }),
+    ).toBe(false);
+    expect(
+      shouldInlineSkillForProvider("antigravity", "/repo/.agents/skills/reviewer/SKILL.md", {
+        homeDir: "/Users/me",
+      }),
+    ).toBe(true);
+    expect(
+      shouldInlineSkillForProvider("antigravity", "/repo/_agents/skills/reviewer/SKILL.md", {
+        homeDir: "/Users/me",
+      }),
+    ).toBe(true);
+    expect(
+      shouldInlineSkillForProvider("antigravity", "/Users/me/.agents/skills/reviewer/SKILL.md", {
+        workspaceCwd: "/repo",
+        homeDir: "/Users/me",
+      }),
+    ).toBe(true);
+    expect(
+      shouldInlineSkillForProvider("antigravity", claudeSkillPath, {
+        workspaceCwd: "/repo",
+        homeDir: "/Users/me",
+      }),
+    ).toBe(true);
+  });
+
   it("always inlines for providers without native skill support", () => {
-    for (const provider of ["antigravity", "grok", "opencode"] as const) {
+    for (const provider of ["grok", "opencode"] as const) {
       expect(shouldInlineSkillForProvider(provider, saintSkillPath)).toBe(true);
       expect(shouldInlineSkillForProvider(provider, claudeSkillPath)).toBe(true);
     }
@@ -148,4 +185,31 @@ describe("buildInlineSkillInstructions", () => {
       }
     },
   );
+
+  it("inlines Antigravity .agents skills when workspaceCwd is omitted, and skips them when workspaceCwd matches", async () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "skill-agy-ws-"));
+    const skillDir = path.join(root, ".agents", "skills", "reviewer");
+    try {
+      await mkdir(skillDir, { recursive: true });
+      const skillPath = path.join(skillDir, "SKILL.md");
+      await writeFile(skillPath, "# Reviewer\n\nAlways review carefully.");
+
+      const inlined = await buildInlineSkillInstructions({
+        provider: "antigravity",
+        skills: [{ name: "reviewer", path: skillPath }],
+        maxChars: 10_000,
+      });
+      expect(inlined).toContain("Always review carefully.");
+
+      const skipped = await buildInlineSkillInstructions({
+        provider: "antigravity",
+        skills: [{ name: "reviewer", path: skillPath }],
+        workspaceCwd: root,
+        maxChars: 10_000,
+      });
+      expect(skipped).toBe("");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

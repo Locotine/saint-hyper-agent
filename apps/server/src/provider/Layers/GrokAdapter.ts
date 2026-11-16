@@ -136,6 +136,7 @@ import {
 } from "../acp/GrokAcpSupport.ts";
 import { GrokAdapter, type GrokAdapterShape } from "../Services/GrokAdapter.ts";
 import { resolveProviderSessionInstanceId } from "../Services/ProviderAdapter.ts";
+import { extractTerminalPlanMarkdown } from "../planMode.ts";
 import { type EventNdjsonLogger, makeEventNdjsonLogger } from "./EventNdjsonLogger.ts";
 
 const PROVIDER = "grok" as const;
@@ -262,18 +263,6 @@ export function buildGrokPromptMeta(interactionMode: ProviderInteractionMode): {
   // Unlike x.ai/toggle_plan_mode this is idempotent, so reconnects cannot invert
   // the provider state when Saint sends the desired mode again.
   return { mode: interactionMode === "plan" ? "plan" : "agent" };
-}
-
-export function extractGrokTerminalPlanMarkdown(input: {
-  readonly interactionMode: ProviderInteractionMode | undefined;
-  readonly capturedPlanFingerprint: string | undefined;
-  readonly assistantText: string;
-}): string | undefined {
-  if (input.interactionMode !== "plan" || input.capturedPlanFingerprint !== undefined) {
-    return undefined;
-  }
-  const planMarkdown = input.assistantText.trim();
-  return planMarkdown.length > 0 ? planMarkdown : undefined;
 }
 
 export function resolveGrokPlanHookResponse(
@@ -2060,7 +2049,7 @@ export function makeGrokAdapter(
                 const hadAssistantContent = ctx.activeTurnHadAssistantContent;
                 const failedToolDetail = ctx.activeTurnFailedToolDetail;
                 yield* cancelAgentGatewayTurn(ctx.gatewaySessionLease, turnId);
-                const terminalPlanMarkdown = extractGrokTerminalPlanMarkdown({
+                const terminalPlanMarkdown = extractTerminalPlanMarkdown({
                   interactionMode: ctx.activeInteractionMode,
                   capturedPlanFingerprint: ctx.lastPlanFingerprint,
                   assistantText: ctx.activePlanResponseText,
