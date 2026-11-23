@@ -2015,9 +2015,12 @@ async function dispatchConfiguredShortcutWhenReady(
 }
 
 function dispatchComposerFocusToggleShortcut(): KeyboardEvent {
+  const isMac = isMacNavigatorPlatform();
   const event = new KeyboardEvent("keydown", {
-    key: "l",
-    metaKey: true,
+    key: isMac ? "l" : "L",
+    metaKey: isMac,
+    ctrlKey: !isMac,
+    shiftKey: !isMac,
     bubbles: true,
     cancelable: true,
   });

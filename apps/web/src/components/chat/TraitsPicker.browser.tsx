@@ -206,17 +206,14 @@ describe("TraitsPicker (Claude)", () => {
     ).toEqual({ effort: "low" });
   });
 
-  it("flips the fast mode toggle in place without closing the menu", async () => {
+  it("hides fast mode controls for Claude Opus models", async () => {
     await using _ = await mountClaudePicker();
 
     await page.getByRole("button").click();
-    await page.getByRole("button", { name: "Fast mode" }).click();
 
     await vi.waitFor(() => {
       expect(document.body.textContent ?? "").toContain("Effort");
-      expect(
-        document.body.querySelector('[aria-label="Fast mode"]')?.getAttribute("aria-pressed"),
-      ).toBe("true");
+      expect(document.body.querySelector('[aria-label="Fast mode"]')).toBeNull();
     });
   });
 

@@ -158,6 +158,9 @@ beforeEach(() => {
     if (resource === "agents") {
       return agentQueries.get(provider as ProviderKind) ?? EMPTY_QUERY;
     }
+    if (resource === "config") {
+      return EMPTY_QUERY;
+    }
     throw new Error(`Unexpected provider catalog query: ${String(resource)}`);
   });
   mocks.useQueries

@@ -397,6 +397,11 @@ export function useChatTranscriptScroll({
       const container = legendListRef.current?.getScrollableNode();
       if (!(container instanceof HTMLElement)) return;
       if (!upward && isAtEndRef.current && isScrollContainerNearBottom(container, 1)) return;
+      if (upward && container.scrollHeight <= container.clientHeight + 1) {
+        // Short non-overflowing transcript: an upward gesture cannot scroll away
+        // from the bottom, so it must not detach live follow.
+        return;
+      }
       const pending = pendingScrollGestureRef.current;
       const origin =
         pending?.container === container
@@ -413,10 +418,8 @@ export function useChatTranscriptScroll({
         // Smooth/compositor wheel and trackpad inertia can take >2 frames to lower
         // `scrollTop`. Never re-arm follow or snap back to bottom from an upward gesture;
         // nested scrollable containers are already filtered synchronously on the wheel event.
-        if (container.scrollTop > 0) {
-          isAtEndRef.current = false;
-          showScrollDebouncer.current.maybeExecute();
-        }
+        isAtEndRef.current = false;
+        showScrollDebouncer.current.maybeExecute();
         return;
       }
       pendingScrollGestureRef.current = origin;
@@ -450,8 +453,8 @@ export function useChatTranscriptScroll({
   );
   const onMessagesWheelBase = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
-      // Horizontal scroll, zoom, and scrolling down at the end do not leave it.
-      if (event.ctrlKey || event.deltaY === 0) return;
+      // Horizontal scroll, zoom, sub-pixel no-op wheel jitter, and scrolling down at the end do not leave it.
+      if (event.ctrlKey || Math.abs(event.deltaY) < 1) return;
       const upward = event.deltaY < 0;
       const container = legendListRef.current?.getScrollableNode();
       if (
