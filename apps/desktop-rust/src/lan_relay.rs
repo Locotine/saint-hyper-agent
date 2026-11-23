@@ -1643,7 +1643,7 @@ async fn handle_relay_connection(
                     "Too many failed pairing attempts. Wait a few minutes before retrying.",
                 ));
                 let response = format!(
-                    "HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nRetry-After: {}\r\nContent-Length: {}\r\n\r\n{}",
+                    "HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: same-origin\r\nRetry-After: {}\r\nContent-Length: {}\r\n\r\n{}",
                     PAIR_RATE_LIMIT_WINDOW.as_secs(),
                     html.len(),
                     html
@@ -1666,7 +1666,7 @@ async fn handle_relay_connection(
             {
                 clear_pair_failures(&inner, remote_addr.ip());
                 let response = format!(
-                    "HTTP/1.1 302 Found\r\nLocation: /\r\nSet-Cookie: {LAN_SESSION_COOKIE_NAME}={session_secret}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000\r\nSet-Cookie: {LAN_RELAY_CAPABILITY_COOKIE_NAME}=1; SameSite=Lax; Path=/; Max-Age=2592000\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nContent-Length: 0\r\n\r\n"
+                    "HTTP/1.1 302 Found\r\nLocation: /\r\nSet-Cookie: {LAN_SESSION_COOKIE_NAME}={session_secret}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000\r\nSet-Cookie: {LAN_RELAY_CAPABILITY_COOKIE_NAME}=1; SameSite=Lax; Path=/; Max-Age=2592000\r\nCache-Control: no-store\r\nReferrer-Policy: same-origin\r\nContent-Length: 0\r\n\r\n"
                 );
                 let _ = client_stream.write_all(response.as_bytes()).await;
                 return Ok(());
@@ -1676,7 +1676,7 @@ async fn handle_relay_connection(
                 "Invalid or expired pairing code. Check Settings in Saint Desktop.",
             ));
             let response = format!(
-                "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nContent-Length: {}\r\n\r\n{}",
+                "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: same-origin\r\nContent-Length: {}\r\n\r\n{}",
                 html.len(),
                 html
             );
@@ -1690,9 +1690,12 @@ async fn handle_relay_connection(
             return Ok(());
         }
 
+        // Use `same-origin` rather than `no-referrer`: under Fetch, a document with
+        // `Referrer-Policy: no-referrer` sends `Origin: null` on same-origin `<form method="POST">`
+        // submissions, which `validate_same_origin_request` rejects as an invalid Origin.
         let html = pairing_html_page(None);
         let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nContent-Length: {}\r\n\r\n{}",
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: same-origin\r\nContent-Length: {}\r\n\r\n{}",
             html.len(),
             html
         );
@@ -2591,7 +2594,7 @@ mod tests {
             out
         };
 
-        // 1. GET /pair?token=... must NOT issue a session cookie.
+        // 1. GET /pair?token=... must NOT issue a session cookie and keeps Referrer-Policy: no-referrer.
         let get_pair = send(format!(
             "GET /pair?token={token} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nUser-Agent: curl/8.18.0\r\n\r\n",
             addr.port()
@@ -2599,11 +2602,48 @@ mod tests {
         .await;
         assert!(get_pair.starts_with("HTTP/1.1 302"), "get_pair: {get_pair:?}");
         assert!(
+            get_pair.contains("Referrer-Policy: no-referrer\r\n"),
+            "legacy ?token= redirect should scrub referrer: {get_pair:?}"
+        );
+        assert!(
             !get_pair.contains("Set-Cookie: saint_lan_session="),
             "GET /pair?token must not set session cookie: {get_pair:?}"
         );
 
-        // 2. Repeated invalid POST /pair attempts trigger 429 rate limiting.
+        // 1b. GET /pair HTML must use Referrer-Policy: same-origin (never no-referrer, which
+        //     causes browsers to send `Origin: null` on the same-origin POST /pair form submit).
+        let get_pair_page = send(format!(
+            "GET /pair HTTP/1.1\r\nHost: 127.0.0.1:{}\r\n\r\n",
+            addr.port()
+        ))
+        .await;
+        assert!(
+            get_pair_page.starts_with("HTTP/1.1 200"),
+            "get_pair_page: {get_pair_page:?}"
+        );
+        assert!(
+            get_pair_page.contains("Referrer-Policy: same-origin\r\n"),
+            "GET /pair must send Referrer-Policy: same-origin: {get_pair_page:?}"
+        );
+        assert!(
+            !get_pair_page.contains("Referrer-Policy: no-referrer"),
+            "GET /pair must not send Referrer-Policy: no-referrer: {get_pair_page:?}"
+        );
+
+        // 1c. POST /pair with `Origin: null` (e.g. sandboxed cross-origin iframe) remains rejected.
+        let null_origin_body = format!("token={token}");
+        let null_origin = send(format!(
+            "POST /pair HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nOrigin: null\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{null_origin_body}",
+            addr.port(),
+            null_origin_body.len()
+        ))
+        .await;
+        assert!(
+            null_origin.starts_with("HTTP/1.1 403"),
+            "Origin: null POST /pair must stay rejected: {null_origin:?}"
+        );
+
+        // 2. Repeated invalid POST /pair attempts trigger 429 rate limiting and keep same-origin referrer policy.
         for _ in 0..PAIR_RATE_LIMIT_MAX_FAILURES {
             let bad_body = "token=WRONGCODE123";
             let bad = send(format!(
@@ -2614,6 +2654,10 @@ mod tests {
             ))
             .await;
             assert!(bad.starts_with("HTTP/1.1 401"), "bad pair: {bad:?}");
+            assert!(
+                bad.contains("Referrer-Policy: same-origin\r\n"),
+                "401 pairing page must send Referrer-Policy: same-origin: {bad:?}"
+            );
         }
         let limited_body = format!("token={token}");
         let limited = send(format!(
@@ -2624,6 +2668,10 @@ mod tests {
         ))
         .await;
         assert!(limited.starts_with("HTTP/1.1 429"), "rate limit: {limited:?}");
+        assert!(
+            limited.contains("Referrer-Policy: same-origin\r\n"),
+            "429 pairing page must send Referrer-Policy: same-origin: {limited:?}"
+        );
 
         // Clear rate limit table and verify valid POST /pair succeeds.
         clear_pair_failures(&manager.inner, IpAddr::V4(Ipv4Addr::LOCALHOST));

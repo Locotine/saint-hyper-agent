@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.12 — 2026-11-23
+
+**Hotfix for Mobile LAN / Tailscale QR & code pairing (`Invalid Origin header.`).**
+
+### Fixed
+
+- **Mobile LAN / Tailscale Pairing (`apps/desktop-rust/src/lan_relay.rs`)**: Fixed a `1.2.11` regression where scanning the QR code or submitting the 12-character pairing code from a phone browser failed with `403 Forbidden` (`{"error":"Invalid Origin header."}`).
+  - **Root cause**: `GET /pair` (and `401`/`429` pairing retry pages) sent `Referrer-Policy: no-referrer`, which under the WHATWG Fetch standard causes modern browsers (Chrome, Safari iOS, Firefox) to send `Origin: null` on same-origin `<form method="POST" action="/pair">` submissions. `validate_same_origin_request` rejected `Origin: null` because it has no `scheme://authority`.
+  - **Fix**: Switched `/pair` HTML and successful redirect responses (`200`, `401`, `429`, `302 -> /`) to `Referrer-Policy: same-origin` so same-origin pairing form submissions send `Origin: http://<host>:<port>` without leaking `Referer` cross-origin. Kept `Referrer-Policy: no-referrer` on the legacy `GET /pair?token=...` scrubbing redirect and kept strict rejection of `Origin: null`, cross-origin, and cross-port CSWSH/CSRF requests.
+  - **Tests**: Extended `pairing_post_sets_a_session_cookie_while_get_query_is_rejected_and_rate_limited` in `apps/desktop-rust/src/lan_relay.rs` to assert `Referrer-Policy: same-origin` on `GET /pair`, `401`, and `429`, `no-referrer` on legacy `?token=` redirects, and `403` rejection for `Origin: null`.
+
 ## 1.2.11 — 2026-11-23
 
 **Security hardening (F-01..F-08) and comprehensive 48-bug QA remediation across web, server, contracts, shared utilities, and Tauri desktop (`apps/desktop-rust`).**

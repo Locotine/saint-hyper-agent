@@ -3,6 +3,14 @@
 > [!IMPORTANT]
 > From 1.2.1 the desktop app ships from `.github/workflows/release-tauri.yml` (Tauri v2 / Rust). The Electron release workflows (`release.yml`, `release-platform.yml`), the Electron app (`apps/desktop`) and its packaging scripts (`dist:desktop:*`, `release:smoke*`) were removed. To release, bump the versions, push a `vX.Y.Z` tag, or dispatch `Release Desktop (Tauri Rust)` with `publish_release=true`.
 >
+> **Tauri v2 release bump checklist (`1.2.x`):**
+>
+> 1. Run `node scripts/update-release-package-versions.ts X.Y.Z` and `node scripts/sync-tauri-release-version.ts X.Y.Z`, then sync `apps/desktop-rust/Cargo.lock` (via `bun run --cwd apps/desktop-rust test:rust`) and the four workspace versions in `bun.lock` (verify with `bun install --frozen-lockfile`).
+> 2. Update `CHANGELOG.md`, `apps/web/src/whatsNew/entries.ts`, and the latest version line in `README.md`.
+> 3. Verify `node scripts/resolve-release-update-policy.ts X.Y.Z` (`lane=clean`, `make_latest=true`), plus `bun run fmt:check`, `bun run lint`, `bun run typecheck`, `bun run migrations:check`, `bun run windows-runtime:check`, `bun run brand:check`, `bun run --cwd apps/desktop-rust test`, and `bun run --cwd apps/desktop-rust test:rust`.
+> 4. Commit the candidate on `main`, create annotated tag `vX.Y.Z`, and push the branch and tag **once** (`git push origin main && git push origin vX.Y.Z`).
+> 5. **Mobile LAN / Tailscale pairing guard (`1.2.12`):** `apps/desktop-rust/src/lan_relay.rs` must keep `Referrer-Policy: same-origin` (never `no-referrer`) on `/pair` HTML responses (`200`, `401`, `429`) so browsers send a valid same-origin `Origin` header on `<form method="POST" action="/pair">` rather than `Origin: null` (which `validate_same_origin_request` rejects as `Invalid Origin header.`). Keep `Referrer-Policy: no-referrer` only on the legacy `GET /pair?token=...` scrubbing redirect.
+>
 > Tauri releases are unsigned (no Apple or Windows certificates). Each publication carries `latest.json` for the Tauri updater, which needs a minisign-signed bundle for all four platforms (the macOS `.app.tar.gz` archives are renamed with their arch so they do not collide; Linux also gets a `linux-x86_64-deb` entry for the signed `.deb`, which the updater installs through `pkexec`), and electron-updater feeds (`saint*.yml`, `latest*.yml`) that move Electron 1.1.17 installs over: Linux swaps the AppImage in place, Windows runs the Tauri installer (the old Electron install stays until the user removes it), and macOS falls back to the release page because an unsigned Squirrel app cannot update itself. The app checks 15 s after launch and every 4 h, downloads in the background, and installs when the user restarts from the update button. The rest of this file describes the retired Electron pipeline and is kept for reference.
 
 This document covers publishing desktop releases from one tag and targeted

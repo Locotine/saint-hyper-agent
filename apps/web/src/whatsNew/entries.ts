@@ -22,6 +22,20 @@ import type { WhatsNewEntry } from "./logic";
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    version: "1.2.12",
+    date: "Nov 23",
+    features: [
+      {
+        id: "lan-relay-mobile-pairing-origin-fix",
+        title: "Fixed Mobile LAN & Tailscale pairing (Invalid Origin header)",
+        description:
+          "Phones scanning the QR code or entering the pairing code now connect cleanly without hitting a 403 Invalid Origin header error.",
+        details:
+          "Changed the /pair HTML responses in the Rust LAN relay from Referrer-Policy: no-referrer to Referrer-Policy: same-origin so mobile browsers send a valid same-origin Origin header on form POST instead of Origin: null, while keeping cross-origin, cross-port, and Origin: null protections enforced.",
+      },
+    ],
+  },
+  {
     version: "1.2.11",
     date: "Nov 23",
     features: [
