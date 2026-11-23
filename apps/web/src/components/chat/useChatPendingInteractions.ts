@@ -424,6 +424,7 @@ export function useChatPendingInteractions({
       nextCursor: number,
       expandedCursor: number,
       cursorAdjacentToMention: boolean,
+      isComposing = false,
     ) => {
       if (!activePendingUserInputKey) {
         return;
@@ -446,9 +447,11 @@ export function useChatPendingInteractions({
         [activePendingUserInputKey]: nextRequestAnswers,
       }));
       setComposerCursor(nextCursor);
-      setComposerTrigger(
-        cursorAdjacentToMention ? null : detectComposerTrigger(value, expandedCursor),
-      );
+      if (!isComposing) {
+        setComposerTrigger(
+          cursorAdjacentToMention ? null : detectComposerTrigger(value, expandedCursor),
+        );
+      }
     },
     [
       promptRef,

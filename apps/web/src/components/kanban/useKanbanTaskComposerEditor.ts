@@ -318,6 +318,7 @@ export function useKanbanTaskComposerEditor(input: UseKanbanTaskComposerEditorIn
     expandedCursor: number,
     cursorAdjacentToMention: boolean,
     terminalContextIds: string[],
+    isComposing = false,
   ) => {
     promptRef.current = nextPrompt;
     setPrompt(nextPrompt);
@@ -330,9 +331,11 @@ export function useKanbanTaskComposerEditor(input: UseKanbanTaskComposerEditorIn
         );
     }
     setComposerCursor(nextCursor);
-    setComposerTrigger(
-      cursorAdjacentToMention ? null : detectComposerTrigger(nextPrompt, expandedCursor),
-    );
+    if (!isComposing) {
+      setComposerTrigger(
+        cursorAdjacentToMention ? null : detectComposerTrigger(nextPrompt, expandedCursor),
+      );
+    }
   };
 
   const nudgeComposerMenuHighlight = (key: "ArrowDown" | "ArrowUp") => {

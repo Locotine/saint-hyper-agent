@@ -338,6 +338,7 @@ export function useChatComposerCommands({
       expandedCursor: number,
       cursorAdjacentToMention: boolean,
       terminalContextIds: string[],
+      isComposing = false,
     ) => {
       if (activePendingQuestion && activePendingUserInput) {
         const interruptedNavigation = promptHistoryNavigationRef.current;
@@ -356,6 +357,7 @@ export function useChatComposerCommands({
           nextCursor,
           expandedCursor,
           cursorAdjacentToMention,
+          isComposing,
         );
         return;
       }
@@ -407,9 +409,13 @@ export function useChatComposerCommands({
         );
       }
       setComposerCursor(nextCursor);
-      setComposerTrigger(
-        cursorAdjacentToMention ? null : detectComposerTrigger(nextPrompt, expandedCursor),
-      );
+      // Freeze @ / / autocomplete popup updates during IME composition; ComposerPromptEditor
+      // emits a fresh non-composing update once compositionend/blur commits the text.
+      if (!isComposing) {
+        setComposerTrigger(
+          cursorAdjacentToMention ? null : detectComposerTrigger(nextPrompt, expandedCursor),
+        );
+      }
     },
     [
       promptHistoryNavigationRef,

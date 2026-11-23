@@ -1,6 +1,6 @@
 [package]
 name = "saint-desktop"
-version = "1.2.10"
+version = "1.2.11"
 description = "Saint Desktop Shell (Rust / Tauri v2)"
 authors = ["Locotine"]
 license = "Apache-2.0"

@@ -22,6 +22,26 @@ import type { WhatsNewEntry } from "./logic";
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    version: "1.2.11",
+    date: "Nov 23",
+    features: [
+      {
+        id: "qa-security-hardening",
+        title: "Security hardening and 48-bug cross-OS QA sweep",
+        description:
+          "Hardened LAN relay, Aegis sandbox, and file boundaries alongside 48 fixes across Remote SSH, IME input, transcript scrolling, editor tabs, and Windows/macOS/Linux desktop reliability.",
+        details:
+          "Highlights include offline remote image placeholders with auto-reload on reconnect, HiDPI window bounds in logical DIPs, macOS Overlay titlebar/vibrancy and Unix socket path fixes, native app menus, Windows verbatim PTY launches, Ctrl+Shift+L composer focus on Linux/Windows, native Linux title bars by default, and removing Fast mode from Claude.",
+      },
+      {
+        id: "ime-composer-popup-freeze",
+        title: "Smoother Vietnamese & CJK IME typing in the composer",
+        description:
+          "The @ and / autocomplete popups stay steady while composing diacritics and refresh cleanly once composition commits.",
+      },
+    ],
+  },
+  {
     version: "1.2.10",
     date: "Nov 16",
     features: [
@@ -32,14 +52,6 @@ export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
           "The desktop app is now packaged as Saint Hyper Agent with full Linux icon sizes and a dedicated saint-hyper-agent Debian package.",
         details:
           "Switching the Debian package name from saint to saint-hyper-agent avoids colliding with Debian's unrelated saint package during system updates while cleanly replacing earlier 1.x installs.",
-      },
-      {
-        id: "qa-security-hardening",
-        title: "Security hardening and 48-bug cross-OS QA sweep",
-        description:
-          "Hardened LAN relay, Aegis sandbox, and file boundaries alongside 48 fixes across Remote SSH, IME input, transcript scrolling, editor tabs, and Windows/macOS/Linux desktop reliability.",
-        details:
-          "Highlights include offline remote image placeholders with auto-reload on reconnect, HiDPI window bounds in logical DIPs, macOS Overlay titlebar/vibrancy and Unix socket path fixes, native app menus, Windows verbatim PTY launches, Ctrl+Shift+L composer focus on Linux/Windows, and native Linux title bars by default.",
       },
     ],
   },

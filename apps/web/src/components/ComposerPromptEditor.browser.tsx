@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
+import { detectComposerTrigger, type ComposerTrigger } from "../composer-logic";
 import { ComposerPromptEditor, type ComposerPromptEditorHandle } from "./ComposerPromptEditor";
 
 type EditorProps = ComponentProps<typeof ComposerPromptEditor>;
@@ -297,5 +298,93 @@ describe("ComposerPromptEditor link paste and IME composition", () => {
       .poll(() => mounted.editor.textContent?.replaceAll("\u200b", ""))
       .toBe("External update during IME");
     expect(mounted.ref.current?.readSnapshot().value).toBe("External update during IME");
+  });
+
+  it("marks onChange as composing during IME preedit and flushes a non-composing trigger update on compositionend", async () => {
+    const ref = createRef<ComposerPromptEditorHandle>();
+    const onChangeSpy = vi.fn();
+
+    function TriggerFreezeHarness() {
+      const [value, setValue] = useState("");
+      const [cursor, setCursor] = useState(0);
+      const [trigger, setTrigger] = useState<ComposerTrigger | null>(null);
+      return (
+        <>
+          <output data-testid="trigger-query">
+            {trigger ? `${trigger.kind}:${trigger.query}` : "none"}
+          </output>
+          <ComposerPromptEditor
+            ref={ref}
+            value={value}
+            cursor={cursor}
+            terminalContexts={[]}
+            disabled={false}
+            placeholder="Write a message"
+            ariaLabel="Message"
+            onRemoveTerminalContext={() => {}}
+            onChange={(
+              nextValue,
+              nextCursor,
+              expandedCursor,
+              cursorAdjacentToMention,
+              _terminalContextIds,
+              isComposing = false,
+            ) => {
+              onChangeSpy(nextValue, isComposing);
+              setValue(nextValue);
+              setCursor(nextCursor);
+              if (!isComposing) {
+                setTrigger(
+                  cursorAdjacentToMention ? null : detectComposerTrigger(nextValue, expandedCursor),
+                );
+              }
+            }}
+            onPaste={() => {}}
+          />
+        </>
+      );
+    }
+
+    await render(<TriggerFreezeHarness />);
+    const editor = document.querySelector<HTMLElement>('[data-testid="composer-editor"]')!;
+    const triggerOutput = document.querySelector<HTMLElement>('[data-testid="trigger-query"]')!;
+    ref.current?.focus();
+    await expect.poll(() => document.activeElement).toBe(editor);
+    await settleSelection();
+
+    await userEvent.type(editor, "@");
+    await expect.poll(() => triggerOutput.textContent).toBe("mention:");
+
+    // Begin IME composition: browser updates preedit text inside the TextNode without ending
+    // composition, so prompt text updates while the @ / / popup trigger stays frozen.
+    editor.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    const textNode = walker.nextNode() as Text | null;
+    expect(textNode).not.toBeNull();
+    textNode!.data = "@ti";
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.setStart(textNode!, textNode!.data.length);
+    range.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    editor.dispatchEvent(new CompositionEvent("compositionupdate", { bubbles: true, data: "ti" }));
+    editor.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        inputType: "insertCompositionText",
+        data: "ti",
+        isComposing: true,
+      }),
+    );
+
+    await expect.poll(() => ref.current?.readSnapshot().value).toBe("@ti");
+    expect(onChangeSpy).toHaveBeenCalledWith("@ti", true);
+    expect(triggerOutput.textContent).toBe("mention:");
+
+    // Ending composition without extra keystrokes flushes a non-composing change so the popup refreshes.
+    editor.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "ti" }));
+    await expect.poll(() => triggerOutput.textContent).toBe("mention:ti");
+    expect(onChangeSpy).toHaveBeenLastCalledWith("@ti", false);
   });
 });

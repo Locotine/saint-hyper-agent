@@ -295,7 +295,7 @@ jobs:
           desktop="$(find "$root/usr/share/applications" -name '*.desktop' | head -n1)"
           cat "$desktop"
           grep -q '^StartupWMClass=saint$' "$desktop"
-          grep -q '^MimeType=x-scheme-handler/saint;$' "$desktop"
+          ! grep -q '^MimeType=x-scheme-handler/saint;' "$desktop"
           find "$root/usr" -maxdepth 3 | sort
 
       - name: Stage platform release assets

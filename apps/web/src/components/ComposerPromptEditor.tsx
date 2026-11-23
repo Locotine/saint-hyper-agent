@@ -544,6 +544,7 @@ interface ComposerPromptEditorProps {
     expandedCursor: number,
     cursorAdjacentToMention: boolean,
     terminalContextIds: string[],
+    isComposing?: boolean,
   ) => void;
   onCommandKeyDown?: (
     key: "ArrowDown" | "ArrowUp" | "Enter" | "Tab" | "Slash",
@@ -1018,6 +1019,8 @@ function ComposerPromptEditorInner({
   const isDomComposingRef = useRef(false);
   const lastCompositionEndAtRef = useRef(0);
   const pendingControlledSyncRef = useRef(false);
+  const composingChangeEmittedRef = useRef(false);
+  const compositionEndFlushPendingRef = useRef(false);
   const recentEmittedValuesRef = useRef<string[]>([]);
   const latestControlledPropsRef = useRef({
     value,
@@ -1149,6 +1152,44 @@ function ComposerPromptEditorInner({
     [editor],
   );
 
+  const readSnapshot = useCallback((): {
+    value: string;
+    cursor: number;
+    expandedCursor: number;
+    selectionCollapsed: boolean;
+    terminalContextIds: string[];
+  } => {
+    let snapshot = snapshotRef.current;
+    editor.getEditorState().read(() => {
+      const selection = $getSelection();
+      const selectionCollapsed = !$isRangeSelection(selection) || selection.isCollapsed();
+      const nextValue = $getRoot().getTextContent();
+      const fallbackCursor = clampCollapsedComposerCursor(nextValue, snapshotRef.current.cursor);
+      const nextCursor = clampCollapsedComposerCursor(
+        nextValue,
+        $readSelectionOffsetFromEditorState(fallbackCursor),
+      );
+      const fallbackExpandedCursor = clampExpandedCursor(
+        nextValue,
+        snapshotRef.current.expandedCursor,
+      );
+      const nextExpandedCursor = clampExpandedCursor(
+        nextValue,
+        $readExpandedSelectionOffsetFromEditorState(fallbackExpandedCursor),
+      );
+      const terminalContextIds = collectTerminalContextIds($getRoot());
+      snapshot = {
+        value: nextValue,
+        cursor: nextCursor,
+        expandedCursor: nextExpandedCursor,
+        selectionCollapsed,
+        terminalContextIds,
+      };
+    });
+    snapshotRef.current = snapshot;
+    return snapshot;
+  }, [editor]);
+
   // Track real browser IME composition on the editable root so WebKitGTK's Safari-mode
   // composition lifecycle never leaves us stuck or lets a controlled rewrite destroy an
   // actively composed text node.
@@ -1156,6 +1197,7 @@ function ComposerPromptEditorInner({
     const handleCompositionStart = () => {
       isDomComposingRef.current = true;
       lastCompositionEndAtRef.current = 0;
+      compositionEndFlushPendingRef.current = false;
     };
     const flushAfterComposition = (event: Event) => {
       if (event.type === "compositionend") {
@@ -1165,11 +1207,34 @@ function ComposerPromptEditorInner({
       }
       if (!isDomComposingRef.current) return;
       isDomComposingRef.current = false;
-      if (!pendingControlledSyncRef.current) return;
+      const hadPendingControlledSync = pendingControlledSyncRef.current;
+      const hadComposingChange = composingChangeEmittedRef.current;
       pendingControlledSyncRef.current = false;
+      composingChangeEmittedRef.current = false;
+      if (!hadPendingControlledSync && !hadComposingChange) return;
+      if (!hadPendingControlledSync && hadComposingChange) {
+        compositionEndFlushPendingRef.current = true;
+      }
       queueMicrotask(() => {
         if (isDomComposingRef.current) return;
-        applyControlledSync(latestControlledPropsRef.current);
+        if (hadPendingControlledSync) {
+          applyControlledSync(latestControlledPropsRef.current);
+          return;
+        }
+        if (!compositionEndFlushPendingRef.current) return;
+        compositionEndFlushPendingRef.current = false;
+        const snapshot = readSnapshot();
+        const cursorAdjacentToMention =
+          isCollapsedCursorAdjacentToInlineToken(snapshot.value, snapshot.cursor, "left") ||
+          isCollapsedCursorAdjacentToInlineToken(snapshot.value, snapshot.cursor, "right");
+        onChangeRef.current(
+          snapshot.value,
+          snapshot.cursor,
+          snapshot.expandedCursor,
+          cursorAdjacentToMention,
+          snapshot.terminalContextIds,
+          false,
+        );
       });
     };
     return editor.registerRootListener((rootElement, prevRootElement) => {
@@ -1179,13 +1244,15 @@ function ComposerPromptEditorInner({
         prevRootElement.removeEventListener("blur", flushAfterComposition);
       }
       isDomComposingRef.current = false;
+      composingChangeEmittedRef.current = false;
+      compositionEndFlushPendingRef.current = false;
       if (rootElement) {
         rootElement.addEventListener("compositionstart", handleCompositionStart);
         rootElement.addEventListener("compositionend", flushAfterComposition);
         rootElement.addEventListener("blur", flushAfterComposition);
       }
     });
-  }, [applyControlledSync, editor]);
+  }, [applyControlledSync, editor, readSnapshot]);
 
   // Disabling the editor (e.g. while a turn dispatch is connecting) turns off
   // contenteditable, which drops browser focus to <body>. Remember whether the
@@ -1259,6 +1326,7 @@ function ComposerPromptEditorInner({
         snapshotRef.current.expandedCursor,
         false,
         snapshotRef.current.terminalContextIds,
+        isDomComposingRef.current || editor.isComposing(),
       );
     },
     [editor],
@@ -1277,44 +1345,6 @@ function ComposerPromptEditorInner({
       document.hasFocus() &&
       document.activeElement === rootElement,
     );
-  }, [editor]);
-
-  const readSnapshot = useCallback((): {
-    value: string;
-    cursor: number;
-    expandedCursor: number;
-    selectionCollapsed: boolean;
-    terminalContextIds: string[];
-  } => {
-    let snapshot = snapshotRef.current;
-    editor.getEditorState().read(() => {
-      const selection = $getSelection();
-      const selectionCollapsed = !$isRangeSelection(selection) || selection.isCollapsed();
-      const nextValue = $getRoot().getTextContent();
-      const fallbackCursor = clampCollapsedComposerCursor(nextValue, snapshotRef.current.cursor);
-      const nextCursor = clampCollapsedComposerCursor(
-        nextValue,
-        $readSelectionOffsetFromEditorState(fallbackCursor),
-      );
-      const fallbackExpandedCursor = clampExpandedCursor(
-        nextValue,
-        snapshotRef.current.expandedCursor,
-      );
-      const nextExpandedCursor = clampExpandedCursor(
-        nextValue,
-        $readExpandedSelectionOffsetFromEditorState(fallbackExpandedCursor),
-      );
-      const terminalContextIds = collectTerminalContextIds($getRoot());
-      snapshot = {
-        value: nextValue,
-        cursor: nextCursor,
-        expandedCursor: nextExpandedCursor,
-        selectionCollapsed,
-        terminalContextIds,
-      };
-    });
-    snapshotRef.current = snapshot;
-    return snapshot;
   }, [editor]);
 
   useImperativeHandle(
@@ -1389,16 +1419,24 @@ function ComposerPromptEditorInner({
         const cursorAdjacentToMention =
           isCollapsedCursorAdjacentToInlineToken(nextValue, nextCursor, "left") ||
           isCollapsedCursorAdjacentToInlineToken(nextValue, nextCursor, "right");
+        const isComposing = isDomComposingRef.current || editor.isComposing();
+        if (isComposing) {
+          composingChangeEmittedRef.current = true;
+        } else {
+          composingChangeEmittedRef.current = false;
+          compositionEndFlushPendingRef.current = false;
+        }
         onChangeRef.current(
           nextValue,
           nextCursor,
           nextExpandedCursor,
           cursorAdjacentToMention,
           terminalContextIds,
+          isComposing,
         );
       });
     },
-    [],
+    [editor],
   );
 
   return (

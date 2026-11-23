@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (fix/bugs — 2026-11-23)
+## 1.2.11 — 2026-11-23
 
 **Security hardening (F-01..F-08) and comprehensive 48-bug QA remediation across web, server, contracts, shared utilities, and Tauri desktop (`apps/desktop-rust`).**
 
@@ -11,6 +11,7 @@
 ### Changed
 
 - Removed Fast mode from Claude (`claudeAgent`) across model capabilities, slash commands, and adapter dispatch.
+- Froze `@`/`/` composer autocomplete popup updates during active IME preedit composition (`isComposing`) and refreshed cleanly on `compositionend` / `blur` to prevent diacritic flicker in Vietnamese/CJK input.
 - Unified Linux custom title bar default to `false` (native OS title bar) across `apps/desktop-rust`, `@saint/shared`, and `apps/web`, eliminating startup caption flash and false "Restart required" notices.
 - Added `Ctrl+Shift+L` as the default `composer.focus.toggle` shortcut on Linux and Windows (keeping `Cmd+L` on macOS and preserving `Ctrl+L` for shells).
 - Updated **Settings → Remote hosts → Host requirements** to match the prebuilt `deps.tar.gz` bundle (Node.js 22.16+/23.11+/24+, `tar`, optional `tmux`; `npm`, compiler, and Python are not needed).

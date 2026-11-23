@@ -127,7 +127,7 @@ Configure the shell to match the way you work with light and dark themes, typogr
 
 ### Desktop application
 
-The latest tagged release is **1.2.10** (see [CHANGELOG](./CHANGELOG.md) for full release history and unreleased `fix/bugs` updates). Download it from [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
+The latest release is **1.2.11** (see [CHANGELOG](./CHANGELOG.md) for full release history). Download it from [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
 
 | Platform              | Artifact                                     | Install                                                                                                      |
 | --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |

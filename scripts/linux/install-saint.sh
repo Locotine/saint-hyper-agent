@@ -2,7 +2,7 @@
 # FILE: install-saint.sh
 # Purpose: Installs a Saint AppImage as a desktop app on Ubuntu/Debian: a fixed
 #          ~/Applications/saint.AppImage that the in-app updater overwrites, plus the
-#          menu entry, icon, and saint:// link handler. Shipped with every GitHub release.
+#          menu entry and icon. Shipped with every GitHub release.
 # Usage: bash install-saint.sh [path/to/Saint-*.AppImage]   (default: newest in ~/Downloads)
 #        bash install-saint.sh --uninstall                 (data in ~/.saint stays)
 
@@ -138,10 +138,10 @@ fi
 
 # Tauri/WebKitGTK AppImages ship usr/bin/saint-desktop and do not take Electron's
 # `--no-sandbox` flag; keep `--no-sandbox` only for legacy Electron AppImages.
-exec_line="\"$APP_IMAGE\" %U"
+exec_line="\"$APP_IMAGE\""
 (cd "$extract_dir" && "$APP_IMAGE" --appimage-extract "usr/bin/saint-desktop" >/dev/null 2>&1) || true
 if [[ ! -e "$extract_dir/squashfs-root/usr/bin/saint-desktop" ]]; then
-  exec_line="\"$APP_IMAGE\" --no-sandbox %U"
+  exec_line="\"$APP_IMAGE\" --no-sandbox"
 fi
 
 cat >"$DESKTOP_FILE" <<EOF
@@ -154,12 +154,8 @@ StartupWMClass=saint
 Type=Application
 Terminal=false
 Categories=Development;
-MimeType=x-scheme-handler/saint;
 EOF
 refresh_menu
-if command -v xdg-mime >/dev/null 2>&1; then
-  xdg-mime default saint.desktop x-scheme-handler/saint >/dev/null 2>&1 || true
-fi
 
 say "Done. Open Saint Hyper Agent from the app menu. Updates replace $APP_IMAGE in place."
 if [[ "$(realpath "$source_image")" != "$(realpath -m "$APP_IMAGE")" ]]; then
