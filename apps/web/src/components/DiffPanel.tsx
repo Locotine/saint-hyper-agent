@@ -110,6 +110,7 @@ import { closestThroughShadow } from "./chat/chatSelectionActions";
 import { TranscriptSelectionAction } from "./chat/TranscriptSelectionAction";
 import { useCodeSelectionAction } from "./chat/useCodeSelectionAction";
 import { useProjectFileChangeSubscription } from "../hooks/useProjectFileChangeSubscription";
+import { useWorkspaceChangeSubscription } from "../hooks/useWorkspaceChangeSubscription";
 import {
   createDiffPanelRepoLiveRefreshSelector,
   createDiffPanelThreadCatalogSelector,
@@ -876,14 +877,22 @@ export default function DiffPanel({
     if (!activeCwd) {
       return;
     }
-    void refreshGitAfterFileWrite(queryClient, activeCwd);
-  }, [activeCwd, queryClient]);
+    void refreshGitAfterFileWrite(queryClient, activeCwd, hostId);
+  }, [activeCwd, hostId, queryClient]);
   useProjectFileChangeSubscription({
     hostId,
     cwd: activeCwd,
     relativePath: watchedRepoFilePath,
     enabled: diffQueriesEnabled && liveRefreshEnabled && watchedRepoFilePath !== null,
     onChange: handleWatchedRepoFileChange,
+  });
+  useWorkspaceChangeSubscription({
+    hostId,
+    cwd: activeCwd,
+    enabled: diffQueriesEnabled && liveRefreshEnabled && diffViewKind === "repo",
+    watchGit: true,
+    refreshExplorer: false,
+    refreshGit: true,
   });
   useEffect(() => {
     onRenderableFilesChange?.(renderableFiles, activeReviewIsLoading);

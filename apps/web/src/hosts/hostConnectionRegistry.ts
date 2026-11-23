@@ -8,6 +8,7 @@
 import type { HostId } from "@saint/shared/hostId";
 
 import { WsTransport } from "../wsTransport";
+import { emitWsTransportState } from "../wsTransportEvents";
 
 export interface HostConnectionLease<T> {
   readonly hostId: HostId;
@@ -86,6 +87,8 @@ export function createHostConnectionRegistry<T extends { dispose: () => Promise<
   };
 }
 
-export const hostConnections = createHostConnectionRegistry(
-  (url, hostId) => new WsTransport(url, { hostId }),
-);
+export const hostConnections = createHostConnectionRegistry((url, hostId) => {
+  const transport = new WsTransport(url, { hostId });
+  transport.onStateChange((state) => emitWsTransportState(state, hostId));
+  return transport;
+});

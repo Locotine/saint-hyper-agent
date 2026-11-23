@@ -75,25 +75,33 @@ function isPublicHttpHost(host: string): boolean {
   return true;
 }
 
+const GOOGLE_FAVICON_SHARD_INDICES = [0, 1, 2, 3] as const;
+const GOOGLE_FAVICON_ALLOWED_ORIGINS = [
+  "https://www.google.com",
+  ...GOOGLE_FAVICON_SHARD_INDICES.map((index) => `https://t${index}.gstatic.com`),
+  "https://gstatic.com",
+] as const;
+
 async function fetchImage(
   url: string,
   timeoutMs: number,
+  allowedOrigins: readonly string[] = [new URL(url).origin],
 ): Promise<{ bytes: Uint8Array; contentType: string } | null> {
   try {
     const response = await outboundHttp.request({
       policy: {
         service: "site-favicon",
-        allowedOrigins: [new URL(url).origin],
+        allowedOrigins,
         timeoutMs,
         maxRequestBytes: 0,
         maxResponseBytes: MAX_FAVICON_BYTES,
-        maxRedirects: 2,
+        maxRedirects: 3,
         maxConcurrent: 6,
         maxQueued: 24,
         requirePublicAddress: true,
       },
       url,
-      headers: { Accept: "image/*" },
+      headers: { Accept: "image/png,image/webp,image/*;q=0.8" },
     });
     if (response.status < 200 || response.status >= 300) return null;
     const contentType = response.headers.get("content-type") ?? "";
@@ -108,10 +116,11 @@ async function fetchImage(
 async function fetchFaviconForHost(
   host: string,
 ): Promise<{ bytes: Uint8Array; contentType: string } | null> {
-  // 1) Google S2 — best coverage, returns a clean PNG (a generic globe for unknown sites).
+  // 1) Google S2 — best coverage, returns a clean PNG (redirects to numbered gstatic.com shards).
   const google = await fetchImage(
     `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`,
     REMOTE_FETCH_TIMEOUT_MS,
+    GOOGLE_FAVICON_ALLOWED_ORIGINS,
   );
   if (google) return google;
 
@@ -124,7 +133,14 @@ async function fetchFaviconForHost(
 
   // 3) Direct /favicon.ico — last resort, only for publicly routable hosts.
   if (isPublicHttpHost(host)) {
-    const direct = await fetchImage(`https://${host}/favicon.ico`, DIRECT_FETCH_TIMEOUT_MS);
+    const directOrigins = host.startsWith("www.")
+      ? [`https://${host}`]
+      : [`https://${host}`, `https://www.${host}`];
+    const direct = await fetchImage(
+      `https://${host}/favicon.ico`,
+      DIRECT_FETCH_TIMEOUT_MS,
+      directOrigins,
+    );
     if (direct) return direct;
   }
 

@@ -674,6 +674,8 @@ function buildNativeApi(
           ? transport.request(WS_METHODS.projectsReadFile, input, { signal: options.signal })
           : transport.request(WS_METHODS.projectsReadFile, input),
       onFileChange: (input, callback) => transport.subscribeProjectFileChange(input, callback),
+      onWorkspaceChange: (input, callback) =>
+        transport.subscribeProjectWorkspaceChange(input, callback),
       resolveWorkspaceFileReferences: (input) =>
         transport.request(WS_METHODS.projectsResolveWorkspaceFileReferences, input),
       resolveOutOfRootFileReference: (input) =>

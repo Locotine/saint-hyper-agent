@@ -220,6 +220,8 @@ import type {
   ProjectReadFileResult,
   ProjectFileChangeEvent,
   ProjectWatchFileInput,
+  ProjectWatchWorkspaceInput,
+  ProjectWorkspaceChangeEvent,
   ProjectPrewarmSearchIndexInput,
   ProjectPrewarmSearchIndexResult,
   ProjectResolveWorkspaceFileReferencesInput,
@@ -1431,6 +1433,10 @@ export interface NativeApi {
     onFileChange?: (
       input: ProjectWatchFileInput,
       callback: (event: ProjectFileChangeEvent) => void,
+    ) => () => void;
+    onWorkspaceChange?: (
+      input: ProjectWatchWorkspaceInput,
+      callback: (event: ProjectWorkspaceChangeEvent) => void,
     ) => () => void;
     resolveWorkspaceFileReferences: (
       input: ProjectResolveWorkspaceFileReferencesInput,

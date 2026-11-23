@@ -745,12 +745,17 @@ export const projectFaviconEffectRouteLayer = HttpRouter.add(
     // Desktop image requests carry the local startup token in the URL, just
     // like site favicons and attachment previews; remote servers require a session.
     const config = yield* ServerConfig;
+    const corsHeaders = localPreviewCorsHeaders({ config, request, url });
     if (!isLegacyTokenAuthorized({ config, url })) {
       yield* requireAuthenticatedRequest;
     }
     const projectCwd = url.searchParams.get("cwd");
-    if (!projectCwd) return HttpServerResponse.text("Missing cwd parameter", { status: 400 });
-    const faviconDenied = yield* clientAccessDenied(url, undefined, mayUsePath(projectCwd));
+    if (!projectCwd)
+      return HttpServerResponse.text("Missing cwd parameter", {
+        status: 400,
+        headers: corsHeaders,
+      });
+    const faviconDenied = yield* clientAccessDenied(url, corsHeaders, mayUsePath(projectCwd));
     if (faviconDenied) return faviconDenied;
     const resolver = yield* ProjectFaviconResolver;
     const faviconPath = yield* resolver.resolvePath(projectCwd);
@@ -759,13 +764,19 @@ export const projectFaviconEffectRouteLayer = HttpRouter.add(
       if (url.searchParams.get("fallback") === "none")
         return HttpServerResponse.empty({
           status: 204,
-          headers: { "Cache-Control": PROJECT_FAVICON_CACHE_CONTROL },
+          headers: {
+            "Cache-Control": PROJECT_FAVICON_CACHE_CONTROL,
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            ...corsHeaders,
+          },
         });
       return HttpServerResponse.text(FALLBACK_FAVICON_SVG, {
         status: 200,
         contentType: "image/svg+xml",
         headers: {
           "Cache-Control": PROJECT_FAVICON_CACHE_CONTROL,
+          "Cross-Origin-Resource-Policy": "cross-origin",
+          ...corsHeaders,
           ...SVG_DOCUMENT_SECURITY_HEADERS,
         },
       });
@@ -775,7 +786,7 @@ export const projectFaviconEffectRouteLayer = HttpRouter.add(
       .stat(faviconPath)
       .pipe(Effect.catch(() => Effect.succeed(null)));
     if (!fileInfo || fileInfo.type !== "File") {
-      return HttpServerResponse.text("Not Found", { status: 404 });
+      return HttpServerResponse.text("Not Found", { status: 404, headers: corsHeaders });
     }
     // Reuse local-image/attachment streaming: the desktop route stack does not
     // supply the extra HttpPlatform service used by HttpServerResponse.file.
@@ -785,6 +796,8 @@ export const projectFaviconEffectRouteLayer = HttpRouter.add(
       sizeBytes: Number(fileInfo.size),
       headers: {
         "Cache-Control": PROJECT_FAVICON_CACHE_CONTROL,
+        "Cross-Origin-Resource-Policy": "cross-origin",
+        ...corsHeaders,
         // Repository-controlled bytes must stay inert even on direct navigation
         // or when the file contents do not match their image extension.
         ...SVG_DOCUMENT_SECURITY_HEADERS,
@@ -808,22 +821,43 @@ const siteFaviconEffectRouteLayer = HttpRouter.add(
     // same startup-token rule the local-image/attachments routes use so favicons
     // load in local dev without a session cookie.
     const config = yield* ServerConfig;
+    const corsHeaders = localPreviewCorsHeaders({ config, request, url });
     if (!isLegacyTokenAuthorized({ config, url })) {
       yield* requireAuthenticatedRequest;
     }
 
     const domainParam = url.searchParams.get("domain") ?? url.searchParams.get("url");
-    if (!domainParam) return HttpServerResponse.text("Missing domain parameter", { status: 400 });
+    if (!domainParam)
+      return HttpServerResponse.text("Missing domain parameter", {
+        status: 400,
+        headers: corsHeaders,
+      });
     const host = tryParseHost(domainParam);
-    if (!host) return HttpServerResponse.text("Invalid domain", { status: 400 });
+    if (!host)
+      return HttpServerResponse.text("Invalid domain", {
+        status: 400,
+        headers: corsHeaders,
+      });
 
     const favicon = yield* Effect.promise(() => resolveFavicon(host));
     if (!favicon.bytes) {
+      if (url.searchParams.get("fallback") === "none") {
+        return HttpServerResponse.empty({
+          status: 204,
+          headers: {
+            "Cache-Control": SITE_FAVICON_CACHE_CONTROL_FALLBACK,
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            ...corsHeaders,
+          },
+        });
+      }
       return HttpServerResponse.text(FALLBACK_SITE_FAVICON_SVG, {
         status: 200,
         contentType: "image/svg+xml",
         headers: {
           "Cache-Control": SITE_FAVICON_CACHE_CONTROL_FALLBACK,
+          "Cross-Origin-Resource-Policy": "cross-origin",
+          ...corsHeaders,
           ...SVG_DOCUMENT_SECURITY_HEADERS,
         },
       });
@@ -833,6 +867,9 @@ const siteFaviconEffectRouteLayer = HttpRouter.add(
       contentType: favicon.contentType ?? "image/x-icon",
       headers: {
         "Cache-Control": SITE_FAVICON_CACHE_CONTROL_SUCCESS,
+        "Cross-Origin-Resource-Policy": "cross-origin",
+        "X-Content-Type-Options": "nosniff",
+        ...corsHeaders,
         ...(favicon.contentType?.toLowerCase().startsWith("image/svg+xml")
           ? SVG_DOCUMENT_SECURITY_HEADERS
           : {}),
@@ -1937,6 +1974,6 @@ export const staticAndDevEffectRouteLayer = HttpRouter.add(
   }),
 );
 
-const FALLBACK_FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#6b728080" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-fallback="project-favicon"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg>`;
+const FALLBACK_FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#6b7280" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-fallback="project-favicon"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg>`;
 
-const FALLBACK_SITE_FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#6b728080" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-fallback="site-favicon"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20M12 2a14.5 14.5 0 0 1 0 20M2 12h20"/></svg>`;
+const FALLBACK_SITE_FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#6b7280" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-fallback="site-favicon"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20M12 2a14.5 14.5 0 0 1 0 20M2 12h20"/></svg>`;

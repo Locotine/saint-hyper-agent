@@ -10,7 +10,7 @@ import { Effect, Stream } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { WorkspacePathOutsideRootError } from "./workspace/Services/WorkspacePaths";
-import { watchWorkspaceFile } from "./workspaceFileChanges";
+import { watchWorkspaceDirectories, watchWorkspaceFile } from "./workspaceFileChanges";
 
 const temporaryRoots: string[] = [];
 
@@ -118,6 +118,91 @@ describe("watchWorkspaceFile", () => {
       ),
     );
 
+    expect(error).toBeInstanceOf(WorkspacePathOutsideRootError);
+  });
+});
+
+describe("watchWorkspaceDirectories", () => {
+  it("emits workspace changes for root and expanded subdirectories", async () => {
+    const workspaceRoot = await makeWorkspace();
+    const subDir = NodePath.join(workspaceRoot, "src");
+    await NodeFileSystem.mkdir(subDir, { recursive: true });
+
+    const abortController = new AbortController();
+    const collectedEvents = Effect.runPromise(
+      watchWorkspaceDirectories({
+        cwd: workspaceRoot,
+        directories: ["src", "missing-dir"],
+      }).pipe(Stream.take(2), Stream.runCollect),
+      { signal: abortController.signal },
+    );
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      await NodeFileSystem.writeFile(NodePath.join(workspaceRoot, "root.txt"), "hello\n");
+      await new Promise((resolve) => setTimeout(resolve, 260));
+      await NodeFileSystem.writeFile(NodePath.join(subDir, "nested.ts"), "export const a = 1;\n");
+
+      const events = Array.from(
+        await Promise.race([
+          collectedEvents,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("workspace watch timed out")), 5_000),
+          ),
+        ]),
+      );
+
+      expect(events.length).toBe(2);
+      expect(events.some((event) => event.directories.includes(""))).toBe(true);
+      expect(events.some((event) => event.directories.includes("src"))).toBe(true);
+    } finally {
+      abortController.abort();
+    }
+  });
+
+  it("reports gitChanged when .git metadata updates", async () => {
+    const workspaceRoot = await makeWorkspace();
+    const gitDir = NodePath.join(workspaceRoot, ".git");
+    await NodeFileSystem.mkdir(NodePath.join(gitDir, "refs", "heads"), { recursive: true });
+    await NodeFileSystem.writeFile(NodePath.join(gitDir, "HEAD"), "ref: refs/heads/main\n");
+
+    const abortController = new AbortController();
+    const collectedEvents = Effect.runPromise(
+      watchWorkspaceDirectories({
+        cwd: workspaceRoot,
+        watchGit: true,
+      }).pipe(Stream.take(1), Stream.runCollect),
+      { signal: abortController.signal },
+    );
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      await NodeFileSystem.writeFile(NodePath.join(gitDir, "HEAD"), "ref: refs/heads/feat\n");
+
+      const events = Array.from(
+        await Promise.race([
+          collectedEvents,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("git workspace watch timed out")), 5_000),
+          ),
+        ]),
+      );
+
+      expect(events).toHaveLength(1);
+      expect(events[0]?.gitChanged).toBe(true);
+    } finally {
+      abortController.abort();
+    }
+  });
+
+  it("rejects directories outside the workspace root", async () => {
+    const workspaceRoot = await makeWorkspace();
+    const error = await Effect.runPromise(
+      watchWorkspaceDirectories({ cwd: workspaceRoot, directories: ["../outside"] }).pipe(
+        Stream.runHead,
+        Effect.flip,
+      ),
+    );
     expect(error).toBeInstanceOf(WorkspacePathOutsideRootError);
   });
 });

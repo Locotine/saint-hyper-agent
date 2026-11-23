@@ -8,7 +8,7 @@ import type {
   NativeApi,
   ProviderStartOptions,
 } from "@saint/contracts";
-import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, parseHostId, type HostId } from "@saint/shared/hostId";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { apiFor } from "../hosts/hostApi";
 import { ensureLocalNativeApi } from "../nativeApi";
@@ -146,9 +146,26 @@ function enqueueGitRefresh(queryClient: QueryClient, refresh: () => Promise<void
   return result;
 }
 
+function gitRefreshKey(cwd: string, hostId?: HostId): string {
+  return `${hostId ?? "*"}\0${cwd}`;
+}
+
+function queryKeyMatchesGitHost(queryKey: readonly unknown[], hostId: HostId | undefined): boolean {
+  if (hostId === undefined) return true;
+  const last = queryKey.at(-1);
+  const trailingHost = typeof last === "string" ? parseHostId(last) : null;
+  const queryHostId =
+    trailingHost !== null && trailingHost !== LOCAL_HOST_ID ? trailingHost : LOCAL_HOST_ID;
+  return queryHostId === hostId;
+}
+
+function isWorkingTreeDiffStatsKey(queryKey: readonly unknown[]): boolean {
+  return queryKey.at(-1) === "stats" || queryKey.at(-2) === "stats";
+}
+
 function trackGitRefresh(
   queryClient: QueryClient,
-  cwd: string,
+  refreshKey: string,
   entry: ActiveGitRefresh,
 ): Promise<void> {
   let refreshes = activeGitRefreshes.get(queryClient);
@@ -156,9 +173,9 @@ function trackGitRefresh(
     refreshes = new Map();
     activeGitRefreshes.set(queryClient, refreshes);
   }
-  refreshes.set(cwd, entry);
+  refreshes.set(refreshKey, entry);
   const cleanup = () => {
-    if (refreshes.get(cwd) === entry) refreshes.delete(cwd);
+    if (refreshes.get(refreshKey) === entry) refreshes.delete(refreshKey);
   };
   void entry.promise.then(cleanup, cleanup);
   return entry.promise;
@@ -182,66 +199,122 @@ async function refetchFreshGitQueries(
   );
 }
 
+async function invalidateAndRefetchGitFamily(
+  queryClient: QueryClient,
+  baseKey: readonly unknown[],
+  hostId?: HostId,
+): Promise<void> {
+  if (hostId !== undefined) {
+    const exactKey = [...baseKey, ...hostKeyPart(hostId)] as const;
+    await queryClient.invalidateQueries({
+      queryKey: exactKey,
+      exact: true,
+      refetchType: "none",
+    });
+    await refetchFreshGitQueries(queryClient, exactKey);
+    return;
+  }
+  await queryClient.invalidateQueries({
+    queryKey: baseKey,
+    refetchType: "none",
+  });
+  const activeQueries = queryClient.getQueryCache().findAll({ queryKey: baseKey, type: "active" });
+  await Promise.all(
+    activeQueries.map((query) => refetchFreshGitQueries(queryClient, query.queryKey)),
+  );
+}
+
 async function refreshGitAvailability(
   queryClient: QueryClient,
   cwd: string,
   includeRemote: boolean,
+  hostId?: HostId,
 ): Promise<void> {
   await Promise.all([
     includeRemote
       ? queryClient.invalidateQueries({
-          queryKey: gitQueryKeys.githubRepository(cwd),
-          exact: true,
+          queryKey:
+            hostId !== undefined
+              ? ([...gitQueryKeys.githubRepository(cwd), ...hostKeyPart(hostId)] as const)
+              : gitQueryKeys.githubRepository(cwd),
+          ...(hostId !== undefined ? { exact: true } : {}),
           refetchType: "none",
         })
       : undefined,
     queryClient.invalidateQueries({
-      queryKey: gitQueryKeys.status(cwd),
-      exact: true,
+      queryKey:
+        hostId !== undefined
+          ? ([...gitQueryKeys.status(cwd), ...hostKeyPart(hostId)] as const)
+          : gitQueryKeys.status(cwd),
+      ...(hostId !== undefined ? { exact: true } : {}),
       refetchType: "none",
     }),
     queryClient.invalidateQueries({
-      queryKey: gitQueryKeys.branches(cwd),
-      exact: true,
+      queryKey:
+        hostId !== undefined
+          ? ([...gitQueryKeys.branches(cwd), ...hostKeyPart(hostId)] as const)
+          : gitQueryKeys.branches(cwd),
+      ...(hostId !== undefined ? { exact: true } : {}),
       refetchType: "none",
     }),
     queryClient.invalidateQueries({
       queryKey: ["git", "recent-commits", cwd] as const,
+      predicate: (query) => queryKeyMatchesGitHost(query.queryKey, hostId),
       refetchType: "none",
     }),
   ]);
   await Promise.all([
     includeRemote
-      ? refetchFreshGitQueries(queryClient, gitQueryKeys.githubRepository(cwd))
+      ? invalidateAndRefetchGitFamily(queryClient, gitQueryKeys.githubRepository(cwd), hostId)
       : undefined,
-    refetchFreshGitQueries(queryClient, gitQueryKeys.status(cwd)),
-    refetchFreshGitQueries(queryClient, gitQueryKeys.branches(cwd)),
+    invalidateAndRefetchGitFamily(queryClient, gitQueryKeys.status(cwd), hostId),
+    invalidateAndRefetchGitFamily(queryClient, gitQueryKeys.branches(cwd), hostId),
     ...queryClient
       .getQueryCache()
-      .findAll({ queryKey: ["git", "recent-commits", cwd] as const, type: "active" })
+      .findAll({
+        queryKey: ["git", "recent-commits", cwd] as const,
+        type: "active",
+        predicate: (query) => queryKeyMatchesGitHost(query.queryKey, hostId),
+      })
       .map((query) => refetchFreshGitQueries(queryClient, query.queryKey)),
   ]);
 }
 
-function activeGitDetailQueries(queryClient: QueryClient, cwd: string, includeRemote = true) {
+function activeGitDetailQueries(
+  queryClient: QueryClient,
+  cwd: string,
+  includeRemote = true,
+  hostId?: HostId,
+) {
   const queryCache = queryClient.getQueryCache();
+  const hostPredicate = (query: { readonly queryKey: readonly unknown[] }) =>
+    queryKeyMatchesGitHost(query.queryKey, hostId);
   const queries = [
     ...queryCache.findAll({
       queryKey: gitQueryKeys.workingTreeDiffs(cwd),
       type: "active",
+      predicate: hostPredicate,
     }),
     ...(includeRemote
       ? queryCache.findAll({ queryKey: gitQueryKeys.pullRequest(cwd), type: "active" })
       : []),
     // A mounted diff editor keeps showing a base blob, and an open blame
     // popover its attribution, until refetched.
-    ...queryCache.findAll({ queryKey: ["git", "file-at-rev", cwd] as const, type: "active" }),
-    ...queryCache.findAll({ queryKey: ["git", "blame-line", cwd] as const, type: "active" }),
+    ...queryCache.findAll({
+      queryKey: ["git", "file-at-rev", cwd] as const,
+      type: "active",
+      predicate: hostPredicate,
+    }),
+    ...queryCache.findAll({
+      queryKey: ["git", "blame-line", cwd] as const,
+      type: "active",
+      predicate: hostPredicate,
+    }),
   ];
   const uniqueQueries = [...new Map(queries.map((query) => [query.queryHash, query])).values()];
   return uniqueQueries.toSorted((left, right) => {
-    const leftIsStats = left.queryKey.at(-1) === "stats";
-    const rightIsStats = right.queryKey.at(-1) === "stats";
+    const leftIsStats = isWorkingTreeDiffStatsKey(left.queryKey);
+    const rightIsStats = isWorkingTreeDiffStatsKey(right.queryKey);
     if (leftIsStats !== rightIsStats) return leftIsStats ? -1 : 1;
     const leftIsPatch = left.queryKey[1] === "working-tree-diff" && !leftIsStats;
     const rightIsPatch = right.queryKey[1] === "working-tree-diff" && !rightIsStats;
@@ -254,10 +327,14 @@ async function refreshActiveGitDetails(
   queryClient: QueryClient,
   cwd: string,
   includeRemote: boolean,
+  hostId?: HostId,
 ): Promise<void> {
+  const hostPredicate = (query: { readonly queryKey: readonly unknown[] }) =>
+    queryKeyMatchesGitHost(query.queryKey, hostId);
   await Promise.all([
     queryClient.invalidateQueries({
       queryKey: gitQueryKeys.workingTreeDiffs(cwd),
+      predicate: hostPredicate,
       refetchType: "none",
     }),
     includeRemote
@@ -270,14 +347,16 @@ async function refreshActiveGitDetails(
     // cached attribution/blobs would otherwise survive their stale windows.
     queryClient.invalidateQueries({
       queryKey: ["git", "blame-line", cwd] as const,
+      predicate: hostPredicate,
       refetchType: "none",
     }),
     queryClient.invalidateQueries({
       queryKey: ["git", "file-at-rev", cwd] as const,
+      predicate: hostPredicate,
       refetchType: "none",
     }),
   ]);
-  for (const query of activeGitDetailQueries(queryClient, cwd, includeRemote)) {
+  for (const query of activeGitDetailQueries(queryClient, cwd, includeRemote, hostId)) {
     await enqueueGitRefresh(queryClient, () => refetchFreshGitQueries(queryClient, query.queryKey));
   }
 }
@@ -290,12 +369,14 @@ async function refreshActiveGitDetails(
 export async function refreshGitWorkingTreeDiffsForCwd(
   queryClient: QueryClient,
   cwd: string,
+  hostId?: HostId,
 ): Promise<void> {
   await queryClient.invalidateQueries({
     queryKey: gitQueryKeys.workingTreeDiffs(cwd),
+    predicate: (query) => queryKeyMatchesGitHost(query.queryKey, hostId),
     refetchType: "none",
   });
-  const queries = activeGitDetailQueries(queryClient, cwd).filter(
+  const queries = activeGitDetailQueries(queryClient, cwd, true, hostId).filter(
     (query) => query.queryKey[1] === "working-tree-diff",
   );
   for (const query of queries) {
@@ -311,36 +392,36 @@ const activeFileWriteRefreshes = new WeakMap<
 /** Refresh only working-copy data after file writes. Autosave must not refetch
  * PRs, branches or revision blobs for each pause in typing. Watcher echoes join
  * the pending refresh; events arriving during a read request one fresh pass. */
-export function refreshGitAfterFileWrite(queryClient: QueryClient, cwd: string): Promise<void> {
+export function refreshGitAfterFileWrite(
+  queryClient: QueryClient,
+  cwd: string,
+  hostId?: HostId,
+): Promise<void> {
   let refreshes = activeFileWriteRefreshes.get(queryClient);
   if (!refreshes) {
     refreshes = new Map();
     activeFileWriteRefreshes.set(queryClient, refreshes);
   }
-  const existing = refreshes.get(cwd);
+  const key = gitRefreshKey(cwd, hostId);
+  const existing = refreshes.get(key);
   if (existing) {
     existing.generation += 1;
     return existing.promise;
   }
   const entry = { generation: 0, promise: Promise.resolve() };
-  refreshes.set(cwd, entry);
+  refreshes.set(key, entry);
   entry.promise = (async () => {
     let completed: number;
     do {
       completed = entry.generation;
       // Keep the visible patch first: status may need a separate Git process.
-      await refreshGitWorkingTreeDiffsForCwd(queryClient, cwd);
-      await queryClient.invalidateQueries({
-        queryKey: gitQueryKeys.status(cwd),
-        exact: true,
-        refetchType: "none",
-      });
+      await refreshGitWorkingTreeDiffsForCwd(queryClient, cwd, hostId);
       await enqueueGitRefresh(queryClient, () =>
-        refetchFreshGitQueries(queryClient, gitQueryKeys.status(cwd)),
+        invalidateAndRefetchGitFamily(queryClient, gitQueryKeys.status(cwd), hostId),
       );
     } while (completed !== entry.generation);
   })().finally(() => {
-    if (refreshes.get(cwd) === entry) refreshes.delete(cwd);
+    if (refreshes.get(key) === entry) refreshes.delete(key);
   });
   return entry.promise;
 }
@@ -360,8 +441,10 @@ export function refreshGitQueriesForCwd(
   cwd: string,
   depth: GitRefreshDepth = "active-details",
   scope: GitRefreshScope = "all",
+  hostId?: HostId,
 ): Promise<void> {
-  const existing = activeGitRefreshes.get(queryClient)?.get(cwd);
+  const key = gitRefreshKey(cwd, hostId);
+  const existing = activeGitRefreshes.get(queryClient)?.get(key);
   if (existing && !existing.started) {
     if (depth === "active-details") existing.depth = "active-details";
     if (scope === "all") existing.includeRemote = true;
@@ -377,16 +460,16 @@ export function refreshGitQueriesForCwd(
   };
   entry.availability = enqueueGitRefresh(queryClient, () => {
     entry.started = true;
-    return refreshGitAvailability(queryClient, cwd, entry.includeRemote);
+    return refreshGitAvailability(queryClient, cwd, entry.includeRemote, hostId);
   });
   // Read entry.depth only after availability settles so a pre-start upgrade to
   // "active-details" is honored even when the original request was availability-only.
   entry.promise = entry.availability.then(() =>
     entry.depth === "active-details"
-      ? refreshActiveGitDetails(queryClient, cwd, entry.includeRemote)
+      ? refreshActiveGitDetails(queryClient, cwd, entry.includeRemote, hostId)
       : undefined,
   );
-  trackGitRefresh(queryClient, cwd, entry);
+  trackGitRefresh(queryClient, key, entry);
   return depth === "availability" ? entry.availability : entry.promise;
 }
 
@@ -433,9 +516,17 @@ export function invalidateGitQueries(
 }
 
 // Scope live file-change invalidations so unrelated project/worktree git caches stay warm.
-export function invalidateGitQueriesForCwds(queryClient: QueryClient, cwds: Iterable<string>) {
+export function invalidateGitQueriesForCwds(
+  queryClient: QueryClient,
+  cwds: Iterable<string>,
+  hostId?: HostId,
+) {
   const uniqueCwds = [...new Set([...cwds].filter((cwd) => cwd.length > 0))];
-  return Promise.all(uniqueCwds.map((cwd) => refreshGitQueriesForCwd(queryClient, cwd)));
+  return Promise.all(
+    uniqueCwds.map((cwd) =>
+      refreshGitQueriesForCwd(queryClient, cwd, "active-details", "all", hostId),
+    ),
+  );
 }
 
 /**
@@ -840,7 +931,7 @@ function makeGitMutationOptions<TArgs, TResult>(config: {
   const runInvalidation = async () => {
     if (invalidate === "cwd") {
       if (config.cwd) {
-        await invalidateGitQueriesForCwds(config.queryClient, [config.cwd]);
+        await invalidateGitQueriesForCwds(config.queryClient, [config.cwd], config.hostId);
       }
       return;
     }

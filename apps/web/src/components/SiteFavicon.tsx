@@ -6,16 +6,22 @@
 // Layer: Shared UI component
 // Used by: markdown source links (ChatMarkdown), InlineLinkChip (composer + user bubble).
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
 
 import { GlobeIcon } from "~/lib/icons";
 import {
   extractHostname,
+  getDesktopWsUrlSnapshot,
+  getSiteFaviconRenderSrc,
+  isWaitingForDesktopWsUrl,
   probeSiteFavicon,
   resolveSiteFaviconUrl,
   siteFaviconStatusCache,
+  subscribeDesktopWsUrl,
 } from "~/lib/siteFavicon";
 import { cn } from "~/lib/utils";
+
+const getServerWsUrlSnapshot = () => "";
 
 export interface SiteFaviconProps {
   /** Full URL (or bare host) the favicon should represent. */
@@ -33,8 +39,13 @@ export const SiteFavicon = function SiteFavicon({
   className,
   fallback,
 }: SiteFaviconProps) {
+  // Re-evaluate once the desktop sidecar publishes its WS URL so links rendered
+  // during early startup don't stay stuck on a pre-boot 404 fallback.
+  useSyncExternalStore(subscribeDesktopWsUrl, getDesktopWsUrlSnapshot, getServerWsUrlSnapshot);
+  const waitingForDesktopWsUrl = isWaitingForDesktopWsUrl();
   const host = extractHostname(url) ?? (url.includes(".") ? url : null);
-  const faviconSrc = host ? resolveSiteFaviconUrl(host) : null;
+  const faviconSrc =
+    host && !waitingForDesktopWsUrl ? resolveSiteFaviconUrl(host, { fallback: "none" }) : null;
 
   // Seed from the shared cache so a known host renders its icon immediately.
   // Keyed by src: a host change derives back to the pending/fallback state in
@@ -70,7 +81,7 @@ export const SiteFavicon = function SiteFavicon({
   if (status === "ok" && faviconSrc) {
     return (
       <img
-        src={faviconSrc}
+        src={getSiteFaviconRenderSrc(faviconSrc)}
         alt=""
         aria-hidden="true"
         className={cn("shrink-0 rounded-[2px] object-contain", className)}

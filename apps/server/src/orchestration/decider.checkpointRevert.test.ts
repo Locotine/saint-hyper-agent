@@ -133,8 +133,10 @@ describe("checkpoint revert decider", () => {
         }),
       );
     }
+    // A warm "ready" session on the same provider transitions straight to "running"
+    // with activeTurnId: null until provider activation publishes the live turn id.
     expect(readModel.threads[0]?.session).toMatchObject({
-      status: "starting",
+      status: "running",
       activeTurnId: null,
     });
 

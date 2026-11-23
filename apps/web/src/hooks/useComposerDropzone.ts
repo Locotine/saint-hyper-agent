@@ -65,6 +65,17 @@ export function shouldHandleComposerDropzoneFiles(
   return false;
 }
 
+export function shouldProbeDesktopClipboardImage(
+  clipboardData: Pick<DataTransfer, "getData" | "types">,
+): boolean {
+  const hasTextOrUriPayload =
+    clipboardData.getData("text/plain") !== "" ||
+    clipboardData.getData("text/uri-list") !== "" ||
+    clipboardData.getData("text/html") !== "" ||
+    Array.from(clipboardData.types).some((type) => type.startsWith("text/"));
+  return !hasTextOrUriPayload;
+}
+
 export function shouldBlockDisabledComposerDropzoneTransfer(
   disabled: boolean,
   types: readonly string[],
@@ -202,8 +213,10 @@ export function useComposerDropzone(input: {
       return;
     }
     if (files.length === 0) {
-      // WebKitGTK (Linux desktop) exposes no files for a pasted image; ask the desktop shell.
-      if (event.clipboardData.getData("text/plain") === "") {
+      // WebKitGTK (Linux desktop) exposes no files for a pasted image; ask the desktop shell
+      // only when the clipboard carries no text/URL payload (pasting a link or URI must never
+      // invoke the native image clipboard reader).
+      if (shouldProbeDesktopClipboardImage(event.clipboardData)) {
         void readDesktopClipboardImageFile().then((file) => {
           if (file) handleSplitFiles({ imageFiles: [file], genericFiles: [] });
         });

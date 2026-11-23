@@ -1,6 +1,7 @@
 import {
   WS_GITHUB_PROJECT_PROVISIONING_CAPABILITY,
   WS_PROJECT_FILE_WATCH_CAPABILITY,
+  WS_PROJECT_WORKSPACE_WATCH_CAPABILITY,
   type NativeApi,
 } from "@saint/contracts";
 
@@ -40,6 +41,9 @@ export function readNativeApiServerCapability(capability: string): boolean {
     }
     if (capability === WS_PROJECT_FILE_WATCH_CAPABILITY) {
       return typeof window.nativeApi.projects?.onFileChange === "function";
+    }
+    if (capability === WS_PROJECT_WORKSPACE_WATCH_CAPABILITY) {
+      return typeof window.nativeApi.projects?.onWorkspaceChange === "function";
     }
     return false;
   }

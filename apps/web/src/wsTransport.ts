@@ -22,6 +22,7 @@ import {
   WS_PROTOCOL_MAX_REVISION,
   WS_PROTOCOL_MIN_REVISION,
   WS_PROJECT_FILE_WATCH_CAPABILITY,
+  WS_PROJECT_WORKSPACE_WATCH_CAPABILITY,
   WS_TURN_DISPATCH_SETTLEMENT_CAPABILITY,
   WS_GIT_ACTION_RECOVERY_CAPABILITY,
   type ClientOrchestrationCommand,
@@ -55,6 +56,8 @@ import {
   type ProjectDevServerEvent,
   type ProjectFileChangeEvent,
   type ProjectWatchFileInput,
+  type ProjectWatchWorkspaceInput,
+  type ProjectWorkspaceChangeEvent,
   type ServerConfigStreamEvent,
   type ServerLifecycleStreamEvent,
   type ServerProviderStatusesUpdatedPayload,
@@ -126,6 +129,11 @@ type ProjectFileChangeSubscription = {
   readonly listeners: Set<(event: ProjectFileChangeEvent) => void>;
 };
 
+type ProjectWorkspaceChangeSubscription = {
+  readonly input: ProjectWatchWorkspaceInput;
+  readonly listeners: Set<(event: ProjectWorkspaceChangeEvent) => void>;
+};
+
 /**
  * One feature-socket session. The protocol wrapper reports failures with the
  * session that owns the socket so stale signals from a torn-down runtime can be
@@ -164,6 +172,12 @@ function createInitialRecoveryState(): RecoveryState {
 
 export function projectFileChangeStreamKey(input: ProjectWatchFileInput): string {
   return `projects.file-change:${input.cwd.length}:${input.cwd}${input.relativePath}`;
+}
+
+export function projectWorkspaceChangeStreamKey(input: ProjectWatchWorkspaceInput): string {
+  const normalizedDirs = [...(input.directories ?? [])].toSorted().join("\0");
+  const watchGit = input.watchGit === true ? "1" : "0";
+  return `projects.workspace-change:${input.cwd.length}:${input.cwd}:${watchGit}:${normalizedDirs}`;
 }
 
 class WsTransportRpcError extends Data.TaggedError("WsTransportRpcError")<{
@@ -597,6 +611,7 @@ const STREAM_ADMISSION_ERROR_CODES = new Set([
   // A local filesystem watcher failure is scoped to its optional panel
   // subscription. Reconnecting every RPC stream cannot repair that path.
   "PROJECT_FILE_WATCH_FAILED",
+  "PROJECT_WORKSPACE_WATCH_FAILED",
   // Snapshot-fence failures are a property of one stream's read model, not of
   // the socket. Tearing the whole transport down for them interrupts every
   // unrelated in-flight request while fixing nothing — the same fence is
@@ -705,7 +720,10 @@ const MAX_STREAM_CAPACITY_RETRY_MS = 10_000;
 const INITIAL_UNEXPECTED_STREAM_COMPLETION_RETRY_MS = 100;
 const MAX_UNEXPECTED_STREAM_COMPLETION_RETRY_MS = 5_000;
 const STABLE_STREAM_LIFETIME_MS = 10_000;
-const PROJECT_FILE_WATCH_FAILED_ERROR_CODE = "PROJECT_FILE_WATCH_FAILED";
+const PROJECT_WATCH_FAILED_ERROR_CODES = new Set([
+  "PROJECT_FILE_WATCH_FAILED",
+  "PROJECT_WORKSPACE_WATCH_FAILED",
+]);
 const INITIAL_PROJECT_FILE_WATCH_RETRY_MS = 500;
 const MAX_PROJECT_FILE_WATCH_RETRY_MS = 8_000;
 export const MAX_PROJECT_FILE_WATCH_RETRY_ATTEMPTS = 5;
@@ -725,7 +743,7 @@ export function getProjectFileWatchRetryDelayMs(
     const error = reason.error;
     if (!error || typeof error !== "object") continue;
     const code = "code" in error ? error.code : undefined;
-    if (code !== PROJECT_FILE_WATCH_FAILED_ERROR_CODE) continue;
+    if (typeof code !== "string" || !PROJECT_WATCH_FAILED_ERROR_CODES.has(code)) continue;
     return Math.min(
       INITIAL_PROJECT_FILE_WATCH_RETRY_MS * 2 ** previousAttempts,
       MAX_PROJECT_FILE_WATCH_RETRY_MS,
@@ -1031,6 +1049,10 @@ export class WsTransport {
   private shellSnapshotDelivered = false;
   private readonly threadSubscriptions = new Map<string, unknown>();
   private readonly projectFileSubscriptions = new Map<string, ProjectFileChangeSubscription>();
+  private readonly projectWorkspaceSubscriptions = new Map<
+    string,
+    ProjectWorkspaceChangeSubscription
+  >();
   private readonly projectAgentSubscriptions = new Map<string, unknown>();
   private compatibility: WsBootstrapNegotiateResult | null = null;
   private compatibilityIssue: WsCompatibilityError | null = null;
@@ -1442,6 +1464,38 @@ export class WsTransport {
     };
   }
 
+  subscribeProjectWorkspaceChange(
+    input: ProjectWatchWorkspaceInput,
+    listener: (event: ProjectWorkspaceChangeEvent) => void,
+  ): () => void {
+    const key = projectWorkspaceChangeStreamKey(input);
+    let subscription = this.projectWorkspaceSubscriptions.get(key);
+    const isNewSubscription = subscription === undefined;
+    if (!subscription) {
+      subscription = { input, listeners: new Set() };
+      this.projectWorkspaceSubscriptions.set(key, subscription);
+    }
+    subscription.listeners.add(listener);
+    const desiredSubscription = subscription;
+    if (isNewSubscription) {
+      void this.getClient()
+        .then((client) => this.startProjectWorkspaceChangeStream(client, key, desiredSubscription))
+        .catch(() => undefined);
+    }
+
+    return () => {
+      desiredSubscription.listeners.delete(listener);
+      if (
+        desiredSubscription.listeners.size > 0 ||
+        this.projectWorkspaceSubscriptions.get(key) !== desiredSubscription
+      ) {
+        return;
+      }
+      this.projectWorkspaceSubscriptions.delete(key);
+      void this.stopStream(key);
+    };
+  }
+
   getLatestPush<C extends WsPushChannel>(channel: C): WsPushMessage<C> | null {
     const latest = this.latestPushByChannel.get(channel);
     return latest ? (latest as WsPushMessage<C>) : null;
@@ -1542,6 +1596,7 @@ export class WsTransport {
     this.streamCleanups.clear();
     this.activeThreadStreamInputs.clear();
     this.projectFileSubscriptions.clear();
+    this.projectWorkspaceSubscriptions?.clear();
     this.projectAgentSubscriptions.clear();
     this.threadStreamFailureListeners.clear();
     this.shellStreamFailureListeners.clear();
@@ -2143,6 +2198,9 @@ export class WsTransport {
         for (const [key, subscription] of this.projectFileSubscriptions) {
           this.startProjectFileChangeStream(client, key, subscription);
         }
+        for (const [key, subscription] of this.projectWorkspaceSubscriptions ?? []) {
+          this.startProjectWorkspaceChangeStream(client, key, subscription);
+        }
         for (const [projectId, params] of this.projectAgentSubscriptions) {
           this.startProjectAgentEventStream(client, projectId, params);
         }
@@ -2493,6 +2551,41 @@ export class WsTransport {
       client,
       key,
       client[WS_METHODS.projectsSubscribeFileChange](subscription.input),
+      (event) => {
+        for (const subscribedListener of subscription.listeners) {
+          try {
+            subscribedListener(event);
+          } catch {
+            // One panel listener must not prevent another from revalidating.
+          }
+        }
+      },
+      restart,
+    );
+  }
+
+  private startProjectWorkspaceChangeStream(
+    client: RpcClientInstance,
+    key: string,
+    subscription: ProjectWorkspaceChangeSubscription,
+  ): void {
+    if (
+      this.disposed ||
+      this.projectWorkspaceSubscriptions.get(key) !== subscription ||
+      !this.compatibility?.capabilities.includes(WS_PROJECT_WORKSPACE_WATCH_CAPABILITY)
+    ) {
+      return;
+    }
+    const restart = () => {
+      if (this.projectWorkspaceSubscriptions.get(key) !== subscription) return;
+      void this.getClient()
+        .then((nextClient) => this.startProjectWorkspaceChangeStream(nextClient, key, subscription))
+        .catch(() => undefined);
+    };
+    this.startStream<ProjectWorkspaceChangeEvent>(
+      client,
+      key,
+      client[WS_METHODS.projectsSubscribeWorkspaceChange](subscription.input),
       (event) => {
         for (const subscribedListener of subscription.listeners) {
           try {

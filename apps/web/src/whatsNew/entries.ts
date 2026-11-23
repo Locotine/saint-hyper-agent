@@ -22,6 +22,36 @@ import type { WhatsNewEntry } from "./logic";
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    version: "1.2.13",
+    date: "Nov 23",
+    features: [
+      {
+        id: "workspace-terminal-live-reload-local-and-remote",
+        title: "Live auto-reload for Terminal, Explorer, Files, Git, and Diff (Local & Remote SSH)",
+        description:
+          "Files, folders, Git status, diffs, and terminals now stay in sync automatically with OS and shell changes on both local workspaces and Remote SSH hosts.",
+        details:
+          "Added bounded workspace & .git directory watching (projects.subscribeWorkspaceChange), per-host WebSocket transport events, SSH reconnect epoch re-subscription for terminals and file watchers, and host-scoped Git query invalidation.",
+      },
+      {
+        id: "linux-link-paste-freeze-fix",
+        title: "Fixed Linux desktop freeze when pasting links",
+        description:
+          "Pasting URLs into the composer on Linux Wayland/X11 desktop stays instant and responsive without hanging the window.",
+        details:
+          "Moved Rust desktop clipboard commands off the GTK main thread with bounded timeouts and Wayland MIME pre-checks, skipped native image probing for text/URI pastes, and guarded Lexical inline-token selection normalization against WebKitGTK oscillation loops.",
+      },
+      {
+        id: "linux-site-favicons-and-browser-globe",
+        title: "Restored Linux link site icons and browser globe fallback",
+        description:
+          "Site favicons now load reliably on Linux WebKitGTK, and browser tabs cleanly fall back to the globe icon whenever a page favicon fails to load.",
+        details:
+          "Enabled Google S2 PNG redirects in siteFaviconCache, fixed SVG 1.1 fallback opacity and CORS/CORP headers, added desktop:ws-url-changed synchronization with blob: URL fallback, and wired BrowserTabStrip onError fallback to GlobeIcon.",
+      },
+    ],
+  },
+  {
     version: "1.2.12",
     date: "Nov 23",
     features: [

@@ -226,6 +226,7 @@ export const CLIENT_PATH_FIELDS: Readonly<Record<string, readonly string[]>> = {
       WS_METHODS.projectsDiscoverScripts,
       WS_METHODS.projectsReadFile,
       WS_METHODS.projectsSubscribeFileChange,
+      WS_METHODS.projectsSubscribeWorkspaceChange,
       WS_METHODS.projectsResolveWorkspaceFileReferences,
       WS_METHODS.projectsResolveOutOfRootFileReference,
       WS_METHODS.projectsWriteFile,

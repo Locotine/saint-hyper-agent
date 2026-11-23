@@ -708,29 +708,72 @@ function ComposerInlineTokenSelectionNormalizePlugin(props: {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
-    return editor.registerUpdateListener(({ editorState }) => {
-      if (props.isDomComposingRef.current) return;
+    // Guard against WebKitGTK selection canonicalization bouncing a collapsed caret
+    // back onto an inline token node (directly or via a 2-step bounce), which would
+    // otherwise spin in an infinite microtask loop and freeze the renderer.
+    let lastNormalizedSignature: string | null = null;
+    let lastNormalizedNodeKey: string | null = null;
+    let lastNormalizedAt = 0;
+    let sameNodeNormalizationCount = 0;
+    let scheduled = false;
+
+    return editor.registerUpdateListener(({ editorState, tags }) => {
+      if (props.isDomComposingRef.current || tags.has(CONTROLLED_UPDATE_TAG)) {
+        return;
+      }
       let afterOffset: number | null = null;
+      let signature: string | null = null;
+      let nodeKey: string | null = null;
       editorState.read(() => {
         const selection = $getSelection();
-        if (!$isRangeSelection(selection) || !selection.isCollapsed()) return;
+        if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+          lastNormalizedSignature = null;
+          return;
+        }
         const anchorNode = selection.anchor.getNode();
-        if (!isComposerInlineTokenNode(anchorNode)) return;
-        if (selection.anchor.offset === 0) return;
+        if (!isComposerInlineTokenNode(anchorNode)) {
+          lastNormalizedSignature = null;
+          return;
+        }
+        if (selection.anchor.offset === 0) {
+          lastNormalizedSignature = null;
+          return;
+        }
         const beforeOffset = getAbsoluteOffsetForPoint(anchorNode, 0);
         afterOffset = beforeOffset + 1;
+        nodeKey = anchorNode.getKey();
+        signature = `${nodeKey}:${selection.anchor.offset}:${afterOffset}`;
       });
-      if (afterOffset !== null) {
-        queueMicrotask(() => {
-          if (props.isDomComposingRef.current) return;
-          editor.update(
-            () => {
-              $setSelectionAtComposerOffset(afterOffset!);
-            },
-            { tag: CONTROLLED_UPDATE_TAG },
-          );
-        });
+      if (afterOffset === null || signature === null || nodeKey === null) {
+        return;
       }
+      const now = performance.now();
+      if (signature === lastNormalizedSignature || scheduled) {
+        return;
+      }
+      if (nodeKey === lastNormalizedNodeKey && now - lastNormalizedAt < 250) {
+        if (sameNodeNormalizationCount >= 2) {
+          return;
+        }
+        sameNodeNormalizationCount += 1;
+      } else {
+        lastNormalizedNodeKey = nodeKey;
+        sameNodeNormalizationCount = 1;
+      }
+      lastNormalizedAt = now;
+      lastNormalizedSignature = signature;
+      scheduled = true;
+      const targetOffset = afterOffset;
+      queueMicrotask(() => {
+        scheduled = false;
+        if (props.isDomComposingRef.current) return;
+        editor.update(
+          () => {
+            $setSelectionAtComposerOffset(targetOffset);
+          },
+          { tag: CONTROLLED_UPDATE_TAG },
+        );
+      });
     });
   }, [editor, props.isDomComposingRef]);
 

@@ -11,6 +11,7 @@ import {
   isComposerDropzoneInternalDragTransition,
   shouldBlockDisabledComposerDropzoneTransfer,
   shouldPreventDefaultForUnhandledFileDrop,
+  shouldProbeDesktopClipboardImage,
   shouldHandleComposerDropzoneFiles,
   splitComposerDropzoneFiles,
 } from "./useComposerDropzone";
@@ -101,5 +102,26 @@ describe("useComposerDropzone file capability helpers", () => {
     );
     expect(shouldBlockDisabledComposerDropzoneTransfer(false, ["Files"])).toBe(false);
     expect(shouldBlockDisabledComposerDropzoneTransfer(true, ["text/plain"])).toBe(false);
+  });
+
+  it("skips desktop clipboard image probing whenever text or URI link payloads are present", () => {
+    const makeClipboard = (values: Record<string, string>, types: string[]) => ({
+      getData: (mime: string) => values[mime] ?? "",
+      types,
+    });
+
+    expect(
+      shouldProbeDesktopClipboardImage(
+        makeClipboard({ "text/plain": "https://example.com" }, ["text/plain"]),
+      ),
+    ).toBe(false);
+    expect(
+      shouldProbeDesktopClipboardImage(
+        makeClipboard({ "text/uri-list": "https://example.com" }, ["text/uri-list"]),
+      ),
+    ).toBe(false);
+    expect(shouldProbeDesktopClipboardImage(makeClipboard({}, ["text/html"]))).toBe(false);
+    expect(shouldProbeDesktopClipboardImage(makeClipboard({}, []))).toBe(true);
+    expect(shouldProbeDesktopClipboardImage(makeClipboard({}, ["image/png"]))).toBe(true);
   });
 });

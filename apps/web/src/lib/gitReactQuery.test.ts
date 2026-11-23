@@ -1,4 +1,5 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
+import { LOCAL_HOST_ID, sshHostId } from "@saint/shared/hostId";
 import { describe, expect, it, vi } from "vitest";
 
 const { readWorkingTreeDiff } = vi.hoisted(() => ({
@@ -578,5 +579,31 @@ describe("git expensive-read capacity retry", () => {
     expect(options.retry(0, new Error("network"))).toBe(true);
     expect(options.retry(3, new Error("network"))).toBe(false);
     expect(options.retryDelay(0, capacityError as never)).toBe(375);
+  });
+});
+
+describe("multi-host git query invalidation", () => {
+  it("scopes refreshGitAfterFileWrite and invalidateGitQueriesForCwds to the requested remote host", async () => {
+    const queryClient = new QueryClient();
+    const cwd = "/repo/shared-path";
+    const remoteHostId = sshHostId("deadbeef");
+    const localStatusKey = gitQueryKeys.status(cwd);
+    const remoteStatusKey = [...gitQueryKeys.status(cwd), remoteHostId] as const;
+    const localDiffKey = gitQueryKeys.workingTreeDiff(cwd, "staged");
+    const remoteDiffKey = [...gitQueryKeys.workingTreeDiff(cwd, "staged"), remoteHostId] as const;
+
+    for (const key of [localStatusKey, remoteStatusKey, localDiffKey, remoteDiffKey]) {
+      queryClient.setQueryData(key, {});
+    }
+
+    await refreshGitAfterFileWrite(queryClient, cwd, remoteHostId);
+    expect(queryClient.getQueryState(remoteStatusKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(remoteDiffKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(localStatusKey)?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(localDiffKey)?.isInvalidated).toBe(false);
+
+    await invalidateGitQueriesForCwds(queryClient, [cwd], LOCAL_HOST_ID);
+    expect(queryClient.getQueryState(localStatusKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(localDiffKey)?.isInvalidated).toBe(true);
   });
 });

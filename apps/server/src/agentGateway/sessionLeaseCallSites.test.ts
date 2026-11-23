@@ -29,7 +29,10 @@ interface LeaseSiteExpectation {
 }
 
 const LEASE_SITES: readonly LeaseSiteExpectation[] = [
-  { file: "AntigravityAcpAdapter.ts", capabilityArguments: [SESSION_START_INPUT] },
+  {
+    file: "AntigravityAcpAdapter.ts",
+    capabilityArguments: [SESSION_START_INPUT, "ctx.capabilityInput"],
+  },
   { file: "AntigravityAdapter.ts", capabilityArguments: ["context.gatewayCapabilityInput"] },
   { file: "ClaudeAdapter.ts", capabilityArguments: [SESSION_START_INPUT] },
   {
@@ -133,9 +136,10 @@ describe("agent gateway lease call sites", () => {
 
   it.each(
     LEASE_SITES.flatMap((site) =>
-      site.capabilityArguments
-        .filter((argument) => argument.startsWith("context."))
-        .map((argument) => ({ file: site.file, field: argument.slice("context.".length) })),
+      site.capabilityArguments.flatMap((argument) => {
+        const match = /^(?:context|ctx)\.([A-Za-z0-9_]+)$/.exec(argument);
+        return match ? [{ file: site.file, field: match[1]! }] : [];
+      }),
     ),
   )("$file captures $field from the start input for its re-lease", ({ file, field }) => {
     // A re-lease that reads a stale or hand-picked field would silently drop the

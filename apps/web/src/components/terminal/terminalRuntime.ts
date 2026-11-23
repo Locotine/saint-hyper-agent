@@ -25,9 +25,11 @@ import { Terminal } from "@xterm/xterm";
 
 import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { apiFor } from "~/hosts/hostApi";
+import { hostConnections } from "~/hosts/hostConnectionRegistry";
 import { readLocalNativeApi } from "~/nativeApi";
 import { suppressQueryResponses } from "~/lib/suppressQueryResponses";
 import { hasOpenDismissibleOverlay } from "~/lib/editableEventTarget";
+import { emitTerminalWorkspaceActivity } from "~/lib/workspaceRefreshBus";
 
 import { openInPreferredEditor } from "../../editorPreferences";
 import { isTerminalClearShortcut, terminalNavigationShortcutData } from "../../keybindings";
@@ -39,7 +41,7 @@ import {
   resolveWrappedTerminalLinkRange,
   wrappedTerminalLinkRangeIntersectsBufferLine,
 } from "../../terminal-links";
-import { addWsTransportStateListener } from "../../wsTransportEvents";
+import { addHostWsTransportStateListener } from "../../wsTransportEvents";
 import {
   getTerminalBoldFontWeight,
   getTerminalFontFamily,
@@ -66,6 +68,8 @@ const WRITE_BATCH_SIZE_LIMIT = 262_144;
 const WRITE_BATCH_MAX_LATENCY_MS = 50;
 const LINK_MATCH_CACHE_LIMIT = 512;
 const OPEN_SNAPSHOT_RECONCILE_DELAY_MS = 250;
+const TERMINAL_WORKSPACE_ACTIVITY_DEBOUNCE_MS = 400;
+const TERMINAL_INPUT_OUTPUT_SETTLE_MS = 850;
 const TERMINAL_TEXT_ENCODER = new TextEncoder();
 const TERMINAL_PARKING_CONTAINER_ID = "saint-terminal-parking";
 
@@ -217,6 +221,45 @@ function replaySnapshot(
     return;
   }
   onParsed?.();
+}
+
+function clearWorkspaceActivityTimer(entry: TerminalRuntimeEntry): void {
+  if (entry.workspaceActivityTimer !== null) {
+    window.clearTimeout(entry.workspaceActivityTimer);
+    entry.workspaceActivityTimer = null;
+  }
+}
+
+function scheduleWorkspaceActivityEmit(
+  entry: TerminalRuntimeEntry,
+  delayMs: number,
+  options?: { readonly clearInputPending?: boolean },
+): void {
+  if (entry.disposed || !entry.cwd) return;
+  clearWorkspaceActivityTimer(entry);
+  entry.workspaceActivityTimer = window.setTimeout(() => {
+    entry.workspaceActivityTimer = null;
+    if (entry.disposed || !entry.cwd) return;
+    if (options?.clearInputPending) {
+      entry.pendingInputWorkspaceNotify = false;
+    }
+    emitTerminalWorkspaceActivity({
+      hostId: entry.hostId,
+      cwd: entry.cwd,
+    });
+  }, delayMs);
+}
+
+function recoverTerminalSessionIfNeeded(entry: TerminalRuntimeEntry): void {
+  if (entry.disposed || entry.hasHandledExit) return;
+  flushPendingWrites(entry);
+  if (!entry.opened) {
+    openTerminal(entry);
+    return;
+  }
+  if (entry.runtimeStatus === "error" || entry.runtimeStatus === "connecting") {
+    reconcileTerminalSnapshot(entry);
+  }
 }
 
 function clearBackendResizeTimer(entry: TerminalRuntimeEntry): void {
@@ -449,6 +492,7 @@ function startVisibilityRecovery(entry: TerminalRuntimeEntry): void {
       clearTextureAtlas: true,
       refresh: true,
     });
+    recoverTerminalSessionIfNeeded(entry);
   };
 
   const scheduleRecovery = () => {
@@ -726,6 +770,13 @@ function reconcileTerminalSnapshot(entry: TerminalRuntimeEntry): void {
       }
 
       if (entry.outputEventVersion !== outputEventVersionAtRequest) {
+        if (snapshot.status === "exited" && !entry.hasHandledExit) {
+          entry.hasHandledExit = true;
+          setRuntimeStatus(entry, "exited");
+          entry.callbacks.onSessionExited();
+        } else if (entry.runtimeStatus === "connecting") {
+          setRuntimeStatus(entry, "ready");
+        }
         return;
       }
       if (snapshot.status === "error" || snapshot.status === "exited") {
@@ -762,12 +813,59 @@ function reconcileTerminalSnapshot(entry: TerminalRuntimeEntry): void {
     });
 }
 
+function bindHostTransportSubscriptions(entry: TerminalRuntimeEntry): void {
+  entry.unsubscribeTransportState?.();
+  entry.unsubscribeTransportState = null;
+  entry.unsubscribeHostConnection?.();
+  entry.unsubscribeHostConnection = null;
+
+  entry.unsubscribeTransportState = addHostWsTransportStateListener(entry.hostId, (state) => {
+    if (entry.disposed || entry.hasHandledExit) return;
+    if (state === "open") {
+      if (!entry.opened) {
+        openTerminal(entry);
+      } else {
+        reconcileTerminalSnapshot(entry);
+      }
+      return;
+    }
+    if (entry.opened && (state === "connecting" || state === "closed")) {
+      setRuntimeStatus(entry, "connecting");
+    }
+  });
+
+  if (entry.hostId !== LOCAL_HOST_ID) {
+    entry.lastKnownRemoteApi = terminalApiFor(entry);
+    entry.unsubscribeHostConnection = hostConnections.subscribe(() => {
+      if (entry.disposed || entry.hasHandledExit) return;
+      const nextApi = terminalApiFor(entry);
+      if (nextApi === entry.lastKnownRemoteApi) return;
+      entry.lastKnownRemoteApi = nextApi;
+      if (!nextApi) {
+        if (entry.opened) {
+          setRuntimeStatus(entry, "connecting");
+        }
+        return;
+      }
+      if (!entry.opened) {
+        openTerminal(entry);
+      } else {
+        reconcileTerminalSnapshot(entry);
+      }
+    });
+  } else {
+    entry.lastKnownRemoteApi = null;
+  }
+}
+
 export function syncRuntimeConfig(
   entry: TerminalRuntimeEntry,
   config: TerminalRuntimeConfig,
 ): void {
+  const nextHostId = config.hostId ?? LOCAL_HOST_ID;
+  const hostChanged = entry.hostId !== nextHostId;
   entry.runtimeKey = config.runtimeKey;
-  entry.hostId = config.hostId ?? LOCAL_HOST_ID;
+  entry.hostId = nextHostId;
   entry.threadId = config.threadId;
   entry.terminalId = config.terminalId;
   entry.terminalLabel = config.terminalLabel;
@@ -781,6 +879,9 @@ export function syncRuntimeConfig(
   if (config.providerAuthInstanceId === undefined) delete entry.providerAuthInstanceId;
   else entry.providerAuthInstanceId = config.providerAuthInstanceId;
   entry.callbacks = config.callbacks;
+  if (hostChanged && !entry.disposed) {
+    bindHostTransportSubscriptions(entry);
+  }
 }
 
 export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRuntimeEntry {
@@ -878,7 +979,13 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
       autoFocus: false,
       isVisible: false,
     },
+    hasRunningSubprocess: false,
+    pendingInputWorkspaceNotify: false,
+    workspaceActivityTimer: null,
     unsubscribeTerminalEvents: null,
+    unsubscribeTransportState: null,
+    unsubscribeHostConnection: null,
+    lastKnownRemoteApi: null,
   };
   if (config.runtimeEnv !== undefined) {
     entry.runtimeEnv = config.runtimeEnv;
@@ -906,17 +1013,7 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
     wrapper.removeEventListener("copy", handleCopy);
   });
 
-  const unsubscribeTransportState = addWsTransportStateListener((state) => {
-    if (entry.disposed || !entry.opened || entry.hasHandledExit) return;
-    if (state === "open") {
-      reconcileTerminalSnapshot(entry);
-      return;
-    }
-    if (state === "connecting" || state === "closed") {
-      setRuntimeStatus(entry, "connecting");
-    }
-  });
-  entry.persistentDisposables.push(unsubscribeTransportState);
+  bindHostTransportSubscriptions(entry);
 
   terminal.attachCustomKeyEventHandler((event) => {
     if (
@@ -1021,6 +1118,9 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
           label: submittedIdentity.title,
         });
       }
+      if (data.includes("\r") || data.includes("\n")) {
+        entry.pendingInputWorkspaceNotify = true;
+      }
       const api = terminalApiFor(entry);
       if (!api) return;
       void api.terminal
@@ -1052,6 +1152,11 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
         setRuntimeStatus(entry, "ready");
         entry.outputEventVersion += 1;
         scheduleWrite(entry, event.data, event.byteLength ?? terminalByteLength(event.data));
+        if (entry.pendingInputWorkspaceNotify) {
+          scheduleWorkspaceActivityEmit(entry, TERMINAL_INPUT_OUTPUT_SETTLE_MS, {
+            clearInputPending: true,
+          });
+        }
         return;
       }
 
@@ -1077,6 +1182,8 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
       }
 
       if (event.type === "activity") {
+        const hadRunningSubprocess = entry.hasRunningSubprocess;
+        entry.hasRunningSubprocess = event.hasRunningSubprocess;
         if (entry.terminalCliKind !== event.cliKind) {
           entry.terminalCliKind = event.cliKind;
           entry.callbacks.onTerminalMetadataChange(entry.terminalId, {
@@ -1088,6 +1195,10 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
           hasRunningSubprocess: event.hasRunningSubprocess,
           agentState: event.agentState,
         });
+        if (hadRunningSubprocess && !event.hasRunningSubprocess) {
+          entry.pendingInputWorkspaceNotify = false;
+          scheduleWorkspaceActivityEmit(entry, TERMINAL_WORKSPACE_ACTIVITY_DEBOUNCE_MS);
+        }
         return;
       }
 
@@ -1099,6 +1210,9 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
 
       if (event.type === "exited") {
         flushPendingWrites(entry);
+        entry.hasRunningSubprocess = false;
+        entry.pendingInputWorkspaceNotify = false;
+        scheduleWorkspaceActivityEmit(entry, TERMINAL_WORKSPACE_ACTIVITY_DEBOUNCE_MS);
         setRuntimeStatus(entry, "exited");
         entry.callbacks.onTerminalActivityChange(entry.terminalId, {
           hasRunningSubprocess: false,
@@ -1270,6 +1384,7 @@ export function updateRuntimeViewState(
       applyInitialVisualResize(entry);
       ensureResizeObserver(entry);
       startVisibilityRecovery(entry);
+      recoverTerminalSessionIfNeeded(entry);
     } else if (!nextViewState.isVisible && wasVisible) {
       cancelScheduledVisualResize(entry);
       stopVisibilityRecovery(entry);
@@ -1302,8 +1417,14 @@ export function disposeRuntimeEntry(entry: TerminalRuntimeEntry): void {
   // Closing a terminal should not synchronously paint queued output into a buffer
   // that is about to be destroyed; acknowledge and drop it to keep close latency low.
   clearPendingWrites(entry);
+  clearWorkspaceActivityTimer(entry);
   entry.unsubscribeTerminalEvents?.();
   entry.unsubscribeTerminalEvents = null;
+  entry.unsubscribeTransportState?.();
+  entry.unsubscribeTransportState = null;
+  entry.unsubscribeHostConnection?.();
+  entry.unsubscribeHostConnection = null;
+  entry.lastKnownRemoteApi = null;
   entry.querySuppressionDispose?.();
   entry.querySuppressionDispose = null;
   if (entry.themeRefreshFrame !== 0) {

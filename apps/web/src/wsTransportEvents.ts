@@ -4,6 +4,7 @@
 // Exports: event helpers used by wsNativeApi and terminal runtime recovery.
 
 import type { ThreadId, WsCompatibilityError } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 
 export type WsTransportState = "connecting" | "open" | "closed" | "incompatible" | "disposed";
 
@@ -11,7 +12,7 @@ export const SAINT_WS_TRANSPORT_STATE_EVENT = "saint:ws-transport-state";
 export const SAINT_WS_COMPATIBILITY_ISSUE_EVENT = "saint:ws-compatibility-issue";
 
 let latestCompatibilityIssue: WsCompatibilityError | null = null;
-let latestTransportState: WsTransportState | null = null;
+const latestTransportStateByHost = new Map<HostId, WsTransportState>();
 
 const turnSettlements = new Map<symbol, ThreadId>();
 const settlementListeners = new Set<() => void>();
@@ -50,6 +51,7 @@ export function trackWsTurnSettlement(threadId: ThreadId): () => void {
 
 export interface WsTransportStateEventDetail {
   state: WsTransportState;
+  hostId?: HostId;
 }
 
 export interface WsCompatibilityIssueEventDetail {
@@ -57,8 +59,15 @@ export interface WsCompatibilityIssueEventDetail {
 }
 
 // Emits a browser-local event without leaking transport internals into UI code.
-export function emitWsTransportState(state: WsTransportState): void {
-  latestTransportState = state;
+export function emitWsTransportState(
+  state: WsTransportState,
+  hostId: HostId = LOCAL_HOST_ID,
+): void {
+  if (state === "disposed") {
+    latestTransportStateByHost.delete(hostId);
+  } else {
+    latestTransportStateByHost.set(hostId, state);
+  }
   if (
     typeof window === "undefined" ||
     typeof window.dispatchEvent !== "function" ||
@@ -69,18 +78,20 @@ export function emitWsTransportState(state: WsTransportState): void {
 
   window.dispatchEvent(
     new CustomEvent<WsTransportStateEventDetail>(SAINT_WS_TRANSPORT_STATE_EVENT, {
-      detail: { state },
+      detail: { state, hostId },
     }),
   );
 }
 
-// Subscribes to the shared transport state event. Returns an idempotent cleanup.
-export function addWsTransportStateListener(
+// Subscribes to one host's WebSocket transport state event. Returns an idempotent cleanup.
+export function addHostWsTransportStateListener(
+  hostId: HostId,
   listener: (state: WsTransportState) => void,
   options?: { readonly replayCurrent?: boolean },
 ): () => void {
-  if (options?.replayCurrent && latestTransportState) {
-    listener(latestTransportState);
+  const latestState = latestTransportStateByHost.get(hostId);
+  if (options?.replayCurrent && latestState) {
+    listener(latestState);
   }
   if (typeof window === "undefined" || typeof window.addEventListener !== "function") {
     return () => undefined;
@@ -89,6 +100,7 @@ export function addWsTransportStateListener(
   const handleStateChange = (event: Event) => {
     const detail = (event as CustomEvent<WsTransportStateEventDetail>).detail;
     if (!detail) return;
+    if ((detail.hostId ?? LOCAL_HOST_ID) !== hostId) return;
     listener(detail.state);
   };
 
@@ -96,6 +108,14 @@ export function addWsTransportStateListener(
   return () => {
     window.removeEventListener(SAINT_WS_TRANSPORT_STATE_EVENT, handleStateChange);
   };
+}
+
+// Subscribes to the local transport state event. Returns an idempotent cleanup.
+export function addWsTransportStateListener(
+  listener: (state: WsTransportState) => void,
+  options?: { readonly replayCurrent?: boolean },
+): () => void {
+  return addHostWsTransportStateListener(LOCAL_HOST_ID, listener, options);
 }
 
 export function readLatestWsCompatibilityIssue(): WsCompatibilityError | null {

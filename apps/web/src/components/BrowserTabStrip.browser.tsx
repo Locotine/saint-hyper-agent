@@ -147,4 +147,39 @@ describe("browser tab mouse actions", () => {
     expect(onCreateTab).toHaveBeenCalledOnce();
     await mounted.unmount();
   });
+
+  it("falls back to the globe icon when a tab favicon fails to load", async () => {
+    const brokenTabs: BrowserTabState[] = [
+      {
+        ...tabs[0]!,
+        id: "tab-broken-favicon",
+        title: "Broken Favicon Page",
+        faviconUrl: "http://127.0.0.1:1/nonexistent-favicon.png",
+      },
+    ];
+    const mounted = await render(
+      <BrowserTabStrip
+        tabs={brokenTabs}
+        activeTabId="tab-broken-favicon"
+        status={null}
+        dragRegion={false}
+        onCloseTab={() => {}}
+        onSelectTab={() => {}}
+        onCreateTab={() => {}}
+      />,
+    );
+    try {
+      const tabButton = page.getByRole("button", { name: "Broken Favicon Page" }).element();
+      const img = tabButton.querySelector("img");
+      if (img) {
+        img.dispatchEvent(new Event("error"));
+      }
+      await vi.waitFor(() => {
+        expect(tabButton.querySelector("img")).toBeNull();
+        expect(tabButton.querySelector('span[aria-hidden="true"]')).not.toBeNull();
+      });
+    } finally {
+      await mounted.unmount();
+    }
+  });
 });

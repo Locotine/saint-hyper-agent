@@ -107,5 +107,11 @@ export interface TerminalRuntimeEntry {
   persistentDisposables: Array<() => void>;
   querySuppressionDispose: (() => void) | null;
   viewState: TerminalRuntimeViewState;
+  hasRunningSubprocess: boolean;
+  pendingInputWorkspaceNotify: boolean;
+  workspaceActivityTimer: number | null;
   unsubscribeTerminalEvents: (() => void) | null;
+  unsubscribeTransportState: (() => void) | null;
+  unsubscribeHostConnection: (() => void) | null;
+  lastKnownRemoteApi: unknown;
 }

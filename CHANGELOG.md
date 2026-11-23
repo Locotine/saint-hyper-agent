@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.2.13 — 2026-11-23
+
+**Live local & Remote SSH workspace/terminal auto-reload, Linux link-paste freeze fix, Linux site favicon & browser globe fallback fixes, and CI test alignment.**
+
+### Added
+
+- **Bounded Workspace & Git Directory Watchers (`packages/contracts`, `apps/server/src/workspaceFileChanges.ts`, `apps/server/src/wsRpc.ts`, `apps/web/src/hooks/useWorkspaceChangeSubscription.ts`)**: Added a streaming `projects.subscribeWorkspaceChange` RPC (`projects.workspace-watch` capability) that watches the workspace root, up to 32 expanded directories, and `.git` metadata without recursive inotify exhaustion, clearing server workspace index caches and auto-refreshing Explorer, Search, Open Files, Git, and Diff panels across both local and Remote SSH hosts.
+- **Per-Host Transport Lifecycle & Terminal Workspace Activity Sync (`apps/web/src/wsTransportEvents.ts`, `apps/web/src/hosts/hostConnectionRegistry.ts`, `apps/web/src/lib/workspaceRefreshBus.ts`)**: Scoped WebSocket transport state events per `HostId` and bridged terminal command completion/exit activity directly into workspace refresh subscriptions so OS and terminal changes stay live even on older remote servers.
+
+### Fixed
+
+- **Terminal & Remote SSH Reconnect Recovery (`apps/web/src/components/terminal/terminalEventDispatcher.ts`, `apps/web/src/components/terminal/terminalRuntime.ts`, `apps/web/src/hooks/useProjectFileChangeSubscription.ts`, `apps/web/src/lib/gitReactQuery.ts`)**:
+  - Subscribed `TerminalEventDispatcher`, `terminalRuntime`, and `useProjectFileChangeSubscription` to `hostConnections` and per-host transport events so remote terminals and file watchers attach on delayed connect, re-subscribe across SSH reconnect epochs, retry failed initial opens, flush buffered output on visibility/focus recovery, and no longer stick in `"connecting"`.
+  - Scoped `refreshGitAfterFileWrite`, `refreshGitQueriesForCwd`, and `invalidateGitQueriesForCwds` by `hostId` so remote Git and Diff queries actually invalidate and refetch instead of missing `[..., hostId]` keys.
+- **Linux Rust Desktop Freeze on Link Paste (`apps/desktop-rust/src/lib.rs`, `apps/web/src/components/ComposerPromptEditor.tsx`, `apps/web/src/hooks/useComposerDropzone.ts`)**:
+  - Moved `desktop_clipboard_read_image_png`, `desktop_clipboard_write_image`, and `desktop_browser_request_copy_link` off the GTK main thread onto `spawn_blocking` with bounded timeouts and a Wayland `wl-paste --list-types` pre-check so non-image clipboards return immediately, and omitted the hidden Linux Edit submenu that registered disabled `muda` GTK accelerators.
+  - Added a `CONTROLLED_UPDATE_TAG` check and per-node oscillation guard in `ComposerInlineTokenSelectionNormalizePlugin` so WebKitGTK selection canonicalization cannot spin infinitely on `ComposerLinkNode`, and skipped native image clipboard probing whenever text/URI/HTML clipboard payloads are present.
+- **Browser Globe Fallback & Linux Site Link Favicons (`apps/server/src/siteFaviconCache.ts`, `apps/server/src/http.ts`, `apps/web/src/lib/siteFavicon.ts`, `apps/web/src/components/SiteFavicon.tsx`, `apps/web/src/components/ConnectorIcon.tsx`, `apps/web/src/components/BrowserTabStrip.tsx`)**:
+  - Allowed Google S2 redirects (`gstatic.com` favicon shards) and `www.` host redirects so favicons resolve crisp `image/png` instead of falling back to `.ico`.
+  - Replaced invalid 8-digit hex SVG fallback strokes (`#6b728080`) with SVG 1.1 `stroke-opacity`, added CORS/CORP headers and `?fallback=none`, subscribed `SiteFavicon` to `desktop:ws-url-changed` with a `blob:` fetch fallback for custom desktop schemes (`tauri://`), and added `onError` fallback to `<GlobeIcon />` on browser tabs.
+- **CI Test Alignment (`apps/server`)**: Updated `sessionLeaseCallSites.test.ts`, `decider.checkpointRevert.test.ts`, and `OrchestrationEngine.test.ts` to match the warm Antigravity ACP session and dual gateway lease semantics introduced in `1.2.12`.
+
 ## 1.2.12 — 2026-11-23
 
 **IDE Intelligence (LSP) & Live Debugger (DAP) MCP tools, full Desktop `cua_host ↔ cua-driver` IPC proxy, warm Antigravity ACP sessions with background-task protection, customizable sidebar usage rings, plus Mobile LAN pairing and Markdown table fixes.**

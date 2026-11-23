@@ -46,9 +46,10 @@ describe("resolveFavicon", () => {
     const favicon = await resolveFavicon("example.com");
 
     expect(favicon.bytes).toEqual(new Uint8Array([1, 2, 3]));
+    const expectedGoogleShards = [0, 1, 2, 3].map((index) => `https://t${index}.gstatic.com`);
     expect(request.mock.calls[0]?.[0].policy).toMatchObject({
       service: "site-favicon",
-      allowedOrigins: ["https://www.google.com"],
+      allowedOrigins: ["https://www.google.com", ...expectedGoogleShards, "https://gstatic.com"],
       maxResponseBytes: 512 * 1024,
       requirePublicAddress: true,
     });
@@ -68,7 +69,7 @@ describe("resolveFavicon", () => {
 
     expect(request.mock.calls[2]?.[0]).toMatchObject({
       url: "https://example.org/favicon.ico",
-      policy: { allowedOrigins: ["https://example.org"] },
+      policy: { allowedOrigins: ["https://example.org", "https://www.example.org"] },
     });
   });
 });

@@ -285,6 +285,30 @@ export const ProjectFileChangeEvent = Schema.Union([
 ]);
 export type ProjectFileChangeEvent = typeof ProjectFileChangeEvent.Type;
 
+export const PROJECT_WATCH_WORKSPACE_MAX_DIRECTORIES = 32;
+
+export const ProjectWatchWorkspaceInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  directories: Schema.optional(
+    Schema.Array(Schema.String.check(Schema.isMaxLength(PROJECT_READ_FILE_PATH_MAX_LENGTH))).check(
+      Schema.isMaxLength(PROJECT_WATCH_WORKSPACE_MAX_DIRECTORIES),
+    ),
+  ),
+  watchGit: Schema.optional(Schema.Boolean),
+});
+export type ProjectWatchWorkspaceInput = typeof ProjectWatchWorkspaceInput.Type;
+
+export const ProjectWorkspaceChangeEvent = Schema.Struct({
+  type: Schema.Literal("changed"),
+  cwd: TrimmedNonEmptyString,
+  /** Workspace-relative directory paths affected ("" represents the workspace root). */
+  directories: Schema.Array(Schema.String),
+  /** True when git metadata (HEAD, index, refs) changed. */
+  gitChanged: Schema.Boolean,
+  timestampMs: Schema.Number,
+});
+export type ProjectWorkspaceChangeEvent = typeof ProjectWorkspaceChangeEvent.Type;
+
 export const ProjectResolveWorkspaceFileReferencesInput = Schema.Struct({
   cwd: TrimmedNonEmptyString,
   relativePaths: Schema.Array(

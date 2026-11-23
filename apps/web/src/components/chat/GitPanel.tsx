@@ -28,7 +28,9 @@ import {
   gitStageFilesMutationOptions,
   gitUnstageFilesMutationOptions,
   gitWorkingTreeDiffQueryOptions,
+  refreshGitQueriesForCwd,
 } from "~/lib/gitReactQuery";
+import { useWorkspaceChangeSubscription } from "~/hooks/useWorkspaceChangeSubscription";
 import { PlusIcon, RefreshCwIcon, ResetIcon } from "~/lib/icons";
 import { cn } from "~/lib/utils";
 import { useStore } from "~/store";
@@ -210,6 +212,13 @@ export function GitPanel(props: {
     useMemo(() => createProjectSelector(props.projectId), [props.projectId]),
   );
   const cwd = threadWorkspace.worktreePath ?? project?.cwd ?? null;
+  useWorkspaceChangeSubscription({
+    hostId,
+    cwd,
+    watchGit: true,
+    refreshExplorer: false,
+    refreshGit: true,
+  });
 
   const [selected, setSelected] = useState<SelectedFile | null>(null);
 
@@ -254,6 +263,7 @@ export function GitPanel(props: {
 
   const refresh = () => {
     if (!cwd) return;
+    void refreshGitQueriesForCwd(queryClient, cwd, "active-details", "local", hostId);
     void queryClient.invalidateQueries({ queryKey: gitQueryKeys.workingTreeDiff(cwd, "staged") });
     void queryClient.invalidateQueries({
       queryKey: gitQueryKeys.workingTreeDiff(cwd, "unstaged"),

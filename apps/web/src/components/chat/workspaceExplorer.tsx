@@ -51,6 +51,7 @@ import {
 import { getSyntaxHighlighterPromise, getSyntaxLanguageForPath } from "~/lib/syntaxHighlighting";
 import { cn } from "~/lib/utils";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
+import { useWorkspaceChangeSubscription } from "~/hooks/useWorkspaceChangeSubscription";
 import { Schema } from "effect";
 import {
   folderNameOfWorkspaceRoot,
@@ -926,6 +927,15 @@ export function WorkspaceFilesSidebar(props: {
     restrictSelectionToBaseRoot: true,
   });
 
+  const hostId = useHostId();
+  useWorkspaceChangeSubscription({
+    hostId,
+    cwd: effectiveWorkspaceRoot,
+    directories: effectiveExpandedDirectories,
+    refreshExplorer: true,
+    refreshGit: false,
+  });
+
   const prefetchEntry = useExplorerEntryPrefetch(effectiveWorkspaceRoot);
   const entryActions = useExplorerEntryActions({
     workspaceRoot: effectiveWorkspaceRoot,
@@ -1280,6 +1290,13 @@ export function WorkspaceSearchSidebar(props: {
   onSelectFile: (path: string) => void;
   onReferenceInChat: ((reference: ChatFileReference) => void) | undefined;
 }) {
+  const hostId = useHostId();
+  useWorkspaceChangeSubscription({
+    hostId,
+    cwd: props.workspaceRoot,
+    refreshExplorer: true,
+    refreshGit: false,
+  });
   const prefetchEntry = useExplorerEntryPrefetch(props.workspaceRoot);
   const handleEntryContextMenu = useResultEntryContextMenu(
     props.onReferenceInChat,
@@ -1355,6 +1372,14 @@ export function WorkspaceExplorerSidebar(props: {
     handleReferenceInChat,
   } = useExplorerLocalRoot(props);
   const projectRoot = props.projectWorkspaceRoot ?? props.workspaceRoot;
+  const hostId = useHostId();
+  useWorkspaceChangeSubscription({
+    hostId,
+    cwd: effectiveWorkspaceRoot,
+    directories: effectiveExpandedDirectories,
+    refreshExplorer: true,
+    refreshGit: false,
+  });
 
   const prefetchEntry = useExplorerEntryPrefetch(effectiveWorkspaceRoot);
   const entryActions = useExplorerEntryActions({

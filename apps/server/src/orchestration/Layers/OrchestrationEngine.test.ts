@@ -1466,7 +1466,9 @@ describe("OrchestrationEngine", () => {
         });
         expect(after.runtimeMode).toBe("approval-required");
         expect(after.interactionMode).toBe("default");
-        expect(after.session?.status).toBe(running ? "running" : "starting");
+        // Warm same-provider sessions ("ready" or already "running") transition straight
+        // to "running" without flashing "starting" (see turnStartSession.ts).
+        expect(after.session?.status).toBe("running");
       } finally {
         await system.dispose();
       }

@@ -14,7 +14,13 @@ import {
   normalizeBrandKey,
   readableBrandColor,
 } from "~/lib/brandIcons";
-import { probeSiteFavicon, resolveSiteFaviconUrl, siteFaviconStatusCache } from "~/lib/siteFavicon";
+import {
+  getSiteFaviconRenderSrc,
+  isWaitingForDesktopWsUrl,
+  probeSiteFavicon,
+  resolveSiteFaviconUrl,
+  siteFaviconStatusCache,
+} from "~/lib/siteFavicon";
 
 import { SiteFavicon } from "./SiteFavicon";
 
@@ -91,14 +97,18 @@ export function createConnectorIconElement(name: string, className: string): HTM
     renderBrand(MCP_ARTWORK);
     return host;
   }
+  if (isWaitingForDesktopWsUrl()) {
+    renderBrand(MCP_ARTWORK);
+    return host;
+  }
   // Same shared probe and status cache as SiteFavicon: one load per host, and
   // no broken image while it is unknown or after it failed.
-  const src = resolveSiteFaviconUrl(site);
+  const src = resolveSiteFaviconUrl(site, { fallback: "none" });
   const showFavicon = () => {
     const image = document.createElement("img");
     image.alt = "";
     image.className = "size-full rounded-[2px] object-contain";
-    image.src = src;
+    image.src = getSiteFaviconRenderSrc(src);
     host.replaceChildren(image);
   };
   const status = siteFaviconStatusCache.get(src);

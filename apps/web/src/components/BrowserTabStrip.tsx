@@ -4,7 +4,7 @@
 // Layer: Web UI component
 // Depends on: BrowserPanel.logic chrome styles/status, contracts BrowserTabState
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { BrowserTabState } from "@saint/contracts";
 import { isBlankBrowserTabUrl } from "@saint/shared/browserSession";
 
@@ -36,6 +36,7 @@ export interface BrowserTabStripProps {
 export function BrowserTabStrip(props: BrowserTabStripProps) {
   const { activeTabId, onCloseTab, onCreateTab, onSelectTab } = props;
   const stripRef = useRef<HTMLDivElement>(null);
+  const [failedFaviconUrls, setFailedFaviconUrls] = useState<ReadonlySet<string>>(() => new Set());
   useHorizontalWheelScroll(stripRef);
 
   // A tab created/selected past the visible edge ("New tab" appends at the end) must come
@@ -95,8 +96,22 @@ export function BrowserTabStrip(props: BrowserTabStripProps) {
                 title={tab.title || "Untitled"}
                 onClick={() => onSelectTab(tab.id)}
               >
-                {tab.faviconUrl ? (
-                  <img alt="" src={tab.faviconUrl} className="size-3 shrink-0 rounded-xs" />
+                {tab.faviconUrl && !failedFaviconUrls.has(tab.faviconUrl) ? (
+                  <img
+                    alt=""
+                    src={tab.faviconUrl}
+                    className="size-3 shrink-0 rounded-xs"
+                    onError={() => {
+                      const failedUrl = tab.faviconUrl;
+                      if (!failedUrl) return;
+                      setFailedFaviconUrls((previous) => {
+                        if (previous.has(failedUrl)) return previous;
+                        const next = new Set(previous);
+                        next.add(failedUrl);
+                        return next;
+                      });
+                    }}
+                  />
                 ) : (
                   <GlobeIcon className="size-3 shrink-0 text-muted-foreground" />
                 )}

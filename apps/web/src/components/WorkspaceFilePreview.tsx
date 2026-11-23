@@ -581,7 +581,7 @@ export function WorkspaceFilePreview(props: WorkspaceFilePreviewProps) {
       // (serialized on the shared Git queue); a bare invalidation would leave
       // them stale until the window regains focus. Only active variants are
       // re-read, so an idle workspace costs nothing here.
-      void refreshGitAfterFileWrite(queryClient, workspaceRoot);
+      void refreshGitAfterFileWrite(queryClient, workspaceRoot, hostId);
       if (fileIsImage || fileIsPdf) {
         setBinaryPreviewReloading(true);
         setBinaryPreviewRevision((current) => current + 1);

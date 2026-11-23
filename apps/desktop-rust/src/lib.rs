@@ -372,79 +372,189 @@ fn desktop_read_dropped_file(path: String) -> Result<String, String> {
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
-// WebKitGTK hands the page no files for a pasted screenshot, so the composer asks for the
-// clipboard image here when a paste carries neither files nor text.
-#[tauri::command]
-fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<String> {
-    use base64::Engine as _;
-    use tauri_plugin_clipboard_manager::ClipboardExt;
-    let encode = |png: Vec<u8>| {
-        format!(
-            "data:image/png;base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(png)
-        )
-    };
-    // GNOME Wayland has no data-control protocol, so arboard cannot read the clipboard
-    // there; wl-paste can.
-    #[cfg(target_os = "linux")]
-    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-        if let Ok(out) = std::process::Command::new("wl-paste")
-            .args(["--no-newline", "--type", "image/png"])
-            .output()
-        {
-            if out.status.success() && out.stdout.starts_with(b"\x89PNG") {
-                return Some(encode(out.stdout));
+const CLIPBOARD_IO_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1_500);
+#[cfg(target_os = "linux")]
+const WAYLAND_CLIPBOARD_LIST_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
+
+#[cfg(any(target_os = "linux", test))]
+fn wayland_clipboard_mime_list_has_png(raw: &str) -> bool {
+    raw.lines().any(|line| line.trim().eq_ignore_ascii_case("image/png"))
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn wayland_clipboard_mime_list_has_any_image(raw: &str) -> bool {
+    raw.lines()
+        .any(|line| line.trim().to_ascii_lowercase().starts_with("image/"))
+}
+
+#[cfg(target_os = "linux")]
+fn run_command_output_bounded(
+    program: &str,
+    args: &[&str],
+    stdin_bytes: Option<&[u8]>,
+    timeout: std::time::Duration,
+) -> Option<std::process::Output> {
+    use std::io::{Read, Write};
+    use std::process::{Command, Stdio};
+
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    if stdin_bytes.is_some() {
+        command.stdin(Stdio::piped());
+    } else {
+        command.stdin(Stdio::null());
+    }
+    let mut child = command.spawn().ok()?;
+    if let Some(bytes) = stdin_bytes {
+        let mut stdin = child.stdin.take()?;
+        if stdin.write_all(bytes).is_err() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return None;
+        }
+        drop(stdin);
+    }
+    let mut stdout_pipe = child.stdout.take();
+    let stdout_reader = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(mut pipe) = stdout_pipe.take() {
+            let _ = pipe.read_to_end(&mut buf);
+        }
+        buf
+    });
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let stdout = stdout_reader.join().unwrap_or_default();
+                return Some(std::process::Output {
+                    status,
+                    stdout,
+                    stderr: Vec::new(),
+                });
+            }
+            Ok(None) => {
+                if std::time::Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let _ = stdout_reader.join();
+                    return None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(15));
+            }
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = stdout_reader.join();
+                return None;
             }
         }
     }
-    let image = app.clipboard().read_image().ok()?;
-    let mut png_bytes = Vec::new();
+}
+
+// WebKitGTK hands the page no files for a pasted screenshot, so the composer asks for the
+// clipboard image here when a paste carries neither files nor text.
+// Runs off the GTK/UI main thread with strict timeouts so Wayland/X11 clipboard queries
+// can never deadlock the window when pasting links or self-owned clipboard selections.
+#[tauri::command]
+async fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<String> {
+    let task = tauri::async_runtime::spawn_blocking(move || {
+        use base64::Engine as _;
+        use tauri_plugin_clipboard_manager::ClipboardExt;
+        let encode = |png: Vec<u8>| {
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(png)
+            )
+        };
+        // GNOME Wayland has no data-control protocol, so arboard cannot read the clipboard
+        // there; wl-paste can. Always probe `--list-types` first with a short timeout so
+        // non-image clipboards (such as pasted URLs) return immediately without blocking.
+        #[cfg(target_os = "linux")]
+        if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+            if let Some(types_out) = run_command_output_bounded(
+                "wl-paste",
+                &["--list-types"],
+                None,
+                WAYLAND_CLIPBOARD_LIST_TIMEOUT,
+            ) {
+                if types_out.status.success() {
+                    let mime_list = String::from_utf8_lossy(&types_out.stdout);
+                    if !wayland_clipboard_mime_list_has_any_image(&mime_list) {
+                        return None;
+                    }
+                    if wayland_clipboard_mime_list_has_png(&mime_list) {
+                        if let Some(out) = run_command_output_bounded(
+                            "wl-paste",
+                            &["--no-newline", "--type", "image/png"],
+                            None,
+                            CLIPBOARD_IO_TIMEOUT,
+                        ) {
+                            if out.status.success() && out.stdout.starts_with(b"\x89PNG") {
+                                return Some(encode(out.stdout));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        let image = app.clipboard().read_image().ok()?;
+        let mut png_bytes = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut png_bytes, image.width(), image.height());
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header().ok()?;
+            writer.write_image_data(image.rgba()).ok()?;
+        }
+        Some(encode(png_bytes))
+    });
+    match tokio::time::timeout(CLIPBOARD_IO_TIMEOUT + std::time::Duration::from_millis(250), task)
+        .await
     {
-        let mut encoder = png::Encoder::new(&mut png_bytes, image.width(), image.height());
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().ok()?;
-        writer.write_image_data(image.rgba()).ok()?;
+        Ok(Ok(result)) => result,
+        _ => None,
     }
-    Some(encode(png_bytes))
 }
 
 #[tauri::command]
-fn desktop_clipboard_write_image(app: tauri::AppHandle, data_url: String) -> bool {
-    use tauri_plugin_clipboard_manager::ClipboardExt;
-    let Some(png_bytes) = decode_clipboard_png_data_url(&data_url) else {
-        return false;
-    };
-    let Ok(image) = tauri::image::Image::from_bytes(&png_bytes) else {
-        return false;
-    };
-    if app.clipboard().write_image(&image).is_ok() {
-        return true;
-    }
-    // Mirror `wl-paste` above for GNOME/Wayland sessions where arboard cannot
-    // access the Wayland clipboard directly.
-    #[cfg(target_os = "linux")]
-    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-        use std::io::Write;
-        use std::process::{Command, Stdio};
-        if let Ok(mut child) = Command::new("wl-copy")
-            .args(["--type", "image/png"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-        {
-            let wrote = child
-                .stdin
-                .take()
-                .map(|mut stdin| stdin.write_all(&png_bytes).is_ok())
-                .unwrap_or(false);
-            if wrote && child.wait().map(|s| s.success()).unwrap_or(false) {
-                return true;
+async fn desktop_clipboard_write_image(app: tauri::AppHandle, data_url: String) -> bool {
+    let task = tauri::async_runtime::spawn_blocking(move || {
+        use tauri_plugin_clipboard_manager::ClipboardExt;
+        let Some(png_bytes) = decode_clipboard_png_data_url(&data_url) else {
+            return false;
+        };
+        let Ok(image) = tauri::image::Image::from_bytes(&png_bytes) else {
+            return false;
+        };
+        if app.clipboard().write_image(&image).is_ok() {
+            return true;
+        }
+        // Mirror `wl-paste` above for GNOME/Wayland sessions where arboard cannot
+        // access the Wayland clipboard directly.
+        #[cfg(target_os = "linux")]
+        if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+            if let Some(out) = run_command_output_bounded(
+                "wl-copy",
+                &["--type", "image/png"],
+                Some(&png_bytes),
+                CLIPBOARD_IO_TIMEOUT,
+            ) {
+                if out.status.success() {
+                    return true;
+                }
             }
         }
-    }
-    false
+        false
+    });
+    matches!(
+        tokio::time::timeout(CLIPBOARD_IO_TIMEOUT + std::time::Duration::from_millis(250), task)
+            .await,
+        Ok(Ok(true))
+    )
 }
 
 fn install_app_menu(app_handle: &tauri::AppHandle, accelerators: &DesktopMenuAccelerators) {
@@ -461,19 +571,22 @@ fn install_app_menu(app_handle: &tauri::AppHandle, accelerators: &DesktopMenuAcc
         let close_window = PredefinedMenuItem::close_window(app_handle, None)?;
         let file_menu = Submenu::with_items(app_handle, "File", true, &[&terminal_new, &close_window])?;
 
-        let undo = PredefinedMenuItem::undo(app_handle, None)?;
-        let redo = PredefinedMenuItem::redo(app_handle, None)?;
-        let edit_sep = PredefinedMenuItem::separator(app_handle)?;
-        let cut = PredefinedMenuItem::cut(app_handle, None)?;
-        let copy = PredefinedMenuItem::copy(app_handle, None)?;
-        let paste = PredefinedMenuItem::paste(app_handle, None)?;
-        let select_all = PredefinedMenuItem::select_all(app_handle, None)?;
-        let edit_menu = Submenu::with_items(
-            app_handle,
-            "Edit",
-            true,
-            &[&undo, &redo, &edit_sep, &cut, &copy, &paste, &select_all],
-        )?;
+        #[cfg(not(target_os = "linux"))]
+        let edit_menu = {
+            let undo = PredefinedMenuItem::undo(app_handle, None)?;
+            let redo = PredefinedMenuItem::redo(app_handle, None)?;
+            let edit_sep = PredefinedMenuItem::separator(app_handle)?;
+            let cut = PredefinedMenuItem::cut(app_handle, None)?;
+            let copy = PredefinedMenuItem::copy(app_handle, None)?;
+            let paste = PredefinedMenuItem::paste(app_handle, None)?;
+            let select_all = PredefinedMenuItem::select_all(app_handle, None)?;
+            Submenu::with_items(
+                app_handle,
+                "Edit",
+                true,
+                &[&undo, &redo, &edit_sep, &cut, &copy, &paste, &select_all],
+            )?
+        };
 
         let sidebar_toggle = MenuItem::with_id(
             app_handle,
@@ -541,7 +654,14 @@ fn install_app_menu(app_handle: &tauri::AppHandle, accelerators: &DesktopMenuAcc
                 &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
             )
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "linux")]
+        {
+            // Omit the hidden Edit submenu on Linux GTK3: muda's predefined Undo/Redo items
+            // attach disabled GTK accelerators and Copy/Cut/Paste are no-ops without libxdo,
+            // so letting WebKitGTK handle native editing shortcuts directly avoids conflicts.
+            Menu::with_items(app_handle, &[&file_menu, &view_menu, &window_menu])
+        }
+        #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
         {
             Menu::with_items(app_handle, &[&file_menu, &edit_menu, &view_menu, &window_menu])
         }
@@ -1565,16 +1685,24 @@ fn desktop_browser_attach_webview(
 fn desktop_browser_detach_webview(_input: BrowserAttachWebviewInput) {}
 
 #[tauri::command]
-fn desktop_browser_request_copy_link(
+async fn desktop_browser_request_copy_link(
     app: tauri::AppHandle,
     webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: BrowserTabInput,
-) {
-    use tauri_plugin_clipboard_manager::ClipboardExt;
+) -> Result<(), String> {
     if let Some(url) = state.browser.tab_url(&input.thread_id, &input.tab_id) {
         if url != "about:blank" && !url.is_empty() {
-            let _ = app.clipboard().write_text(&url);
+            let url_for_clipboard = url.clone();
+            let app_for_clipboard = app.clone();
+            let _ = tokio::time::timeout(
+                CLIPBOARD_IO_TIMEOUT,
+                tauri::async_runtime::spawn_blocking(move || {
+                    use tauri_plugin_clipboard_manager::ClipboardExt;
+                    let _ = app_for_clipboard.clipboard().write_text(&url_for_clipboard);
+                }),
+            )
+            .await;
             emit_window_event(
                 &webview,
                 "desktop:browser-copy-link",
@@ -1585,6 +1713,7 @@ fn desktop_browser_request_copy_link(
             );
         }
     }
+    Ok(())
 }
 
 #[tauri::command]
@@ -2258,4 +2387,27 @@ pub fn run() {
             tauri::async_runtime::block_on(state_for_exit.backend.stop_and_wait());
         }
     });
+}
+
+#[cfg(test)]
+mod clipboard_tests {
+    use super::{wayland_clipboard_mime_list_has_any_image, wayland_clipboard_mime_list_has_png};
+
+    #[test]
+    fn wayland_mime_list_skips_text_and_uri_links() {
+        let link_mimes = "text/plain;charset=utf-8\ntext/uri-list\ntext/html\nUTF8_STRING\n";
+        assert!(!wayland_clipboard_mime_list_has_any_image(link_mimes));
+        assert!(!wayland_clipboard_mime_list_has_png(link_mimes));
+    }
+
+    #[test]
+    fn wayland_mime_list_detects_png_and_other_images() {
+        let png_mimes = "image/png\ntext/html\n";
+        assert!(wayland_clipboard_mime_list_has_any_image(png_mimes));
+        assert!(wayland_clipboard_mime_list_has_png(png_mimes));
+
+        let jpeg_mimes = "IMAGE/JPEG\n";
+        assert!(wayland_clipboard_mime_list_has_any_image(jpeg_mimes));
+        assert!(!wayland_clipboard_mime_list_has_png(jpeg_mimes));
+    }
 }
