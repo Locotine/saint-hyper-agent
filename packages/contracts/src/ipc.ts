@@ -1063,6 +1063,8 @@ export interface DesktopRemoteSshHostState {
   readonly message: string | null;
   /** Local loopback port forwarded to the remote server while connected. */
   readonly localPort: number | null;
+  /** True after an explicit user disconnect or stop_server so a fast stop failure does not auto-reconnect. */
+  readonly autoReconnectSuppressed?: boolean;
 }
 
 export interface DesktopRemoteSshState {

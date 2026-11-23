@@ -14,7 +14,7 @@ import { hostConnections } from "~/hosts/hostConnectionRegistry";
 import { useHostId } from "~/hosts/hostScope";
 
 import { downloadUrlAsBlob } from "~/lib/browserDownload";
-import { DownloadIcon, Loader2Icon, TriangleAlertIcon } from "~/lib/icons";
+import { DownloadIcon, Loader2Icon, ServerIcon, TriangleAlertIcon } from "~/lib/icons";
 import { buildLocalImageUrlOrNull, localImageFileName } from "~/lib/localImageUrls";
 import { cn } from "~/lib/utils";
 import { toastManager } from "./ui/toast";
@@ -27,7 +27,7 @@ export function useHostExplicitUrl(hostId: HostId): string | null {
   );
 }
 
-export type LocalImagePreviewStatus = "loading" | "ready" | "error";
+export type LocalImagePreviewStatus = "loading" | "ready" | "error" | "offline";
 
 type LocalImagePreviewImgProps = Pick<
   ImgHTMLAttributes<HTMLImageElement>,
@@ -76,7 +76,12 @@ export function useLocalImagePreview(input: {
   const previewUrl = rawPreviewUrl ?? "";
   const downloadUrl = rawDownloadUrl ?? "";
   const fileName = localImageFileName(src);
-  const initialStatus: LocalImagePreviewStatus = previewUrl ? "loading" : "error";
+  const isOfflineRemote = hostId !== LOCAL_HOST_ID && hostExplicitUrl === null;
+  const initialStatus: LocalImagePreviewStatus = previewUrl
+    ? "loading"
+    : isOfflineRemote
+      ? "offline"
+      : "error";
   // A generation distinguishes separate visits to the same URL. This keeps an
   // A -> B -> A transition from reviving A's old error branch (which contains
   // no <img> and therefore cannot retry), and rejects stale image events.
@@ -157,6 +162,21 @@ export function useLocalImageDownloadClick(input: {
 }
 
 // Span-only markup so the card stays valid inside markdown paragraphs.
+export function LocalImageOfflineCard(props: { className?: string | undefined }) {
+  return (
+    <span className={cn("local-image-error", props.className)} data-status="offline">
+      <span className="local-image-error__icon" aria-hidden="true">
+        <ServerIcon className="size-4" />
+      </span>
+      <span className="local-image-error__body">
+        <span className="local-image-error__title">Host offline</span>
+        <span className="local-image-error__subtitle">Connect host to view image</span>
+      </span>
+    </span>
+  );
+}
+
+// Span-only markup so the card stays valid inside markdown paragraphs.
 export function LocalImageErrorCard(props: {
   downloadUrl: string;
   /** `downloadName` from useLocalImagePreview. */
@@ -210,6 +230,10 @@ export function LocalImagePreview(props: {
     onPreviewError: props.onPreviewError,
   });
   const handleDownloadClick = useLocalImageDownloadClick({ downloadUrl, downloadName });
+
+  if (status === "offline") {
+    return <LocalImageOfflineCard className={props.className} />;
+  }
 
   if (status === "error") {
     return (

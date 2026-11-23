@@ -22,6 +22,7 @@ import {
 
 import {
   LocalImageErrorCard,
+  LocalImageOfflineCard,
   useLocalImageDownloadClick,
   useLocalImagePreview,
 } from "../LocalImagePreview";
@@ -153,11 +154,17 @@ function GeneratedMarkdownImageContent(props: GeneratedMarkdownImageProps) {
   if (props.isLinked) {
     return (
       <span className="chat-generated-image">
-        {imgProps.src ? (
+        {status === "offline" ? (
+          <LocalImageOfflineCard className="local-image-error--prose" />
+        ) : imgProps.src ? (
           <img {...imgProps} alt={accessibleName} className="chat-generated-image__img" />
         ) : null}
       </span>
     );
+  }
+
+  if (status === "offline") {
+    return <LocalImageOfflineCard className="local-image-error--prose" />;
   }
 
   if (status === "error" && !resolvingGrant) {

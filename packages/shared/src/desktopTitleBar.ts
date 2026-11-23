@@ -13,11 +13,11 @@ export function supportsCustomTitleBar(platform: string): boolean {
 
 /**
  * Default preference when nothing is persisted yet.
- * Windows already shipped frameless; Linux defaults on so the chrome matches
- * the app without an extra opt-in step (users can switch back for tiling WMs).
+ * Windows defaults on (frameless chrome); Linux defaults off (native OS title bar)
+ * for broad Wayland/X11 window-manager compatibility, matching desktop-rust.
  */
 export function defaultCustomTitleBarPreference(platform: string): boolean {
-  return supportsCustomTitleBar(platform);
+  return platform === "win32";
 }
 
 /**

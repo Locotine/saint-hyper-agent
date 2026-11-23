@@ -26,7 +26,11 @@ import {
 import { resolveRuntimeModelDescriptor } from "../components/chat/runtimeModelCapabilities";
 import { collapseCursorModelVariants } from "../cursorModelVariants";
 import { withHostKey } from "../lib/projectReactQuery";
-import { isRemoteSupportedProvider } from "../lib/providerAvailability";
+import {
+  isRemoteSupportedProvider,
+  resolveProviderInstancesForHost,
+} from "../lib/providerAvailability";
+import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import {
   isInitialModelDiscoveryPending,
   prioritizeProviderModelDiscovery,
@@ -79,6 +83,18 @@ export interface ProviderModelCatalog {
 }
 
 const EMPTY_PROVIDER_AGENTS: ReadonlyArray<ProviderAgentDescriptor> = [];
+const EMPTY_CUSTOM_MODELS_BY_PROVIDER: ReturnType<typeof getCustomModelsByProvider> = {
+  codex: [],
+  claudeAgent: [],
+  cursor: [],
+  antigravity: [],
+  grok: [],
+  droid: [],
+  opencode: [],
+  pi: [],
+  devin: [],
+  omp: [],
+};
 
 // Module scope: `useQueries` recombines whenever this function's identity changes.
 function selectQueryData<Data>(
@@ -211,10 +227,29 @@ export function useProviderModelCatalog(input: {
     },
     [catalogHostId, queryClient, settings, discoveryCwd],
   );
-  const customModelsByProvider = useMemo(() => getCustomModelsByProvider(settings), [settings]);
-  const providerInstances = useMemo(
-    () => (catalogHostId === LOCAL_HOST_ID ? getProviderInstanceOptions(settings) : []),
+  const remoteServerConfigQuery = useQuery({
+    ...serverConfigQueryOptions(catalogHostId),
+    enabled: catalogHostId !== LOCAL_HOST_ID,
+  });
+  // Local custom models only belong to this computer; remote hosts use their own server catalog.
+  const customModelsByProvider = useMemo(
+    () =>
+      catalogHostId === LOCAL_HOST_ID
+        ? getCustomModelsByProvider(settings)
+        : EMPTY_CUSTOM_MODELS_BY_PROVIDER,
     [catalogHostId, settings],
+  );
+  const localProviderInstances = useMemo(() => getProviderInstanceOptions(settings), [settings]);
+  const providerInstances = useMemo(
+    () =>
+      catalogHostId === LOCAL_HOST_ID
+        ? localProviderInstances
+        : resolveProviderInstancesForHost({
+            hostId: catalogHostId,
+            localProviderInstances,
+            providerStatuses: remoteServerConfigQuery.data?.providers ?? [],
+          }),
+    [catalogHostId, localProviderInstances, remoteServerConfigQuery.data?.providers],
   );
   // Callers without an explicit instance selection route to the provider's
   // default instance, so that is the only instance discovery must warm.
@@ -627,7 +662,10 @@ export function useProviderModelCatalog(input: {
       selectedProvider) as ProviderInstanceId;
     const byInstance: ProviderModelOptionsByProviderInstance = {};
     for (const instance of providerInstances) {
-      const customModels = getCustomModelsForProviderInstance(settings, instance);
+      const customModels =
+        catalogHostId === LOCAL_HOST_ID
+          ? getCustomModelsForProviderInstance(settings, instance)
+          : [];
       const selectedModelHint =
         instance.provider === selectedProvider && instance.instanceId === selectedInstanceId
           ? modelHintByProvider?.[instance.provider]
@@ -662,6 +700,7 @@ export function useProviderModelCatalog(input: {
     }
     return byInstance;
   }, [
+    catalogHostId,
     dynamicModelsByProviderInstance,
     modelHintByProvider,
     providerInstances,

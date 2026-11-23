@@ -356,13 +356,20 @@ pub fn apply_window_material(
     {
         use window_vibrancy::{apply_vibrancy, clear_vibrancy, NSVisualEffectMaterial};
         match input.material {
-            WindowMaterialKind::Translucent => apply_vibrancy(
-                window,
-                NSVisualEffectMaterial::UnderWindowBackground,
-                None,
-                Some(_clamped_radius as f64),
-            )
-            .is_ok(),
+            WindowMaterialKind::Translucent => {
+                // `apply_vibrancy`'s 4th argument is `corner_radius`, not blur radius; pass `None`
+                // so window corners are never distorted. Return `false` when a custom blur radius
+                // is requested because standard NSVisualEffectView vibrancy does not expose custom
+                // pixel blur radii (lets `useTheme` surface accurate blur availability feedback).
+                let applied = apply_vibrancy(
+                    window,
+                    NSVisualEffectMaterial::UnderWindowBackground,
+                    None,
+                    None,
+                )
+                .is_ok();
+                applied && input.blur_radius == 0
+            }
             WindowMaterialKind::Opaque => clear_vibrancy(window).is_ok(),
         }
     }

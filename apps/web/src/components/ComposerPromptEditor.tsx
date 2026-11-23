@@ -875,6 +875,11 @@ function ComposerLinkPastePlugin() {
       PASTE_COMMAND,
       (event) => {
         const clipboardData = event instanceof ClipboardEvent ? event.clipboardData : null;
+        // Let image/file attachments take precedence over a companion image URL in text/plain
+        // (mirrors ComposerBigPastePlugin so browser "Copy Image" attaches the image once).
+        if (clipboardData && clipboardData.files.length > 0) {
+          return false;
+        }
         const url = parseBareComposerLink(clipboardData?.getData("text/plain") ?? "");
         if (!url) {
           return false;

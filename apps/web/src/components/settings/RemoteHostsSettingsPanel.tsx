@@ -1,7 +1,7 @@
 // FILE: RemoteHostsSettingsPanel.tsx
 // Purpose: Settings › Remote hosts: manage SSH targets, import from ~/.ssh/config,
 //          test reachability/auth/server status, and connect to a managed Saint server.
-// Layer: Settings UI (desktop Beta only; the main process owns ssh, install and tunnels)
+// Layer: Settings UI (desktop and LAN relay; the main process owns ssh, install and tunnels)
 // Exports: RemoteHostsSettingsPanel
 
 import type { DesktopRemoteSshSavedHost, DesktopRemoteSshTestResult } from "@saint/contracts";
@@ -633,16 +633,14 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
           title="What the host needs"
           description={
             <ul className="list-disc space-y-1 pl-4">
-              <li>Key-based SSH access from this computer.</li>
+              <li>Key-based SSH access from this computer (no interactive password prompts).</li>
               <li>
-                Node.js 22.16 or newer (23.11+ on the 23 line) and npm on the login shell's PATH.
+                Node.js 22.16 or newer (23.11+ on the 23 line, or 24+) and tar on the login shell's
+                PATH. npm, a C/C++ compiler, and Python are not needed.
               </li>
               <li>
-                tmux, so the server and its agents keep running after you disconnect. Without it
-                Saint starts the server with nohup.
-              </li>
-              <li>
-                On Linux, a C/C++ toolchain and Python, which npm uses to build the terminal module.
+                tmux (recommended), so the server and its agents keep running after you disconnect.
+                Without it Saint starts the server with nohup.
               </li>
               <li>The provider CLIs you use (Claude, Codex, …), signed in on the host.</li>
             </ul>

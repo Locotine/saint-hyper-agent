@@ -541,11 +541,10 @@ const CLAUDE_NO_FAST_XHIGH_CAPABILITIES: ModelCapabilities = {
 // ultrathink prompt mode), effort runs low..max, and there is no fast-mode lane.
 const CLAUDE_FABLE_CAPABILITIES: ModelCapabilities = CLAUDE_NO_FAST_XHIGH_CAPABILITIES;
 
-// Opus 5 and 5.5 keep the Claude 5 ladder (thinking is adaptive, so no ultrathink prompt
-// mode) but stays on the Opus fast-mode lane that Fable and Sonnet lack.
+// Opus 5 and 5.5 keep the Claude 5 ladder (thinking is adaptive, so no ultrathink prompt mode).
 const CLAUDE_OPUS_5_CAPABILITIES: ModelCapabilities = {
   ...CLAUDE_NO_FAST_XHIGH_CAPABILITIES,
-  supportsFastMode: true,
+  supportsFastMode: false,
 };
 
 // Full reasoning ladder: xhigh + ultracode + ultrathink (Opus 4.7/4.8).
@@ -559,7 +558,7 @@ const CLAUDE_FLAGSHIP_CAPABILITIES: ModelCapabilities = {
     claudePromptModeOption("ultrathink", "Ultrathink"),
     claudeCodeModeOption("ultracode", "Ultracode", "xhigh", "xhigh + workflows"),
   ],
-  supportsFastMode: true,
+  supportsFastMode: false,
   supportsThinkingToggle: false,
   promptInjectedEffortLevels: ["ultrathink"],
   contextWindowOptions: [],

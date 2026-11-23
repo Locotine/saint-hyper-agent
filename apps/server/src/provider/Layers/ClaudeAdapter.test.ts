@@ -1588,7 +1588,7 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
-  it.effect("forwards claude fast mode into SDK settings", () => {
+  it.effect("ignores claude fast mode in SDK settings across Claude models", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {
       const adapter = yield* ClaudeAdapter;
@@ -1608,7 +1608,6 @@ describe("ClaudeAdapterLive", () => {
       const createInput = harness.getLastCreateQueryInput();
       assert.deepEqual(createInput?.options.settings, {
         autoCompactEnabled: true,
-        fastMode: true,
       });
     }).pipe(
       Effect.provideService(Random.Random, makeDeterministicRandomService()),
@@ -9855,74 +9854,77 @@ await agent("Draft the spec", { label: "delta-agent", phase: "Two" });
     );
   });
 
-  it.effect("applies effort, fast mode, and ultracode live instead of restarting", () => {
-    const harness = makeHarness();
-    return Effect.gen(function* () {
-      const adapter = yield* ClaudeAdapter;
+  it.effect(
+    "applies effort and ultracode live instead of restarting while ignoring Claude fast mode",
+    () => {
+      const harness = makeHarness();
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
 
-      const session = yield* adapter.startSession({
-        threadId: THREAD_ID,
-        provider: "claudeAgent",
-        runtimeMode: "full-access",
-        modelSelection: {
+        const session = yield* adapter.startSession({
+          threadId: THREAD_ID,
           provider: "claudeAgent",
-          model: "claude-opus-4-8",
-          options: { effort: "high" },
-        },
-      });
-      assert.equal(effortLevelFromOptions(harness.getLastCreateQueryInput()?.options), "high");
+          runtimeMode: "full-access",
+          modelSelection: {
+            provider: "claudeAgent",
+            model: "claude-opus-4-8",
+            options: { effort: "high" },
+          },
+        });
+        assert.equal(effortLevelFromOptions(harness.getLastCreateQueryInput()?.options), "high");
 
-      yield* adapter.sendTurn({
-        threadId: session.threadId,
-        input: "hello",
-        modelSelection: {
-          provider: "claudeAgent",
-          model: "claude-opus-4-8",
-          options: { effort: "ultracode", fastMode: true },
-        },
-        attachments: [],
-      });
-      assert.deepEqual(harness.query.applyFlagSettingsCalls, [
-        { effortLevel: "xhigh", ultracode: true, fastMode: true },
-      ]);
+        yield* adapter.sendTurn({
+          threadId: session.threadId,
+          input: "hello",
+          modelSelection: {
+            provider: "claudeAgent",
+            model: "claude-opus-4-8",
+            options: { effort: "ultracode", fastMode: true },
+          },
+          attachments: [],
+        });
+        assert.deepEqual(harness.query.applyFlagSettingsCalls, [
+          { effortLevel: "xhigh", ultracode: true },
+        ]);
 
-      // The same selection on the next turn stays quiet.
-      yield* adapter.sendTurn({
-        threadId: session.threadId,
-        input: "continue",
-        modelSelection: {
-          provider: "claudeAgent",
-          model: "claude-opus-4-8",
-          options: { effort: "ultracode", fastMode: true },
-        },
-        attachments: [],
-      });
-      assert.deepEqual(harness.query.applyFlagSettingsCalls, [
-        { effortLevel: "xhigh", ultracode: true, fastMode: true },
-      ]);
+        // The same selection on the next turn stays quiet.
+        yield* adapter.sendTurn({
+          threadId: session.threadId,
+          input: "continue",
+          modelSelection: {
+            provider: "claudeAgent",
+            model: "claude-opus-4-8",
+            options: { effort: "ultracode", fastMode: true },
+          },
+          attachments: [],
+        });
+        assert.deepEqual(harness.query.applyFlagSettingsCalls, [
+          { effortLevel: "xhigh", ultracode: true },
+        ]);
 
-      // Returning to defaults clears the keys from the flag-settings layer.
-      yield* adapter.sendTurn({
-        threadId: session.threadId,
-        input: "wrap up",
-        modelSelection: {
-          provider: "claudeAgent",
-          model: "claude-opus-4-8",
-        },
-        attachments: [],
-      });
-      assert.deepEqual(harness.query.applyFlagSettingsCalls, [
-        { effortLevel: "xhigh", ultracode: true, fastMode: true },
-        { effortLevel: null, ultracode: null, fastMode: null },
-      ]);
+        // Returning to defaults clears the keys from the flag-settings layer.
+        yield* adapter.sendTurn({
+          threadId: session.threadId,
+          input: "wrap up",
+          modelSelection: {
+            provider: "claudeAgent",
+            model: "claude-opus-4-8",
+          },
+          attachments: [],
+        });
+        assert.deepEqual(harness.query.applyFlagSettingsCalls, [
+          { effortLevel: "xhigh", ultracode: true },
+          { effortLevel: null, ultracode: null },
+        ]);
 
-      // No restart happened at any point: the original spawn is the only one.
-      assert.deepEqual(harness.query.setModelCalls, []);
-    }).pipe(
-      Effect.provideService(Random.Random, makeDeterministicRandomService()),
-      Effect.provide(harness.layer),
-    );
-  });
+        // No restart happened at any point: the original spawn is the only one.
+        assert.deepEqual(harness.query.setModelCalls, []);
+      }).pipe(
+        Effect.provideService(Random.Random, makeDeterministicRandomService()),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
 
   for (const boundary of [
     "same query",

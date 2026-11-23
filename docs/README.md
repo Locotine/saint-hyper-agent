@@ -12,7 +12,7 @@ This folder keeps the focused guides that stay in sync with the repository
 - [Connectors](./mcp-connectors.md) — sign in to remote MCP servers (Supabase, Linear, ...) for agents in Saint.
 - [Release process](./release.md) — release and signing setup checklist, and [building installers on Linux](./release.md#building-installers-on-linux).
 - [Windows runtime](./windows-runtime.md) — Windows process, shell, and packaging boundaries.
-- [Beta channel](../BETA.md) — the packaged Saint Beta flavor, its isolated update feed, and how beta releases are cut.
+- [QA Audit 2026-11](./qa-audit-2026-11.md) — full-repo QA audit findings (48 bugs), remediation status, and open questions.
 - [Canary workflow](./canary.md) — install, update, operate, and roll back an isolated Canary build.
 
 Other material lives in [docs/archive](./archive/) for historical reference.

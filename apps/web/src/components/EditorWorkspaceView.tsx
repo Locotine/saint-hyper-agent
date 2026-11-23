@@ -117,6 +117,7 @@ interface EditorWorkspaceViewProps {
   diffPanel: ReactNode;
   chatPanel: ReactNode;
   onSelectFile: (path: string) => void;
+  onClearSelectedFile?: () => void;
   onSelectDiffFile: (path: string) => void;
   onToggleDirectory: (path: string) => void;
   editFilePath: string | null;
@@ -600,6 +601,11 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
         activeGroup.selectedFilePath !== props.selectedFilePath
       ) {
         props.onSelectFile(activeGroup.selectedFilePath);
+      } else if (
+        next.groups.every((group) => group.openFilePaths.length === 0) &&
+        props.selectedFilePath !== null
+      ) {
+        props.onClearSelectedFile?.();
       }
     });
   };

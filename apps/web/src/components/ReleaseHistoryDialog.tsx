@@ -53,7 +53,7 @@ export default function ReleaseHistoryDialog({
         <DialogHeader className="gap-1 p-4 pr-12">
           <DialogTitle className="text-base">Release history</DialogTitle>
           <DialogDescription className="text-ui leading-snug">
-            Every curated release, newest first.
+            Curated releases for Saint Hyper Agent, newest first.
           </DialogDescription>
         </DialogHeader>
 

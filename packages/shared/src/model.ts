@@ -561,9 +561,10 @@ export function getProviderOptionDescriptors(input: {
   caps: ModelCapabilities;
   selections?: ProviderOptionSelectionsInput;
 }): ReadonlyArray<ProviderOptionDescriptor> {
-  const descriptors =
+  const descriptors = (
     input.caps.optionDescriptors?.map(cloneProviderOptionDescriptor) ??
-    legacyCapabilityDescriptors(input.provider, input.caps);
+    legacyCapabilityDescriptors(input.provider, input.caps)
+  ).filter((descriptor) => !(input.provider === "claudeAgent" && descriptor.id === "fastMode"));
   return descriptors.map((descriptor) => {
     let resolvedDescriptor = descriptor;
     // Remove the synthetic default also from catalogs cached by the old Claude adapter.

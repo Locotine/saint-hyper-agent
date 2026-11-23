@@ -12,7 +12,6 @@
     "core:webview:default",
     "dialog:default",
     "notification:default",
-    "global-shortcut:default",
     "updater:default",
     "clipboard-manager:default"
   ]

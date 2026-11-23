@@ -58,9 +58,10 @@ use crate::window_state::{
     resolve_reported_menu_accelerators, resolve_visible_window_bounds, resolve_window_translucency,
     supports_custom_title_bar, write_custom_title_bar_preference, write_desktop_window_state,
     AgentCursorStylePreference, ContextMenuPosition, DesktopContextMenuItem,
-    DesktopCustomTitleBarState, DesktopMenuShortcuts, DesktopQuitConfirmationRequest,
-    DesktopQuitConfirmationResponse, DesktopWindowBounds, DesktopWindowMaterial,
-    DesktopWindowState, PersistedDesktopWindowState, ResolvedContextMenuNode,
+    DesktopCustomTitleBarState, DesktopMenuAccelerators, DesktopMenuShortcuts,
+    DesktopQuitConfirmationRequest, DesktopQuitConfirmationResponse, DesktopWindowBounds,
+    DesktopWindowMaterial, DesktopWindowState, PersistedDesktopWindowState,
+    ResolvedContextMenuNode,
 };
 
 const MAX_DROPPED_FILE_BYTES: u64 = 32 * 1024 * 1024;
@@ -446,15 +447,133 @@ fn desktop_clipboard_write_image(app: tauri::AppHandle, data_url: String) -> boo
     false
 }
 
+fn install_app_menu(app_handle: &tauri::AppHandle, accelerators: &DesktopMenuAccelerators) {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+    let build = || -> tauri::Result<Menu<tauri::Wry>> {
+        let terminal_new = MenuItem::with_id(
+            app_handle,
+            "menu:terminal.new",
+            "New Terminal",
+            true,
+            accelerators.terminal_new.as_deref(),
+        )?;
+        let close_window = PredefinedMenuItem::close_window(app_handle, None)?;
+        let file_menu = Submenu::with_items(app_handle, "File", true, &[&terminal_new, &close_window])?;
+
+        let undo = PredefinedMenuItem::undo(app_handle, None)?;
+        let redo = PredefinedMenuItem::redo(app_handle, None)?;
+        let edit_sep = PredefinedMenuItem::separator(app_handle)?;
+        let cut = PredefinedMenuItem::cut(app_handle, None)?;
+        let copy = PredefinedMenuItem::copy(app_handle, None)?;
+        let paste = PredefinedMenuItem::paste(app_handle, None)?;
+        let select_all = PredefinedMenuItem::select_all(app_handle, None)?;
+        let edit_menu = Submenu::with_items(
+            app_handle,
+            "Edit",
+            true,
+            &[&undo, &redo, &edit_sep, &cut, &copy, &paste, &select_all],
+        )?;
+
+        let sidebar_toggle = MenuItem::with_id(
+            app_handle,
+            "menu:sidebar.toggle",
+            "Toggle Sidebar",
+            true,
+            accelerators.sidebar_toggle.as_deref(),
+        )?;
+        let browser_toggle = MenuItem::with_id(
+            app_handle,
+            "menu:browser.toggle",
+            "Toggle Browser",
+            true,
+            accelerators.browser_toggle.as_deref(),
+        )?;
+        let fullscreen = PredefinedMenuItem::fullscreen(app_handle, None)?;
+        let view_sep = PredefinedMenuItem::separator(app_handle)?;
+        let view_menu = Submenu::with_items(
+            app_handle,
+            "View",
+            true,
+            &[&sidebar_toggle, &browser_toggle, &view_sep, &fullscreen],
+        )?;
+
+        let minimize = PredefinedMenuItem::minimize(app_handle, None)?;
+        let maximize = PredefinedMenuItem::maximize(app_handle, None)?;
+        let win_sep = PredefinedMenuItem::separator(app_handle)?;
+        let win_close = PredefinedMenuItem::close_window(app_handle, None)?;
+        let window_menu = Submenu::with_items(
+            app_handle,
+            "Window",
+            true,
+            &[&minimize, &maximize, &win_sep, &win_close],
+        )?;
+
+        #[cfg(target_os = "macos")]
+        {
+            let about = PredefinedMenuItem::about(app_handle, None, None)?;
+            let sep1 = PredefinedMenuItem::separator(app_handle)?;
+            let services = PredefinedMenuItem::services(app_handle, None)?;
+            let sep2 = PredefinedMenuItem::separator(app_handle)?;
+            let hide = PredefinedMenuItem::hide(app_handle, None)?;
+            let hide_others = PredefinedMenuItem::hide_others(app_handle, None)?;
+            let show_all = PredefinedMenuItem::show_all(app_handle, None)?;
+            let sep3 = PredefinedMenuItem::separator(app_handle)?;
+            let quit = PredefinedMenuItem::quit(app_handle, None)?;
+            let app_menu = Submenu::with_items(
+                app_handle,
+                APP_DISPLAY_NAME,
+                true,
+                &[
+                    &about,
+                    &sep1,
+                    &services,
+                    &sep2,
+                    &hide,
+                    &hide_others,
+                    &show_all,
+                    &sep3,
+                    &quit,
+                ],
+            )?;
+            Menu::with_items(
+                app_handle,
+                &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
+            )
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            Menu::with_items(app_handle, &[&file_menu, &edit_menu, &view_menu, &window_menu])
+        }
+    };
+
+    match build() {
+        Ok(menu) => {
+            if let Err(err) = app_handle.set_menu(menu) {
+                eprintln!("[saint-desktop-rust] Failed to install application menu: {err}");
+            }
+            #[cfg(not(target_os = "macos"))]
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.hide_menu();
+            }
+        }
+        Err(err) => {
+            eprintln!("[saint-desktop-rust] Failed to build application menu: {err}");
+        }
+    }
+}
+
 #[tauri::command]
 fn desktop_set_menu_shortcuts(
+    app_handle: tauri::AppHandle,
     state: State<'_, Arc<DesktopSharedState>>,
     shortcuts: DesktopMenuShortcuts,
 ) {
     let resolved = resolve_reported_menu_accelerators(&shortcuts, std::env::consts::OS);
     if let Ok(mut guard) = state.menu_accelerators.write() {
-        *guard = resolved;
+        *guard = resolved.clone();
     }
+    install_app_menu(&app_handle, &resolved);
 }
 
 #[tauri::command]
@@ -1683,7 +1802,6 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(Arc::clone(&shared_state))
@@ -1840,6 +1958,18 @@ pub fn run() {
                     .on_navigation(|url| url.scheme() != "file")
                     .initialization_script(&init_script);
 
+            #[cfg(target_os = "macos")]
+            {
+                win_builder = win_builder
+                    .title_bar_style(tauri::TitleBarStyle::Overlay)
+                    .hidden_title(true)
+                    .transparent(true);
+            }
+            #[cfg(target_os = "linux")]
+            if resolve_window_translucency().is_some() {
+                win_builder = win_builder.transparent(true);
+            }
+
             if let Some(ref persisted) = saved_window {
                 let work_areas: Vec<DesktopWindowBounds> = app
                     .available_monitors()
@@ -1880,6 +2010,12 @@ pub fn run() {
                 }
             }
             let window = win_builder.build()?;
+            let initial_accelerators = state
+                .menu_accelerators
+                .read()
+                .map(|guard| guard.clone())
+                .unwrap_or_default();
+            install_app_menu(&app_handle, &initial_accelerators);
             let _ = window.show();
             let _ = window.set_focus();
             eprintln!(

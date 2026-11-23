@@ -195,6 +195,7 @@ export function useComposerDropzone(input: {
   };
 
   const onComposerPaste = (event: ClipboardEvent<HTMLElement>) => {
+    if (event.defaultPrevented) return;
     const files = collectComposerClipboardFiles(event.clipboardData);
     if (disabled) {
       if (files.length > 0) event.preventDefault();

@@ -2517,8 +2517,8 @@ label:has(> select#reasoning-effort) select {
   }
 
   @supports not (animation-timeline: scroll()) {
-    --scroll-fade-t: var(--scroll-edge-fade-size);
-    --scroll-edge-fade-b-progress: 1;
+    --scroll-fade-t: 0px;
+    --scroll-edge-fade-b-progress: 0;
   }
 }
 

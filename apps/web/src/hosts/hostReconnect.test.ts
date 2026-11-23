@@ -59,4 +59,16 @@ describe("stepAutoReconnect", () => {
       expect(step.reconnect).toBe(false);
     }
   });
+
+  it("suppresses auto-reconnect when a fast stop_server failure reports autoReconnectSuppressed", () => {
+    const connected = stepAutoReconnect(INITIAL_AUTO_RECONNECT_ENTRY, { now: 0, ...live });
+    const failedStop = stepAutoReconnect(connected.entry, {
+      now: 5,
+      phase: "error",
+      streamStale: false,
+      autoReconnectSuppressed: true,
+    });
+    expect(failedStop.reconnect).toBe(false);
+    expect(failedStop.entry).toEqual(INITIAL_AUTO_RECONNECT_ENTRY);
+  });
 });

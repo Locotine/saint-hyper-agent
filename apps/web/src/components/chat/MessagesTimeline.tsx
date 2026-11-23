@@ -72,6 +72,7 @@ import {
   type LucideIcon,
   NewThreadIcon,
   PinIcon,
+  ServerIcon,
   SteerIcon,
   ThinkingIcon,
   Undo2Icon,
@@ -3723,6 +3724,10 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
 }) {
   const hostId = useHostId();
   const hostExplicitUrl = useHostExplicitUrl(hostId);
+  const isOfflineRemote =
+    hostId !== LOCAL_HOST_ID &&
+    hostExplicitUrl === null &&
+    Boolean(props.image.previewUrl && isHostAttachmentPath(props.image.previewUrl));
   const resolveThumbnailPreviewUrl = (rawUrl: string | undefined): string | undefined => {
     if (!rawUrl) return undefined;
     if (hostId !== LOCAL_HOST_ID && hostExplicitUrl === null && isHostAttachmentPath(rawUrl)) {
@@ -3735,9 +3740,12 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
     <button
       type="button"
       className="flex size-15 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-background/82 text-left shadow-[0_1px_0_rgba(255,255,255,0.2)_inset] transition-colors hover:bg-background/94"
-      aria-label={`Preview ${props.image.name}`}
-      title={props.image.name}
+      aria-label={
+        isOfflineRemote ? `Connect host to view ${props.image.name}` : `Preview ${props.image.name}`
+      }
+      title={isOfflineRemote ? "Connect host to view image" : props.image.name}
       onClick={() => {
+        if (isOfflineRemote) return;
         const preview = buildExpandedImagePreview(
           props.userImages.map((image) => {
             const resolvedUrl = resolveThumbnailPreviewUrl(image.previewUrl);
@@ -3762,6 +3770,14 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
           onLoad={props.onTimelineImageLoad}
           onError={props.onTimelineImageLoad}
         />
+      ) : isOfflineRemote ? (
+        <div
+          className="flex size-full flex-col items-center justify-center gap-0.5 px-1 text-center text-muted-foreground"
+          data-status="offline"
+        >
+          <ServerIcon className="size-3.5 opacity-75" aria-hidden="true" />
+          <span className="text-ui-xs leading-tight">Offline</span>
+        </div>
       ) : (
         <div className="flex size-full items-center justify-center">
           <FileEntryIcon
@@ -4020,7 +4036,10 @@ const UserMessageCollapsibleText = memo(function UserMessageCollapsibleText(prop
 
   const lineHeightPx = getChatTranscriptUserMessageLineHeightPx(props.chatFontSizePx);
   const clampHeightPx = USER_MESSAGE_COLLAPSED_MAX_LINES * lineHeightPx;
-  const fadeStartPx = clampHeightPx - USER_MESSAGE_COLLAPSED_FADE_LINES * lineHeightPx;
+  const fadeSpanPx = USER_MESSAGE_COLLAPSED_FADE_LINES * lineHeightPx;
+  const fadeStartPx = Math.max(0, clampHeightPx - fadeSpanPx);
+  const fadeMidPx = Math.max(fadeStartPx, clampHeightPx - fadeSpanPx * 0.45);
+  const fadeMask = `linear-gradient(to bottom, black ${fadeStartPx}px, rgba(0, 0, 0, 0.35) ${fadeMidPx}px, transparent calc(100% - 2px), transparent 100%)`;
   const clamped = collapsed && overflowing;
 
   // Observe the natural content inside the clamp. ResizeObserver reports its
@@ -4046,7 +4065,8 @@ const UserMessageCollapsibleText = memo(function UserMessageCollapsibleText(prop
                 maxHeight: `${clampHeightPx}px`,
                 ...(clamped
                   ? {
-                      maskImage: `linear-gradient(to bottom, black ${fadeStartPx}px, transparent 100%)`,
+                      maskImage: fadeMask,
+                      WebkitMaskImage: fadeMask,
                     }
                   : {}),
               }

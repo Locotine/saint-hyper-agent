@@ -55,16 +55,21 @@ export const INITIAL_AUTO_RECONNECT_ENTRY: AutoReconnectEntry = {
  */
 export function stepAutoReconnect(
   entry: AutoReconnectEntry,
-  input: { now: number; phase: DesktopRemoteSshHostState["phase"]; streamStale: boolean },
+  input: {
+    now: number;
+    phase: DesktopRemoteSshHostState["phase"];
+    streamStale: boolean;
+    autoReconnectSuppressed?: boolean;
+  },
 ): { entry: AutoReconnectEntry; reconnect: boolean } {
-  const { now, phase, streamStale } = input;
+  const { now, phase, streamStale, autoReconnectSuppressed } = input;
   if (phase === "connected" && !streamStale) {
     return {
       entry: { everConnected: true, brokenSince: null, attempts: 0, nextAt: 0 },
       reconnect: false,
     };
   }
-  if (phase === "idle" || phase === "stopping") {
+  if (phase === "idle" || phase === "stopping" || autoReconnectSuppressed === true) {
     return { entry: INITIAL_AUTO_RECONNECT_ENTRY, reconnect: false };
   }
   const stale = phase === "connected" && streamStale;

@@ -15,7 +15,9 @@ import { useProjectImportDialogStore } from "~/projectImport/projectImportDialog
 
 import {
   AddPlusIcon,
+  BookOpenIcon,
   BotIcon,
+  BugReportIcon,
   CircleQuestionIcon,
   ClockIcon,
   CodeReviewIcon,
@@ -346,6 +348,7 @@ import { RelocateProjectDialog } from "./RelocateProjectDialog";
 import { RenameThreadDialog } from "./RenameThreadDialog";
 import { SnoozeUntilDialog } from "./SnoozeUntilDialog";
 import { SNOOZE_PRESETS } from "../lib/threadSnooze";
+import { APP_VERSION } from "../branding";
 import ReleaseHistoryDialog from "./ReleaseHistoryDialog";
 import { GROUPS_ON, INBOX_ON, isBetaFeatureOn } from "../betaFeatures";
 import { WHATS_NEW_ENTRIES } from "../whatsNew/entries";
@@ -924,6 +927,17 @@ function ProjectSortMenu({
   );
 }
 
+const HELP_DOCS_URL = "https://github.com/Locotine/saint-hyper-agent#readme";
+const HELP_ISSUES_URL = "https://github.com/Locotine/saint-hyper-agent/issues";
+
+function openExternalHelpUrl(url: string): void {
+  if (window.desktopBridge?.openExternal) {
+    void window.desktopBridge.openExternal(url);
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 // Latest curated releases surfaced directly in the help menu. Static data, so
 // computed once at module scope rather than per render.
 const HELP_MENU_RELEASE_ENTRIES = sortEntriesByVersionDesc(WHATS_NEW_ENTRIES).slice(0, 3);
@@ -977,8 +991,13 @@ function SidebarHelpMenu({
           className="w-64 min-w-64"
         >
           <MenuGroup>
-            <div className="px-2 py-1 sm:text-ui leading-snug font-medium text-muted-foreground">
-              What’s new
+            <div className="flex items-center justify-between gap-2 px-2 py-1 text-ui leading-snug font-medium text-muted-foreground">
+              <span>What’s new</span>
+              {APP_VERSION && APP_VERSION !== "0.0.0" ? (
+                <span className="text-ui-xs font-normal tabular-nums text-muted-foreground/80">
+                  v{APP_VERSION}
+                </span>
+              ) : null}
             </div>
             {HELP_MENU_RELEASE_ENTRIES.map((entry) => (
               <MenuItem
@@ -999,7 +1018,7 @@ function SidebarHelpMenu({
               onClick={() => openReleaseHistory(null)}
             >
               <SidebarContextMenuIcon icon={GiftIcon} />
-              <span>Full changelog</span>
+              <span>Release history</span>
             </MenuItem>
           </MenuGroup>
           <MenuSeparator />
@@ -1016,6 +1035,23 @@ function SidebarHelpMenu({
             <MenuItem className={SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME} onClick={onOpenShortcuts}>
               <SidebarContextMenuIcon icon={KeyboardIcon} />
               <span>Keybindings</span>
+            </MenuItem>
+          </MenuGroup>
+          <MenuSeparator />
+          <MenuGroup>
+            <MenuItem
+              className={SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME}
+              onClick={() => openExternalHelpUrl(HELP_DOCS_URL)}
+            >
+              <SidebarContextMenuIcon icon={BookOpenIcon} />
+              <span>Documentation</span>
+            </MenuItem>
+            <MenuItem
+              className={SIDEBAR_CONTEXT_MENU_ITEM_CLASS_NAME}
+              onClick={() => openExternalHelpUrl(HELP_ISSUES_URL)}
+            >
+              <SidebarContextMenuIcon icon={BugReportIcon} />
+              <span>Report an issue</span>
             </MenuItem>
           </MenuGroup>
         </ComposerPickerMenuPopup>

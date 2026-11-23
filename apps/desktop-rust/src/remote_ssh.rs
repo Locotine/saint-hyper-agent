@@ -66,6 +66,8 @@ pub struct DesktopRemoteSshHostState {
     pub phase: String,
     pub message: Option<String>,
     pub local_port: Option<u16>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub auto_reconnect_suppressed: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1125,6 +1127,39 @@ impl RemoteSshManager {
         message: Option<String>,
         increment_epoch: bool,
     ) -> DesktopRemoteSshHostState {
+        let suppress = matches!(phase, "idle" | "stopping");
+        self.set_phase_inner(
+            host,
+            host_key,
+            remote_root,
+            phase,
+            message,
+            increment_epoch,
+            suppress,
+        )
+    }
+
+    fn set_phase_suppressed(
+        &self,
+        host: &str,
+        host_key: &str,
+        remote_root: &str,
+        phase: &str,
+        message: Option<String>,
+    ) -> DesktopRemoteSshHostState {
+        self.set_phase_inner(host, host_key, remote_root, phase, message, false, true)
+    }
+
+    fn set_phase_inner(
+        &self,
+        host: &str,
+        host_key: &str,
+        remote_root: &str,
+        phase: &str,
+        message: Option<String>,
+        increment_epoch: bool,
+        auto_reconnect_suppressed: bool,
+    ) -> DesktopRemoteSshHostState {
         let local_port = if phase == "connected" {
             self.sessions
                 .lock()
@@ -1142,6 +1177,7 @@ impl RemoteSshManager {
                 phase: phase.to_string(),
                 message,
                 local_port,
+                auto_reconnect_suppressed,
             };
         };
         let idx = match live.iter().position(|h| h.host == host) {
@@ -1155,6 +1191,7 @@ impl RemoteSshManager {
                     phase: String::new(),
                     message: None,
                     local_port: None,
+                    auto_reconnect_suppressed: false,
                 });
                 live.len() - 1
             }
@@ -1165,6 +1202,7 @@ impl RemoteSshManager {
         h.phase = phase.to_string();
         h.message = message;
         h.local_port = local_port;
+        h.auto_reconnect_suppressed = auto_reconnect_suppressed;
         if increment_epoch {
             h.epoch += 1;
         }
@@ -1650,6 +1688,7 @@ impl RemoteSshManager {
                     entry.phase = "idle".to_string();
                     entry.local_port = None;
                     entry.message = None;
+                    entry.auto_reconnect_suppressed = true;
                 }
             }
             self.notify_state_change();
@@ -1712,14 +1751,26 @@ impl RemoteSshManager {
                     let message =
                         "The remote folder must be a relative path inside the home folder."
                             .to_string();
-                    self.set_phase(&host, &host_key, &initial_root, "error", Some(message.clone()));
+                    self.set_phase_suppressed(
+                        &host,
+                        &host_key,
+                        &initial_root,
+                        "error",
+                        Some(message.clone()),
+                    );
                     return Err(message);
                 }
             },
             None => match self.resolve_default_root(&merged) {
                 Ok(root) => root,
                 Err(message) => {
-                    self.set_phase(&host, &host_key, &initial_root, "error", Some(message.clone()));
+                    self.set_phase_suppressed(
+                        &host,
+                        &host_key,
+                        &initial_root,
+                        "error",
+                        Some(message.clone()),
+                    );
                     return Err(message);
                 }
             },
@@ -1737,7 +1788,7 @@ impl RemoteSshManager {
             .and_then(|_serial| self.run_stop(&merged, &remote_root));
         match &result {
             Ok(()) => self.set_phase(&host, &host_key, &remote_root, "idle", None),
-            Err(message) => self.set_phase(
+            Err(message) => self.set_phase_suppressed(
                 &host,
                 &host_key,
                 &remote_root,

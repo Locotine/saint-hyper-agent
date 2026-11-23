@@ -192,12 +192,32 @@ export function useChatProviderModels({
   ) {
     candidateInstanceId = activeProject.defaultModelSelection.instanceId;
   }
-  // Instances in Settings are this computer's accounts; a host's chat uses the provider's default.
+  const remoteProviderInstances = useMemo(
+    () =>
+      isRemoteHost
+        ? resolveProviderInstancesForHost({
+            hostId: chatHost.hostId,
+            localProviderInstances: getProviderInstanceOptions(settings),
+            providerStatuses: localProviderStatuses,
+          })
+        : [],
+    [chatHost.hostId, isRemoteHost, localProviderStatuses, settings],
+  );
   const selectedProviderInstanceId =
     sessionInstanceId ??
     (chatHost.hostId === LOCAL_HOST_ID
       ? resolveSelectableProviderInstanceId(settings, selectedProvider, candidateInstanceId)
-      : selectedProvider);
+      : ((candidateInstanceId &&
+          remoteProviderInstances.find(
+            (instance) =>
+              instance.enabled &&
+              instance.provider === selectedProvider &&
+              instance.instanceId === candidateInstanceId,
+          )?.instanceId) ??
+        remoteProviderInstances.find(
+          (instance) => instance.enabled && instance.provider === selectedProvider,
+        )?.instanceId ??
+        selectedProvider));
 
   const composerModelHintByProvider = useMemo<Record<ProviderKind, string | null>>(() => {
     const threadModelSelection = activeThread?.modelSelection ?? null;
