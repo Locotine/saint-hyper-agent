@@ -658,6 +658,7 @@ export function buildAntigravityPromptUsageSnapshot(input: {
   readonly model: string;
   readonly previousTotalProcessedTokens: number;
   readonly maxTokens?: number | undefined;
+  readonly currentContextUsedTokens?: number | undefined;
 }):
   | {
       readonly snapshot: ThreadTokenUsageSnapshot;
@@ -676,7 +677,13 @@ export function buildAntigravityPromptUsageSnapshot(input: {
   const reasoningOutputTokens = nonNegativeInteger(usage.thoughtTokens) ?? 0;
   const explicitTotal = nonNegativeInteger(usage.totalTokens);
   const computedTotal = inputTokens + cachedInputTokens + outputTokens + reasoningOutputTokens;
-  const usedTokens = explicitTotal && explicitTotal > 0 ? explicitTotal : computedTotal;
+  const turnTotalTokens = explicitTotal && explicitTotal > 0 ? explicitTotal : computedTotal;
+  // Prompt completion usage from `agy acp` sums every step in a multi-step tool loop.
+  // When live `usage_update` notifications already reported the current context-window
+  // occupancy during the turn, keep that occupancy for `usedTokens` and record the
+  // multi-step total in `totalProcessedTokens`.
+  const contextUsedTokens = positiveInteger(input.currentContextUsedTokens);
+  const usedTokens = contextUsedTokens ?? turnTotalTokens;
   if (usedTokens <= 0) {
     return undefined;
   }
@@ -685,6 +692,7 @@ export function buildAntigravityPromptUsageSnapshot(input: {
   const usedPercent = computeUsagePercent(usedTokens, maxTokens);
   const nextTotalProcessedTokens = Math.max(
     input.previousTotalProcessedTokens + outputTokens + reasoningOutputTokens,
+    turnTotalTokens,
     usedTokens,
   );
   return {

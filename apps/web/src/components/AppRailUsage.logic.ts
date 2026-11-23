@@ -9,8 +9,11 @@ import type { RailUsageWindow } from "~/appSettings";
 import { providerAccountQualifiedLabel } from "~/lib/providerInstancePresentation";
 import type { ProviderUsageDisplayRow } from "~/lib/providerUsageDisplay";
 
-/** The rail is one icon wide, so only a couple of rings fit above the Help button. */
-export const MAX_RAIL_USAGE_ACCOUNTS = 2;
+export const RAIL_USAGE_WINDOW_OPTIONS = [
+  { value: "both", label: "Both" },
+  { value: "fiveHour", label: "5h" },
+  { value: "weekly", label: "Weekly" },
+] as const satisfies ReadonlyArray<{ value: RailUsageWindow; label: string }>;
 
 export interface RailUsageAccount {
   readonly instance: ResolvedProviderInstance;
@@ -49,35 +52,55 @@ export function getRailUsageAccounts(
   });
 }
 
-/** Stored selection → unique available accounts, capped after dropping stale ids. */
+/**
+ * Stored selection → unique available accounts.
+ * `null` means show all available enabled accounts (every connected provider).
+ */
 export function resolveRailUsageAccounts(
-  selected: ReadonlyArray<ProviderInstanceId>,
+  selected: ReadonlyArray<ProviderInstanceId> | null,
   available: ReadonlyArray<RailUsageAccount>,
 ): ReadonlyArray<RailUsageAccount> {
+  if (selected === null) {
+    return available;
+  }
   const byId = new Map(available.map((account) => [account.instance.instanceId, account]));
-  return [...new Set(selected)]
-    .flatMap((instanceId) => {
-      const account = byId.get(instanceId);
-      return account ? [account] : [];
-    })
-    .slice(0, MAX_RAIL_USAGE_ACCOUNTS);
+  return [...new Set(selected)].flatMap((instanceId) => {
+    const account = byId.get(instanceId);
+    return account ? [account] : [];
+  });
 }
 
-/** Next selection after a Settings toggle; an account past the cap is ignored. */
+/** Whether every currently available account is selected for the sidebar rail. */
+export function areAllRailUsageAccountsSelected(
+  selected: ReadonlyArray<ProviderInstanceId> | null,
+  available: ReadonlyArray<RailUsageAccount>,
+): boolean {
+  if (selected === null) {
+    return true;
+  }
+  const selectedSet = new Set(selected);
+  return available.every((account) => selectedSet.has(account.instance.instanceId));
+}
+
+/**
+ * Next selection after toggling an account in Settings or the sidebar quick menu.
+ * Materializes `null` (show-all) into an explicit list when an account is toggled off,
+ * while preserving hidden/disabled accounts already saved in an explicit selection.
+ */
 export function toggleRailUsageAccount(
-  selected: ReadonlyArray<ProviderInstanceId>,
+  selected: ReadonlyArray<ProviderInstanceId> | null,
   instanceId: ProviderInstanceId,
   enabled: boolean,
   available: ReadonlyArray<RailUsageAccount>,
 ): ReadonlyArray<ProviderInstanceId> {
-  const current = [...new Set(selected)];
+  const current =
+    selected === null
+      ? available.map((account) => account.instance.instanceId)
+      : [...new Set(selected)];
   if (!enabled) {
     return current.filter((entry) => entry !== instanceId);
   }
-  if (
-    current.includes(instanceId) ||
-    resolveRailUsageAccounts(current, available).length >= MAX_RAIL_USAGE_ACCOUNTS
-  ) {
+  if (current.includes(instanceId)) {
     return current;
   }
   return [...current, instanceId];

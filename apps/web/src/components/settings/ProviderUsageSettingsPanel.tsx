@@ -13,9 +13,10 @@ import {
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useAppSettings, type RailUsageWindow } from "~/appSettings";
+import { useAppSettings } from "~/appSettings";
 import {
-  MAX_RAIL_USAGE_ACCOUNTS,
+  RAIL_USAGE_WINDOW_OPTIONS,
+  areAllRailUsageAccountsSelected,
   getRailUsageAccounts,
   resolveRailUsageAccounts,
   toggleRailUsageAccount,
@@ -44,12 +45,6 @@ import {
   serverSettingsQueryOptions,
 } from "~/lib/serverReactQuery";
 import { cn } from "~/lib/utils";
-
-const RAIL_USAGE_WINDOW_OPTIONS = [
-  { value: "both", label: "Both" },
-  { value: "fiveHour", label: "5h" },
-  { value: "weekly", label: "Weekly" },
-] as const satisfies ReadonlyArray<{ value: RailUsageWindow; label: string }>;
 
 const PILL_CLASS_NAME = "shrink-0 rounded-full px-2 py-1 text-ui-sm font-medium leading-none";
 
@@ -177,15 +172,21 @@ export function ProviderUsageSettingsPanel() {
     [...providerInstances.values()],
     settings.disabledProviders,
   );
+  const effectiveRailSelection =
+    settings.railUsageInstanceIds ?? settings.railUsageProviders ?? null;
   // Disabled accounts keep their saved choice; only deleted accounts are discarded.
-  const savedRailUsageInstanceIds = (
-    settings.railUsageInstanceIds ?? settings.railUsageProviders
-  ).filter((instanceId) => providerInstances.has(instanceId));
+  const savedRailUsageInstanceIds =
+    effectiveRailSelection === null
+      ? null
+      : effectiveRailSelection.filter((instanceId) => providerInstances.has(instanceId));
   const railUsageInstanceIds = resolveRailUsageAccounts(
-    settings.railUsageInstanceIds ?? settings.railUsageProviders,
+    effectiveRailSelection,
     railUsageAccounts,
   ).map((account) => account.instance.instanceId);
-  const railUsageFull = railUsageInstanceIds.length >= MAX_RAIL_USAGE_ACCOUNTS;
+  const allRailAccountsSelected = areAllRailUsageAccountsSelected(
+    effectiveRailSelection,
+    railUsageAccounts,
+  );
   const usageQuery = useQuery(serverAllProviderUsageQueryOptions());
   const refreshMutation = useMutation({
     mutationFn: () => fetchAllProviderUsage({ forceRefresh: true }),
@@ -219,7 +220,27 @@ export function ProviderUsageSettingsPanel() {
 
   return (
     <>
-      <SettingsSection title={`Sidebar · up to ${MAX_RAIL_USAGE_ACCOUNTS} accounts`}>
+      <SettingsSection
+        title="Sidebar usage rings"
+        action={
+          !allRailAccountsSelected ? (
+            <Button
+              size="xs"
+              variant="outline"
+              className="shrink-0"
+              disabled={serverSettingsQuery.isPending}
+              onClick={() =>
+                updateSettings({
+                  railUsageInstanceIds: null,
+                  railUsageProviders: null,
+                })
+              }
+            >
+              Show all
+            </Button>
+          ) : undefined
+        }
+      >
         {railUsageAccounts.map(({ instance, label }) => {
           const checked = railUsageInstanceIds.includes(instance.instanceId);
           return (
@@ -238,7 +259,7 @@ export function ProviderUsageSettingsPanel() {
               actions={
                 <Switch
                   checked={checked}
-                  disabled={serverSettingsQuery.isPending || (!checked && railUsageFull)}
+                  disabled={serverSettingsQuery.isPending}
                   onCheckedChange={(next) =>
                     updateSettings({
                       railUsageInstanceIds: toggleRailUsageAccount(

@@ -640,5 +640,28 @@ describe("AntigravityAcpSupport", () => {
       reasoningOutputTokens: 50,
       compactsAutomatically: true,
     });
+
+    const multiStepResult = buildAntigravityPromptUsageSnapshot({
+      usage: {
+        inputTokens: 210_000,
+        cachedReadTokens: 35_000,
+        cachedWriteTokens: 0,
+        outputTokens: 4_000,
+        thoughtTokens: 1_000,
+        totalTokens: 250_000,
+      },
+      model: "Gemini 4 Neon",
+      previousTotalProcessedTokens: 10_000,
+      maxTokens: P0_USAGE_UPDATE.size,
+      currentContextUsedTokens: 60_000,
+    });
+    expect(multiStepResult?.nextTotalProcessedTokens).toBe(250_000);
+    expect(multiStepResult?.snapshot).toMatchObject({
+      usedTokens: 60_000,
+      totalProcessedTokens: 250_000,
+      maxTokens: P0_USAGE_UPDATE.size,
+      lastUsedTokens: 60_000,
+      compactsAutomatically: true,
+    });
   });
 });

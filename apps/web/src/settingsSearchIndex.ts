@@ -608,7 +608,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     section: "usage",
     title: "Sidebar usage rings",
     keywords:
-      "Choose up to two provider accounts for usage rings at the bottom of the sidebar rail. multiple Claude accounts quota",
+      "Choose which provider accounts appear as usage rings at the bottom of the sidebar rail. multiple Claude Antigravity Codex accounts quota",
     target: null,
   },
 

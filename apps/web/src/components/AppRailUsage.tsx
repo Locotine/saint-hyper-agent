@@ -8,37 +8,52 @@
 import { DEFAULT_SERVER_SETTINGS_VIEW, type ServerProviderUsageSnapshot } from "@saint/contracts";
 import { deriveProviderInstances } from "@saint/shared/providerInstances";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, type MouseEvent } from "react";
 
 import { useAppSettings, type RailUsageWindow } from "~/appSettings";
 import { useViewedHostId } from "~/hosts/viewedHost";
+import { CustomizeIcon } from "~/lib/icons";
 import { isHostUsageHidden } from "~/lib/providerUsageSnapshot";
 import {
   serverAllProviderUsageQueryOptions,
   serverSettingsQueryOptions,
 } from "~/lib/serverReactQuery";
 import { cn } from "~/lib/utils";
+import {
+  SIDEBAR_ROW_ACTIVE_CLASS_NAME,
+  SIDEBAR_ROW_HOVER_CLASS_NAME,
+  SIDEBAR_SECTION_LABEL_CLASS_NAME,
+  SIDEBAR_SECTION_LABEL_TONE_CLASS_NAME,
+} from "~/sidebarRowStyles";
 
 import { appRailButtonClassName } from "./AppRail";
 import {
+  RAIL_USAGE_WINDOW_OPTIONS,
+  areAllRailUsageAccountsSelected,
   railUsageRingTone,
   getRailUsageAccounts,
   resolveRailUsageAccounts,
   selectRailUsageRows,
+  toggleRailUsageAccount,
   type RailUsageAccount,
   type RailUsageRingTone,
 } from "./AppRailUsage.logic";
 import { resolveEnvironmentProviderUsageSummary } from "./chat/environment/EnvironmentUsageSection.logic";
-import { ProviderAccountDot } from "./ProviderAccountMark";
+import { ProviderAccountAvatar, ProviderAccountDot } from "./ProviderAccountMark";
 import { ProviderIcon } from "./ProviderIcon";
 import { useProviderUsageMenuModel } from "./ProviderUsageMenuControl";
 import { ProviderUsagePanelContent } from "./ProviderUsagePanelContent";
+import { SettingsSegmentedControl } from "./settings/SettingControls";
 import {
   SIDEBAR_HOVER_CARD_POPUP_PROPS,
   SIDEBAR_HOVER_CARD_SURFACE_CLASS_NAME,
   SIDEBAR_HOVER_CARD_TRIGGER_PROPS,
 } from "./sidebarHoverCardStyles";
+import { Button } from "./ui/button";
+import { Popover, PopoverPopup, PopoverTrigger } from "./ui/popover";
 import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "./ui/preview-card";
 import { StatusChip } from "./ui/status-chip";
+import { Switch } from "./ui/switch";
 
 // Every ring uses the same scale, so its colour alone says how much is left.
 const RING_TONE_CLASS_NAME: Record<RailUsageRingTone, { stroke: string; dot: string }> = {
@@ -60,11 +75,13 @@ function AppRailUsageRing({
   snapshot,
   window,
   onOpenUsageSettings,
+  onOpenCustomize,
 }: {
   account: RailUsageAccount;
   snapshot: ServerProviderUsageSnapshot | undefined;
   window: RailUsageWindow;
   onOpenUsageSettings: () => void;
+  onOpenCustomize?: () => void;
 }) {
   const { instance, label } = account;
   const provider = instance.driver;
@@ -107,6 +124,15 @@ function AppRailUsageRing({
               "relative flex shrink-0 items-center justify-center",
             )}
             onClick={onOpenUsageSettings}
+            onContextMenu={
+              onOpenCustomize
+                ? (event: MouseEvent) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onOpenCustomize();
+                  }
+                : undefined
+            }
           />
         }
       >
@@ -204,46 +230,251 @@ function AppRailUsageRing({
   );
 }
 
-/** Sits above Help: a ring per selected account, with the windows chosen in Settings → Usage. */
+function snapshotHasLiveUsage(snapshot: ServerProviderUsageSnapshot | undefined): boolean {
+  if (!snapshot) return false;
+  if (snapshot.status === "error") return true;
+  if ((snapshot.status ?? "ok") !== "ok") return false;
+  return snapshot.limits.length > 0 || snapshot.usageLines.length > 0;
+}
+
+function accountStatusSublabel(snapshot: ServerProviderUsageSnapshot | undefined): string | null {
+  if (!snapshot) return null;
+  if (snapshot.status === "needs-auth") return "Not signed in";
+  if (snapshot.status === "error") return "Unavailable";
+  if (snapshot.status === "unsupported") return "Unsupported";
+  if (snapshot.limits.length === 0 && snapshot.usageLines.length === 0) return "No usage data";
+  return snapshot.planName ?? null;
+}
+
+/** Sits above Help: rings for selected connected accounts plus a quick customize popover. */
 export function AppRailUsage({ onOpenUsageSettings }: { onOpenUsageSettings: () => void }) {
-  const { settings } = useAppSettings();
+  const { settings, updateSettings } = useAppSettings();
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const settingsQuery = useQuery(serverSettingsQueryOptions());
-  const accounts = resolveRailUsageAccounts(
-    settings.railUsageInstanceIds ?? settings.railUsageProviders,
-    getRailUsageAccounts(
-      deriveProviderInstances(settingsQuery.data ?? DEFAULT_SERVER_SETTINGS_VIEW),
-      settings.disabledProviders,
-    ),
+  const providerInstances = useMemo(
+    () =>
+      new Map(
+        deriveProviderInstances(settingsQuery.data ?? DEFAULT_SERVER_SETTINGS_VIEW).map(
+          (instance) => [instance.instanceId, instance],
+        ),
+      ),
+    [settingsQuery.data],
   );
+  const availableAccounts = useMemo(
+    () => getRailUsageAccounts([...providerInstances.values()], settings.disabledProviders),
+    [providerInstances, settings.disabledProviders],
+  );
+  const effectiveSelection = settings.railUsageInstanceIds ?? settings.railUsageProviders ?? null;
+  // Preserve saved disabled-account ids while dropping removed accounts.
+  const savedSelection =
+    effectiveSelection === null
+      ? null
+      : effectiveSelection.filter((instanceId) => providerInstances.has(instanceId));
+  const accounts = useMemo(
+    () => resolveRailUsageAccounts(effectiveSelection, availableAccounts),
+    [effectiveSelection, availableAccounts],
+  );
+  const selectedInstanceIds = useMemo(
+    () => new Set(accounts.map((account) => account.instance.instanceId)),
+    [accounts],
+  );
+  const allSelected = areAllRailUsageAccountsSelected(effectiveSelection, availableAccounts);
   const hostId = useViewedHostId();
   const usageQuery = useQuery(
-    serverAllProviderUsageQueryOptions({ enabled: accounts.length > 0, hostId }),
+    serverAllProviderUsageQueryOptions({ enabled: availableAccounts.length > 0, hostId }),
   );
+  const snapshotByAccountId = useMemo(() => {
+    const map = new Map<string, ServerProviderUsageSnapshot>();
+    for (const entry of usageQuery.data ?? []) {
+      map.set(`${entry.provider}:${entry.instanceId ?? entry.provider}`, entry);
+    }
+    return map;
+  }, [usageQuery.data]);
+  const sortedCustomizeAccounts = useMemo(() => {
+    const active: RailUsageAccount[] = [];
+    const inactive: RailUsageAccount[] = [];
+    for (const account of availableAccounts) {
+      const snapshot = snapshotByAccountId.get(
+        `${account.instance.driver}:${account.instance.instanceId}`,
+      );
+      if (snapshotHasLiveUsage(snapshot)) {
+        active.push(account);
+      } else {
+        inactive.push(account);
+      }
+    }
+    return [...active, ...inactive];
+  }, [availableAccounts, snapshotByAccountId]);
 
-  if (accounts.length === 0) {
+  if (availableAccounts.length === 0) {
     return null;
   }
 
+  const ringNodes = accounts.map((account) => {
+    const snapshot = snapshotByAccountId.get(
+      `${account.instance.driver}:${account.instance.instanceId}`,
+    );
+    // Another host's ring appears only once that host answered with this account's usage.
+    if (isHostUsageHidden({ hostId, isError: usageQuery.isError, snapshot })) return null;
+    return (
+      <AppRailUsageRing
+        key={account.instance.instanceId}
+        account={account}
+        snapshot={snapshot}
+        window={settings.railUsageWindow}
+        onOpenUsageSettings={onOpenUsageSettings}
+        onOpenCustomize={() => setCustomizeOpen(true)}
+      />
+    );
+  });
+  const hasMultipleRings = accounts.length > 2;
+
   return (
     <>
-      {accounts.map((account) => {
-        const snapshot = (usageQuery.data ?? []).find(
-          (entry) =>
-            entry.provider === account.instance.driver &&
-            (entry.instanceId ?? entry.provider) === account.instance.instanceId,
-        );
-        // Another host's ring appears only once that host answered with this account's usage.
-        if (isHostUsageHidden({ hostId, isError: usageQuery.isError, snapshot })) return null;
-        return (
-          <AppRailUsageRing
-            key={account.instance.instanceId}
-            account={account}
-            snapshot={snapshot}
-            window={settings.railUsageWindow}
-            onOpenUsageSettings={onOpenUsageSettings}
+      {hasMultipleRings ? (
+        <div className="flex max-h-48 flex-col items-center gap-1.5 overflow-y-auto [scrollbar-width:none]">
+          {ringNodes}
+        </div>
+      ) : (
+        ringNodes
+      )}
+      {typeof updateSettings === "function" ? (
+        <Popover open={customizeOpen} onOpenChange={setCustomizeOpen}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                aria-label="Customize usage rings"
+                title="Customize usage rings"
+                className={cn(
+                  "inline-flex h-5 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
+                  customizeOpen
+                    ? SIDEBAR_ROW_ACTIVE_CLASS_NAME
+                    : cn(SIDEBAR_SECTION_LABEL_TONE_CLASS_NAME, SIDEBAR_ROW_HOVER_CLASS_NAME),
+                )}
+              >
+                <CustomizeIcon className="size-3.5" aria-hidden="true" />
+              </button>
+            }
           />
-        );
-      })}
+          <PopoverPopup
+            side="right"
+            align="end"
+            sideOffset={8}
+            className="w-72 [&_[data-slot=popover-viewport]]:p-2.5"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className={SIDEBAR_SECTION_LABEL_CLASS_NAME}>Usage rings</span>
+                <div className="flex items-center gap-0.5">
+                  {!allSelected ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="h-6 px-1.5 text-ui-xs text-primary hover:text-primary"
+                      onClick={() =>
+                        updateSettings({
+                          railUsageInstanceIds: null,
+                          railUsageProviders: null,
+                        })
+                      }
+                    >
+                      Show all
+                    </Button>
+                  ) : null}
+                  {selectedInstanceIds.size > 0 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="h-6 px-1.5 text-ui-xs text-muted-foreground hover:text-foreground"
+                      onClick={() =>
+                        updateSettings({
+                          railUsageInstanceIds: [],
+                          railUsageProviders: null,
+                        })
+                      }
+                    >
+                      Hide all
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="h-6 px-1.5 text-ui-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setCustomizeOpen(false);
+                      onOpenUsageSettings();
+                    }}
+                  >
+                    Settings
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-y border-[color:var(--color-border)] py-2">
+                <span className="text-ui-sm text-muted-foreground">Ring</span>
+                <SettingsSegmentedControl
+                  value={settings.railUsageWindow}
+                  onValueChange={(value) => updateSettings({ railUsageWindow: value })}
+                  ariaLabel="Sidebar usage ring"
+                  options={RAIL_USAGE_WINDOW_OPTIONS}
+                />
+              </div>
+              <div className="flex max-h-60 flex-col gap-0.5 overflow-y-auto">
+                {sortedCustomizeAccounts.map((account) => {
+                  const snapshot = snapshotByAccountId.get(
+                    `${account.instance.driver}:${account.instance.instanceId}`,
+                  );
+                  const checked = selectedInstanceIds.has(account.instance.instanceId);
+                  const statusLabel = accountStatusSublabel(snapshot);
+                  return (
+                    <div
+                      key={account.instance.instanceId}
+                      className="flex items-center justify-between gap-2 rounded-md px-1.5 py-1 hover:bg-muted/50"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <ProviderAccountAvatar
+                          provider={account.instance.driver}
+                          accentColor={account.instance.raw.accentColor}
+                          className="size-5 shrink-0"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-ui text-foreground">
+                            {account.label}
+                          </span>
+                          {statusLabel ? (
+                            <span className="block truncate text-ui-xs text-muted-foreground">
+                              {statusLabel}
+                            </span>
+                          ) : null}
+                        </span>
+                      </span>
+                      <Switch
+                        checked={checked}
+                        disabled={settingsQuery.isPending}
+                        onCheckedChange={(next) =>
+                          updateSettings({
+                            railUsageInstanceIds: toggleRailUsageAccount(
+                              savedSelection,
+                              account.instance.instanceId,
+                              Boolean(next),
+                              availableAccounts,
+                            ),
+                            railUsageProviders: null,
+                          })
+                        }
+                        aria-label={`Toggle ${account.label} ring in sidebar`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </PopoverPopup>
+        </Popover>
+      ) : null}
     </>
   );
 }

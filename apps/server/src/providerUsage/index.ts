@@ -41,7 +41,11 @@ import type { ProviderUsageContext } from "./types";
 import { credentialFingerprint } from "./credentials";
 
 // Providers whose live snapshot is enriched with on-disk token-total lines (24h/7d/30d).
-const LOCAL_ARCHIVE_PROVIDERS: ReadonlySet<ProviderKind> = new Set(["codex", "claudeAgent"]);
+const LOCAL_ARCHIVE_PROVIDERS: ReadonlySet<ProviderKind> = new Set([
+  "codex",
+  "claudeAgent",
+  "antigravity",
+]);
 
 const providerChildKind = (provider: ProviderKind): ProviderChildKind =>
   provider === "claudeAgent" ? "claude" : provider;
@@ -394,6 +398,9 @@ function instanceUsageContext(
       });
       if (instance.driver === "pi" && start?.pi?.agentDir) {
         env.PI_CODING_AGENT_DIR = expandProviderAccountHomePath(start.pi.agentDir, ctx.homeDir);
+      }
+      if (instance.driver === "antigravity" && env.GEMINI_CONFIG_DIR?.trim()) {
+        localUsageHomePath = env.GEMINI_CONFIG_DIR.trim();
       }
     } else if (instance.driver === "devin" && isolateCredentials) {
       // Matches Devin's terminal profile boundary; it has no shared process-home builder.

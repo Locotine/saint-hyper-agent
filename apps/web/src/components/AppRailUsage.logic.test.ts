@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { deriveProviderUsageDisplayRows } from "~/lib/providerUsageDisplay";
 
 import {
-  MAX_RAIL_USAGE_ACCOUNTS,
+  areAllRailUsageAccountsSelected,
   getRailUsageAccounts,
   railUsageRingTone,
   selectRailUsageRows,
@@ -23,10 +23,16 @@ describe("rail usage accounts", () => {
       },
     }),
   );
-  const selectedIds = (selected: readonly string[]) =>
+  const selectedIds = (selected: readonly string[] | null) =>
     resolveRailUsageAccounts(selected, accounts).map((account) => account.instance.instanceId);
 
-  it("filters globally disabled accounts before the cap while preserving saved choices", () => {
+  it("shows all available accounts when selection is null", () => {
+    expect(selectedIds(null)).toEqual(accounts.map((account) => account.instance.instanceId));
+    expect(selectedIds(null)).toContain("antigravity");
+    expect(areAllRailUsageAccountsSelected(null, accounts)).toBe(true);
+  });
+
+  it("filters globally disabled accounts while preserving saved choices", () => {
     const visible = getRailUsageAccounts(deriveProviderInstances(DEFAULT_SERVER_SETTINGS_VIEW), [
       "codex",
       "claudeAgent",
@@ -42,10 +48,10 @@ describe("rail usage accounts", () => {
     expect(toggleRailUsageAccount(added, "opencode", false, visible)).toEqual(saved);
     expect(
       resolveRailUsageAccounts(added, accounts).map((account) => account.instance.instanceId),
-    ).toEqual(saved);
+    ).toEqual(["codex", "claudeAgent", "opencode"]);
   });
 
-  it("allows two accounts of the same provider and distinguishes their names", () => {
+  it("allows multiple accounts of the same provider and distinguishes their names", () => {
     const selected = resolveRailUsageAccounts(["claudeAgent", "claude_work"], accounts);
     expect(selected.map((account) => account.label)).toEqual([
       "Claude · Default account",
@@ -57,13 +63,18 @@ describe("rail usage accounts", () => {
     ]);
   });
 
-  it("drops duplicate, removed, and disabled accounts before applying the cap", () => {
+  it("drops duplicate, removed, and disabled accounts without capping the remaining list", () => {
     expect(
-      selectedIds(["removed", "claude_disabled", "codex", "codex", "claude_work", "cursor"]),
-    ).toEqual(["codex", "claude_work"]);
-    expect(selectedIds(["codex", "claudeAgent", "claude_work"]).length).toBe(
-      MAX_RAIL_USAGE_ACCOUNTS,
-    );
+      selectedIds([
+        "removed",
+        "claude_disabled",
+        "codex",
+        "codex",
+        "claude_work",
+        "antigravity",
+        "cursor",
+      ]),
+    ).toEqual(["codex", "claude_work", "antigravity", "cursor"]);
     expect(selectedIds([])).toEqual([]);
   });
 
@@ -80,20 +91,25 @@ describe("toggleRailUsageAccount", () => {
       providerInstances: { claude_work: { driver: "claudeAgent" } },
     }),
   );
-  it("adds a second Claude account while there is room and removes it again", () => {
+  it("adds and removes any number of accounts without a cap", () => {
     expect(toggleRailUsageAccount(["claudeAgent"], "claude_work", true, available)).toEqual([
       "claudeAgent",
       "claude_work",
     ]);
     expect(
+      toggleRailUsageAccount(["claudeAgent", "claude_work"], "antigravity", true, available),
+    ).toEqual(["claudeAgent", "claude_work", "antigravity"]);
+    expect(
       toggleRailUsageAccount(["claudeAgent", "claude_work"], "claudeAgent", false, available),
     ).toEqual(["claude_work"]);
   });
 
-  it("ignores another account past the cap", () => {
-    expect(
-      toggleRailUsageAccount(["claudeAgent", "claude_work"], "codex", true, available),
-    ).toEqual(["claudeAgent", "claude_work"]);
+  it("materializes null (show-all) selection when hiding a single account", () => {
+    const next = toggleRailUsageAccount(null, "codex", false, available);
+    expect(next).not.toContain("codex");
+    expect(next).toContain("antigravity");
+    expect(next).toContain("claudeAgent");
+    expect(areAllRailUsageAccountsSelected(next, available)).toBe(false);
   });
 });
 

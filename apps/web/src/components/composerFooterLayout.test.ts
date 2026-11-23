@@ -42,6 +42,39 @@ describe("composerFooterPlanForTier", () => {
   it("never shows the context meter when the thread has none", () => {
     expect(composerFooterPlanForTier(0, false).showContextMeter).toBe(false);
   });
+
+  it("keeps the context meter visible while demoting labels and leading controls first", () => {
+    expect(composerFooterPlanForTier(0, true)).toEqual({
+      showTraitsLabel: true,
+      showModelLabel: true,
+      relocateLeadingControls: false,
+      showContextMeter: true,
+    });
+    expect(composerFooterPlanForTier(1, true)).toEqual({
+      showTraitsLabel: false,
+      showModelLabel: true,
+      relocateLeadingControls: false,
+      showContextMeter: true,
+    });
+    expect(composerFooterPlanForTier(2, true)).toEqual({
+      showTraitsLabel: false,
+      showModelLabel: false,
+      relocateLeadingControls: false,
+      showContextMeter: true,
+    });
+    expect(composerFooterPlanForTier(3, true)).toEqual({
+      showTraitsLabel: false,
+      showModelLabel: false,
+      relocateLeadingControls: true,
+      showContextMeter: true,
+    });
+    expect(composerFooterPlanForTier(4, true)).toEqual({
+      showTraitsLabel: false,
+      showModelLabel: false,
+      relocateLeadingControls: true,
+      showContextMeter: false,
+    });
+  });
 });
 
 describe("resolveNextComposerFooterTier", () => {

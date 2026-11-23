@@ -83,9 +83,17 @@ export function SettingsSectionShell({
   );
 }
 
-export function SettingsSection({ title, children }: { title: string; children: ReactNode }) {
+export function SettingsSection({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <SettingsSectionShell title={title}>
+    <SettingsSectionShell title={title} action={action}>
       <SettingsCard>{children}</SettingsCard>
     </SettingsSectionShell>
   );

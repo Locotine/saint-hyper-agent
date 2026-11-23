@@ -52,6 +52,7 @@ import {
   resolveTerminalFontFamilyStack,
   revealHubsRailItemOnce,
   serverSettingsToAppSettings,
+  showAllRailUsageAccountsOnce,
 } from "./appSettings";
 
 describe("provider process priority settings", () => {
@@ -1848,6 +1849,40 @@ describe("revealHubsRailItemOnce", () => {
   });
 });
 
+describe("showAllRailUsageAccountsOnce", () => {
+  it("resets the untouched legacy codex+claude default pair once to null, while keeping custom selections", () => {
+    const legacyDefault = memoryStorage({
+      "saint:app-settings:v1": JSON.stringify({
+        railUsageInstanceIds: ["codex", "claudeAgent"],
+        railUsageProviders: ["codex", "claudeAgent"],
+      }),
+    });
+    showAllRailUsageAccountsOnce(legacyDefault);
+    expect(JSON.parse(legacyDefault.getItem("saint:app-settings:v1") ?? "{}")).toMatchObject({
+      railUsageInstanceIds: null,
+      railUsageProviders: null,
+    });
+
+    // A later explicit choice sticks when the migration runs again.
+    legacyDefault.setItem(
+      "saint:app-settings:v1",
+      JSON.stringify({ railUsageInstanceIds: ["codex", "claudeAgent"] }),
+    );
+    showAllRailUsageAccountsOnce(legacyDefault);
+    expect(
+      JSON.parse(legacyDefault.getItem("saint:app-settings:v1") ?? "{}").railUsageInstanceIds,
+    ).toEqual(["codex", "claudeAgent"]);
+
+    const custom = memoryStorage({
+      "saint:app-settings:v1": JSON.stringify({ railUsageInstanceIds: [] }),
+    });
+    showAllRailUsageAccountsOnce(custom);
+    expect(
+      JSON.parse(custom.getItem("saint:app-settings:v1") ?? "{}").railUsageInstanceIds,
+    ).toEqual([]);
+  });
+});
+
 describe("AppSettingsSchema", () => {
   it("keeps sent-message anchoring enabled for settings saved before the preference existed", () => {
     const decode = Schema.decodeSync(Schema.fromJsonString(AppSettingsSchema));
@@ -1949,12 +1984,9 @@ describe("AppSettingsSchema", () => {
     });
   });
 
-  it("migrates sidebar provider selections to their default account ids", () => {
+  it("defaults sidebar rings to all available accounts (null) and migrates explicit legacy provider lists", () => {
     const decode = Schema.decodeSync(Schema.fromJsonString(AppSettingsSchema));
-    expect(normalizeStoredAppSettings(decode("{}")).railUsageInstanceIds).toEqual([
-      "codex",
-      "claudeAgent",
-    ]);
+    expect(normalizeStoredAppSettings(decode("{}")).railUsageInstanceIds).toBeNull();
     expect(
       normalizeStoredAppSettings(decode(JSON.stringify({ railUsageProviders: ["gemini"] })))
         .railUsageInstanceIds,

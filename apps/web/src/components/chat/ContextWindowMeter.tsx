@@ -29,7 +29,11 @@ export function ContextWindowMeter(props: {
   const display = deriveContextWindowMeterDisplay(usage);
   const radius = 6;
   const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference - (display.normalizedPercentage / 100) * circumference;
+  // Keep a small visible arc whenever non-zero context is used (e.g. 1-3% of a 1M window)
+  // while leaving 0% as an empty track with no stray round-cap dot.
+  const visualPercentage =
+    display.normalizedPercentage > 0 ? Math.max(display.normalizedPercentage, 5) : 0;
+  const dashOffset = circumference - (visualPercentage / 100) * circumference;
 
   return (
     <Popover
@@ -64,18 +68,20 @@ export function ContextWindowMeter(props: {
                   strokeWidth="2"
                   className="text-muted-foreground/25 dark:text-muted-foreground/40"
                 />
-                <circle
-                  cx="8"
-                  cy="8"
-                  r={radius}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={dashOffset}
-                  className="text-primary transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none dark:text-[var(--color-text-foreground)]"
-                />
+                {visualPercentage > 0 ? (
+                  <circle
+                    cx="8"
+                    cy="8"
+                    r={radius}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={dashOffset}
+                    className="text-primary transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none dark:text-[var(--color-text-foreground)]"
+                  />
+                ) : null}
               </svg>
             </span>
           </button>

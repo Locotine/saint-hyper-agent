@@ -9,8 +9,10 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  readAntigravityUsageSamples,
   readClaudeUsageSamples,
   readCodexSessionSummary,
+  readRecentAntigravityUsageSamples,
   readRecentClaudeUsageSamples,
 } from "./providerUsageSnapshot";
 
@@ -311,5 +313,96 @@ describe("readRecentClaudeUsageSamples", () => {
     const open = vi.spyOn(fs, "open");
     expect(totalTokens(await readRecentClaudeUsageSamples(root))).toBe(5);
     expect(open.mock.calls.map(([file]) => path.basename(String(file)))).toEqual(["fresh.jsonl"]);
+  });
+});
+
+function antigravityStepLine(input: {
+  stepIndex: number;
+  createdAt: string;
+  inputTokens: number;
+  cacheReadTokens?: number;
+  outputTokens?: number;
+  thinkingTokens?: number;
+  model?: string;
+}): string {
+  return JSON.stringify({
+    step_index: input.stepIndex,
+    source: "MODEL",
+    type: "PLANNER_RESPONSE",
+    status: "DONE",
+    created_at: input.createdAt,
+    model: input.model ?? "gemini-4-neon-xhigh",
+    input_tokens: input.inputTokens,
+    cache_read_tokens: input.cacheReadTokens ?? 0,
+    output_tokens: input.outputTokens ?? 0,
+    ...(input.thinkingTokens !== undefined ? { thinking_tokens: input.thinkingTokens } : {}),
+  });
+}
+
+describe("Antigravity local usage archive", () => {
+  it("parses PLANNER_RESPONSE token usage from brain transcript.jsonl and dedupes by step_index", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "saint-antigravity-usage-"));
+    tempDirs.push(root);
+    const logsDir = path.join(root, "conv-1", ".system_generated", "logs");
+    await fs.mkdir(logsDir, { recursive: true });
+    const transcript = path.join(logsDir, "transcript.jsonl");
+    const fullTranscript = path.join(logsDir, "transcript_full.jsonl");
+    const now = Date.now();
+    const recentIso = new Date(now - 60_000).toISOString();
+
+    await fs.writeFile(
+      transcript,
+      [
+        JSON.stringify({ step_index: 0, type: "USER_INPUT", created_at: recentIso, content: "hi" }),
+        antigravityStepLine({
+          stepIndex: 1,
+          createdAt: recentIso,
+          inputTokens: 20_000,
+          cacheReadTokens: 5_000,
+          outputTokens: 500,
+        }),
+        // Duplicate step_index must not be double-counted.
+        antigravityStepLine({
+          stepIndex: 1,
+          createdAt: recentIso,
+          inputTokens: 20_000,
+          cacheReadTokens: 5_000,
+          outputTokens: 500,
+        }),
+        antigravityStepLine({
+          stepIndex: 2,
+          createdAt: recentIso,
+          inputTokens: 3_000,
+          cacheReadTokens: 25_000,
+          outputTokens: 400,
+          thinkingTokens: 100,
+        }),
+        "not-json",
+      ].join("\n") + "\n",
+    );
+    // transcript_full.jsonl must never be double-counted alongside transcript.jsonl.
+    await fs.writeFile(
+      fullTranscript,
+      antigravityStepLine({ stepIndex: 1, createdAt: recentIso, inputTokens: 999_999 }) + "\n",
+    );
+
+    const direct = await readAntigravityUsageSamples(transcript);
+    expect(direct).toEqual([
+      {
+        sessionId: "conv-1",
+        timestampMs: Date.parse(recentIso),
+        totalTokens: 25_500,
+        model: "gemini-4-neon-xhigh",
+      },
+      {
+        sessionId: "conv-1",
+        timestampMs: Date.parse(recentIso),
+        totalTokens: 28_500,
+        model: "gemini-4-neon-xhigh",
+      },
+    ]);
+
+    const recent = await readRecentAntigravityUsageSamples(root, now);
+    expect(recent.reduce((sum, sample) => sum + sample.totalTokens, 0)).toBe(54_000);
   });
 });

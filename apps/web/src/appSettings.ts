@@ -112,6 +112,44 @@ export function revealHubsRailItemOnce(storage: Storage | undefined = globalThis
   }
 }
 
+// Sidebar usage rings used to default to ["codex", "claudeAgent"] with a 2-ring cap.
+// Reset that untouched default pair once to `null` (show all available connected accounts)
+// while preserving explicit customizations (including an explicit empty list).
+const RAIL_USAGE_SHOW_ALL_MIGRATION_STORAGE_KEY = "saint:rail-usage-show-all-default:v1";
+
+export function showAllRailUsageAccountsOnce(
+  storage: Storage | undefined = globalThis.localStorage,
+) {
+  try {
+    if (!storage || storage.getItem(RAIL_USAGE_SHOW_ALL_MIGRATION_STORAGE_KEY) === "1") return;
+    storage.setItem(RAIL_USAGE_SHOW_ALL_MIGRATION_STORAGE_KEY, "1");
+    const raw = storage.getItem(APP_SETTINGS_STORAGE_KEY);
+    if (!raw) return;
+    const stored: unknown = JSON.parse(raw);
+    if (typeof stored !== "object" || stored === null) return;
+    const record = stored as Record<string, unknown>;
+    const isOldDefaultPair = (value: unknown): boolean =>
+      Array.isArray(value) &&
+      value.length === 2 &&
+      value[0] === "codex" &&
+      value[1] === "claudeAgent";
+    const hasOldDefaultIds = isOldDefaultPair(record.railUsageInstanceIds);
+    const hasOldDefaultProviders =
+      record.railUsageInstanceIds == null && isOldDefaultPair(record.railUsageProviders);
+    if (!hasOldDefaultIds && !hasOldDefaultProviders) return;
+    storage.setItem(
+      APP_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        ...record,
+        railUsageInstanceIds: null,
+        railUsageProviders: null,
+      }),
+    );
+  } catch {
+    // Unreadable storage keeps the saved rail usage selection as it is.
+  }
+}
+
 const MAX_CUSTOM_MODEL_COUNT = 32;
 export const MAX_CUSTOM_MODEL_LENGTH = 256;
 export const MIN_CHAT_FONT_SIZE_PX = 11;
@@ -489,12 +527,10 @@ export const AppSettingsSchema = Schema.Struct({
   // also write back here so the last explicit open/close survives reloads.
   environmentPanelDefaultOpen: Schema.Boolean.pipe(withDefaults(() => false)),
   showEnvironmentUsage: Schema.Boolean.pipe(withDefaults(() => true)),
-  // Legacy provider selection, retained to migrate existing sidebar preferences.
-  railUsageProviders: PersistedProviderKindList.pipe(
-    withDefaults((): ReadonlyArray<ProviderKind> => ["codex", "claudeAgent"]),
-  ),
-  // Accounts whose usage rings sit at the bottom of the app rail. Null migrates the
-  // legacy provider ids to their default accounts; an empty list explicitly hides all rings.
+  // Legacy provider selection, retained to migrate explicit sidebar preferences.
+  railUsageProviders: Schema.NullOr(PersistedProviderKindList).pipe(withDefaults(() => null)),
+  // Accounts whose usage rings sit at the bottom of the app rail. Null shows all
+  // available connected accounts; an explicit list (including empty) overrides it.
   railUsageInstanceIds: Schema.NullOr(PersistedProviderInstanceIdList).pipe(
     withDefaults(() => null),
   ),
@@ -1474,6 +1510,7 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
     : DEFAULT_CODEX_ACCOUNT_ID;
   return {
     ...currentSettings,
+    railUsageProviders: null,
     railUsageInstanceIds: settings.railUsageInstanceIds ?? settings.railUsageProviders,
     enableAppSnap: settings.enableAppSnap || legacyEnableAppshots === true,
     // Read the legacy Studio key once: it defaults to true, so only an explicit

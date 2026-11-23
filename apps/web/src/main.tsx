@@ -6,7 +6,7 @@ import "@fontsource-variable/jetbrains-mono";
 import "./index.css";
 
 import { appHistory } from "./appNavigation";
-import { revealHubsRailItemOnce } from "./appSettings";
+import { revealHubsRailItemOnce, showAllRailUsageAccountsOnce } from "./appSettings";
 import { getRouter } from "./router";
 import { APP_DISPLAY_NAME } from "./branding";
 import { isElectron } from "./env";
@@ -19,6 +19,7 @@ if (import.meta.hot) import.meta.hot.dispose(() => disposeRendererDiagnostics?.(
 
 // Before the first render: settings hooks read the stored rail on mount.
 revealHubsRailItemOnce();
+showAllRailUsageAccountsOnce();
 
 const router = getRouter(appHistory);
 const rootElement = document.getElementById("root") as HTMLElement;

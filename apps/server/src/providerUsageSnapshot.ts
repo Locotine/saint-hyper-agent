@@ -49,14 +49,14 @@ interface CodexSessionSummary {
   limits: ReadonlyArray<ServerProviderUsageLimit>;
 }
 
-interface ClaudeUsageSample {
+interface TranscriptUsageSample {
   sessionId: string;
   timestampMs: number;
   totalTokens: number;
   model: string | null;
 }
 
-interface ClaudeTranscriptFile {
+interface TranscriptFile {
   readonly path: string;
   readonly ino: number;
   readonly size: number;
@@ -69,21 +69,33 @@ interface ClaudeTranscriptFile {
  * grown. A final record without its newline yet is parsed into `tailSamples` for the
  * current snapshot but not committed, and is read again once it is complete.
  */
-interface ClaudeTranscriptCacheEntry {
+interface TranscriptCacheEntry {
   readonly ino: number;
   readonly size: number;
   readonly mtimeMs: number;
   readonly offset: number;
   readonly prefixDigest: string;
   readonly lineCount: number;
-  readonly samples: ReadonlyArray<ClaudeUsageSample>;
-  readonly tailSamples: ReadonlyArray<ClaudeUsageSample>;
+  readonly samples: ReadonlyArray<TranscriptUsageSample>;
+  readonly tailSamples: ReadonlyArray<TranscriptUsageSample>;
   readonly seenKeys: ReadonlySet<string>;
 }
 
+type TranscriptSampleCandidate = {
+  readonly dedupeKey: string;
+  readonly sample: TranscriptUsageSample;
+};
+
+type TranscriptSampleExtractor = (input: {
+  readonly record: Record<string, unknown>;
+  readonly fallbackKey: string;
+  readonly path: string;
+}) => ReadonlyArray<TranscriptSampleCandidate>;
+
 const usageSnapshotCache = new Map<string, CachedUsageSnapshot>();
 // Entries are replaced, never mutated, so overlapping refreshes cannot corrupt them.
-const claudeTranscriptCache = new Map<string, ClaudeTranscriptCacheEntry>();
+const claudeTranscriptCache = new Map<string, TranscriptCacheEntry>();
+const antigravityTranscriptCache = new Map<string, TranscriptCacheEntry>();
 const EMPTY_KEYS: ReadonlySet<string> = new Set();
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -454,7 +466,7 @@ function readClaudeTotalTokens(value: unknown): number {
 function readClaudeAssistantSample(input: {
   record: Record<string, unknown>;
   fallbackKey: string;
-}): { dedupeKey: string; sample: ClaudeUsageSample } | null {
+}): TranscriptSampleCandidate | null {
   if (input.record.type !== "assistant") {
     return null;
   }
@@ -490,7 +502,7 @@ function readClaudeAssistantSample(input: {
 function readClaudeToolResultSample(input: {
   record: Record<string, unknown>;
   fallbackKey: string;
-}): { dedupeKey: string; sample: ClaudeUsageSample } | null {
+}): TranscriptSampleCandidate | null {
   const toolUseResult = asRecord(input.record.toolUseResult);
   const usage = asRecord(toolUseResult?.usage);
   const totalTokens = readClaudeTotalTokens(usage);
@@ -518,6 +530,81 @@ function readClaudeToolResultSample(input: {
   };
 }
 
+const extractClaudeTranscriptSamples: TranscriptSampleExtractor = ({ record, fallbackKey }) => {
+  const candidates: TranscriptSampleCandidate[] = [];
+  const assistant = readClaudeAssistantSample({ record, fallbackKey });
+  if (assistant) candidates.push(assistant);
+  const toolResult = readClaudeToolResultSample({ record, fallbackKey });
+  if (toolResult) candidates.push(toolResult);
+  return candidates;
+};
+
+function antigravitySessionIdFromTranscriptPath(transcriptPath: string): string | null {
+  const normalized = transcriptPath.replaceAll("\\", "/");
+  const match = /(?:^|\/)([^/]+)\/\.system_generated\/logs\/transcript\.jsonl$/u.exec(normalized);
+  return match?.[1]?.trim() || null;
+}
+
+function readAntigravityRecordTotalTokens(record: Record<string, unknown>): number {
+  const nestedUsage = asRecord(record.usage);
+  const readTokenField = (snakeKey: string, camelKey?: string): number =>
+    asNonNegativeNumber(record[snakeKey]) ??
+    (camelKey ? asNonNegativeNumber(record[camelKey]) : undefined) ??
+    asNonNegativeNumber(nestedUsage?.[snakeKey]) ??
+    (camelKey ? asNonNegativeNumber(nestedUsage?.[camelKey]) : undefined) ??
+    0;
+  const inputTokens = readTokenField("input_tokens", "inputTokens");
+  const cacheReadTokens = readTokenField("cache_read_tokens", "cachedReadTokens");
+  const cacheWriteTokens = readTokenField("cache_write_tokens", "cachedWriteTokens");
+  const outputTokens = readTokenField("output_tokens", "outputTokens");
+  const thinkingTokens = readTokenField("thinking_tokens", "thoughtTokens");
+  const computed = inputTokens + cacheReadTokens + cacheWriteTokens + outputTokens + thinkingTokens;
+  if (computed > 0) {
+    return computed;
+  }
+  return (
+    asNonNegativeNumber(record.total_tokens) ??
+    asNonNegativeNumber(record.totalTokens) ??
+    asNonNegativeNumber(nestedUsage?.total_tokens) ??
+    asNonNegativeNumber(nestedUsage?.totalTokens) ??
+    0
+  );
+}
+
+const extractAntigravityTranscriptSamples: TranscriptSampleExtractor = ({
+  record,
+  fallbackKey,
+  path: transcriptPath,
+}) => {
+  const totalTokens = readAntigravityRecordTotalTokens(record);
+  const timestampMs = parseTimestampMs(record.created_at ?? record.timestamp);
+  if (totalTokens <= 0 || timestampMs === null) {
+    return [];
+  }
+  const sessionId =
+    asString(record.conversation_id) ??
+    asString(record.conversationId) ??
+    antigravitySessionIdFromTranscriptPath(transcriptPath) ??
+    transcriptPath;
+  const stepIndex = asNonNegativeNumber(record.step_index);
+  const dedupeKey =
+    stepIndex !== undefined && Number.isInteger(stepIndex)
+      ? `${sessionId}:step:${stepIndex}`
+      : fallbackKey;
+  const model = asString(record.model) ?? null;
+  return [
+    {
+      dedupeKey,
+      sample: {
+        sessionId,
+        timestampMs,
+        totalTokens,
+        model,
+      },
+    },
+  ];
+};
+
 // Claude Code stores transcripts under `<CLAUDE_CONFIG_DIR>/projects`, defaulting to
 // `~/.claude/projects`. Honor the override so the Profile reads the SAME transcripts
 // the active Claude provider does (the adapter inherits `process.env`).
@@ -526,11 +613,41 @@ function resolveClaudeProjectsRoot(homeDir: string): string {
   return nodePath.join(configDir || nodePath.join(homeDir, ".claude"), "projects");
 }
 
+function resolveAntigravityBrainRoot(homeDir: string, homePath?: string): string {
+  const configDir = homePath?.trim() || process.env.GEMINI_CONFIG_DIR?.trim();
+  return nodePath.join(configDir || nodePath.join(homeDir, ".gemini"), "antigravity-cli", "brain");
+}
+
+async function statRecentTranscriptFiles(
+  candidates: ReadonlyArray<string>,
+  nowMs: number,
+  maxFiles: number = MAX_RECENT_USAGE_FILES,
+): Promise<ReadonlyArray<TranscriptFile>> {
+  // A transcript last written before the 30d window holds no sample inside it, so it
+  // is not opened at all.
+  const cutoffMs = nowMs - LOOKBACK_30D_MS;
+  const files = await mapWithConcurrency(
+    candidates,
+    PROVIDER_USAGE_FILE_READ_CONCURRENCY,
+    async (path): Promise<TranscriptFile | null> => {
+      const stats = await safeStat(path);
+      return stats && stats.isFile() && stats.mtimeMs >= cutoffMs
+        ? { path, ino: stats.ino, size: stats.size, mtimeMs: stats.mtimeMs }
+        : null;
+    },
+  );
+
+  return files
+    .filter((file): file is TranscriptFile => file !== null)
+    .toSorted((left, right) => right.mtimeMs - left.mtimeMs)
+    .slice(0, maxFiles);
+}
+
 async function listRecentClaudeTranscriptFiles(
   projectsRoot: string,
   nowMs: number,
   maxFiles: number = MAX_RECENT_USAGE_FILES,
-): Promise<ReadonlyArray<ClaudeTranscriptFile>> {
+): Promise<ReadonlyArray<TranscriptFile>> {
   const candidates: string[] = [];
   const projectEntries = await safeReadDir(projectsRoot);
 
@@ -548,34 +665,37 @@ async function listRecentClaudeTranscriptFiles(
     }
   }
 
-  // A transcript last written before the 30d window holds no sample inside it, so it
-  // is not opened at all.
-  const cutoffMs = nowMs - LOOKBACK_30D_MS;
-  const files = await mapWithConcurrency(
-    candidates,
-    PROVIDER_USAGE_FILE_READ_CONCURRENCY,
-    async (path): Promise<ClaudeTranscriptFile | null> => {
-      const stats = await safeStat(path);
-      return stats && stats.isFile() && stats.mtimeMs >= cutoffMs
-        ? { path, ino: stats.ino, size: stats.size, mtimeMs: stats.mtimeMs }
-        : null;
-    },
-  );
+  return statRecentTranscriptFiles(candidates, nowMs, maxFiles);
+}
 
-  return files
-    .filter((file): file is ClaudeTranscriptFile => file !== null)
-    .toSorted((left, right) => right.mtimeMs - left.mtimeMs)
-    .slice(0, maxFiles);
+async function listRecentAntigravityTranscriptFiles(
+  brainRoot: string,
+  nowMs: number,
+  maxFiles: number = MAX_RECENT_USAGE_FILES,
+): Promise<ReadonlyArray<TranscriptFile>> {
+  const candidates: string[] = [];
+  const conversationEntries = await safeReadDir(brainRoot);
+
+  for (const entry of conversationEntries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    candidates.push(
+      nodePath.join(brainRoot, entry.name, ".system_generated", "logs", "transcript.jsonl"),
+    );
+  }
+
+  return statRecentTranscriptFiles(candidates, nowMs, maxFiles);
 }
 
 type FileHandle = Awaited<ReturnType<typeof fs.open>>;
 
-interface ClaudeTranscriptScan {
+interface TranscriptScan {
   // Samples from newline-terminated records, with the dedupe keys they claimed.
-  readonly samples: ClaudeUsageSample[];
+  readonly samples: TranscriptUsageSample[];
   readonly dedupeKeys: ReadonlyArray<string>;
   // Samples from a final record that has no newline yet.
-  readonly tailSamples: ClaudeUsageSample[];
+  readonly tailSamples: TranscriptUsageSample[];
   readonly nextOffset: number;
   readonly prefixDigest: string;
   readonly nextLineIndex: number;
@@ -583,7 +703,7 @@ interface ClaudeTranscriptScan {
 }
 
 /**
- * Claude transcripts are unbounded: a long-running session writes hundreds of megabytes
+ * Provider transcripts are unbounded: a long-running session writes hundreds of megabytes
  * into one file, and a snapshot reads PROVIDER_USAGE_FILE_READ_CONCURRENCY of them at
  * once. Reading one into a string costs its full size in the heap plus a second copy for
  * the line split, so a few large transcripts are enough to exhaust old space and abort the
@@ -595,17 +715,18 @@ interface ClaudeTranscriptScan {
  * reads the whole appended range into one string and skips files over 5 MB, so it cannot
  * serve unbounded transcripts; this streams instead.
  */
-async function scanClaudeTranscript(input: {
+async function scanUsageTranscript(input: {
   readonly handle: FileHandle;
   readonly path: string;
   readonly start: number;
   readonly end: number;
   readonly lineIndex: number;
   readonly seenKeys: ReadonlySet<string>;
+  readonly extractSamples: TranscriptSampleExtractor;
   readonly prefixHash?: Hash;
-}): Promise<ClaudeTranscriptScan> {
-  const samples: ClaudeUsageSample[] = [];
-  const tailSamples: ClaudeUsageSample[] = [];
+}): Promise<TranscriptScan> {
+  const samples: TranscriptUsageSample[] = [];
+  const tailSamples: TranscriptUsageSample[] = [];
   const newKeys = new Set<string>();
   // JSON.parse allocates a fresh copy of every session id and model name; share one.
   const strings = new Map<string, string>();
@@ -648,18 +769,15 @@ async function scanClaudeTranscript(input: {
     }
 
     const fallbackKey = `${input.path}:${index}`;
-    for (const candidate of [
-      readClaudeAssistantSample({ record, fallbackKey }),
-      readClaudeToolResultSample({ record, fallbackKey }),
-    ]) {
-      if (
-        !candidate ||
-        input.seenKeys.has(candidate.dedupeKey) ||
-        newKeys.has(candidate.dedupeKey)
-      ) {
+    for (const candidate of input.extractSamples({
+      record,
+      fallbackKey,
+      path: input.path,
+    })) {
+      if (input.seenKeys.has(candidate.dedupeKey) || newKeys.has(candidate.dedupeKey)) {
         continue;
       }
-      const sample: ClaudeUsageSample = {
+      const sample: TranscriptUsageSample = {
         sessionId: intern(candidate.sample.sessionId),
         timestampMs: candidate.sample.timestampMs,
         totalTokens: candidate.sample.totalTokens,
@@ -756,17 +874,16 @@ async function scanClaudeTranscript(input: {
   };
 }
 
-function cachedClaudeSamples(entry: ClaudeTranscriptCacheEntry): ReadonlyArray<ClaudeUsageSample> {
+function cachedTranscriptSamples(
+  entry: TranscriptCacheEntry,
+): ReadonlyArray<TranscriptUsageSample> {
   return entry.tailSamples.length === 0 ? entry.samples : entry.samples.concat(entry.tailSamples);
 }
 
 // Growth and inode identity cannot distinguish append from an in-place rewrite.
 // Verify the committed prefix in bounded chunks before reusing parsed samples;
 // unchanged transcripts still take the metadata-only cache path below.
-async function hashClaudeTranscriptPrefix(
-  handle: FileHandle,
-  offset: number,
-): Promise<Hash | null> {
+async function hashTranscriptPrefix(handle: FileHandle, offset: number): Promise<Hash | null> {
   const hash = createHash("sha256");
   let position = 0;
   while (position < offset) {
@@ -778,9 +895,10 @@ async function hashClaudeTranscriptPrefix(
   return hash;
 }
 
-export async function readClaudeUsageSamples(
+async function readTranscriptUsageSamples(
   path: string,
-): Promise<ReadonlyArray<ClaudeUsageSample>> {
+  extractSamples: TranscriptSampleExtractor,
+): Promise<ReadonlyArray<TranscriptUsageSample>> {
   let handle: FileHandle;
   try {
     handle = await fs.open(path, "r");
@@ -789,13 +907,14 @@ export async function readClaudeUsageSamples(
   }
   try {
     const { size } = await handle.stat();
-    const scan = await scanClaudeTranscript({
+    const scan = await scanUsageTranscript({
       handle,
       path,
       start: 0,
       end: size,
       lineIndex: 0,
       seenKeys: EMPTY_KEYS,
+      extractSamples,
     });
     return scan.tailSamples.length === 0 ? scan.samples : scan.samples.concat(scan.tailSamples);
   } catch {
@@ -805,50 +924,65 @@ export async function readClaudeUsageSamples(
   }
 }
 
+export async function readClaudeUsageSamples(
+  path: string,
+): Promise<ReadonlyArray<TranscriptUsageSample>> {
+  return readTranscriptUsageSamples(path, extractClaudeTranscriptSamples);
+}
+
+export async function readAntigravityUsageSamples(
+  path: string,
+): Promise<ReadonlyArray<TranscriptUsageSample>> {
+  return readTranscriptUsageSamples(path, extractAntigravityTranscriptSamples);
+}
+
 /**
  * Reads a transcript through the per-file cache: unchanged files are not opened, grown
  * files are parsed from the stored offset only, and shrunk, replaced, or rewritten
  * files are parsed from the start.
  */
-async function readCachedClaudeUsageSamples(
-  file: ClaudeTranscriptFile,
-): Promise<ReadonlyArray<ClaudeUsageSample>> {
-  const cached = claudeTranscriptCache.get(file.path);
+async function readCachedTranscriptUsageSamples(
+  file: TranscriptFile,
+  cache: Map<string, TranscriptCacheEntry>,
+  extractSamples: TranscriptSampleExtractor,
+): Promise<ReadonlyArray<TranscriptUsageSample>> {
+  const cached = cache.get(file.path);
   if (
     cached &&
     cached.ino === file.ino &&
     cached.size === file.size &&
     cached.mtimeMs === file.mtimeMs
   ) {
-    return cachedClaudeSamples(cached);
+    return cachedTranscriptSamples(cached);
   }
 
   let handle: FileHandle;
   try {
     handle = await fs.open(file.path, "r");
   } catch {
-    claudeTranscriptCache.delete(file.path);
+    cache.delete(file.path);
     return [];
   }
 
   try {
     const stats = await handle.stat();
-    let base: ClaudeTranscriptCacheEntry | null = null;
+    let base: TranscriptCacheEntry | null = null;
     let prefixHash: Hash | undefined;
     if (cached && cached.ino === stats.ino && stats.size > cached.size) {
-      const candidateHash = await hashClaudeTranscriptPrefix(handle, cached.offset);
+      const candidateHash = await hashTranscriptPrefix(handle, cached.offset);
       if (candidateHash?.copy().digest("hex") === cached.prefixDigest) {
         base = cached;
         prefixHash = candidateHash;
       }
     }
-    const scan = await scanClaudeTranscript({
+    const scan = await scanUsageTranscript({
       handle,
       path: file.path,
       start: base?.offset ?? 0,
       end: stats.size,
       lineIndex: base?.lineCount ?? 0,
       seenKeys: base?.seenKeys ?? EMPTY_KEYS,
+      extractSamples,
       ...(prefixHash ? { prefixHash } : {}),
     });
 
@@ -860,7 +994,7 @@ async function readCachedClaudeUsageSamples(
       }
       seenKeys = merged;
     }
-    const entry: ClaudeTranscriptCacheEntry = {
+    const entry: TranscriptCacheEntry = {
       ino: stats.ino,
       size: stats.size,
       mtimeMs: stats.mtimeMs,
@@ -872,13 +1006,13 @@ async function readCachedClaudeUsageSamples(
       seenKeys,
     };
     if (scan.complete) {
-      claudeTranscriptCache.set(file.path, entry);
+      cache.set(file.path, entry);
     } else {
-      claudeTranscriptCache.delete(file.path);
+      cache.delete(file.path);
     }
-    return cachedClaudeSamples(entry);
+    return cachedTranscriptSamples(entry);
   } catch {
-    claudeTranscriptCache.delete(file.path);
+    cache.delete(file.path);
     return [];
   } finally {
     await handle.close().catch(() => undefined);
@@ -887,11 +1021,14 @@ async function readCachedClaudeUsageSamples(
 
 // Drops transcripts that fell out of the listing, then keeps the newest transcripts
 // until MAX_CACHED_CLAUDE_USAGE_SAMPLES is reached.
-function pruneClaudeTranscriptCache(files: ReadonlyArray<ClaudeTranscriptFile>): void {
+function pruneTranscriptCache(
+  files: ReadonlyArray<TranscriptFile>,
+  cache: Map<string, TranscriptCacheEntry>,
+): void {
   const retainedPaths = new Set<string>();
   let retainedSamples = 0;
   for (const file of files) {
-    const entry = claudeTranscriptCache.get(file.path);
+    const entry = cache.get(file.path);
     if (!entry) {
       continue;
     }
@@ -902,9 +1039,9 @@ function pruneClaudeTranscriptCache(files: ReadonlyArray<ClaudeTranscriptFile>):
     retainedSamples += sampleCount;
     retainedPaths.add(file.path);
   }
-  for (const path of claudeTranscriptCache.keys()) {
+  for (const path of cache.keys()) {
     if (!retainedPaths.has(path)) {
-      claudeTranscriptCache.delete(path);
+      cache.delete(path);
     }
   }
 }
@@ -913,14 +1050,35 @@ function pruneClaudeTranscriptCache(files: ReadonlyArray<ClaudeTranscriptFile>):
 export async function readRecentClaudeUsageSamples(
   projectsRoot: string,
   nowMs: number = Date.now(),
-): Promise<ReadonlyArray<ClaudeUsageSample>> {
+): Promise<ReadonlyArray<TranscriptUsageSample>> {
   const transcriptFiles = await listRecentClaudeTranscriptFiles(projectsRoot, nowMs);
   const samplesByFile = await mapWithConcurrency(
     transcriptFiles,
     PROVIDER_USAGE_FILE_READ_CONCURRENCY,
-    readCachedClaudeUsageSamples,
+    (file) =>
+      readCachedTranscriptUsageSamples(file, claudeTranscriptCache, extractClaudeTranscriptSamples),
   );
-  pruneClaudeTranscriptCache(transcriptFiles);
+  pruneTranscriptCache(transcriptFiles, claudeTranscriptCache);
+  return samplesByFile.flat();
+}
+
+/** Usage samples from every Antigravity CLI transcript written in the last 30 days. */
+export async function readRecentAntigravityUsageSamples(
+  brainRoot: string,
+  nowMs: number = Date.now(),
+): Promise<ReadonlyArray<TranscriptUsageSample>> {
+  const transcriptFiles = await listRecentAntigravityTranscriptFiles(brainRoot, nowMs);
+  const samplesByFile = await mapWithConcurrency(
+    transcriptFiles,
+    PROVIDER_USAGE_FILE_READ_CONCURRENCY,
+    (file) =>
+      readCachedTranscriptUsageSamples(
+        file,
+        antigravityTranscriptCache,
+        extractAntigravityTranscriptSamples,
+      ),
+  );
+  pruneTranscriptCache(transcriptFiles, antigravityTranscriptCache);
   return samplesByFile.flat();
 }
 
@@ -976,25 +1134,29 @@ async function loadCodexUsageSnapshot(input: {
   };
 }
 
-async function loadClaudeUsageSnapshot(input: { homeDir: string }): Promise<UsageSnapshot | null> {
-  const usageSamples = await readRecentClaudeUsageSamples(resolveClaudeProjectsRoot(input.homeDir));
-  if (usageSamples.length === 0) {
+function buildTranscriptUsageSnapshot(input: {
+  provider: "claudeAgent" | "antigravity";
+  source: string;
+  usageSamples: ReadonlyArray<TranscriptUsageSample>;
+  nowMs?: number;
+}): UsageSnapshot | null {
+  if (input.usageSamples.length === 0) {
     return null;
   }
 
-  const nowMs = Date.now();
+  const nowMs = input.nowMs ?? Date.now();
   const cutoff24h = nowMs - ONE_DAY_MS;
   const cutoff7d = nowMs - LOOKBACK_7D_MS;
   const cutoff30d = nowMs - LOOKBACK_30D_MS;
-  const recent24h = usageSamples.filter((sample) => sample.timestampMs >= cutoff24h);
-  const recent7d = usageSamples.filter((sample) => sample.timestampMs >= cutoff7d);
-  const recent30d = usageSamples.filter((sample) => sample.timestampMs >= cutoff30d);
-  const latestSample = usageSamples.reduce((latest, current) =>
+  const recent24h = input.usageSamples.filter((sample) => sample.timestampMs >= cutoff24h);
+  const recent7d = input.usageSamples.filter((sample) => sample.timestampMs >= cutoff7d);
+  const recent30d = input.usageSamples.filter((sample) => sample.timestampMs >= cutoff30d);
+  const latestSample = input.usageSamples.reduce((latest, current) =>
     current.timestampMs > latest.timestampMs ? current : latest,
   );
 
   return {
-    provider: "claudeAgent",
+    provider: input.provider,
     updatedAt: toIsoString(latestSample.timestampMs),
     limits: [],
     usageLines: buildUsageLines({
@@ -1005,8 +1167,31 @@ async function loadClaudeUsageSnapshot(input: { homeDir: string }): Promise<Usag
       sessions7d: new Set(recent7d.map((sample) => sample.sessionId)).size,
       sessions30d: new Set(recent30d.map((sample) => sample.sessionId)).size,
     }),
-    source: "claude-project-transcripts",
+    source: input.source,
   };
+}
+
+async function loadClaudeUsageSnapshot(input: { homeDir: string }): Promise<UsageSnapshot | null> {
+  const usageSamples = await readRecentClaudeUsageSamples(resolveClaudeProjectsRoot(input.homeDir));
+  return buildTranscriptUsageSnapshot({
+    provider: "claudeAgent",
+    source: "claude-project-transcripts",
+    usageSamples,
+  });
+}
+
+async function loadAntigravityUsageSnapshot(input: {
+  homeDir: string;
+  homePath?: string;
+}): Promise<UsageSnapshot | null> {
+  const usageSamples = await readRecentAntigravityUsageSamples(
+    resolveAntigravityBrainRoot(input.homeDir, input.homePath),
+  );
+  return buildTranscriptUsageSnapshot({
+    provider: "antigravity",
+    source: "antigravity-brain-transcripts",
+    usageSamples,
+  });
 }
 
 async function loadProviderUsageSnapshot(input: {
@@ -1022,6 +1207,11 @@ async function loadProviderUsageSnapshot(input: {
       });
     case "claudeAgent":
       return loadClaudeUsageSnapshot({ homeDir: input.homeDir });
+    case "antigravity":
+      return loadAntigravityUsageSnapshot({
+        homeDir: input.homeDir,
+        ...(input.homePath ? { homePath: input.homePath } : {}),
+      });
     default:
       return null;
   }
@@ -1032,7 +1222,7 @@ async function getCachedProviderUsageSnapshot(input: {
   homeDir: string;
   homePath?: string;
 }): Promise<ServerGetProviderUsageSnapshotResult> {
-  const cacheKey = `${input.provider}:${input.homeDir}:${input.homePath?.trim() ?? ""}:${process.env.CLAUDE_CONFIG_DIR?.trim() ?? ""}`;
+  const cacheKey = `${input.provider}:${input.homeDir}:${input.homePath?.trim() ?? ""}:${process.env.CLAUDE_CONFIG_DIR?.trim() ?? ""}:${process.env.GEMINI_CONFIG_DIR?.trim() ?? ""}`;
   const nowMs = Date.now();
   const existing = usageSnapshotCache.get(cacheKey);
 

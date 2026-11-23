@@ -144,7 +144,7 @@ describe("AppRailUsage", () => {
           name: "Show Codex usage at the bottom of the sidebar",
         }),
       )
-      .toBeDisabled();
+      .toBeEnabled();
 
     const personal = page.getByRole("button", { name: /^Claude · Default account usage:/ });
     const work = page.getByRole("button", { name: /^Claude · Work usage:/ });
@@ -249,7 +249,7 @@ describe("AppRailUsage", () => {
     await expect.element(page.getByRole("button", { name: /^Claude · Work usage:/ })).toBeVisible();
     await expect
       .element(page.getByRole("switch", { name: "Show Codex usage at the bottom of the sidebar" }))
-      .not.toBeChecked();
+      .toBeChecked();
     expect(settings.railUsageInstanceIds).toEqual(["claude_work", "claudeAgent", "codex"]);
   });
 
@@ -355,5 +355,58 @@ describe("AppRailUsage", () => {
     await expect.element(button).toBeVisible();
     expect(button.element().querySelectorAll("circle")).toHaveLength(1);
     expect(button.element().querySelectorAll("circle[stroke-dasharray]")).toHaveLength(0);
+  });
+
+  it("shows all connected accounts including Antigravity by default and supports quick customize from the rail", async () => {
+    settings.railUsageProviders = null as unknown as string[];
+    settings.railUsageInstanceIds = null;
+    const { rerender } = await renderAccounts([
+      {
+        provider: "codex",
+        updatedAt: "2026-11-23T12:00:00.000Z",
+        status: "ok",
+        source: "test",
+        limits: [{ window: "Weekly", usedPercent: 30 }],
+        usageLines: [],
+      },
+      {
+        provider: "claudeAgent",
+        updatedAt: "2026-11-23T12:00:00.000Z",
+        status: "ok",
+        source: "test",
+        limits: [{ window: "Weekly", usedPercent: 40 }],
+        usageLines: [],
+      },
+      {
+        provider: "antigravity",
+        updatedAt: "2026-11-23T12:00:00.000Z",
+        status: "ok",
+        source: "test",
+        limits: [
+          { window: "5h", usedPercent: 20 },
+          { window: "Weekly", usedPercent: 35 },
+        ],
+        usageLines: [{ label: "24h", value: "54k tokens", subtitle: "1 recent session" }],
+      },
+    ]);
+
+    await expect.element(page.getByRole("button", { name: /^Codex usage:/ })).toBeVisible();
+    await expect.element(page.getByRole("button", { name: /^Claude usage:/ })).toBeVisible();
+    await expect.element(page.getByRole("button", { name: /^Antigravity usage:/ })).toBeVisible();
+
+    await page.getByRole("button", { name: "Customize usage rings" }).click();
+    const antigravityToggle = page.getByRole("switch", {
+      name: "Toggle Antigravity ring in sidebar",
+    });
+    await expect.element(antigravityToggle).toBeChecked();
+    await antigravityToggle.click();
+    await rerender();
+    await expect
+      .element(page.getByRole("button", { name: /^Antigravity usage:/ }))
+      .not.toBeInTheDocument();
+
+    await page.getByRole("button", { name: "Show all", exact: true }).click();
+    await rerender();
+    await expect.element(page.getByRole("button", { name: /^Antigravity usage:/ })).toBeVisible();
   });
 });
