@@ -21,6 +21,7 @@ import {
   type ServerConfigShape,
 } from "./config";
 import {
+  attachmentsEffectRouteLayer,
   editorIconEffectRouteLayer,
   isLegacyTokenAuthorized,
   makeDesktopComputerEmergencyStopRouteLayer,
@@ -29,6 +30,7 @@ import {
   projectFaviconEffectRouteLayer,
   staticAndDevEffectRouteLayer,
 } from "./http";
+import { ManagedAttachmentRepository } from "./persistence/Services/ManagedAttachments";
 import {
   ProjectFaviconResolver,
   type ProjectFaviconResolverShape,
@@ -158,7 +160,8 @@ type TestedRoute =
       readonly auth?: ServerAuthShape;
       readonly resolver?: ProjectFaviconResolverShape;
     }
-  | { readonly kind: "editor-icon" };
+  | { readonly kind: "editor-icon" }
+  | { readonly kind: "attachments" };
 
 async function withEffectServer(
   config: ServerConfigShape,
@@ -172,7 +175,9 @@ async function withEffectServer(
       Scope.provide(
         Effect.gen(function* () {
           const makeServer =
-            route.kind === "favicon" ? makeBoundedNodeHttpServer : NodeHttpServer.make;
+            route.kind === "favicon" || route.kind === "attachments"
+              ? makeBoundedNodeHttpServer
+              : NodeHttpServer.make;
           const httpServer = yield* makeServer(
             () => {
               nodeServer = http.createServer();
@@ -194,6 +199,8 @@ async function withEffectServer(
             yield* httpServer.serve(yield* HttpRouter.toHttpEffect(projectFaviconEffectRouteLayer));
           } else if (route.kind === "editor-icon") {
             yield* httpServer.serve(yield* HttpRouter.toHttpEffect(editorIconEffectRouteLayer));
+          } else if (route.kind === "attachments") {
+            yield* httpServer.serve(yield* HttpRouter.toHttpEffect(attachmentsEffectRouteLayer));
           } else {
             yield* httpServer.serve(
               yield* HttpRouter.toHttpEffect(makeHealthEffectRouteLayer(route.readiness)),
@@ -220,9 +227,18 @@ async function withEffectServer(
               ...(route.kind === "health" && route.eventLoop
                 ? [Layer.succeed(ServerEventLoopMonitor, { getSnapshot: () => route.eventLoop! })]
                 : []),
+              ...(route.kind === "attachments"
+                ? [
+                    Layer.succeed(ManagedAttachmentRepository, {
+                      findClaimedById: () => Effect.succeed(null as never),
+                    } as never),
+                  ]
+                : []),
               // Match the live desktop route stack: it supplies filesystem services,
               // but not the extra HttpPlatform required by HttpServerResponse.file.
-              route.kind === "favicon" ? NodeServices.layer : NodeHttpServer.layerHttpServices,
+              route.kind === "favicon" || route.kind === "attachments"
+                ? NodeServices.layer
+                : NodeHttpServer.layerHttpServices,
             ),
           ),
         ),
@@ -883,6 +899,40 @@ describe("production Effect HTTP routes", () => {
         expect(response.status).toBe(401);
       },
     );
+  });
+
+  it("isolates uploaded HTML/SVG attachments in a scriptless sandbox with attachment disposition", async () => {
+    const config = makeConfig();
+    mkdirSync(config.attachmentsDir, { recursive: true });
+    writeFileSync(
+      path.join(config.attachmentsDir, "sample.html"),
+      "<!doctype html><script>alert(1)</script>",
+    );
+    writeFileSync(
+      path.join(config.attachmentsDir, "sample.svg"),
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+    );
+    writeFileSync(path.join(config.attachmentsDir, "sample.png"), "png-bytes");
+
+    await withEffectServer(config, { kind: "attachments" }, async (origin) => {
+      for (const file of ["sample.html", "sample.svg"]) {
+        const response = await fetch(`${origin}/attachments/${file}`);
+        expect(response.status).toBe(200);
+        expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+        const csp = response.headers.get("content-security-policy");
+        expect(csp).toContain("sandbox");
+        expect(csp).toContain("default-src 'none'");
+        expect(csp).not.toContain("allow-scripts");
+        expect(csp).not.toContain("allow-same-origin");
+        expect(response.headers.get("content-disposition")).toContain("attachment;");
+      }
+
+      const pngResponse = await fetch(`${origin}/attachments/sample.png`);
+      expect(pngResponse.status).toBe(200);
+      expect(pngResponse.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(pngResponse.headers.get("content-security-policy")).toContain("sandbox");
+      expect(pngResponse.headers.get("content-disposition")).toBeNull();
+    });
   });
 });
 

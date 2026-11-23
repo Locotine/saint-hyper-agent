@@ -7,9 +7,14 @@
 import { useEffect } from "react";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import type { ServerProviderStatus } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import { apiFor } from "../hosts/hostScope";
 import { toastManager } from "../components/ui/toast";
 import { readLocalNativeApi } from "../nativeApi";
-import { reconcileServerProviderStatuses } from "../lib/serverReactQuery";
+import {
+  reconcileRemoteHostProviderStatuses,
+  reconcileServerProviderStatuses,
+} from "../lib/serverReactQuery";
 
 export type RefreshProviderStatusesOptions = {
   readonly silent?: boolean;
@@ -22,7 +27,11 @@ export type RefreshProviderStatusesNow = (
 function writeProviderStatusesToConfigCache(
   queryClient: QueryClient,
   providers: readonly ServerProviderStatus[],
+  hostId: HostId = LOCAL_HOST_ID,
 ) {
+  if (hostId !== LOCAL_HOST_ID) {
+    return reconcileRemoteHostProviderStatuses(queryClient, hostId, providers);
+  }
   return reconcileServerProviderStatuses(queryClient, providers);
 }
 
@@ -30,14 +39,16 @@ function writeProviderStatusesToConfigCache(
  * Imperative one-shot provider-status refresh: re-checks providers on the server
  * and folds the result into the cached server config. Surfaces failures as a toast.
  */
-export function useRefreshProviderStatusesNow(): RefreshProviderStatusesNow {
+export function useRefreshProviderStatusesNow(
+  hostId: HostId = LOCAL_HOST_ID,
+): RefreshProviderStatusesNow {
   const queryClient = useQueryClient();
   return async (options?: RefreshProviderStatusesOptions) => {
-    const api = readLocalNativeApi();
+    const api = hostId === LOCAL_HOST_ID ? readLocalNativeApi() : apiFor(hostId);
     if (!api) return null;
     try {
       const result = await api.server.refreshProviders();
-      await writeProviderStatusesToConfigCache(queryClient, result.providers);
+      await writeProviderStatusesToConfigCache(queryClient, result.providers, hostId);
       return result.providers;
     } catch (error) {
       if (!options?.silent) {

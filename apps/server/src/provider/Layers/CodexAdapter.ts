@@ -2170,7 +2170,7 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
 
     const prepareCodexManagerTurnInput = (
       input: ProviderSendTurnInput,
-      method: "turn/start" | "turn/steer",
+      method: "turn/start" | "turn/steer" | "turn/steerSubagent",
     ): Effect.Effect<CodexAppServerSendTurnInput, ProviderAdapterRequestError> =>
       Effect.gen(function* () {
         const nativeCodexAttachments = yield* Effect.forEach(
@@ -2317,6 +2317,59 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
             threadId: input.threadId,
           })),
         );
+      });
+
+    const steerSubagent: NonNullable<CodexAdapterShape["steerSubagent"]> = (
+      threadId,
+      providerThreadId,
+      input,
+    ) =>
+      Effect.gen(function* () {
+        const managerInput = yield* prepareCodexManagerTurnInput(
+          {
+            threadId,
+            ...(input.input !== undefined ? { input: input.input } : {}),
+            ...(input.attachments !== undefined ? { attachments: input.attachments } : {}),
+            ...(input.skills !== undefined ? { skills: input.skills } : {}),
+            ...(input.mentions !== undefined ? { mentions: input.mentions } : {}),
+          },
+          "turn/steerSubagent",
+        );
+
+        const result = yield* Effect.tryPromise({
+          try: () =>
+            manager.steerSubagent({
+              threadId,
+              providerThreadId,
+              ...(managerInput.input !== undefined ? { input: managerInput.input } : {}),
+              ...(managerInput.attachments !== undefined
+                ? { attachments: managerInput.attachments }
+                : {}),
+              ...(managerInput.skills !== undefined ? { skills: managerInput.skills } : {}),
+              ...(managerInput.mentions !== undefined ? { mentions: managerInput.mentions } : {}),
+            }),
+          catch: (cause) => toRequestError(threadId, "turn/steerSubagent", cause),
+        });
+
+        const message = input.input?.trim();
+        if (message) {
+          yield* Queue.offer(runtimeEventQueue, {
+            type: "turn.steered",
+            eventId: EventId.makeUnsafe(crypto.randomUUID()),
+            provider: PROVIDER,
+            threadId,
+            turnId: result.parentTurnId ?? result.turnId,
+            createdAt: new Date().toISOString(),
+            payload: { message, target: "subagent" },
+            providerRefs: {
+              providerThreadId,
+              ...(result.providerParentThreadId
+                ? { providerParentThreadId: result.providerParentThreadId }
+                : {}),
+              providerTurnId: result.turnId,
+            },
+          });
+        }
       });
 
     const startReview: CodexAdapterShape["startReview"] = (input) =>
@@ -2816,6 +2869,7 @@ const makeCodexAdapter = (options?: CodexAdapterLiveOptions) =>
       },
       sendTurn,
       steerTurn,
+      steerSubagent,
       startReview,
       interruptTurn,
       readThread,

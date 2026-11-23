@@ -479,8 +479,20 @@ impl BackendSupervisor {
     }
 
     pub(crate) fn kill_process_tree(pid: u32) {
+        Self::kill_process_tree_inner(pid, true);
+    }
+
+    /// Terminates a process group without calling `waitpid(WNOHANG)` on the group leader.
+    /// Used by `pty_host` where a dedicated waiter thread owns `child.wait()` so reaping
+    /// never races with the waiter (which would otherwise cause `ECHILD` / PID reuse).
+    pub(crate) fn kill_process_tree_no_reap(pid: u32) {
+        Self::kill_process_tree_inner(pid, false);
+    }
+
+    fn kill_process_tree_inner(pid: u32, reap_leader: bool) {
         #[cfg(target_os = "windows")]
         {
+            let _ = reap_leader;
             use std::os::windows::process::CommandExt;
             let _ = std::process::Command::new("taskkill")
                 .args(["/PID", &pid.to_string(), "/T", "/F"])
@@ -504,10 +516,12 @@ impl BackendSupervisor {
             }
             let deadline = std::time::Instant::now() + Duration::from_millis(250);
             while std::time::Instant::now() < deadline {
-                // Reap the process group leader if it has already exited so a zombie
-                // leader does not keep `killpg(pgid, 0)` succeeding for the full 250ms.
-                let mut status: libc::c_int = 0;
-                let _ = unsafe { libc::waitpid(pgid, &mut status, libc::WNOHANG) };
+                if reap_leader {
+                    // Reap the process group leader if it has already exited so a zombie
+                    // leader does not keep `killpg(pgid, 0)` succeeding for the full 250ms.
+                    let mut status: libc::c_int = 0;
+                    let _ = unsafe { libc::waitpid(pgid, &mut status, libc::WNOHANG) };
+                }
                 let probe_rc = unsafe { libc::killpg(pgid, 0) };
                 if probe_rc != 0
                     && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)

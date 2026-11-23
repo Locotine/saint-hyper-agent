@@ -186,6 +186,7 @@ export function useChatTerminalController({
       try {
         await disposeAndCloseTerminalSession({
           api,
+          hostId: chatHost.hostId,
           threadId: activeThreadId,
           terminalId,
           requireStructuredClose: true,
@@ -227,6 +228,7 @@ export function useChatTerminalController({
       const isFinalTerminal = terminalState.terminalIds.length <= 1;
       disposeAndCloseTerminalSession({
         api: chatHost.api(),
+        hostId: chatHost.hostId,
         threadId: activeThreadId,
         terminalId,
         clearHistoryBeforeClose: isFinalTerminal,

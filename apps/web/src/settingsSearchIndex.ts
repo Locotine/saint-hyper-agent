@@ -6,9 +6,9 @@
 
 import { rankProviderDiscoveryItems } from "~/lib/providerDiscovery";
 import {
+  ALL_SETTINGS_NAV_ITEMS_LIST,
   isSettingsSectionAvailable,
   settingRowAnchorId,
-  SETTINGS_NAV_ITEMS,
   type SettingsSectionId,
 } from "./settingsNavigation";
 
@@ -698,7 +698,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
 ] as const;
 
 const SETTINGS_SECTION_LABEL_BY_ID = new Map<SettingsSectionId, string>(
-  SETTINGS_NAV_ITEMS.map((item) => [item.id, item.label]),
+  ALL_SETTINGS_NAV_ITEMS_LIST.map((item) => [item.id, item.label]),
 );
 
 export function settingsSectionLabel(section: SettingsSectionId): string {

@@ -5,20 +5,28 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::watch;
 
 use crate::backend::BackendSupervisor;
+use crate::remote_ssh::{
+    DesktopRemoteSshSavedHost, DesktopRemoteSshUpdateHostInput, RemoteSshManager,
+};
 use crate::updater::now_iso8601;
 
 pub const DEFAULT_LAN_RELAY_PORT: u16 = 3883;
 pub const MAX_LAN_RELAY_SESSIONS: usize = 64;
 const LAN_SESSION_COOKIE_NAME: &str = "saint_lan_session";
+const LAN_RELAY_CAPABILITY_COOKIE_NAME: &str = "saint_lan_relay";
+const MAX_CONTROL_API_BODY_BYTES: usize = 64 * 1024;
 const PAIRING_TOKEN_ALPHABET: &[u8] = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const PAIRING_TOKEN_LEN: usize = 12;
+const PAIR_RATE_LIMIT_MAX_FAILURES: usize = 10;
+const PAIR_RATE_LIMIT_WINDOW: Duration = Duration::from_secs(300);
 
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
@@ -84,6 +92,13 @@ struct StoredRelaySession {
     revoke_tx: watch::Sender<bool>,
 }
 
+struct ForwardedPortProxy {
+    local_port: u16,
+    listen_port: u16,
+    bind_ip: IpAddr,
+    stop_tx: watch::Sender<bool>,
+}
+
 struct RelayInner {
     enabled: bool,
     port: u16,
@@ -93,17 +108,21 @@ struct RelayInner {
     error: Option<String>,
     stop_tx: Option<watch::Sender<bool>>,
     sessions: HashMap<String, StoredRelaySession>,
+    pair_failures: HashMap<IpAddr, Vec<Instant>>,
+    forward_proxies: HashMap<(String, u16), ForwardedPortProxy>,
 }
 
 pub struct LanRelayManager {
     backend: Arc<BackendSupervisor>,
+    remote_ssh: Arc<RemoteSshManager>,
     inner: Arc<Mutex<RelayInner>>,
 }
 
 impl LanRelayManager {
-    pub fn new(backend: Arc<BackendSupervisor>) -> Self {
+    pub fn new(backend: Arc<BackendSupervisor>, remote_ssh: Arc<RemoteSshManager>) -> Self {
         Self {
             backend,
+            remote_ssh,
             inner: Arc::new(Mutex::new(RelayInner {
                 enabled: false,
                 port: DEFAULT_LAN_RELAY_PORT,
@@ -112,6 +131,8 @@ impl LanRelayManager {
                 error: None,
                 stop_tx: None,
                 sessions: HashMap::new(),
+                pair_failures: HashMap::new(),
+                forward_proxies: HashMap::new(),
             })),
         }
     }
@@ -128,7 +149,7 @@ impl LanRelayManager {
 
         let pairing_url = bind_address.as_ref().map(|host| {
             format!(
-                "http://{}:{}/pair?token={}",
+                "http://{}:{}/pair#token={}",
                 host, guard.port, guard.pairing_token
             )
         });
@@ -165,6 +186,9 @@ impl LanRelayManager {
             };
             if let Some(tx) = guard.stop_tx.take() {
                 let _ = tx.send(true);
+            }
+            for (_, proxy) in guard.forward_proxies.drain() {
+                let _ = proxy.stop_tx.send(true);
             }
             guard.enabled = false;
             guard.error = None;
@@ -213,8 +237,16 @@ impl LanRelayManager {
 
                 let inner_clone = Arc::clone(&self.inner);
                 let backend_clone = Arc::clone(&self.backend);
+                let remote_ssh_clone = Arc::clone(&self.remote_ssh);
                 tokio::spawn(async move {
-                    run_relay_accept_loop(listener, stop_rx, inner_clone, backend_clone).await;
+                    run_relay_accept_loop(
+                        listener,
+                        stop_rx,
+                        inner_clone,
+                        backend_clone,
+                        remote_ssh_clone,
+                    )
+                    .await;
                 });
             }
             Err(err) => {
@@ -259,6 +291,9 @@ impl LanRelayManager {
         if let Ok(mut guard) = self.inner.lock() {
             if let Some(tx) = guard.stop_tx.take() {
                 let _ = tx.send(true);
+            }
+            for (_, proxy) in guard.forward_proxies.drain() {
+                let _ = proxy.stop_tx.send(true);
             }
             for (_, session) in guard.sessions.drain() {
                 let _ = session.revoke_tx.send(true);
@@ -331,8 +366,17 @@ pub fn discover_network_interfaces() -> Vec<DesktopLanRelayInterface> {
             SocketAddr::V6(_) => None,
         }
     });
+    let mut out = build_discovered_interfaces(list_system_ipv4_interfaces(), primary);
+    sort_interfaces(&mut out, primary);
+    out
+}
+
+fn build_discovered_interfaces(
+    raw: Vec<(String, Ipv4Addr)>,
+    primary: Option<Ipv4Addr>,
+) -> Vec<DesktopLanRelayInterface> {
     let mut out: Vec<DesktopLanRelayInterface> = Vec::new();
-    for (name, ip) in list_system_ipv4_interfaces() {
+    for (name, ip) in raw {
         let Some(kind) = classify_ipv4_address(ip) else {
             continue;
         };
@@ -345,7 +389,19 @@ pub fn discover_network_interfaces() -> Vec<DesktopLanRelayInterface> {
             kind: kind.to_string(),
         });
     }
-    sort_interfaces(&mut out, primary);
+    // Fallback when system CLI inspection fails (minimal container, stripped PATH,
+    // or localized output): keep the UDP default-route IPv4 if it is LAN/Tailscale.
+    if out.is_empty() {
+        if let Some(ip) = primary {
+            if let Some(kind) = classify_ipv4_address(ip) {
+                out.push(DesktopLanRelayInterface {
+                    name: "default".to_string(),
+                    address: ip.to_string(),
+                    kind: kind.to_string(),
+                });
+            }
+        }
+    }
     out
 }
 
@@ -370,11 +426,12 @@ fn list_system_ipv4_interfaces() -> Vec<(String, Ipv4Addr)> {
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
+        // ipconfig outputs OEM codepage bytes on non-English Windows, so decode lossily.
         std::process::Command::new("ipconfig")
             .creation_flags(0x0800_0000)
             .output()
             .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
             .map(|text| parse_ipconfig(&text))
             .unwrap_or_default()
     }
@@ -385,17 +442,28 @@ fn list_system_ipv4_interfaces() -> Vec<(String, Ipv4Addr)> {
                 .args(args)
                 .output()
                 .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .filter(|o| o.status.success())
+                .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
         };
-        let from_ip = run("ip", &["-4", "-o", "addr", "show"])
-            .map(|t| parse_ip_addr_oneline(&t))
-            .unwrap_or_default();
-        if !from_ip.is_empty() {
-            return from_ip;
+        // Debian omits /sbin and /usr/sbin from default user PATH, and macOS GUI apps
+        // may inherit a minimal PATH, so check explicit system paths as fallbacks.
+        for ip_bin in ["ip", "/sbin/ip", "/usr/sbin/ip"] {
+            if let Some(text) = run(ip_bin, &["-4", "-o", "addr", "show"]) {
+                let parsed = parse_ip_addr_oneline(&text);
+                if !parsed.is_empty() {
+                    return parsed;
+                }
+            }
         }
-        run("ifconfig", &[])
-            .map(|t| parse_ifconfig(&t))
-            .unwrap_or_default()
+        for ifconfig_bin in ["ifconfig", "/sbin/ifconfig", "/usr/sbin/ifconfig"] {
+            if let Some(text) = run(ifconfig_bin, &[]) {
+                let parsed = parse_ifconfig(&text);
+                if !parsed.is_empty() {
+                    return parsed;
+                }
+            }
+        }
+        Vec::new()
     }
 }
 
@@ -435,25 +503,40 @@ fn parse_ifconfig(text: &str) -> Vec<(String, Ipv4Addr)> {
 }
 
 /// Windows `ipconfig`: `Wireless LAN adapter Wi-Fi:` then `   IPv4 Address. . . : 192.168.1.5(Preferred)`.
+/// Also tolerates localized headers and full-width colons/parentheses on non-English Windows.
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 fn parse_ipconfig(text: &str) -> Vec<(String, Ipv4Addr)> {
     let mut out = Vec::new();
     let mut current = String::new();
     for line in text.lines() {
-        if !line.starts_with(char::is_whitespace) && line.trim_end().ends_with(':') {
-            let header = line.trim_end().trim_end_matches(':');
+        let trimmed_end = line.trim_end();
+        if !line.starts_with(char::is_whitespace)
+            && (trimmed_end.ends_with(':') || trimmed_end.ends_with('：'))
+        {
+            let header = trimmed_end.trim_end_matches([':', '：']);
             current = header
                 .split_once(" adapter ")
                 .map(|(_, name)| name)
                 .unwrap_or(header)
+                .trim()
                 .to_string();
             continue;
         }
         if line.contains("IPv4") {
-            if let Some((_, right)) = line.split_once(':') {
-                let candidate = right.trim().split('(').next().unwrap_or("").trim();
+            if let Some((_, right)) = line.split_once([':', '：']) {
+                let candidate = right
+                    .trim()
+                    .split(['(', '（'])
+                    .next()
+                    .unwrap_or("")
+                    .trim();
                 if let Ok(ip) = candidate.parse() {
-                    out.push((current.clone(), ip));
+                    let name = if current.is_empty() {
+                        "interface".to_string()
+                    } else {
+                        current.clone()
+                    };
+                    out.push((name, ip));
                 }
             }
         }
@@ -466,7 +549,12 @@ async fn run_relay_accept_loop(
     mut stop_rx: watch::Receiver<bool>,
     inner: Arc<Mutex<RelayInner>>,
     backend: Arc<BackendSupervisor>,
+    remote_ssh: Arc<RemoteSshManager>,
 ) {
+    let relay_local_ip = listener
+        .local_addr()
+        .map(|addr| addr.ip())
+        .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
     loop {
         tokio::select! {
             changed = stop_rx.changed() => {
@@ -480,9 +568,10 @@ async fn run_relay_accept_loop(
                 };
                 let inner_conn = Arc::clone(&inner);
                 let backend_conn = Arc::clone(&backend);
+                let remote_ssh_conn = Arc::clone(&remote_ssh);
                 let stop_conn = stop_rx.clone();
                 tokio::spawn(async move {
-                    if let Err(err) = handle_relay_connection(stream, remote_addr, inner_conn, backend_conn, stop_conn).await {
+                    if let Err(err) = handle_relay_connection(stream, remote_addr, relay_local_ip, inner_conn, backend_conn, remote_ssh_conn, stop_conn).await {
                         eprintln!("[lan-relay] {remote_addr}: {err}");
                     }
                 });
@@ -539,6 +628,325 @@ fn extract_cookie_value(headers: &[(String, String)], cookie_name: &str) -> Opti
         }
     }
     None
+}
+
+fn percent_decode_form_value(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut idx = 0usize;
+    while idx < bytes.len() {
+        match bytes[idx] {
+            b'+' => {
+                out.push(b' ');
+                idx += 1;
+            }
+            b'%' if idx + 2 < bytes.len() => {
+                let hex = &input[idx + 1..idx + 3];
+                if let Ok(val) = u8::from_str_radix(hex, 16) {
+                    out.push(val);
+                    idx += 3;
+                } else {
+                    out.push(bytes[idx]);
+                    idx += 1;
+                }
+            }
+            byte => {
+                out.push(byte);
+                idx += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn extract_form_param(body: &[u8], param_name: &str) -> Option<String> {
+    let text = std::str::from_utf8(body).ok()?;
+    for pair in text.split('&') {
+        if let Some((k, v)) = pair.split_once('=') {
+            if k == param_name {
+                return Some(percent_decode_form_value(v));
+            }
+        }
+    }
+    None
+}
+
+fn normalize_authority_for_scheme(scheme: &str, authority: &str) -> String {
+    let lower = authority.trim().to_ascii_lowercase();
+    match scheme {
+        "http" => lower.strip_suffix(":80").unwrap_or(&lower).to_string(),
+        "https" => lower.strip_suffix(":443").unwrap_or(&lower).to_string(),
+        _ => lower,
+    }
+}
+
+/// Validates browser origin metadata (`Origin` and `Sec-Fetch-Site`) against this listener's
+/// `Host` header. Rejects cross-origin and cross-port (`Sec-Fetch-Site: same-site`) WebSocket
+/// upgrades and state-changing HTTP requests before headers are ever forwarded upstream.
+fn validate_same_origin_request(
+    headers: &[(String, String)],
+    require_same_origin_fetch_site: bool,
+) -> Result<(), &'static str> {
+    let host_header = headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("host"))
+        .map(|(_, v)| v.trim())
+        .unwrap_or("");
+
+    if let Some((_, fetch_site)) = headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("sec-fetch-site"))
+    {
+        let site = fetch_site.trim().to_ascii_lowercase();
+        if require_same_origin_fetch_site {
+            if site != "same-origin" {
+                return Err("Cross-origin or cross-port request rejected.");
+            }
+        } else if site != "same-origin" && site != "none" {
+            return Err("Cross-origin or cross-port request rejected.");
+        }
+    }
+
+    if let Some((_, origin_value)) = headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("origin"))
+    {
+        let trimmed = origin_value.trim();
+        let Some((scheme, rest)) = trimmed.split_once("://") else {
+            return Err("Invalid Origin header.");
+        };
+        let scheme_lower = scheme.to_ascii_lowercase();
+        if scheme_lower != "http" && scheme_lower != "https" {
+            return Err("Unsupported Origin scheme.");
+        }
+        let authority = rest.split('/').next().unwrap_or("");
+        if authority.is_empty() || host_header.is_empty() {
+            return Err("Missing Host or Origin authority.");
+        }
+        let expected_host = normalize_authority_for_scheme(&scheme_lower, host_header);
+        let origin_host = normalize_authority_for_scheme(&scheme_lower, authority);
+        if origin_host != expected_host {
+            return Err("Cross-origin request rejected.");
+        }
+    }
+
+    Ok(())
+}
+
+fn has_json_content_type(headers: &[(String, String)]) -> bool {
+    headers.iter().any(|(k, v)| {
+        k.eq_ignore_ascii_case("content-type")
+            && v.split(';')
+                .next()
+                .map(|ct| ct.trim().eq_ignore_ascii_case("application/json"))
+                .unwrap_or(false)
+    })
+}
+
+fn is_pair_rate_limited(inner: &Arc<Mutex<RelayInner>>, ip: IpAddr) -> bool {
+    let Ok(mut guard) = inner.lock() else {
+        return false;
+    };
+    let now = Instant::now();
+    let Some(entries) = guard.pair_failures.get_mut(&ip) else {
+        return false;
+    };
+    entries.retain(|at| now.saturating_duration_since(*at) < PAIR_RATE_LIMIT_WINDOW);
+    entries.len() >= PAIR_RATE_LIMIT_MAX_FAILURES
+}
+
+fn record_pair_failure(inner: &Arc<Mutex<RelayInner>>, ip: IpAddr) {
+    if let Ok(mut guard) = inner.lock() {
+        let now = Instant::now();
+        let entries = guard.pair_failures.entry(ip).or_default();
+        entries.retain(|at| now.saturating_duration_since(*at) < PAIR_RATE_LIMIT_WINDOW);
+        entries.push(now);
+    }
+}
+
+fn clear_pair_failures(inner: &Arc<Mutex<RelayInner>>, ip: IpAddr) {
+    if let Ok(mut guard) = inner.lock() {
+        guard.pair_failures.remove(&ip);
+    }
+}
+
+async fn ensure_isolated_forward_listener(
+    inner: &Arc<Mutex<RelayInner>>,
+    bind_ip: IpAddr,
+    host_key: &str,
+    remote_port: u16,
+    local_port: u16,
+    relay_stop_rx: &watch::Receiver<bool>,
+) -> Result<String, String> {
+    let map_key = (host_key.to_string(), remote_port);
+    {
+        let guard = inner.lock().map_err(|_| "Relay lock poisoned.".to_string())?;
+        if let Some(existing) = guard.forward_proxies.get(&map_key) {
+            if existing.local_port == local_port && existing.bind_ip == bind_ip {
+                return Ok(format!("http://{}:{}/", existing.bind_ip, existing.listen_port));
+            }
+        }
+    }
+
+    let listener = TcpListener::bind(SocketAddr::from((bind_ip, 0)))
+        .await
+        .map_err(|err| format!("Could not bind isolated forward listener on {bind_ip}: {err}"))?;
+    let listen_port = listener
+        .local_addr()
+        .map_err(|err| err.to_string())?
+        .port();
+    let (proxy_stop_tx, proxy_stop_rx) = watch::channel(false);
+
+    {
+        let mut guard = inner.lock().map_err(|_| "Relay lock poisoned.".to_string())?;
+        if let Some(old) = guard.forward_proxies.insert(
+            map_key,
+            ForwardedPortProxy {
+                local_port,
+                listen_port,
+                bind_ip,
+                stop_tx: proxy_stop_tx,
+            },
+        ) {
+            let _ = old.stop_tx.send(true);
+        }
+    }
+
+    let inner_clone = Arc::clone(inner);
+    let relay_stop = relay_stop_rx.clone();
+    tokio::spawn(async move {
+        run_forward_proxy_accept_loop(listener, local_port, inner_clone, proxy_stop_rx, relay_stop)
+            .await;
+    });
+
+    Ok(format!("http://{bind_ip}:{listen_port}/"))
+}
+
+async fn run_forward_proxy_accept_loop(
+    listener: TcpListener,
+    local_port: u16,
+    inner: Arc<Mutex<RelayInner>>,
+    mut proxy_stop_rx: watch::Receiver<bool>,
+    mut relay_stop_rx: watch::Receiver<bool>,
+) {
+    loop {
+        tokio::select! {
+            changed = proxy_stop_rx.changed() => {
+                if changed.is_err() || *proxy_stop_rx.borrow() {
+                    break;
+                }
+            }
+            changed = relay_stop_rx.changed() => {
+                if changed.is_err() || *relay_stop_rx.borrow() {
+                    break;
+                }
+            }
+            accepted = listener.accept() => {
+                let Ok((stream, _remote_addr)) = accepted else {
+                    continue;
+                };
+                let inner_conn = Arc::clone(&inner);
+                let stop_a = proxy_stop_rx.clone();
+                let stop_b = relay_stop_rx.clone();
+                tokio::spawn(async move {
+                    let _ = handle_isolated_forward_connection(
+                        stream,
+                        local_port,
+                        inner_conn,
+                        stop_a,
+                        stop_b,
+                    )
+                    .await;
+                });
+            }
+        }
+    }
+}
+
+async fn handle_isolated_forward_connection(
+    mut client_stream: TcpStream,
+    local_port: u16,
+    inner: Arc<Mutex<RelayInner>>,
+    mut proxy_stop_rx: watch::Receiver<bool>,
+    mut relay_stop_rx: watch::Receiver<bool>,
+) -> Result<(), String> {
+    let mut buf = vec![0u8; 16384];
+    let mut filled = 0usize;
+    let header_deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let parsed = loop {
+        if filled >= buf.len() {
+            return Err("Header too large".to_string());
+        }
+        let read_res = tokio::select! {
+            _ = tokio::time::sleep_until(header_deadline) => return Err("Timed out reading HTTP header".to_string()),
+            _ = proxy_stop_rx.changed() => return Ok(()),
+            _ = relay_stop_rx.changed() => return Ok(()),
+            res = client_stream.read(&mut buf[filled..]) => res,
+        };
+        let n = read_res.map_err(|e| e.to_string())?;
+        if n == 0 {
+            return Ok(());
+        }
+        filled += n;
+        if let Some(p) = parse_http_header(&buf[..filled]) {
+            break p;
+        }
+    };
+
+    let session_rx = extract_cookie_value(&parsed.headers, LAN_SESSION_COOKIE_NAME)
+        .and_then(|secret| validate_relay_session(&inner, &secret));
+    let Some(mut revoke_rx) = session_rx else {
+        let unauthorized = build_unauthorized_json_response();
+        let _ = client_stream.write_all(unauthorized.as_bytes()).await;
+        return Ok(());
+    };
+
+    let is_upgrade = parsed
+        .headers
+        .iter()
+        .any(|(k, v)| k.eq_ignore_ascii_case("upgrade") && v.eq_ignore_ascii_case("websocket"));
+    let is_mutation = !matches!(parsed.method.as_str(), "GET" | "HEAD" | "OPTIONS");
+    if (is_upgrade || is_mutation) && validate_same_origin_request(&parsed.headers, true).is_err() {
+        let resp = build_json_error_response("403 Forbidden", "Cross-origin request rejected.");
+        let _ = client_stream.write_all(resp.as_bytes()).await;
+        return Ok(());
+    }
+
+    let mut upstream = match TcpStream::connect(("127.0.0.1", local_port)).await {
+        Ok(s) => s,
+        Err(err) => {
+            let resp = build_json_error_response(
+                "502 Bad Gateway",
+                &format!("Forwarded port unavailable: {err}"),
+            );
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            return Ok(());
+        }
+    };
+    let forward_header = build_forwarded_request_header(
+        &parsed.method,
+        &parsed.target,
+        local_port,
+        &parsed.headers,
+        is_upgrade,
+    );
+    upstream
+        .write_all(forward_header.as_bytes())
+        .await
+        .map_err(|e| e.to_string())?;
+    if filled > parsed.header_end {
+        upstream
+            .write_all(&buf[parsed.header_end..filled])
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    tokio::select! {
+        _ = tokio::io::copy_bidirectional(&mut client_stream, &mut upstream) => {}
+        _ = revoke_rx.changed() => {}
+        _ = proxy_stop_rx.changed() => {}
+        _ = relay_stop_rx.changed() => {}
+    }
+    Ok(())
 }
 
 fn extract_query_param(target: &str, param_name: &str) -> Option<String> {
@@ -659,11 +1067,523 @@ fn append_auth_token_to_target(target: &str, token: &str) -> String {
     format!("{path}?{}", kept_params.join("&"))
 }
 
+fn append_remote_ssh_auth_params(target: &str, token: &str, client_id: &str) -> String {
+    let (path, query) = match target.split_once('?') {
+        Some((p, q)) => (p, Some(q)),
+        None => (target, None),
+    };
+    let mut kept_params: Vec<&str> = query
+        .map(|q| {
+            q.split('&')
+                .filter(|pair| {
+                    !pair.is_empty()
+                        && pair
+                            .split_once('=')
+                            .map(|(k, _)| k != "token" && k != "client")
+                            .unwrap_or(*pair != "token" && *pair != "client")
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let token_pair = format!("token={token}");
+    let client_pair = format!("client={client_id}");
+    kept_params.push(&token_pair);
+    kept_params.push(&client_pair);
+    format!("{path}?{}", kept_params.join("&"))
+}
+
+fn strip_prefix_preserving_query(target: &str, prefix: &str) -> String {
+    let (path, query) = match target.split_once('?') {
+        Some((p, q)) => (p, Some(q)),
+        None => (target, None),
+    };
+    let rest = path.strip_prefix(prefix).unwrap_or(path);
+    let normalized = if rest.is_empty() {
+        "/".to_string()
+    } else if rest.starts_with('/') {
+        rest.to_string()
+    } else {
+        format!("/{rest}")
+    };
+    match query {
+        Some(q) if !q.is_empty() => format!("{normalized}?{q}"),
+        _ => normalized,
+    }
+}
+
+fn is_valid_host_key_segment(segment: &str) -> bool {
+    !segment.is_empty()
+        && segment.len() <= 128
+        && segment
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+        && segment != "."
+        && segment != ".."
+}
+
+fn build_json_response(status: &str, body: &str) -> String {
+    format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nX-Saint-Lan-Relay: 1\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )
+}
+
+fn build_json_error_response(status: &str, message: &str) -> String {
+    let body = serde_json::json!({ "error": message }).to_string();
+    build_json_response(status, &body)
+}
+
+async fn read_request_body(
+    client_stream: &mut TcpStream,
+    parsed: &ParsedHttpHeader,
+    initial_buf: &[u8],
+    revoke_rx: &mut watch::Receiver<bool>,
+    stop_rx: &mut watch::Receiver<bool>,
+) -> Result<Vec<u8>, String> {
+    let content_length = parsed
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("content-length"))
+        .and_then(|(_, v)| v.trim().parse::<usize>().ok())
+        .unwrap_or(0);
+    if content_length > MAX_CONTROL_API_BODY_BYTES {
+        return Err("Request body too large.".to_string());
+    }
+    let already = &initial_buf[parsed.header_end..];
+    if already.len() >= content_length {
+        return Ok(already[..content_length].to_vec());
+    }
+    let mut body = Vec::with_capacity(content_length);
+    body.extend_from_slice(already);
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+    while body.len() < content_length {
+        let mut chunk = [0u8; 4096];
+        let to_read = (content_length - body.len()).min(chunk.len());
+        let read_res = tokio::select! {
+            _ = tokio::time::sleep_until(deadline) => {
+                return Err("Timed out reading request body.".to_string());
+            }
+            _ = revoke_rx.changed() => {
+                return Err("Session revoked.".to_string());
+            }
+            _ = stop_rx.changed() => {
+                return Err("Relay stopped.".to_string());
+            }
+            res = client_stream.read(&mut chunk[..to_read]) => res,
+        };
+        let n = read_res.map_err(|e| e.to_string())?;
+        if n == 0 {
+            return Err("Unexpected EOF while reading request body.".to_string());
+        }
+        body.extend_from_slice(&chunk[..n]);
+    }
+    Ok(body)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteSshHostOnlyInput {
+    host: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteSshForwardPortInput {
+    host: String,
+    remote_port: u16,
+}
+
+async fn handle_remote_ssh_route(
+    client_stream: &mut TcpStream,
+    parsed: &ParsedHttpHeader,
+    path_only: &str,
+    initial_buf: &[u8],
+    is_upgrade: bool,
+    relay_local_ip: IpAddr,
+    inner: &Arc<Mutex<RelayInner>>,
+    remote_ssh: Arc<RemoteSshManager>,
+    revoke_rx: &mut watch::Receiver<bool>,
+    stop_rx: &mut watch::Receiver<bool>,
+) -> Result<(), String> {
+    // 1. Reverse proxy HTTP/WebSocket traffic to a connected remote SSH server:
+    //    `/api/remote-ssh/proxy/<hostKey>` or `/api/remote-ssh/proxy/<hostKey>/...`
+    if let Some(rest) = path_only.strip_prefix("/api/remote-ssh/proxy/") {
+        let host_key = rest.split('/').next().unwrap_or("");
+        if !is_valid_host_key_segment(host_key) {
+            let resp = build_json_error_response("400 Bad Request", "Invalid remote host key.");
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            return Ok(());
+        }
+        let Some((local_port, remote_token, client_id)) =
+            remote_ssh.proxy_target_for_host_key(host_key)
+        else {
+            let resp = build_json_error_response(
+                "503 Service Unavailable",
+                "Remote SSH host is not connected.",
+            );
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            return Ok(());
+        };
+        let prefix = format!("/api/remote-ssh/proxy/{host_key}");
+        let stripped = strip_prefix_preserving_query(&parsed.target, &prefix);
+        let rewritten_target =
+            append_remote_ssh_auth_params(&stripped, &remote_token, &client_id);
+        let mut upstream = match TcpStream::connect(("127.0.0.1", local_port)).await {
+            Ok(s) => s,
+            Err(err) => {
+                let resp = build_json_error_response(
+                    "502 Bad Gateway",
+                    &format!("Remote SSH tunnel unavailable: {err}"),
+                );
+                let _ = client_stream.write_all(resp.as_bytes()).await;
+                return Ok(());
+            }
+        };
+        let forward_header = build_forwarded_request_header(
+            &parsed.method,
+            &rewritten_target,
+            local_port,
+            &parsed.headers,
+            is_upgrade,
+        );
+        upstream
+            .write_all(forward_header.as_bytes())
+            .await
+            .map_err(|e| e.to_string())?;
+        if initial_buf.len() > parsed.header_end {
+            upstream
+                .write_all(&initial_buf[parsed.header_end..])
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+        tokio::select! {
+            _ = tokio::io::copy_bidirectional(client_stream, &mut upstream) => {}
+            _ = revoke_rx.changed() => {}
+            _ = stop_rx.changed() => {}
+        }
+        return Ok(());
+    }
+
+    // 2. Same-origin forwarded dev-server path is disabled to prevent untrusted dev-server JS
+    //    from running in Saint LAN Relay's origin. Forwarded ports use dedicated isolated ports
+    //    returned by `POST /api/remote-ssh/forward-port`.
+    if path_only.starts_with("/api/remote-ssh/forward/") {
+        let resp = build_json_error_response(
+            "410 Gone",
+            "Forwarded dev servers are served on dedicated isolated ports via POST /api/remote-ssh/forward-port.",
+        );
+        let _ = client_stream.write_all(resp.as_bytes()).await;
+        return Ok(());
+    }
+
+    // 3. Control API & SSE event stream for Remote SSH hosts (full desktop parity)
+    if parsed.method == "POST" && !has_json_content_type(&parsed.headers) {
+        let resp = build_json_error_response(
+            "415 Unsupported Media Type",
+            "Content-Type: application/json is required.",
+        );
+        let _ = client_stream.write_all(resp.as_bytes()).await;
+        return Ok(());
+    }
+    match (parsed.method.as_str(), path_only) {
+        ("GET", "/api/remote-ssh/state") => {
+            let remote_ssh_clone = Arc::clone(&remote_ssh);
+            let state = tokio::task::spawn_blocking(move || remote_ssh_clone.get_state())
+                .await
+                .map_err(|e| e.to_string())?;
+            let body = serde_json::to_string(&state).map_err(|e| e.to_string())?;
+            let resp = build_json_response("200 OK", &body);
+            client_stream
+                .write_all(resp.as_bytes())
+                .await
+                .map_err(|e| e.to_string())?;
+            Ok(())
+        }
+        ("GET", "/api/remote-ssh/events") => {
+            let mut rx = remote_ssh.subscribe_state_changes();
+            let headers = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nX-Accel-Buffering: no\r\nX-Saint-Lan-Relay: 1\r\n\r\n";
+            client_stream
+                .write_all(headers.as_bytes())
+                .await
+                .map_err(|e| e.to_string())?;
+            let remote_ssh_init = Arc::clone(&remote_ssh);
+            let initial_state = tokio::task::spawn_blocking(move || remote_ssh_init.get_state())
+                .await
+                .map_err(|e| e.to_string())?;
+            let initial = serde_json::to_string(&initial_state).unwrap_or_default();
+            let mut last_payload = initial.clone();
+            client_stream
+                .write_all(format!("data: {initial}\n\n").as_bytes())
+                .await
+                .map_err(|e| e.to_string())?;
+            let mut keepalive = tokio::time::interval(std::time::Duration::from_secs(20));
+            keepalive.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            keepalive.tick().await;
+            loop {
+                tokio::select! {
+                    _ = revoke_rx.changed() => break,
+                    _ = stop_rx.changed() => break,
+                    _ = keepalive.tick() => {
+                        if client_stream.write_all(b": ping\n\n").await.is_err() {
+                            break;
+                        }
+                    }
+                    msg = rx.recv() => {
+                        match msg {
+                            Ok(()) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                                while matches!(
+                                    rx.try_recv(),
+                                    Ok(())
+                                        | Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_))
+                                ) {}
+                                let remote_ssh_next = Arc::clone(&remote_ssh);
+                                let Ok(next_state) =
+                                    tokio::task::spawn_blocking(move || remote_ssh_next.get_state())
+                                        .await
+                                else {
+                                    continue;
+                                };
+                                let payload = serde_json::to_string(&next_state).unwrap_or_default();
+                                if payload == last_payload {
+                                    continue;
+                                }
+                                last_payload = payload.clone();
+                                if client_stream.write_all(format!("data: {payload}\n\n").as_bytes()).await.is_err() {
+                                    break;
+                                }
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+        ("POST", "/api/remote-ssh/connect") => {
+            let body = read_request_body(client_stream, parsed, initial_buf, revoke_rx, stop_rx).await?;
+            let host: DesktopRemoteSshSavedHost = match serde_json::from_slice(&body) {
+                Ok(v) => v,
+                Err(err) => {
+                    let resp = build_json_error_response("400 Bad Request", &err.to_string());
+                    let _ = client_stream.write_all(resp.as_bytes()).await;
+                    return Ok(());
+                }
+            };
+            let result = tokio::task::spawn_blocking(move || remote_ssh.connect(host))
+                .await
+                .map_err(|e| e.to_string())?;
+            let resp = match result {
+                Ok(host_state) => {
+                    let json = serde_json::to_string(&host_state).map_err(|e| e.to_string())?;
+                    build_json_response("200 OK", &json)
+                }
+                Err(err) => build_json_error_response("400 Bad Request", &err),
+            };
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            Ok(())
+        }
+        ("POST", "/api/remote-ssh/disconnect") => {
+            let body = read_request_body(client_stream, parsed, initial_buf, revoke_rx, stop_rx).await?;
+            let input: RemoteSshHostOnlyInput = match serde_json::from_slice(&body) {
+                Ok(v) => v,
+                Err(err) => {
+                    let resp = build_json_error_response("400 Bad Request", &err.to_string());
+                    let _ = client_stream.write_all(resp.as_bytes()).await;
+                    return Ok(());
+                }
+            };
+            let result = tokio::task::spawn_blocking(move || remote_ssh.disconnect(&input.host))
+                .await
+                .map_err(|e| e.to_string())?;
+            let resp = match result {
+                Ok(()) => build_json_response("200 OK", "{}"),
+                Err(err) => build_json_error_response("400 Bad Request", &err),
+            };
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            Ok(())
+        }
+        ("POST", "/api/remote-ssh/stop-server") => {
+            let body = read_request_body(client_stream, parsed, initial_buf, revoke_rx, stop_rx).await?;
+            let host: DesktopRemoteSshSavedHost = match serde_json::from_slice(&body) {
+                Ok(v) => v,
+                Err(err) => {
+                    let resp = build_json_error_response("400 Bad Request", &err.to_string());
+                    let _ = client_stream.write_all(resp.as_bytes()).await;
+                    return Ok(());
+                }
+            };
+            let result = tokio::task::spawn_blocking(move || remote_ssh.stop_server(host))
+                .await
+                .map_err(|e| e.to_string())?;
+            let resp = match result {
+                Ok(()) => build_json_response("200 OK", "{}"),
+                Err(err) => build_json_error_response("400 Bad Request", &err),
+            };
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            Ok(())
+        }
+        ("POST", "/api/remote-ssh/forget") => {
+            let body = read_request_body(client_stream, parsed, initial_buf, revoke_rx, stop_rx).await?;
+            let input: RemoteSshHostOnlyInput = match serde_json::from_slice(&body) {
+                Ok(v) => v,
+                Err(err) => {
+                    let resp = build_json_error_response("400 Bad Request", &err.to_string());
+                    let _ = client_stream.write_all(resp.as_bytes()).await;
+                    return Ok(());
+                }
+            };
+            let _ = tokio::task::spawn_blocking(move || remote_ssh.forget_host(&input.host))
+                .await
+                .map_err(|e| e.to_string())?;
+            let resp = build_json_response("200 OK", "{}");
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            Ok(())
+        }
+        ("POST", "/api/remote-ssh/test-host") => {
+            let body = read_request_body(client_stream, parsed, initial_buf, revoke_rx, stop_rx).await?;
+            let host: DesktopRemoteSshSavedHost = match serde_json::from_slice(&body) {
+                Ok(v) => v,
+                Err(err) => {
+                    let resp = build_json_error_response("400 Bad Request", &err.to_string());
+                    let _ = client_stream.write_all(resp.as_bytes()).await;
+                    return Ok(());
+                }
+            };
+            let result = tokio::task::spawn_blocking(move || remote_ssh.test_host(host))
+                .await
+                .map_err(|e| e.to_string())?;
+            let resp = match result {
+                Ok(test_result) => {
+                    let json = serde_json::to_string(&test_result).map_err(|e| e.to_string())?;
+                    build_json_response("200 OK", &json)
+                }
+                Err(err) => build_json_error_response("400 Bad Request", &err),
+            };
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            Ok(())
+        }
+        ("POST", "/api/remote-ssh/update-host") => {
+            let body = read_request_body(client_stream, parsed, initial_buf, revoke_rx, stop_rx).await?;
+            let input: DesktopRemoteSshUpdateHostInput = match serde_json::from_slice(&body) {
+                Ok(v) => v,
+                Err(err) => {
+                    let resp = build_json_error_response("400 Bad Request", &err.to_string());
+                    let _ = client_stream.write_all(resp.as_bytes()).await;
+                    return Ok(());
+                }
+            };
+            let result = tokio::task::spawn_blocking(move || remote_ssh.update_host(input))
+                .await
+                .map_err(|e| e.to_string())?;
+            let resp = match result {
+                Ok(state) => {
+                    let json = serde_json::to_string(&state).map_err(|e| e.to_string())?;
+                    build_json_response("200 OK", &json)
+                }
+                Err(err) => build_json_error_response("400 Bad Request", &err),
+            };
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            Ok(())
+        }
+        ("POST", "/api/remote-ssh/ws-url") => {
+            let body = read_request_body(client_stream, parsed, initial_buf, revoke_rx, stop_rx).await?;
+            let input: RemoteSshHostOnlyInput = match serde_json::from_slice(&body) {
+                Ok(v) => v,
+                Err(err) => {
+                    let resp = build_json_error_response("400 Bad Request", &err.to_string());
+                    let _ = client_stream.write_all(resp.as_bytes()).await;
+                    return Ok(());
+                }
+            };
+            let proxy_path = if remote_ssh.ws_url_for_host(&input.host).is_some() {
+                remote_ssh
+                    .host_key_for_host(&input.host)
+                    .filter(|key| is_valid_host_key_segment(key))
+                    .map(|key| format!("/api/remote-ssh/proxy/{key}/"))
+            } else {
+                None
+            };
+            let json = serde_json::json!({ "proxyPath": proxy_path }).to_string();
+            let resp = build_json_response("200 OK", &json);
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            Ok(())
+        }
+        ("POST", "/api/remote-ssh/forward-port") => {
+            let body = read_request_body(client_stream, parsed, initial_buf, revoke_rx, stop_rx).await?;
+            let input: RemoteSshForwardPortInput = match serde_json::from_slice(&body) {
+                Ok(v) => v,
+                Err(err) => {
+                    let resp = build_json_error_response("400 Bad Request", &err.to_string());
+                    let _ = client_stream.write_all(resp.as_bytes()).await;
+                    return Ok(());
+                }
+            };
+            let remote_ssh_clone = Arc::clone(&remote_ssh);
+            let host_clone = input.host.clone();
+            let remote_port = input.remote_port;
+            let result = tokio::task::spawn_blocking(move || {
+                remote_ssh_clone.forward_port(&host_clone, remote_port)
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+            let resp = match result {
+                Ok(_) => match remote_ssh
+                    .host_key_for_host(&input.host)
+                    .filter(|key| is_valid_host_key_segment(key))
+                {
+                    Some(key) => {
+                        let Some(local_port) =
+                            remote_ssh.forwarded_port_local_port(&key, remote_port)
+                        else {
+                            let resp = build_json_error_response(
+                                "503 Service Unavailable",
+                                "Forwarded remote port is not active.",
+                            );
+                            let _ = client_stream.write_all(resp.as_bytes()).await;
+                            return Ok(());
+                        };
+                        match ensure_isolated_forward_listener(
+                            inner,
+                            relay_local_ip,
+                            &key,
+                            remote_port,
+                            local_port,
+                            stop_rx,
+                        )
+                        .await
+                        {
+                            Ok(url) => {
+                                let json = serde_json::json!({ "url": url }).to_string();
+                                build_json_response("200 OK", &json)
+                            }
+                            Err(err) => build_json_error_response("500 Internal Server Error", &err),
+                        }
+                    }
+                    None => build_json_error_response(
+                        "500 Internal Server Error",
+                        "Remote host key unavailable.",
+                    ),
+                },
+                Err(err) => build_json_error_response("400 Bad Request", &err),
+            };
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            Ok(())
+        }
+        _ => {
+            let resp = build_json_error_response("404 Not Found", "Unknown remote SSH route.");
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            Ok(())
+        }
+    }
+}
+
 async fn handle_relay_connection(
     mut client_stream: TcpStream,
     remote_addr: SocketAddr,
+    relay_local_ip: IpAddr,
     inner: Arc<Mutex<RelayInner>>,
     backend: Arc<BackendSupervisor>,
+    remote_ssh: Arc<RemoteSshManager>,
     mut stop_rx: watch::Receiver<bool>,
 ) -> Result<(), String> {
     let mut buf = vec![0u8; 16384];
@@ -709,23 +1629,54 @@ async fn handle_relay_connection(
         .find(|(k, _)| k.eq_ignore_ascii_case("user-agent"))
         .map(|(_, v)| v.clone());
 
-    // 1. Handle `/pair` route (supports both `?token=CODE` and `#token=CODE` + manual input)
+    // 1. Handle `/pair` route (`POST /pair` exchanges token; `GET /pair` renders pairing page
+    //    and scrubs legacy `?token=` URLs without authenticating on GET).
     if path_only == "/pair" {
-        if let Some(token) = extract_query_param(&parsed.target, "token") {
-            if let Some(session_secret) =
-                issue_relay_session(&inner, &token, remote_addr, user_agent)
-            {
+        if parsed.method == "POST" {
+            if let Err(reason) = validate_same_origin_request(&parsed.headers, true) {
+                let resp = build_json_error_response("403 Forbidden", reason);
+                let _ = client_stream.write_all(resp.as_bytes()).await;
+                return Ok(());
+            }
+            if is_pair_rate_limited(&inner, remote_addr.ip()) {
+                let html = pairing_html_page(Some(
+                    "Too many failed pairing attempts. Wait a few minutes before retrying.",
+                ));
                 let response = format!(
-                    "HTTP/1.1 302 Found\r\nLocation: /\r\nSet-Cookie: {LAN_SESSION_COOKIE_NAME}={session_secret}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000\r\nCache-Control: no-store\r\nContent-Length: 0\r\n\r\n"
+                    "HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nRetry-After: {}\r\nContent-Length: {}\r\n\r\n{}",
+                    PAIR_RATE_LIMIT_WINDOW.as_secs(),
+                    html.len(),
+                    html
                 );
                 let _ = client_stream.write_all(response.as_bytes()).await;
                 return Ok(());
             }
+            let (_dummy_tx, mut dummy_revoke_rx) = watch::channel(false);
+            let body = read_request_body(
+                &mut client_stream,
+                &parsed,
+                &buf[..filled],
+                &mut dummy_revoke_rx,
+                &mut stop_rx,
+            )
+            .await?;
+            let token = extract_form_param(&body, "token").unwrap_or_default();
+            if let Some(session_secret) =
+                issue_relay_session(&inner, &token, remote_addr, user_agent)
+            {
+                clear_pair_failures(&inner, remote_addr.ip());
+                let response = format!(
+                    "HTTP/1.1 302 Found\r\nLocation: /\r\nSet-Cookie: {LAN_SESSION_COOKIE_NAME}={session_secret}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000\r\nSet-Cookie: {LAN_RELAY_CAPABILITY_COOKIE_NAME}=1; SameSite=Lax; Path=/; Max-Age=2592000\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nContent-Length: 0\r\n\r\n"
+                );
+                let _ = client_stream.write_all(response.as_bytes()).await;
+                return Ok(());
+            }
+            record_pair_failure(&inner, remote_addr.ip());
             let html = pairing_html_page(Some(
                 "Invalid or expired pairing code. Check Settings in Saint Desktop.",
             ));
             let response = format!(
-                "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Length: {}\r\n\r\n{}",
+                "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nContent-Length: {}\r\n\r\n{}",
                 html.len(),
                 html
             );
@@ -733,9 +1684,15 @@ async fn handle_relay_connection(
             return Ok(());
         }
 
+        if extract_query_param(&parsed.target, "token").is_some() {
+            let redirect = "HTTP/1.1 302 Found\r\nLocation: /pair\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nContent-Length: 0\r\n\r\n";
+            let _ = client_stream.write_all(redirect.as_bytes()).await;
+            return Ok(());
+        }
+
         let html = pairing_html_page(None);
         let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Length: {}\r\n\r\n{}",
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nContent-Length: {}\r\n\r\n{}",
             html.len(),
             html
         );
@@ -743,7 +1700,7 @@ async fn handle_relay_connection(
         return Ok(());
     }
 
-    // 2. Check session cookie (or direct `?pairingToken=` query param)
+    // 2. Check session cookie
     let session_rx = extract_cookie_value(&parsed.headers, LAN_SESSION_COOKIE_NAME)
         .and_then(|secret| validate_relay_session(&inner, &secret));
 
@@ -765,13 +1722,42 @@ async fn handle_relay_connection(
         return Ok(());
     };
 
-    // 3. Authenticated: proxy to local `saint-server` (or Vite dev server for web assets in dev)
-    let backend_port = backend.port();
-    let backend_token = backend.auth_token();
+    // 3. Enforce exact same-origin on WebSocket upgrades and state-changing HTTP requests so
+    //    neither cross-site pages nor same-host/different-port services can hijack the relay
+    //    session (SameSite=Lax is port-agnostic).
     let is_upgrade = parsed
         .headers
         .iter()
         .any(|(k, v)| k.eq_ignore_ascii_case("upgrade") && v.eq_ignore_ascii_case("websocket"));
+    let is_state_changing = !matches!(parsed.method.as_str(), "GET" | "HEAD" | "OPTIONS");
+    if is_upgrade || is_state_changing {
+        if let Err(reason) = validate_same_origin_request(&parsed.headers, true) {
+            let resp = build_json_error_response("403 Forbidden", reason);
+            let _ = client_stream.write_all(resp.as_bytes()).await;
+            return Ok(());
+        }
+    }
+
+    // 4. Authenticated: handle Remote SSH control API + reverse-proxy routes before local backend
+    if path_only.starts_with("/api/remote-ssh/") {
+        return handle_remote_ssh_route(
+            &mut client_stream,
+            &parsed,
+            path_only,
+            &buf[..filled],
+            is_upgrade,
+            relay_local_ip,
+            &inner,
+            remote_ssh,
+            &mut revoke_rx,
+            &mut stop_rx,
+        )
+        .await;
+    }
+
+    // 4. Authenticated: proxy to local `saint-server` (or Vite dev server for web assets in dev)
+    let backend_port = backend.port();
+    let backend_token = backend.auth_token();
     let is_backend_route = is_upgrade
         || path_only.starts_with("/api/")
         || path_only == "/ws"
@@ -963,7 +1949,11 @@ fn build_forwarded_request_header(
                     !pair.is_empty()
                         && pair
                             .split_once('=')
-                            .map(|(name, _)| name.trim() != LAN_SESSION_COOKIE_NAME)
+                            .map(|(name, _)| {
+                                let trimmed = name.trim();
+                                trimmed != LAN_SESSION_COOKIE_NAME
+                                    && trimmed != LAN_RELAY_CAPABILITY_COOKIE_NAME
+                            })
                             .unwrap_or(true)
                 })
                 .collect();
@@ -1001,18 +1991,33 @@ fn pairing_html_page(error_msg: Option<&str>) -> String {
   button {{ width:100%; padding:10px 14px; border-radius:8px; border:none; background:#3b82f6; color:#fff; font-weight:600; font-size:15px; cursor:pointer; }}
 </style>
 <script>
-  if (window.location.hash && window.location.hash.indexOf("token=") !== -1) {{
-    var t = window.location.hash.split("token=")[1];
-    if (t) window.location.replace("/pair?token=" + encodeURIComponent(t));
-  }}
+  window.addEventListener("DOMContentLoaded", function () {{
+    if (window.location.hash && window.location.hash.indexOf("token=") !== -1) {{
+      var raw = window.location.hash.slice(1).split("&").find(function (part) {{
+        return part.indexOf("token=") === 0;
+      }});
+      var token = raw ? decodeURIComponent(raw.slice(6)) : "";
+      if (window.history && window.history.replaceState) {{
+        window.history.replaceState(null, "", "/pair");
+      }}
+      if (token) {{
+        var input = document.getElementById("pair-token");
+        var form = document.getElementById("pair-form");
+        if (input && form) {{
+          input.value = token;
+          form.submit();
+        }}
+      }}
+    }}
+  }});
 </script>
 </head>
 <body>
-  <form class="card" method="GET" action="/pair">
+  <form id="pair-form" class="card" method="POST" action="/pair">
     <h1>Pair with Saint Desktop</h1>
     <p>Scan the QR code in Saint Settings &rarr; Remote Hosts, or enter the 12-character pairing code below.</p>
     {error_block}
-    <input type="text" name="token" placeholder="PAIRING CODE" required autocomplete="off" autocapitalize="characters" />
+    <input id="pair-token" type="text" name="token" placeholder="PAIRING CODE" required autocomplete="off" autocapitalize="characters" />
     <button type="submit">Connect Device</button>
   </form>
 </body>
@@ -1367,6 +2372,24 @@ mod tests {
             parse_ipconfig(win),
             vec![("Wi-Fi".to_string(), Ipv4Addr::new(192, 168, 1, 20))]
         );
+        let win_localized = "Ethernet-Adapter Ethernet:\r\n   IPv4-Adresse  . . . . . . . . . . : 10.0.0.42(Bevorzugt)\r\n无线局域网适配器 WLAN：\r\n   IPv4 地址 . . . . . . . . . . . . : 192.168.50.9（首选）\r\n";
+        assert_eq!(
+            parse_ipconfig(win_localized),
+            vec![
+                (
+                    "Ethernet-Adapter Ethernet".to_string(),
+                    Ipv4Addr::new(10, 0, 0, 42)
+                ),
+                (
+                    "无线局域网适配器 WLAN".to_string(),
+                    Ipv4Addr::new(192, 168, 50, 9)
+                ),
+            ]
+        );
+        let fallback = build_discovered_interfaces(Vec::new(), Some(Ipv4Addr::new(192, 168, 1, 88)));
+        assert_eq!(fallback.len(), 1);
+        assert_eq!(fallback[0].address, "192.168.1.88");
+        assert_eq!(fallback[0].kind, "lan");
         assert!(is_virtual_interface_name("docker0"));
         assert!(is_virtual_interface_name("br-1a2b3c"));
         assert!(!is_virtual_interface_name("tailscale0"));
@@ -1379,9 +2402,9 @@ mod tests {
             "saint-relay-test-{}",
             uuid::Uuid::new_v4().simple()
         ));
-        let backend = Arc::new(BackendSupervisor::new(
-            crate::state::SaintPaths::from_base_dir(root),
-        ));
+        let paths = crate::state::SaintPaths::from_base_dir(root);
+        let backend = Arc::new(BackendSupervisor::new(paths.clone()));
+        let remote_ssh = Arc::new(RemoteSshManager::new(paths));
         let fake = TcpListener::bind(("127.0.0.1", backend.port()))
             .await
             .unwrap();
@@ -1405,7 +2428,7 @@ mod tests {
                 )
                 .await;
         });
-        let manager = LanRelayManager::new(Arc::clone(&backend));
+        let manager = LanRelayManager::new(Arc::clone(&backend), Arc::clone(&remote_ssh));
         let token = manager.get_state().pairing_token;
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -1417,7 +2440,13 @@ mod tests {
         } else {
             String::new()
         };
-        tokio::spawn(run_relay_accept_loop(listener, stop_rx, inner, backend));
+        tokio::spawn(run_relay_accept_loop(
+            listener,
+            stop_rx,
+            inner,
+            backend,
+            remote_ssh,
+        ));
         let mut client = TcpStream::connect(addr).await.unwrap();
         client
             .write_all(
@@ -1458,10 +2487,10 @@ mod tests {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let root =
             std::env::temp_dir().join(format!("saint-relay-tls-{}", uuid::Uuid::new_v4().simple()));
-        let backend = Arc::new(BackendSupervisor::new(
-            crate::state::SaintPaths::from_base_dir(root),
-        ));
-        let manager = LanRelayManager::new(Arc::clone(&backend));
+        let paths = crate::state::SaintPaths::from_base_dir(root);
+        let backend = Arc::new(BackendSupervisor::new(paths.clone()));
+        let remote_ssh = Arc::new(RemoteSshManager::new(paths));
+        let manager = LanRelayManager::new(Arc::clone(&backend), Arc::clone(&remote_ssh));
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let (_stop_tx, stop_rx) = watch::channel(false);
@@ -1470,6 +2499,7 @@ mod tests {
             stop_rx,
             Arc::clone(&manager.inner),
             backend,
+            remote_ssh,
         ));
         let mut client = TcpStream::connect(addr).await.unwrap();
         client
@@ -1520,17 +2550,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pairing_link_sets_a_session_cookie() {
+    async fn pairing_post_sets_a_session_cookie_while_get_query_is_rejected_and_rate_limited() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let root = std::env::temp_dir().join(format!(
             "saint-relay-pair-{}",
             uuid::Uuid::new_v4().simple()
         ));
-        let backend = Arc::new(BackendSupervisor::new(
-            crate::state::SaintPaths::from_base_dir(root),
-        ));
-        let manager = LanRelayManager::new(Arc::clone(&backend));
-        let token = manager.get_state().pairing_token;
+        let paths = crate::state::SaintPaths::from_base_dir(root);
+        let backend = Arc::new(BackendSupervisor::new(paths.clone()));
+        let remote_ssh = Arc::new(RemoteSshManager::new(paths));
+        let manager = LanRelayManager::new(Arc::clone(&backend), Arc::clone(&remote_ssh));
+        let state = manager.get_state();
+        let token = state.pairing_token.clone();
+        if let Some(url) = &state.pairing_url {
+            assert!(
+                url.contains("/pair#token="),
+                "pairing_url must keep token in fragment: {url}"
+            );
+        }
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let (_stop_tx, stop_rx) = watch::channel(false);
@@ -1539,23 +2576,340 @@ mod tests {
             stop_rx,
             Arc::clone(&manager.inner),
             backend,
+            remote_ssh,
         ));
-        let mut client = TcpStream::connect(addr).await.unwrap();
-        client
-            .write_all(format!("GET /pair?token={token} HTTP/1.1\r\nHost: x\r\nUser-Agent: curl/8.18.0\r\nAccept: */*\r\n\r\n").as_bytes())
-            .await
-            .unwrap();
-        let mut out = String::new();
-        let _ = tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            client.read_to_string(&mut out),
-        )
+
+        let send = |raw: String| async move {
+            let mut client = TcpStream::connect(addr).await.unwrap();
+            client.write_all(raw.as_bytes()).await.unwrap();
+            let mut out = String::new();
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                client.read_to_string(&mut out),
+            )
+            .await;
+            out
+        };
+
+        // 1. GET /pair?token=... must NOT issue a session cookie.
+        let get_pair = send(format!(
+            "GET /pair?token={token} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nUser-Agent: curl/8.18.0\r\n\r\n",
+            addr.port()
+        ))
+        .await;
+        assert!(get_pair.starts_with("HTTP/1.1 302"), "get_pair: {get_pair:?}");
+        assert!(
+            !get_pair.contains("Set-Cookie: saint_lan_session="),
+            "GET /pair?token must not set session cookie: {get_pair:?}"
+        );
+
+        // 2. Repeated invalid POST /pair attempts trigger 429 rate limiting.
+        for _ in 0..PAIR_RATE_LIMIT_MAX_FAILURES {
+            let bad_body = "token=WRONGCODE123";
+            let bad = send(format!(
+                "POST /pair HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nOrigin: http://127.0.0.1:{}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{bad_body}",
+                addr.port(),
+                addr.port(),
+                bad_body.len()
+            ))
+            .await;
+            assert!(bad.starts_with("HTTP/1.1 401"), "bad pair: {bad:?}");
+        }
+        let limited_body = format!("token={token}");
+        let limited = send(format!(
+            "POST /pair HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nOrigin: http://127.0.0.1:{}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{limited_body}",
+            addr.port(),
+            addr.port(),
+            limited_body.len()
+        ))
+        .await;
+        assert!(limited.starts_with("HTTP/1.1 429"), "rate limit: {limited:?}");
+
+        // Clear rate limit table and verify valid POST /pair succeeds.
+        clear_pair_failures(&manager.inner, IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let ok_body = format!("token={token}");
+        let out = send(format!(
+            "POST /pair HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nOrigin: http://127.0.0.1:{}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{ok_body}",
+            addr.port(),
+            addr.port(),
+            ok_body.len()
+        ))
         .await;
         assert!(out.starts_with("HTTP/1.1 302"), "pair: {out:?}");
         assert!(
             out.contains("Set-Cookie: saint_lan_session="),
             "pair: {out:?}"
         );
+        assert!(
+            out.contains("Set-Cookie: saint_lan_relay=1;"),
+            "pair should set capability cookie: {out:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn blocks_cross_port_cswsh_csrf_and_isolates_forwarded_dev_servers() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let root = std::env::temp_dir().join(format!(
+            "saint-relay-sec-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let paths = crate::state::SaintPaths::from_base_dir(root.clone());
+        let backend = Arc::new(BackendSupervisor::new(paths.clone()));
+        let remote_ssh = Arc::new(RemoteSshManager::new(paths));
+
+        // Fake dev server behind an SSH tunnel on loopback
+        let fake_dev = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let fake_dev_port = fake_dev.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            while let Ok((mut s, _)) = fake_dev.accept().await {
+                let mut buf = vec![0u8; 4096];
+                let n = s.read(&mut buf).await.unwrap_or(0);
+                let req = String::from_utf8_lossy(&buf[..n]).to_string();
+                let body = format!("dev-saw-cookie={}", req.contains(LAN_SESSION_COOKIE_NAME));
+                let _ = s
+                    .write_all(
+                        format!(
+                            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}",
+                            body.len()
+                        )
+                        .as_bytes(),
+                    )
+                    .await;
+            }
+        });
+
+        let manager = LanRelayManager::new(Arc::clone(&backend), Arc::clone(&remote_ssh));
+        let pairing_token = manager.get_state().pairing_token;
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (_stop_tx, stop_rx) = watch::channel(false);
+        let inner = Arc::clone(&manager.inner);
+        let session_secret = issue_relay_session(&inner, &pairing_token, addr, None).unwrap();
+        tokio::spawn(run_relay_accept_loop(
+            listener,
+            stop_rx.clone(),
+            Arc::clone(&inner),
+            backend,
+            Arc::clone(&remote_ssh),
+        ));
+
+        let send_to = |target: SocketAddr, raw: String| async move {
+            let mut c = TcpStream::connect(target).await.unwrap();
+            c.write_all(raw.as_bytes()).await.unwrap();
+            let mut out = String::new();
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                c.read_to_string(&mut out),
+            )
+            .await;
+            out
+        };
+
+        // 1. Cross-port WebSocket upgrade (same IP, different port) is blocked with 403.
+        let ws_cross_port = send_to(
+            addr,
+            format!(
+                "GET /ws HTTP/1.1\r\nHost: 192.168.1.5:3883\r\nOrigin: http://192.168.1.5:5173\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nCookie: {LAN_SESSION_COOKIE_NAME}={session_secret}\r\n\r\n"
+            ),
+        )
+        .await;
+        assert!(
+            ws_cross_port.starts_with("HTTP/1.1 403"),
+            "cross-port CSWSH must be rejected: {ws_cross_port:?}"
+        );
+
+        // 2. Same-site (cross-port) Sec-Fetch-Site WebSocket upgrade is blocked with 403.
+        let ws_same_site = send_to(
+            addr,
+            format!(
+                "GET /ws HTTP/1.1\r\nHost: 192.168.1.5:3883\r\nSec-Fetch-Site: same-site\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nCookie: {LAN_SESSION_COOKIE_NAME}={session_secret}\r\n\r\n"
+            ),
+        )
+        .await;
+        assert!(
+            ws_same_site.starts_with("HTTP/1.1 403"),
+            "Sec-Fetch-Site: same-site WS must be rejected: {ws_same_site:?}"
+        );
+
+        // 3. Cross-origin POST /api/remote-ssh/ws-url is blocked with 403.
+        let body = r#"{"host":"devbox"}"#;
+        let post_cross_origin = send_to(
+            addr,
+            format!(
+                "POST /api/remote-ssh/ws-url HTTP/1.1\r\nHost: 192.168.1.5:3883\r\nOrigin: http://192.168.1.5:5173\r\nContent-Type: application/json\r\nContent-Length: {}\r\nCookie: {LAN_SESSION_COOKIE_NAME}={session_secret}\r\n\r\n{body}",
+                body.len()
+            ),
+        )
+        .await;
+        assert!(
+            post_cross_origin.starts_with("HTTP/1.1 403"),
+            "cross-origin POST must be rejected: {post_cross_origin:?}"
+        );
+
+        // 4. text/plain POST /api/remote-ssh/ws-url is rejected with 415.
+        let post_plain = send_to(
+            addr,
+            format!(
+                "POST /api/remote-ssh/ws-url HTTP/1.1\r\nHost: 192.168.1.5:3883\r\nOrigin: http://192.168.1.5:3883\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nCookie: {LAN_SESSION_COOKIE_NAME}={session_secret}\r\n\r\n{body}",
+                body.len()
+            ),
+        )
+        .await;
+        assert!(
+            post_plain.starts_with("HTTP/1.1 415"),
+            "text/plain POST must be rejected: {post_plain:?}"
+        );
+
+        // 5. Legacy same-origin /api/remote-ssh/forward/... route returns 410 Gone.
+        let legacy_forward = send_to(
+            addr,
+            format!(
+                "GET /api/remote-ssh/forward/hk-1/3000/ HTTP/1.1\r\nHost: 192.168.1.5:3883\r\nCookie: {LAN_SESSION_COOKIE_NAME}={session_secret}\r\n\r\n"
+            ),
+        )
+        .await;
+        assert!(
+            legacy_forward.starts_with("HTTP/1.1 410"),
+            "same-origin forward path must return 410: {legacy_forward:?}"
+        );
+
+        // 6. Isolated forward listener runs on its own port, requires session cookie, and strips it.
+        let isolated_url = ensure_isolated_forward_listener(
+            &inner,
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            "hk-1",
+            3000,
+            fake_dev_port,
+            &stop_rx,
+        )
+        .await
+        .unwrap();
+        let port_str = isolated_url
+            .trim_start_matches("http://127.0.0.1:")
+            .trim_end_matches('/');
+        let isolated_port: u16 = port_str.parse().unwrap();
+        assert_ne!(isolated_port, addr.port());
+        let isolated_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, isolated_port));
+
+        let unauth_dev = send_to(
+            isolated_addr,
+            format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{isolated_port}\r\n\r\n"),
+        )
+        .await;
+        assert!(unauth_dev.starts_with("HTTP/1.1 401"), "unauth dev: {unauth_dev:?}");
+
+        let auth_dev = send_to(
+            isolated_addr,
+            format!(
+                "GET / HTTP/1.1\r\nHost: 127.0.0.1:{isolated_port}\r\nCookie: {LAN_SESSION_COOKIE_NAME}={session_secret}\r\n\r\n"
+            ),
+        )
+        .await;
+        assert!(auth_dev.contains("dev-saw-cookie=false"), "auth dev: {auth_dev:?}");
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn serves_remote_ssh_state_and_proxies_connected_host_for_paired_device() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let root = std::env::temp_dir().join(format!(
+            "saint-relay-ssh-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let paths = crate::state::SaintPaths::from_base_dir(root.clone());
+        let backend = Arc::new(BackendSupervisor::new(paths.clone()));
+        let remote_ssh = Arc::new(RemoteSshManager::new(paths));
+
+        // Fake remote SSH server listening on desktop loopback
+        let fake_ssh = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let fake_ssh_port = fake_ssh.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (mut s, _) = fake_ssh.accept().await.unwrap();
+            let mut buf = vec![0u8; 4096];
+            let n = s.read(&mut buf).await.unwrap();
+            let req = String::from_utf8_lossy(&buf[..n]).to_string();
+            let first = req.lines().next().unwrap_or("").to_string();
+            let body = format!("ssh-upstream: {first}");
+            let _ = s
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .await;
+        });
+        remote_ssh.insert_test_connected_host("devbox", "hk-devbox-1", fake_ssh_port, "ssh-secret");
+
+        let manager = LanRelayManager::new(Arc::clone(&backend), Arc::clone(&remote_ssh));
+        let pairing_token = manager.get_state().pairing_token;
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (_stop_tx, stop_rx) = watch::channel(false);
+        let inner = Arc::clone(&manager.inner);
+        let session_secret = issue_relay_session(&inner, &pairing_token, addr, None).unwrap();
+        tokio::spawn(run_relay_accept_loop(
+            listener,
+            stop_rx,
+            inner,
+            backend,
+            Arc::clone(&remote_ssh),
+        ));
+
+        let send_raw = |raw: String| async move {
+            let mut c = TcpStream::connect(addr).await.unwrap();
+            c.write_all(raw.as_bytes()).await.unwrap();
+            let mut out = String::new();
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                c.read_to_string(&mut out),
+            )
+            .await;
+            out
+        };
+
+        // 1. Unpaired request to /api/remote-ssh/state must be rejected with 401
+        let unauth = send_raw(
+            "GET /api/remote-ssh/state HTTP/1.1\r\nHost: 192.168.1.5:3883\r\n\r\n".to_string(),
+        )
+        .await;
+        assert!(unauth.starts_with("HTTP/1.1 401"), "unauth: {unauth:?}");
+
+        // 2. Paired GET /api/remote-ssh/state returns the connected host + capability header
+        let state_resp = send_raw(format!(
+            "GET /api/remote-ssh/state HTTP/1.1\r\nHost: 192.168.1.5:3883\r\nCookie: {LAN_SESSION_COOKIE_NAME}={session_secret}\r\n\r\n"
+        ))
+        .await;
+        assert!(state_resp.starts_with("HTTP/1.1 200"), "state: {state_resp:?}");
+        assert!(state_resp.contains("X-Saint-Lan-Relay: 1"));
+        assert!(state_resp.contains("\"hostKey\":\"hk-devbox-1\""));
+
+        // 3. Paired POST /api/remote-ssh/ws-url returns proxy path without leaking token
+        let ws_body = r#"{"host":"devbox"}"#;
+        let ws_resp = send_raw(format!(
+            "POST /api/remote-ssh/ws-url HTTP/1.1\r\nHost: 192.168.1.5:3883\r\nCookie: {LAN_SESSION_COOKIE_NAME}={session_secret}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{ws_body}",
+            ws_body.len()
+        ))
+        .await;
+        assert!(ws_resp.starts_with("HTTP/1.1 200"), "ws-url: {ws_resp:?}");
+        assert!(ws_resp.contains("/api/remote-ssh/proxy/hk-devbox-1/"));
+        assert!(!ws_resp.contains("ssh-secret"));
+
+        // 4. Paired GET /api/remote-ssh/proxy/hk-devbox-1/attachments/a.png?x=1 proxies & injects auth
+        let proxied = send_raw(format!(
+            "GET /api/remote-ssh/proxy/hk-devbox-1/attachments/a.png?x=1&token=forged HTTP/1.1\r\nHost: 192.168.1.5:3883\r\nCookie: {LAN_SESSION_COOKIE_NAME}={session_secret}; {LAN_RELAY_CAPABILITY_COOKIE_NAME}=1\r\n\r\n"
+        ))
+        .await;
+        assert!(proxied.starts_with("HTTP/1.1 200"), "proxy: {proxied:?}");
+        assert!(
+            proxied.contains("ssh-upstream: GET /attachments/a.png?x=1&token=ssh-secret&client="),
+            "proxy did not rewrite path/auth properly: {proxied:?}"
+        );
+        assert!(!proxied.contains("forged"));
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[tokio::test]

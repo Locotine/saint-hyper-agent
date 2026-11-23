@@ -22,6 +22,28 @@ import {
   stopTranscriptScrollAtCurrentOffset,
 } from "./transcriptScroll";
 
+function hasScrollableAncestorForWheel(
+  target: EventTarget | null,
+  stopAt: HTMLElement,
+  upward: boolean,
+): boolean {
+  let node: Element | null = target instanceof Element ? target : null;
+  while (node && node !== stopAt) {
+    if (node instanceof HTMLElement && node.scrollHeight > node.clientHeight + 1) {
+      const overflowY = window.getComputedStyle(node).overflowY;
+      if (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") {
+        if (
+          upward ? node.scrollTop > 0 : node.scrollTop + node.clientHeight < node.scrollHeight - 1
+        ) {
+          return true;
+        }
+      }
+    }
+    node = node.parentElement;
+  }
+  return false;
+}
+
 interface ChatTranscriptScrollInput {
   activeThreadId: ThreadId | null;
   legendListRef: RefObject<LegendListRef | null>;
@@ -42,6 +64,10 @@ export function useChatTranscriptScroll({
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const isAtEndRef = useRef(true);
+  const lastObservedScrollRef = useRef<{
+    container: HTMLElement | null;
+    scrollTop: number;
+  }>({ container: null, scrollTop: 0 });
   const autoFollowThreadIdRef = useRef<ThreadId | null>(null);
   const pendingInteractionAnchorRef = useRef<{
     element: HTMLElement;
@@ -193,6 +219,18 @@ export function useChatTranscriptScroll({
   const onIsAtEndChange = useCallback(
     (isAtEnd: boolean) => {
       const container = legendListRef.current?.getScrollableNode();
+      const prevObserved = lastObservedScrollRef.current;
+      const isProgrammatic =
+        tailAnchorScrollInFlightRef.current ||
+        settledScrollInFlightRef.current ||
+        performance.now() < programmaticScrollUntilRef.current;
+      const scrollTopDropped =
+        container instanceof HTMLElement &&
+        prevObserved.container === container &&
+        container.scrollTop < prevObserved.scrollTop - 1;
+      if (container instanceof HTMLElement) {
+        lastObservedScrollRef.current = { container, scrollTop: container.scrollTop };
+      }
       const pending = pendingScrollGestureRef.current;
       if (pending?.keyboard && container === pending.container) {
         // Native key scrolling can begin after keyup and after multiple frames.
@@ -201,6 +239,17 @@ export function useChatTranscriptScroll({
         pendingScrollGestureRef.current = null;
       }
       if (!isAtEnd && !isUserScrollDetachedRef.current) {
+        // Non-gesture upward scrolls (middle-click autoscroll, scrollbar drag whose
+        // pointerup landed outside the listener, accessibility/Find/PageUp without
+        // container focus) decrease scrollTop directly. Detach immediately rather
+        // than ignoring or snapping back during streaming.
+        if (scrollTopDropped && !isProgrammatic) {
+          cancelPendingFollowCorrection();
+          setTranscriptScrollDetached(true);
+          isAtEndRef.current = false;
+          showScrollDebouncer.current.maybeExecute();
+          return;
+        }
         if (
           hasStreamingAssistantText &&
           container instanceof HTMLElement &&
@@ -268,7 +317,13 @@ export function useChatTranscriptScroll({
       }
       isAtEndRef.current = atEnd;
     },
-    [legendListRef, hasStreamingAssistantText, scrollToEnd, setTranscriptScrollDetached],
+    [
+      cancelPendingFollowCorrection,
+      legendListRef,
+      hasStreamingAssistantText,
+      scrollToEnd,
+      setTranscriptScrollDetached,
+    ],
   );
   const cancelPendingInteractionAnchorAdjustment = useCallback(() => {
     const pendingFrame = pendingInteractionAnchorFrameRef.current;
@@ -342,6 +397,11 @@ export function useChatTranscriptScroll({
       const container = legendListRef.current?.getScrollableNode();
       if (!(container instanceof HTMLElement)) return;
       if (!upward && isAtEndRef.current && isScrollContainerNearBottom(container, 1)) return;
+      if (upward && container.scrollHeight <= container.clientHeight + 1) {
+        // Short non-overflowing transcript: an upward gesture cannot scroll away
+        // from the bottom, so it must not detach live follow.
+        return;
+      }
       const pending = pendingScrollGestureRef.current;
       const origin =
         pending?.container === container
@@ -354,6 +414,14 @@ export function useChatTranscriptScroll({
                 (!upward || isScrollContainerNearBottom(container, 1)),
             };
       clearTranscriptAutoFollow();
+      if (upward) {
+        // Smooth/compositor wheel and trackpad inertia can take >2 frames to lower
+        // `scrollTop`. Never re-arm follow or snap back to bottom from an upward gesture;
+        // nested scrollable containers are already filtered synchronously on the wheel event.
+        isAtEndRef.current = false;
+        showScrollDebouncer.current.maybeExecute();
+        return;
+      }
       pendingScrollGestureRef.current = origin;
       // Native scrolling can settle on the next rendering pass. Keep one
       // pending check per gesture burst, preserving ownership from its first event.
@@ -385,11 +453,19 @@ export function useChatTranscriptScroll({
   );
   const onMessagesWheelBase = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
-      // Horizontal scroll, zoom, and scrolling down at the end do not leave it.
-      if (event.ctrlKey || event.deltaY === 0) return;
-      onMessagesScrollGesture(event.deltaY < 0);
+      // Horizontal scroll, zoom, sub-pixel no-op wheel jitter, and scrolling down at the end do not leave it.
+      if (event.ctrlKey || Math.abs(event.deltaY) < 1) return;
+      const upward = event.deltaY < 0;
+      const container = legendListRef.current?.getScrollableNode();
+      if (
+        container instanceof HTMLElement &&
+        hasScrollableAncestorForWheel(event.target, container, upward)
+      ) {
+        return;
+      }
+      onMessagesScrollGesture(upward);
     },
-    [onMessagesScrollGesture],
+    [legendListRef, onMessagesScrollGesture],
   );
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -541,6 +617,7 @@ export function useChatTranscriptScroll({
 
     const insetDeltaPx = composerTranscriptInsetPx - previous.insetPx;
     if (isInactiveSplitPane || Math.abs(insetDeltaPx) < 0.5) return;
+    if (isUserScrollDetachedRef.current) return;
 
     const scrollContainer = legendListRef.current?.getScrollableNode?.();
     if (!(scrollContainer instanceof HTMLElement)) return;

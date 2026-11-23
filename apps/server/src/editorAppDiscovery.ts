@@ -10,6 +10,8 @@ import { statSync } from "node:fs";
 import { join } from "node:path";
 
 import { EDITORS } from "@saint/contracts";
+import { resolveExecutable } from "@saint/shared/executable";
+import { resolveWindowsPowerShellExecutable } from "@saint/shared/platformEnvironment";
 
 export type EditorDefinition = (typeof EDITORS)[number];
 
@@ -156,7 +158,7 @@ function resolvePowerShellCacheKey(
     platform,
     families,
     path: env.PATH ?? env.Path ?? env.path ?? "",
-    systemRoot: env.SystemRoot ?? env.WINDIR ?? "",
+    powerShell: resolveWindowsPowerShellExecutable(env),
   });
 }
 
@@ -220,8 +222,14 @@ export function resolveWindowsStorePackageDirectoryFromPowerShell(
     "exit 1",
   ].join("; ");
 
+  const systemPowerShell = resolveWindowsPowerShellExecutable(env);
+  const powerShellExecutable =
+    execFile === execFileSync && process.platform !== "win32"
+      ? (resolveExecutable("powershell", { platform, env }) ?? systemPowerShell)
+      : systemPowerShell;
+
   try {
-    const stdout = execFile("powershell.exe", ["-NoProfile", "-Command", script], {
+    const stdout = execFile(powerShellExecutable, ["-NoProfile", "-Command", script], {
       encoding: "utf8",
       env,
       stdio: ["ignore", "pipe", "ignore"],

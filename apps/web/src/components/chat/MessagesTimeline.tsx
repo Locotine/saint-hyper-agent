@@ -13,6 +13,7 @@ import {
   type ThreadGoalAchievement,
   type TurnId,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { isLocalAbsolutePath } from "@saint/shared/path";
 import { pluralize } from "@saint/shared/text";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
@@ -71,13 +72,16 @@ import {
   type LucideIcon,
   NewThreadIcon,
   PinIcon,
+  ServerIcon,
   SteerIcon,
   ThinkingIcon,
   Undo2Icon,
   WorktreeIcon,
 } from "~/lib/icons";
 import { useHostId } from "~/hosts/hostScope";
-import { hostAttachmentPreviewUrl } from "~/lib/wsHttpUrl";
+import { isImeComposingKeyEvent } from "~/lib/ime";
+import { hostAttachmentPreviewUrl, isHostAttachmentPath } from "~/lib/wsHttpUrl";
+import { useHostExplicitUrl } from "../LocalImagePreview";
 import { pinActionLabel } from "~/lib/pin";
 import { syncAnimationsToTimelineOrigin } from "~/lib/animationTimelineSync";
 import { useStableCallback } from "~/hooks/useStableCallback";
@@ -1272,7 +1276,12 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   useEffect(() => {
     const previousRowCount = previousRowCountRef.current;
     previousRowCountRef.current = rows.length;
-    if (previousRowCount > 0 || rows.length === 0) {
+    if (
+      previousRowCount > 0 ||
+      rows.length === 0 ||
+      tailAnchorMessageId !== null ||
+      tailAnchorSlideInFlight
+    ) {
       return;
     }
     onIsAtEndChange?.(true);
@@ -1282,7 +1291,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [onIsAtEndChange, resolvedListRef, rows.length]);
+  }, [onIsAtEndChange, resolvedListRef, rows.length, tailAnchorMessageId, tailAnchorSlideInFlight]);
   // Sent-message anchors (id + position in the virtualized row list) for the
   // navigation trail. Held in a ref so the viewability callback stays stable and
   // doesn't re-subscribe LegendList on every transcript change.
@@ -3714,24 +3723,38 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
   resolvedTheme: "light" | "dark";
 }) {
   const hostId = useHostId();
-  const previewUrl = props.image.previewUrl
-    ? hostAttachmentPreviewUrl(hostId, props.image.previewUrl)
-    : undefined;
+  const hostExplicitUrl = useHostExplicitUrl(hostId);
+  const isOfflineRemote =
+    hostId !== LOCAL_HOST_ID &&
+    hostExplicitUrl === null &&
+    Boolean(props.image.previewUrl && isHostAttachmentPath(props.image.previewUrl));
+  const resolveThumbnailPreviewUrl = (rawUrl: string | undefined): string | undefined => {
+    if (!rawUrl) return undefined;
+    if (hostId !== LOCAL_HOST_ID && hostExplicitUrl === null && isHostAttachmentPath(rawUrl)) {
+      return undefined;
+    }
+    return hostAttachmentPreviewUrl(hostId, rawUrl);
+  };
+  const previewUrl = resolveThumbnailPreviewUrl(props.image.previewUrl);
   return (
     <button
       type="button"
       className="flex size-15 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-background/82 text-left shadow-[0_1px_0_rgba(255,255,255,0.2)_inset] transition-colors hover:bg-background/94"
-      aria-label={`Preview ${props.image.name}`}
-      title={props.image.name}
+      aria-label={
+        isOfflineRemote ? `Connect host to view ${props.image.name}` : `Preview ${props.image.name}`
+      }
+      title={isOfflineRemote ? "Connect host to view image" : props.image.name}
       onClick={() => {
+        if (isOfflineRemote) return;
         const preview = buildExpandedImagePreview(
-          props.userImages.map((image) => ({
-            id: image.id,
-            name: image.name,
-            ...(image.previewUrl
-              ? { previewUrl: hostAttachmentPreviewUrl(hostId, image.previewUrl) }
-              : {}),
-          })),
+          props.userImages.map((image) => {
+            const resolvedUrl = resolveThumbnailPreviewUrl(image.previewUrl);
+            return {
+              id: image.id,
+              name: image.name,
+              ...(resolvedUrl ? { previewUrl: resolvedUrl } : {}),
+            };
+          }),
           props.image.id,
         );
         if (!preview) return;
@@ -3740,12 +3763,21 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
     >
       {previewUrl ? (
         <img
+          key={previewUrl}
           src={previewUrl}
           alt={props.image.name}
           className="size-full object-cover"
           onLoad={props.onTimelineImageLoad}
           onError={props.onTimelineImageLoad}
         />
+      ) : isOfflineRemote ? (
+        <div
+          className="flex size-full flex-col items-center justify-center gap-0.5 px-1 text-center text-muted-foreground"
+          data-status="offline"
+        >
+          <ServerIcon className="size-3.5 opacity-75" aria-hidden="true" />
+          <span className="text-ui-xs leading-tight">Offline</span>
+        </div>
       ) : (
         <div className="flex size-full items-center justify-center">
           <FileEntryIcon
@@ -3920,6 +3952,9 @@ const UserMessageEditForm = memo(function UserMessageEditForm(props: {
   }, [draft]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isImeComposingKeyEvent(event)) {
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       props.onCancel();
@@ -4001,7 +4036,10 @@ const UserMessageCollapsibleText = memo(function UserMessageCollapsibleText(prop
 
   const lineHeightPx = getChatTranscriptUserMessageLineHeightPx(props.chatFontSizePx);
   const clampHeightPx = USER_MESSAGE_COLLAPSED_MAX_LINES * lineHeightPx;
-  const fadeStartPx = clampHeightPx - USER_MESSAGE_COLLAPSED_FADE_LINES * lineHeightPx;
+  const fadeSpanPx = USER_MESSAGE_COLLAPSED_FADE_LINES * lineHeightPx;
+  const fadeStartPx = Math.max(0, clampHeightPx - fadeSpanPx);
+  const fadeMidPx = Math.max(fadeStartPx, clampHeightPx - fadeSpanPx * 0.45);
+  const fadeMask = `linear-gradient(to bottom, black ${fadeStartPx}px, rgba(0, 0, 0, 0.35) ${fadeMidPx}px, transparent calc(100% - 2px), transparent 100%)`;
   const clamped = collapsed && overflowing;
 
   // Observe the natural content inside the clamp. ResizeObserver reports its
@@ -4027,7 +4065,8 @@ const UserMessageCollapsibleText = memo(function UserMessageCollapsibleText(prop
                 maxHeight: `${clampHeightPx}px`,
                 ...(clamped
                   ? {
-                      maskImage: `linear-gradient(to bottom, black ${fadeStartPx}px, transparent 100%)`,
+                      maskImage: fadeMask,
+                      WebkitMaskImage: fadeMask,
                     }
                   : {}),
               }

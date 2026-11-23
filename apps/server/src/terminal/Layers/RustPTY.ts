@@ -381,6 +381,7 @@ function spawnRustPtyProcess(
         token,
         shell: input.shell,
         args: input.args ?? [],
+        ...(input.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}),
         cwd: input.cwd,
         cols: Math.max(8, Math.floor(input.cols)),
         rows: Math.max(2, Math.floor(input.rows)),

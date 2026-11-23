@@ -143,8 +143,10 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+d", command: "diff.toggle", when: "!terminalFocus" },
   { key: "alt+arrowdown", command: "diff.change.next", when: "!terminalFocus" },
   { key: "alt+arrowup", command: "diff.change.previous", when: "!terminalFocus" },
-  // Cmd-only instead of mod so Ctrl+L remains available to shells on non-macOS.
-  { key: "cmd+l", command: "composer.focus.toggle", when: "!terminalFocus" },
+  // Cmd+L on macOS; Ctrl+Shift+L on Linux/Windows so Ctrl+L remains available to shells
+  // and Super/Win+L never conflicts with the OS lock-screen shortcut.
+  { key: "cmd+l", command: "composer.focus.toggle", when: "!terminalFocus && isMac" },
+  { key: "ctrl+shift+l", command: "composer.focus.toggle", when: "!terminalFocus && !isMac" },
   { key: "mod+f", command: "chat.find", when: "!terminalFocus" },
   // Workspace search palette: file names and snippet content. Keep these off terminal focus
   // so Ctrl+P/Ctrl+Shift+F remain available to the shell on Windows/Linux.

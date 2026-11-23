@@ -13,7 +13,7 @@ import { isLocalAbsolutePath, isWindowsAbsolutePath } from "@saint/shared/path";
 
 import type { HostId } from "@saint/shared/hostId";
 
-import { resolveHostHttpUrl, resolveWsHttpUrl } from "./wsHttpUrl";
+import { resolveHostHttpUrl, resolveHostHttpUrlOrNull, resolveWsHttpUrl } from "./wsHttpUrl";
 
 function normalizeMarkdownImagePath(src: string): string {
   const trimmed = src.trim();
@@ -58,7 +58,7 @@ export function localImageAbsolutePath(src: string): string | null {
   return isLocalImageMarkdownSrc(src) && isLocalAbsolutePath(normalized) ? normalized : null;
 }
 
-export function buildLocalImageUrl(input: {
+export interface LocalImageUrlInput {
   readonly src: string;
   readonly cwd: string | undefined;
   readonly download?: boolean;
@@ -70,7 +70,9 @@ export function buildLocalImageUrl(input: {
   readonly cacheKey?: string | number | undefined;
   /** A remote host's chat reads files from that host's server; omitted means this computer. */
   readonly hostId?: HostId | undefined;
-}): string {
+}
+
+function buildLocalImagePath(input: LocalImageUrlInput): string {
   const params = new URLSearchParams({ path: normalizeMarkdownImagePath(input.src) });
   if (input.cwd) {
     params.set("cwd", input.cwd);
@@ -84,10 +86,19 @@ export function buildLocalImageUrl(input: {
   if (input.download) {
     params.set("download", "1");
   }
+  return `${LOCAL_IMAGE_ROUTE_PATH}?${params.toString()}`;
+}
+
+export function buildLocalImageUrlOrNull(input: LocalImageUrlInput): string | null {
+  const path = buildLocalImagePath(input);
+  return input.hostId ? resolveHostHttpUrlOrNull(input.hostId, path) : resolveWsHttpUrl(path);
+}
+
+export function buildLocalImageUrl(input: LocalImageUrlInput): string {
   // Always route through the WS-derived HTTP origin so desktop builds (custom protocol)
   // include the same legacy startup token attachments already use; in web/dev (where
   // the page and server share an origin) this falls back to the same relative path.
-  const path = `${LOCAL_IMAGE_ROUTE_PATH}?${params.toString()}`;
+  const path = buildLocalImagePath(input);
   return input.hostId ? resolveHostHttpUrl(input.hostId, path) : resolveWsHttpUrl(path);
 }
 

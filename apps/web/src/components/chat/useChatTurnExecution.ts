@@ -561,6 +561,7 @@ export function useChatTurnExecution({
               const setupActivityWait = waitForSetupScriptTerminalActivity({
                 threadId: setupTerminal.threadId,
                 terminalId: setupTerminal.terminalId,
+                hostId: chatHost.hostId,
                 signal: setupActivityAbortController.signal,
               });
               // Setup scripts can run for minutes; let Cancel / Work locally win

@@ -3,7 +3,7 @@
 // Layer: Chat terminal controller tests
 
 import { ThreadId } from "@saint/contracts";
-import { scopeLocalThread } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeLocalThread } from "@saint/shared/hostId";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const reactHarness = vi.hoisted(() => {
@@ -246,6 +246,7 @@ describe("useChatTerminalController", () => {
 
     expect(terminalSession.disposeAndClose).toHaveBeenCalledWith({
       api: expect.any(Object),
+      hostId: LOCAL_HOST_ID,
       threadId: THREAD_ID,
       terminalId: "terminal-1",
       requireStructuredClose: true,
@@ -291,6 +292,7 @@ describe("useChatTerminalController", () => {
     expect(terminalLogic.shouldAutoDelete).not.toHaveBeenCalled();
     expect(terminalSession.disposeAndClose).toHaveBeenCalledWith({
       api: expect.any(Object),
+      hostId: LOCAL_HOST_ID,
       threadId: THREAD_ID,
       terminalId: "terminal-1",
       clearHistoryBeforeClose: true,

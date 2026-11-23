@@ -42,6 +42,7 @@ export interface OpenInEditorInput {
 export interface EditorLaunch {
   readonly command: string;
   readonly args: ReadonlyArray<string>;
+  readonly cwd?: string;
 }
 
 interface CommandAvailabilityOptions {
@@ -194,7 +195,9 @@ const DEFAULT_TERMINAL_ARGS: TerminalArgsBuilder = (workingDirectory) => [
 
 const TERMINAL_ARGS_BY_COMMAND: Readonly<Record<string, TerminalArgsBuilder>> = {
   wt: (workingDirectory) => ["-d", workingDirectory],
-  cmd: (workingDirectory) => ["/K", "cd", "/d", workingDirectory],
+  // `cmd.exe` receives its working directory via `spawn({ cwd })` instead of `/K cd /d <path>`
+  // so cmd metacharacters (`&`, `%`, `^`, `(`, `)`) in folder names are never interpreted.
+  cmd: () => ["/d", "/k"],
   powershell: (workingDirectory) => [
     "-NoExit",
     "-Command",
@@ -219,6 +222,25 @@ function resolveTerminalCommandArgs(command: string, target: string): ReadonlyAr
   const buildArgs =
     TERMINAL_ARGS_BY_COMMAND[normalizeCommandName(command)] ?? DEFAULT_TERMINAL_ARGS;
   return buildArgs(workingDirectory);
+}
+
+function resolveCommandEditorLaunch(
+  editor: EditorDefinition,
+  target: string,
+  command: string,
+): EditorLaunch {
+  const args = resolveCommandEditorArgs(editor, target, command);
+  if (
+    editor.launchStyle === "terminal-working-directory" &&
+    normalizeCommandName(command) === "cmd"
+  ) {
+    return {
+      command,
+      args,
+      cwd: resolveTerminalWorkingDirectory(target),
+    };
+  }
+  return { command, args };
 }
 
 function shouldPreferMacApplicationLaunch(
@@ -384,10 +406,7 @@ export const resolveEditorLaunch = Effect.fnUntraced(function* (
       resolveExecutable(candidate, { platform, env }),
     );
     if (command) {
-      return {
-        command,
-        args: resolveCommandEditorArgs(editorDef, input.cwd, command),
-      };
+      return resolveCommandEditorLaunch(editorDef, input.cwd, command);
     }
   }
 
@@ -411,10 +430,7 @@ export const resolveEditorLaunch = Effect.fnUntraced(function* (
     if (!fallbackCommand) {
       return yield* new OpenError({ message: `Unsupported editor: ${input.editor}` });
     }
-    return {
-      command: fallbackCommand,
-      args: resolveCommandEditorArgs(editorDef, input.cwd, fallbackCommand),
-    };
+    return resolveCommandEditorLaunch(editorDef, input.cwd, fallbackCommand);
   }
 
   if (editorDef.id !== "file-manager") {
@@ -425,7 +441,11 @@ export const resolveEditorLaunch = Effect.fnUntraced(function* (
 });
 
 function editorLaunchesEqual(left: EditorLaunch, right: EditorLaunch): boolean {
-  return left.command === right.command && left.args.join("\0") === right.args.join("\0");
+  return (
+    left.command === right.command &&
+    left.args.join("\0") === right.args.join("\0") &&
+    left.cwd === right.cwd
+  );
 }
 
 function launchDetachedWithEditorFallback(
@@ -459,6 +479,7 @@ export const launchDetached = (launch: EditorLaunch) =>
           detached: true,
           stdio: "ignore",
           requireExecutable: true,
+          ...(launch.cwd !== undefined ? { cwd: launch.cwd } : {}),
         });
       } catch (error) {
         return resume(

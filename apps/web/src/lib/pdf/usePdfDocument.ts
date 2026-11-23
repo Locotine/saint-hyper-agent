@@ -30,18 +30,28 @@ const INITIAL_STATE: PdfDocumentState = {
   error: null,
 };
 
+const OFFLINE_HOST_STATE: PdfDocumentState = {
+  status: "error",
+  document: null,
+  numPages: 0,
+  firstPageSize: null,
+  error: "This host is not connected.",
+};
+
 interface PdfLoadSession {
   cancelled: boolean;
   loadedDocument: PDFDocumentProxy | null;
 }
 
 interface PdfLoadState {
-  url: string;
+  url: string | null;
   generation: number;
   state: PdfDocumentState;
 }
 
-export function usePdfDocument(url: string): PdfDocumentState {
+export function usePdfDocument(url: string | null): PdfDocumentState {
+  const initialStateForUrl = (targetUrl: string | null): PdfDocumentState =>
+    targetUrl === null ? OFFLINE_HOST_STATE : INITIAL_STATE;
   // A generation distinguishes separate visits to the same URL. Without it,
   // A -> B -> A can briefly revive A's old proxy after B's cleanup destroyed
   // it. Adjusting keyed state during render makes the new visit loading before
@@ -49,17 +59,20 @@ export function usePdfDocument(url: string): PdfDocumentState {
   const [storedLoad, setStoredLoad] = useState<PdfLoadState>(() => ({
     url,
     generation: 0,
-    state: INITIAL_STATE,
+    state: initialStateForUrl(url),
   }));
   const load =
     storedLoad.url === url
       ? storedLoad
-      : { url, generation: storedLoad.generation + 1, state: INITIAL_STATE };
+      : { url, generation: storedLoad.generation + 1, state: initialStateForUrl(url) };
   if (load !== storedLoad) {
     setStoredLoad(load);
   }
 
   useEffect(() => {
+    if (url === null) {
+      return;
+    }
     const session: PdfLoadSession = { cancelled: false, loadedDocument: null };
     const abortController = new AbortController();
     const generation = load.generation;

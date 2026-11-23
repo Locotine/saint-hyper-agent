@@ -191,11 +191,14 @@ function inferProviderFromModel(model: string): ProviderKind {
   ) {
     return "claudeAgent";
   }
-  if (lowerModel.includes("gemini")) {
+  if (lowerModel.includes("gemini") || lowerModel.includes("antigravity")) {
     return "antigravity";
   }
   if (lowerModel.includes("grok")) {
     return "grok";
+  }
+  if (lowerModel.includes("droid")) {
+    return "droid";
   }
   if (lowerModel.includes("devin")) {
     return "devin";

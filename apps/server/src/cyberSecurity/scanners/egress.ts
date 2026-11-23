@@ -137,12 +137,14 @@ export async function openLoopbackBridge(
 export async function openScannerEgress(
   allowed: ReadonlyArray<string>,
   kind: SandboxKind,
+  options: { readonly allowLoopbackTargets?: boolean } = {},
 ): Promise<ScannerEgress> {
   const refused = new Set<string>();
   const proxy = await startEgressProxy({
     decide: (host) => (hostAllowed(allowed, host) ? "allow" : "deny"),
     onUnknown: () => {},
     onDenied: (host) => refused.add(host),
+    ...(options.allowLoopbackTargets ? { allowLoopbackTargets: true } : {}),
   });
   try {
     const bridge = await openLoopbackBridge({ host: "127.0.0.1", port: proxy.port }, kind);

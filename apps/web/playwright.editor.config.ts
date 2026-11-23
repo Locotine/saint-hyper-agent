@@ -3,11 +3,14 @@ import { mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { resolvePlaywrightChromiumLaunchOptions } from "./playwrightChromiumLaunchOptions";
+
 // Both processes use an isolated data home; never connect the harness to a running user's app.
 const home = mkdtempSync(path.join(os.tmpdir(), "saint-editor-acceptance-"));
 const serverPort = Number(process.env.SAINT_EDITOR_TEST_SERVER_PORT ?? 48121);
 const webPort = Number(process.env.SAINT_EDITOR_TEST_WEB_PORT ?? 5734);
 const webUrl = `http://127.0.0.1:${webPort}`;
+const launchOptions = resolvePlaywrightChromiumLaunchOptions();
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "editorIntelligence.e2e.ts",
@@ -21,6 +24,7 @@ export default defineConfig({
     viewport: { width: 1440, height: 1000 },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    ...(launchOptions ? { launchOptions } : {}),
   },
   webServer: [
     {

@@ -15,7 +15,7 @@ import { getModelCapabilities, getModelOptions } from "@saint/shared/model";
 import { isDefaultModelProvider } from "~/composerDraftModels";
 import { SafariAccessSetupButton } from "../components/SafariAccessOnboarding";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import {
   DEFAULT_DIFF_RENDER_MODE,
@@ -113,7 +113,10 @@ import { Switch } from "../components/ui/switch";
 import { toastManager } from "../components/ui/toast";
 import { RouteInsetSurface } from "../components/RouteInsetSurface";
 import { SidebarHeaderNavigationControls } from "../components/SidebarHeaderNavigationControls";
-import { useDesktopCustomTitleBarState } from "../hooks/useDesktopCustomTitleBar";
+import {
+  notifyDesktopCustomTitleBarState,
+  useDesktopCustomTitleBarState,
+} from "../hooks/useDesktopCustomTitleBar";
 import { useDesktopTopBarTrafficLightGutterClassName } from "../hooks/useDesktopTopBarGutter";
 import { useKeepAwakeState } from "../hooks/useKeepAwakeState";
 import { KeepAwakeSettingsSection } from "../components/KeepAwakeControls";
@@ -133,9 +136,9 @@ import { ensureLocalNativeApi, readLocalNativeApi } from "../nativeApi";
 import { isProviderKind, sameProviderOrder } from "../providerOrdering";
 import {
   normalizeSettingsSection,
-  SETTINGS_NAV_ITEMS,
   SETTINGS_TARGETS,
   settingRowAnchorId,
+  useSettingsNavItems,
 } from "../settingsNavigation";
 import { SETTINGS_PAGE_BACKGROUND_CLASS_NAME } from "../settingsPanelStyles";
 import { isAudioLevelAvailable } from "../lib/audioLevel";
@@ -345,13 +348,15 @@ function SettingsRouteView() {
     DiffRenderModeSchema,
   );
   const routeSearch = useSearch({ strict: false }) as Record<string, unknown>;
+  const settingsNavItems = useSettingsNavItems();
   const activeSection = normalizeSettingsSection(routeSearch.section);
   const settingsTarget = typeof routeSearch.target === "string" ? routeSearch.target : null;
   const settingsProviderTarget =
     typeof routeSearch.provider === "string" && isProviderKind(routeSearch.provider)
       ? routeSearch.provider
       : null;
-  const activeSectionItem = SETTINGS_NAV_ITEMS.find((item) => item.id === activeSection)!;
+  const activeSectionItem =
+    settingsNavItems.find((item) => item.id === activeSection) ?? settingsNavItems[0]!;
 
   const {
     isDefaultActiveTheme,
@@ -373,8 +378,27 @@ function SettingsRouteView() {
   const supportsCustomTitleBarSetting =
     isElectron && (isWindowsPlatform(platform) || isLinuxPlatform(platform));
   const customTitleBarState = useDesktopCustomTitleBarState();
+  const syncedCustomTitleBarRef = useRef(false);
+  useEffect(() => {
+    if (!customTitleBarState.loaded || !customTitleBarState.supported) return;
+    if (syncedCustomTitleBarRef.current) return;
+    syncedCustomTitleBarRef.current = true;
+    if (settings.useCustomTitleBar !== customTitleBarState.preference) {
+      updateSettings({ useCustomTitleBar: customTitleBarState.preference });
+    }
+  }, [
+    customTitleBarState.loaded,
+    customTitleBarState.preference,
+    customTitleBarState.supported,
+    settings.useCustomTitleBar,
+    updateSettings,
+  ]);
   const customTitleBarRestartRequired =
-    customTitleBarState.supported && settings.useCustomTitleBar !== customTitleBarState.active;
+    customTitleBarState.supported &&
+    (customTitleBarState.loaded
+      ? customTitleBarState.restartRequired ||
+        settings.useCustomTitleBar !== customTitleBarState.active
+      : false);
   const customTitleBarPreferenceDirty =
     supportsCustomTitleBarSetting &&
     (settings.useCustomTitleBar !== defaults.useCustomTitleBar ||
@@ -406,6 +430,7 @@ function SettingsRouteView() {
       if (!state.supported || state.preference !== enabled) {
         throw new Error("Desktop title bar preference was not persisted.");
       }
+      notifyDesktopCustomTitleBarState(state);
       return state;
     } catch (error) {
       toastManager.add({
@@ -585,7 +610,8 @@ function SettingsRouteView() {
     settings.customGrokModels.length > 0 ||
     settings.customDroidModels.length > 0 ||
     settings.customOpenCodeModels.length > 0 ||
-    settings.customPiModels.length > 0
+    settings.customPiModels.length > 0 ||
+    settings.customOmpModels.length > 0
       ? ["Custom models"]
       : []),
     ...(isInstallSettingsDirty ? ["Provider installs"] : []),

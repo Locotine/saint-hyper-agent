@@ -1,9 +1,11 @@
 import "../index.css";
 
-import { createRef, type ComponentProps } from "react";
+import { createRef, useState, type ComponentProps, type RefObject } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
+import { detectComposerTrigger, type ComposerTrigger } from "../composer-logic";
 import { ComposerPromptEditor, type ComposerPromptEditorHandle } from "./ComposerPromptEditor";
 
 type EditorProps = ComponentProps<typeof ComposerPromptEditor>;
@@ -183,5 +185,206 @@ describe("ComposerPromptEditor focus ownership", () => {
       selectionCollapsed: true,
     });
     expect(window.getSelection()?.anchorOffset).toBe("Restored draft".length);
+  });
+});
+
+describe("ComposerPromptEditor link paste and IME composition", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  function ControlledComposerHarness({
+    initialValue = "",
+    onCommandKeyDown,
+    editorRef,
+  }: {
+    initialValue?: string;
+    onCommandKeyDown?: EditorProps["onCommandKeyDown"];
+    editorRef: RefObject<ComposerPromptEditorHandle | null>;
+  }) {
+    const [value, setValue] = useState(initialValue);
+    const [cursor, setCursor] = useState(initialValue.length);
+    return (
+      <>
+        <output data-testid="controlled-value">{value}</output>
+        <ComposerPromptEditor
+          ref={editorRef}
+          value={value}
+          cursor={cursor}
+          terminalContexts={[]}
+          disabled={false}
+          placeholder="Write a message"
+          ariaLabel="Message"
+          onRemoveTerminalContext={() => {}}
+          onChange={(nextValue, nextCursor) => {
+            setValue(nextValue);
+            setCursor(nextCursor);
+          }}
+          onPaste={() => {}}
+          {...(onCommandKeyDown ? { onCommandKeyDown } : {})}
+        />
+      </>
+    );
+  }
+
+  it("chips a bare GitHub URL paste and stays responsive through Vietnamese IME composition", async () => {
+    const ref = createRef<ComposerPromptEditorHandle>();
+    const onCommandKeyDown = vi.fn(() => true);
+    await render(<ControlledComposerHarness editorRef={ref} onCommandKeyDown={onCommandKeyDown} />);
+    const editor = document.querySelector<HTMLElement>('[data-testid="composer-editor"]')!;
+    ref.current?.focus();
+    await expect.poll(() => document.activeElement).toBe(editor);
+    await settleSelection();
+
+    const githubUrl = "https://github.com/elementalsouls/Claude-BugHunter";
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", githubUrl);
+    editor.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+
+    await expect.poll(() => ref.current?.readSnapshot().value).toBe(githubUrl);
+    await expect
+      .poll(() => editor.textContent?.includes("elementalsouls/Claude-BugHunter"))
+      .toBe(true);
+    await settleSelection();
+
+    // Simulate Vietnamese IME composition lifecycle after pasting the link.
+    editor.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
+    // Enter while composing must NEVER trigger onCommandKeyDown (submit).
+    editor.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(onCommandKeyDown).not.toHaveBeenCalled();
+
+    // End composition and type real Vietnamese text via Chromium input events.
+    editor.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "" }));
+    await userEvent.type(editor, " kéo repo này");
+    await expect.poll(() => ref.current?.readSnapshot().value).toBe(`${githubUrl} kéo repo này`);
+    await settleSelection();
+
+    // After composition ends, normal Enter reaches onCommandKeyDown again.
+    editor.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(onCommandKeyDown).toHaveBeenCalledTimes(1);
+  });
+
+  it("defers controlled prop sync while IME composition is active and ignores stale echoed values", async () => {
+    const mounted = await mountEditor();
+    mounted.ref.current?.focus();
+    await expect.poll(() => document.activeElement).toBe(mounted.editor);
+    await settleSelection();
+
+    // Start an active DOM IME composition session.
+    mounted.editor.dispatchEvent(
+      new CompositionEvent("compositionstart", { bubbles: true, data: "" }),
+    );
+
+    // Controlled prop update arrives mid-composition: must NOT wipe/rewrite the editor DOM yet.
+    await mounted.update({ value: "External update during IME", cursor: 8 });
+    await settleSelection();
+    expect(mounted.editor.textContent?.replaceAll("\u200b", "")).toBe("Original draft");
+
+    // Once composition ends, the pending controlled sync flushes cleanly.
+    mounted.editor.dispatchEvent(
+      new CompositionEvent("compositionend", { bubbles: true, data: "" }),
+    );
+    await expect
+      .poll(() => mounted.editor.textContent?.replaceAll("\u200b", ""))
+      .toBe("External update during IME");
+    expect(mounted.ref.current?.readSnapshot().value).toBe("External update during IME");
+  });
+
+  it("marks onChange as composing during IME preedit and flushes a non-composing trigger update on compositionend", async () => {
+    const ref = createRef<ComposerPromptEditorHandle>();
+    const onChangeSpy = vi.fn();
+
+    function TriggerFreezeHarness() {
+      const [value, setValue] = useState("");
+      const [cursor, setCursor] = useState(0);
+      const [trigger, setTrigger] = useState<ComposerTrigger | null>(null);
+      return (
+        <>
+          <output data-testid="trigger-query">
+            {trigger ? `${trigger.kind}:${trigger.query}` : "none"}
+          </output>
+          <ComposerPromptEditor
+            ref={ref}
+            value={value}
+            cursor={cursor}
+            terminalContexts={[]}
+            disabled={false}
+            placeholder="Write a message"
+            ariaLabel="Message"
+            onRemoveTerminalContext={() => {}}
+            onChange={(
+              nextValue,
+              nextCursor,
+              expandedCursor,
+              cursorAdjacentToMention,
+              _terminalContextIds,
+              isComposing = false,
+            ) => {
+              onChangeSpy(nextValue, isComposing);
+              setValue(nextValue);
+              setCursor(nextCursor);
+              if (!isComposing) {
+                setTrigger(
+                  cursorAdjacentToMention ? null : detectComposerTrigger(nextValue, expandedCursor),
+                );
+              }
+            }}
+            onPaste={() => {}}
+          />
+        </>
+      );
+    }
+
+    await render(<TriggerFreezeHarness />);
+    const editor = document.querySelector<HTMLElement>('[data-testid="composer-editor"]')!;
+    const triggerOutput = document.querySelector<HTMLElement>('[data-testid="trigger-query"]')!;
+    ref.current?.focus();
+    await expect.poll(() => document.activeElement).toBe(editor);
+    await settleSelection();
+
+    await userEvent.type(editor, "@");
+    await expect.poll(() => triggerOutput.textContent).toBe("mention:");
+
+    // Begin IME composition: browser updates preedit text inside the TextNode without ending
+    // composition, so prompt text updates while the @ / / popup trigger stays frozen.
+    editor.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    const textNode = walker.nextNode() as Text | null;
+    expect(textNode).not.toBeNull();
+    textNode!.data = "@ti";
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.setStart(textNode!, textNode!.data.length);
+    range.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    editor.dispatchEvent(new CompositionEvent("compositionupdate", { bubbles: true, data: "ti" }));
+    editor.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        inputType: "insertCompositionText",
+        data: "ti",
+        isComposing: true,
+      }),
+    );
+
+    await expect.poll(() => ref.current?.readSnapshot().value).toBe("@ti");
+    expect(onChangeSpy).toHaveBeenCalledWith("@ti", true);
+    expect(triggerOutput.textContent).toBe("mention:");
+
+    // Ending composition without extra keystrokes flushes a non-composing change so the popup refreshes.
+    editor.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "ti" }));
+    await expect.poll(() => triggerOutput.textContent).toBe("mention:ti");
+    expect(onChangeSpy).toHaveBeenLastCalledWith("@ti", false);
   });
 });

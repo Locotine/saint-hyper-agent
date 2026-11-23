@@ -17,6 +17,7 @@ import {
   type ProviderRuntimeEvent,
   type ProviderSession,
   type ProviderUserInputAnswers,
+  RuntimeItemId,
   RuntimeRequestId,
   RuntimeTaskId,
   ThreadId,
@@ -427,6 +428,10 @@ interface AntigravityAcpSessionContext {
   activeTurnId: TurnId | undefined;
   activeTurnHadAssistantContent: boolean;
   readonly activeAssistantItemsWithContent: Set<string>;
+  activeReasoningBlock:
+    | { readonly turnId: TurnId; readonly itemId: RuntimeItemId; text: string }
+    | undefined;
+  reasoningSegmentIndex: number;
   activeTurnFailedToolDetail: string | undefined;
   activePromptFiber: Fiber.Fiber<void, never> | undefined;
   lastTurnActivityAt: number | undefined;
@@ -699,6 +704,33 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         sessionUpdatesProcessed: () => ctx.sessionUpdatesProcessed,
         maxWaitMs: ANTIGRAVITY_TURN_SETTLE_DRAIN_MAX_WAIT_MS,
         pollMs: ANTIGRAVITY_TURN_SETTLE_DRAIN_POLL_MS,
+      });
+
+    const completeActiveReasoningBlock = (
+      ctx: AntigravityAcpSessionContext,
+      status: "completed" | "failed" = "completed",
+    ) =>
+      Effect.gen(function* () {
+        const active = ctx.activeReasoningBlock;
+        if (!active) {
+          return;
+        }
+        ctx.activeReasoningBlock = undefined;
+        const detail = active.text.trim();
+        yield* offerRuntimeEvent(ctx.lifecycleGeneration, {
+          type: "item.completed",
+          ...(yield* makeEventStamp()),
+          provider: PROVIDER,
+          threadId: ctx.threadId,
+          turnId: active.turnId,
+          itemId: active.itemId,
+          payload: {
+            itemType: "reasoning",
+            status,
+            title: "Thinking",
+            ...(detail.length > 0 ? { detail } : {}),
+          },
+        });
       });
 
     const startSession: AntigravityAdapterShape["startSession"] = (input) =>
@@ -986,6 +1018,8 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
             activeTurnId: undefined,
             activeTurnHadAssistantContent: false,
             activeAssistantItemsWithContent: new Set(),
+            activeReasoningBlock: undefined,
+            reasoningSegmentIndex: 0,
             activeTurnFailedToolDetail: undefined,
             activePromptFiber: undefined,
             lastTurnActivityAt: undefined,
@@ -1015,6 +1049,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                   case "ModeChanged":
                     return;
                   case "AssistantItemStarted":
+                    yield* completeActiveReasoningBlock(ctx);
                     return;
                   case "AssistantItemCompleted": {
                     const lateTurnId =
@@ -1045,6 +1080,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                     if (activeTurnId === undefined) {
                       return;
                     }
+                    yield* completeActiveReasoningBlock(ctx);
                     const scopedItemId = scopeAntigravityRuntimeItemIdForTurn(
                       activeTurnId,
                       event.itemId,
@@ -1070,6 +1106,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                     if (ctx.activeTurnId === undefined) {
                       return;
                     }
+                    yield* completeActiveReasoningBlock(ctx);
                     yield* logNative(ctx.threadId, "session/update", event.rawPayload);
                     yield* emitPlanUpdate(ctx, event.payload, event.rawPayload);
                     return;
@@ -1103,6 +1140,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                     if (activeTurnId === undefined) {
                       return;
                     }
+                    yield* completeActiveReasoningBlock(ctx);
                     ctx.turnToolCallIds.set(event.toolCall.toolCallId, activeTurnId);
                     yield* logNative(ctx.threadId, "session/update", event.rawPayload);
                     yield* emitNestedTaskLifecycle(ctx, event.toolCall, activeTurnId);
@@ -1140,7 +1178,12 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                       yield* logNative(ctx.threadId, "session/update", event.rawPayload);
                       const lateScopedItemId = event.itemId
                         ? scopeAntigravityRuntimeItemIdForTurn(lateTurnId, event.itemId)
-                        : undefined;
+                        : event.streamKind === "reasoning_text"
+                          ? scopeAntigravityRuntimeItemIdForTurn(
+                              lateTurnId,
+                              `reasoning-${Math.max(1, ctx.reasoningSegmentIndex)}`,
+                            )
+                          : undefined;
                       if (
                         isRenderableAntigravityAssistantDelta(event) &&
                         lateScopedItemId !== undefined
@@ -1167,13 +1210,70 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                       return;
                     }
                     yield* logNative(ctx.threadId, "session/update", event.rawPayload);
+                    if (event.streamKind === "reasoning_text") {
+                      const requestedItemId = event.itemId
+                        ? RuntimeItemId.makeUnsafe(
+                            scopeAntigravityRuntimeItemIdForTurn(activeTurnId, event.itemId),
+                          )
+                        : undefined;
+                      if (
+                        ctx.activeReasoningBlock &&
+                        (ctx.activeReasoningBlock.turnId !== activeTurnId ||
+                          (requestedItemId !== undefined &&
+                            ctx.activeReasoningBlock.itemId !== requestedItemId))
+                      ) {
+                        yield* completeActiveReasoningBlock(ctx);
+                      }
+                      if (!ctx.activeReasoningBlock) {
+                        ctx.reasoningSegmentIndex += 1;
+                        const reasoningItemId =
+                          requestedItemId ??
+                          RuntimeItemId.makeUnsafe(
+                            scopeAntigravityRuntimeItemIdForTurn(
+                              activeTurnId,
+                              `reasoning-${ctx.reasoningSegmentIndex}`,
+                            ),
+                          );
+                        ctx.activeReasoningBlock = {
+                          turnId: activeTurnId,
+                          itemId: reasoningItemId,
+                          text: "",
+                        };
+                        yield* offerRuntimeEvent(input.lifecycleGeneration, {
+                          type: "item.started",
+                          ...(yield* makeEventStamp()),
+                          provider: PROVIDER,
+                          threadId: ctx.threadId,
+                          turnId: activeTurnId,
+                          itemId: reasoningItemId,
+                          payload: {
+                            itemType: "reasoning",
+                            status: "inProgress",
+                            title: "Thinking",
+                          },
+                        });
+                      }
+                      ctx.activeReasoningBlock.text += event.text;
+                      yield* offerRuntimeEvent(
+                        input.lifecycleGeneration,
+                        makeAcpContentDeltaEvent({
+                          stamp: yield* makeEventStamp(),
+                          provider: PROVIDER,
+                          threadId: ctx.threadId,
+                          turnId: activeTurnId,
+                          itemId: ctx.activeReasoningBlock.itemId,
+                          text: event.text,
+                          streamKind: "reasoning_text",
+                          rawPayload: event.rawPayload,
+                        }),
+                      );
+                      return;
+                    }
+                    yield* completeActiveReasoningBlock(ctx);
                     const scopedItemId = event.itemId
                       ? scopeAntigravityRuntimeItemIdForTurn(activeTurnId, event.itemId)
                       : undefined;
-                    if (
-                      event.streamKind !== "reasoning_text" &&
-                      ctx.activeInteractionMode === "plan"
-                    ) {
+                    if (ctx.activeInteractionMode === "plan") {
                       ctx.activePlanResponseText += event.text;
                     }
                     if (isRenderableAntigravityAssistantDelta(event)) {
@@ -1310,6 +1410,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         if (!clearAcpActiveTurn(ctx, turnId)) {
           return;
         }
+        yield* completeActiveReasoningBlock(ctx, "failed");
         const completedCost = finalizeAcpActiveTurnCost(ctx);
         const idleSeconds = Math.round(idleMs / 1000);
         const detail = `Antigravity stopped responding (no activity for ${idleSeconds}s); the turn was timed out.`;
@@ -1478,6 +1579,8 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         ctx.activeTurnId = turnId;
         ctx.activeTurnHadAssistantContent = false;
         ctx.activeAssistantItemsWithContent.clear();
+        ctx.activeReasoningBlock = undefined;
+        ctx.reasoningSegmentIndex = 0;
         ctx.activeTurnFailedToolDetail = undefined;
         ctx.turnToolCallIds.clear();
         ctx.lastSettledTurnId = undefined;
@@ -1528,6 +1631,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                 if (!clearAcpActiveTurn(ctx, turnId)) {
                   return;
                 }
+                yield* completeActiveReasoningBlock(ctx, "failed");
                 ctx.lastSettledTurnId = turnId;
                 ctx.lastSettledAssistantItemsWithContent.clear();
                 for (const itemId of settledAssistantItems) {
@@ -1603,6 +1707,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                 if (!clearAcpActiveTurn(ctx, turnId)) {
                   return;
                 }
+                yield* completeActiveReasoningBlock(ctx, "completed");
                 ctx.lastSettledTurnId = turnId;
                 ctx.lastSettledAssistantItemsWithContent.clear();
                 for (const itemId of settledAssistantItems) {
@@ -1672,6 +1777,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
               if (!clearAcpActiveTurn(ctx, turnId)) {
                 return;
               }
+              yield* completeActiveReasoningBlock(ctx, "failed");
               const completedCost = finalizeAcpActiveTurnCost(ctx);
               ctx.turns.push({ id: turnId, items: [{ prompt: promptParts, interrupted: true }] });
               const { lastError: _lastError, ...sessionWithoutLastError } = ctx.session;

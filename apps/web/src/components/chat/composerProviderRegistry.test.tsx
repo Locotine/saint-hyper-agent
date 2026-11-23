@@ -578,7 +578,7 @@ describe("getComposerProviderState", () => {
     expect(selection.ultrathinkPromptControlled).toBe(true);
   });
 
-  it("preserves Claude fast mode when it is the only active option", () => {
+  it("strips Claude fast mode even when passed as the only stored option", () => {
     const state = getComposerProviderState({
       provider: "claudeAgent",
       model: "claude-opus-4-6",
@@ -593,9 +593,7 @@ describe("getComposerProviderState", () => {
     expect(state).toEqual({
       provider: "claudeAgent",
       promptEffort: "high",
-      modelOptionsForDispatch: {
-        fastMode: true,
-      },
+      modelOptionsForDispatch: undefined,
     });
   });
 

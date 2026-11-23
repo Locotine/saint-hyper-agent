@@ -46,18 +46,44 @@ impl CuaDriverHost {
                 format!(r"\\.\pipe\saint-cua-driver-{id}"),
             )
         } else {
-            (
-                paths
-                    .state_dir
-                    .join(format!("saint-cua-host-{id}.sock"))
-                    .to_string_lossy()
-                    .into_owned(),
-                paths
-                    .state_dir
-                    .join(format!("saint-cua-driver-{id}.sock"))
-                    .to_string_lossy()
-                    .into_owned(),
-            )
+            const MAX_UNIX_SOCKET_PATH_BYTES: usize = 100;
+            let host_in_state = paths
+                .state_dir
+                .join(format!("saint-cua-host-{id}.sock"))
+                .to_string_lossy()
+                .into_owned();
+            let driver_in_state = paths
+                .state_dir
+                .join(format!("saint-cua-driver-{id}.sock"))
+                .to_string_lossy()
+                .into_owned();
+            if host_in_state.len() <= MAX_UNIX_SOCKET_PATH_BYTES
+                && driver_in_state.len() <= MAX_UNIX_SOCKET_PATH_BYTES
+            {
+                (host_in_state, driver_in_state)
+            } else {
+                #[cfg(unix)]
+                let short_dir = {
+                    use std::os::unix::fs::PermissionsExt;
+                    let uid = unsafe { libc::geteuid() };
+                    let dir = PathBuf::from("/tmp").join(format!("sc-{uid}"));
+                    let _ = std::fs::create_dir_all(&dir);
+                    let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+                    dir
+                };
+                #[cfg(not(unix))]
+                let short_dir = std::env::temp_dir();
+                (
+                    short_dir
+                        .join(format!("h-{id}.sock"))
+                        .to_string_lossy()
+                        .into_owned(),
+                    short_dir
+                        .join(format!("d-{id}.sock"))
+                        .to_string_lossy()
+                        .into_owned(),
+                )
+            }
         };
 
         Self {

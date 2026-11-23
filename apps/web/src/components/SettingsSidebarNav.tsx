@@ -13,8 +13,9 @@ import { Badge } from "./ui/badge";
 import { SearchInput } from "./ui/search-input";
 import { SidebarLeadingIcon } from "./SidebarLeadingIcon";
 import {
+  ALL_SETTINGS_NAV_ITEMS_LIST,
   SETTINGS_NAV_GROUPS,
-  SETTINGS_NAV_ITEMS,
+  useSettingsNavItems,
   type SettingsSectionId,
 } from "../settingsNavigation";
 import {
@@ -44,7 +45,7 @@ import {
 const SETTINGS_SEARCH_RESULTS_LIMIT = 12;
 
 const SETTINGS_SECTION_ICON_BY_ID = new Map<SettingsSectionId, string>(
-  SETTINGS_NAV_ITEMS.map((item) => [item.id, item.icon]),
+  ALL_SETTINGS_NAV_ITEMS_LIST.map((item) => [item.id, item.icon]),
 );
 
 function SettingsSearchResultRow(props: {
@@ -98,6 +99,7 @@ export function SettingsSidebarNav(props: {
 }) {
   const { onSelectSection } = props;
   const [query, setQuery] = useState("");
+  const settingsNavItems = useSettingsNavItems();
   const trimmedQuery = query.trim();
   const isSearching = trimmedQuery.length > 0;
   const results = rankSettingsSearchEntries(
@@ -159,7 +161,7 @@ export function SettingsSidebarNav(props: {
       ) : (
         <nav aria-label="Settings sections" className="flex flex-col">
           {SETTINGS_NAV_GROUPS.map((group) => {
-            const items = SETTINGS_NAV_ITEMS.filter((item) => item.group === group.id);
+            const items = settingsNavItems.filter((item) => item.group === group.id);
             if (items.length === 0) {
               return null;
             }

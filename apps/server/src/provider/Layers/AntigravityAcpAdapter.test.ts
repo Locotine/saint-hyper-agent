@@ -1067,4 +1067,141 @@ describe("AntigravityAcpAdapter session lifecycle", () => {
       }).pipe(Effect.scoped, Effect.provide(testLayer)),
     );
   });
+
+  it("synthesizes reasoning item lifecycles for streaming thought chunks without itemId", async () => {
+    const eventQueue = await Effect.runPromise(Queue.unbounded<AcpParsedSessionEvent>());
+    let enqueuedCount = 0;
+    const emitAcpEvent = (event: AcpParsedSessionEvent) =>
+      Effect.gen(function* () {
+        enqueuedCount += 1;
+        yield* Queue.offer(eventQueue, event);
+      });
+
+    const mockRuntime: AcpSessionRuntimeShape = {
+      handleRequestPermission: () => Effect.void,
+      handleElicitation: () => Effect.void,
+      handleReadTextFile: () => Effect.void,
+      handleWriteTextFile: () => Effect.void,
+      handleCreateTerminal: () => Effect.void,
+      handleTerminalOutput: () => Effect.void,
+      handleTerminalWaitForExit: () => Effect.void,
+      handleTerminalKill: () => Effect.void,
+      handleTerminalRelease: () => Effect.void,
+      handleSessionUpdate: () => Effect.void,
+      handleElicitationComplete: () => Effect.void,
+      handleExtRequest: () => Effect.void,
+      handleExtNotification: () => Effect.void,
+      start: () =>
+        Effect.succeed({
+          sessionId: "conv-thought-1",
+          initializeResult: { protocolVersion: 1 },
+          sessionSetupResult: {
+            sessionId: "conv-thought-1",
+            configOptions: [...SAMPLE_CONFIG_OPTIONS],
+          },
+          modelConfigId: "model",
+          sessionSetupMethod: "new" as const,
+        }),
+      prompt: () =>
+        Effect.gen(function* () {
+          yield* emitAcpEvent({
+            _tag: "ContentDelta",
+            text: "Checking the files ",
+            streamKind: "reasoning_text",
+            rawPayload: {},
+          });
+          yield* emitAcpEvent({
+            _tag: "ContentDelta",
+            text: "before editing.",
+            streamKind: "reasoning_text",
+            rawPayload: {},
+          });
+          yield* emitAcpEvent({
+            _tag: "ContentDelta",
+            itemId: "assistant-1",
+            text: "Here is the answer.",
+            streamKind: "assistant_text",
+            rawPayload: {},
+          });
+          return { stopReason: "end_turn" as const };
+        }),
+      cancel: Effect.void,
+      setModel: () => Effect.void,
+      setConfigOption: () => Effect.succeed({ configOptions: [...SAMPLE_CONFIG_OPTIONS] }),
+      setMode: () => Effect.succeed({}),
+      getEvents: () => Stream.fromQueue(eventQueue),
+      getConfigOptions: Effect.sync(() => [...SAMPLE_CONFIG_OPTIONS]),
+      getAvailableCommands: Effect.succeed([]),
+      getModeState: Effect.succeed({
+        currentModeId: "default",
+        availableModes: [{ id: "default", name: "Default" }],
+      }),
+      awaitLoadReplayReady: Effect.void,
+      sessionUpdatesEnqueuedCount: Effect.sync(() => enqueuedCount),
+      awaitExit: Effect.never,
+      supportsSessionFork: Effect.succeed(false),
+      supportsSessionRecovery: Effect.succeed(true),
+      getSessionEpoch: () =>
+        Effect.succeed({ generation: 1, activeSessionId: Option.some("conv-thinking-1") }),
+      getPendingSessionNotificationCount: () => Effect.succeed(0),
+      forkSession: () =>
+        Effect.die("forkSession should not be called when supportsSessionFork is false"),
+      closeSession: () => Effect.void,
+      request: () => Effect.die("unexpected request"),
+      notify: () => Effect.void,
+    };
+
+    const testLayer = makeAntigravityAcpAdapterLive({
+      makeRuntime: () => Effect.succeed(mockRuntime),
+    }).pipe(
+      Layer.provideMerge(Layer.succeed(ServerConfig, TEST_SERVER_CONFIG)),
+      Layer.provideMerge(NodeServices.layer),
+    );
+
+    const collected = await Effect.runPromise(
+      Effect.gen(function* () {
+        const adapter = yield* AntigravityAdapter;
+        const eventsFiber = yield* Stream.takeUntil(
+          adapter.streamEvents,
+          (event) => event.type === "turn.completed",
+        ).pipe(Stream.runCollect, Effect.forkChild);
+
+        const session = yield* adapter.startSession({
+          threadId: ThreadId.makeUnsafe("thread-antigravity-thinking"),
+          provider: "antigravity",
+          runtimeMode: "full-access",
+          cwd: "/tmp/workspace",
+        });
+        yield* adapter.sendTurn({
+          threadId: session.threadId,
+          input: "Explain this",
+        });
+        return Array.from(yield* Fiber.join(eventsFiber));
+      }).pipe(Effect.scoped, Effect.provide(testLayer)),
+    );
+
+    const reasoningStarted = collected.find(
+      (event) => event.type === "item.started" && event.payload.itemType === "reasoning",
+    );
+    const reasoningDeltas = collected.filter(
+      (event) => event.type === "content.delta" && event.payload.streamKind === "reasoning_text",
+    );
+    const reasoningCompleted = collected.find(
+      (event) => event.type === "item.completed" && event.payload.itemType === "reasoning",
+    );
+
+    expect(reasoningStarted?.itemId).toBeTruthy();
+    expect(reasoningDeltas).toHaveLength(2);
+    expect(reasoningDeltas.every((event) => event.itemId === reasoningStarted?.itemId)).toBe(true);
+    expect(reasoningCompleted?.itemId).toBe(reasoningStarted?.itemId);
+    expect(
+      reasoningCompleted?.type === "item.completed" ? reasoningCompleted.payload.detail : null,
+    ).toBe("Checking the files before editing.");
+    const reasoningCompletedIndex = collected.indexOf(reasoningCompleted!);
+    const assistantDeltaIndex = collected.findIndex(
+      (event) => event.type === "content.delta" && event.payload.streamKind === "assistant_text",
+    );
+    expect(reasoningCompletedIndex).toBeGreaterThan(-1);
+    expect(reasoningCompletedIndex).toBeLessThan(assistantDeltaIndex);
+  });
 });

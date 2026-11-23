@@ -13,7 +13,11 @@ const scopedRoots = [
   "apps/server/src/git",
   "apps/server/src/platform",
 ] as const;
-const scopedFiles = ["apps/server/src/open.ts", "apps/server/src/processRunner.ts"] as const;
+const scopedFiles = [
+  "apps/server/src/editorAppDiscovery.ts",
+  "apps/server/src/open.ts",
+  "apps/server/src/processRunner.ts",
+] as const;
 
 /**
  * Boundary code runs the inverse rule: it may decide window visibility itself,

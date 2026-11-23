@@ -93,13 +93,18 @@ export function getRuntimeAwareModelCapabilities(input: {
 }): ModelCapabilities {
   const staticCapabilities = getModelCapabilities(input.provider, input.model);
   // Runtime discovery is authoritative when available; the static table is only a startup fallback.
+  // Fast mode is disabled for Claude across static and runtime-discovered catalogs.
   const supportsFastMode =
-    input.provider === "claudeAgent" || input.provider === "antigravity"
-      ? (input.runtimeModel?.supportsFastMode ?? staticCapabilities.supportsFastMode)
-      : (input.provider === "codex" || input.provider === "cursor" || input.provider === "devin") &&
-          input.runtimeModel
-        ? input.runtimeModel.supportsFastMode === true
-        : staticCapabilities.supportsFastMode;
+    input.provider === "claudeAgent"
+      ? false
+      : input.provider === "antigravity"
+        ? (input.runtimeModel?.supportsFastMode ?? staticCapabilities.supportsFastMode)
+        : (input.provider === "codex" ||
+              input.provider === "cursor" ||
+              input.provider === "devin") &&
+            input.runtimeModel
+          ? input.runtimeModel.supportsFastMode === true
+          : staticCapabilities.supportsFastMode;
   const supportsThinkingToggle =
     input.runtimeModel?.supportsThinkingToggle ?? staticCapabilities.supportsThinkingToggle;
   const contextWindowOptions =
@@ -108,8 +113,12 @@ export function getRuntimeAwareModelCapabilities(input: {
       label: option.label,
       ...(option.isDefault === true ? { isDefault: true as const } : {}),
     })) ?? staticCapabilities.contextWindowOptions;
-  const optionDescriptors =
+  const rawOptionDescriptors =
     input.runtimeModel?.optionDescriptors ?? staticCapabilities.optionDescriptors;
+  const optionDescriptors =
+    input.provider === "claudeAgent"
+      ? rawOptionDescriptors?.filter((descriptor) => descriptor.id !== "fastMode")
+      : rawOptionDescriptors;
   // Ignore the synthetic choice left in catalogs from the previous adapter.
   const runtimeEfforts =
     input.provider === "claudeAgent"

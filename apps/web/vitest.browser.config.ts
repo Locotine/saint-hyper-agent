@@ -2,13 +2,22 @@ import { fileURLToPath } from "node:url";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig, mergeConfig } from "vitest/config";
 
+import { resolvePlaywrightChromiumLaunchOptions } from "./playwrightChromiumLaunchOptions";
 import viteConfig from "./vite.config";
 
 const srcPath = fileURLToPath(new URL("./src", import.meta.url));
 
+function resolvePlaywrightProvider() {
+  const launchOptions = resolvePlaywrightChromiumLaunchOptions();
+  return launchOptions ? playwright({ launchOptions }) : playwright();
+}
+
 export default mergeConfig(
   viteConfig,
   defineConfig({
+    ...(process.env.VITEST_BROWSER_CACHE_DIR
+      ? { cacheDir: process.env.VITEST_BROWSER_CACHE_DIR }
+      : {}),
     // Prebundle direct hook dependencies so restored caches cannot reload tests mid-run.
     optimizeDeps: {
       include: ["react-dom/client", "zustand/vanilla/shallow", "@lexical/react/useLexicalEditable"],
@@ -35,7 +44,7 @@ export default mergeConfig(
       ...(process.platform === "linux" ? {} : { testNamePattern: /^(?!.*\[geometry:linux\])/ }),
       browser: {
         enabled: true,
-        provider: playwright(),
+        provider: resolvePlaywrightProvider(),
         instances: [{ browser: "chromium" }],
         headless: true,
         // Vitest 4.1.12 / Playwright 1.65 scale the default 414px test frame down in

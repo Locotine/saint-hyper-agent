@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import {
   composerMentionPathNeedsQuoting,
+  encodeComposerMentionQuotedPath,
   formatComposerMentionToken,
 } from "~/lib/composerMentions";
 import {
@@ -241,7 +242,7 @@ export function useChatComposerEditing({
         ? absolutePath
         : `${absolutePath}${separator}`;
       const base = composerMentionPathNeedsQuoting(withTrailingSeparator)
-        ? `@"${withTrailingSeparator}`
+        ? `@"${encodeComposerMentionQuotedPath(withTrailingSeparator)}`
         : `@${withTrailingSeparator}`;
       applyComposerTriggerReplacement({ snapshot, trigger, base });
     },

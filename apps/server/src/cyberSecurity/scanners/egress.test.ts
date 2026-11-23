@@ -127,11 +127,23 @@ describe("openScannerEgress", () => {
     expect(egress.relay?.args[0]).toMatch(/saint-cs-[^/]+\/relay\.mjs$/);
   });
 
-  it("forwards an allowed host and refuses and records any other", async () => {
+  it("refuses loopback targets by default even when allowlisted, and forwards when opted in", async () => {
     upstream = http.createServer((_, response) => response.end("from upstream"));
     await new Promise<void>((resolve) => upstream!.listen(0, "127.0.0.1", resolve));
     const port = (upstream.address() as { port: number }).port;
-    egress = await openScannerEgress(["127.0.0.1"], "sandbox-exec");
+
+    const strictEgress = await openScannerEgress(["127.0.0.1"], "sandbox-exec");
+    try {
+      const blocked = await through(strictEgress.env.HTTP_PROXY!, `http://127.0.0.1:${port}/x`);
+      expect(blocked.status).toBe(403);
+      expect(strictEgress.refused()).toEqual(["127.0.0.1"]);
+    } finally {
+      await strictEgress.close();
+    }
+
+    egress = await openScannerEgress(["127.0.0.1"], "sandbox-exec", {
+      allowLoopbackTargets: true,
+    });
 
     const allowed = await through(egress.env.HTTP_PROXY!, `http://127.0.0.1:${port}/x`);
     expect(allowed).toEqual({ status: 200, body: "from upstream" });

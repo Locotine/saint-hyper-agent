@@ -474,6 +474,23 @@ export function SingleChatSurface(props: {
       });
     });
 
+  const handleClearEditorSelectedFile = () => {
+    setEditorCenterMode("file");
+    setEditorEditTarget(null);
+    void navigate({
+      to: "/$threadId",
+      params: { threadId: routeThreadParam(props.threadId) },
+      replace: true,
+      search: (previous) => {
+        const { editorFilePath: _removedEditorFilePath, ...rest } = stripDiffSearchParams(previous);
+        return {
+          ...rest,
+          view: "editor",
+        };
+      },
+    });
+  };
+
   const handleToggleEditorDirectory = (directoryPath: string) => {
     setEditorExpandedDirectories((previous) => {
       const next = new Set(previous);
@@ -1106,6 +1123,7 @@ export function SingleChatSurface(props: {
               diffOptionsControl={editorDiffOptionsControl}
               onSelectDiffFile={handleSelectEditorDiffFile}
               onSelectFile={handleSelectEditorFile}
+              onClearSelectedFile={handleClearEditorSelectedFile}
               onToggleDirectory={handleToggleEditorDirectory}
               onCenterModeChange={setEditorCenterMode}
               onExitEditorView={handleCloseEditorView}

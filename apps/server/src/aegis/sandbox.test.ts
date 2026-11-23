@@ -137,10 +137,13 @@ describe("sandbox-exec profile for a scanner", () => {
     expect(reopen).toBeGreaterThan(masks);
   });
 
-  it("allows the network to one loopback port and unix sockets only", () => {
+  it("allows the network to one loopback port and scoped system/session unix sockets only", () => {
     const profile = profileOf();
     expect(profile).toContain("(deny network*)");
-    expect(profile).toContain("(allow network* (remote unix-socket))");
+    expect(profile).not.toContain("(allow network* (remote unix-socket))");
+    expect(profile).toContain('(literal "/private/var/run/mDNSResponder")');
+    expect(profile).toContain(`(subpath "${scratch}")`);
+    expect(profile).not.toContain("docker.sock");
     expect(profile.match(/\(allow network-outbound/g)).toHaveLength(1);
     expect(profile).toContain('(allow network-outbound (remote ip "localhost:4300"))');
     expect(profile).not.toContain("network-bind");

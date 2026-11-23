@@ -22,6 +22,180 @@ import type { WhatsNewEntry } from "./logic";
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    version: "1.2.11",
+    date: "Nov 23",
+    features: [
+      {
+        id: "qa-security-hardening",
+        title: "Security hardening and 48-bug cross-OS QA sweep",
+        description:
+          "Hardened LAN relay, Aegis sandbox, and file boundaries alongside 48 fixes across Remote SSH, IME input, transcript scrolling, editor tabs, and Windows/macOS/Linux desktop reliability.",
+        details:
+          "Highlights include offline remote image placeholders with auto-reload on reconnect, HiDPI window bounds in logical DIPs, macOS Overlay titlebar/vibrancy and Unix socket path fixes, native app menus, Windows verbatim PTY launches, Ctrl+Shift+L composer focus on Linux/Windows, native Linux title bars by default, and removing Fast mode from Claude.",
+      },
+      {
+        id: "ime-composer-popup-freeze",
+        title: "Smoother Vietnamese & CJK IME typing in the composer",
+        description:
+          "The @ and / autocomplete popups stay steady while composing diacritics and refresh cleanly once composition commits.",
+      },
+    ],
+  },
+  {
+    version: "1.2.10",
+    date: "Nov 16",
+    features: [
+      {
+        id: "saint-hyper-agent-branding",
+        title: "Saint Hyper Agent branding and Linux icons",
+        description:
+          "The desktop app is now packaged as Saint Hyper Agent with full Linux icon sizes and a dedicated saint-hyper-agent Debian package.",
+        details:
+          "Switching the Debian package name from saint to saint-hyper-agent avoids colliding with Debian's unrelated saint package during system updates while cleanly replacing earlier 1.x installs.",
+      },
+    ],
+  },
+  {
+    version: "1.2.9",
+    date: "Nov 16",
+    features: [
+      {
+        id: "ubuntu-debian-deb",
+        title: "Native Ubuntu & Debian .deb packages",
+        description:
+          "Install Saint Hyper Agent directly via apt on Ubuntu 22.04+/24.04+ and Debian 12/13+ alongside the existing AppImage.",
+      },
+      {
+        id: "updater-preparing-fix",
+        title: "Desktop updater no longer stalls on Preparing",
+        description:
+          "Fixed an updater handoff state where desktop updates could remain stuck on Preparing instead of completing installation.",
+      },
+    ],
+  },
+  {
+    version: "1.2.8",
+    date: "Nov 16",
+    features: [
+      {
+        id: "antigravity-acp",
+        title: "Full Antigravity support over ACP",
+        description:
+          "Run Antigravity (agy) sessions natively through the Agent Client Protocol with full streaming, tool activity, and model catalog support.",
+      },
+    ],
+  },
+  {
+    version: "1.2.7",
+    date: "Nov 13",
+    features: [
+      {
+        id: "native-os-file-drop",
+        title: "Reliable OS file drag-and-drop on Linux WebKitGTK",
+        description:
+          "Drag files directly from your file manager into the composer or Explorer on Linux, macOS, and Windows, with automatic Explorer refresh after uploads.",
+      },
+    ],
+  },
+  {
+    version: "1.2.6",
+    date: "Nov 13",
+    features: [
+      {
+        id: "remote-split-and-port-forward",
+        title: "Split views and forwarded previews for Remote SSH chats",
+        description:
+          "Open remote host chats side-by-side in split views and preview dev servers forwarded over SSH while keeping actions, files, and tabs routed to their host.",
+      },
+    ],
+  },
+  {
+    version: "1.2.5",
+    date: "Nov 12",
+    features: [
+      {
+        id: "linux-browser-overlay-and-ssh-stop",
+        title: "Stable Linux embedded browser tabs and Remote SSH Stop",
+        description:
+          "Embedded browser tabs stay aligned inside their panel on Linux without relayout loops, Linux title bars include minimize/maximize controls, and Stop server sticks reliably on remote hosts.",
+      },
+    ],
+  },
+  {
+    version: "1.2.4",
+    date: "Nov 12",
+    features: [
+      {
+        id: "tauri-remote-ssh-parity",
+        title: "Full Remote SSH server install & management in Tauri",
+        description:
+          "Connect, install, start, and manage remote Saint servers over SSH directly from the Tauri desktop app, plus toggle hidden files in the workspace Explorer.",
+        details:
+          "Also adds Wayland clipboard image paste, proper Linux dock window-class matching, and faster slash-command menus with large skill sets.",
+      },
+    ],
+  },
+  {
+    version: "1.2.2",
+    date: "Nov 11",
+    features: [
+      {
+        id: "lan-relay-and-split-explorer",
+        title: "Mobile LAN/Tailscale pairing, bundled CUA, and split Explorer viewer",
+        description:
+          "Pair phones over your chosen LAN or Tailscale interface with working QR codes, split and resize Explorer viewer groups by dragging tabs, and use Computer Use out of the box.",
+      },
+    ],
+  },
+  {
+    version: "1.2.1",
+    date: "Nov 6",
+    features: [
+      {
+        id: "tauri-rust-desktop",
+        title: "Tauri v2 / Rust desktop shell",
+        description:
+          "Saint moves from Electron to a lightweight Tauri v2 / Rust desktop shell with a native Rust PTY host, free-roaming Explorer folder downloads, and LAN relay pairing.",
+      },
+    ],
+  },
+  {
+    version: "1.1.16",
+    date: "Nov 5",
+    features: [
+      {
+        id: "remote-auto-reconnect",
+        title: "Automatic Remote SSH recovery and cross-file replace",
+        description:
+          "Remote SSH hosts recover automatically with backoff when tunnels drop or streams go quiet, and Code Search (Ctrl+Shift+F) supports guarded Replace all across local and remote workspaces.",
+      },
+    ],
+  },
+  {
+    version: "1.1.13",
+    date: "Nov 4",
+    features: [
+      {
+        id: "multi-user-remote-hosts",
+        title: "Multi-desktop isolation on shared Remote SSH hosts",
+        description:
+          "Multiple desktops can connect to a shared remote host while keeping projects, chats, terminals, automations, and file access cleanly isolated per desktop.",
+      },
+    ],
+  },
+  {
+    version: "1.1.6",
+    date: "Nov 3",
+    features: [
+      {
+        id: "cyber-security-audit",
+        title: "Built-in Cyber Security audit surface",
+        description:
+          "Scan repositories before release with selectable audit areas and scanners, and track completed audit coverage per run.",
+      },
+    ],
+  },
+  {
     version: "1.0.9",
     date: "Oct 25",
     features: [

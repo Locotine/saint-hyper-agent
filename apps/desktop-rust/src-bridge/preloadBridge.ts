@@ -614,11 +614,16 @@ export function installNativeFileDragReplay(adapter: TauriRuntimeAdapter): void 
       void Promise.all(
         dropEntries.map(async (entry) => {
           if (entry.isDirectory) return droppedFile(entry, []);
-          const base64 = await adapter.invoke<string>("desktop_read_dropped_file", {
-            path: entry.path,
-          });
-          const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-          return droppedFile(entry, [bytes]);
+          try {
+            const base64 = await adapter.invoke<string>("desktop_read_dropped_file", {
+              path: entry.path,
+            });
+            const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+            return droppedFile(entry, [bytes]);
+          } catch {
+            // Large files exceed the inline IPC cap; keep path metadata intact without OOM.
+            return droppedFile(entry, []);
+          }
         }),
       )
         .then((files) => fire(dropTarget, "drop", files, point))

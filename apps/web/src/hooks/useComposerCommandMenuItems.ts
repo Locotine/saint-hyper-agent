@@ -41,6 +41,14 @@ import { getClaudeArtifactCommandNotice } from "../lib/claudeArtifactCommands";
 import { compareProvidersByOrder } from "../providerOrdering";
 import type { ComposerThreadMentionSource, Project } from "../types";
 
+export function safeConnectorHost(rawUrl: string): string {
+  try {
+    return new URL(rawUrl).host;
+  } catch {
+    return "";
+  }
+}
+
 type ComposerPluginSuggestion = {
   plugin: ProviderPluginDescriptor;
   mention: ProviderMentionReference;
@@ -397,7 +405,7 @@ export function useComposerCommandMenuItems(input: {
       mention: { name: connector.name, path: mcpConnectorMentionPath(connector.serverName) },
       label: connector.name,
       // Host only: some servers keep an API key in the URL path.
-      description: new URL(connector.url).host,
+      description: safeConnectorHost(connector.url),
     }));
     const pluginItems = rankProviderDiscoveryItems(
       providerPlugins.filter(({ plugin }) => isInstalledProviderPlugin(plugin)),

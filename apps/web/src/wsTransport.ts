@@ -4,6 +4,7 @@
 // Exports: WsTransport plus stream-selection helpers used by tests.
 
 import { recordRendererActivity, rendererRpcActivity } from "./lib/rendererErrorDiagnostics";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 
 import {
   ORCHESTRATION_STREAM_OVERFLOW_CODE,
@@ -1040,12 +1041,22 @@ export class WsTransport {
   private featureSessionCounter = 0;
   private currentFeatureSession: FeatureSession | null = null;
   private readonly protocolOpenTimeoutMs: number | undefined;
+  private readonly isLocal: boolean;
   private readonly recovery: RecoveryState = createInitialRecoveryState();
   private recoveryEscalationTimer: number | null = null;
 
-  constructor(url?: string, options?: { readonly protocolOpenTimeoutMs?: number }) {
+  constructor(
+    url?: string,
+    options?: {
+      readonly protocolOpenTimeoutMs?: number;
+      readonly hostId?: HostId;
+      readonly isLocal?: boolean;
+    },
+  ) {
     this.explicitUrl = url ?? null;
     this.protocolOpenTimeoutMs = options?.protocolOpenTimeoutMs;
+    this.isLocal =
+      options?.isLocal ?? (options?.hostId === undefined || options.hostId === LOCAL_HOST_ID);
     this.clientPromise = this.createSession().clientPromise;
     void this.clientPromise.catch((error) => {
       if (this.disposed || isTerminalCompatibilityFailure(error)) return;
@@ -1586,25 +1597,31 @@ export class WsTransport {
     }
   }
 
+  private isLocalTransport(): boolean {
+    return this.isLocal !== false;
+  }
+
   private adoptNegotiation(compatibility: WsBootstrapNegotiateResult): void {
     if (serverIdentityChanged(this.lastServerInstanceId, compatibility.serverInstanceId)) {
       this.latestPushByChannel.clear();
       this.sequence = 0;
-      // A resume cursor is only valid against the journal that issued its
-      // sequences. A new server instance may serve a different journal (fresh
-      // install, restored backup), so every cursor must reset to force full
-      // snapshots. `lastServerInstanceId` survives failed reconnects, unlike
-      // `compatibility`, so an outage longer than the first retry still
-      // detects the change. Interim tradeoff: this also drops resume across
-      // plain restarts of the same journal, acceptable until the protocol
-      // carries a durable journal epoch.
-      resetThreadDetailResumeCursors();
-      // Device thread state is gated on a per-thread version that the server
-      // restarts at 0. A stale higher version would reject the new instance's
-      // snapshots as stragglers and leave the pane showing pre-restart devices
-      // and attachments forever, so the cache is dropped with the cursors.
-      useDeviceStateStore.getState().clear();
-      useComputerStateStore.getState().clear();
+      if (this.isLocalTransport()) {
+        // A resume cursor is only valid against the journal that issued its
+        // sequences. A new server instance may serve a different journal (fresh
+        // install, restored backup), so every cursor must reset to force full
+        // snapshots. `lastServerInstanceId` survives failed reconnects, unlike
+        // `compatibility`, so an outage longer than the first retry still
+        // detects the change. Interim tradeoff: this also drops resume across
+        // plain restarts of the same journal, acceptable until the protocol
+        // carries a durable journal epoch.
+        resetThreadDetailResumeCursors();
+        // Device thread state is gated on a per-thread version that the server
+        // restarts at 0. A stale higher version would reject the new instance's
+        // snapshots as stragglers and leave the pane showing pre-restart devices
+        // and attachments forever, so the cache is dropped with the cursors.
+        useDeviceStateStore.getState().clear();
+        useComputerStateStore.getState().clear();
+      }
     }
     this.lastServerInstanceId = compatibility.serverInstanceId;
     this.setCompatibility(compatibility);
@@ -2399,6 +2416,9 @@ export class WsTransport {
   private refreshThreadSubscriptionInput(threadId: string): unknown {
     if (!this.threadSubscriptions.has(threadId)) return undefined;
     const existingInput = this.threadSubscriptions.get(threadId);
+    if (!this.isLocalTransport()) {
+      return existingInput;
+    }
     const rebuiltInput: unknown = buildThreadSubscribeInput(ThreadId.makeUnsafe(threadId));
     const input = threadStreamInputsEqual(existingInput, rebuiltInput)
       ? existingInput
@@ -2570,7 +2590,7 @@ export class WsTransport {
                       ? this.streamThreadBootstrapRetries
                       : this.streamResnapshotRetries;
               retries.set(key, admissionRetry.attempt);
-              if (admissionRetry.kind === "resnapshot") {
+              if (admissionRetry.kind === "resnapshot" && this.isLocalTransport()) {
                 // The server refused the stream because its snapshot trails the
                 // journal beyond the replay limit. A resume cursor makes the
                 // retry ask for the same gap replay again; dropping it makes

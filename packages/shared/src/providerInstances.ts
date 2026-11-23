@@ -188,6 +188,7 @@ export function inferLegacyProviderKindFromInstanceId(
     lowerInstanceId.startsWith("kilo")
   )
     return "opencode";
+  if (lowerInstanceId.startsWith("omp")) return "omp";
   if (lowerInstanceId.startsWith("pi")) return "pi";
   if (lowerInstanceId.startsWith("devin")) return "devin";
   return undefined;

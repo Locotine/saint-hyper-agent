@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
 import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -6,11 +10,14 @@ import { WS_METHODS } from "@saint/contracts";
 import { CurrentClientScope } from "./clientScope.ts";
 
 import {
+  CLIENT_PATH_FIELDS,
   clientMayUsePath,
+  clientMayUsePathAsync,
   clientRoots,
   guardClientPaths,
   isPathWithin,
   isPathWithinRoots,
+  isRealPathWithin,
 } from "./clientPathAccess.ts";
 
 describe("clientPathAccess", () => {
@@ -20,6 +27,59 @@ describe("clientPathAccess", () => {
     expect(isPathWithin("/a/b", "/a/bc")).toBe(false);
     expect(isPathWithin("/a/b", "/a/b/../x")).toBe(false);
     expect(isPathWithinRoots(["/a/b"], "relative/x")).toBe(false);
+  });
+
+  it("rejects live and dangling symlinks pointing outside a client's root", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "saint-client-path-"));
+    try {
+      const mine = path.join(tmp, "mine");
+      const theirs = path.join(tmp, "theirs");
+      fs.mkdirSync(mine, { recursive: true });
+      fs.mkdirSync(theirs, { recursive: true });
+      fs.writeFileSync(path.join(theirs, "secret.txt"), "secret");
+      const liveEscape = path.join(mine, "escape");
+      const danglingEscape = path.join(mine, "dangling");
+      fs.symlinkSync(theirs, liveEscape);
+      fs.symlinkSync(path.join(theirs, "future-file.txt"), danglingEscape);
+
+      expect(await isRealPathWithin(mine, liveEscape)).toBe(false);
+      expect(await isRealPathWithin(mine, path.join(liveEscape, "secret.txt"))).toBe(false);
+      expect(await isRealPathWithin(mine, danglingEscape)).toBe(false);
+      expect(await isRealPathWithin(mine, path.join(mine, "normal.txt"))).toBe(true);
+
+      const readModel = {
+        projects: [
+          { id: "p1", workspaceRoot: mine, additionalFolders: [], ownerClientId: "alice-00000001" },
+        ],
+        threads: [],
+      } as never;
+      expect(
+        await clientMayUsePathAsync(readModel, "alice-00000001", path.join(tmp, "wt"), liveEscape),
+      ).toBe(false);
+      expect(
+        await clientMayUsePathAsync(
+          readModel,
+          "alice-00000001",
+          path.join(tmp, "wt"),
+          danglingEscape,
+        ),
+      ).toBe(false);
+      expect(
+        await clientMayUsePathAsync(
+          readModel,
+          "alice-00000001",
+          path.join(tmp, "wt"),
+          path.join(mine, "ok.txt"),
+        ),
+      ).toBe(true);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("guards shell.openInEditor and terminal.open paths under client scope", () => {
+    expect(CLIENT_PATH_FIELDS[WS_METHODS.shellOpenInEditor]).toEqual(["cwd"]);
+    expect(CLIENT_PATH_FIELDS[WS_METHODS.terminalOpen]).toEqual(["cwd"]);
   });
 
   it("collects only the calling client's project folders and worktrees", () => {

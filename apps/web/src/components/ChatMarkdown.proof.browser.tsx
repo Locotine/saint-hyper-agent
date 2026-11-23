@@ -5,9 +5,8 @@ import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import ChatMarkdown from "./ChatMarkdown";
 
-vi.mock("../lib/localImageUrls", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../lib/localImageUrls")>()),
-  buildLocalImageUrl: () => {
+vi.mock("../lib/localImageUrls", async (importOriginal) => {
+  const buildMockDataUrl = () => {
     const canvas = document.createElement("canvas");
     canvas.width = 320;
     canvas.height = 200;
@@ -18,8 +17,13 @@ vi.mock("../lib/localImageUrls", async (importOriginal) => ({
     context.font = "20px sans-serif";
     context.fillText("Verified result", 35, 100);
     return canvas.toDataURL("image/png");
-  },
-}));
+  };
+  return {
+    ...(await importOriginal<typeof import("../lib/localImageUrls")>()),
+    buildLocalImageUrl: buildMockDataUrl,
+    buildLocalImageUrlOrNull: buildMockDataUrl,
+  };
+});
 
 it("renders completion proof inline with expand and download controls", async () => {
   await page.viewport(1000, 800);

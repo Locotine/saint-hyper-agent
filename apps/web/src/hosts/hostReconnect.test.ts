@@ -47,4 +47,28 @@ describe("stepAutoReconnect", () => {
     step = stepAutoReconnect(step.entry, { now: 2, ...live });
     expect(step.entry.attempts).toBe(0);
   });
+
+  it("clears everConnected on idle and stopping so subsequent errors do not auto-reconnect", () => {
+    for (const resetPhase of ["idle", "stopping"] as const) {
+      let step = stepAutoReconnect(INITIAL_AUTO_RECONNECT_ENTRY, { now: 0, ...live });
+      expect(step.entry.everConnected).toBe(true);
+      step = stepAutoReconnect(step.entry, { now: 5, phase: resetPhase, streamStale: false });
+      expect(step.reconnect).toBe(false);
+      expect(step.entry).toEqual(INITIAL_AUTO_RECONNECT_ENTRY);
+      step = stepAutoReconnect(step.entry, { now: 10, phase: "error", streamStale: false });
+      expect(step.reconnect).toBe(false);
+    }
+  });
+
+  it("suppresses auto-reconnect when a fast stop_server failure reports autoReconnectSuppressed", () => {
+    const connected = stepAutoReconnect(INITIAL_AUTO_RECONNECT_ENTRY, { now: 0, ...live });
+    const failedStop = stepAutoReconnect(connected.entry, {
+      now: 5,
+      phase: "error",
+      streamStale: false,
+      autoReconnectSuppressed: true,
+    });
+    expect(failedStop.reconnect).toBe(false);
+    expect(failedStop.entry).toEqual(INITIAL_AUTO_RECONNECT_ENTRY);
+  });
 });

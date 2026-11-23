@@ -17,7 +17,8 @@ import { useHostId } from "~/hosts/hostScope";
 
 import { basenameOfPath } from "~/file-icons";
 import { Loader2Icon, TriangleAlertIcon } from "~/lib/icons";
-import { buildLocalImageUrl } from "~/lib/localImageUrls";
+import { buildLocalImageUrlOrNull } from "~/lib/localImageUrls";
+import { useHostExplicitUrl } from "./LocalImagePreview";
 import { useContainerSize } from "~/lib/pdf/useContainerSize";
 import { usePdfDocument } from "~/lib/pdf/usePdfDocument";
 import { usePdfPageNavigation } from "~/lib/pdf/usePdfPageNavigation";
@@ -42,12 +43,15 @@ export function PdfFilePreview(props: {
   onPreviewReady?: (() => void) | undefined;
   onPreviewError?: (() => void) | undefined;
 }) {
-  const previewUrl = buildLocalImageUrl({
+  const hostId = useHostId();
+  const hostExplicitUrl = useHostExplicitUrl(hostId);
+  void hostExplicitUrl;
+  const previewUrl = buildLocalImageUrlOrNull({
     src: props.filePath,
     cwd: props.cwd ?? undefined,
     grant: props.previewGrant,
     cacheKey: props.cacheKey,
-    hostId: useHostId(),
+    hostId,
   });
   const fileName = basenameOfPath(props.filePath);
   const doc = usePdfDocument(previewUrl);
@@ -67,7 +71,7 @@ export function PdfFilePreview(props: {
     scrollRoot,
     numPages: doc.numPages,
     enabled: doc.status === "ready",
-    resetKey: previewUrl,
+    resetKey: previewUrl ?? "",
   });
   const zoom = usePdfZoomController({
     firstPageSize: doc.firstPageSize,

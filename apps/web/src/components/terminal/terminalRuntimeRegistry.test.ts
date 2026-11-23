@@ -19,14 +19,16 @@ vi.mock("./terminalRuntime", () => ({
   updateRuntimeViewState: vi.fn(),
 }));
 
+import { LOCAL_HOST_ID, sshHostId, type HostId } from "@saint/shared/hostId";
 import { removeOrphanedTerminalRuntimes } from "../../lib/terminalStateCleanup";
 import { buildTerminalRuntimeKey, terminalRuntimeRegistry } from "./terminalRuntimeRegistry";
 
-function attach(threadId: string, providerAuthInstanceId?: string) {
-  const runtimeKey = buildTerminalRuntimeKey(threadId, "terminal-1");
+function attach(threadId: string, providerAuthInstanceId?: string, hostId: HostId = LOCAL_HOST_ID) {
+  const runtimeKey = buildTerminalRuntimeKey(threadId, "terminal-1", hostId);
   terminalRuntimeRegistry.attach(
     {
       runtimeKey,
+      hostId,
       threadId,
       terminalId: "terminal-1",
       terminalLabel: "Terminal",
@@ -85,5 +87,17 @@ describe("terminal runtime memory ownership", () => {
     terminalRuntimeRegistry.disposeThread("host");
     expect(runtime.dispose).toHaveBeenCalledTimes(1);
     expect(runtime.dispose.mock.calls[0]?.[0].threadId).toBe("host");
+  });
+
+  it("disposes a remote host terminal without affecting the local host entry of the same threadId", () => {
+    const remoteHostId = sshHostId("deadbeef");
+    attach("shared-thread", undefined, LOCAL_HOST_ID);
+    attach("shared-thread", undefined, remoteHostId);
+
+    terminalRuntimeRegistry.disposeTerminal("shared-thread", "terminal-1", remoteHostId);
+    expect(runtime.dispose).toHaveBeenCalledTimes(1);
+    expect(runtime.dispose.mock.calls[0]?.[0].runtimeKey).toBe(
+      buildTerminalRuntimeKey("shared-thread", "terminal-1", remoteHostId),
+    );
   });
 });

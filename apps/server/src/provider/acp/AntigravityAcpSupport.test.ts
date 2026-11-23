@@ -227,6 +227,32 @@ describe("AntigravityAcpSupport", () => {
         pathExists: (candidate) => candidate === "/home/tester/.gemini/antigravity-cli/bin/agy",
       }),
     ).toBe("/home/tester/.gemini/antigravity-cli/bin/agy");
+    expect(
+      resolveAntigravityCliBinaryPath(undefined, {
+        env: { PATH: "" },
+        platform: "darwin",
+        homeDir: "/Users/tester",
+        pathExists: (candidate) => candidate === "/Users/tester/.local/bin/agy",
+      }),
+    ).toBe("/Users/tester/.local/bin/agy");
+    expect(
+      resolveAntigravityCliBinaryPath(undefined, {
+        env: { PATH: "", USERPROFILE: "C:\\Users\\tester" },
+        platform: "win32",
+        homeDir: "C:\\Users\\tester",
+        pathExists: (candidate) =>
+          candidate === "C:\\Users\\tester\\.gemini\\antigravity-cli\\bin\\agy.exe",
+      }),
+    ).toBe("C:\\Users\\tester\\.gemini\\antigravity-cli\\bin\\agy.exe");
+    expect(
+      resolveAntigravityCliBinaryPath(undefined, {
+        env: { PATH: "", LOCALAPPDATA: "C:\\Users\\tester\\AppData\\Local" },
+        platform: "win32",
+        homeDir: "C:\\Users\\tester",
+        pathExists: (candidate) =>
+          candidate === "C:\\Users\\tester\\AppData\\Local\\Programs\\antigravity-cli\\agy.cmd",
+      }),
+    ).toBe("C:\\Users\\tester\\AppData\\Local\\Programs\\antigravity-cli\\agy.cmd");
   });
 
   it("builds spawn input with args ['acp'] and filtered antigravity environment", () => {

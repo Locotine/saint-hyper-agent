@@ -43,12 +43,13 @@ export default function ThreadTerminalDrawer(props: ThreadTerminalDrawerProps) {
     const api = apiFor(hostId);
     if (!api) return;
     for (const terminalId of retiredTerminalIds ?? []) {
-      const key = `${threadId}::${terminalId}`;
+      const key = `${hostId}::${threadId}::${terminalId}`;
       if (retiring.current.has(key)) continue;
       retiring.current.add(key);
       // Busy or unverifiable legacy sessions stay pending until the next mount.
       void disposeAndCloseTerminalSession({
         api,
+        hostId,
         threadId,
         terminalId,
         deleteHistory: false,

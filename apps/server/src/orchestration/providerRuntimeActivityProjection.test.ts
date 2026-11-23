@@ -1610,3 +1610,57 @@ it("persists running-task stop reconciliation for resumed background work", () =
   });
   decodeActivityAppendCommand(activity);
 });
+
+it("projects Antigravity live and completed reasoning previews like Claude", () => {
+  const updated = Schema.decodeUnknownSync(ProviderRuntimeEvent)(
+    runtimeEvent({
+      type: "item.updated",
+      eventId: "ag-reason-live",
+      provider: "antigravity",
+      turnId: TURN_ID,
+      itemId: "antigravity:turn-1:reasoning-1",
+      payload: {
+        itemType: "reasoning",
+        status: "inProgress",
+        detail: "Inspecting workspace layout...",
+      },
+    }),
+  );
+  const completed = Schema.decodeUnknownSync(ProviderRuntimeEvent)(
+    runtimeEvent({
+      type: "item.completed",
+      eventId: "ag-reason-done",
+      provider: "antigravity",
+      turnId: TURN_ID,
+      itemId: "antigravity:turn-1:reasoning-1",
+      payload: {
+        itemType: "reasoning",
+        status: "completed",
+        title: "Thinking",
+        detail: "Inspecting workspace layout and fixing the bug.",
+      },
+    }),
+  );
+
+  const liveActivity = projectProviderRuntimeActivities(updated)[0];
+  const doneActivity = projectProviderRuntimeActivities(completed)[0];
+  expect(liveActivity).toMatchObject({
+    kind: "task.progress",
+    summary: "Reasoning trace",
+    payload: {
+      status: "inProgress",
+      detail: "Inspecting workspace layout...",
+    },
+  });
+  expect(doneActivity).toMatchObject({
+    id: liveActivity?.id,
+    kind: "task.progress",
+    summary: "Reasoning trace",
+    payload: {
+      status: "completed",
+      detail: "Inspecting workspace layout and fixing the bug.",
+    },
+  });
+  decodeActivityAppendCommand(liveActivity!);
+  decodeActivityAppendCommand(doneActivity!);
+});

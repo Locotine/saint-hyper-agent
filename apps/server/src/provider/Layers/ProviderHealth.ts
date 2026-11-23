@@ -70,6 +70,7 @@ import {
 import { buildOpenCodeServerProcessEnv } from "../providerBinaryResolution.ts";
 import { ServerSettingsService } from "../../serverSettings";
 import { isWindowsShellCommandMissingResult } from "../../shell-command-detection";
+import { resolveAntigravityCliBinaryPath } from "../acp/AntigravityAcpSupport";
 import {
   buildCursorAgentCommand,
   buildCursorAgentHeadlessEnv,
@@ -2262,7 +2263,6 @@ export const checkAntigravityProviderStatus = (
 ): Effect.Effect<ServerProviderStatus, never, ChildProcessSpawner.ChildProcessSpawner> =>
   Effect.gen(function* () {
     const checkedAt = new Date().toISOString();
-    const executable = nonEmptyTrimmed(binaryPath) ?? "agy";
     const probeEnv = {
       ...makeProviderProbeEnv(ANTIGRAVITY_PROVIDER, environment),
       NO_BROWSER: "true",
@@ -2271,6 +2271,9 @@ export const checkAntigravityProviderStatus = (
       // refreshes provider status (#1029).
       AGY_CLI_DISABLE_AUTO_UPDATE: "true",
     };
+    const executable = resolveAntigravityCliBinaryPath(nonEmptyTrimmed(binaryPath), {
+      env: probeEnv,
+    });
     const versionProbe = yield* probeProviderCliVersion(
       runAntigravityCommand(["--version"], executable, probeEnv),
       DEFAULT_TIMEOUT_MS,

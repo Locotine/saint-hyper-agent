@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   shouldResampleGate,
@@ -81,6 +81,46 @@ describe("runFlowGate", () => {
     expect((await runFlowGate({ gate, cwd, baseline })).protectedEdits).toEqual([
       "test/auth.spec.ts",
     ]);
+  });
+
+  it("strips Saint control-plane tokens and provider API keys from gate environments", async () => {
+    const cwd = repo();
+    const baseline = await captureGateBaseline(cwd);
+    vi.stubEnv("SAINT_AUTH_TOKEN", "host-secret-token");
+    vi.stubEnv("SAINT_RUST_PTY_TOKEN", "pty-secret-token");
+    vi.stubEnv("SAINT_BROWSER_HOST_CAPABILITY", "browser-secret-cap");
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-secret");
+    try {
+      const result = await runFlowGate({
+        gate: {
+          id: "g-env",
+          cmd: `${JSON.stringify(process.execPath)} -e 'process.stdout.write(JSON.stringify({auth:process.env.SAINT_AUTH_TOKEN??null,pty:process.env.SAINT_RUST_PTY_TOKEN??null,browser:process.env.SAINT_BROWSER_HOST_CAPABILITY??null,api:process.env.ANTHROPIC_API_KEY??null}))'`,
+        },
+        cwd,
+        baseline,
+      });
+      expect(result.passed).toBe(true);
+      expect(JSON.parse(result.output.trim())).toEqual({
+        auth: null,
+        pty: null,
+        browser: null,
+        api: null,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("ignores core.fsmonitor configured in .git/config during baseline/diff checks", async () => {
+    const cwd = repo();
+    const marker = path.join(cwd, "fsmonitor-ran.txt");
+    execFileSync("git", ["config", "core.fsmonitor", `touch ${JSON.stringify(marker)}`], {
+      cwd,
+      stdio: "ignore",
+    });
+    const baseline = await captureGateBaseline(cwd);
+    await runFlowGate({ gate: { id: "g-git", cmd: "true" }, cwd, baseline });
+    expect(fs.existsSync(marker)).toBe(false);
   });
 });
 

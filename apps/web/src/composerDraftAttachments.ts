@@ -18,7 +18,7 @@ import {
   type ComposerThreadDraftState,
   type QueuedComposerTurn,
 } from "./composerDraftDomain";
-import { getLocalStorageItem } from "./hooks/useLocalStorage";
+import { getLocalStorageItemOrNull } from "./hooks/useLocalStorage";
 import { deleteComposerImageBlob } from "./lib/composerImageBlobStore";
 import {
   normalizeComposerImageSource,
@@ -313,7 +313,7 @@ function asUnknownRecord(value: unknown): Record<string, unknown> | null {
 
 function readPersistedComposerDraftsRecord(): Record<string, unknown> | null {
   const persisted = asUnknownRecord(
-    getLocalStorageItem(COMPOSER_DRAFT_STORAGE_KEY, Schema.Unknown),
+    getLocalStorageItemOrNull(COMPOSER_DRAFT_STORAGE_KEY, Schema.Unknown),
   );
   if (!persisted || persisted.version !== COMPOSER_DRAFT_STORAGE_VERSION) return null;
   const state = asUnknownRecord(persisted.state);

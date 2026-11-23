@@ -14,6 +14,7 @@ import { isElectron } from "../../env";
 import { resolveShortcutCommand } from "../../keybindings";
 import { focusedDockTerminalPaneId } from "../../hooks/useTerminalSurfaceController";
 import { isEditableEventTarget } from "../../lib/editableEventTarget";
+import { isImeComposingKeyEvent } from "../../lib/ime";
 import { isTerminalFocused } from "../../lib/terminalFocus";
 import type { Project } from "../../types";
 import { type Thread } from "../../types";
@@ -231,7 +232,7 @@ export function useChatKeyboardShortcuts({
       if (
         isVoiceRecording &&
         event.key === "Enter" &&
-        !event.isComposing &&
+        !isImeComposingKeyEvent(event) &&
         !event.shiftKey &&
         !event.altKey &&
         !event.metaKey &&
@@ -275,7 +276,7 @@ export function useChatKeyboardShortcuts({
           isVoiceRecording ||
           isVoiceTranscribing ||
           isComposerApprovalState ||
-          event.isComposing
+          isImeComposingKeyEvent(event)
         )
           return;
         if (!cycleEffort()) return;

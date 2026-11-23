@@ -24,6 +24,7 @@ import {
   PaperclipIcon,
   WindowIcon,
 } from "~/lib/icons";
+import { isImeComposingKeyEvent } from "~/lib/ime";
 import { cn } from "~/lib/utils";
 import {
   COMPOSER_MENU_PANEL_GLYPH_CLASS_NAME,
@@ -253,7 +254,14 @@ export function ComposerExtrasPanel(props: {
   // cannot reach the composer form and send the draft.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (
+        event.defaultPrevented ||
+        isImeComposingKeyEvent(event) ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+      )
+        return;
 
       if (event.key === "Escape") {
         event.preventDefault();

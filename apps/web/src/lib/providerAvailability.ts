@@ -4,10 +4,57 @@ import {
   type ProviderKind,
   type ServerProviderStatus,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+import type { ProviderInstanceOption } from "../appSettings";
 import { isProviderKind } from "../providerOrdering";
 
 const CUSTOM_BINARY_CONFIRMATION_SUFFIX =
   "Availability will be confirmed when you start a session.";
+
+// Remote SSH daemons ship only these providers (see REMOTE.md / remoteServerInstall.ts).
+const REMOTE_SUPPORTED_PROVIDERS: ReadonlySet<ProviderKind> = new Set<ProviderKind>([
+  "codex",
+  "claudeAgent",
+]);
+
+export function isRemoteSupportedProvider(provider: ProviderKind): boolean {
+  return REMOTE_SUPPORTED_PROVIDERS.has(provider);
+}
+
+/**
+ * Picks a safe default provider for a remote host before `server.getConfig()` has reconciled,
+ * avoiding local-only providers (e.g. `cursor`, `antigravity`, `omp`) that flicker and fail discovery.
+ */
+export function resolveRemoteFallbackProvider(input: {
+  readonly defaultProvider: ProviderKind;
+  readonly providerOrder?: readonly ProviderKind[] | undefined;
+  readonly statuses?: readonly ServerProviderStatus[] | undefined;
+}): ProviderKind {
+  const statuses = input.statuses ?? [];
+  const disabled = new Set(
+    statuses
+      .filter((status) => status.enabled === false)
+      .map((status) => status.driver ?? status.provider),
+  );
+  const explicitlyEnabled = new Set(
+    statuses
+      .filter((status) => status.enabled !== false)
+      .map((status) => status.driver ?? status.provider),
+  );
+  const isCandidateAllowed = (provider: ProviderKind) =>
+    !disabled.has(provider) &&
+    (isRemoteSupportedProvider(provider) || explicitlyEnabled.has(provider));
+
+  if (isCandidateAllowed(input.defaultProvider)) {
+    return input.defaultProvider;
+  }
+  for (const provider of input.providerOrder ?? []) {
+    if (isCandidateAllowed(provider)) {
+      return provider;
+    }
+  }
+  return disabled.has("claudeAgent") && !disabled.has("codex") ? "codex" : "claudeAgent";
+}
 
 export interface ProviderSendAvailability {
   readonly provider: ProviderKind;
@@ -101,6 +148,69 @@ export function providerStatusInstanceKey(
   status: Pick<ServerProviderStatus, "provider" | "instanceId">,
 ): ProviderInstanceId {
   return status.instanceId ?? status.provider;
+}
+
+/**
+ * True when a server's status list contains at least one enabled provider entry.
+ * A newly started remote SSH server (`SAINT_PROVIDERS=codex,claudeAgent`) projects
+ * only disabled entries for the non-allowlisted providers until its first health
+ * refresh probes its enabled providers.
+ */
+export function hasProbedEnabledProviderStatuses(
+  statuses: readonly ServerProviderStatus[] | undefined,
+): boolean {
+  return Boolean(statuses?.some((status) => status.enabled !== false));
+}
+
+/**
+ * Resolves the selectable/handoff provider instances for a host.
+ * Local Settings (`disabledProviders`, custom accounts) only describe this
+ * computer; a connected remote host reports its own enabled providers and
+ * instances through its `server.getConfig()` status list.
+ */
+export function resolveProviderInstancesForHost(input: {
+  readonly hostId: HostId;
+  readonly localProviderInstances: readonly ProviderInstanceOption[];
+  readonly providerStatuses: readonly ServerProviderStatus[];
+}): readonly ProviderInstanceOption[] {
+  if (input.hostId === LOCAL_HOST_ID) {
+    return input.localProviderInstances;
+  }
+  if (!hasProbedEnabledProviderStatuses(input.providerStatuses)) {
+    const disabledProviders = new Set(
+      input.providerStatuses
+        .filter((status) => status.enabled === false)
+        .map((status) => status.driver ?? status.provider),
+    );
+    return input.localProviderInstances
+      .filter(
+        (instance) =>
+          instance.isDefault &&
+          isRemoteSupportedProvider(instance.provider) &&
+          !disabledProviders.has(instance.provider),
+      )
+      .map((instance) => ({ ...instance, enabled: true }));
+  }
+  const seen = new Set<string>();
+  const instances: ProviderInstanceOption[] = [];
+  for (const status of input.providerStatuses) {
+    const provider = status.driver ?? status.provider;
+    if (!isProviderKind(provider)) continue;
+    const instanceId = providerStatusInstanceKey(status);
+    if (seen.has(instanceId)) continue;
+    seen.add(instanceId);
+    const label = status.displayName?.trim() || PROVIDER_DISPLAY_NAMES[provider] || provider;
+    instances.push({
+      instanceId,
+      provider,
+      driver: provider,
+      label,
+      enabled: status.enabled !== false,
+      isDefault: instanceId === provider,
+      supported: true,
+    });
+  }
+  return instances;
 }
 
 // Advisory warnings the health layer marks available (Pi bundled SDK, Cursor

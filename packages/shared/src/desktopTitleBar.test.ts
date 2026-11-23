@@ -10,7 +10,7 @@ describe("resolveCustomTitleBarActive", () => {
 
   it("uses the platform default when preference is unset", () => {
     expect(resolveCustomTitleBarActive({ platform: "win32", preference: null })).toBe(true);
-    expect(resolveCustomTitleBarActive({ platform: "linux", preference: null })).toBe(true);
+    expect(resolveCustomTitleBarActive({ platform: "linux", preference: null })).toBe(false);
   });
 
   it("honors an explicit preference on supported platforms", () => {

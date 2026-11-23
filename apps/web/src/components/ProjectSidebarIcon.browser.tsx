@@ -1,9 +1,11 @@
 // FILE: ProjectSidebarIcon.browser.tsx
 // Purpose: Verify project favicon replacement, the icon fallback, and the open-state chevron.
 
+import { sshHostId, type HostId } from "@saint/shared/hostId";
 import { afterEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 
+import { HostScope } from "~/hosts/hostScope";
 import { DEFAULT_PROJECT_ICON, type ProjectAppearance } from "~/lib/projectAppearance";
 
 import { ProjectDisclosureChevron, ProjectSidebarIcon } from "./ProjectSidebarIcon";
@@ -11,13 +13,27 @@ import { ProjectDisclosureChevron, ProjectSidebarIcon } from "./ProjectSidebarIc
 const favicon = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="8" fill="red"/></svg>',
 )}`;
+const refreshedFavicon = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="8" fill="blue"/></svg>',
+)}`;
+
+let remoteHostUrlMode: "initial" | "disconnected" | "refreshed" = "initial";
 
 vi.mock("~/lib/wsHttpUrl", () => ({
+  buildTimeWsUrl: () => null,
   resolveWsHttpUrl: (path: string) =>
     path.includes("missing") ? "data:image/png;base64,AAAA" : favicon,
+  resolveHostHttpUrl: (_hostId: HostId, path: string) => {
+    if (path.includes("missing")) return "data:image/png;base64,AAAA";
+    if (remoteHostUrlMode === "disconnected") throw new Error("This host is not connected.");
+    return remoteHostUrlMode === "refreshed" ? refreshedFavicon : favicon;
+  },
+  toAttachmentPreviewUrl: (rawUrl: string) => rawUrl,
+  hostAttachmentPreviewUrl: (_hostId: HostId, previewUrl: string) => previewUrl,
 }));
 
 afterEach(() => {
+  remoteHostUrlMode = "initial";
   document.body.innerHTML = "";
 });
 
@@ -188,4 +204,60 @@ it("shows the open-state chevron for a logo but not for a folder", async () => {
   });
   expect(document.querySelector('[data-testid="colored-folder"] svg')).toBeNull();
   expect(document.querySelector('[data-testid="folder"] svg')).toBeNull();
+});
+
+it("keeps a remote project's cached favicon visible across SSH reconnect without flashing a folder", async () => {
+  const remoteHost = sshHostId("a1b2c3d4");
+  const mounted = await render(
+    <HostScope hostId={remoteHost}>
+      <span data-testid="remote-project-icon">
+        <ProjectSidebarIcon cwd="/remote/repo" expanded={false} />
+      </span>
+    </HostScope>,
+  );
+
+  await vi.waitFor(() => {
+    const img = document.querySelector<HTMLImageElement>('[data-testid="remote-project-icon"] img');
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute("src")).toBe(favicon);
+  });
+
+  // Simulate transient SSH disconnect (resolveHostHttpUrl throws while reconnecting)
+  // while the project row re-renders/remounts.
+  remoteHostUrlMode = "disconnected";
+  await mounted.rerender(
+    <HostScope hostId={remoteHost}>
+      <span data-testid="remote-project-icon">
+        <ProjectSidebarIcon key="reconnecting" cwd="/remote/repo" expanded />
+      </span>
+    </HostScope>,
+  );
+  expect(
+    document
+      .querySelector<HTMLImageElement>('[data-testid="remote-project-icon"] img')
+      ?.getAttribute("src"),
+  ).toBe(favicon);
+  expect(
+    document.querySelector('[data-testid="remote-project-icon"] [data-slot="hugeicon"]'),
+  ).toBeNull();
+
+  // Simulate reconnected SSH tunnel with a rotated loopback URL.
+  remoteHostUrlMode = "refreshed";
+  await mounted.rerender(
+    <HostScope hostId={remoteHost}>
+      <span data-testid="remote-project-icon">
+        <ProjectSidebarIcon key="reconnected" cwd="/remote/repo" expanded={false} />
+      </span>
+    </HostScope>,
+  );
+  expect(
+    document.querySelector('[data-testid="remote-project-icon"] [data-slot="hugeicon"]'),
+  ).toBeNull();
+  await vi.waitFor(() => {
+    expect(
+      document
+        .querySelector<HTMLImageElement>('[data-testid="remote-project-icon"] img')
+        ?.getAttribute("src"),
+    ).toBe(refreshedFavicon);
+  });
 });

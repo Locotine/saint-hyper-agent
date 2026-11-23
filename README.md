@@ -1,7 +1,7 @@
 <div align="center">
-  <h1>Saint</h1>
+  <h1>Saint Hyper Agent</h1>
   <p><strong>A focused workspace for coding agents.</strong><br>
-  Projects, provider sessions, execution surfaces, and review tools in one local-first desktop application.</p>
+  Projects, provider sessions, execution surfaces, Remote SSH hosts, and security/review tools in one local-first desktop application.</p>
   <p>
     <a href="https://github.com/Locotine/saint-hyper-agent">Source</a>
     &nbsp;·&nbsp;
@@ -10,6 +10,8 @@
     <a href="./REMOTE.md">Remote SSH hosts</a>
     &nbsp;·&nbsp;
     <a href="./docs/external-mcp.md">MCP integration</a>
+    &nbsp;·&nbsp;
+    <a href="./CHANGELOG.md">Release history</a>
     &nbsp;·&nbsp;
     <a href="https://github.com/Locotine/saint-hyper-agent/issues">Report an issue</a>
   </p>
@@ -64,11 +66,12 @@ Saint connects to coding-agent runtimes that are installed and authenticated loc
 | **Codex**       | Codex CLI / app-server                      |
 | **Claude**      | Claude Code                                 |
 | **Cursor**      | Cursor agent runtime                        |
-| **Antigravity** | Antigravity CLI                             |
+| **Antigravity** | Antigravity CLI (`agy`) over ACP            |
 | **Grok**        | Grok Build                                  |
 | **Droid**       | Factory Droid                               |
 | **OpenCode**    | OpenCode and its configured model providers |
 | **Pi**          | Pi and its configured model providers       |
+| **Oh My Pi**    | Oh My Pi (`omp`) CLI                        |
 | **Devin**       | Devin CLI                                   |
 
 ### 5. Isolated parallel work and handoffs
@@ -87,16 +90,15 @@ Managed worktrees provide a boundary for parallel changes. Handoffs preserve pro
 
 Start a transcript handoff from the thread header's handoff menu (**Fresh session from transcript**) or from the sidebar's **Handoff** submenu (**<Provider>, fresh from transcript**).
 
-### 6. Remote SSH hosts
+### 6. Remote SSH hosts & Mobile LAN relay
 
-Open a project that lives on another machine in its own window. Saint installs its server on the host over SSH, starts it in tmux, and tunnels the window to it, so agents, Git, terminals, and files run on the host. Remote servers run Codex and Claude with the CLIs installed on the host.
+Open a project that lives on another machine directly inside Saint Hyper Agent, including split views and SSH-forwarded dev server previews. Saint installs a prebuilt server bundle over SSH (requiring only Node.js 22.16+ / 23.11+ / 24+, `tar`, and optional `tmux` — no `npm`, C/C++ compiler, or Python needed), runs it on the host, and tunnels sessions so agents, Git, terminals, and files run remotely. Remote servers run Codex and Claude with the CLIs installed on the host.
 
 - Connect from **Settings → Remote hosts** with an alias from `~/.ssh/config`
-- Browse the host's folders, preview its HTML files, and upload dropped files as attachments
-- Create, rename, move, delete, upload, and download files on the host from the Explorer
-- Several users of one account can keep separate servers and data that share a single install; an administrator can install a build once for every account
-- One shared SSH connection, a bundled server that skips npm after the first install, and idle shutdown keep a shared host light
-- A new build installs its own server automatically, even when the version number is unchanged
+- Pair mobile or secondary browsers via **Settings → Remote hosts → Mobile & LAN access** (interface-scoped LAN / Tailscale relay with QR pairing)
+- Browse host folders, preview HTML/images (with offline placeholders and automatic reload on reconnect), and upload or download files from the Explorer
+- Keep multiple desktops cleanly isolated on a shared remote host while reusing one verified bundle install
+- Automatic backoff reconnection when tunnels drop or streams stall; explicit Disconnect and Stop server suppress auto-reconnect
 
 See [Remote access](./REMOTE.md) for requirements, the remote layout, and what stays local.
 
@@ -125,15 +127,15 @@ Configure the shell to match the way you work with light and dark themes, typogr
 
 ### Desktop application
 
-The current release is **1.2.2**. Download it from [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
+The latest release is **1.2.11** (see [CHANGELOG](./CHANGELOG.md) for full release history). Download it from [GitHub Releases](https://github.com/Locotine/saint-hyper-agent/releases), or build the installer yourself (see [Build installers](#build-installers)). Installed apps update themselves from the same feed.
 
-| Platform              | Artifact                                     | Install                                                                                     |
-| --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Linux x86_64          | `Saint-Hyper-Agent_<version>_amd64.AppImage` | Make it executable and run it.                                                              |
-| Ubuntu/Debian x86_64  | `Saint-Hyper-Agent_<version>_amd64.deb`      | `sudo apt install ./Saint-Hyper-Agent_<version>_amd64.deb`. Needs Ubuntu 24.04+/Debian 13+. |
-| Windows x64           | `Saint-Hyper-Agent_<version>_x64-setup.exe`  | Run the NSIS installer. Unsigned builds show a SmartScreen warning.                         |
-| macOS (Apple Silicon) | `Saint-Hyper-Agent_<version>_aarch64.dmg`    | Open the disk image and drag Saint Hyper Agent to Applications. Requires macOS 13 or later. |
-| macOS (Intel)         | `Saint-Hyper-Agent_<version>_x64.dmg`        | Same as Apple Silicon.                                                                      |
+| Platform              | Artifact                                     | Install                                                                                                      |
+| --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Linux x86_64          | `Saint-Hyper-Agent_<version>_amd64.AppImage` | Make it executable and run it.                                                                               |
+| Ubuntu/Debian x86_64  | `Saint-Hyper-Agent_<version>_amd64.deb`      | `sudo apt install ./Saint-Hyper-Agent_<version>_amd64.deb`. Supports Ubuntu 22.04+/24.04+ and Debian 12/13+. |
+| Windows x64           | `Saint-Hyper-Agent_<version>_x64-setup.exe`  | Run the NSIS installer. Unsigned builds show a SmartScreen warning.                                          |
+| macOS (Apple Silicon) | `Saint-Hyper-Agent_<version>_aarch64.dmg`    | Open the disk image and drag Saint Hyper Agent to Applications. Requires macOS 13 or later.                  |
+| macOS (Intel)         | `Saint-Hyper-Agent_<version>_x64.dmg`        | Same as Apple Silicon.                                                                                       |
 
 The Debian package is named `saint-hyper-agent`. Builds up to 1.2.9 were packaged as `saint`, which clashes with Debian's unrelated `saint` package (2.5.0), so system updates replaced the app; the new package replaces and removes the old `saint` 1.x package on install.
 
@@ -141,7 +143,7 @@ The desktop app is built with Tauri (`apps/desktop-rust`). The Electron app is r
 
 macOS builds are not notarized yet. If macOS refuses to open Saint Hyper Agent, choose **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine "/Applications/Saint Hyper Agent.app"` once (`/Applications/Saint.app` for builds before the rename).
 
-Saint Beta is retired. To move Beta data into Saint once, quit both apps and run `scripts/copy-saint-beta-data.sh` (macOS/Linux) or `scripts/copy-saint-beta-data.ps1` (Windows) from this repository. The Stable data it replaces is kept as a backup. See [CHANGELOG](./CHANGELOG.md) for release notes.
+All previously Beta features (Remote SSH, native editor, MCP connectors, Groups, Tasks, and audio trail) ship in Stable; Saint Beta is retired. See [CHANGELOG](./CHANGELOG.md) for release notes and [docs/qa-audit-2026-11.md](./docs/qa-audit-2026-11.md) for the latest full-repo QA audit report.
 
 Workspace Git features require [Git 2.29 or newer](https://github.com/git/git/blob/v2.29.0/Documentation/RelNotes/2.29.0.txt). Background refreshes preserve the FETCH_HEAD used by explicit fetch workflows. Ahead/behind counts use local refs and can update on the next status poll, up to 60 seconds after a successful background refresh; status reads do not wait for the remote.
 

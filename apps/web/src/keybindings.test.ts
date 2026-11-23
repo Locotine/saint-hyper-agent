@@ -359,7 +359,12 @@ const DEFAULT_BINDINGS = compile([
   {
     shortcut: modShortcut("l", { metaKey: true, modKey: false }),
     command: "composer.focus.toggle",
-    whenAst: whenNot(whenIdentifier("terminalFocus")),
+    whenAst: whenAnd(whenNot(whenIdentifier("terminalFocus")), whenIdentifier("isMac")),
+  },
+  {
+    shortcut: modShortcut("l", { ctrlKey: true, shiftKey: true, modKey: false }),
+    command: "composer.focus.toggle",
+    whenAst: whenAnd(whenNot(whenIdentifier("terminalFocus")), whenNot(whenIdentifier("isMac"))),
   },
   {
     shortcut: modShortcut("f"),

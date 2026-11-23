@@ -1,5 +1,87 @@
 # Changelog
 
+## 1.2.11 — 2026-11-23
+
+**Security hardening (F-01..F-08) and comprehensive 48-bug QA remediation across web, server, contracts, shared utilities, and Tauri desktop (`apps/desktop-rust`).**
+
+### Security
+
+- Hardened server, LAN relay, Aegis egress/sandbox, client path containment, and desktop bridge boundaries (`F-01`–`F-08`).
+
+### Changed
+
+- Removed Fast mode from Claude (`claudeAgent`) across model capabilities, slash commands, and adapter dispatch.
+- Froze `@`/`/` composer autocomplete popup updates during active IME preedit composition (`isComposing`) and refreshed cleanly on `compositionend` / `blur` to prevent diacritic flicker in Vietnamese/CJK input.
+- Unified Linux custom title bar default to `false` (native OS title bar) across `apps/desktop-rust`, `@saint/shared`, and `apps/web`, eliminating startup caption flash and false "Restart required" notices.
+- Added `Ctrl+Shift+L` as the default `composer.focus.toggle` shortcut on Linux and Windows (keeping `Cmd+L` on macOS and preserving `Ctrl+L` for shells).
+- Updated **Settings → Remote hosts → Host requirements** to match the prebuilt `deps.tar.gz` bundle (Node.js 22.16+/23.11+/24+, `tar`, optional `tmux`; `npm`, compiler, and Python are not needed).
+- Removed unused `x-scheme-handler/saint` desktop registration and `tauri-plugin-global-shortcut` dependency from `apps/desktop-rust`.
+- Updated the in-app **Release history**, **Help** menu (with Documentation & Report an issue links and current version), and `README.md`.
+
+### Fixed
+
+- **Streaming, Sync & Remote SSH**: Non-throwing offline remote image/PDF/HTML resolution with `"Connect host to view image"` placeholder and auto-reload on reconnect (`B01`, `B24a`); remote thread stream failure propagation (`B02`); host-scoped thread detail Retry routing (`B03`); host-scoped model discovery priority key (`B04`); SSH tunnel epoch bump on `local_port` change (`B05`); connect cancellation check before persisting `auto_connect` (`B06`); remote multi-account instance support and isolation of local custom models/fallback providers (`B07`); `WsTransport` local singleton isolation (`B22`); LAN Relay `EventSource` backoff reconnect + state resync (`B23`); and `autoReconnectSuppressed` on explicit disconnect / failed `stop_server` (`B24b`).
+- **Composer, IME & Transcript Scroll**: Prevented controlled clear (`""`) drops in Lexical (`B08`); added WebKit `compositionend -> Enter` grace window (`B09`); guarded IME `isComposing`/`keyCode === 229` across popups, edit forms, and shortcuts (`B25`); prioritized image attachments over duplicate companion URL chips on paste (`B26`); guarded malformed MCP connector URLs (`B10`); fixed Windows UNC/backslash/case handling and async race in `@local` (`B11`, `B27`); unified `/fast` capability/instance routing (`B28`); fixed transcript scroll detach, smooth-wheel snap-back, detached inset drift, `0 -> N` tail-anchor race, non-`animation-timeline: scroll()` static fade fallback, and long user-message clamp/fade clipping (`B12`, `B13`, `B29`, `B30`, `B31`, `B41`).
+- **Editor, Terminal & Settings**: Scoped remote terminal runtime disposal by `hostId` (`B14`); stabilized `EditorWorkspaceView` chat-pane resize cleanup (`B15`); added non-throwing storage helpers for SplitChatSurface, sidebar, editor preferences, and deferred persistence (`B16`); closed active `fileEdit` when closing its tab and cleared `selectedFilePath` when closing the last tab (`B32`); fixed `omp` settings patch pruning/dirty tracking (`B33`); aligned `server.upsertKeybinding` WS schema and `omp`/`antigravity`/`droid` contracts (`B34`, `B47`, `B48`).
+- **Desktop Rust & Cross-OS**: Separated quit confirmation `Ready` ack from 3s failsafe timeout (`B17`); persisted/restored HiDPI window bounds in logical DIPs (`B18`); enforced `<= 100`-byte Unix socket paths for macOS `sun_path` (`B19`); forwarded `windowsVerbatimArguments` through `RustPTY`/`pty_host` (`B20`); removed 200 ms Linux GTK context-menu timeout (`B21`); enabled macOS `TitleBarStyle::Overlay` + `.transparent(true)` and Hyprland transparency (`B36`); fixed macOS `apply_vibrancy` `corner_radius` misuse (`B37`); eliminated `pty_host` `waitpid` race and added synchronous restart teardown (`B38`); installed native Tauri application menu synced with `menu_accelerators` (`B39`); used `signalOwnedChildProcess` on Windows Codex version timeout (`B42`); routed `editorAppDiscovery` through `resolveWindowsPowerShellExecutable` (`B44`); and capped dropped-file IPC reads at 32 MiB (`B45`).
+
+## 1.2.10 — 2026-11-16
+
+**Renamed desktop application to Saint Hyper Agent with full Linux icon sizes.**
+
+- Renamed the packaged desktop application and Debian package to **Saint Hyper Agent** (`saint-hyper-agent`), replacing earlier `saint` 1.x `.deb` packages that conflicted with Debian's unrelated `saint` package.
+- Shipped complete Linux icon size variants for desktop launchers and docks.
+
+## 1.2.9 — 2026-11-16
+
+**Ubuntu/Debian `.deb` installer and desktop updater fix.**
+
+- Added native Ubuntu/Debian `amd64.deb` packaging alongside Linux AppImage, Windows NSIS, and macOS DMG releases.
+- Fixed the desktop updater getting stuck on "Preparing".
+
+## 1.2.8 — 2026-11-16
+
+**Full Antigravity (`agy`) support over ACP.**
+
+- Added full Antigravity provider support over ACP (`AntigravityAcpAdapter` and `AntigravityAcpSupport`), plus CI workflow fixes.
+
+## 1.2.7 — 2026-11-13
+
+**Reliable OS file drag-and-drop on Linux WebKitGTK and Explorer upload refresh.**
+
+- Replayed native Tauri OS file drops into DOM drag events on WebKitGTK so dragging files into the composer and Explorer works across platforms.
+- Restored automatic Explorer refresh after file uploads.
+
+## 1.2.6 — 2026-11-13
+
+**Split views & SSH-forwarded dev servers for remote chats, and streamlined workspace.**
+
+- Added split views and SSH-forwarded host dev server previews for remote SSH chats, routing actions, files, and tabs to their remote host.
+- Removed Virtual Office and bounded lint/test worker memory usage.
+
+## 1.2.5 — 2026-11-12
+
+**Linux browser overlay stability, window controls, and reliable Remote SSH stop/cancel.**
+
+- Fixed Linux embedded browser tabs to render inside their panel via `gtk::Overlay` without relayout loops.
+- Restored minimize and maximize buttons on Linux title bars (`gtk-decoration-layout`).
+- Made Remote SSH **Stop server** stick and ended cancelled connects' SSH subprocesses immediately.
+
+## 1.2.4 — 2026-11-12
+
+**Full Remote SSH feature parity in Tauri and Explorer hidden-files toggle.**
+
+- Brought full Remote SSH install, server startup, and management parity into the Tauri desktop shell (`apps/desktop-rust`).
+- Added hidden-items toggle in the workspace Explorer and kept slash menus responsive with large skill catalogs.
+- Added Wayland clipboard image paste (`wl-paste`), launcher `StartupWMClass` matching, and startup slow-step logging.
+
+## 1.2.3 — 2026-11-12
+
+**Linux clipboard image paste and remote folder browse retry.**
+
+- Fixed clipboard image pasting on Linux desktop and retried remote folder browse cleanly after reconnect.
+- Regenerated `bun.lock` with pinned Bun 1.4.4.
+
 ## 1.2.2 — 2026-11-11
 
 **Phone pairing works, Computer Use ships with the Tauri app, and the Explorer viewer splits like the editor.**

@@ -22,6 +22,7 @@ import {
 } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 import { makeEffectProcessCommand } from "../../platform/effectProcessRuntime.ts";
+import { stripSaintControlPlaneEnvironment } from "../../providerChildEnvironment.ts";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import * as nodeFs from "node:fs/promises";
@@ -901,15 +902,27 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
             Effect.provideService(FileSystem.FileSystem, fileSystem),
             Effect.mapError(toGitCommandError(commandInput, "failed to create trace2 monitor.")),
           );
+          const baseEnv: NodeJS.ProcessEnv = {
+            ...stripSaintControlPlaneEnvironment(process.env),
+            ...input.env,
+            ...trace2Monitor.env,
+          };
+          const existingConfigCount = Number.parseInt(baseEnv.GIT_CONFIG_COUNT ?? "0", 10);
+          const configCount =
+            Number.isFinite(existingConfigCount) && existingConfigCount > 0
+              ? existingConfigCount
+              : 0;
+          const gitEnv: NodeJS.ProcessEnv = {
+            ...baseEnv,
+            GIT_CONFIG_COUNT: String(configCount + 1),
+            [`GIT_CONFIG_KEY_${configCount}`]: "protocol.ext.allow",
+            [`GIT_CONFIG_VALUE_${configCount}`]: "never",
+          };
           const child = yield* commandSpawner
             .spawn(
               makeEffectProcessCommand("git", commandInput.args, {
                 cwd: commandInput.cwd,
-                env: {
-                  ...process.env,
-                  ...input.env,
-                  ...trace2Monitor.env,
-                },
+                env: gitEnv,
               }),
             )
             .pipe(Effect.mapError(toGitCommandError(commandInput, "failed to spawn.")));

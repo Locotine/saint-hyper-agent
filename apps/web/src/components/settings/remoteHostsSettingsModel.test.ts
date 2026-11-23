@@ -86,6 +86,7 @@ describe("remoteHostStatus", () => {
     expect(remoteHostStatusTone(null)).toBe("disconnected");
     expect(remoteHostBadgeLabel(null)).toBe("Disconnected");
     expect(remoteHostBadgeLabel(hostState("a", "starting"))).toBe("Connecting…");
+    expect(remoteHostBadgeLabel(hostState("a", "stopping"))).toBe("Stopping…");
     expect(remoteHostBadgeLabel(hostState("a", "connected"))).toBe("Connected");
     expect(remoteHostBadgeLabel(hostState("a", "error"))).toBe("Error");
 
@@ -96,6 +97,13 @@ describe("remoteHostStatus", () => {
         state: hostState("devbox", "installing"),
       }),
     ).toBe("Setting up a managed Saint server on Staging GPU — Installing dependencies…");
+    expect(
+      remoteHostConnectingProgress({
+        host: "devbox",
+        displayName: "Staging GPU",
+        state: hostState("devbox", "stopping"),
+      }),
+    ).toBe("Stopping the managed Saint server on Staging GPU…");
     expect(
       remoteHostConnectingProgress({
         host: "devbox",

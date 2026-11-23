@@ -2015,9 +2015,12 @@ async function dispatchConfiguredShortcutWhenReady(
 }
 
 function dispatchComposerFocusToggleShortcut(): KeyboardEvent {
+  const isMac = isMacNavigatorPlatform();
   const event = new KeyboardEvent("keydown", {
-    key: "l",
-    metaKey: true,
+    key: isMac ? "l" : "L",
+    metaKey: isMac,
+    ctrlKey: !isMac,
+    shiftKey: !isMac,
     bubbles: true,
     cancelable: true,
   });
@@ -5770,7 +5773,12 @@ describe("ChatView transcript geometry (full app)", () => {
         )!;
         const clamp = row.querySelector<HTMLElement>('[data-user-message-clamp="true"]')!;
         expect(clamp).toBeTruthy();
-        const text = clamp.firstElementChild!;
+        // `clamp.firstElementChild` is the ResizeObserver measurement wrapper;
+        // read the computed line-height from the rendered message body inside it.
+        const text =
+          clamp.querySelector<HTMLElement>(".chat-markdown") ??
+          clamp.firstElementChild?.firstElementChild ??
+          clamp.firstElementChild!;
         const lineHeightPx = Number.parseFloat(getComputedStyle(text).lineHeight);
         expect(lineHeightPx).toBeGreaterThan(0);
         expect(clamp.scrollHeight).toBeGreaterThan(clamp.clientHeight);

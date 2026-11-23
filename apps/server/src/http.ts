@@ -82,7 +82,7 @@ import { HTML_PREVIEW_ROUTE_PATH } from "@saint/shared/localPreviewFiles";
 import type { ProjectFaviconResolverShape } from "./project/Services/ProjectFaviconResolver";
 import { resolveScratchWorkspacesRoot } from "./scratchWorkspaces.ts";
 import { ProjectFaviconResolver } from "./project/Services/ProjectFaviconResolver";
-import { clientMayUsePath } from "./clientPathAccess";
+import { clientMayUsePathAsync } from "./clientPathAccess";
 import { clientScopeFromUpgrade } from "./clientScope";
 import { projectOwner, threadOwner } from "./orchestration/clientOwnership";
 import { OrchestrationEngineService } from "./orchestration/Services/OrchestrationEngine";
@@ -136,6 +136,37 @@ const SVG_DOCUMENT_SECURITY_HEADERS = {
   "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
   "X-Content-Type-Options": "nosniff",
 } as const;
+const ATTACHMENT_FORCE_DOWNLOAD_CONTENT_TYPES = new Set([
+  "text/html",
+  "application/xhtml+xml",
+  "image/svg+xml",
+  "text/xml",
+  "application/xml",
+  "text/javascript",
+  "application/javascript",
+  "text/ecmascript",
+  "application/ecmascript",
+  "text/css",
+]);
+
+function attachmentSecurityHeaders(filePath: string): Record<string, string> {
+  const rawContentType = (Mime.getType(filePath) ?? "application/octet-stream")
+    .split(";")[0]
+    ?.trim()
+    .toLowerCase();
+  const forceDownload =
+    rawContentType !== undefined && ATTACHMENT_FORCE_DOWNLOAD_CONTENT_TYPES.has(rawContentType);
+  return {
+    "Cache-Control": "private, no-store",
+    Pragma: "no-cache",
+    // Attachments are untrusted user/repo files: isolate every response in a scriptless
+    // opaque-origin sandbox and force attachment download for active document/script types.
+    ...SVG_DOCUMENT_SECURITY_HEADERS,
+    ...(forceDownload
+      ? { "Content-Disposition": attachmentContentDisposition(nodePath.basename(filePath)) }
+      : {}),
+  };
+}
 export const AUTH_JSON_BODY_MAX_BYTES = 16 * 1024;
 const decodeBootstrapInput = Schema.decodeUnknownEffect(AuthBootstrapInput);
 const decodeCreatePairingCredentialInput = Schema.decodeUnknownEffect(
@@ -815,10 +846,11 @@ const siteFaviconEffectRouteLayer = HttpRouter.add(
 // send when the caller may not, else null; always null on an unscoped server. An id the server
 // does not know yet (a draft chat) passes, like the same check on the WebSocket.
 type ClientAccessCheck = (input: {
-  readonly readModel: Parameters<typeof clientMayUsePath>[0] & Parameters<typeof threadOwner>[0];
+  readonly readModel: Parameters<typeof clientMayUsePathAsync>[0] &
+    Parameters<typeof threadOwner>[0];
   readonly scope: string;
   readonly worktreesDir: string;
-}) => boolean;
+}) => boolean | Promise<boolean>;
 const clientAccessDenied = (
   url: URL,
   headers: Record<string, string> | undefined,
@@ -832,7 +864,10 @@ const clientAccessDenied = (
       const engine = yield* Effect.serviceOption(OrchestrationEngineService);
       if (Option.isSome(engine)) {
         const readModel = yield* engine.value.getReadModel();
-        if (mayAccess({ readModel, scope, worktreesDir: config.worktreesDir })) return null;
+        const allowed = yield* Effect.promise(() =>
+          Promise.resolve(mayAccess({ readModel, scope, worktreesDir: config.worktreesDir })),
+        );
+        if (allowed) return null;
       }
     }
     return HttpServerResponse.jsonUnsafe(
@@ -855,7 +890,7 @@ const mayUseProject =
 const mayUsePath =
   (path: string): ClientAccessCheck =>
   ({ readModel, scope, worktreesDir }) =>
-    clientMayUsePath(readModel, scope, worktreesDir, path);
+    clientMayUsePathAsync(readModel, scope, worktreesDir, path);
 
 // Builds a ZIP export of a single thread (thread.json + transcript.md) and streams
 // it back as a download. Loads only the requested thread detail so the export cost
@@ -1551,6 +1586,14 @@ const binaryUploadEffectHandler = Effect.gen(function* () {
         { status: 400, headers: corsHeaders },
       );
     }
+    const voiceAccessDenied = yield* clientAccessDenied(
+      url,
+      corsHeaders,
+      async (context) =>
+        (await mayUsePath(cwd)(context)) &&
+        (threadId === undefined || (await mayUseThread(threadId)(context))),
+    );
+    if (voiceAccessDenied) return voiceAccessDenied;
     const releaseUpload = voiceUploadAdmissionGate.tryAcquire();
     if (!releaseUpload) {
       return HttpServerResponse.jsonUnsafe(
@@ -1737,10 +1780,7 @@ export const attachmentsEffectRouteLayer = HttpRouter.add(
       // Attachment access is session/token gated and attachments are mutable
       // lifecycle resources: deletion or session revocation must take effect on
       // the next request, including when a shared proxy is present.
-      headers: {
-        "Cache-Control": "private, no-store",
-        Pragma: "no-cache",
-      },
+      headers: attachmentSecurityHeaders(filePath),
     });
   }).pipe(Effect.catchTag("AuthError", (error) => Effect.succeed(authErrorResponse(error)))),
 );

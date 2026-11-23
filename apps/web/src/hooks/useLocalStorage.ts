@@ -44,13 +44,32 @@ export const getLocalStorageItem = <T, E>(key: string, schema: Schema.Codec<T, E
   return item ? decode(schema, item) : null;
 };
 
+export const getLocalStorageItemOrNull = <T, E>(
+  key: string,
+  schema: Schema.Codec<T, E>,
+): T | null => {
+  try {
+    return getLocalStorageItem(key, schema);
+  } catch {
+    return null;
+  }
+};
+
 export const setLocalStorageItem = <T, E>(key: string, value: T, schema: Schema.Codec<T, E>) => {
-  const valueToSet = encode(schema, value);
-  isomorphicLocalStorage.setItem(key, valueToSet);
+  try {
+    const valueToSet = encode(schema, value);
+    isomorphicLocalStorage.setItem(key, valueToSet);
+  } catch {
+    // Ignore storage quota / security / encoding failures so UI renders stay resilient.
+  }
 };
 
 export const removeLocalStorageItem = (key: string) => {
-  isomorphicLocalStorage.removeItem(key);
+  try {
+    isomorphicLocalStorage.removeItem(key);
+  } catch {
+    // Ignore storage security / availability failures.
+  }
 };
 
 const LOCAL_STORAGE_CHANGE_EVENT = "saint:local_storage_change";

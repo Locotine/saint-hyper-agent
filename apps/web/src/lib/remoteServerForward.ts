@@ -25,8 +25,15 @@ export function remoteServerForwarder(
     const target = new URL(url);
     const remotePort = Number(target.port) || (target.protocol === "https:" ? 443 : 80);
     const local = new URL(await forwardPort({ host, remotePort }));
+    const basePrefix = local.pathname.replace(/\/+$/, "");
     target.hostname = local.hostname;
     target.port = local.port;
+    if (basePrefix && basePrefix !== "/") {
+      // LAN relay proxies terminate HTTP at the relay; direct desktop SSH forwards preserve the target's scheme.
+      target.protocol = local.protocol;
+      const suffix = target.pathname.startsWith("/") ? target.pathname : `/${target.pathname}`;
+      target.pathname = `${basePrefix}${suffix}`;
+    }
     return target.toString();
   };
 }

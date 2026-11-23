@@ -30,6 +30,7 @@ import {
   WsHyperAgentRpcGroup,
   WsRpcError,
   PullRequestsUnavailableError,
+  ServerProviderUpdateError,
   type AutomationListResult,
   type AutomationStreamEvent,
   type DeviceEvent,
@@ -2461,7 +2462,10 @@ const makeWsRpcHandlersLayer = () =>
         [WS_METHODS.filesystemBrowse]: (input) =>
           rpcEffect(workspaceEntries.browse(input), "Failed to browse filesystem"),
         [WS_METHODS.shellOpenInEditor]: (input) =>
-          rpcEffect(open.openInEditor(input), "Failed to open editor"),
+          rpcEffect(
+            requireWsOwnerSession.pipe(Effect.andThen(() => open.openInEditor(input))),
+            "Failed to open editor",
+          ),
 
         [WS_METHODS.gitGithubRepository]: (input) =>
           rpcEffect(resolveGitHubRepository(git, input.cwd), "Failed to resolve GitHub repository"),
@@ -2668,15 +2672,25 @@ const makeWsRpcHandlersLayer = () =>
           ),
         [WS_METHODS.aegisResolve]: (input) =>
           rpcEffect(
-            aegis
-              .resolve(input.ids, input.decision, "user")
-              .pipe(Effect.map((alerts) => ({ alerts }))),
+            requireWsOwnerSession.pipe(
+              Effect.andThen(() =>
+                aegis
+                  .resolve(input.ids, input.decision, "user")
+                  .pipe(Effect.map((alerts) => ({ alerts }))),
+              ),
+            ),
             "Failed to resolve alerts",
           ),
         [WS_METHODS.aegisUnfreeze]: (input) =>
-          rpcEffect(aegis.unfreeze(input.id, "user"), "Failed to unfreeze the worktree"),
+          rpcEffect(
+            requireWsOwnerSession.pipe(Effect.andThen(() => aegis.unfreeze(input.id, "user"))),
+            "Failed to unfreeze the worktree",
+          ),
         [WS_METHODS.aegisUpdate]: (input) =>
-          rpcEffect(aegis.update(input, "user"), "Failed to update security settings"),
+          rpcEffect(
+            requireWsOwnerSession.pipe(Effect.andThen(() => aegis.update(input, "user"))),
+            "Failed to update security settings",
+          ),
         [WS_METHODS.cyberSecurityStatus]: (input) =>
           requireClientProject(input.projectId).pipe(
             Effect.andThen(
@@ -2717,7 +2731,9 @@ const makeWsRpcHandlersLayer = () =>
           ),
         [WS_METHODS.economyUpdate]: (input) =>
           rpcEffect(
-            economy((service) => service.update(input)),
+            requireWsOwnerSession.pipe(
+              Effect.andThen(() => economy((service) => service.update(input))),
+            ),
             "Failed to update host economy",
           ),
         [WS_METHODS.gitListBranches]: (input) =>
@@ -3007,13 +3023,29 @@ const makeWsRpcHandlersLayer = () =>
         [WS_METHODS.serverGetSettings]: () =>
           rpcEffect(serverSettings.getSettingsView, "Failed to load server settings"),
         [WS_METHODS.serverUpdateSettings]: (input) =>
-          rpcEffect(serverSettings.updateSettingsView(input), "Failed to update server settings"),
+          rpcEffect(
+            requireWsOwnerSession.pipe(
+              Effect.andThen(() => serverSettings.updateSettingsView(input)),
+            ),
+            "Failed to update server settings",
+          ),
         [WS_METHODS.serverRefreshProviders]: () =>
           rpcEffect(
             providerHealth.refresh.pipe(Effect.map((providers) => ({ providers }))),
             "Failed to refresh providers",
           ),
-        [WS_METHODS.serverUpdateProvider]: (input) => providerHealth.updateProvider(input),
+        [WS_METHODS.serverUpdateProvider]: (input) =>
+          requireWsOwnerSession.pipe(
+            Effect.mapError(
+              (error) =>
+                new ServerProviderUpdateError({
+                  provider: input.provider,
+                  ...(input.instanceId ? { instanceId: input.instanceId } : {}),
+                  reason: error.message,
+                }),
+            ),
+            Effect.andThen(() => providerHealth.updateProvider(input)),
+          ),
         [WS_METHODS.serverListExternalMcpIntegrations]: () =>
           rpcEffect(
             requireOwner.pipe(Effect.andThen(externalMcp.listIntegrations())),
@@ -3061,7 +3093,12 @@ const makeWsRpcHandlersLayer = () =>
             "Failed to list local servers",
           ),
         [WS_METHODS.serverStopLocalServer]: (input) =>
-          rpcEffect(stopLocalServerAndTrackedProjectRun(input), "Failed to stop local server"),
+          rpcEffect(
+            requireWsOwnerSession.pipe(
+              Effect.andThen(() => stopLocalServerAndTrackedProjectRun(input)),
+            ),
+            "Failed to stop local server",
+          ),
         [WS_METHODS.statsGetProfileStats]: (input) =>
           rpcEffect(profileStatsQuery.getProfileStats(input), "Failed to load profile stats"),
         [WS_METHODS.statsGetProfileTokenStats]: (input) =>
@@ -3226,20 +3263,30 @@ const makeWsRpcHandlersLayer = () =>
           ),
         [WS_METHODS.serverUpsertKeybinding]: (input) =>
           rpcEffect(
-            keybindings
-              .upsertKeybindingRule(input.rule, input.replacing)
-              .pipe(
-                Effect.map((keybindingsConfig) => ({ keybindings: keybindingsConfig, issues: [] })),
+            requireWsOwnerSession.pipe(
+              Effect.andThen(() =>
+                keybindings.upsertKeybindingRule(input.rule, input.replacing).pipe(
+                  Effect.map((keybindingsConfig) => ({
+                    keybindings: keybindingsConfig,
+                    issues: [],
+                  })),
+                ),
               ),
+            ),
             "Failed to update keybinding",
           ),
         [WS_METHODS.serverEditKeybindings]: (input) =>
           rpcEffect(
-            keybindings
-              .editKeybindings(input.edits)
-              .pipe(
-                Effect.map((keybindingsConfig) => ({ keybindings: keybindingsConfig, issues: [] })),
+            requireWsOwnerSession.pipe(
+              Effect.andThen(() =>
+                keybindings.editKeybindings(input.edits).pipe(
+                  Effect.map((keybindingsConfig) => ({
+                    keybindings: keybindingsConfig,
+                    issues: [],
+                  })),
+                ),
               ),
+            ),
             "Failed to update keybindings",
           ),
         [WS_METHODS.subscribeServerLifecycle]: (_, { clientId }) =>

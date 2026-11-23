@@ -198,6 +198,20 @@ it.layer(NodeServices.layer)("resolveEditorLaunch", (it) => {
         command: "wt",
         args: ["-d", "C:\\workspace"],
       });
+
+      const cmdBinDir = path.join(dir, "cmd-bin");
+      yield* fs.makeDirectory(cmdBinDir, { recursive: true });
+      yield* fs.writeFileString(path.join(cmdBinDir, "cmd.EXE"), "MZ");
+      const windowsCmdLaunch = yield* resolveEditorLaunch(
+        { cwd: "C:\\workspace\\demo&calc&%TEMP%", editor: "terminal" },
+        "win32",
+        { PATH: cmdBinDir, PATHEXT: ".EXE" },
+      );
+      assert.deepEqual(windowsCmdLaunch, {
+        command: "cmd",
+        args: ["/d", "/k"],
+        cwd: "C:\\workspace\\demo&calc&%TEMP%",
+      });
     }),
   );
 
@@ -491,21 +505,36 @@ it.layer(NodeServices.layer)("resolveAvailableEditors", (it) => {
     assert.ok(editor);
     const installLocation =
       "C:\\Program Files\\WindowsApps\\Microsoft.VisualStudioCode_1.0.0.0_x64__8wekyb3d8bbwe";
+    let calledFile = "";
     let script = "";
 
     const result = resolveWindowsStorePackageDirectoryFromPowerShell(
       getEditorWindowsStorePackages(editor),
       "win32",
       { PATH: "" },
-      (_file, args) => {
+      (file, args) => {
+        calledFile = file;
         script = String(args[2]);
         return `${installLocation}\r\n`;
       },
     );
 
+    assert.equal(calledFile, "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe");
     assert.equal(result, installLocation);
     assert.equal(script.includes("PackageFamilyName -ieq $packageDef.Family"), true);
     assert.equal(script.includes("Microsoft.VisualStudioCode_8wekyb3d8bbwe"), true);
+
+    let customFile = "";
+    resolveWindowsStorePackageDirectoryFromPowerShell(
+      getEditorWindowsStorePackages(editor),
+      "win32",
+      { PATH: "", SystemRoot: "D:\\Win" },
+      (file) => {
+        customFile = file;
+        return `${installLocation}\r\n`;
+      },
+    );
+    assert.equal(customFile, "D:\\Win\\System32\\WindowsPowerShell\\v1.0\\powershell.exe");
   });
 
   it("caches Windows Store AppX registration probes", () => {

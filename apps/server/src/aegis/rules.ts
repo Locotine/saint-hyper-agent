@@ -40,6 +40,9 @@ export function autonomyLocks(env: AutonomyEnvironment): Partial<Record<Autonomy
 }
 
 /** Hosts every provider needs to reach its own API, so turning egress on does not cut them off. */
+// Loopback hosts (`localhost`, `127.0.0.1`, `::1`) are intentionally excluded: the egress proxy
+// runs in the unsandboxed host server process, so allowlisting loopback by default lets any
+// sandboxed agent or flow gate tunnel through the proxy to arbitrary local host services.
 export const DEFAULT_EGRESS_ALLOWLIST: ReadonlyArray<string> = [
   "*.anthropic.com",
   "anthropic.com",
@@ -56,8 +59,6 @@ export const DEFAULT_EGRESS_ALLOWLIST: ReadonlyArray<string> = [
   "registry.npmjs.org",
   "pypi.org",
   "files.pythonhosted.org",
-  "localhost",
-  "127.0.0.1",
 ];
 
 /** Paths no agent has a reason to read. */

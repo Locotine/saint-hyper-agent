@@ -25,6 +25,12 @@ import {
 } from "../appSettings";
 import { resolveRuntimeModelDescriptor } from "../components/chat/runtimeModelCapabilities";
 import { collapseCursorModelVariants } from "../cursorModelVariants";
+import { withHostKey } from "../lib/projectReactQuery";
+import {
+  isRemoteSupportedProvider,
+  resolveProviderInstancesForHost,
+} from "../lib/providerAvailability";
+import { serverConfigQueryOptions } from "../lib/serverReactQuery";
 import {
   isInitialModelDiscoveryPending,
   prioritizeProviderModelDiscovery,
@@ -77,6 +83,18 @@ export interface ProviderModelCatalog {
 }
 
 const EMPTY_PROVIDER_AGENTS: ReadonlyArray<ProviderAgentDescriptor> = [];
+const EMPTY_CUSTOM_MODELS_BY_PROVIDER: ReturnType<typeof getCustomModelsByProvider> = {
+  codex: [],
+  claudeAgent: [],
+  cursor: [],
+  antigravity: [],
+  grok: [],
+  droid: [],
+  opencode: [],
+  pi: [],
+  devin: [],
+  omp: [],
+};
 
 // Module scope: `useQueries` recombines whenever this function's identity changes.
 function selectQueryData<Data>(
@@ -207,12 +225,31 @@ export function useProviderModelCatalog(input: {
         releasePriority?.();
       }
     },
-    [queryClient, settings, discoveryCwd],
+    [catalogHostId, queryClient, settings, discoveryCwd],
   );
-  const customModelsByProvider = useMemo(() => getCustomModelsByProvider(settings), [settings]);
-  const providerInstances = useMemo(
-    () => (catalogHostId === LOCAL_HOST_ID ? getProviderInstanceOptions(settings) : []),
+  const remoteServerConfigQuery = useQuery({
+    ...serverConfigQueryOptions(catalogHostId),
+    enabled: catalogHostId !== LOCAL_HOST_ID,
+  });
+  // Local custom models only belong to this computer; remote hosts use their own server catalog.
+  const customModelsByProvider = useMemo(
+    () =>
+      catalogHostId === LOCAL_HOST_ID
+        ? getCustomModelsByProvider(settings)
+        : EMPTY_CUSTOM_MODELS_BY_PROVIDER,
     [catalogHostId, settings],
+  );
+  const localProviderInstances = useMemo(() => getProviderInstanceOptions(settings), [settings]);
+  const providerInstances = useMemo(
+    () =>
+      catalogHostId === LOCAL_HOST_ID
+        ? localProviderInstances
+        : resolveProviderInstancesForHost({
+            hostId: catalogHostId,
+            localProviderInstances,
+            providerStatuses: remoteServerConfigQuery.data?.providers ?? [],
+          }),
+    [catalogHostId, localProviderInstances, remoteServerConfigQuery.data?.providers],
   );
   // Callers without an explicit instance selection route to the provider's
   // default instance, so that is the only instance discovery must warm.
@@ -276,7 +313,7 @@ export function useProviderModelCatalog(input: {
     // that as "disabled" would silence discovery for every provider, including the
     // selected one, which is precisely the "my model disappeared" symptom. Mirrors
     // the server-side fallback in ProviderDiscoveryService.listModels.
-    if (serverSettings?.providers[provider]?.enabled === false) {
+    if (catalogHostId === LOCAL_HOST_ID && serverSettings?.providers[provider]?.enabled === false) {
       return false;
     }
     if (provider === selectedProvider) {
@@ -285,7 +322,12 @@ export function useProviderModelCatalog(input: {
     if (!prefetchRequested) {
       return false;
     }
-    return prefetchProviderSet?.has(provider) ?? !hiddenProviderSet.has(provider);
+    return (
+      prefetchProviderSet?.has(provider) ??
+      (catalogHostId !== LOCAL_HOST_ID
+        ? isRemoteSupportedProvider(provider)
+        : !hiddenProviderSet.has(provider))
+    );
   };
 
   const claudeModelDiscoveryEnabled = shouldDiscoverProvider("claudeAgent");
@@ -361,18 +403,22 @@ export function useProviderModelCatalog(input: {
   ] = modelQueryOptionsByProvider[selectedProvider].queryKey;
   const selectedProviderModelsQueryKey = useMemo(
     () =>
-      providerDiscoveryQueryKeys.models(
-        modelProvider,
-        modelBinaryPath,
-        modelApiEndpoint,
-        modelAgentDir,
-        modelCwd,
-        modelHomePath,
-        modelShadowHomePath,
-        modelAccountId,
-        modelInstanceId,
+      withHostKey(
+        providerDiscoveryQueryKeys.models(
+          modelProvider,
+          modelBinaryPath,
+          modelApiEndpoint,
+          modelAgentDir,
+          modelCwd,
+          modelHomePath,
+          modelShadowHomePath,
+          modelAccountId,
+          modelInstanceId,
+        ),
+        catalogHostId,
       ),
     [
+      catalogHostId,
       modelProvider,
       modelInstanceId,
       modelBinaryPath,
@@ -616,7 +662,10 @@ export function useProviderModelCatalog(input: {
       selectedProvider) as ProviderInstanceId;
     const byInstance: ProviderModelOptionsByProviderInstance = {};
     for (const instance of providerInstances) {
-      const customModels = getCustomModelsForProviderInstance(settings, instance);
+      const customModels =
+        catalogHostId === LOCAL_HOST_ID
+          ? getCustomModelsForProviderInstance(settings, instance)
+          : [];
       const selectedModelHint =
         instance.provider === selectedProvider && instance.instanceId === selectedInstanceId
           ? modelHintByProvider?.[instance.provider]
@@ -651,6 +700,7 @@ export function useProviderModelCatalog(input: {
     }
     return byInstance;
   }, [
+    catalogHostId,
     dynamicModelsByProviderInstance,
     modelHintByProvider,
     providerInstances,

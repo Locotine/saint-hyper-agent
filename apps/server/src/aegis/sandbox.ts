@@ -45,6 +45,16 @@ export const SANDBOX_MASKED_DIRS = [
   ".kube",
 ];
 const MACOS_KEYCHAINS = "Library/Keychains";
+/**
+ * Only the system lookup/logging Unix sockets macOS runtimes need for DNS and TLS. Allowing all
+ * remote Unix sockets exposes `/var/run/docker.sock`, SSH agent sockets, and local DB daemons.
+ */
+const MACOS_ALLOWED_UNIX_SOCKETS = [
+  "/private/var/run/mDNSResponder",
+  "/var/run/mDNSResponder",
+  "/private/var/run/syslog",
+  "/var/run/syslog",
+] as const;
 /** Tool caches a sandboxed build may write to. */
 export const WRITABLE_HOME_DIRS = [".cache", ".bun", ".npm", ".cargo/registry"];
 
@@ -154,7 +164,11 @@ function bwrapHomeMounts(home: string, decoys: ReadonlyArray<DecoyFile>): string
         continue;
       }
       try {
-        if (lstatSync(source).isSymbolicLink()) {
+        const stat = lstatSync(source);
+        if (stat.nlink === 0) {
+          continue;
+        }
+        if (stat.isSymbolicLink()) {
           args.push("--symlink", readlinkSync(source), source);
           continue;
         }
@@ -277,7 +291,7 @@ export function sandboxLauncher(spec: SandboxSpec): ProcessSandboxLauncher {
         ]
       : []),
     "(deny network*)",
-    "(allow network* (remote unix-socket))",
+    `(allow network* (remote unix-socket ${seatbeltPaths("literal", MACOS_ALLOWED_UNIX_SOCKETS)} (subpath ${seatbeltString(spec.sessionDir)})))`,
     ...spec.ports.map((port) =>
       port.direction === "out"
         ? `(allow network-outbound (remote ip "localhost:${port.port}"))`

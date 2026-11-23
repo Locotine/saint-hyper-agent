@@ -180,18 +180,45 @@ impl BrowserManager {
     }
 
     fn default_pipe_path() -> String {
-        let suffix = format!("{}-{}", std::process::id(), Uuid::new_v4());
+        let short_id = &Uuid::new_v4().simple().to_string()[..12];
+        let suffix = format!("{}-{short_id}", std::process::id());
         #[cfg(target_os = "windows")]
         {
             format!(r"\\.\pipe\saint-browser-host-{suffix}")
         }
         #[cfg(not(target_os = "windows"))]
         {
+            // macOS `sockaddr_un.sun_path` is limited to 104 bytes (Linux: 108 bytes).
+            // `$TMPDIR` on macOS (`/var/folders/.../T/`) is ~49 bytes, so prefer a compact
+            // directory name and fall back to `/tmp` whenever the candidate would exceed 100 bytes.
+            const MAX_UNIX_SOCKET_PATH_BYTES: usize = 100;
             let uid = unsafe { libc::geteuid() };
-            let dir = std::env::temp_dir().join(format!("saint-browser-host-{uid}"));
-            dir.join(format!("{suffix}.sock"))
-                .to_string_lossy()
-                .into_owned()
+            let file_name = format!("{suffix}.sock");
+            let mut candidates = Vec::new();
+            if let Some(runtime_dir) = std::env::var_os("XDG_RUNTIME_DIR") {
+                candidates.push(
+                    std::path::PathBuf::from(runtime_dir)
+                        .join(format!("sb-{uid}"))
+                        .join(&file_name),
+                );
+            }
+            candidates.push(
+                std::env::temp_dir()
+                    .join(format!("sb-{uid}"))
+                    .join(&file_name),
+            );
+            candidates.push(
+                std::path::PathBuf::from("/tmp")
+                    .join(format!("sb-{uid}"))
+                    .join(&file_name),
+            );
+            for candidate in candidates {
+                let s = candidate.to_string_lossy().into_owned();
+                if s.len() <= MAX_UNIX_SOCKET_PATH_BYTES {
+                    return s;
+                }
+            }
+            format!("/tmp/sb-{uid}-{short_id}.sock")
         }
     }
 
@@ -1015,8 +1042,14 @@ impl BrowserManager {
                     }
                 }
                 let _ = std::fs::remove_file(&pipe_path);
-                let Ok(listener) = tokio::net::UnixListener::bind(&pipe_path) else {
-                    return;
+                let listener = match tokio::net::UnixListener::bind(&pipe_path) {
+                    Ok(listener) => listener,
+                    Err(err) => {
+                        eprintln!(
+                            "[saint-desktop-rust] Failed to bind browser RPC socket {pipe_path}: {err}"
+                        );
+                        return;
+                    }
                 };
                 #[cfg(unix)]
                 {
@@ -1191,6 +1224,17 @@ mod tests {
             url: "javascript:alert(1)".into(),
         });
         assert_eq!(safe.tabs[0].url, "about:blank");
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn default_pipe_path_stays_within_unix_sun_path_limit() {
+        let path = BrowserManager::default_pipe_path();
+        assert!(
+            path.len() <= 100,
+            "Unix socket path must fit within macOS 104-byte sun_path limit, got {} bytes: {path}",
+            path.len()
+        );
     }
 }
 

@@ -53,18 +53,22 @@ use crate::updater::{
 use crate::window_state::{
     acknowledge_saint_storage_snapshot, apply_window_material, build_context_menu_nodes,
     decode_clipboard_png_data_url, default_custom_title_bar_preference,
-    read_custom_title_bar_preference, read_desktop_window_state, read_saint_storage_snapshot,
-    resolve_desktop_custom_title_bar_state, resolve_reported_menu_accelerators,
-    resolve_visible_window_bounds, resolve_window_translucency, supports_custom_title_bar,
-    write_custom_title_bar_preference, write_desktop_window_state, AgentCursorStylePreference,
-    ContextMenuPosition, DesktopContextMenuItem, DesktopCustomTitleBarState, DesktopMenuShortcuts,
+    physical_to_logical_bounds, read_custom_title_bar_preference, read_desktop_window_state,
+    read_saint_storage_snapshot, resolve_desktop_custom_title_bar_state,
+    resolve_reported_menu_accelerators, resolve_visible_window_bounds, resolve_window_translucency,
+    supports_custom_title_bar, write_custom_title_bar_preference, write_desktop_window_state,
+    AgentCursorStylePreference, ContextMenuPosition, DesktopContextMenuItem,
+    DesktopCustomTitleBarState, DesktopMenuAccelerators, DesktopMenuShortcuts,
     DesktopQuitConfirmationRequest, DesktopQuitConfirmationResponse, DesktopWindowBounds,
     DesktopWindowMaterial, DesktopWindowState, PersistedDesktopWindowState,
     ResolvedContextMenuNode,
 };
 
+const MAX_DROPPED_FILE_BYTES: u64 = 32 * 1024 * 1024;
+
 fn cleanup_all_managed_resources(state: &DesktopSharedState) {
     state.backend.begin_shutdown();
+    state.pty_host.kill_all_sync();
     state.lan_relay.stop_sync();
     state.remote_ssh.kill_all_tunnels();
     state.cua_host.kill_sync();
@@ -290,18 +294,24 @@ async fn desktop_context_menu(
     }
 
     // Native `popup_menu` blocks until the menu closes on Windows/macOS and dispatches
-    // `on_menu_event` either during or immediately after returning.
-    match tokio::time::timeout(std::time::Duration::from_millis(200), rx).await {
-        Ok(Ok(selected)) => Ok(selected),
-        _ => {
-            if let Ok(mut guard) = state.active_context_menu.lock() {
-                if guard.as_ref().map(|(id, _)| id == &request_id).unwrap_or(false) {
-                    guard.take();
-                }
+    // `on_menu_event` either during or immediately after returning. On Linux (GTK3 / `muda`),
+    // `popup_menu` returns immediately while the menu stays open asynchronously, so awaiting `rx`
+    // avoids canceling the active menu after 200ms before the user clicks an item.
+    #[cfg(target_os = "linux")]
+    let selected = rx.await.ok().flatten();
+    #[cfg(not(target_os = "linux"))]
+    let selected = match tokio::time::timeout(std::time::Duration::from_millis(200), rx).await {
+        Ok(Ok(selected)) => selected,
+        _ => None,
+    };
+    if selected.is_none() {
+        if let Ok(mut guard) = state.active_context_menu.lock() {
+            if guard.as_ref().map(|(id, _)| id == &request_id).unwrap_or(false) {
+                guard.take();
             }
-            Ok(None)
         }
     }
+    Ok(selected)
 }
 
 // Paths of the OS drag in progress: the page may read only these files.
@@ -336,7 +346,7 @@ fn forward_file_drag(app: &tauri::AppHandle, drag: &tauri::DragDropEvent) {
     emit_app_event(app, "desktop:file-drag", &payload);
 }
 
-// Bytes of one file from the last OS drop, base64; refuses any other path.
+// Bytes of one file from the last OS drop, base64; refuses any other path or oversized files.
 #[tauri::command]
 fn desktop_read_dropped_file(path: String) -> Result<String, String> {
     use base64::Engine as _;
@@ -345,7 +355,20 @@ fn desktop_read_dropped_file(path: String) -> Result<String, String> {
     if !allowed {
         return Err("not a dropped file".into());
     }
+    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    if metadata.len() > MAX_DROPPED_FILE_BYTES {
+        return Err(format!(
+            "dropped file exceeds maximum inline size ({} MB)",
+            MAX_DROPPED_FILE_BYTES / (1024 * 1024)
+        ));
+    }
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > MAX_DROPPED_FILE_BYTES {
+        return Err(format!(
+            "dropped file exceeds maximum inline size ({} MB)",
+            MAX_DROPPED_FILE_BYTES / (1024 * 1024)
+        ));
+    }
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
@@ -395,18 +418,162 @@ fn desktop_clipboard_write_image(app: tauri::AppHandle, data_url: String) -> boo
     let Ok(image) = tauri::image::Image::from_bytes(&png_bytes) else {
         return false;
     };
-    app.clipboard().write_image(&image).is_ok()
+    if app.clipboard().write_image(&image).is_ok() {
+        return true;
+    }
+    // Mirror `wl-paste` above for GNOME/Wayland sessions where arboard cannot
+    // access the Wayland clipboard directly.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+        if let Ok(mut child) = Command::new("wl-copy")
+            .args(["--type", "image/png"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            let wrote = child
+                .stdin
+                .take()
+                .map(|mut stdin| stdin.write_all(&png_bytes).is_ok())
+                .unwrap_or(false);
+            if wrote && child.wait().map(|s| s.success()).unwrap_or(false) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn install_app_menu(app_handle: &tauri::AppHandle, accelerators: &DesktopMenuAccelerators) {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+    let build = || -> tauri::Result<Menu<tauri::Wry>> {
+        let terminal_new = MenuItem::with_id(
+            app_handle,
+            "menu:terminal.new",
+            "New Terminal",
+            true,
+            accelerators.terminal_new.as_deref(),
+        )?;
+        let close_window = PredefinedMenuItem::close_window(app_handle, None)?;
+        let file_menu = Submenu::with_items(app_handle, "File", true, &[&terminal_new, &close_window])?;
+
+        let undo = PredefinedMenuItem::undo(app_handle, None)?;
+        let redo = PredefinedMenuItem::redo(app_handle, None)?;
+        let edit_sep = PredefinedMenuItem::separator(app_handle)?;
+        let cut = PredefinedMenuItem::cut(app_handle, None)?;
+        let copy = PredefinedMenuItem::copy(app_handle, None)?;
+        let paste = PredefinedMenuItem::paste(app_handle, None)?;
+        let select_all = PredefinedMenuItem::select_all(app_handle, None)?;
+        let edit_menu = Submenu::with_items(
+            app_handle,
+            "Edit",
+            true,
+            &[&undo, &redo, &edit_sep, &cut, &copy, &paste, &select_all],
+        )?;
+
+        let sidebar_toggle = MenuItem::with_id(
+            app_handle,
+            "menu:sidebar.toggle",
+            "Toggle Sidebar",
+            true,
+            accelerators.sidebar_toggle.as_deref(),
+        )?;
+        let browser_toggle = MenuItem::with_id(
+            app_handle,
+            "menu:browser.toggle",
+            "Toggle Browser",
+            true,
+            accelerators.browser_toggle.as_deref(),
+        )?;
+        let fullscreen = PredefinedMenuItem::fullscreen(app_handle, None)?;
+        let view_sep = PredefinedMenuItem::separator(app_handle)?;
+        let view_menu = Submenu::with_items(
+            app_handle,
+            "View",
+            true,
+            &[&sidebar_toggle, &browser_toggle, &view_sep, &fullscreen],
+        )?;
+
+        let minimize = PredefinedMenuItem::minimize(app_handle, None)?;
+        let maximize = PredefinedMenuItem::maximize(app_handle, None)?;
+        let win_sep = PredefinedMenuItem::separator(app_handle)?;
+        let win_close = PredefinedMenuItem::close_window(app_handle, None)?;
+        let window_menu = Submenu::with_items(
+            app_handle,
+            "Window",
+            true,
+            &[&minimize, &maximize, &win_sep, &win_close],
+        )?;
+
+        #[cfg(target_os = "macos")]
+        {
+            let about = PredefinedMenuItem::about(app_handle, None, None)?;
+            let sep1 = PredefinedMenuItem::separator(app_handle)?;
+            let services = PredefinedMenuItem::services(app_handle, None)?;
+            let sep2 = PredefinedMenuItem::separator(app_handle)?;
+            let hide = PredefinedMenuItem::hide(app_handle, None)?;
+            let hide_others = PredefinedMenuItem::hide_others(app_handle, None)?;
+            let show_all = PredefinedMenuItem::show_all(app_handle, None)?;
+            let sep3 = PredefinedMenuItem::separator(app_handle)?;
+            let quit = PredefinedMenuItem::quit(app_handle, None)?;
+            let app_menu = Submenu::with_items(
+                app_handle,
+                APP_DISPLAY_NAME,
+                true,
+                &[
+                    &about,
+                    &sep1,
+                    &services,
+                    &sep2,
+                    &hide,
+                    &hide_others,
+                    &show_all,
+                    &sep3,
+                    &quit,
+                ],
+            )?;
+            Menu::with_items(
+                app_handle,
+                &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
+            )
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            Menu::with_items(app_handle, &[&file_menu, &edit_menu, &view_menu, &window_menu])
+        }
+    };
+
+    match build() {
+        Ok(menu) => {
+            if let Err(err) = app_handle.set_menu(menu) {
+                eprintln!("[saint-desktop-rust] Failed to install application menu: {err}");
+            }
+            #[cfg(not(target_os = "macos"))]
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.hide_menu();
+            }
+        }
+        Err(err) => {
+            eprintln!("[saint-desktop-rust] Failed to build application menu: {err}");
+        }
+    }
 }
 
 #[tauri::command]
 fn desktop_set_menu_shortcuts(
+    app_handle: tauri::AppHandle,
     state: State<'_, Arc<DesktopSharedState>>,
     shortcuts: DesktopMenuShortcuts,
 ) {
     let resolved = resolve_reported_menu_accelerators(&shortcuts, std::env::consts::OS);
     if let Ok(mut guard) = state.menu_accelerators.write() {
-        *guard = resolved;
+        *guard = resolved.clone();
     }
+    install_app_menu(&app_handle, &resolved);
 }
 
 #[tauri::command]
@@ -428,6 +595,15 @@ fn desktop_quit_confirmation_response(
                 .and_then(|g| g.clone())
                 .map(|pending| pending == request_id)
                 .unwrap_or(false);
+            if matches_pending {
+                // Renderer acknowledged the quit prompt; cancel the unresponsive-renderer 3s timer
+                // even when `running_count > 0` so the modal stays open until the user decides.
+                if let Ok(mut guard) = state.awaiting_quit_ready_id.lock() {
+                    if guard.as_deref() == Some(request_id.as_str()) {
+                        *guard = None;
+                    }
+                }
+            }
             if matches_pending && running_count <= 0 {
                 if let Ok(mut guard) = state.pending_quit_request_id.lock() {
                     *guard = None;
@@ -444,6 +620,11 @@ fn desktop_quit_confirmation_response(
                 .map(|pending| pending == request_id)
                 .unwrap_or(false);
             if matches_pending {
+                if let Ok(mut guard) = state.awaiting_quit_ready_id.lock() {
+                    if guard.as_deref() == Some(request_id.as_str()) {
+                        *guard = None;
+                    }
+                }
                 if let Ok(mut guard) = state.pending_quit_request_id.lock() {
                     *guard = None;
                 }
@@ -1139,65 +1320,40 @@ async fn desktop_remote_ssh_get_state(
 
 #[tauri::command]
 async fn desktop_remote_ssh_connect(
-    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     host: DesktopRemoteSshSavedHost,
 ) -> Result<DesktopRemoteSshHostState, String> {
     let remote_ssh = Arc::clone(&state.remote_ssh);
-    let (host_state, full_state) = tokio::task::spawn_blocking(move || {
-        let hs = remote_ssh.connect(host)?;
-        let fs = remote_ssh.get_state();
-        Ok::<_, String>((hs, fs))
-    })
-    .await
-    .map_err(|e| e.to_string())??;
-    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
-    Ok(host_state)
+    tokio::task::spawn_blocking(move || remote_ssh.connect(host))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 async fn desktop_remote_ssh_disconnect(
-    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     host: String,
 ) -> Result<(), String> {
     let remote_ssh = Arc::clone(&state.remote_ssh);
-    let full_state = tokio::task::spawn_blocking(move || {
-        remote_ssh.disconnect(&host)?;
-        Ok::<_, String>(remote_ssh.get_state())
-    })
-    .await
-    .map_err(|e| e.to_string())??;
-    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
-    Ok(())
+    tokio::task::spawn_blocking(move || remote_ssh.disconnect(&host))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 async fn desktop_remote_ssh_stop_server(
-    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     host: DesktopRemoteSshSavedHost,
 ) -> Result<(), String> {
     let remote_ssh = Arc::clone(&state.remote_ssh);
-    let full_state = tokio::task::spawn_blocking(move || {
-        remote_ssh.stop_server(host)?;
-        Ok::<_, String>(remote_ssh.get_state())
-    })
-    .await
-    .map_err(|e| e.to_string())??;
-    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
-    Ok(())
+    tokio::task::spawn_blocking(move || remote_ssh.stop_server(host))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn desktop_remote_ssh_forget(
-    webview: tauri::Webview,
-    state: State<'_, Arc<DesktopSharedState>>,
-    host: String,
-) {
+fn desktop_remote_ssh_forget(state: State<'_, Arc<DesktopSharedState>>, host: String) {
     state.remote_ssh.forget_host(&host);
-    let full_state = state.remote_ssh.get_state();
-    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
 }
 
 #[tauri::command]
@@ -1213,13 +1369,10 @@ async fn desktop_remote_ssh_test_host(
 
 #[tauri::command]
 fn desktop_remote_ssh_update_host(
-    webview: tauri::Webview,
     state: State<'_, Arc<DesktopSharedState>>,
     input: DesktopRemoteSshUpdateHostInput,
 ) -> Result<DesktopRemoteSshState, String> {
-    let full_state = state.remote_ssh.update_host(input)?;
-    emit_window_event(&webview, "desktop:remote-ssh-state", &full_state);
-    Ok(full_state)
+    state.remote_ssh.update_host(input)
 }
 
 #[tauri::command]
@@ -1649,7 +1802,6 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(Arc::clone(&shared_state))
@@ -1681,6 +1833,51 @@ pub fn run() {
             let app_handle = app.handle().clone();
 
             spawn_auto_update_poll(app_handle.clone(), Arc::clone(&state));
+
+            // Push every remote SSH state change (connect progress, auto-connect,
+            // background reconnects, LAN relay actions) to all open desktop windows,
+            // deduplicating identical serialized snapshots so the webview does not re-render
+            // redundantly during connects.
+            {
+                let state_for_ssh = Arc::clone(&state);
+                let handle_for_ssh = app_handle.clone();
+                let mut rx = state.remote_ssh.subscribe_state_changes();
+                tauri::async_runtime::spawn(async move {
+                    let mut last_emitted_json: Option<String> = None;
+                    loop {
+                        match rx.recv().await {
+                            Ok(()) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                                // Drain bursts queued while the previous snapshot was being built.
+                                while matches!(
+                                    rx.try_recv(),
+                                    Ok(())
+                                        | Err(tokio::sync::broadcast::error::TryRecvError::Lagged(
+                                            _,
+                                        ))
+                                ) {}
+                                let remote_ssh = Arc::clone(&state_for_ssh.remote_ssh);
+                                let Ok(snapshot) =
+                                    tokio::task::spawn_blocking(move || remote_ssh.get_state())
+                                        .await
+                                else {
+                                    continue;
+                                };
+                                let serialized = serde_json::to_string(&snapshot).ok();
+                                if serialized.is_some() && serialized == last_emitted_json {
+                                    continue;
+                                }
+                                last_emitted_json = serialized;
+                                emit_app_event(
+                                    &handle_for_ssh,
+                                    "desktop:remote-ssh-state",
+                                    &snapshot,
+                                );
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                        }
+                    }
+                });
+            }
 
             // Start the local RPC pipe server (`SAINT_BROWSER_HOST_PIPE_PATH`) so `apps/server`
             // can invoke `browser_*` tools against the desktop browser manager.
@@ -1761,6 +1958,18 @@ pub fn run() {
                     .on_navigation(|url| url.scheme() != "file")
                     .initialization_script(&init_script);
 
+            #[cfg(target_os = "macos")]
+            {
+                win_builder = win_builder
+                    .title_bar_style(tauri::TitleBarStyle::Overlay)
+                    .hidden_title(true)
+                    .transparent(true);
+            }
+            #[cfg(target_os = "linux")]
+            if resolve_window_translucency().is_some() {
+                win_builder = win_builder.transparent(true);
+            }
+
             if let Some(ref persisted) = saved_window {
                 let work_areas: Vec<DesktopWindowBounds> = app
                     .available_monitors()
@@ -1769,15 +1978,16 @@ pub fn run() {
                     .map(|m| {
                         let pos = m.position();
                         let size = m.size();
-                        DesktopWindowBounds {
-                            x: pos.x,
-                            y: pos.y,
-                            width: size.width as i32,
-                            height: size.height as i32,
-                        }
+                        physical_to_logical_bounds(
+                            pos.x,
+                            pos.y,
+                            size.width,
+                            size.height,
+                            m.scale_factor(),
+                        )
                     })
                     .collect();
-                // Same minimum as the window builder's min_inner_size above.
+                // Same minimum as the window builder's min_inner_size above (logical DIPs).
                 let safe_bounds =
                     resolve_visible_window_bounds(persisted.bounds, &work_areas, 860, 600);
                 win_builder = win_builder
@@ -1800,6 +2010,12 @@ pub fn run() {
                 }
             }
             let window = win_builder.build()?;
+            let initial_accelerators = state
+                .menu_accelerators
+                .read()
+                .map(|guard| guard.clone())
+                .unwrap_or_default();
+            install_app_menu(&app_handle, &initial_accelerators);
             let _ = window.show();
             let _ = window.set_focus();
             eprintln!(
@@ -1824,10 +2040,18 @@ pub fn run() {
             });
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    if let Ok(mut guard) = state_for_window.active_context_menu.lock() {
+                        if let Some((_, tx)) = guard.take() {
+                            let _ = tx.send(None);
+                        }
+                    }
                     if !state_for_window.quit_allowed.load(Ordering::SeqCst) {
                         api.prevent_close();
                         let request_id = uuid::Uuid::new_v4().to_string();
                         if let Ok(mut guard) = state_for_window.pending_quit_request_id.lock() {
+                            *guard = Some(request_id.clone());
+                        }
+                        if let Ok(mut guard) = state_for_window.awaiting_quit_ready_id.lock() {
                             *guard = Some(request_id.clone());
                         }
                         emit_window_event(
@@ -1843,14 +2067,26 @@ pub fn run() {
                         let app_timeout = app_for_window.clone();
                         tauri::async_runtime::spawn(async move {
                             tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-                            let still_pending = state_timeout
-                                .pending_quit_request_id
+                            // Only force-close if the renderer never acknowledged `Ready` within 3s.
+                            let still_awaiting_ready = state_timeout
+                                .awaiting_quit_ready_id
                                 .lock()
                                 .ok()
                                 .and_then(|g| g.clone())
                                 .map(|id| id == request_id)
                                 .unwrap_or(false);
-                            if still_pending {
+                            if still_awaiting_ready {
+                                if let Ok(mut guard) = state_timeout.awaiting_quit_ready_id.lock() {
+                                    if guard.as_deref() == Some(request_id.as_str()) {
+                                        *guard = None;
+                                    }
+                                }
+                                if let Ok(mut guard) = state_timeout.pending_quit_request_id.lock()
+                                {
+                                    if guard.as_deref() == Some(request_id.as_str()) {
+                                        *guard = None;
+                                    }
+                                }
                                 state_timeout.quit_allowed.store(true, Ordering::SeqCst);
                                 if let Some(win) = app_timeout.get_webview_window("main") {
                                     let _ = win.close();
@@ -1883,13 +2119,15 @@ pub fn run() {
                             window_for_events.inner_size(),
                         ) {
                             if size.width > 0 && size.height > 0 {
+                                let scale = window_for_events.scale_factor().unwrap_or(1.0);
                                 if let Ok(mut guard) = last_normal_for_events.lock() {
-                                    *guard = Some(DesktopWindowBounds {
-                                        x: pos.x,
-                                        y: pos.y,
-                                        width: size.width as i32,
-                                        height: size.height as i32,
-                                    });
+                                    *guard = Some(physical_to_logical_bounds(
+                                        pos.x,
+                                        pos.y,
+                                        size.width,
+                                        size.height,
+                                        scale,
+                                    ));
                                 }
                             }
                         }

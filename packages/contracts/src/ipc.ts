@@ -1063,6 +1063,8 @@ export interface DesktopRemoteSshHostState {
   readonly message: string | null;
   /** Local loopback port forwarded to the remote server while connected. */
   readonly localPort: number | null;
+  /** True after an explicit user disconnect or stop_server so a fast stop failure does not auto-reconnect. */
+  readonly autoReconnectSuppressed?: boolean;
 }
 
 export interface DesktopRemoteSshState {
@@ -1370,6 +1372,12 @@ export interface DesktopBridge {
     ) => () => void;
     onBrowserCopyLink: (listener: (event: BrowserCopyLinkEvent) => void) => () => void;
   };
+}
+
+export interface OrchestrationThreadStreamFailure {
+  readonly threadId: string;
+  readonly code: string | null;
+  readonly error: Error;
 }
 
 export interface NativeApi {
@@ -1751,6 +1759,9 @@ export interface NativeApi {
     onDomainEvent: (callback: (event: OrchestrationEvent) => void) => () => void;
     onShellEvent: (callback: (event: OrchestrationShellStreamItem) => void) => () => void;
     onThreadEvent: (callback: (event: OrchestrationThreadStreamItem) => void) => () => void;
+    onThreadStreamFailure?: (
+      callback: (failure: OrchestrationThreadStreamFailure) => void,
+    ) => () => void;
   };
   projectAgent: {
     getOverview: (input: ProjectAgentGetOverviewInput) => Promise<ProjectAgentOverview>;

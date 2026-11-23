@@ -6,6 +6,7 @@ import {
   type MessageId,
   type ModelSelection,
   type OrchestrationShellSnapshot,
+  type ProviderInstanceId,
   type ProviderInteractionMode,
   type ProviderKind,
   type ProviderNativeCommandDescriptor,
@@ -26,7 +27,6 @@ import {
   buildSlashReviewComposerPrompt,
   buildSubagentsPrompt,
   getAvailableComposerSlashCommands,
-  hasProviderNativeSlashCommand,
   parseComposerSlashInvocationForCommands,
   parseFastSlashCommandAction,
   parseForkSlashCommandArgs,
@@ -88,6 +88,8 @@ export function useComposerSlashCommands(input: {
   providerNativeCommands: readonly ProviderNativeCommandDescriptor[];
   providerCommandDiscoveryCwd: string | null;
   selectedProvider: ProviderKind;
+  selectedProviderInstanceId?: ProviderInstanceId | null | undefined;
+  selectedModel?: string | null | undefined;
   currentProviderModelOptions: ProviderModelOptions[ProviderKind] | undefined;
   selectedModelSelection: ModelSelection;
   runtimeMode: RuntimeMode;
@@ -103,7 +105,11 @@ export function useComposerSlashCommands(input: {
     threadId: ThreadId,
     provider: ProviderKind,
     nextProviderOptions: ProviderModelOptions[ProviderKind],
-    options?: { persistSticky?: boolean },
+    options?: {
+      instanceId?: ProviderInstanceId | null;
+      model?: string | null;
+      persistSticky?: boolean;
+    },
   ) => void;
   editorActions: {
     resolveActiveComposerTrigger: () => {
@@ -142,6 +148,8 @@ export function useComposerSlashCommands(input: {
     providerNativeCommands,
     providerCommandDiscoveryCwd,
     selectedProvider,
+    selectedProviderInstanceId,
+    selectedModel,
     currentProviderModelOptions,
     selectedModelSelection,
     runtimeMode,
@@ -221,11 +229,20 @@ export function useComposerSlashCommands(input: {
           fastMode: enabled,
         }),
         {
+          ...(selectedProviderInstanceId ? { instanceId: selectedProviderInstanceId } : {}),
+          ...(selectedModel !== undefined ? { model: selectedModel } : {}),
           persistSticky: true,
         },
       );
     },
-    [currentProviderModelOptions, selectedProvider, setComposerDraftProviderModelOptions, threadId],
+    [
+      currentProviderModelOptions,
+      selectedModel,
+      selectedProvider,
+      selectedProviderInstanceId,
+      setComposerDraftProviderModelOptions,
+      threadId,
+    ],
   );
 
   const runFastSlashCommand = useCallback(
@@ -768,53 +785,6 @@ export function useComposerSlashCommands(input: {
     [runForkThread],
   );
 
-  const checkClaudeFastSlashCommandAvailability = useCallback(async (): Promise<boolean> => {
-    const api = apiFor(hostId);
-    if (!api || !providerCommandDiscoveryCwd) {
-      editorActions.clearComposerSlashDraft();
-      toastManager.add({
-        type: "warning",
-        title: "Fast mode could not be checked",
-        description: "Claude command discovery is unavailable right now.",
-      });
-      return false;
-    }
-
-    try {
-      const result = await api.provider.listCommands({
-        provider: "claudeAgent",
-        cwd: providerCommandDiscoveryCwd,
-        threadId,
-        forceReload: true,
-      });
-      if (
-        hasProviderNativeSlashCommand(
-          "claudeAgent",
-          result.commands.map((command) => command.name),
-          "fast",
-        )
-      ) {
-        return true;
-      }
-    } catch {
-      editorActions.clearComposerSlashDraft();
-      toastManager.add({
-        type: "warning",
-        title: "Fast mode could not be checked",
-        description: "Claude command discovery failed. Please try again.",
-      });
-      return false;
-    }
-
-    editorActions.clearComposerSlashDraft();
-    toastManager.add({
-      type: "info",
-      title: "Fast mode is unavailable",
-      description: "Claude did not expose /fast for this account or environment.",
-    });
-    return false;
-  }, [hostId, editorActions, providerCommandDiscoveryCwd, threadId]);
-
   const runExportSlashCommand = useCallback(() => {
     // Re-validate at call time (mirrors /compact): menu selections and stale
     // highlights can outlive the availability computed at render time.
@@ -849,14 +819,6 @@ export function useComposerSlashCommands(input: {
 
   const handleStandaloneSlashCommand = useCallback(
     async (trimmed: string): Promise<boolean> => {
-      const fastSlashAction = parseFastSlashCommandAction(trimmed);
-      if (selectedProvider === "claudeAgent" && fastSlashAction !== null) {
-        if (await checkClaudeFastSlashCommandAvailability()) {
-          return false;
-        }
-        return true;
-      }
-
       const slashInvocation = parseComposerSlashInvocationForCommands(
         trimmed,
         availableBuiltInSlashCommands,
@@ -1062,7 +1024,6 @@ export function useComposerSlashCommands(input: {
       activeThread,
       availableBuiltInSlashCommands,
       canExecuteSideCommand,
-      checkClaudeFastSlashCommandAvailability,
       compactProviderThread,
       createForkThreadFromSlashCommand,
       createSidechatFromSlashCommand,

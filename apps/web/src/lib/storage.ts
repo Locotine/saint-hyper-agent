@@ -134,26 +134,42 @@ export function createDeferredPersistStorage<State, Persisted = State>(options: 
     }
     const { name, value } = pending;
     pending = null;
-    // Mirror zustand's `{ state, version }` StorageValue key order so the produced
-    // bytes stay identical to createJSONStorage for the same state.
-    getStorage().setItem(
-      name,
-      JSON.stringify({
-        state: partialize(value.state as unknown as State),
-        version: value.version,
-      }),
-    );
+    try {
+      // Mirror zustand's `{ state, version }` StorageValue key order so the produced
+      // bytes stay identical to createJSONStorage for the same state.
+      getStorage().setItem(
+        name,
+        JSON.stringify({
+          state: partialize(value.state as unknown as State),
+          version: value.version,
+        }),
+      );
+    } catch {
+      // Ignore quota / security / serialization failures so background flushes never crash the app.
+    }
   };
 
   const debouncedWrite = new Debouncer(() => writePending(), { wait: debounceMs });
 
-  const parse = (value: string | null): StorageValue<Persisted> | null =>
-    value === null ? null : (JSON.parse(value) as StorageValue<Persisted>);
+  const parse = (value: string | null): StorageValue<Persisted> | null => {
+    if (value === null) {
+      return null;
+    }
+    try {
+      return JSON.parse(value) as StorageValue<Persisted>;
+    } catch {
+      return null;
+    }
+  };
 
   return {
     getItem: (name) => {
-      const raw = getStorage().getItem(name);
-      return raw instanceof Promise ? raw.then(parse) : parse(raw);
+      try {
+        const raw = getStorage().getItem(name);
+        return raw instanceof Promise ? raw.then(parse, () => null) : parse(raw);
+      } catch {
+        return null;
+      }
     },
     setItem: (name, value) => {
       pending = { name, value };
@@ -162,7 +178,11 @@ export function createDeferredPersistStorage<State, Persisted = State>(options: 
     removeItem: (name) => {
       pending = null;
       debouncedWrite.cancel();
-      getStorage().removeItem(name);
+      try {
+        getStorage().removeItem(name);
+      } catch {
+        // Ignore storage availability errors.
+      }
     },
     flush: () => {
       debouncedWrite.cancel();

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { readdir } from "node:fs/promises";
+import { access, readdir } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 
@@ -337,12 +337,44 @@ const make = Effect.gen(function* () {
   const flowIdOf = (principal: PolicyPrincipal) =>
     principal.kind === "node" ? (principal.flowId as AegisAlert["flowId"]) : null;
 
-  /** Absolute protected files in a workspace this principal may not write (read-only mounts). */
+  const pathExists = (target: string) =>
+    access(target).then(
+      () => true,
+      () => false,
+    );
+
+  /**
+   * Git configuration and hooks inside the workspace or linked common git dir stay read-only so a
+   * sandboxed process cannot plant `core.fsmonitor`, `core.hooksPath`, or `core.sshCommand` to
+   * execute unsandboxed code when the host server polls git status.
+   */
+  const gitProtectedPaths = async (cwd: string): Promise<string[]> => {
+    const candidates: string[] = [];
+    const dotGit = path.join(cwd, ".git");
+    if (await pathExists(dotGit)) {
+      if (gitCommonDir(cwd) !== null) {
+        // Linked worktree: `.git` is a pointer file; lock it so it cannot be repointed.
+        candidates.push(dotGit);
+      } else {
+        candidates.push(path.join(dotGit, "config"), path.join(dotGit, "hooks"));
+      }
+    }
+    const commonDir = gitCommonDir(cwd);
+    if (commonDir) {
+      candidates.push(path.join(commonDir, "config"), path.join(commonDir, "hooks"));
+    }
+    const existing: string[] = [];
+    for (const candidate of new Set(candidates)) {
+      if (await pathExists(candidate)) existing.push(candidate);
+    }
+    return existing;
+  };
+
+  /** Absolute protected files (and directories) in a workspace this principal may not write. */
   /** Async, so a large workspace never stalls the server while a sandboxed process starts. */
   const readOnlyFiles = async (value: AegisSettings, cwd: string, principal: PolicyPrincipal) => {
-    const patterns = [...FLOW_ALWAYS_PROTECTED, ...value.policy.protectedZones].map(
-      protectedPathPattern,
-    );
+    const globs = [...FLOW_ALWAYS_PROTECTED, ...value.policy.protectedZones];
+    const patterns = globs.map(protectedPathPattern);
     const found: string[] = [];
     const walk = async (relative: string): Promise<void> => {
       if (found.length >= PROTECTED_SCAN_LIMIT) return;
@@ -362,13 +394,30 @@ const make = Effect.gen(function* () {
       }
     };
     await walk("");
-    return found
+    const protectedDirs: string[] = [];
+    for (const glob of globs) {
+      if (!glob.endsWith("/**")) continue;
+      const dirRelative = glob.slice(0, -3).replace(/\/+$/u, "");
+      if (!dirRelative || dirRelative.includes("*")) continue;
+      const absoluteDir = path.join(cwd, dirRelative);
+      if (!(await pathExists(absoluteDir))) continue;
+      if (
+        evaluateCedar(value.policy.cedar, principal, {
+          action: "write",
+          path: `${dirRelative}/__probe__`,
+        }).decision !== "permit"
+      ) {
+        protectedDirs.push(absoluteDir);
+      }
+    }
+    const filePaths = found
       .filter(
         (file) =>
           evaluateCedar(value.policy.cedar, principal, { action: "write", path: file }).decision !==
           "permit",
       )
       .map((file) => path.join(cwd, file));
+    return [...new Set([...filePaths, ...protectedDirs, ...(await gitProtectedPaths(cwd))])];
   };
 
   const gatewayPort = () => {

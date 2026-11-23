@@ -1,11 +1,10 @@
 // Purpose: Route selected transcript text through the normal Side and new-chat flows.
 
-import { LOCAL_HOST_ID, scopeLocalProject, scopeThread, type HostId } from "@saint/shared/hostId";
+import { LOCAL_HOST_ID, scopeProject, scopeThread, type HostId } from "@saint/shared/hostId";
 import type { ProjectId, ThreadEnvironmentMode, ThreadId } from "@saint/contracts";
 
 import { useComposerDraftStore, type QueuedComposerChatTurn } from "../composerDraftStore";
 import { requestComposerFocus } from "../composerFocusRequestStore";
-import { ensureLocalNativeApi } from "../nativeApi";
 import { useProjectEnvironmentStore } from "../projectEnvironmentStore";
 import { useRightDockStore } from "../rightDockStore";
 import { hostStores } from "../hosts/hostStores";
@@ -83,7 +82,7 @@ export async function startSelectionChat(
 
   let branch: string | null = null;
   if (input.envMode === "worktree") {
-    const status = await ensureLocalNativeApi().git.status({ cwd: input.projectCwd });
+    const status = await projectApiFor(hostId).git.status({ cwd: input.projectCwd });
     branch = status.branch;
     if (!branch) throw new Error("Check out a branch before starting a new worktree.");
   }
@@ -103,7 +102,7 @@ export async function startSelectionChat(
   drafts.setInteractionMode(scopeThread(hostId, threadId), "default");
   useProjectEnvironmentStore
     .getState()
-    .setProjectEnvMode(scopeLocalProject(input.projectId), input.envMode);
+    .setProjectEnvMode(scopeProject(hostId, input.projectId), input.envMode);
   if (input.intent === "compose") {
     drafts.setPrompt(scopeThread(hostId, threadId), input.prompt);
     drafts.addAssistantSelection(scopeThread(hostId, threadId), attachment);

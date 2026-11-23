@@ -6,7 +6,9 @@ import { hostConnections } from "../hosts/hostConnectionRegistry";
 import {
   buildTimeWsUrl,
   hostAttachmentPreviewUrl,
+  isHostAttachmentPath,
   resolveHostHttpUrl,
+  resolveHostHttpUrlOrNull,
   resolveWsHttpUrl,
 } from "./wsHttpUrl";
 
@@ -86,11 +88,40 @@ describe("resolveHostHttpUrl", () => {
     );
   });
 
+  it("preserves LAN relay reverse-proxy path prefixes for paired mobile browsers", () => {
+    vi.stubGlobal("window", { location: { origin: "http://192.168.1.5:3883" } });
+    vi.spyOn(hostConnections, "peek").mockReturnValue({
+      explicitUrl: "ws://192.168.1.5:3883/api/remote-ssh/proxy/a1b2c3d4/",
+    } as never);
+
+    expect(resolveHostHttpUrl(sshHostId("a1b2c3d4"), "/attachments/pic.png")).toBe(
+      "http://192.168.1.5:3883/api/remote-ssh/proxy/a1b2c3d4/attachments/pic.png",
+    );
+    expect(resolveHostHttpUrl(sshHostId("a1b2c3d4"), "/api/workspace/download?cwd=%2Frepo")).toBe(
+      "http://192.168.1.5:3883/api/remote-ssh/proxy/a1b2c3d4/api/workspace/download?cwd=%2Frepo",
+    );
+  });
+
   it("refuses a remote host without a live connection instead of using the local server", () => {
     vi.stubGlobal("window", { location: { origin: "http://fallback.test" } });
     vi.spyOn(hostConnections, "peek").mockReturnValue(undefined);
 
     expect(() => resolveHostHttpUrl(sshHostId("a1b2c3d4"), "/api/x")).toThrow(/not connected/);
+    expect(resolveHostHttpUrlOrNull(sshHostId("a1b2c3d4"), "/api/x")).toBeNull();
+  });
+
+  it("resolves non-throwing host URLs when a remote connection is active", () => {
+    vi.stubGlobal("window", { location: { origin: "http://fallback.test" } });
+    vi.spyOn(hostConnections, "peek").mockReturnValue({
+      explicitUrl: "ws://127.0.0.1:5222/ws?token=remote",
+    } as never);
+
+    expect(resolveHostHttpUrlOrNull(sshHostId("a1b2c3d4"), "/api/local-image?src=a.png")).toBe(
+      "http://127.0.0.1:5222/api/local-image?src=a.png&token=remote",
+    );
+    expect(isHostAttachmentPath("http://127.0.0.1:4111/attachments/att_1?token=local")).toBe(true);
+    expect(isHostAttachmentPath("blob:http://127.0.0.1:4111/123")).toBe(false);
+    expect(isHostAttachmentPath("https://example.test/photo.png")).toBe(false);
   });
 });
 

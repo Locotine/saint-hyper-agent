@@ -7,17 +7,27 @@
 //        markdown variant (`GeneratedMarkdownImage`) composes the same hook and
 //        error card with its own inline frame/overlay rendering.
 
-import { type ImgHTMLAttributes, type MouseEvent, useState } from "react";
+import { type ImgHTMLAttributes, type MouseEvent, useState, useSyncExternalStore } from "react";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 
+import { hostConnections } from "~/hosts/hostConnectionRegistry";
 import { useHostId } from "~/hosts/hostScope";
 
 import { downloadUrlAsBlob } from "~/lib/browserDownload";
-import { DownloadIcon, Loader2Icon, TriangleAlertIcon } from "~/lib/icons";
-import { buildLocalImageUrl, localImageFileName } from "~/lib/localImageUrls";
+import { DownloadIcon, Loader2Icon, ServerIcon, TriangleAlertIcon } from "~/lib/icons";
+import { buildLocalImageUrlOrNull, localImageFileName } from "~/lib/localImageUrls";
 import { cn } from "~/lib/utils";
 import { toastManager } from "./ui/toast";
 
-export type LocalImagePreviewStatus = "loading" | "ready" | "error";
+export function useHostExplicitUrl(hostId: HostId): string | null {
+  return useSyncExternalStore(
+    hostConnections.subscribe,
+    () => (hostId === LOCAL_HOST_ID ? null : (hostConnections.peek(hostId)?.explicitUrl ?? null)),
+    () => null,
+  );
+}
+
+export type LocalImagePreviewStatus = "loading" | "ready" | "error" | "offline";
 
 type LocalImagePreviewImgProps = Pick<
   ImgHTMLAttributes<HTMLImageElement>,
@@ -45,21 +55,33 @@ export function useLocalImagePreview(input: {
 }): LocalImagePreviewState {
   const { src, cwd, previewGrant } = input;
   const hostId = useHostId();
-  const previewUrl = buildLocalImageUrl({
+  // Subscribe to host connection changes so cached offline remote images re-resolve and load
+  // automatically as soon as the host reconnects.
+  const hostExplicitUrl = useHostExplicitUrl(hostId);
+  void hostExplicitUrl;
+  const rawPreviewUrl = buildLocalImageUrlOrNull({
     src,
     cwd: cwd ?? undefined,
     grant: previewGrant,
     cacheKey: input.cacheKey,
     hostId,
   });
-  const downloadUrl = buildLocalImageUrl({
+  const rawDownloadUrl = buildLocalImageUrlOrNull({
     src,
     cwd: cwd ?? undefined,
     download: true,
     grant: previewGrant,
     hostId,
   });
+  const previewUrl = rawPreviewUrl ?? "";
+  const downloadUrl = rawDownloadUrl ?? "";
   const fileName = localImageFileName(src);
+  const isOfflineRemote = hostId !== LOCAL_HOST_ID && hostExplicitUrl === null;
+  const initialStatus: LocalImagePreviewStatus = previewUrl
+    ? "loading"
+    : isOfflineRemote
+      ? "offline"
+      : "error";
   // A generation distinguishes separate visits to the same URL. This keeps an
   // A -> B -> A transition from reviving A's old error branch (which contains
   // no <img> and therefore cannot retry), and rejects stale image events.
@@ -67,11 +89,11 @@ export function useLocalImagePreview(input: {
     url: string;
     generation: number;
     status: LocalImagePreviewStatus;
-  }>(() => ({ url: previewUrl, generation: 0, status: "loading" }));
+  }>(() => ({ url: previewUrl, generation: 0, status: initialStatus }));
   const load =
     storedLoad.url === previewUrl
       ? storedLoad
-      : { url: previewUrl, generation: storedLoad.generation + 1, status: "loading" as const };
+      : { url: previewUrl, generation: storedLoad.generation + 1, status: initialStatus };
   if (load !== storedLoad) {
     setStoredLoad(load);
   }
@@ -85,7 +107,7 @@ export function useLocalImagePreview(input: {
   };
 
   const imgProps: LocalImagePreviewImgProps = {
-    src: previewUrl,
+    src: previewUrl || undefined,
     loading: "lazy",
     decoding: "async",
     draggable: false,
@@ -123,6 +145,9 @@ export function useLocalImageDownloadClick(input: {
     void Promise.resolve()
       .then(async () => {
         const url = input.resolveDownloadUrl ? await input.resolveDownloadUrl() : input.downloadUrl;
+        if (!url) {
+          throw new Error("This host is not connected.");
+        }
         await downloadUrlAsBlob({ url, filename: input.downloadName });
       })
       .catch((error: unknown) => {
@@ -134,6 +159,21 @@ export function useLocalImageDownloadClick(input: {
         });
       });
   };
+}
+
+// Span-only markup so the card stays valid inside markdown paragraphs.
+export function LocalImageOfflineCard(props: { className?: string | undefined }) {
+  return (
+    <span className={cn("local-image-error", props.className)} data-status="offline">
+      <span className="local-image-error__icon" aria-hidden="true">
+        <ServerIcon className="size-4" />
+      </span>
+      <span className="local-image-error__body">
+        <span className="local-image-error__title">Host offline</span>
+        <span className="local-image-error__subtitle">Connect host to view image</span>
+      </span>
+    </span>
+  );
 }
 
 // Span-only markup so the card stays valid inside markdown paragraphs.
@@ -190,6 +230,10 @@ export function LocalImagePreview(props: {
     onPreviewError: props.onPreviewError,
   });
   const handleDownloadClick = useLocalImageDownloadClick({ downloadUrl, downloadName });
+
+  if (status === "offline") {
+    return <LocalImageOfflineCard className={props.className} />;
+  }
 
   if (status === "error") {
     return (

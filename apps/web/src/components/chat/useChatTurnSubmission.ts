@@ -264,12 +264,14 @@ export function useChatTurnSubmission({
       requestedDispatchMode?: "queue" | "steer",
       queuedTurn?: QueuedComposerChatTurn,
     ): Promise<boolean> => {
-      const dispatchMode =
-        requestedDispatchMode ??
-        resolveFollowUpDispatchMode({
-          behavior: settings.followUpBehavior,
-          hasLiveTurn,
-        });
+      const isSubagentThread = activeThread?.parentThreadId != null;
+      const dispatchMode = isSubagentThread
+        ? "steer"
+        : (requestedDispatchMode ??
+          resolveFollowUpDispatchMode({
+            behavior: settings.followUpBehavior,
+            hasLiveTurn,
+          }));
       e?.preventDefault();
       const api = chatHost.api();
       const lateSendHandlers = lateComposerSendHandlersRef.current;
