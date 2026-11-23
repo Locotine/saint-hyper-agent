@@ -588,6 +588,14 @@ export interface AcpSessionRuntimeShape {
   readonly forkSession: (
     payload: Omit<Acp.ForkSessionRequest, "sessionId">,
   ) => Effect.Effect<Acp.ForkSessionResponse, AcpErrors.AcpError>;
+  /**
+   * Re-bind the active session on the already-running ACP process with fresh
+   * MCP server credentials (e.g. after interrupting a turn) using `session/resume`
+   * or `session/load`. Returns `false` if the agent supports neither.
+   */
+  readonly reloadSession?: (
+    buildMcpServers: (initializeResult: Acp.InitializeResponse) => Array<Acp.McpServer>,
+  ) => Effect.Effect<boolean, AcpErrors.AcpError>;
   readonly closeSession: () => Effect.Effect<void, AcpErrors.AcpError>;
   readonly request: (
     method: string,
@@ -2088,7 +2096,7 @@ const makeAcpSessionRuntime = (
 
           // Install the final session id, baseline, and replay policy. Fresh sessions
           // replay all buffered updates; resumed sessions only apply bounded-state
-          // updates (commands/config/mode) because transcript replay before attachment
+          // updates (commands/config/mode/usage) because transcript replay before attachment
           // is treated as historical context, not live output.
           yield* setSessionEpoch(sessionId, sessionSetupResult, {
             replay: resumedExistingSession ? "bounded-only" : "all",
@@ -2353,6 +2361,96 @@ const makeAcpSessionRuntime = (
             );
           }),
         ),
+      reloadSession: (buildMcpServers) =>
+        getStartedState.pipe(
+          Effect.flatMap((started) =>
+            Effect.gen(function* () {
+              const capabilities = started.initializeResult.agentCapabilities;
+              const supportsResume = capabilities?.sessionCapabilities?.resume != null;
+              const supportsLoad = capabilities?.loadSession === true;
+              if (!supportsResume && !supportsLoad) {
+                return false;
+              }
+              const mcpServers = buildMcpServers(started.initializeResult);
+              const sessionCwd = resolveAcpSessionCwd(options.cwd);
+              const requestedAdditionalDirectories =
+                options.additionalDirectories
+                  ?.map((dir) => resolveAcpSessionCwd(dir.trim()))
+                  .filter((dir) => dir.length > 0) ?? [];
+              const additionalDirectoriesField =
+                requestedAdditionalDirectories.length > 0
+                  ? { additionalDirectories: requestedAdditionalDirectories }
+                  : {};
+              const reloadedResult = yield* supportsResume
+                ? (() => {
+                    const resumePayload = {
+                      sessionId: started.sessionId,
+                      cwd: sessionCwd,
+                      mcpServers,
+                      ...additionalDirectoriesField,
+                      ...(options.sessionMeta ? { _meta: options.sessionMeta } : {}),
+                    } satisfies Acp.ResumeSessionRequest;
+                    return withStartupTimeout(
+                      "session/resume",
+                      startupTimeouts.sessionSetupMs,
+                      runLoggedRequest(
+                        "session/resume",
+                        resumePayload,
+                        acp.agent.resumeSession(resumePayload),
+                      ),
+                    );
+                  })()
+                : (() => {
+                    const loadPayload = {
+                      sessionId: started.sessionId,
+                      cwd: sessionCwd,
+                      mcpServers,
+                      ...additionalDirectoriesField,
+                      ...(options.sessionMeta ? { _meta: options.sessionMeta } : {}),
+                    } satisfies Acp.LoadSessionRequest;
+                    return withStartupTimeout(
+                      "session/load",
+                      startupTimeouts.sessionSetupMs,
+                      runLoggedRequest(
+                        "session/load",
+                        loadPayload,
+                        acp.agent.loadSession(loadPayload),
+                      ),
+                    );
+                  })();
+
+              const reloadMethod = supportsResume ? "resume" : "load";
+              if (reloadMethod === "load") {
+                const quietMs = options.loadReplayPolicy?.quietMs ?? ACP_LOAD_REPLAY_QUIET_MS;
+                const hardTimeoutMs =
+                  options.loadReplayPolicy?.hardTimeoutMs ?? ACP_LOAD_REPLAY_HARD_TIMEOUT_MS;
+                loadReplayGate = yield* makeAcpLoadReplayGate({
+                  quietMs,
+                  hardTimeoutMs,
+                  onHardTimeout: ({ elapsedMs }) =>
+                    Effect.logWarning("acp.session_load_replay_quiet_wait_timeout", {
+                      sessionId: started.sessionId,
+                      command: options.spawn.command,
+                      elapsedMs,
+                      quietMs,
+                      hardTimeoutMs,
+                    }),
+                });
+              } else {
+                loadReplayGate = undefined;
+              }
+
+              yield* setSessionEpoch(started.sessionId, reloadedResult, {
+                replay: "bounded-only",
+                resetState: true,
+              });
+              if (loadReplayGate !== undefined) {
+                yield* loadReplayGate.settle.pipe(Effect.forkIn(runtimeScope));
+              }
+              return true;
+            }),
+          ),
+        ),
       closeSession: () =>
         getStartedState.pipe(
           Effect.flatMap((started) =>
@@ -2521,9 +2619,13 @@ const processSessionUpdate = ({
     }
 
     if (skipTranscriptEvents) {
-      if (retainReplayToolState) {
-        for (const event of parsed.events) {
-          if (event._tag === "ToolCallUpdated") yield* offer({ ...event, replayed: true });
+      for (const event of parsed.events) {
+        // Usage reflects current bounded session state (context window occupancy),
+        // not replayed transcript history, so keep it on session/load.
+        if (event._tag === "UsageUpdated") {
+          yield* offer(event);
+        } else if (retainReplayToolState && event._tag === "ToolCallUpdated") {
+          yield* offer({ ...event, replayed: true });
         }
       }
       return;

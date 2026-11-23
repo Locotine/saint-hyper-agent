@@ -19,11 +19,20 @@ function makeSession(status: OrchestrationSession["status"]): OrchestrationSessi
   };
 }
 
-function derive(currentSession: OrchestrationSession | null) {
+function derive(
+  currentSession: OrchestrationSession | null,
+  overrides?: {
+    readonly providerName?: OrchestrationSession["providerName"];
+    readonly providerInstanceId?: OrchestrationSession["providerInstanceId"];
+  },
+) {
   return deriveTurnStartSession({
     threadId: THREAD_ID,
     currentSession,
-    providerName: "pi",
+    providerName: overrides?.providerName ?? "pi",
+    ...(overrides?.providerInstanceId !== undefined
+      ? { providerInstanceId: overrides.providerInstanceId }
+      : {}),
     requestedRuntimeMode: "full-access",
     requestedAt: REQUESTED_AT,
   });
@@ -56,11 +65,36 @@ describe("deriveTurnStartSession", () => {
     ).toBe(false);
   });
 
-  it("preserves established provider settings when restarting an idle session", () => {
+  it("preserves established provider settings and avoids starting phase for warm ready sessions", () => {
+    expect(derive(makeSession("ready"), { providerName: "codex" })).toMatchObject({
+      status: "running",
+      providerName: "codex",
+      runtimeMode: "approval-required",
+      activeTurnId: null,
+      lastError: null,
+    });
+  });
+
+  it("uses starting phase when restarting an idle ready session onto a different provider", () => {
     expect(derive(makeSession("ready"))).toMatchObject({
       status: "starting",
       providerName: "codex",
       runtimeMode: "approval-required",
+      activeTurnId: null,
+      lastError: null,
+    });
+  });
+
+  it("uses starting phase when a session is stopped or absent", () => {
+    expect(derive(makeSession("stopped"), { providerName: "codex" })).toMatchObject({
+      status: "starting",
+      providerName: "codex",
+      activeTurnId: null,
+      lastError: null,
+    });
+    expect(derive(null, { providerName: "codex" })).toMatchObject({
+      status: "starting",
+      providerName: "codex",
       activeTurnId: null,
       lastError: null,
     });

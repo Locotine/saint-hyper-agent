@@ -50,7 +50,9 @@ import { AgentGatewayCredentials } from "../../agentGateway/Services/AgentGatewa
 import {
   acquireAgentGatewaySessionLease,
   cancelAgentGatewayTurn,
+  captureAgentGatewayCapabilityInput,
   startAgentGatewaySessionLeaseExitWatcher,
+  type AgentGatewayCapabilityInput,
   type AgentGatewaySessionLease,
   withAgentGatewayTurnCancellation,
 } from "../../agentGateway/sessionLease.ts";
@@ -174,6 +176,30 @@ const ANTIGRAVITY_MODEL_DISCOVERY_TIMEOUT_MS = 30_000;
 const ANTIGRAVITY_DISCOVERY_CACHE_MAX_ENTRIES = 16;
 const ANTIGRAVITY_COMMAND_DISCOVERY_WAIT_MS = 500;
 const ANTIGRAVITY_COMMAND_DISCOVERY_POLL_MS = 25;
+/**
+ * Maximum silence before orphaned Antigravity background tasks/subagents are
+ * auto-settled so idle reaping can eventually reclaim abandoned sessions.
+ */
+const ANTIGRAVITY_BACKGROUND_TASK_MAX_SILENT_MS = 30 * 60_000;
+
+function antigravityModelSelectionKey(
+  model: string,
+  modelOptions: AntigravityModelOptions | undefined,
+): string {
+  const entries = modelOptions
+    ? Object.entries(modelOptions)
+        .filter(([, value]) => value !== undefined)
+        .toSorted(([left], [right]) => left.localeCompare(right))
+    : [];
+  return JSON.stringify([model.trim(), entries]);
+}
+
+function antigravityInteractionModeKey(
+  runtimeMode: ProviderSession["runtimeMode"],
+  interactionMode: ProviderInteractionMode,
+): string {
+  return `${runtimeMode}:${interactionMode}`;
+}
 
 function readDiscoveryAvailableCommands(
   runtime: Pick<AcpSessionRuntimeShape, "getAvailableCommands">,
@@ -334,6 +360,50 @@ export function isAntigravityNestedTaskToolCall(toolCall: AcpToolCallState): boo
   return false;
 }
 
+function extractAntigravityToolOutputText(toolCall: AcpToolCallState): string {
+  const parts: string[] = [];
+  if (typeof toolCall.detail === "string" && toolCall.detail.trim().length > 0) {
+    parts.push(toolCall.detail);
+  }
+  const rawOutput = toolCall.data.rawOutput;
+  if (typeof rawOutput === "string") {
+    parts.push(rawOutput);
+  } else if (isRecord(rawOutput)) {
+    for (const key of ["output", "result", "message", "text", "summary", "status"]) {
+      const value = rawOutput[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        parts.push(value);
+      }
+    }
+    if (
+      typeof rawOutput.conversationId === "string" &&
+      rawOutput.conversationId.trim().length > 0
+    ) {
+      parts.push(`conversationId=${rawOutput.conversationId}`);
+    }
+    if (typeof rawOutput.taskId === "string" && rawOutput.taskId.trim().length > 0) {
+      parts.push(`taskId=${rawOutput.taskId}`);
+    }
+  }
+  const content = Array.isArray(toolCall.data.content) ? toolCall.data.content : [];
+  for (const entry of content) {
+    if (isRecord(entry)) {
+      if (typeof entry.text === "string") {
+        parts.push(entry.text);
+      } else if (isRecord(entry.content) && typeof entry.content.text === "string") {
+        parts.push(entry.content.text);
+      }
+    }
+  }
+  return parts.join("\n");
+}
+
+function normalizedAntigravityToolName(toolCall: AcpToolCallState): string {
+  const rawTool = typeof toolCall.data.tool === "string" ? toolCall.data.tool : "";
+  const title = toolCall.title ?? "";
+  return (rawTool || title).trim().toLowerCase();
+}
+
 export function isAntigravityBackgroundCommandToolCall(toolCall: AcpToolCallState): boolean {
   if (toolCall.kind !== "execute") {
     return false;
@@ -342,11 +412,133 @@ export function isAntigravityBackgroundCommandToolCall(toolCall: AcpToolCallStat
   if (isRecord(rawInput) && typeof rawInput.WaitMsBeforeAsync === "number") {
     return true;
   }
-  const rawOutput = toolCall.data.rawOutput;
-  if (isRecord(rawOutput) && typeof rawOutput.output === "string") {
-    return /background task|running in the background/iu.test(rawOutput.output);
+  const outputText = extractAntigravityToolOutputText(toolCall);
+  if (outputText.length > 0) {
+    return /background task|running in the background|command is still running/iu.test(outputText);
   }
   return false;
+}
+
+/**
+ * True when an Antigravity command/workflow/schedule actually detached into the
+ * background inside the `agy acp` process and continues running after the tool
+ * call itself returns.
+ */
+export function isAntigravityBackgroundCommandLaunched(toolCall: AcpToolCallState): boolean {
+  const rawInput = toolCall.data.rawInput;
+  const toolName = normalizedAntigravityToolName(toolCall);
+  if (toolCall.kind === "execute" && isRecord(rawInput) && rawInput.IsDaemon === true) {
+    return true;
+  }
+  if (toolName.includes("schedule") || toolName.includes("run_workflow")) {
+    const outputText = extractAntigravityToolOutputText(toolCall);
+    return (
+      toolCall.status !== "failed" &&
+      (!outputText ||
+        !/completed synchronously|exited with code|failed|error/iu.test(outputText) ||
+        /running in the background|background task|task id|scheduled/iu.test(outputText))
+    );
+  }
+  if (toolCall.kind !== "execute") {
+    return false;
+  }
+  const outputText = extractAntigravityToolOutputText(toolCall);
+  return /running in the background|background task with task id|command is still running|backgrounded/iu.test(
+    outputText,
+  );
+}
+
+/**
+ * True when `invoke_subagent` returned an asynchronous launch handle (such as a
+ * `conversationId` or background-launch notice) rather than a synchronous final
+ * subagent result.
+ */
+export function isAntigravityAsyncSubagentLaunched(toolCall: AcpToolCallState): boolean {
+  if (!isAntigravityNestedTaskToolCall(toolCall) || toolCall.status !== "completed") {
+    return false;
+  }
+  const rawOutput = toolCall.data.rawOutput;
+  if (isRecord(rawOutput) && typeof rawOutput.conversationId === "string") {
+    const status = typeof rawOutput.status === "string" ? rawOutput.status.toLowerCase() : "";
+    if (status !== "completed" && status !== "failed" && status !== "cancelled") {
+      return true;
+    }
+  }
+  const outputText = extractAntigravityToolOutputText(toolCall);
+  if (outputText.length === 0) {
+    return false;
+  }
+  return /running in the background|runs in the background|launched.*background|conversationid\s*[:=]/iu.test(
+    outputText,
+  );
+}
+
+export function extractAntigravityBackgroundExternalId(
+  toolCall: AcpToolCallState,
+): string | undefined {
+  const rawOutput = toolCall.data.rawOutput;
+  if (isRecord(rawOutput)) {
+    for (const key of ["taskId", "TaskId", "conversationId", "ConversationId", "id"]) {
+      const value = rawOutput[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+  }
+  const outputText = extractAntigravityToolOutputText(toolCall);
+  const taskMatch = /task\s*id\s*[:=]\s*["']?([A-Za-z0-9/_:-]+)["']?/iu.exec(outputText);
+  if (taskMatch?.[1]) {
+    return taskMatch[1];
+  }
+  const conversationMatch = /conversation\s*id\s*[:=]\s*["']?([A-Za-z0-9/_:-]+)["']?/iu.exec(
+    outputText,
+  );
+  if (conversationMatch?.[1]) {
+    return conversationMatch[1];
+  }
+  return undefined;
+}
+
+export function extractAntigravitySettledBackgroundTasks(toolCall: AcpToolCallState): {
+  readonly settleAllSubagents: boolean;
+  readonly externalIds: ReadonlyArray<string>;
+} {
+  const toolName = normalizedAntigravityToolName(toolCall);
+  const rawInput = toolCall.data.rawInput;
+  if (!isRecord(rawInput)) {
+    return { settleAllSubagents: false, externalIds: [] };
+  }
+  if (toolName.includes("manage_subagents")) {
+    const action = typeof rawInput.Action === "string" ? rawInput.Action.toLowerCase() : "";
+    if (action === "kill_all") {
+      return { settleAllSubagents: true, externalIds: [] };
+    }
+    if (action === "kill" && Array.isArray(rawInput.ConversationIds)) {
+      return {
+        settleAllSubagents: false,
+        externalIds: rawInput.ConversationIds.filter(
+          (id): id is string => typeof id === "string" && id.trim().length > 0,
+        ).map((id) => id.trim()),
+      };
+    }
+  }
+  if (toolName.includes("manage_task")) {
+    const action = typeof rawInput.Action === "string" ? rawInput.Action.toLowerCase() : "";
+    const taskId =
+      typeof rawInput.TaskId === "string" && rawInput.TaskId.trim().length > 0
+        ? rawInput.TaskId.trim()
+        : undefined;
+    if (action === "kill" && taskId) {
+      return { settleAllSubagents: false, externalIds: [taskId] };
+    }
+    if (action === "status" && taskId && toolCall.status === "completed") {
+      const outputText = extractAntigravityToolOutputText(toolCall);
+      if (/\b(?:completed|exited|failed|cancelled|canceled|stopped)\b/iu.test(outputText)) {
+        return { settleAllSubagents: false, externalIds: [taskId] };
+      }
+    }
+  }
+  return { settleAllSubagents: false, externalIds: [] };
 }
 
 export function extractAntigravityPlanArtifactMarkdown(
@@ -406,14 +598,27 @@ interface PendingUserInput {
   readonly answers: Deferred.Deferred<ProviderUserInputAnswers>;
 }
 
+interface AntigravityBackgroundTaskRecord {
+  readonly taskId: string;
+  readonly kind: "subagent" | "command" | "workflow" | "schedule";
+  readonly turnId: TurnId;
+  readonly externalId?: string | undefined;
+  readonly description?: string | undefined;
+}
+
 interface AntigravityAcpSessionContext {
   harnessPolicyDelivered?: boolean;
   readonly enableComputerControl?: boolean;
-  readonly gatewaySessionLease?: AgentGatewaySessionLease;
+  readonly capabilityInput: AgentGatewayCapabilityInput;
+  gatewaySessionLease?: AgentGatewaySessionLease;
+  gatewayCredentialRetired: boolean;
+  gatewayCredentialRenewable: boolean;
   readonly threadId: ThreadId;
   readonly lifecycleGeneration?: string;
   session: ProviderSession;
   modelOptions?: AntigravityModelOptions | undefined;
+  appliedModelSelectionKeys: Set<string>;
+  appliedInteractionModeKey: string | undefined;
   readonly scope: Scope.Closeable;
   readonly acp: AcpSessionRuntimeShape;
   notificationFiber: Fiber.Fiber<void, never> | undefined;
@@ -425,6 +630,7 @@ interface AntigravityAcpSessionContext {
   activePlanResponseText: string;
   activePlanArtifactMarkdown: string | undefined;
   lastContextWindowSize: number | undefined;
+  activeTurnContextUsedTokens: number | undefined;
   activeTurnId: TurnId | undefined;
   activeTurnHadAssistantContent: boolean;
   readonly activeAssistantItemsWithContent: Set<string>;
@@ -440,6 +646,9 @@ interface AntigravityAcpSessionContext {
   readonly lastSettledAssistantItemsWithContent: Set<string>;
   readonly activeNestedTaskToolCallIds: Set<string>;
   readonly nestedTaskLifecycleByToolCallId: Map<string, "active" | "completed">;
+  /** Background tasks/subagents surviving past their launching tool call / turn. */
+  readonly activeBackgroundTasks: Map<string, AntigravityBackgroundTaskRecord>;
+  backgroundTaskExpiryTimer: ReturnType<typeof setTimeout> | undefined;
   /** True when the active turn launched a subagent or background command that may run quietly. */
   turnHasNestedWork: boolean;
   totalProcessedTokens: number;
@@ -545,15 +754,133 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         );
       });
 
+    const clearBackgroundTaskExpiryTimer = (ctx: AntigravityAcpSessionContext) => {
+      if (ctx.backgroundTaskExpiryTimer !== undefined) {
+        clearTimeout(ctx.backgroundTaskExpiryTimer);
+        ctx.backgroundTaskExpiryTimer = undefined;
+      }
+    };
+
+    const settleTrackedBackgroundTasks = (
+      ctx: AntigravityAcpSessionContext,
+      taskIds: ReadonlyArray<string>,
+      status: "completed" | "stopped" | "failed",
+    ) =>
+      Effect.gen(function* () {
+        for (const taskId of taskIds) {
+          const tracked = ctx.activeBackgroundTasks.get(taskId);
+          if (!tracked) {
+            continue;
+          }
+          ctx.activeBackgroundTasks.delete(taskId);
+          ctx.activeNestedTaskToolCallIds.delete(taskId);
+          ctx.nestedTaskLifecycleByToolCallId.set(taskId, "completed");
+          yield* offerRuntimeEvent(ctx.lifecycleGeneration, {
+            type: "task.completed",
+            ...(yield* makeEventStamp()),
+            provider: PROVIDER,
+            threadId: ctx.threadId,
+            turnId: tracked.turnId,
+            payload: {
+              taskId: RuntimeTaskId.makeUnsafe(taskId),
+              status,
+            },
+          });
+        }
+        if (ctx.activeBackgroundTasks.size === 0) {
+          clearBackgroundTaskExpiryTimer(ctx);
+        }
+      });
+
+    const refreshBackgroundTaskExpiryTimer = (ctx: AntigravityAcpSessionContext) => {
+      clearBackgroundTaskExpiryTimer(ctx);
+      if (ctx.stopped || ctx.activeBackgroundTasks.size === 0) {
+        return;
+      }
+      const timer = setTimeout(() => {
+        ctx.backgroundTaskExpiryTimer = undefined;
+        if (ctx.stopped || ctx.activeBackgroundTasks.size === 0) {
+          return;
+        }
+        const remaining = Array.from(ctx.activeBackgroundTasks.keys());
+        void Effect.runPromise(settleTrackedBackgroundTasks(ctx, remaining, "completed")).catch(
+          () => undefined,
+        );
+      }, ANTIGRAVITY_BACKGROUND_TASK_MAX_SILENT_MS);
+      timer.unref?.();
+      ctx.backgroundTaskExpiryTimer = timer;
+    };
+
     const emitNestedTaskLifecycle = (
       ctx: AntigravityAcpSessionContext,
       toolCall: AcpToolCallState,
       turnId: TurnId,
     ) =>
       Effect.gen(function* () {
+        // Explicit management calls (`manage_task` kill/status, `manage_subagents` kill/kill_all)
+        // settle previously tracked background work so idle reaping can resume once done.
+        const settled = extractAntigravitySettledBackgroundTasks(toolCall);
+        if (settled.settleAllSubagents) {
+          const subagentTaskIds = Array.from(ctx.activeBackgroundTasks.values())
+            .filter((entry) => entry.kind === "subagent")
+            .map((entry) => entry.taskId);
+          yield* settleTrackedBackgroundTasks(ctx, subagentTaskIds, "stopped");
+        }
+        if (settled.externalIds.length > 0) {
+          const matchedTaskIds = Array.from(ctx.activeBackgroundTasks.values())
+            .filter(
+              (entry) =>
+                settled.externalIds.includes(entry.taskId) ||
+                (entry.externalId !== undefined && settled.externalIds.includes(entry.externalId)),
+            )
+            .map((entry) => entry.taskId);
+          yield* settleTrackedBackgroundTasks(ctx, matchedTaskIds, "completed");
+        }
+
         if (isAntigravityBackgroundCommandToolCall(toolCall)) {
           ctx.turnHasNestedWork = true;
         }
+
+        if (isAntigravityBackgroundCommandLaunched(toolCall)) {
+          ctx.turnHasNestedWork = true;
+          const externalId = extractAntigravityBackgroundExternalId(toolCall);
+          const taskId = externalId ?? toolCall.toolCallId;
+          if (!ctx.activeBackgroundTasks.has(taskId)) {
+            const toolName = normalizedAntigravityToolName(toolCall);
+            const kind = toolName.includes("schedule")
+              ? "schedule"
+              : toolName.includes("run_workflow")
+                ? "workflow"
+                : "command";
+            const description = toolCall.title ?? toolCall.detail;
+            ctx.activeBackgroundTasks.set(taskId, {
+              taskId,
+              kind,
+              turnId,
+              ...(externalId ? { externalId } : {}),
+              ...(description ? { description } : {}),
+            });
+            refreshBackgroundTaskExpiryTimer(ctx);
+            yield* offerRuntimeEvent(ctx.lifecycleGeneration, {
+              type: "task.started",
+              ...(yield* makeEventStamp()),
+              provider: PROVIDER,
+              threadId: ctx.threadId,
+              turnId,
+              payload: {
+                taskId: RuntimeTaskId.makeUnsafe(taskId),
+                taskType: kind === "command" ? "background_command" : kind,
+                ...(description ? { description } : {}),
+              },
+            });
+          } else {
+            refreshBackgroundTaskExpiryTimer(ctx);
+          }
+          if (!isAntigravityNestedTaskToolCall(toolCall)) {
+            return;
+          }
+        }
+
         if (!isAntigravityNestedTaskToolCall(toolCall)) {
           return;
         }
@@ -561,7 +888,47 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         const previous = ctx.nestedTaskLifecycleByToolCallId.get(toolCall.toolCallId);
         const terminal = toolCall.status === "completed" || toolCall.status === "failed";
         if (terminal) {
+          // Asynchronous `invoke_subagent` launches return immediately with a
+          // `conversationId` while the subagent continues running in the `agy acp`
+          // process. Keep it registered as a live background task so Saint's idle
+          // reaper and Host Economy do not kill the process underneath it.
+          if (isAntigravityAsyncSubagentLaunched(toolCall)) {
+            const externalId = extractAntigravityBackgroundExternalId(toolCall);
+            const rawInput = toolCall.data.rawInput;
+            const description =
+              isRecord(rawInput) && typeof rawInput.Role === "string" && rawInput.Role.trim()
+                ? rawInput.Role.trim()
+                : (toolCall.title ?? toolCall.detail);
+            if (previous === undefined) {
+              ctx.nestedTaskLifecycleByToolCallId.set(toolCall.toolCallId, "active");
+              yield* offerRuntimeEvent(ctx.lifecycleGeneration, {
+                type: "task.started",
+                ...(yield* makeEventStamp()),
+                provider: PROVIDER,
+                threadId: ctx.threadId,
+                turnId,
+                payload: {
+                  taskId: RuntimeTaskId.makeUnsafe(toolCall.toolCallId),
+                  taskType: "subagent",
+                  ...(description ? { description } : {}),
+                },
+              });
+            }
+            ctx.activeBackgroundTasks.set(toolCall.toolCallId, {
+              taskId: toolCall.toolCallId,
+              kind: "subagent",
+              turnId,
+              ...(externalId ? { externalId } : {}),
+              ...(description ? { description } : {}),
+            });
+            refreshBackgroundTaskExpiryTimer(ctx);
+            return;
+          }
           ctx.activeNestedTaskToolCallIds.delete(toolCall.toolCallId);
+          ctx.activeBackgroundTasks.delete(toolCall.toolCallId);
+          if (ctx.activeBackgroundTasks.size === 0) {
+            clearBackgroundTaskExpiryTimer(ctx);
+          }
           if (previous === "completed") {
             return;
           }
@@ -633,6 +1000,11 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         Effect.gen(function* () {
           if (!ctx.stopped) {
             ctx.stopped = true;
+            clearBackgroundTaskExpiryTimer(ctx);
+            if (ctx.activeBackgroundTasks.size > 0) {
+              const remainingTaskIds = Array.from(ctx.activeBackgroundTasks.keys());
+              yield* settleTrackedBackgroundTasks(ctx, remainingTaskIds, "stopped");
+            }
             yield* cancelAgentGatewayTurn(ctx.gatewaySessionLease, ctx.activeTurnId);
             ctx.gatewaySessionLease?.release();
             sessionTeardownGate.track(ctx.threadId, ctx.teardownComplete);
@@ -997,13 +1369,18 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
 
           ctx = {
             enableComputerControl: input.enableComputerControl === true,
+            capabilityInput: captureAgentGatewayCapabilityInput(input),
             ...(gatewaySessionLease ? { gatewaySessionLease } : {}),
+            gatewayCredentialRetired: false,
+            gatewayCredentialRenewable: false,
             threadId: input.threadId,
             ...(input.lifecycleGeneration !== undefined
               ? { lifecycleGeneration: input.lifecycleGeneration }
               : {}),
             session,
             ...(modelSelection?.options ? { modelOptions: modelSelection.options } : {}),
+            appliedModelSelectionKeys: new Set(),
+            appliedInteractionModeKey: undefined,
             scope: sessionScope,
             acp,
             notificationFiber: undefined,
@@ -1015,6 +1392,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
             activePlanResponseText: "",
             activePlanArtifactMarkdown: undefined,
             lastContextWindowSize: undefined,
+            activeTurnContextUsedTokens: undefined,
             activeTurnId: undefined,
             activeTurnHadAssistantContent: false,
             activeAssistantItemsWithContent: new Set(),
@@ -1028,6 +1406,8 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
             lastSettledAssistantItemsWithContent: new Set(),
             activeNestedTaskToolCallIds: new Set(),
             nestedTaskLifecycleByToolCallId: new Map(),
+            activeBackgroundTasks: new Map(),
+            backgroundTaskExpiryTimer: undefined,
             turnHasNestedWork: false,
             totalProcessedTokens: 0,
             sessionConfigReady,
@@ -1302,6 +1682,9 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                       ctx.lastContextWindowSize = event.usage.maxTokens;
                     }
                     const activeTurnId = ctx.activeTurnId;
+                    if (activeTurnId !== undefined && event.usage.usedTokens > 0) {
+                      ctx.activeTurnContextUsedTokens = event.usage.usedTokens;
+                    }
                     yield* logNative(ctx.threadId, "session/update", event.rawPayload);
                     recordAcpSessionCost(ctx, event.cost);
                     yield* offerRuntimeEvent(
@@ -1356,6 +1739,10 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
               ...ctx.session,
               model: appliedModel.model,
             };
+            ctx.appliedModelSelectionKeys = new Set([
+              antigravityModelSelectionKey(initialRequestedModel, modelSelection?.options),
+              antigravityModelSelectionKey(appliedModel.model, modelSelection?.options),
+            ]);
             yield* Deferred.succeed(sessionConfigReady, undefined);
             ctx.sessionConfigReady = undefined;
 
@@ -1493,35 +1880,61 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         }
         const interactionMode = resolveAcpTurnInteractionMode(input.interactionMode);
 
-        const appliedModel = yield* runAntigravityAcpConfigurationAfterReplay({
-          runtime: ctx.acp,
-          threadId: input.threadId,
-          effect: Effect.gen(function* () {
-            const applied = yield* applyAntigravityAcpModelSelection({
-              runtime: ctx.acp,
-              model: requestedModel,
-              modelOptions,
-              mapError: ({ cause, method }) =>
-                mapAcpToAdapterError(PROVIDER, input.threadId, method, cause),
-            });
-            yield* applyAntigravityAcpInteractionMode({
-              runtime: ctx.acp,
-              runtimeMode: ctx.session.runtimeMode,
-              interactionMode,
-              mapError: ({ cause, method }) =>
-                mapAcpToAdapterError(PROVIDER, input.threadId, method, cause),
-            });
-            return applied;
-          }),
-        }).pipe(
-          Effect.onError((cause) =>
-            stopSessionInternal(ctx, {
-              exitKind: "error",
-              reason: Cause.pretty(cause),
-            }),
-          ),
+        const requestedModelKey = antigravityModelSelectionKey(requestedModel, modelOptions);
+        const requestedInteractionModeKey = antigravityInteractionModeKey(
+          ctx.session.runtimeMode,
+          interactionMode,
         );
-        const model = appliedModel.model;
+        const needsModelUpdate = !ctx.appliedModelSelectionKeys.has(requestedModelKey);
+        const needsInteractionModeUpdate =
+          ctx.appliedInteractionModeKey !== requestedInteractionModeKey;
+
+        let model = ctx.session.model ?? requestedModel;
+        if (needsModelUpdate || needsInteractionModeUpdate) {
+          const appliedModel = yield* runAntigravityAcpConfigurationAfterReplay({
+            runtime: ctx.acp,
+            threadId: input.threadId,
+            effect: Effect.gen(function* () {
+              const applied = needsModelUpdate
+                ? yield* applyAntigravityAcpModelSelection({
+                    runtime: ctx.acp,
+                    model: requestedModel,
+                    modelOptions,
+                    mapError: ({ cause, method }) =>
+                      mapAcpToAdapterError(PROVIDER, input.threadId, method, cause),
+                  })
+                : { model };
+              if (needsInteractionModeUpdate) {
+                yield* applyAntigravityAcpInteractionMode({
+                  runtime: ctx.acp,
+                  runtimeMode: ctx.session.runtimeMode,
+                  interactionMode,
+                  mapError: ({ cause, method }) =>
+                    mapAcpToAdapterError(PROVIDER, input.threadId, method, cause),
+                });
+              }
+              return applied;
+            }),
+          }).pipe(
+            Effect.onError((cause) =>
+              stopSessionInternal(ctx, {
+                exitKind: "error",
+                reason: Cause.pretty(cause),
+              }),
+            ),
+          );
+          model = appliedModel.model;
+          if (needsModelUpdate) {
+            ctx.appliedModelSelectionKeys = new Set([
+              requestedModelKey,
+              antigravityModelSelectionKey(model, modelOptions),
+            ]);
+          }
+          if (needsInteractionModeUpdate) {
+            ctx.appliedInteractionModeKey = requestedInteractionModeKey;
+          }
+        }
+        refreshBackgroundTaskExpiryTimer(ctx);
 
         const promptParts: Array<Acp.ContentBlock> = [];
         const promptText = appendFileAttachmentsPromptBlock({
@@ -1577,6 +1990,7 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
           });
         }
         ctx.activeTurnId = turnId;
+        ctx.activeTurnContextUsedTokens = undefined;
         ctx.activeTurnHadAssistantContent = false;
         ctx.activeAssistantItemsWithContent.clear();
         ctx.activeReasoningBlock = undefined;
@@ -1713,11 +2127,16 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
                 for (const itemId of settledAssistantItems) {
                   ctx.lastSettledAssistantItemsWithContent.add(itemId);
                 }
+                const activeTurnContextUsedTokens = ctx.activeTurnContextUsedTokens;
+                ctx.activeTurnContextUsedTokens = undefined;
                 const usageSnapshot = buildAntigravityPromptUsageSnapshot({
                   usage: result.usage,
                   model,
                   previousTotalProcessedTokens: ctx.totalProcessedTokens,
                   maxTokens: ctx.lastContextWindowSize,
+                  ...(activeTurnContextUsedTokens !== undefined
+                    ? { currentContextUsedTokens: activeTurnContextUsedTokens }
+                    : {}),
                 });
                 if (usageSnapshot) {
                   ctx.totalProcessedTokens = usageSnapshot.nextTotalProcessedTokens;
@@ -1845,10 +2264,15 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         if (ctx.turnStarting && ctx.activePromptFiber === undefined) {
           ctx.pendingTurnInterrupted = true;
         }
+        const hadGatewayLease = ctx.gatewaySessionLease !== undefined;
         yield* withAgentGatewayTurnCancellation(
           ctx.gatewaySessionLease,
           activeTurnId,
           Effect.gen(function* () {
+            if (hadGatewayLease) {
+              ctx.gatewayCredentialRetired = true;
+              ctx.gatewayCredentialRenewable = true;
+            }
             yield* settleAcpPendingApprovalsAsCancelled(ctx.pendingApprovals);
             yield* settleAcpPendingUserInputsAsEmptyAnswers(ctx.pendingUserInputs);
             const activePromptFiber = ctx.activePromptFiber;
@@ -2391,6 +2815,86 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
         }),
       );
 
+    const agentGatewayCredentialRetired: NonNullable<
+      AntigravityAdapterShape["agentGatewayCredentialRetired"]
+    > = (threadId) =>
+      Effect.sync(() => {
+        const ctx = sessions.get(threadId);
+        return ctx !== undefined && !ctx.stopped && ctx.gatewayCredentialRetired === true;
+      });
+
+    /**
+     * Rotate the retired Agent Gateway bearer on the already-running `agy acp`
+     * process via ACP `session/resume` / `session/load` so stopping a turn does
+     * not kill the process or its background subagents/commands.
+     */
+    const renewAgentGatewayCredential: NonNullable<
+      AntigravityAdapterShape["renewAgentGatewayCredential"]
+    > = (threadId) =>
+      withThreadLock(
+        threadId,
+        Effect.gen(function* () {
+          const ctx = sessions.get(threadId);
+          if (
+            !ctx ||
+            ctx.stopped ||
+            ctx.activeTurnId !== undefined ||
+            ctx.turnStarting ||
+            ctx.pendingApprovals.size > 0 ||
+            ctx.pendingUserInputs.size > 0
+          ) {
+            return false;
+          }
+          // When no Agent Gateway credential was issued for this runtime, no bearer
+          // rotation is needed to keep the live process warm.
+          if (ctx.gatewaySessionLease === undefined && agentGatewayCredentials === undefined) {
+            return true;
+          }
+          if (
+            !ctx.gatewayCredentialRetired ||
+            !ctx.gatewayCredentialRenewable ||
+            agentGatewayCredentials === undefined ||
+            ctx.acp.reloadSession === undefined
+          ) {
+            return false;
+          }
+          ctx.gatewayCredentialRenewable = false;
+          ctx.gatewaySessionLease?.release();
+          const replacement = acquireAgentGatewaySessionLease(
+            agentGatewayCredentials,
+            threadId,
+            PROVIDER,
+            ctx.capabilityInput,
+          );
+          if (!replacement) {
+            return false;
+          }
+          const reloaded = yield* ctx.acp
+            .reloadSession((initializeResult) =>
+              buildAcpSaintMcpServers({
+                connection: replacement.connection,
+                initializeResult,
+                stdioProxy: agentGatewayCredentials.stdioProxy,
+              }),
+            )
+            .pipe(
+              Effect.timeoutOption(ANTIGRAVITY_ACP_REQUEST_TIMEOUT_MS),
+              Effect.map(Option.getOrElse(() => false)),
+              Effect.catch(() => Effect.succeed(false)),
+            );
+          if (!reloaded || ctx.stopped) {
+            replacement.release();
+            return false;
+          }
+          ctx.gatewaySessionLease = replacement;
+          ctx.gatewayCredentialRetired = false;
+          ctx.appliedModelSelectionKeys = new Set();
+          ctx.appliedInteractionModeKey = undefined;
+          yield* startAgentGatewaySessionLeaseExitWatcher(replacement, ctx.acp.awaitExit);
+          return true;
+        }),
+      );
+
     const stopAll: AntigravityAdapterShape["stopAll"] = () =>
       settleConcurrentTeardowns(Array.from(sessions.values()), (ctx) => stopSessionInternal(ctx));
 
@@ -2412,6 +2916,8 @@ const makeAntigravityAcpAdapter = (options?: AntigravityAcpAdapterLiveOptions) =
       respondToRequest,
       respondToUserInput,
       stopSession,
+      renewAgentGatewayCredential,
+      agentGatewayCredentialRetired,
       listSessions,
       hasSession,
       readThread,

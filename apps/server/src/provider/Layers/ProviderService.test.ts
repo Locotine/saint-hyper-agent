@@ -4909,6 +4909,58 @@ routing.layer("ProviderServiceLive routing", (it) => {
     }),
   );
 
+  it.effect(
+    "keeps a live session warm after interruptTurn when the adapter renews its gateway credential in place",
+    () =>
+      Effect.gen(function* () {
+        const provider = yield* ProviderService;
+        const directory = yield* ProviderSessionDirectory;
+        routing.antigravity.startSession.mockClear();
+        routing.antigravity.sendTurn.mockClear();
+        routing.antigravity.interruptTurn.mockClear();
+        routing.antigravity.stopSession.mockClear();
+        routing.antigravity.renewAgentGatewayCredential.mockClear();
+        routing.antigravity.renewAgentGatewayCredential.mockImplementationOnce(() =>
+          Effect.succeed(true),
+        );
+
+        const threadId = asThreadId("thread-antigravity-inplace-renew");
+        const session = yield* provider.startSession(threadId, {
+          provider: "antigravity",
+          threadId,
+          cwd: "/tmp/project",
+          runtimeMode: "full-access",
+        });
+
+        yield* provider.sendTurn({
+          threadId: session.threadId,
+          input: "run something",
+          attachments: [],
+        });
+
+        yield* provider.interruptTurn({ threadId: session.threadId });
+        assert.equal(routing.antigravity.interruptTurn.mock.calls.length, 1);
+        assert.equal(routing.antigravity.renewAgentGatewayCredential.mock.calls.length, 1);
+        assert.equal(routing.antigravity.stopSession.mock.calls.length, 0);
+
+        const renewedBinding = Option.getOrUndefined(yield* directory.getBinding(session.threadId));
+        assert.notEqual(renewedBinding?.status, "stopped");
+        assert.equal(
+          asRuntimePayloadRecord(renewedBinding?.runtimePayload)
+            .agentGatewayCredentialRotationRequired,
+          false,
+        );
+
+        const startsBeforeNextTurn = routing.antigravity.startSession.mock.calls.length;
+        yield* provider.sendTurn({
+          threadId: session.threadId,
+          input: "follow up without cold restart",
+          attachments: [],
+        });
+        assert.equal(routing.antigravity.startSession.mock.calls.length, startsBeforeNextTurn);
+      }),
+  );
+
   for (const mode of ["send", "steer"] as const) {
     for (const cancelled of [false, true]) {
       it.effect(

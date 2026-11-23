@@ -19,6 +19,7 @@ import {
   teardownAcpChildProcess,
 } from "./AcpSessionRuntime.ts";
 import * as AcpErrors from "./AcpErrors.ts";
+import type { AcpParsedSessionEvent } from "./AcpRuntimeModel.ts";
 
 it.each(["overflow", "scope close"])(
   "releases a stalled SDK notification handler on %s",
@@ -793,10 +794,7 @@ describe("AcpSessionRuntime startup timeouts", () => {
 });
 
 describe("AcpSessionRuntime additionalDirectories", () => {
-  const runWithAgent = (
-    agentApp: OfficialAcp.AgentApp,
-    runtimeOptions: Partial<Parameters<typeof AcpSessionRuntime.layer>[0]>,
-  ) => {
+  const makeInMemoryAcpSpawner = (agentApp: OfficialAcp.AgentApp) => {
     const clientToAgent = Effect.runSync(Queue.unbounded<Uint8Array>());
     const agentToClient = Effect.runSync(Queue.unbounded<Uint8Array>());
     const agentInput = new ReadableStream<Uint8Array>({
@@ -811,7 +809,7 @@ describe("AcpSessionRuntime additionalDirectories", () => {
         return Effect.runPromise(Queue.offer(agentToClient, chunk)).then(() => undefined);
       },
     });
-    const spawnerLayer = Layer.succeed(
+    return Layer.succeed(
       ChildProcessSpawner.ChildProcessSpawner,
       ChildProcessSpawner.make(() =>
         Effect.sync(() => {
@@ -831,6 +829,13 @@ describe("AcpSessionRuntime additionalDirectories", () => {
         }),
       ),
     );
+  };
+
+  const runWithAgent = (
+    agentApp: OfficialAcp.AgentApp,
+    runtimeOptions: Partial<Parameters<typeof AcpSessionRuntime.layer>[0]>,
+  ) => {
+    const spawnerLayer = makeInMemoryAcpSpawner(agentApp);
     const layer = AcpSessionRuntime.layer({
       spawn: { command: "in-memory-acp-agent", args: [] },
       cwd: "/tmp/primary",
@@ -905,5 +910,73 @@ describe("AcpSessionRuntime additionalDirectories", () => {
       Effect.flip(runWithAgent(incapableAgent, { additionalDirectories: ["/tmp/extra-a"] })),
     );
     expect(failure.message).toContain("additionalDirectories");
+  });
+
+  it("forwards usage_update during session/load replay while suppressing transcript chunks", async () => {
+    const agentApp = OfficialAcp.agent({ name: "load-usage-agent" })
+      .onRequest(OfficialAcp.methods.agent.initialize, () => ({
+        protocolVersion: 1,
+        agentCapabilities: { loadSession: true },
+        authMethods: [],
+      }))
+      .onRequest(OfficialAcp.methods.agent.session.load, async (ctx) => {
+        await ctx.client.notify(OfficialAcp.methods.client.session.update, {
+          sessionId: ctx.params.sessionId,
+          update: {
+            sessionUpdate: "agent_message_chunk",
+            content: { type: "text", text: "historical reply" },
+          },
+        });
+        await ctx.client.notify(OfficialAcp.methods.client.session.update, {
+          sessionId: ctx.params.sessionId,
+          update: {
+            sessionUpdate: "usage_update",
+            used: 236_120,
+            size: 1_048_576,
+          },
+        });
+        return {};
+      });
+
+    const events = await Effect.runPromise(
+      Effect.gen(function* () {
+        const spawnerLayer = makeInMemoryAcpSpawner(agentApp);
+        const layer = AcpSessionRuntime.layer({
+          spawn: { command: "in-memory-acp-agent", args: [] },
+          cwd: "/tmp/primary",
+          resumeSessionId: "loaded-session-1",
+          sessionSetupMode: "load-only",
+          loadReplayPolicy: { quietMs: 25, hardTimeoutMs: 500 },
+          clientInfo: { name: "saint-test", version: "0.0.0" },
+          authPolicy: "on-demand",
+          teardownProcessTree: async () => ({ escalated: false, signalErrors: [] }),
+        }).pipe(Layer.provide(spawnerLayer));
+
+        return yield* Effect.gen(function* () {
+          const runtime = yield* AcpSessionRuntime;
+          const collected: Array<AcpParsedSessionEvent> = [];
+          const collector = yield* Stream.runForEach(runtime.getEvents(), (event) =>
+            Effect.sync(() => {
+              collected.push(event);
+            }),
+          ).pipe(Effect.forkScoped);
+          yield* runtime.start();
+          yield* runtime.awaitLoadReplayReady;
+          yield* Effect.sleep(40);
+          yield* Fiber.interrupt(collector);
+          return collected;
+        }).pipe(Effect.provide(layer));
+      }).pipe(Effect.scoped),
+    );
+
+    expect(events.some((event) => event._tag === "ContentDelta")).toBe(false);
+    const usageEvent = events.find((event) => event._tag === "UsageUpdated");
+    expect(usageEvent).toBeDefined();
+    if (usageEvent?._tag === "UsageUpdated") {
+      expect(usageEvent.usage).toMatchObject({
+        usedTokens: 236_120,
+        maxTokens: 1_048_576,
+      });
+    }
   });
 });

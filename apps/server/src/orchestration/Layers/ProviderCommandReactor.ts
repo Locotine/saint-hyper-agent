@@ -5273,7 +5273,8 @@ const make = Effect.gen(function* () {
                     (session) => session.threadId === event.payload.threadId,
                   );
                   if (
-                    optimisticSession?.status === "starting" &&
+                    (optimisticSession?.status === "starting" ||
+                      optimisticSession?.status === "running") &&
                     runtime &&
                     runtime.activeTurnId == null
                   ) {
@@ -8018,7 +8019,10 @@ const make = Effect.gen(function* () {
     detail: string,
   ) {
     const session = (yield* resolveThreadShell(event.payload.threadId))?.session;
-    if (session?.status !== "starting" || session.activeTurnId !== null) {
+    if (
+      (session?.status !== "starting" && session?.status !== "running") ||
+      session.activeTurnId !== null
+    ) {
       return;
     }
 
@@ -8056,7 +8060,10 @@ const make = Effect.gen(function* () {
   ) {
     const createdAt = new Date().toISOString();
     const thread = yield* resolveThreadShell(event.payload.threadId);
-    if (thread?.session?.status === "starting" && thread.session.activeTurnId === null) {
+    if (
+      (thread?.session?.status === "starting" || thread?.session?.status === "running") &&
+      thread.session.activeTurnId === null
+    ) {
       yield* setThreadSessionError({
         threadId: event.payload.threadId,
         runtimeMode: thread.runtimeMode,

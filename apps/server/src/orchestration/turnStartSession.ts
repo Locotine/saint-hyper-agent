@@ -76,9 +76,21 @@ export function deriveTurnStartSession(input: {
       ? input.currentSession.providerInstanceId
       : input.providerInstanceId;
 
+  // A session that is already warm and ready for the same provider/instance does
+  // not need to drop back into the "starting" ("Starting <Provider>…") phase on
+  // every follow-up turn; surface it as running right away and reserve "starting"
+  // for cold starts, stopped/errored sessions, or provider/instance switches.
+  const sameEstablishedProvider =
+    input.currentSession?.status === "ready" &&
+    input.sessionProviderEstablished !== false &&
+    sessionProviderName === input.providerName &&
+    (input.providerInstanceId === undefined ||
+      sessionProviderInstanceId === undefined ||
+      sessionProviderInstanceId === input.providerInstanceId);
+
   return {
     threadId: input.threadId,
-    status: "starting",
+    status: sameEstablishedProvider ? "running" : "starting",
     providerName: sessionProviderName ?? input.providerName,
     ...(sessionProviderInstanceId !== undefined
       ? { providerInstanceId: sessionProviderInstanceId }

@@ -4395,6 +4395,8 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
           payload: rawInput,
         });
         let rotationStarted = false;
+        let interruptedAdapter: ProviderAdapterShape<ProviderAdapterError> | undefined;
+        let interruptedBinding: ProviderRuntimeBinding | undefined;
         // Conditional controls use the same deadline, but fail on contention
         // instead of bypassing the lock protecting their observed generation.
         const runInterrupt: typeof lifecycle.runCurrentUrgent =
@@ -4455,6 +4457,8 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
                   `Cannot interrupt thread '${input.threadId}' without a persisted provider binding.`,
                 );
               }
+              interruptedAdapter = routed.adapter;
+              interruptedBinding = binding;
               const bindingGeneration = binding.lifecycleGeneration ?? currentGeneration;
               if (
                 currentGeneration !== undefined &&
@@ -4594,25 +4598,63 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
             // this interrupt fiber is itself cancelled while runtime teardown
             // is blocked, deferred interruption must not skip resolve/delete.
             const fence = yield* acquireProviderInterruptionFence(input.threadId);
+            const rotateAfterInterrupt = Effect.gen(function* () {
+              // When the adapter can rotate its Agent Gateway credential in place
+              // (keeping the provider child process and any background tasks alive),
+              // prefer in-process renewal over tearing down the entire process.
+              // Adapters that do not support in-place renewal (or return false)
+              // fall through to the fail-closed full session stop below.
+              const canRenewInPlace =
+                interruptedAdapter?.renewAgentGatewayCredential !== undefined &&
+                (yield* interruptedAdapter
+                  .hasSession(input.threadId)
+                  .pipe(Effect.catch(() => Effect.succeed(false))));
+              if (canRenewInPlace && interruptedAdapter?.renewAgentGatewayCredential) {
+                const renewed = yield* interruptedAdapter
+                  .renewAgentGatewayCredential(input.threadId)
+                  .pipe(Effect.catch(() => Effect.succeed(false)));
+                if (renewed) {
+                  const latestBinding =
+                    Option.getOrUndefined(yield* directory.getBinding(input.threadId)) ??
+                    interruptedBinding;
+                  if (latestBinding) {
+                    yield* withBindingWriteLock(
+                      input.threadId,
+                      directory.upsert({
+                        threadId: input.threadId,
+                        provider: latestBinding.provider,
+                        providerInstanceId: latestBinding.providerInstanceId,
+                        runtimePayload: {
+                          ...runtimePayloadRecord(latestBinding.runtimePayload),
+                          activeTurnId: null,
+                          [AGENT_GATEWAY_CREDENTIAL_ROTATION_REQUIRED]: false,
+                          lastRuntimeEvent: "provider.interruptTurnRenewed",
+                          lastRuntimeEventAt: new Date().toISOString(),
+                        },
+                      }),
+                    );
+                  }
+                  scheduleRuntimeIdleStop(input.threadId);
+                  return;
+                }
+              }
+              yield* stopRuntimeSessionInternal(
+                {
+                  threadId: input.threadId,
+                  ...(rawInput.expectedLifecycleGeneration !== undefined
+                    ? { expectedLifecycleGeneration: rawInput.expectedLifecycleGeneration }
+                    : {}),
+                  ...(rawInput.controlRequestId !== undefined
+                    ? { controlRequestId: rawInput.controlRequestId }
+                    : {}),
+                },
+                undefined,
+                { requireAgentGatewayCredentialRotation: true },
+              );
+            });
             const rotationExit = yield* Effect.exit(
               input.providerThreadId === undefined
-                ? interruptActiveTurn.pipe(
-                    Effect.andThen(
-                      stopRuntimeSessionInternal(
-                        {
-                          threadId: input.threadId,
-                          ...(rawInput.expectedLifecycleGeneration !== undefined
-                            ? { expectedLifecycleGeneration: rawInput.expectedLifecycleGeneration }
-                            : {}),
-                          ...(rawInput.controlRequestId !== undefined
-                            ? { controlRequestId: rawInput.controlRequestId }
-                            : {}),
-                        },
-                        undefined,
-                        { requireAgentGatewayCredentialRotation: true },
-                      ),
-                    ),
-                  )
+                ? interruptActiveTurn.pipe(Effect.andThen(rotateAfterInterrupt))
                 : interruptActiveTurn,
             );
             if (Exit.isFailure(rotationExit)) {

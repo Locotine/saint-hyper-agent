@@ -1204,4 +1204,418 @@ describe("AntigravityAcpAdapter session lifecycle", () => {
     expect(reasoningCompletedIndex).toBeGreaterThan(-1);
     expect(reasoningCompletedIndex).toBeLessThan(assistantDeltaIndex);
   });
+
+  it("keeps live UsageUpdated context occupancy instead of overwriting it with cumulative turn totalTokens", async () => {
+    const eventQueue = await Effect.runPromise(Queue.unbounded<AcpParsedSessionEvent>());
+    let enqueuedCount = 0;
+    const emitAcpEvent = (event: AcpParsedSessionEvent) =>
+      Effect.gen(function* () {
+        enqueuedCount += 1;
+        yield* Queue.offer(eventQueue, event);
+      });
+
+    const mockRuntime: AcpSessionRuntimeShape = {
+      handleRequestPermission: () => Effect.void,
+      handleElicitation: () => Effect.void,
+      handleReadTextFile: () => Effect.void,
+      handleWriteTextFile: () => Effect.void,
+      handleCreateTerminal: () => Effect.void,
+      handleTerminalOutput: () => Effect.void,
+      handleTerminalWaitForExit: () => Effect.void,
+      handleTerminalKill: () => Effect.void,
+      handleTerminalRelease: () => Effect.void,
+      handleSessionUpdate: () => Effect.void,
+      handleElicitationComplete: () => Effect.void,
+      handleExtRequest: () => Effect.void,
+      handleExtNotification: () => Effect.void,
+      start: () =>
+        Effect.succeed({
+          sessionId: "conv-usage-1",
+          initializeResult: { protocolVersion: 1 },
+          sessionSetupResult: {
+            sessionId: "conv-usage-1",
+            configOptions: [...SAMPLE_CONFIG_OPTIONS],
+          },
+          modelConfigId: "model",
+          sessionSetupMethod: "new" as const,
+        }),
+      prompt: () =>
+        Effect.gen(function* () {
+          yield* emitAcpEvent({
+            _tag: "UsageUpdated",
+            usage: {
+              usedTokens: 64_000,
+              maxTokens: 1_048_576,
+              usedPercent: (64_000 / 1_048_576) * 100,
+              compactsAutomatically: true,
+            },
+            rawPayload: {},
+          });
+          yield* emitAcpEvent({
+            _tag: "ContentDelta",
+            itemId: "assistant-1",
+            text: "Done.",
+            streamKind: "assistant_text",
+            rawPayload: {},
+          });
+          return {
+            stopReason: "end_turn" as const,
+            usage: {
+              inputTokens: 210_000,
+              cachedReadTokens: 35_000,
+              cachedWriteTokens: 0,
+              outputTokens: 4_000,
+              thoughtTokens: 1_000,
+              totalTokens: 250_000,
+            },
+          };
+        }),
+      cancel: Effect.void,
+      setModel: () => Effect.void,
+      setConfigOption: () => Effect.succeed({ configOptions: [...SAMPLE_CONFIG_OPTIONS] }),
+      setMode: () => Effect.succeed({}),
+      getEvents: () => Stream.fromQueue(eventQueue),
+      getConfigOptions: Effect.sync(() => [...SAMPLE_CONFIG_OPTIONS]),
+      getAvailableCommands: Effect.succeed([]),
+      getModeState: Effect.succeed({
+        currentModeId: "default",
+        availableModes: [{ id: "default", name: "Default" }],
+      }),
+      awaitLoadReplayReady: Effect.void,
+      sessionUpdatesEnqueuedCount: Effect.sync(() => enqueuedCount),
+      awaitExit: Effect.never,
+      supportsSessionFork: Effect.succeed(false),
+      supportsSessionRecovery: Effect.succeed(true),
+      getSessionEpoch: () =>
+        Effect.succeed({ generation: 1, activeSessionId: Option.some("conv-usage-1") }),
+      getPendingSessionNotificationCount: () => Effect.succeed(0),
+      forkSession: () =>
+        Effect.die("forkSession should not be called when supportsSessionFork is false"),
+      closeSession: () => Effect.void,
+      request: () => Effect.die("unexpected request"),
+      notify: () => Effect.void,
+    };
+
+    const testLayer = makeAntigravityAcpAdapterLive({
+      makeRuntime: () => Effect.succeed(mockRuntime),
+    }).pipe(
+      Layer.provideMerge(Layer.succeed(ServerConfig, TEST_SERVER_CONFIG)),
+      Layer.provideMerge(NodeServices.layer),
+    );
+
+    const collected = await Effect.runPromise(
+      Effect.gen(function* () {
+        const adapter = yield* AntigravityAdapter;
+        const eventsFiber = yield* Stream.takeUntil(
+          adapter.streamEvents,
+          (event) => event.type === "turn.completed",
+        ).pipe(Stream.runCollect, Effect.forkChild);
+
+        const session = yield* adapter.startSession({
+          threadId: ThreadId.makeUnsafe("thread-antigravity-usage-preserve"),
+          provider: "antigravity",
+          runtimeMode: "full-access",
+          cwd: "/tmp/workspace",
+        });
+        yield* adapter.sendTurn({
+          threadId: session.threadId,
+          input: "Multi-step work",
+        });
+        return Array.from(yield* Fiber.join(eventsFiber));
+      }).pipe(Effect.scoped, Effect.provide(testLayer)),
+    );
+
+    const finalUsage = collected.findLast((event) => event.type === "thread.token-usage.updated");
+    expect(finalUsage?.type).toBe("thread.token-usage.updated");
+    if (finalUsage?.type === "thread.token-usage.updated") {
+      expect(finalUsage.payload.usage).toMatchObject({
+        usedTokens: 64_000,
+        totalProcessedTokens: 250_000,
+        maxTokens: 1_048_576,
+      });
+    }
+  });
+
+  it("skips redundant model/mode RPCs on warm turns, protects async background work, and renews gateway credentials in place", async () => {
+    const eventQueue = await Effect.runPromise(Queue.unbounded<AcpParsedSessionEvent>());
+    let enqueuedCount = 0;
+    let configCalls = 0;
+    let modeCalls = 0;
+    let reloadCalls = 0;
+    let revokedTokens: string[] = [];
+    let issuedCount = 0;
+    let cancelSignal: (() => void) | undefined;
+
+    const offer = (event: AcpParsedSessionEvent) =>
+      Effect.gen(function* () {
+        enqueuedCount += 1;
+        yield* Queue.offer(eventQueue, event);
+      });
+
+    const mockRuntime: AcpSessionRuntimeShape = {
+      handleRequestPermission: () => Effect.void,
+      handleElicitation: () => Effect.void,
+      handleReadTextFile: () => Effect.void,
+      handleWriteTextFile: () => Effect.void,
+      handleCreateTerminal: () => Effect.void,
+      handleTerminalOutput: () => Effect.void,
+      handleTerminalWaitForExit: () => Effect.void,
+      handleTerminalKill: () => Effect.void,
+      handleTerminalRelease: () => Effect.void,
+      handleSessionUpdate: () => Effect.void,
+      handleElicitationComplete: () => Effect.void,
+      handleExtRequest: () => Effect.void,
+      handleExtNotification: () => Effect.void,
+      start: () =>
+        Effect.succeed({
+          sessionId: "conv-bg-1",
+          initializeResult: {
+            protocolVersion: 1,
+            agentCapabilities: { loadSession: true },
+          },
+          sessionSetupResult: {
+            sessionId: "conv-bg-1",
+            configOptions: [...SAMPLE_CONFIG_OPTIONS],
+          },
+          modelConfigId: "model",
+          sessionSetupMethod: "new" as const,
+        }),
+      prompt: (payload) =>
+        Effect.gen(function* () {
+          const text = payload.prompt
+            .filter((part): part is { type: "text"; text: string } => part.type === "text")
+            .map((part) => part.text)
+            .join("\n");
+          if (text.includes("LAUNCH_BG")) {
+            yield* offer({
+              _tag: "ToolCallUpdated",
+              toolCall: {
+                toolCallId: "tc-bg-cmd",
+                kind: "execute",
+                status: "completed",
+                title: "run_command",
+                detail: "Command running in the background with task id: task-dev-1",
+                data: {
+                  tool: "run_command",
+                  rawInput: { CommandLine: "bun run dev", IsDaemon: true, WaitMsBeforeAsync: 500 },
+                  rawOutput: {
+                    output: "Tool is running as a background task with task id: task-dev-1",
+                  },
+                },
+              },
+              rawPayload: {},
+            });
+            yield* offer({
+              _tag: "ToolCallUpdated",
+              toolCall: {
+                toolCallId: "tc-sub-1",
+                kind: "subagent",
+                status: "completed",
+                title: "invoke_subagent",
+                detail: "Subagent launched",
+                data: {
+                  tool: "invoke_subagent",
+                  rawInput: { TypeName: "research", Role: "Deep Auditor", Prompt: "audit" },
+                  rawOutput: { conversationId: "sub-conv-42" },
+                },
+              },
+              rawPayload: {},
+            });
+            return { stopReason: "end_turn" as const };
+          }
+          if (text.includes("STOP_BG")) {
+            yield* offer({
+              _tag: "ToolCallUpdated",
+              toolCall: {
+                toolCallId: "tc-kill-cmd",
+                kind: "other",
+                status: "completed",
+                title: "manage_task",
+                detail: "Killed task-dev-1",
+                data: {
+                  tool: "manage_task",
+                  rawInput: { Action: "kill", TaskId: "task-dev-1" },
+                },
+              },
+              rawPayload: {},
+            });
+            yield* offer({
+              _tag: "ToolCallUpdated",
+              toolCall: {
+                toolCallId: "tc-kill-sub",
+                kind: "other",
+                status: "completed",
+                title: "manage_subagents",
+                detail: "Killed sub-conv-42",
+                data: {
+                  tool: "manage_subagents",
+                  rawInput: { Action: "kill", ConversationIds: ["sub-conv-42"] },
+                },
+              },
+              rawPayload: {},
+            });
+            return { stopReason: "end_turn" as const };
+          }
+          if (text.includes("INTERRUPT_ME")) {
+            return yield* Effect.callback<{ stopReason: "cancelled" }>((resume) => {
+              cancelSignal = () => resume(Effect.succeed({ stopReason: "cancelled" }));
+            });
+          }
+          return { stopReason: "end_turn" as const };
+        }),
+      cancel: Effect.sync(() => {
+        cancelSignal?.();
+      }),
+      setModel: () => Effect.void,
+      setConfigOption: () => {
+        configCalls += 1;
+        return Effect.succeed({ configOptions: [...SAMPLE_CONFIG_OPTIONS] });
+      },
+      setMode: () => {
+        modeCalls += 1;
+        return Effect.succeed({});
+      },
+      reloadSession: (buildMcpServers) =>
+        Effect.sync(() => {
+          reloadCalls += 1;
+          const servers = buildMcpServers({
+            protocolVersion: 1,
+            agentCapabilities: { loadSession: true, mcpCapabilities: { http: true } },
+          });
+          return servers.length > 0;
+        }),
+      getEvents: () => Stream.fromQueue(eventQueue),
+      getConfigOptions: Effect.sync(() => [...SAMPLE_CONFIG_OPTIONS]),
+      getAvailableCommands: Effect.succeed([]),
+      getModeState: Effect.succeed({
+        currentModeId: "default",
+        availableModes: [{ id: "default", name: "Default" }],
+      }),
+      awaitLoadReplayReady: Effect.void,
+      sessionUpdatesEnqueuedCount: Effect.sync(() => enqueuedCount),
+      awaitExit: Effect.never,
+      supportsSessionFork: Effect.succeed(false),
+      supportsSessionRecovery: Effect.succeed(true),
+      getSessionEpoch: () =>
+        Effect.succeed({ generation: 1, activeSessionId: Option.some("conv-bg-1") }),
+      getPendingSessionNotificationCount: () => Effect.succeed(0),
+      forkSession: () => Effect.die("unexpected fork"),
+      closeSession: () => Effect.void,
+      request: () => Effect.die("unexpected request"),
+      notify: () => Effect.void,
+    };
+
+    const { AgentGatewayCredentials } =
+      await import("../../agentGateway/Services/AgentGatewayCredentials.ts");
+    const fakeCredentials = {
+      connectionForThread: (threadId: ThreadId) => {
+        issuedCount += 1;
+        return {
+          url: "http://127.0.0.1:9999/mcp",
+          bearerToken: `token-${threadId}-${issuedCount}`,
+        };
+      },
+      revokeSessionToken: (token: string) => {
+        revokedTokens.push(token);
+      },
+      stdioProxy: { command: "node", args: ["proxy.js"] },
+    };
+
+    const testLayer = makeAntigravityAcpAdapterLive({
+      makeRuntime: () => Effect.succeed(mockRuntime),
+    }).pipe(
+      Layer.provideMerge(Layer.succeed(ServerConfig, TEST_SERVER_CONFIG)),
+      Layer.provideMerge(Layer.succeed(AgentGatewayCredentials, fakeCredentials as never)),
+      Layer.provideMerge(NodeServices.layer),
+    );
+
+    const events: ProviderRuntimeEvent[] = [];
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const adapter = yield* AntigravityAdapter;
+        const collector = yield* Stream.runForEach(adapter.streamEvents, (event) =>
+          Effect.sync(() => {
+            events.push(event);
+          }),
+        ).pipe(Effect.forkChild);
+
+        const threadId = ThreadId.makeUnsafe("thread-antigravity-bg-warm");
+        yield* adapter.startSession({
+          threadId,
+          provider: "antigravity",
+          runtimeMode: "full-access",
+          cwd: "/tmp/workspace",
+          modelSelection: { provider: "antigravity", model: "gemini-3.8-flash" },
+        });
+        const configCallsAfterStart = configCalls;
+
+        // Turn 1: launch background command + async subagent
+        const turn1 = yield* adapter.sendTurn({
+          threadId,
+          input: "LAUNCH_BG",
+          modelSelection: { provider: "antigravity", model: "gemini-3.8-flash" },
+        });
+        while (!events.some((e) => e.type === "turn.completed" && e.turnId === turn1.turnId)) {
+          yield* Effect.sleep(10);
+        }
+        // Background tasks MUST remain live (started, NOT completed) after turn 1 finishes.
+        const startedIds = events
+          .filter((e) => e.type === "task.started")
+          .map((e) => e.payload.taskId);
+        const completedBeforeStopIds = events
+          .filter((e) => e.type === "task.completed")
+          .map((e) => e.payload.taskId);
+        expect(startedIds).toContain("task-dev-1");
+        expect(startedIds).toContain("tc-sub-1");
+        expect(completedBeforeStopIds).not.toContain("task-dev-1");
+        expect(completedBeforeStopIds).not.toContain("tc-sub-1");
+
+        // Turn 2: same model + same interaction mode -> zero redundant config/mode RPCs!
+        const configCallsBeforeTurn2 = configCalls;
+        const modeCallsBeforeTurn2 = modeCalls;
+        const turn2 = yield* adapter.sendTurn({
+          threadId,
+          input: "STOP_BG",
+          modelSelection: { provider: "antigravity", model: "gemini-3.8-flash" },
+        });
+        while (!events.some((e) => e.type === "turn.completed" && e.turnId === turn2.turnId)) {
+          yield* Effect.sleep(10);
+        }
+        expect(configCalls).toBe(configCallsBeforeTurn2);
+        expect(configCalls).toBe(configCallsAfterStart);
+        expect(modeCalls).toBe(modeCallsBeforeTurn2);
+
+        const completedAfterKillIds = events
+          .filter((e) => e.type === "task.completed")
+          .map((e) => e.payload.taskId);
+        expect(completedAfterKillIds).toContain("task-dev-1");
+        expect(completedAfterKillIds).toContain("tc-sub-1");
+
+        // Turn 3: interrupt -> old token revoked, renewAgentGatewayCredential reloads in place
+        const turn3 = yield* adapter.sendTurn({
+          threadId,
+          input: "INTERRUPT_ME",
+          modelSelection: { provider: "antigravity", model: "gemini-3.8-flash" },
+        });
+        while (!cancelSignal) {
+          yield* Effect.sleep(5);
+        }
+        yield* adapter.interruptTurn(threadId, turn3.turnId);
+        while (!events.some((e) => e.type === "turn.completed" && e.turnId === turn3.turnId)) {
+          yield* Effect.sleep(10);
+        }
+        expect(yield* adapter.agentGatewayCredentialRetired!(threadId)).toBe(true);
+        expect(revokedTokens).toContain(`token-${threadId}-1`);
+
+        const renewed = yield* adapter.renewAgentGatewayCredential!(threadId);
+        expect(renewed).toBe(true);
+        expect(reloadCalls).toBe(1);
+        expect(issuedCount).toBe(2);
+        expect(yield* adapter.agentGatewayCredentialRetired!(threadId)).toBe(false);
+        expect(yield* adapter.hasSession(threadId)).toBe(true);
+
+        yield* Fiber.interrupt(collector);
+      }).pipe(Effect.scoped, Effect.provide(testLayer)),
+    );
+  });
 });
