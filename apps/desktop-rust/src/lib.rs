@@ -1884,7 +1884,9 @@ pub fn run() {
             state.browser.start_rpc_pipe_server(app_handle.clone());
 
             // Start the Computer-Use host socket (`SAINT_CUA_HOST_SOCKET`) sharing the
-            // per-session capability token with `apps/server`.
+            // per-session capability token with `apps/server` and attach the app handle
+            // for live `computerPreview.frame` events.
+            state.cua_host.attach_app_handle(app_handle.clone());
             state
                 .cua_host
                 .start_host_socket_server(state.browser.capability().to_string());
