@@ -1372,6 +1372,12 @@ export interface DesktopBridge {
   };
 }
 
+export interface OrchestrationThreadStreamFailure {
+  readonly threadId: string;
+  readonly code: string | null;
+  readonly error: Error;
+}
+
 export interface NativeApi {
   dialogs: {
     pickFolder: () => Promise<string | null>;
@@ -1751,6 +1757,9 @@ export interface NativeApi {
     onDomainEvent: (callback: (event: OrchestrationEvent) => void) => () => void;
     onShellEvent: (callback: (event: OrchestrationShellStreamItem) => void) => () => void;
     onThreadEvent: (callback: (event: OrchestrationThreadStreamItem) => void) => () => void;
+    onThreadStreamFailure?: (
+      callback: (failure: OrchestrationThreadStreamFailure) => void,
+    ) => () => void;
   };
   projectAgent: {
     getOverview: (input: ProjectAgentGetOverviewInput) => Promise<ProjectAgentOverview>;

@@ -35,6 +35,17 @@ pub struct SaintPaths {
     pub appsnap_captures_dir: PathBuf,
 }
 
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+fn tasklist_csv_contains_pid(text: &str, pid: u32) -> bool {
+    let target = pid.to_string();
+    text.lines().any(|line| {
+        line.split(',')
+            .nth(1)
+            .map(|field| field.trim().trim_matches('"') == target)
+            .unwrap_or(false)
+    })
+}
+
 fn is_pid_alive(pid: u32) -> bool {
     if pid == 0 {
         return false;
@@ -42,22 +53,34 @@ fn is_pid_alive(pid: u32) -> bool {
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
+        // tasklist outputs OEM codepage bytes on non-English Windows; CSV format keeps
+        // the PID in column 2 across every locale without substring false positives.
         std::process::Command::new("tasklist")
-            .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+            .args(["/FI", &format!("PID eq {pid}"), "/FO", "CSV", "/NH"])
             .creation_flags(0x0800_0000)
             .output()
             .ok()
-            .and_then(|out| String::from_utf8(out.stdout).ok())
-            .map(|text| text.contains(&pid.to_string()))
+            .map(|out| tasklist_csv_contains_pid(&String::from_utf8_lossy(&out.stdout), pid))
             .unwrap_or(false)
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(unix)]
     {
-        std::process::Command::new("kill")
-            .args(["-0", &pid.to_string()])
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false)
+        let Ok(raw_pid) = libc::pid_t::try_from(pid) else {
+            return false;
+        };
+        if raw_pid <= 0 {
+            return false;
+        }
+        // SAFETY: kill(pid, 0) checks process existence without delivering a signal.
+        if unsafe { libc::kill(raw_pid, 0) } == 0 {
+            true
+        } else {
+            std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+        }
+    }
+    #[cfg(not(any(target_os = "windows", unix)))]
+    {
+        false
     }
 }
 
@@ -198,6 +221,10 @@ pub struct DesktopSharedState {
     pub active_context_menu: Mutex<Option<(String, oneshot::Sender<Option<String>>)>>,
     pub quit_allowed: AtomicBool,
     pub pending_quit_request_id: Mutex<Option<String>>,
+    /// Tracks whether the renderer has acknowledged a pending quit request with `Ready`.
+    /// Cleared immediately on valid `Ready` (even when `running_count > 0`) so the 3s
+    /// unresponsive-renderer failsafe never force-closes while the confirmation dialog is open.
+    pub awaiting_quit_ready_id: Mutex<Option<String>>,
     pub backend: Arc<BackendSupervisor>,
     pub pty_host: Arc<PtyHostManager>,
     pub browser: Arc<BrowserManager>,
@@ -220,7 +247,10 @@ impl DesktopSharedState {
         let pty_host = Arc::new(PtyHostManager::new());
         let updater = Arc::new(UpdaterCoordinator::new());
         let backend = Arc::new(BackendSupervisor::new(paths.clone()));
-        let lan_relay = Arc::new(LanRelayManager::new(Arc::clone(&backend)));
+        let lan_relay = Arc::new(LanRelayManager::new(
+            Arc::clone(&backend),
+            Arc::clone(&remote_ssh),
+        ));
 
         let initial_ws_url = std::env::var("SAINT_DESKTOP_WS_URL")
             .ok()
@@ -236,6 +266,7 @@ impl DesktopSharedState {
             active_context_menu: Mutex::new(None),
             quit_allowed: AtomicBool::new(false),
             pending_quit_request_id: Mutex::new(None),
+            awaiting_quit_ready_id: Mutex::new(None),
             backend,
             pty_host,
             browser,
@@ -302,5 +333,25 @@ pub fn reveal_path_in_file_manager(target: &Path) -> Result<(), String> {
             .spawn()
             .map_err(|e| e.to_string())?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn matches_windows_tasklist_csv_pid_without_substring_false_positives() {
+        let output = "\"saint-server.exe\",\"1234\",\"Console\",\"1\",\"42,100 K\"\r\n";
+        assert!(tasklist_csv_contains_pid(output, 1234));
+        assert!(!tasklist_csv_contains_pid(output, 123));
+        assert!(!tasklist_csv_contains_pid(output, 1));
+        assert!(!tasklist_csv_contains_pid("INFO: No tasks are running.\r\n", 1234));
+    }
+
+    #[test]
+    fn reports_current_process_alive() {
+        assert!(is_pid_alive(std::process::id()));
+        assert!(!is_pid_alive(0));
     }
 }

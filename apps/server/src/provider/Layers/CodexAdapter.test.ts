@@ -27,6 +27,8 @@ import {
   CodexAppServerManager,
   type CodexAppServerStartSessionInput,
   type CodexAppServerSendTurnInput,
+  type CodexAppServerSteerSubagentInput,
+  type CodexAppServerSteerSubagentResult,
 } from "../../codexAppServerManager.ts";
 import { CodexJsonlFramer, CodexJsonlWriter } from "../../codexAppServerTransport.ts";
 import { ServerConfig } from "../../config.ts";
@@ -80,6 +82,18 @@ class FakeCodexManager extends CodexAppServerManager {
     }),
   );
 
+  public steerSubagentImpl = vi.fn(
+    async (
+      input: CodexAppServerSteerSubagentInput,
+    ): Promise<CodexAppServerSteerSubagentResult> => ({
+      threadId: input.threadId,
+      providerThreadId: input.providerThreadId,
+      providerParentThreadId: "provider-parent-1",
+      turnId: asTurnId("child-turn-1"),
+      parentTurnId: asTurnId("parent-turn-1"),
+    }),
+  );
+
   public interruptTurnImpl = vi.fn(
     async (_threadId: ThreadId, _turnId?: TurnId, _providerThreadId?: string): Promise<void> =>
       undefined,
@@ -123,6 +137,12 @@ class FakeCodexManager extends CodexAppServerManager {
 
   override steerTurn(input: CodexAppServerSendTurnInput): Promise<ProviderTurnStartResult> {
     return this.steerTurnImpl(input);
+  }
+
+  override steerSubagent(
+    input: CodexAppServerSteerSubagentInput,
+  ): Promise<CodexAppServerSteerSubagentResult> {
+    return this.steerSubagentImpl(input);
   }
 
   override interruptTurn(
@@ -3036,6 +3056,40 @@ lifecycleLayer("CodexAdapterLive lifecycle", (it) => {
         ),
         ["item/future/outputDelta", "item/future/completed"],
       );
+    }),
+  );
+
+  it.effect("steers a Codex subagent and emits a subagent turn.steered runtime event", () =>
+    Effect.gen(function* () {
+      const adapter = yield* CodexAdapter;
+      const threadId = asThreadId("thread-steer-subagent");
+      const eventsFiber = yield* Stream.take(adapter.streamEvents, 1).pipe(
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+
+      yield* adapter.steerSubagent!(threadId, "codex-child-1", {
+        input: "Focus on the failing test first",
+      });
+
+      assert.equal(lifecycleManager.steerSubagentImpl.mock.calls.length, 1);
+      assert.deepEqual(lifecycleManager.steerSubagentImpl.mock.calls[0]?.[0], {
+        threadId,
+        providerThreadId: "codex-child-1",
+        input: "Focus on the failing test first",
+      });
+
+      const events = Array.from(yield* Fiber.join(eventsFiber));
+      const steered = events[0];
+      assert.equal(steered?.type, "turn.steered");
+      if (steered?.type === "turn.steered") {
+        assert.deepEqual(steered.payload, {
+          message: "Focus on the failing test first",
+          target: "subagent",
+        });
+        assert.equal(steered.providerRefs?.providerThreadId, "codex-child-1");
+        assert.equal(steered.providerRefs?.providerParentThreadId, "provider-parent-1");
+      }
     }),
   );
 });

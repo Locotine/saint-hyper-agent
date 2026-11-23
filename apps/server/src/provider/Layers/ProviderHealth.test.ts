@@ -29,6 +29,7 @@ import { claudeIsolatedHomePath } from "../claudeEnvironment";
 import { ServerConfig } from "../../config";
 import { ServerSettingsService } from "../../serverSettings";
 import { ProviderHealth } from "../Services/ProviderHealth";
+import { resolveAntigravityCliBinaryPath } from "../acp/AntigravityAcpSupport";
 import {
   readProviderStatusCache,
   resolveProviderStatusCachePath,
@@ -3176,7 +3177,7 @@ it.layer(NodeServices.layer)("ProviderHealth", (it) => {
       }).pipe(
         Effect.provide(
           mockSpawnerLayer((args, command, env) => {
-            assert.strictEqual(command, "agy");
+            assert.strictEqual(command, resolveAntigravityCliBinaryPath(undefined, { env }));
             assert.strictEqual(env?.AGY_CLI_DISABLE_AUTO_UPDATE, "true");
             const joined = args.join(" ");
             if (joined === "--version") {

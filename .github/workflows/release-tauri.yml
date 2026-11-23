@@ -70,7 +70,7 @@ jobs:
             {"id":"win-x64","label":"Windows x64","runner":"windows-2022","platform":"win","arch":"x64","rust_target":"x86_64-pc-windows-msvc"},
             {"id":"mac-arm64","label":"macOS arm64","runner":"macos-15","platform":"mac","arch":"arm64","rust_target":"aarch64-apple-darwin"},
             {"id":"mac-x64","label":"macOS x64","runner":"macos-15","platform":"mac","arch":"x64","rust_target":"x86_64-apple-darwin"},
-            {"id":"linux-x64","label":"Linux x64","runner":"ubuntu-24.04","platform":"linux","arch":"x64","rust_target":"x86_64-unknown-linux-gnu"}
+            {"id":"linux-x64","label":"Linux x64","runner":"ubuntu-22.04","platform":"linux","arch":"x64","rust_target":"x86_64-unknown-linux-gnu"}
           ]'
           INCLUDE="$(jq -c --arg p "$PLATFORM" 'map(select($p == "all" or .id == $p))' <<<"$ALL")"
           echo "include=$INCLUDE" >> "$GITHUB_OUTPUT"
@@ -257,13 +257,39 @@ jobs:
             *libwebkit2gtk-4.1-0*) ;;
             *) echo "Depends is missing libwebkit2gtk-4.1-0: $depends" >&2; exit 1 ;;
           esac
+          case "$depends" in
+            *libgtk-3-0*) ;;
+            *) echo "Depends is missing libgtk-3-0: $depends" >&2; exit 1 ;;
+          esac
+          # Ubuntu 24.04+ t64 package names are not installable on Debian 12 or Ubuntu 22.04;
+          # building on ubuntu-22.04 keeps non-t64 Depends that 24.04/Debian 13 satisfy via Provides.
+          case "$depends" in
+            *t64*) echo "Depends contains Ubuntu 24.04/Debian 13-only t64 package(s): $depends" >&2; exit 1 ;;
+          esac
           root="$(mktemp -d)"
           dpkg-deb -x "$deb" "$root"
           test -x "$root/usr/bin/saint-desktop"
           test -x "$root/usr/bin/saint-server"
           test "$(dpkg-deb --field "$deb" Package)" = saint-hyper-agent
-          # backend.rs and cua_host.rs resolve resources from /usr/lib/<productName>.
+          # backend.rs, remote_ssh.rs, and cua_host.rs resolve resources from /usr/lib/<productName>.
           test -f "$root/usr/lib/Saint Hyper Agent/client/index.html"
+          test -f "$root/usr/lib/Saint Hyper Agent/remote-install/identity.json"
+          test -x "$root/usr/lib/Saint Hyper Agent/resources/cua-driver/cua-driver"
+          # Ensure all Linux binaries stay within Ubuntu 22.04 (glibc 2.35) / Debian 12 (glibc 2.36)
+          # baseline by rejecting non-weak GLIBC symbol requirements newer than 2.35.
+          for elf in \
+            "$root/usr/bin/saint-desktop" \
+            "$root/usr/bin/saint-server" \
+            "$root/usr/lib/Saint Hyper Agent/resources/cua-driver/cua-driver"; do
+            max_glibc="$(readelf -V "$elf" \
+              | awk '/Name: GLIBC_/ && !/Flags: WEAK/ { for (i = 1; i <= NF; i++) if ($i ~ /^GLIBC_/) print $i }' \
+              | sed 's/^GLIBC_//' | sort -uV | tail -n1)"
+            echo "$elf max non-weak GLIBC: ${max_glibc:-none}"
+            if [ -n "$max_glibc" ] && ! dpkg --compare-versions "$max_glibc" le "2.35"; then
+              echo "$elf requires GLIBC_$max_glibc (> 2.35), breaking Ubuntu 22.04 / Debian 12." >&2
+              exit 1
+            fi
+          done
           # Desktop environments only look up icon sizes the hicolor theme lists.
           test -f "$root/usr/share/icons/hicolor/256x256/apps/saint-desktop.png"
           desktop="$(find "$root/usr/share/applications" -name '*.desktop' | head -n1)"

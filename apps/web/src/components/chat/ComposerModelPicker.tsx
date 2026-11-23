@@ -7,6 +7,7 @@
 
 import { scopeThread } from "@saint/shared/hostId";
 import { useHostHandle } from "~/hosts/hostScope";
+import { isImeComposingKeyEvent } from "~/lib/ime";
 import {
   type ModelSlug,
   type ProviderAgentDescriptor,
@@ -590,6 +591,7 @@ export function ComposerModelPicker(props: ComposerModelPickerProps) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDownCapture={(event) => {
+                if (isImeComposingKeyEvent(event)) return;
                 if (event.key === "Enter") {
                   // Focus is still in the field, so no row is highlighted: take the top hit.
                   event.preventDefault();

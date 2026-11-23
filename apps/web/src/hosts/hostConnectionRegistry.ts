@@ -28,9 +28,15 @@ function dispose<T extends { dispose: () => Promise<void> | void }>(entry: Entry
 }
 
 export function createHostConnectionRegistry<T extends { dispose: () => Promise<void> | void }>(
-  create: (url: string) => T,
+  create: (url: string, hostId: HostId) => T,
 ) {
   const current = new Map<HostId, Entry<T>>();
+  const listeners = new Set<() => void>();
+  const notify = () => {
+    for (const listener of [...listeners]) {
+      listener();
+    }
+  };
 
   return {
     /**
@@ -39,11 +45,14 @@ export function createHostConnectionRegistry<T extends { dispose: () => Promise<
      */
     acquire(hostId: HostId, epoch: number, url: string): HostConnectionLease<T> {
       let entry = current.get(hostId);
+      let changed = false;
       if (!entry || entry.epoch !== epoch) {
-        entry = { epoch, transport: create(url), refs: 0 };
+        entry = { epoch, transport: create(url, hostId), refs: 0 };
         current.set(hostId, entry);
+        changed = true;
       }
       entry.refs += 1;
+      if (changed) notify();
       const held = entry;
       let released = false;
       return {
@@ -55,16 +64,28 @@ export function createHostConnectionRegistry<T extends { dispose: () => Promise<
           released = true;
           held.refs -= 1;
           if (held.refs > 0) return;
-          if (current.get(hostId) === held) current.delete(hostId);
+          if (current.get(hostId) === held) {
+            current.delete(hostId);
+            notify();
+          }
           dispose(held);
         },
       };
     },
     /** The host's current transport while something holds it; never opens one. */
     peek: (hostId: HostId): T | undefined => current.get(hostId)?.transport,
+    /** Subscribes to active host connection changes (acquire of new/replaced entry or final release). */
+    subscribe: (listener: () => void): (() => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
     /** Hosts that currently hold a transport. */
     size: () => current.size,
   };
 }
 
-export const hostConnections = createHostConnectionRegistry((url) => new WsTransport(url));
+export const hostConnections = createHostConnectionRegistry(
+  (url, hostId) => new WsTransport(url, { hostId }),
+);

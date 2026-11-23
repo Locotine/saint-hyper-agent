@@ -121,10 +121,19 @@ if [ -n "$shared" ] && version_ready "$shared"; then install_dir="$shared/versio
             .into(),
     );
     let tree_hash = id.tree_hash_script.as_deref().unwrap_or("process.exit(1)");
+    // Verifies that an explicit shared auto-store directory and its installed trees are owned
+    // by root or the current user and cannot be mutated by other local users (no group/world write
+    // bits, no symlinked store roots).
+    const AUTO_STORE_SAFE_JS: &str = r#"const fs=require("fs"),uid=typeof process.getuid==="function"?process.getuid():0;const root=process.argv[1];for(const p of [root,root+"/versions",root+"/deps"]){let st;try{st=fs.lstatSync(p)}catch{process.exit(1)}if(st.isSymbolicLink()||!st.isDirectory())process.exit(1);if(st.uid!==0&&st.uid!==uid)process.exit(1);const writable=(st.mode&0o022)!==0;const rootSticky=st.uid===0&&(st.mode&0o1000)!==0;if(writable&&!rootSticky)process.exit(1)}process.exit(0)"#;
+    const AUTO_TREE_SAFE_JS: &str = r#"const fs=require("fs"),path=require("path"),uid=typeof process.getuid==="function"?process.getuid():0;const stack=process.argv.slice(1);while(stack.length){const p=stack.pop();let st;try{st=fs.lstatSync(p)}catch{process.exit(1)}if(st.uid!==0&&st.uid!==uid)process.exit(1);if(!st.isSymbolicLink()&&(st.mode&0o022)!==0)process.exit(1);if(st.isDirectory()){for(const e of fs.readdirSync(p))stack.push(path.join(p,e))}}process.exit(0)"#;
     lines.push(format!(
         r#"tree_hash() {{ node -e {} "$@"; }}
+auto_store_safe() {{ node -e {} "$1" >/dev/null 2>&1; }}
+auto_tree_safe() {{ node -e {} "$@" >/dev/null 2>&1; }}
 auto_ready() {{
   version_ready "$1" || return 1
+  auto_store_safe "$1" || return 1
+  auto_tree_safe "$1/versions/$version" "$1/deps/$deps_key" || return 1
   [ "$(tree_hash "$1/versions/$version" .installed node_modules 2>/dev/null)" = "$bundle_tree" ] || return 1
   [ "$(tree_hash "$1/deps/$deps_key" .installed 2>/dev/null)" = "$deps_tree" ]
 }}
@@ -137,17 +146,21 @@ pick_install_dir() {{
 auto_prepare() {{
   mkdir -p "$1/versions" "$1/deps" 2>/dev/null || return 1
   for auto_dir in "$1" "$1/versions" "$1/deps"; do
-    if [ -O "$auto_dir" ]; then chmod 1777 "$auto_dir" 2>/dev/null || true; fi
+    if [ -O "$auto_dir" ]; then chmod 700 "$auto_dir" 2>/dev/null || true; fi
     [ -w "$auto_dir" ] || return 1
   done
+  auto_store_safe "$1" || return 1
 }}"#,
-        quote_shell(tree_hash)
+        quote_shell(tree_hash),
+        quote_shell(AUTO_STORE_SAFE_JS),
+        quote_shell(AUTO_TREE_SAFE_JS)
     ));
     Ok(lines.join("\n"))
 }
 
-/// Accounts share installs in a sticky world-writable folder unless an administrator set
-/// SAINT_REMOTE_SHARED_STORE. Off unless the build shipped the hashes to verify them with.
+/// Optional shared auto-store used only when explicitly opted into via `SAINT_REMOTE_AUTO_STORE`
+/// (and verified against the build's tree hashes + strict ownership/permission checks). Never
+/// defaults to world-writable `/var/tmp` or `/Users/Shared` so multi-user SSH hosts stay safe.
 fn auto_store_preamble_lines(id: &InstallIdentity) -> Result<Vec<String>, String> {
     let (Some(bundle_tree), Some(_)) = (id.bundle_tree.as_deref(), id.tree_hash_script.as_deref())
     else {
@@ -176,10 +189,7 @@ fn auto_store_preamble_lines(id: &InstallIdentity) -> Result<Vec<String>, String
         ),
         r#"auto_shared=""
 if [ -z "$shared" ] && [ -n "$deps_tree" ]; then
-  auto_shared="${SAINT_REMOTE_AUTO_STORE:-}"
-  case "$auto_shared" in /*) ;; *)
-    case "$(uname -s)" in Darwin) auto_shared=/Users/Shared/saint-remote ;; *) auto_shared=/var/tmp/saint-remote ;; esac
-  ;; esac
+  case "${SAINT_REMOTE_AUTO_STORE:-}" in /*) auto_shared="$SAINT_REMOTE_AUTO_STORE" ;; esac
 fi"#
             .into(),
     ])
@@ -422,7 +432,7 @@ publish_to() {
     shared_tmp="$auto_shared/.tmp-$(id -u)-$$-${2##*/}"
     rm -rf "$shared_tmp"
     cp -RP "$1" "$shared_tmp" || return 1
-    chmod -R go+rX,go-w "$shared_tmp" || return 1
+    chmod -R go-w "$shared_tmp" || return 1
     publish "$shared_tmp" "$2" "$3" || return 1
     rm -rf "$shared_tmp"
   else
@@ -529,6 +539,9 @@ quote() {{ printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }}
   echo 'export SAINT_CLIENT_SCOPED=1'
 {scanner_env}
   echo "echo \$\$ >$(quote "$run_dir/server.pid")"
+  if [ -n "$auto_shared" ] && [ "$install_dir" = "$auto_shared/versions/$version" ]; then
+    echo "if ! node -e {auto_preexec_js} $(quote "$auto_shared") $(quote "$auto_shared/versions/$version") $(quote "$auto_shared/deps/$deps_key"); then echo 'Refusing to launch from tampered shared store.' >&2; exit 1; fi"
+  fi
   echo "exec node {SERVER_NODE_FLAGS} $(quote "$install_dir/dist/index.mjs") --mode web --host 127.0.0.1 --port $port --home-dir $(quote "$root/home") --no-browser{dev_url_flag} >>$(quote "$run_dir/server.log") 2>&1"
 }} >"$run_dir/server.sh"
 printf '{{"port":%s,"version":"%s"}}' "$port" "$version" >"$run_dir/server.json"
@@ -599,6 +612,9 @@ report "{{\"kind\":\"started\",\"port\":$port}}"
 "#,
         preamble = preamble(t)?,
         token = quote_shell(token),
+        auto_preexec_js = quote_shell(
+            r#"const fs=require("fs"),path=require("path"),uid=typeof process.getuid==="function"?process.getuid():0;const root=process.argv[1],vdir=process.argv[2],ddir=process.argv[3];for(const p of [root,root+"/versions",root+"/deps"]){let st;try{st=fs.lstatSync(p)}catch{process.exit(1)}if(st.isSymbolicLink()||!st.isDirectory())process.exit(1);if(st.uid!==0&&st.uid!==uid)process.exit(1);const w=(st.mode&0o022)!==0;if(w&&!(st.uid===0&&(st.mode&0o1000)!==0))process.exit(1)}const stack=[vdir,ddir];while(stack.length){const p=stack.pop();let st;try{st=fs.lstatSync(p)}catch{process.exit(1)}if(st.uid!==0&&st.uid!==uid)process.exit(1);if(!st.isSymbolicLink()&&(st.mode&0o022)!==0)process.exit(1);if(st.isDirectory()){for(const e of fs.readdirSync(p))stack.push(path.join(p,e))}}process.exit(0)"#
+        ),
         scanner_env = if t.identity.scanners_version.is_some() {
             r#"  if [ -f "$scanner_root/.installed" ] && [ -d "$scanner_dir" ]; then
     echo "export SAINT_SCANNER_DIR=$(quote "$scanner_dir")"
@@ -805,6 +821,91 @@ mod tests {
             assert!(child.wait().unwrap().success(), "sh -n rejected:\n{script}");
         }
         assert!(start_script(&t, "bad token", None).is_err());
+    }
+
+    #[test]
+    fn auto_shared_requires_explicit_opt_in_and_rejects_world_writable_dirs() {
+        let mut deps_trees = std::collections::BTreeMap::new();
+        deps_trees.insert("linux-x64".to_string(), "a".repeat(64));
+        deps_trees.insert("darwin-arm64".to_string(), "b".repeat(64));
+        let id = InstallIdentity {
+            version: "1.2.3-0123456789ab".into(),
+            deps_hash: "7947d66a8643".into(),
+            bundle_tree: Some("c".repeat(64)),
+            deps_trees,
+            tree_hash_script: Some("process.exit(0)".into()),
+            scanners_version: Some("0123456789ab".into()),
+        };
+        let t = Target {
+            remote_root: ".saint-remote",
+            store_root: ".saint-remote",
+            identity: &id,
+        };
+        for script in [
+            probe_script(&t).unwrap(),
+            install_script(&t).unwrap(),
+            start_script(&t, "abc123", None).unwrap(),
+        ] {
+            assert!(
+                !script.contains("/var/tmp/saint-remote"),
+                "must not fall back to world-writable /var/tmp/saint-remote"
+            );
+            assert!(
+                !script.contains("/Users/Shared/saint-remote"),
+                "must not fall back to world-writable /Users/Shared/saint-remote"
+            );
+            assert!(
+                !script.contains("chmod 1777"),
+                "must not create world-writable directories"
+            );
+            let mut child = std::process::Command::new("sh")
+                .arg("-n")
+                .stdin(std::process::Stdio::piped())
+                .spawn()
+                .unwrap();
+            std::io::Write::write_all(child.stdin.as_mut().unwrap(), script.as_bytes()).unwrap();
+            assert!(child.wait().unwrap().success(), "sh -n rejected:\n{script}");
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let scratch = std::env::temp_dir().join(format!(
+                "saint-auto-store-test-{}",
+                uuid::Uuid::new_v4().simple()
+            ));
+            let versions = scratch.join("versions");
+            let deps = scratch.join("deps");
+            std::fs::create_dir_all(&versions).unwrap();
+            std::fs::create_dir_all(&deps).unwrap();
+            std::fs::set_permissions(&scratch, std::fs::Permissions::from_mode(0o777)).unwrap();
+            std::fs::set_permissions(&versions, std::fs::Permissions::from_mode(0o777)).unwrap();
+            std::fs::set_permissions(&deps, std::fs::Permissions::from_mode(0o777)).unwrap();
+
+            let script = format!("{}\nauto_store_safe {}\n", preamble(&t).unwrap(), quote_shell(&scratch.to_string_lossy()));
+            let out = std::process::Command::new("sh")
+                .args(["-c", &script])
+                .output()
+                .unwrap();
+            assert!(
+                !out.status.success(),
+                "auto_store_safe must reject 0777 directory"
+            );
+
+            std::fs::set_permissions(&scratch, std::fs::Permissions::from_mode(0o700)).unwrap();
+            std::fs::set_permissions(&versions, std::fs::Permissions::from_mode(0o700)).unwrap();
+            std::fs::set_permissions(&deps, std::fs::Permissions::from_mode(0o700)).unwrap();
+            let out_ok = std::process::Command::new("sh")
+                .args(["-c", &script])
+                .output()
+                .unwrap();
+            assert!(
+                out_ok.status.success(),
+                "auto_store_safe should accept owner-only 0700 directory: {}",
+                String::from_utf8_lossy(&out_ok.stderr)
+            );
+            let _ = std::fs::remove_dir_all(&scratch);
+        }
     }
 
     #[test]

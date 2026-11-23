@@ -5,7 +5,7 @@
 // Exports: RemoteHostsSettingsPanel
 
 import type { DesktopRemoteSshSavedHost, DesktopRemoteSshTestResult } from "@saint/contracts";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { showConfirmDialogFallback } from "~/confirmDialogFallback";
 import { Button } from "~/components/ui/button";
@@ -62,6 +62,13 @@ const STATUS_DOT_CLASS_BY_TONE: Record<RemoteHostStatusTone, string> = {
   disconnected: "bg-muted-foreground/45",
 };
 
+export type RemoteHostPendingAction = "connect" | "retry" | "disconnect" | "stop" | "delete";
+
+interface RemoteHostPendingEntry {
+  readonly action: RemoteHostPendingAction;
+  readonly requestId: number;
+}
+
 export function RemoteHostsSettingsPanel(props: { active: boolean }) {
   const state = useRemoteSshState(props.active, (error) =>
     showError("Could not load remote hosts", error),
@@ -83,6 +90,12 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
   const [testResultByHost, setTestResultByHost] = useState<
     Readonly<Record<string, DesktopRemoteSshTestResult>>
   >({});
+  const [pendingActionByHost, setPendingActionByHost] = useState<
+    Readonly<Record<string, RemoteHostPendingEntry | undefined>>
+  >({});
+  const pendingActionRef = useRef<Readonly<Record<string, RemoteHostPendingEntry | undefined>>>({});
+  const pendingRequestIdRef = useRef(0);
+  const [submittingFormAction, setSubmittingFormAction] = useState<"save" | "connect" | null>(null);
 
   const bridge = remoteSshBridge();
   if (!props.active || !bridge) return null;
@@ -127,10 +140,42 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
     };
   };
 
-  const connect = (target: DesktopRemoteSshSavedHost) => {
-    void bridge
-      .connect(target)
-      .catch((error: unknown) => showError(`Could not connect to ${target.host}`, error));
+  const runHostAction = (
+    targetHost: string,
+    action: RemoteHostPendingAction,
+    operation: () => Promise<unknown>,
+    failure: string,
+  ) => {
+    const current = pendingActionRef.current[targetHost];
+    if (current?.action === action) return;
+    // Allow cancelling an in-flight connect/retry, but block other overlapping actions.
+    if (current && action !== "disconnect") return;
+    const requestId = ++pendingRequestIdRef.current;
+    const entry: RemoteHostPendingEntry = { action, requestId };
+    pendingActionRef.current = { ...pendingActionRef.current, [targetHost]: entry };
+    setPendingActionByHost((prev) => ({ ...prev, [targetHost]: entry }));
+    void operation()
+      .catch((error: unknown) => showError(failure, error))
+      .finally(() => {
+        if (pendingActionRef.current[targetHost]?.requestId === requestId) {
+          const { [targetHost]: _cleared, ...rest } = pendingActionRef.current;
+          pendingActionRef.current = rest;
+        }
+        setPendingActionByHost((prev) => {
+          if (prev[targetHost]?.requestId !== requestId) return prev;
+          const { [targetHost]: _cleared, ...rest } = prev;
+          return rest;
+        });
+      });
+  };
+
+  const connect = (target: DesktopRemoteSshSavedHost, action: "connect" | "retry" = "connect") => {
+    runHostAction(
+      target.host,
+      action,
+      () => bridge.connect(target),
+      `Could not connect to ${target.host}`,
+    );
   };
 
   const run = (action: () => Promise<void>, failure: string) => {
@@ -139,8 +184,9 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
 
   const handleSaveTarget = (andConnect: boolean) => {
     const trimmed = host.trim();
-    if (!trimmed) return;
+    if (!trimmed || submittingFormAction !== null) return;
     const target = buildSavedHostInput(trimmed);
+    setSubmittingFormAction(andConnect ? "connect" : "save");
     const savePromise = bridge.updateHost
       ? bridge.updateHost({ previousHost: editingHost, target }).then(() => undefined)
       : Promise.resolve();
@@ -149,10 +195,13 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
         setFormOpen(false);
         resetForm();
         if (andConnect) {
-          connect(target);
+          connect(target, "connect");
         }
       })
-      .catch((error: unknown) => showError(`Could not save ${trimmed}`, error));
+      .catch((error: unknown) => showError(`Could not save ${trimmed}`, error))
+      .finally(() => {
+        setSubmittingFormAction(null);
+      });
   };
 
   const handleTestHost = (row: RemoteHostRow) => {
@@ -201,7 +250,12 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
   const handleDeleteHost = (row: RemoteHostRow) => {
     void confirmTargetDeletion(row.displayName).then((confirmed) => {
       if (!confirmed) return;
-      run(() => bridge.forget(row.host), `Could not delete ${row.host}`);
+      runHostAction(
+        row.host,
+        "delete",
+        () => bridge.forget(row.host),
+        `Could not delete ${row.host}`,
+      );
     });
   };
 
@@ -210,9 +264,10 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
   const configHosts = state?.configHosts ?? [];
   const importableHosts = configHosts.filter((alias) => !existingHostSet.has(alias));
   const trimmedHost = host.trim();
-  const connectingProgressLines = rows
-    .map((row) => remoteHostConnectingProgress(row))
-    .filter((line): line is string => line !== null);
+  const connectingProgressEntries = rows.flatMap((row) => {
+    const line = remoteHostConnectingProgress(row);
+    return line ? [{ host: row.host, line }] : [];
+  });
 
   const toggleSelectImportHost = (alias: string) => {
     setSelectedImportHosts((prev) => {
@@ -464,6 +519,7 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
                         type="button"
                         size="xs"
                         variant="ghost"
+                        disabled={submittingFormAction !== null}
                         onClick={() => {
                           setFormOpen(false);
                           resetForm();
@@ -475,18 +531,26 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
                         type="button"
                         size="xs"
                         variant="outline"
-                        disabled={!trimmedHost}
+                        disabled={!trimmedHost || submittingFormAction !== null}
+                        aria-busy={submittingFormAction === "save"}
                         onClick={() => handleSaveTarget(false)}
                       >
-                        Save
+                        {submittingFormAction === "save" ? (
+                          <Spinner aria-hidden="true" className="size-3 shrink-0" />
+                        ) : null}
+                        <span>Save</span>
                       </Button>
                       <Button
                         type="button"
                         size="xs"
-                        disabled={!trimmedHost}
+                        disabled={!trimmedHost || submittingFormAction !== null}
+                        aria-busy={submittingFormAction === "connect"}
                         onClick={() => handleSaveTarget(true)}
                       >
-                        {editingHost ? "Save & Connect" : "Connect"}
+                        {submittingFormAction === "connect" ? (
+                          <Spinner aria-hidden="true" className="size-3 shrink-0" />
+                        ) : null}
+                        <span>{editingHost ? "Save & Connect" : "Connect"}</span>
                       </Button>
                     </div>
                   }
@@ -500,44 +564,46 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
           {!state ? (
             <SettingsListRow title="Loading targets…" />
           ) : rows.length > 0 ? (
-            rows.map((row) => (
-              <RemoteHostListRow
-                key={row.host}
-                row={row}
-                testing={Boolean(testingByHost[row.host])}
-                testResult={testResultByHost[row.host] ?? null}
-                onConnect={() =>
-                  connect({
-                    host: row.host,
-                    remoteRoot: row.savedRemoteRoot,
-                    label: row.label,
-                    user: row.user,
-                    port: row.port,
-                    identityFile: row.identityFile,
-                  })
-                }
-                onDisconnect={() =>
-                  run(() => bridge.disconnect(row.host), `Could not disconnect ${row.host}`)
-                }
-                onStop={() =>
-                  run(
-                    () =>
-                      bridge.stopServer({
-                        host: row.host,
-                        remoteRoot: row.savedRemoteRoot,
-                        label: row.label,
-                        user: row.user,
-                        port: row.port,
-                        identityFile: row.identityFile,
-                      }),
-                    `Could not stop the server on ${row.host}`,
-                  )
-                }
-                onTest={() => handleTestHost(row)}
-                onEdit={() => openEditTargetForm(row)}
-                onDelete={() => handleDeleteHost(row)}
-              />
-            ))
+            rows.map((row) => {
+              const target: DesktopRemoteSshSavedHost = {
+                host: row.host,
+                remoteRoot: row.savedRemoteRoot,
+                label: row.label,
+                user: row.user,
+                port: row.port,
+                identityFile: row.identityFile,
+              };
+              return (
+                <RemoteHostListRow
+                  key={row.host}
+                  row={row}
+                  testing={Boolean(testingByHost[row.host])}
+                  testResult={testResultByHost[row.host] ?? null}
+                  pendingAction={pendingActionByHost[row.host]?.action ?? null}
+                  onConnect={() => connect(target, "connect")}
+                  onRetry={() => connect(target, "retry")}
+                  onDisconnect={() =>
+                    runHostAction(
+                      row.host,
+                      "disconnect",
+                      () => bridge.disconnect(row.host),
+                      `Could not disconnect ${row.host}`,
+                    )
+                  }
+                  onStop={() =>
+                    runHostAction(
+                      row.host,
+                      "stop",
+                      () => bridge.stopServer(target),
+                      `Could not stop the server on ${row.host}`,
+                    )
+                  }
+                  onTest={() => handleTestHost(row)}
+                  onEdit={() => openEditTargetForm(row)}
+                  onDelete={() => handleDeleteHost(row)}
+                />
+              );
+            })
           ) : (
             <SettingsListRow
               title="No remote targets yet"
@@ -546,16 +612,16 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
           )}
         </SettingsCard>
 
-        {connectingProgressLines.length > 0 ? (
+        {connectingProgressEntries.length > 0 ? (
           <div
             role="status"
             aria-live="polite"
             className="mt-2 flex flex-col gap-1 rounded-lg border border-border/65 bg-muted/20 px-3 py-2 text-ui-sm text-muted-foreground"
           >
-            {connectingProgressLines.map((line) => (
-              <div key={line} className="flex items-center gap-2">
+            {connectingProgressEntries.map((entry) => (
+              <div key={entry.host} className="flex items-center gap-2">
                 <Spinner className="size-3.5 shrink-0 text-foreground" />
-                <span>{line}</span>
+                <span>{entry.line}</span>
               </div>
             ))}
           </div>
@@ -588,22 +654,52 @@ export function RemoteHostsSettingsPanel(props: { active: boolean }) {
   );
 }
 
-function RemoteHostListRow(props: {
+export function RemoteHostListRow(props: {
   row: RemoteHostRow;
   testing: boolean;
   testResult: DesktopRemoteSshTestResult | null;
+  pendingAction: RemoteHostPendingAction | null;
   onConnect: () => void;
+  onRetry: () => void;
   onDisconnect: () => void;
   onStop: () => void;
   onTest: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const { row, testing, testResult } = props;
-  const busy = isRemoteHostBusy(row.state);
-  const connected = row.state?.phase === "connected";
-  const failed = row.state?.phase === "error" ? row.state.message : null;
+  const { row, testing, testResult, pendingAction } = props;
+  const phase = row.state?.phase ?? null;
+  const stopping = phase === "stopping" || pendingAction === "stop";
+  const disconnecting = pendingAction === "disconnect";
+  const connectingPhase = isRemoteHostBusy(row.state) && phase !== "stopping";
+  const retrying = pendingAction === "retry";
+  const connecting = pendingAction === "connect" || (connectingPhase && !retrying);
+  const deleting = pendingAction === "delete";
+  const busy = connecting || retrying || disconnecting || stopping || deleting;
+  const connected = phase === "connected";
+  const failed = phase === "error" ? row.state?.message : null;
   const dotClassName = STATUS_DOT_CLASS_BY_TONE[row.statusTone];
+  const badgeSpinnerClassName = stopping
+    ? "size-3 text-destructive"
+    : disconnecting
+      ? "size-3 text-muted-foreground"
+      : connecting || retrying
+        ? "size-3 text-amber-500"
+        : null;
+  const badgeText = stopping
+    ? "Stopping…"
+    : disconnecting
+      ? "Disconnecting…"
+      : connecting || retrying
+        ? "Connecting"
+        : row.statusBadge;
+  const statusLine = stopping
+    ? "Stopping the server…"
+    : disconnecting
+      ? "Disconnecting…"
+      : (connecting || retrying) && !connectingPhase
+        ? "Checking the host…"
+        : remoteHostStatus(row.state);
 
   return (
     <SettingsListRow
@@ -623,17 +719,12 @@ function RemoteHostListRow(props: {
             </span>
           ) : null}
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/25 px-2 py-0.5 text-ui-xs font-normal text-muted-foreground">
-            {busy ? (
-              <>
-                <Spinner className="size-3 text-amber-500" />
-                <span>Connecting</span>
-              </>
+            {badgeSpinnerClassName ? (
+              <Spinner className={badgeSpinnerClassName} />
             ) : (
-              <>
-                <span aria-hidden="true" className={cn("size-2 rounded-full", dotClassName)} />
-                <span>{row.statusBadge}</span>
-              </>
+              <span aria-hidden="true" className={cn("size-2 rounded-full", dotClassName)} />
             )}
+            <span>{badgeText}</span>
           </span>
         </div>
       }
@@ -642,7 +733,7 @@ function RemoteHostListRow(props: {
           <div className="font-mono text-ui-xs text-muted-foreground">
             {row.connectionDetails} • ~/{row.remoteRoot}
           </div>
-          <div className="text-ui-sm text-muted-foreground">{remoteHostStatus(row.state)}</div>
+          <div className="text-ui-sm text-muted-foreground">{statusLine}</div>
           {failed ? <div className="break-words text-ui-sm text-destructive">{failed}</div> : null}
           {testing ? (
             <div className="flex items-center gap-1.5 text-ui-xs text-muted-foreground">
@@ -665,27 +756,53 @@ function RemoteHostListRow(props: {
       }
       actions={
         <div className="flex flex-wrap items-center gap-1.5">
-          {connected ? (
-            <Button type="button" size="xs" variant="outline" onClick={props.onDisconnect}>
-              Disconnect
+          {connected && !stopping ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              disabled={busy}
+              aria-busy={disconnecting}
+              onClick={props.onDisconnect}
+            >
+              {disconnecting ? <Spinner aria-hidden="true" className="size-3 shrink-0" /> : null}
+              <span>Disconnect</span>
             </Button>
-          ) : busy ? (
-            <Button type="button" size="xs" variant="outline" onClick={props.onDisconnect}>
-              Cancel
+          ) : connectingPhase && !stopping ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              disabled={disconnecting}
+              aria-busy={disconnecting}
+              onClick={props.onDisconnect}
+            >
+              {disconnecting ? <Spinner aria-hidden="true" className="size-3 shrink-0" /> : null}
+              <span>Cancel</span>
             </Button>
-          ) : (
-            <Button type="button" size="xs" variant="default" onClick={props.onConnect}>
-              Connect
+          ) : !stopping ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="default"
+              disabled={busy}
+              aria-busy={connecting}
+              onClick={props.onConnect}
+            >
+              {connecting ? <Spinner aria-hidden="true" className="size-3 shrink-0" /> : null}
+              <span>Connect</span>
             </Button>
-          )}
+          ) : null}
           <Button
             type="button"
             size="xs"
             variant="outline"
             disabled={busy}
-            onClick={props.onConnect}
+            aria-busy={retrying}
+            onClick={props.onRetry}
           >
-            Retry
+            {retrying ? <Spinner aria-hidden="true" className="size-3 shrink-0" /> : null}
+            <span>Retry</span>
           </Button>
           <Button
             type="button"
@@ -699,9 +816,17 @@ function RemoteHostListRow(props: {
           <Button type="button" size="xs" variant="ghost" disabled={busy} onClick={props.onEdit}>
             Edit
           </Button>
-          {connected ? (
-            <Button type="button" size="xs" variant="destructive-outline" onClick={props.onStop}>
-              Stop server
+          {connected || stopping ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="destructive-outline"
+              disabled={busy}
+              aria-busy={stopping}
+              onClick={props.onStop}
+            >
+              {stopping ? <Spinner aria-hidden="true" className="size-3 shrink-0" /> : null}
+              <span>Stop server</span>
             </Button>
           ) : null}
           <Button type="button" size="xs" variant="ghost" disabled={busy} onClick={props.onDelete}>

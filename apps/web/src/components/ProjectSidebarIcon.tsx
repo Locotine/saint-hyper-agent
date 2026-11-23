@@ -6,6 +6,7 @@
 
 import { useEffect, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 
+import { useHostId } from "~/hosts/hostScope";
 import { CentralIcon } from "~/lib/central-icons";
 import {
   DEFAULT_PROJECT_ICON,
@@ -14,13 +15,17 @@ import {
   type ProjectColor,
 } from "~/lib/projectAppearance";
 import { cn } from "~/lib/utils";
-import { resolveWsHttpUrl } from "~/lib/wsHttpUrl";
+import { resolveHostHttpUrl, resolveWsHttpUrl } from "~/lib/wsHttpUrl";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { FolderIcon, FolderOpenIcon } from "~/lib/icons";
 import { DisclosureChevron } from "./ui/DisclosureChevron";
 
 // Whether each favicon URL loads, shared so every glyph of a project (row, rail, hover card, …)
 // switches together, and a logo that fails to display falls back everywhere at once.
+// Also remembers the last successfully loaded URL per `(hostId, cwd)` so reconnecting a remote
+// host (new loopback port / token) keeps showing the logo while the refreshed URL probes.
 const faviconLoads = new Map<string, boolean>();
+const lastLoadedFaviconByProject = new Map<string, string>();
 const faviconProbes = new Set<string>();
 const faviconListeners = new Set<() => void>();
 
@@ -31,35 +36,64 @@ function subscribeToFaviconLoads(listener: () => void) {
   };
 }
 
-function recordFaviconLoad(src: string, loads: boolean) {
-  if (faviconLoads.get(src) === loads) return;
+function recordFaviconLoad(projectKey: string, src: string, loads: boolean) {
+  const prevLoad = faviconLoads.get(src);
+  const prevLast = lastLoadedFaviconByProject.get(projectKey);
+  if (loads) {
+    lastLoadedFaviconByProject.set(projectKey, src);
+  } else if (prevLast === src) {
+    lastLoadedFaviconByProject.delete(projectKey);
+  }
+  if (prevLoad === loads && lastLoadedFaviconByProject.get(projectKey) === prevLast) return;
   faviconLoads.set(src, loads);
   for (const listener of faviconListeners) listener();
 }
 
 /** The project's favicon URL once it has loaded; null while probing or when there is none. */
 function useProjectFavicon(cwd: string): string | null {
+  const hostId = useHostId();
+  const projectKey = `${hostId}\0${cwd}`;
   const params = new URLSearchParams({ cwd, fallback: "none" });
-  const src = resolveWsHttpUrl(`/api/project-favicon?${params.toString()}`);
-  const loads = useSyncExternalStore(subscribeToFaviconLoads, () => faviconLoads.get(src) === true);
+  const path = `/api/project-favicon?${params.toString()}`;
+  let src: string | null = null;
+  if (hostId === LOCAL_HOST_ID) {
+    src = resolveWsHttpUrl(path);
+  } else {
+    try {
+      src = resolveHostHttpUrl(hostId, path);
+    } catch {
+      src = null;
+    }
+  }
+  const resolvedSrc = useSyncExternalStore(subscribeToFaviconLoads, () => {
+    if (src !== null) {
+      const status = faviconLoads.get(src);
+      if (status === true) return src;
+      if (status === false) return null;
+      // While the refreshed URL probes (e.g. after a remote SSH reconnect rotates localPort/token),
+      // keep the last confirmed logo rendered to avoid flashing back to a generic folder icon.
+      return lastLoadedFaviconByProject.get(projectKey) ?? null;
+    }
+    return lastLoadedFaviconByProject.get(projectKey) ?? null;
+  });
 
   // Probe with Image() so Electron/file-origin behaves like the visible <img>. Probing again on
   // each mount is cheap (the server's answer is cached for an hour) and picks up a favicon
   // added or removed after that.
   useEffect(() => {
-    if (faviconProbes.has(src)) return;
+    if (!src || faviconProbes.has(src)) return;
     faviconProbes.add(src);
     const image = new Image();
     const settle = (loaded: boolean) => {
       faviconProbes.delete(src);
-      recordFaviconLoad(src, loaded);
+      recordFaviconLoad(projectKey, src, loaded);
     };
     image.addEventListener("load", () => settle(true));
     image.addEventListener("error", () => settle(false));
     image.src = src;
-  }, [src]);
+  }, [projectKey, src]);
 
-  return loads ? src : null;
+  return resolvedSrc;
 }
 
 function colorStyle(color: ProjectColor | null): CSSProperties | undefined {
@@ -130,6 +164,7 @@ function ProjectLogo({
   className: string;
   fallback: ReactNode;
 }) {
+  const hostId = useHostId();
   const favicon = useProjectFavicon(cwd);
   if (!favicon) return fallback;
   return (
@@ -138,7 +173,7 @@ function ProjectLogo({
       alt=""
       aria-hidden="true"
       className={cn(className, "rounded-[2px] object-contain", LOGO_HALO_CLASS_NAME)}
-      onError={() => recordFaviconLoad(favicon, false)}
+      onError={() => recordFaviconLoad(`${hostId}\0${cwd}`, favicon, false)}
     />
   );
 }

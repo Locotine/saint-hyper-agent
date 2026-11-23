@@ -437,12 +437,14 @@ export function projectDiscoverScriptsQueryOptions(input: {
   enabled?: boolean;
   depth?: number;
   staleTime?: number;
+  hostId?: HostId;
 }) {
   const depth = input.depth ?? DEFAULT_DISCOVER_SCRIPTS_DEPTH;
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: projectQueryKeys.discoverScripts(input.cwd, depth),
+    queryKey: withHostKey(projectQueryKeys.discoverScripts(input.cwd, depth), hostId),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!input.cwd) {
         throw new Error("Project script discovery is unavailable.");
       }
@@ -499,13 +501,18 @@ export function projectSearchLocalEntriesQueryOptions(input: {
   limit?: number;
   includeFiles?: boolean;
   staleTime?: number;
+  hostId?: HostId;
 }) {
   const limit = input.limit ?? DEFAULT_SEARCH_LOCAL_ENTRIES_LIMIT;
   const trimmedQuery = input.query.trim();
+  const hostId = input.hostId ?? LOCAL_HOST_ID;
   return queryOptions({
-    queryKey: projectQueryKeys.searchLocalEntries(input.rootPath, trimmedQuery, limit),
+    queryKey: withHostKey(
+      projectQueryKeys.searchLocalEntries(input.rootPath, trimmedQuery, limit),
+      hostId,
+    ),
     queryFn: async () => {
-      const api = ensureLocalNativeApi();
+      const api = projectApiFor(hostId);
       if (!input.rootPath) {
         throw new Error("Local entry search is unavailable.");
       }

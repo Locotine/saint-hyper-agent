@@ -58,6 +58,7 @@ import {
   type ComputerEvent,
 } from "@saint/contracts";
 import { VOICE_TRANSCRIPTION_UPLOAD_ROUTE_PATH } from "@saint/shared/binaryTransfer";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { Schema } from "effect";
 
 import { showConfirmDialogFallback } from "./confirmDialogFallback";
@@ -494,7 +495,7 @@ export function createWsNativeApi(): NativeApi {
     instance = null;
   }
 
-  const transport = new WsTransport();
+  const transport = new WsTransport(undefined, { hostId: LOCAL_HOST_ID });
   transport.onStateChange((state) => emitWsTransportState(state));
   transport.onCompatibilityIssue((issue) => emitWsCompatibilityIssue(issue), {
     replayCurrent: true,
@@ -1040,6 +1041,10 @@ function buildNativeApi(
       },
       onShellEvent: orchestrationShellEventListeners.subscribe,
       onThreadEvent: orchestrationThreadEventListeners.subscribe,
+      onThreadStreamFailure: (callback) => {
+        const unsubscribe = threadStreamFailureListeners.subscribe(callback);
+        return () => void unsubscribe();
+      },
     },
     projectAgent: {
       getOverview: (input) => transport.request(WS_METHODS.projectAgentGetOverview, input),

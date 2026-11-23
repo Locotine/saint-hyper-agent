@@ -7,6 +7,10 @@
 import type { FlowGateSpec } from "@saint/contracts";
 
 import { runProcess } from "../processRunner.ts";
+import {
+  stripSaintControlPlaneEnvironment,
+  withoutProviderCredentialEnvironment,
+} from "../providerChildEnvironment.ts";
 
 export const FLOW_GATE_DEFAULT_TIMEOUT_MS = 20 * 60_000;
 const GATE_OUTPUT_LIMIT_BYTES = 4 * 1024 * 1024;
@@ -56,8 +60,28 @@ export function matchProtectedPaths(
   return changed.filter((file) => patterns.some((pattern) => pattern.test(file)));
 }
 
+const sanitizedGateEnvironment = (): NodeJS.ProcessEnv =>
+  withoutProviderCredentialEnvironment(stripSaintControlPlaneEnvironment(process.env));
+
 const git = (cwd: string, args: ReadonlyArray<string>) =>
-  runProcess("git", args, { cwd, allowNonZeroExit: true, timeoutMs: 60_000 });
+  runProcess(
+    "git",
+    [
+      "-c",
+      "core.fsmonitor=false",
+      "-c",
+      "core.hooksPath=/dev/null",
+      "-c",
+      "protocol.ext.allow=never",
+      ...args,
+    ],
+    {
+      cwd,
+      env: sanitizedGateEnvironment(),
+      allowNonZeroExit: true,
+      timeoutMs: 60_000,
+    },
+  );
 
 /**
  * A commit object for the current working tree (or HEAD when clean), without touching the
@@ -110,9 +134,13 @@ export async function runFlowGate(input: {
     process.platform === "win32" ? ["/d", "/s", "/c", input.gate.cmd] : ["-lc", input.gate.cmd];
   const startedAt = Date.now();
   const sandbox = input.sandbox ?? null;
+  const gateEnv: NodeJS.ProcessEnv = {
+    ...sanitizedGateEnvironment(),
+    ...(sandbox ? sandbox.env : {}),
+  };
   const result = await runProcess(sandbox?.file ?? shell, sandbox ? [...sandbox.args] : args, {
     cwd: input.cwd,
-    ...(sandbox ? { env: { ...process.env, ...sandbox.env } } : {}),
+    env: gateEnv,
     onSpawn: (child) => {
       sandbox?.attach?.(child);
       input.onSpawn?.(child);

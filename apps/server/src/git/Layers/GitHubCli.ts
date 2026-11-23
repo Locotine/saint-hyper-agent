@@ -24,6 +24,7 @@ import {
 } from "@saint/shared/githubRepository";
 
 import { runProcess } from "../../processRunner";
+import { stripSaintControlPlaneEnvironment } from "../../providerChildEnvironment.ts";
 import { makeKeyedSingleFlightCache } from "../../pullRequests/KeyedSingleFlightCache";
 import { GitHubCliError } from "../Errors.ts";
 import { makeGitHubReadGate } from "../githubReadGate.ts";
@@ -1764,7 +1765,11 @@ const makeGitHubCli = Effect.gen(function* () {
           signal,
           // Repository discovery accepts GitHub.com remotes only. Pin the CLI host as well so a
           // caller-level GH_HOST override cannot redirect commands that lack a --hostname flag.
-          env: { ...process.env, ...input.env, GH_HOST: GITHUB_HOST },
+          env: {
+            ...stripSaintControlPlaneEnvironment(process.env),
+            ...input.env,
+            GH_HOST: GITHUB_HOST,
+          },
           ...(input.maxBufferBytes !== undefined ? { maxBufferBytes: input.maxBufferBytes } : {}),
           ...(input.outputMode !== undefined ? { outputMode: input.outputMode } : {}),
           ...(input.allowNonZeroExit !== undefined
@@ -1802,7 +1807,7 @@ const makeGitHubCli = Effect.gen(function* () {
           signal,
           // Never let git block on an interactive credential prompt; fail instead so the
           // caller can surface the error.
-          env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+          env: { ...stripSaintControlPlaneEnvironment(process.env), GIT_TERMINAL_PROMPT: "0" },
           ...(gitInput.maxBufferBytes !== undefined
             ? { maxBufferBytes: gitInput.maxBufferBytes }
             : {}),

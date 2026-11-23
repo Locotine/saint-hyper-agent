@@ -1,18 +1,31 @@
-import { ThreadId, type OrchestrationThreadStreamItem } from "@saint/contracts";
+import {
+  ThreadId,
+  type OrchestrationThreadStreamFailure,
+  type OrchestrationThreadStreamItem,
+} from "@saint/contracts";
+import { LOCAL_HOST_ID, sshHostId } from "@saint/shared/hostId";
 import { describe, expect, it, vi } from "vitest";
 
 import { makeReadModelThread } from "../storeTestFixtures";
+import { registerThreadDetailSyncRetry, retryThreadDetailSync } from "../threadDetailSyncRetry";
 import { followHostThread } from "./hostThreadDetail";
 
 const threadId = ThreadId.makeUnsafe("thread-1");
 
 function setup() {
   let listener: ((item: OrchestrationThreadStreamItem) => void) | null = null;
+  let failureListener: ((failure: OrchestrationThreadStreamFailure) => void) | null = null;
   const api = {
     onThreadEvent: vi.fn((next: (item: OrchestrationThreadStreamItem) => void) => {
       listener = next;
       return () => {
         listener = null;
+      };
+    }),
+    onThreadStreamFailure: vi.fn((next: (failure: OrchestrationThreadStreamFailure) => void) => {
+      failureListener = next;
+      return () => {
+        failureListener = null;
       };
     }),
     subscribeThread: vi.fn(async () => undefined),
@@ -25,6 +38,7 @@ function setup() {
   };
   const store = { getState: () => state as never };
   const emit = (item: unknown) => listener?.(item as OrchestrationThreadStreamItem);
+  const emitFailure = (failure: OrchestrationThreadStreamFailure) => failureListener?.(failure);
   const event = (sequence: number, aggregateId: string = threadId) => ({
     kind: "event",
     event: { sequence, aggregateId, type: "thread.message-sent" },
@@ -33,7 +47,17 @@ function setup() {
     kind: "snapshot",
     snapshot: { thread: makeReadModelThread({ id: threadId }), snapshotSequence },
   });
-  return { api, state, store, emit, event, snapshot, listening: () => listener !== null };
+  return {
+    api,
+    state,
+    store,
+    emit,
+    emitFailure,
+    event,
+    snapshot,
+    listening: () => listener !== null,
+    listeningFailures: () => failureListener !== null,
+  };
 }
 
 const sequences = (mock: { mock: { calls: unknown[][] } }) =>
@@ -83,6 +107,66 @@ describe("followHostThread", () => {
     stop();
     stop();
     expect(t.listening()).toBe(false);
+    expect(t.listeningFailures()).toBe(false);
     expect(t.api.unsubscribeThread).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports terminal thread stream failures for the matching thread only", () => {
+    const t = setup();
+    const onError = vi.fn();
+    const stop = followHostThread({ api: t.api, store: t.store, threadId, onError });
+
+    const otherError = new Error("other thread failed");
+    t.emitFailure({
+      threadId: ThreadId.makeUnsafe("thread-other"),
+      code: "ORCHESTRATION_SNAPSHOT_STALLED",
+      error: otherError,
+    });
+    expect(onError).not.toHaveBeenCalled();
+
+    const matchingError = new Error("stalled");
+    t.emitFailure({
+      threadId,
+      code: "ORCHESTRATION_SNAPSHOT_STALLED",
+      error: matchingError,
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(matchingError);
+
+    stop();
+    t.emitFailure({
+      threadId,
+      code: "ORCHESTRATION_STREAM_OVERFLOW",
+      error: new Error("after stop"),
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("retryThreadDetailSync host routing", () => {
+  it("routes remote retries to the matching (hostId, threadId) without invoking local retry", async () => {
+    const localRetry = vi.fn(async () => undefined);
+    const remoteRetry = vi.fn(async () => undefined);
+    const remoteHostId = sshHostId("a1b2c3d4");
+
+    const unregisterLocal = registerThreadDetailSyncRetry(localRetry);
+    const unregisterRemote = registerThreadDetailSyncRetry(remoteRetry, {
+      hostId: remoteHostId,
+      threadId,
+    });
+
+    try {
+      await retryThreadDetailSync(threadId, remoteHostId);
+      expect(remoteRetry).toHaveBeenCalledTimes(1);
+      expect(remoteRetry).toHaveBeenCalledWith(threadId);
+      expect(localRetry).not.toHaveBeenCalled();
+
+      await retryThreadDetailSync(threadId, LOCAL_HOST_ID);
+      expect(localRetry).toHaveBeenCalledTimes(1);
+      expect(localRetry).toHaveBeenCalledWith(threadId);
+    } finally {
+      unregisterRemote();
+      unregisterLocal();
+    }
   });
 });

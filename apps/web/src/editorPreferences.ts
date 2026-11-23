@@ -1,5 +1,9 @@
 import { EDITORS, EditorId, NativeApi } from "@saint/contracts";
-import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from "./hooks/useLocalStorage";
+import {
+  getLocalStorageItemOrNull,
+  setLocalStorageItem,
+  useLocalStorage,
+} from "./hooks/useLocalStorage";
 
 const LAST_EDITOR_KEY = "saint:last-editor";
 
@@ -20,7 +24,7 @@ export function resolveAndPersistPreferredEditor(
   availableEditors: readonly EditorId[],
 ): EditorId | null {
   const availableEditorIds = new Set(availableEditors);
-  const stored = getLocalStorageItem(LAST_EDITOR_KEY, EditorId);
+  const stored = getLocalStorageItemOrNull(LAST_EDITOR_KEY, EditorId);
   if (stored && availableEditorIds.has(stored)) return stored;
   const editor = EDITORS.find((editor) => availableEditorIds.has(editor.id))?.id ?? null;
   if (editor) setLocalStorageItem(LAST_EDITOR_KEY, editor, EditorId);

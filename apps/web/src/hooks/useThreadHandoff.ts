@@ -29,7 +29,6 @@ import {
 } from "../lib/threadHandoff";
 import { resolveProviderSendAvailabilityWithRefresh } from "../lib/providerAvailability";
 import { newCommandId, newMessageId, newThreadId } from "../lib/utils";
-import { readLocalNativeApi } from "../nativeApi";
 import { type HostStore, useStore } from "../store";
 import { getThreadFromState } from "../threadDerivation";
 import { type Thread } from "../types";
@@ -75,8 +74,8 @@ export function useThreadHandoff() {
   const hostId = useHostId();
   const projects = useStore((store) => store.projects);
   const syncServerShellSnapshot = useStore((store) => store.syncServerShellSnapshot);
-  const providerStatuses = useProviderStatusesForLocalConfig();
-  const refreshProviderStatuses = useRefreshProviderStatusesNow();
+  const providerStatuses = useProviderStatusesForLocalConfig(hostId);
+  const refreshProviderStatuses = useRefreshProviderStatusesNow(hostId);
 
   // Shared by both Hand off destinations: the same preconditions, target
   // availability check, and target model selection.

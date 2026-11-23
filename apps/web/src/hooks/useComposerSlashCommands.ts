@@ -6,6 +6,7 @@ import {
   type MessageId,
   type ModelSelection,
   type OrchestrationShellSnapshot,
+  type ProviderInstanceId,
   type ProviderInteractionMode,
   type ProviderKind,
   type ProviderNativeCommandDescriptor,
@@ -88,6 +89,8 @@ export function useComposerSlashCommands(input: {
   providerNativeCommands: readonly ProviderNativeCommandDescriptor[];
   providerCommandDiscoveryCwd: string | null;
   selectedProvider: ProviderKind;
+  selectedProviderInstanceId?: ProviderInstanceId | null | undefined;
+  selectedModel?: string | null | undefined;
   currentProviderModelOptions: ProviderModelOptions[ProviderKind] | undefined;
   selectedModelSelection: ModelSelection;
   runtimeMode: RuntimeMode;
@@ -103,7 +106,11 @@ export function useComposerSlashCommands(input: {
     threadId: ThreadId,
     provider: ProviderKind,
     nextProviderOptions: ProviderModelOptions[ProviderKind],
-    options?: { persistSticky?: boolean },
+    options?: {
+      instanceId?: ProviderInstanceId | null;
+      model?: string | null;
+      persistSticky?: boolean;
+    },
   ) => void;
   editorActions: {
     resolveActiveComposerTrigger: () => {
@@ -142,6 +149,8 @@ export function useComposerSlashCommands(input: {
     providerNativeCommands,
     providerCommandDiscoveryCwd,
     selectedProvider,
+    selectedProviderInstanceId,
+    selectedModel,
     currentProviderModelOptions,
     selectedModelSelection,
     runtimeMode,
@@ -221,11 +230,20 @@ export function useComposerSlashCommands(input: {
           fastMode: enabled,
         }),
         {
+          ...(selectedProviderInstanceId ? { instanceId: selectedProviderInstanceId } : {}),
+          ...(selectedModel !== undefined ? { model: selectedModel } : {}),
           persistSticky: true,
         },
       );
     },
-    [currentProviderModelOptions, selectedProvider, setComposerDraftProviderModelOptions, threadId],
+    [
+      currentProviderModelOptions,
+      selectedModel,
+      selectedProvider,
+      selectedProviderInstanceId,
+      setComposerDraftProviderModelOptions,
+      threadId,
+    ],
   );
 
   const runFastSlashCommand = useCallback(

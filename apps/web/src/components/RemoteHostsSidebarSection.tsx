@@ -401,7 +401,8 @@ function RemoteHostGroup(props: {
     hostState,
   });
   const needsReconnect =
-    status === "offline" || status === "error" || catalog.status === "error" || streamStale;
+    status !== "connecting" &&
+    (status === "offline" || status === "error" || catalog.status === "error" || streamStale);
   const label = `${host} · ${remoteHostStatus(hostState)}`;
   const hostCollapseKey = `host:${hostKey}`;
   const hostOpen = !collapsed.isCollapsed(hostCollapseKey);

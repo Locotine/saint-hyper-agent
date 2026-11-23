@@ -1889,6 +1889,18 @@ export function appSettingsPatchToServerSettingsPatch(
       ...(hasOwn(patch, "customPiModels") ? { customModels: patch.customPiModels ?? [] } : {}),
     };
   }
+  if (
+    hasOwn(patch, "ompAgentDir") ||
+    hasOwn(patch, "ompBinaryPath") ||
+    hasOwn(patch, "customOmpModels")
+  ) {
+    providers.omp = {
+      ...providers.omp,
+      ...(hasOwn(patch, "ompAgentDir") ? { agentDir: patch.ompAgentDir ?? "" } : {}),
+      ...(hasOwn(patch, "ompBinaryPath") ? { binaryPath: patch.ompBinaryPath ?? "" } : {}),
+      ...(hasOwn(patch, "customOmpModels") ? { customModels: patch.customOmpModels ?? [] } : {}),
+    };
+  }
   if (hasOwn(patch, "disabledProviders")) {
     const disabledProviders = new Set(normalizeHiddenProviders(patch.disabledProviders ?? []));
     for (const provider of DEFAULT_PROVIDER_ORDER) {
@@ -1905,17 +1917,6 @@ export function appSettingsPatchToServerSettingsPatch(
 
   if (currentSettings) {
     pruneProviderPatchAgainstCurrentSettings(providers, currentSettings);
-  }
-  if (
-    hasOwn(patch, "ompAgentDir") ||
-    hasOwn(patch, "ompBinaryPath") ||
-    hasOwn(patch, "customOmpModels")
-  ) {
-    providers.omp = {
-      ...(hasOwn(patch, "ompAgentDir") ? { agentDir: patch.ompAgentDir ?? "" } : {}),
-      ...(hasOwn(patch, "ompBinaryPath") ? { binaryPath: patch.ompBinaryPath ?? "" } : {}),
-      ...(hasOwn(patch, "customOmpModels") ? { customModels: patch.customOmpModels ?? [] } : {}),
-    };
   }
 
   if (Object.keys(providers).length > 0) {
@@ -2593,6 +2594,9 @@ export function mergeProviderStartOptions(
       : {}),
     ...(base.pi !== undefined || overlay.pi !== undefined
       ? { pi: { ...base.pi, ...overlay.pi } }
+      : {}),
+    ...(base.omp !== undefined || overlay.omp !== undefined
+      ? { omp: { ...base.omp, ...overlay.omp } }
       : {}),
   };
 }

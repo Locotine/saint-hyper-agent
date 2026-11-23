@@ -4,6 +4,7 @@
 // Depends on: git React Query hooks, native shell bridges, and shared picker/menu primitives.
 
 import { apiFor, useHostId } from "~/hosts/hostScope";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { DEFAULT_GIT_TEXT_GENERATION_MODEL } from "@saint/contracts";
 import type {
   GitActionProgressEvent,
@@ -265,13 +266,16 @@ export default function GitActionsControl({
   const createBranchNameFieldId = useId();
   const { settings } = useAppSettings();
   // Manual memoization kept: this file does not compile under React Compiler (see compile-report).
+  // Binary paths and account homes in local Settings only apply to this computer.
   const providerOptions = useMemo(
     () =>
-      getProviderStartOptions(
-        settings,
-        settings.textGenerationProviderInstanceId ?? settings.textGenerationProvider ?? "codex",
-      ),
-    [settings],
+      hostId === LOCAL_HOST_ID
+        ? getProviderStartOptions(
+            settings,
+            settings.textGenerationProviderInstanceId ?? settings.textGenerationProvider ?? "codex",
+          )
+        : undefined,
+    [hostId, settings],
   );
   const gitTextGenerationModelSelection = useMemo(
     (): ModelSelection => ({

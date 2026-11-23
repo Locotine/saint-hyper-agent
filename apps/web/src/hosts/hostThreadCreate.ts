@@ -13,7 +13,12 @@ import { getDefaultModel } from "@saint/shared/model";
 
 import { readStoredAppSettings } from "../appSettings";
 import { resolveDefaultModelSelection } from "../composerDraftModels";
-import { resolveAvailableProviderPreference } from "../lib/providerAvailability";
+import {
+  hasProbedEnabledProviderStatuses,
+  isProviderUsable,
+  resolveAvailableProviderPreference,
+} from "../lib/providerAvailability";
+import { awaitInFlightRemoteHostProviderRefresh } from "../lib/serverReactQuery";
 import { buildModelSelection } from "../providerModelOptions";
 
 import { deleteProjectFromClient } from "../lib/projectDelete";
@@ -28,24 +33,38 @@ import { hostHandle } from "./hostScope";
  * The provider Settings picks for new chats, or the first one the host has when it lacks that
  * provider: Settings are this computer's, but a host only runs what it has installed.
  */
-async function resolveHostProvider(api: NativeApi) {
+async function resolveHostProvider(hostId: HostId, api: NativeApi) {
   const settings = readStoredAppSettings();
-  const config = await api.server.getConfig().catch(() => null);
+  const inFlightStatuses = await awaitInFlightRemoteHostProviderRefresh(hostId).catch(() => null);
+  let statuses =
+    inFlightStatuses && hasProbedEnabledProviderStatuses(inFlightStatuses)
+      ? inFlightStatuses
+      : ((await api.server.getConfig().catch(() => null))?.providers ?? []);
+  // Remote SSH servers start with an empty status cache (emitting only disabled
+  // non-allowlisted providers until probed). Refresh live before picking so we
+  // never stamp an unavailable local default (e.g. codex from 1.1.12) onto a
+  // Claude-only host.
+  if (!hasProbedEnabledProviderStatuses(statuses) || !statuses.some(isProviderUsable)) {
+    const refreshed = await api.server.refreshProviders?.().catch(() => null);
+    if (refreshed && refreshed.providers.length > 0) {
+      statuses = refreshed.providers;
+    }
+  }
   const provider = resolveAvailableProviderPreference({
     preferredProvider: settings.defaultProvider,
-    statuses: config?.providers ?? [],
+    statuses,
     providerOrder: settings.providerOrder,
-    hiddenProviders: settings.hiddenProviders,
   });
   return { provider, settings };
 }
 
 /** Model of a new chat on a host: Settings' pinned model, else the last one used there. */
 async function resolveHostModelSelection(
+  hostId: HostId,
   api: NativeApi,
   candidates: ReadonlyArray<ModelSelection | null | undefined>,
 ): Promise<ModelSelection> {
-  const { provider, settings } = await resolveHostProvider(api);
+  const { provider, settings } = await resolveHostProvider(hostId, api);
   return (
     (settings.defaultProvider === provider
       ? resolveDefaultModelSelection({
@@ -73,7 +92,7 @@ export async function createHostThread(hostId: HostId, projectId: ProjectId): Pr
     .map((id) => getThreadFromState(state, id))
     .filter((thread) => thread?.projectId === projectId)
     .toSorted((a, b) => (b?.updatedAt ?? "").localeCompare(a?.updatedAt ?? ""))[0];
-  const modelSelection = await resolveHostModelSelection(api, [
+  const modelSelection = await resolveHostModelSelection(hostId, api, [
     latestThread?.modelSelection,
     project.defaultModelSelection,
   ]);
@@ -114,7 +133,7 @@ export async function addHostProjectAtPath(
   options: { readonly createIfMissing?: boolean } = {},
 ): Promise<ProjectId> {
   const api = hostHandle(hostId).requireApi();
-  const { provider } = await resolveHostProvider(api);
+  const { provider } = await resolveHostProvider(hostId, api);
   const { projectId } = await createOrRecoverProjectFromPath({
     api,
     workspaceRoot,

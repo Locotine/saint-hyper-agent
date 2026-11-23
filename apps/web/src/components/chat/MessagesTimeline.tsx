@@ -13,6 +13,7 @@ import {
   type ThreadGoalAchievement,
   type TurnId,
 } from "@saint/contracts";
+import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 import { isLocalAbsolutePath } from "@saint/shared/path";
 import { pluralize } from "@saint/shared/text";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
@@ -77,7 +78,9 @@ import {
   WorktreeIcon,
 } from "~/lib/icons";
 import { useHostId } from "~/hosts/hostScope";
-import { hostAttachmentPreviewUrl } from "~/lib/wsHttpUrl";
+import { isImeComposingKeyEvent } from "~/lib/ime";
+import { hostAttachmentPreviewUrl, isHostAttachmentPath } from "~/lib/wsHttpUrl";
+import { useHostExplicitUrl } from "../LocalImagePreview";
 import { pinActionLabel } from "~/lib/pin";
 import { syncAnimationsToTimelineOrigin } from "~/lib/animationTimelineSync";
 import { useStableCallback } from "~/hooks/useStableCallback";
@@ -1272,7 +1275,12 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   useEffect(() => {
     const previousRowCount = previousRowCountRef.current;
     previousRowCountRef.current = rows.length;
-    if (previousRowCount > 0 || rows.length === 0) {
+    if (
+      previousRowCount > 0 ||
+      rows.length === 0 ||
+      tailAnchorMessageId !== null ||
+      tailAnchorSlideInFlight
+    ) {
       return;
     }
     onIsAtEndChange?.(true);
@@ -1282,7 +1290,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [onIsAtEndChange, resolvedListRef, rows.length]);
+  }, [onIsAtEndChange, resolvedListRef, rows.length, tailAnchorMessageId, tailAnchorSlideInFlight]);
   // Sent-message anchors (id + position in the virtualized row list) for the
   // navigation trail. Held in a ref so the viewability callback stays stable and
   // doesn't re-subscribe LegendList on every transcript change.
@@ -3714,9 +3722,15 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
   resolvedTheme: "light" | "dark";
 }) {
   const hostId = useHostId();
-  const previewUrl = props.image.previewUrl
-    ? hostAttachmentPreviewUrl(hostId, props.image.previewUrl)
-    : undefined;
+  const hostExplicitUrl = useHostExplicitUrl(hostId);
+  const resolveThumbnailPreviewUrl = (rawUrl: string | undefined): string | undefined => {
+    if (!rawUrl) return undefined;
+    if (hostId !== LOCAL_HOST_ID && hostExplicitUrl === null && isHostAttachmentPath(rawUrl)) {
+      return undefined;
+    }
+    return hostAttachmentPreviewUrl(hostId, rawUrl);
+  };
+  const previewUrl = resolveThumbnailPreviewUrl(props.image.previewUrl);
   return (
     <button
       type="button"
@@ -3725,13 +3739,14 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
       title={props.image.name}
       onClick={() => {
         const preview = buildExpandedImagePreview(
-          props.userImages.map((image) => ({
-            id: image.id,
-            name: image.name,
-            ...(image.previewUrl
-              ? { previewUrl: hostAttachmentPreviewUrl(hostId, image.previewUrl) }
-              : {}),
-          })),
+          props.userImages.map((image) => {
+            const resolvedUrl = resolveThumbnailPreviewUrl(image.previewUrl);
+            return {
+              id: image.id,
+              name: image.name,
+              ...(resolvedUrl ? { previewUrl: resolvedUrl } : {}),
+            };
+          }),
           props.image.id,
         );
         if (!preview) return;
@@ -3740,6 +3755,7 @@ const UserImageAttachmentThumbnail = memo(function UserImageAttachmentThumbnail(
     >
       {previewUrl ? (
         <img
+          key={previewUrl}
           src={previewUrl}
           alt={props.image.name}
           className="size-full object-cover"
@@ -3920,6 +3936,9 @@ const UserMessageEditForm = memo(function UserMessageEditForm(props: {
   }, [draft]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isImeComposingKeyEvent(event)) {
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       props.onCancel();

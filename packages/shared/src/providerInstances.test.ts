@@ -14,6 +14,7 @@ import { Schema } from "effect";
 import {
   codexAccountInstanceId,
   deriveProviderInstances,
+  inferLegacyProviderKindFromInstanceId,
   isUnresolvedAutomationInstanceId,
   providerImportedDirectoryConfig,
   providerStartOptionsFromInstance,
@@ -467,5 +468,16 @@ describe("providerImportedDirectoryConfig", () => {
     expect(providerImportedDirectoryConfig(provider, "/profiles/imported")).toEqual({
       [configKey]: "/profiles/imported",
     });
+  });
+});
+
+describe("inferLegacyProviderKindFromInstanceId", () => {
+  it.each([
+    ["omp", "omp"],
+    ["omp-work", "omp"],
+    ["omp_personal", "omp"],
+    ["OMP-1", "omp"],
+  ] as const)("maps %s to %s", (instanceId, expected) => {
+    expect(inferLegacyProviderKindFromInstanceId(instanceId)).toBe(expected);
   });
 });

@@ -4,6 +4,7 @@ import type { ComposerThreadMentionSource, Project } from "../types";
 import {
   buildThreadMentionComposerItems,
   resolveThreadMentionForThreadId,
+  safeConnectorHost,
 } from "./useComposerCommandMenuItems";
 
 function project(id: string, kind: Project["kind"], name: string): Project {
@@ -233,5 +234,15 @@ describe("resolveThreadMentionForThreadId", () => {
         }),
       ).toBeNull();
     }
+  });
+});
+
+describe("safeConnectorHost", () => {
+  it("extracts host for valid URLs and returns empty string instead of throwing for malformed URLs", () => {
+    expect(safeConnectorHost("https://mcp.example.com:8443/v1?apiKey=secret")).toBe(
+      "mcp.example.com:8443",
+    );
+    expect(safeConnectorHost("not-a-url")).toBe("");
+    expect(safeConnectorHost("")).toBe("");
   });
 });

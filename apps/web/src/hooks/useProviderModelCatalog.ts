@@ -25,6 +25,8 @@ import {
 } from "../appSettings";
 import { resolveRuntimeModelDescriptor } from "../components/chat/runtimeModelCapabilities";
 import { collapseCursorModelVariants } from "../cursorModelVariants";
+import { withHostKey } from "../lib/projectReactQuery";
+import { isRemoteSupportedProvider } from "../lib/providerAvailability";
 import {
   isInitialModelDiscoveryPending,
   prioritizeProviderModelDiscovery,
@@ -207,7 +209,7 @@ export function useProviderModelCatalog(input: {
         releasePriority?.();
       }
     },
-    [queryClient, settings, discoveryCwd],
+    [catalogHostId, queryClient, settings, discoveryCwd],
   );
   const customModelsByProvider = useMemo(() => getCustomModelsByProvider(settings), [settings]);
   const providerInstances = useMemo(
@@ -276,7 +278,7 @@ export function useProviderModelCatalog(input: {
     // that as "disabled" would silence discovery for every provider, including the
     // selected one, which is precisely the "my model disappeared" symptom. Mirrors
     // the server-side fallback in ProviderDiscoveryService.listModels.
-    if (serverSettings?.providers[provider]?.enabled === false) {
+    if (catalogHostId === LOCAL_HOST_ID && serverSettings?.providers[provider]?.enabled === false) {
       return false;
     }
     if (provider === selectedProvider) {
@@ -285,7 +287,12 @@ export function useProviderModelCatalog(input: {
     if (!prefetchRequested) {
       return false;
     }
-    return prefetchProviderSet?.has(provider) ?? !hiddenProviderSet.has(provider);
+    return (
+      prefetchProviderSet?.has(provider) ??
+      (catalogHostId !== LOCAL_HOST_ID
+        ? isRemoteSupportedProvider(provider)
+        : !hiddenProviderSet.has(provider))
+    );
   };
 
   const claudeModelDiscoveryEnabled = shouldDiscoverProvider("claudeAgent");
@@ -361,18 +368,22 @@ export function useProviderModelCatalog(input: {
   ] = modelQueryOptionsByProvider[selectedProvider].queryKey;
   const selectedProviderModelsQueryKey = useMemo(
     () =>
-      providerDiscoveryQueryKeys.models(
-        modelProvider,
-        modelBinaryPath,
-        modelApiEndpoint,
-        modelAgentDir,
-        modelCwd,
-        modelHomePath,
-        modelShadowHomePath,
-        modelAccountId,
-        modelInstanceId,
+      withHostKey(
+        providerDiscoveryQueryKeys.models(
+          modelProvider,
+          modelBinaryPath,
+          modelApiEndpoint,
+          modelAgentDir,
+          modelCwd,
+          modelHomePath,
+          modelShadowHomePath,
+          modelAccountId,
+          modelInstanceId,
+        ),
+        catalogHostId,
       ),
     [
+      catalogHostId,
       modelProvider,
       modelInstanceId,
       modelBinaryPath,

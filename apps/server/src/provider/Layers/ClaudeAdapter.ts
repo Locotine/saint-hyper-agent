@@ -7070,6 +7070,14 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
                   break;
                 }
               }
+              if (!run) {
+                const mappedToolUseId = context.subagentToolUseIdByTaskId.get(agentId);
+                if (mappedToolUseId) {
+                  run = context.subagentRuns.get(
+                    resolveSubagentToolUseId(context, mappedToolUseId),
+                  );
+                }
+              }
               const pending = run ? pendingSubagentSteers.get(run.toolUseId) : undefined;
               if (!run || !pending || pending.length === 0) {
                 return {};
@@ -8601,7 +8609,25 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
     ) =>
       Effect.gen(function* () {
         const context = yield* requireSession(threadId);
-        if (!context.subagentRuns.has(providerThreadId)) {
+        const canonicalToolUseId = resolveSubagentToolUseId(context, providerThreadId);
+        let targetRun = context.subagentRuns.get(canonicalToolUseId);
+        if (!targetRun) {
+          const mappedToolUseId = context.subagentToolUseIdByTaskId.get(providerThreadId);
+          if (mappedToolUseId) {
+            targetRun = context.subagentRuns.get(
+              resolveSubagentToolUseId(context, mappedToolUseId),
+            );
+          }
+        }
+        if (!targetRun) {
+          for (const candidate of context.subagentRuns.values()) {
+            if (candidate.taskId === providerThreadId) {
+              targetRun = candidate;
+              break;
+            }
+          }
+        }
+        if (!targetRun) {
           return yield* new ProviderAdapterRequestError({
             provider: PROVIDER,
             method: "turn/steerSubagent",
@@ -8620,9 +8646,9 @@ function makeClaudeAdapter(options?: ClaudeAdapterLiveOptions) {
         const message = [input.input, attachmentsBlock]
           .filter((part): part is string => typeof part === "string" && part.length > 0)
           .join("\n\n");
-        const pending = context.pendingSubagentSteers.get(providerThreadId) ?? [];
+        const pending = context.pendingSubagentSteers.get(targetRun.toolUseId) ?? [];
         pending.push(message);
-        context.pendingSubagentSteers.set(providerThreadId, pending);
+        context.pendingSubagentSteers.set(targetRun.toolUseId, pending);
       });
 
     const readThread: ClaudeAdapterShape["readThread"] = (threadId) =>

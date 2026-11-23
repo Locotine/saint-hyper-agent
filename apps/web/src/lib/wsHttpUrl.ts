@@ -45,15 +45,25 @@ export function resolveWsHttpUrl(rawPath: string): string {
 }
 
 /**
+ * Non-throwing variant of `resolveHostHttpUrl`: returns `null` when `hostId` is a remote host
+ * without a live transport so render-time previews can stay idle instead of crashing.
+ */
+export function resolveHostHttpUrlOrNull(hostId: HostId, rawPath: string): string | null {
+  if (hostId === LOCAL_HOST_ID) return resolveWsHttpUrl(rawPath);
+  const wsUrl = hostConnections.peek(hostId)?.explicitUrl;
+  if (!wsUrl) return null;
+  return resolveHttpUrlAgainst(wsUrl, rawPath);
+}
+
+/**
  * Same as resolveWsHttpUrl, against the server `hostId` talks to. A remote host's URL is the
  * one its live transport uses (token included); with no live transport this throws instead of
  * falling back to this computer's server.
  */
 export function resolveHostHttpUrl(hostId: HostId, rawPath: string): string {
-  if (hostId === LOCAL_HOST_ID) return resolveWsHttpUrl(rawPath);
-  const wsUrl = hostConnections.peek(hostId)?.explicitUrl;
-  if (!wsUrl) throw new Error("This host is not connected.");
-  return resolveHttpUrlAgainst(wsUrl, rawPath);
+  const url = resolveHostHttpUrlOrNull(hostId, rawPath);
+  if (!url) throw new Error("This host is not connected.");
+  return url;
 }
 
 function resolveHttpUrlAgainst(wsCandidate: string | null, rawPath: string): string {
@@ -63,7 +73,23 @@ function resolveHttpUrlAgainst(wsCandidate: string | null, rawPath: string): str
     const protocol =
       wsUrl.protocol === "wss:" ? "https:" : wsUrl.protocol === "ws:" ? "http:" : wsUrl.protocol;
     const serverUrl = new URL(`${protocol}//${wsUrl.host}`);
-    const httpUrl = new URL(rawPath, serverUrl);
+    // Preserve any reverse-proxy path prefix carried on the WS URL (e.g.
+    // `/api/remote-ssh/proxy/<hostKey>/` on paired LAN-relay phones) when joining
+    // server-root-relative HTTP paths like `/attachments/...` or `/api/workspace/download`.
+    // Ignore a bare `/ws` WebSocket endpoint segment on direct connections.
+    const normalizedPath = wsUrl.pathname.endsWith("/ws")
+      ? wsUrl.pathname.slice(0, -3)
+      : wsUrl.pathname;
+    const basePrefix = normalizedPath.replace(/\/+$/, "");
+    const effectiveRawPath =
+      basePrefix &&
+      basePrefix !== "/" &&
+      rawPath.startsWith("/") &&
+      rawPath !== basePrefix &&
+      !rawPath.startsWith(`${basePrefix}/`)
+        ? `${basePrefix}${rawPath}`
+        : rawPath;
+    const httpUrl = new URL(effectiveRawPath, serverUrl);
     const legacyToken = wsUrl.searchParams.get("token");
     const targetsServerOrigin =
       httpUrl.protocol === serverUrl.protocol && httpUrl.host === serverUrl.host;
@@ -86,6 +112,17 @@ export function toAttachmentPreviewUrl(rawUrl: string): string {
     return resolveWsHttpUrl(rawUrl);
   }
   return rawUrl;
+}
+
+/** True when `previewUrl` points at a server-hosted `/attachments/...` route (not `blob:`/`data:`). */
+export function isHostAttachmentPath(previewUrl: string): boolean {
+  try {
+    const base = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const { pathname } = new URL(previewUrl, base);
+    return pathname.startsWith("/attachments/");
+  } catch {
+    return false;
+  }
 }
 
 /**

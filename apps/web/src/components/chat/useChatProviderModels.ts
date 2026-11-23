@@ -11,7 +11,11 @@ import { normalizeModelSlug } from "@saint/shared/model";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useProviderStatusesForLocalConfig } from "~/hooks/useProviderStatusesForLocalConfig";
-import { resolveUnsentComposerProvider } from "~/lib/providerAvailability";
+import {
+  resolveProviderInstancesForHost,
+  resolveRemoteFallbackProvider,
+  resolveUnsentComposerProvider,
+} from "~/lib/providerAvailability";
 import { resolveProviderDiscoveryCwd } from "~/lib/providerDiscovery";
 import {
   hasReconciledServerProviderStatuses,
@@ -41,6 +45,7 @@ import {
 import { getComposerProviderState } from "./composerProviderRegistry";
 import { resolveRuntimeModelDescriptor } from "./runtimeModelCapabilities";
 const EMPTY_PROVIDER_STATUSES: ServerProviderStatus[] = [];
+const EMPTY_HIDDEN_PROVIDERS: readonly ProviderKind[] = [];
 interface ChatProviderModelsInput {
   threadId: ThreadId;
   activeThread: Thread | undefined;
@@ -66,7 +71,17 @@ export function useChatProviderModels({
   const queryClient = useQueryClient();
   const prompt = composerDraft.prompt;
   const sessionProvider = activeThread?.session?.provider ?? null;
-  const providerInstances = useMemo(() => getProviderInstanceOptions(settings), [settings]);
+  const serverConfigQuery = useQuery(serverConfigQueryOptions(chatHost.hostId));
+  const localProviderStatuses = useProviderStatusesForLocalConfig(chatHost.hostId);
+  const providerInstances = useMemo(
+    () =>
+      resolveProviderInstancesForHost({
+        hostId: chatHost.hostId,
+        localProviderInstances: getProviderInstanceOptions(settings),
+        providerStatuses: localProviderStatuses,
+      }),
+    [chatHost.hostId, localProviderStatuses, settings],
+  );
   const selectedProviderInstanceIdByThreadId = composerDraft.activeProvider ?? null;
   const selectedProviderByThreadId = selectedProviderInstanceIdByThreadId
     ? (composerDraft.modelSelectionByProvider[selectedProviderInstanceIdByThreadId]?.provider ??
@@ -111,9 +126,20 @@ export function useChatProviderModels({
       ? selectedProviderByThreadId
       : null;
   const lockedProvider: ProviderKind | null = allowProviderHandoff === true ? null : boundProvider;
-  const serverConfigQuery = useQuery(serverConfigQueryOptions(chatHost.hostId));
-  const localProviderStatuses = useProviderStatusesForLocalConfig(chatHost.hostId);
-  const providerStatusesReconciled = hasReconciledServerProviderStatuses(queryClient);
+  const isRemoteHost = chatHost.hostId !== LOCAL_HOST_ID;
+  const effectiveHiddenProviders = isRemoteHost ? EMPTY_HIDDEN_PROVIDERS : settings.hiddenProviders;
+  const providerStatusesReconciled = hasReconciledServerProviderStatuses(
+    queryClient,
+    chatHost.hostId,
+  );
+  const effectiveDefaultProvider =
+    isRemoteHost && !providerStatusesReconciled
+      ? resolveRemoteFallbackProvider({
+          defaultProvider: settings.defaultProvider,
+          providerOrder: settings.providerOrder,
+          statuses: localProviderStatuses,
+        })
+      : settings.defaultProvider;
   const selectedProvider = useMemo<ProviderKind>(
     () =>
       handoffProvider ??
@@ -121,19 +147,19 @@ export function useChatProviderModels({
       resolveUnsentComposerProvider({
         explicitProvider: selectedProviderByThreadId,
         threadProvider,
-        defaultProvider: settings.defaultProvider,
+        defaultProvider: effectiveDefaultProvider,
         statuses: providerStatusesReconciled ? localProviderStatuses : EMPTY_PROVIDER_STATUSES,
         providerOrder: settings.providerOrder,
-        hiddenProviders: settings.hiddenProviders,
+        hiddenProviders: effectiveHiddenProviders,
       }),
     [
       boundProvider,
+      effectiveDefaultProvider,
+      effectiveHiddenProviders,
       handoffProvider,
       localProviderStatuses,
       providerStatusesReconciled,
       selectedProviderByThreadId,
-      settings.defaultProvider,
-      settings.hiddenProviders,
       settings.providerOrder,
       threadProvider,
     ],
@@ -283,7 +309,9 @@ export function useChatProviderModels({
     const discovered = resolveRuntimeModelDescriptor({
       provider: selectedProvider,
       model: selectedModel,
-      runtimeModels: runtimeModelsByProvider[selectedProvider],
+      runtimeModels:
+        runtimeModelsByProviderInstance[selectedProviderInstanceId] ??
+        runtimeModelsByProvider[selectedProvider],
     });
     if (discovered) {
       return discovered;
@@ -296,7 +324,14 @@ export function useChatProviderModels({
           supportsAutoMode: persistedClaudeSupportsAutoMode,
         }
       : undefined;
-  }, [persistedClaudeSupportsAutoMode, runtimeModelsByProvider, selectedModel, selectedProvider]);
+  }, [
+    persistedClaudeSupportsAutoMode,
+    runtimeModelsByProvider,
+    runtimeModelsByProviderInstance,
+    selectedModel,
+    selectedProvider,
+    selectedProviderInstanceId,
+  ]);
   const composerProviderState = useMemo(
     () =>
       getComposerProviderState({
@@ -341,12 +376,20 @@ export function useChatProviderModels({
     // A seeded overlay (group worker routing) sits on top of the user's own
     // start options instead of replacing them wholesale, so a send on any
     // provider the user picks still dispatches their configured options.
+    // On a remote SSH host, never forward local binary/home paths from this computer's Settings.
     () =>
-      mergeProviderStartOptions(
-        getProviderStartOptions(settings, selectedProviderInstanceId),
-        composerDraft.providerOptionsForDispatch,
-      ),
-    [composerDraft.providerOptionsForDispatch, selectedProviderInstanceId, settings],
+      chatHost.hostId === LOCAL_HOST_ID
+        ? mergeProviderStartOptions(
+            getProviderStartOptions(settings, selectedProviderInstanceId),
+            composerDraft.providerOptionsForDispatch,
+          )
+        : composerDraft.providerOptionsForDispatch,
+    [
+      chatHost.hostId,
+      composerDraft.providerOptionsForDispatch,
+      selectedProviderInstanceId,
+      settings,
+    ],
   );
   const selectedModelForPicker =
     selectedModelSelection.provider === selectedProvider
@@ -416,20 +459,20 @@ export function useChatProviderModels({
         modelOptionsByProvider,
         modelOptionsByProviderInstance,
         providerOrder: settings.providerOrder,
-        hiddenProviders: settings.hiddenProviders,
+        hiddenProviders: effectiveHiddenProviders,
         protectedProviders: [selectedProvider],
         lockedProvider,
       }),
     [
       boundProvider,
       boundProviderInstanceId,
+      effectiveHiddenProviders,
       lockedProvider,
       modelOptionsByProvider,
       modelOptionsByProviderInstance,
       providerInstances,
       selectedProvider,
       selectedProviderInstanceId,
-      settings.hiddenProviders,
       settings.providerOrder,
     ],
   );

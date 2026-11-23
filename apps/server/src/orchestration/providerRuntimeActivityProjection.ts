@@ -683,14 +683,12 @@ export function projectProviderRuntimeActivities(
   const commandProgressId = commandProgressKey
     ? EventId.makeUnsafe(`provider-command-progress:${commandProgressKey}`)
     : event.eventId;
-  // Claude previews are coalesced by ingestion; other providers publish their
+  // Claude and Antigravity previews are coalesced by ingestion; other providers publish their
   // readable reasoning only at completion. Empty/encrypted boundaries stay hidden.
   if (
-    (((event.provider === "codex" ||
-      event.provider === "antigravity" ||
-      event.provider === "opencode") &&
+    (((event.provider === "codex" || event.provider === "opencode") &&
       event.type === "item.completed") ||
-      (event.provider === "claudeAgent" &&
+      ((event.provider === "claudeAgent" || event.provider === "antigravity") &&
         (event.type === "item.updated" || event.type === "item.completed"))) &&
     event.payload.itemType === "reasoning" &&
     event.itemId !== undefined &&
@@ -709,7 +707,7 @@ export function projectProviderRuntimeActivities(
           ...(event.payload.status ? { status: event.payload.status } : {}),
           detail: truncateDetail(
             reasoningDetail,
-            event.provider === "claudeAgent"
+            event.provider === "claudeAgent" || event.provider === "antigravity"
               ? MAX_REASONING_DETAIL_CHARS
               : MAX_ACTIVITY_DATA_STRING_CHARS,
           ),

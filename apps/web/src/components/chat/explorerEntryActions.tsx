@@ -19,15 +19,14 @@ import {
 
 import type { ChatFileReference } from "~/lib/chatReferences";
 import { showFileReferenceContextMenu } from "~/lib/fileReferenceContextMenu";
-import { projectQueryKeys } from "~/lib/projectReactQuery";
+import { projectQueryKeys, withHostKey } from "~/lib/projectReactQuery";
 import { isMacPlatform, getNavigatorPlatform } from "~/lib/utils";
-import { useRemoteSshState } from "~/hooks/useRemoteSshState";
+import { useRemoteHostAlias } from "~/hooks/useRemoteSshState";
 import {
   canDownloadWorkspaceFiles,
   downloadWorkspaceFiles,
   folderNameOfWorkspaceRoot,
 } from "~/lib/workspaceDownload";
-import { remoteHostAlias } from "../settings/remoteHostsSettingsModel";
 import { ensureLocalNativeApi } from "~/nativeApi";
 import { RenameDialog } from "../RenameDialog";
 import { toastManager } from "../ui/toast";
@@ -133,7 +132,7 @@ export function useExplorerEntryActions(input: {
   // File operations act on the machine the files live on (a connected host's chat: that host);
   // dialogs and menus stay on this computer.
   const hostId = useHostId();
-  const hostAlias = remoteHostAlias(useRemoteSshState(), hostId);
+  const hostAlias = useRemoteHostAlias(hostId);
   const hostProjectsApi = () => {
     const api = apiFor(hostId);
     if (!api) throw new Error("This host is not connected.");
@@ -190,7 +189,10 @@ export function useExplorerEntryActions(input: {
 
   const refreshDirectory = (directory: string) =>
     queryClient.invalidateQueries({
-      queryKey: projectQueryKeys.listDirectories(workspaceRoot, directory || null, true),
+      queryKey: withHostKey(
+        projectQueryKeys.listDirectories(workspaceRoot, directory || null, true),
+        hostId,
+      ),
     });
 
   const deleteEntry = async (entry: Pick<ProjectFileSystemEntry, "path" | "kind">) => {

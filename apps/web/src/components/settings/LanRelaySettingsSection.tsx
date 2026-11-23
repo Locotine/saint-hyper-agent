@@ -5,7 +5,7 @@
 // Exports: LanRelaySettingsSection
 
 import type { DesktopLanRelayState } from "@saint/contracts";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "~/components/ui/button";
 import { SelectItem } from "~/components/ui/select";
@@ -19,21 +19,31 @@ function lanRelayBridge() {
   return typeof window === "undefined" ? undefined : window.desktopBridge?.lanRelay;
 }
 
-export function LanRelaySettingsSection(props: { readonly active: boolean }) {
+export const LanRelaySettingsSection = memo(function LanRelaySettingsSection(props: {
+  readonly active: boolean;
+}) {
   const [state, setState] = useState<DesktopLanRelayState | null>(null);
   const [busy, setBusy] = useState(false);
+  const lastStateKeyRef = useRef<string | null>(null);
+
+  const applyRelayState = (next: DesktopLanRelayState) => {
+    const nextKey = JSON.stringify(next);
+    if (lastStateKeyRef.current === nextKey) return;
+    lastStateKeyRef.current = nextKey;
+    setState(next);
+  };
 
   useEffect(() => {
     const bridge = lanRelayBridge();
     if (!props.active || !bridge) return;
     let disposed = false;
     const unsubscribe = bridge.onState((nextState) => {
-      if (!disposed) setState(nextState);
+      if (!disposed) applyRelayState(nextState);
     });
     void bridge
       .getState()
       .then((initial) => {
-        if (!disposed) setState(initial);
+        if (!disposed) applyRelayState(initial);
       })
       .catch(() => undefined);
     return () => {
@@ -41,6 +51,12 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
       unsubscribe();
     };
   }, [props.active]);
+
+  const qrSvg = state?.qrSvg ?? null;
+  const qrDataUrl = useMemo(
+    () => (qrSvg ? `data:image/svg+xml;utf8,${encodeURIComponent(qrSvg)}` : null),
+    [qrSvg],
+  );
 
   const bridge = lanRelayBridge();
   if (!props.active || !bridge || !state) return null;
@@ -51,7 +67,7 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
       const next = await bridge.setEnabled(
         bindAddress === undefined ? { enabled } : { enabled, bindAddress },
       );
-      setState(next);
+      applyRelayState(next);
       if (next.error) {
         toastManager.add({
           type: "error",
@@ -84,7 +100,7 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
     setBusy(true);
     try {
       const next = await bridge.rotatePairingToken();
-      setState(next);
+      applyRelayState(next);
       toastManager.add({
         type: "success",
         title: "Pairing code rotated",
@@ -113,7 +129,7 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
     setBusy(true);
     try {
       const next = await bridge.revokeSession({ sessionId });
-      setState(next);
+      applyRelayState(next);
       toastManager.add({
         type: "success",
         title: "Device session revoked",
@@ -134,7 +150,7 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
     setBusy(true);
     try {
       const next = await bridge.revokeAllSessions();
-      setState(next);
+      applyRelayState(next);
       toastManager.add({
         type: "success",
         title: "Revoked all mobile & LAN sessions",
@@ -150,9 +166,6 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
     }
   };
 
-  const qrDataUrl = state.qrSvg
-    ? `data:image/svg+xml;utf8,${encodeURIComponent(state.qrSvg)}`
-    : null;
   const selectedInterface = state.interfaces.find((iface) => iface.address === state.bindAddress);
   const interfaceLabel = (iface: (typeof state.interfaces)[number]) =>
     `${iface.name} (${iface.kind === "tailscale" ? "Tailscale" : "LAN"}) · ${iface.address}`;
@@ -288,4 +301,4 @@ export function LanRelaySettingsSection(props: { readonly active: boolean }) {
       ) : null}
     </SettingsSection>
   );
-}
+});

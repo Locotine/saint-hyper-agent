@@ -1,16 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ServerProviderStatus } from "@saint/contracts";
+import { LOCAL_HOST_ID, sshHostId } from "@saint/shared/hostId";
 import {
   findProviderStatus,
+  hasProbedEnabledProviderStatuses,
   isProviderUsable,
   normalizeProviderStatusForLocalConfig,
   providerUnavailableReason,
   resolveAvailableProviderPreference,
+  resolveProviderInstancesForHost,
   resolveProviderSendAvailability,
   resolveProviderSendAvailabilityWithRefresh,
+  resolveUnsentComposerProvider,
   resolveVoiceTranscriptionTarget,
 } from "./providerAvailability";
+import { resolveAvailableHandoffTargets } from "./threadHandoff";
 
 const BASE_STATUS: ServerProviderStatus = {
   provider: "antigravity",
@@ -621,5 +626,152 @@ describe("findProviderStatus", () => {
       usable: false,
       unavailableReason: "Provider status is still loading.",
     });
+  });
+});
+
+describe("resolveProviderInstancesForHost", () => {
+  it("uses the remote host's reported providers for handoff even when local settings disable them", () => {
+    const localDisabledInstances = [
+      {
+        instanceId: "codex" as const,
+        provider: "codex" as const,
+        driver: "codex" as const,
+        label: "Codex",
+        enabled: false,
+        isDefault: true,
+        supported: true as const,
+      },
+      {
+        instanceId: "claudeAgent" as const,
+        provider: "claudeAgent" as const,
+        driver: "claudeAgent" as const,
+        label: "Claude",
+        enabled: false,
+        isDefault: true,
+        supported: true as const,
+      },
+    ];
+    const remoteStatuses: ServerProviderStatus[] = [
+      {
+        ...READY_STATUS,
+        provider: "codex",
+        driver: "codex",
+        instanceId: "codex",
+        displayName: "Codex",
+      },
+      {
+        ...READY_STATUS,
+        provider: "claudeAgent",
+        driver: "claudeAgent",
+        instanceId: "claudeAgent",
+        displayName: "Claude",
+      },
+    ];
+
+    expect(
+      resolveProviderInstancesForHost({
+        hostId: LOCAL_HOST_ID,
+        localProviderInstances: localDisabledInstances,
+        providerStatuses: remoteStatuses,
+      }),
+    ).toBe(localDisabledInstances);
+
+    const remoteInstances = resolveProviderInstancesForHost({
+      hostId: sshHostId("a1b2c3d4"),
+      localProviderInstances: localDisabledInstances,
+      providerStatuses: remoteStatuses,
+    });
+    expect(remoteInstances.map((instance) => [instance.provider, instance.enabled])).toEqual([
+      ["codex", true],
+      ["claudeAgent", true],
+    ]);
+
+    const handoffTargets = resolveAvailableHandoffTargets({
+      sourceProvider: "claudeAgent",
+      sourceProviderInstanceId: "claudeAgent",
+      providerInstances: remoteInstances,
+      providerStatuses: remoteStatuses,
+    });
+    expect(handoffTargets.map((target) => target.provider)).toEqual(["codex"]);
+  });
+
+  it("falls back to default enabled instances when a cold remote host only reports disabled providers", () => {
+    const localInstances = [
+      {
+        instanceId: "codex" as const,
+        provider: "codex" as const,
+        driver: "codex" as const,
+        label: "Codex",
+        enabled: false,
+        isDefault: true,
+        supported: true as const,
+      },
+      {
+        instanceId: "claudeAgent" as const,
+        provider: "claudeAgent" as const,
+        driver: "claudeAgent" as const,
+        label: "Claude",
+        enabled: true,
+        isDefault: true,
+        supported: true as const,
+      },
+    ];
+    const disabledOnlyStatuses: ServerProviderStatus[] = [
+      {
+        ...BASE_STATUS,
+        provider: "cursor",
+        driver: "cursor",
+        instanceId: "cursor",
+        enabled: false,
+        available: false,
+      },
+    ];
+
+    expect(hasProbedEnabledProviderStatuses([])).toBe(false);
+    expect(hasProbedEnabledProviderStatuses(disabledOnlyStatuses)).toBe(false);
+    expect(
+      resolveProviderInstancesForHost({
+        hostId: sshHostId("a1b2c3d4"),
+        localProviderInstances: localInstances,
+        providerStatuses: disabledOnlyStatuses,
+      }).map((instance) => [instance.provider, instance.enabled]),
+    ).toEqual([
+      ["codex", true],
+      ["claudeAgent", true],
+    ]);
+  });
+
+  it("switches an unsent remote codex thread to Claude when only Claude is installed", () => {
+    const remoteStatuses: ServerProviderStatus[] = [
+      {
+        ...BASE_STATUS,
+        provider: "codex",
+        driver: "codex",
+        instanceId: "codex",
+        enabled: true,
+        available: false,
+        status: "error",
+        authStatus: "unknown",
+      },
+      {
+        ...READY_STATUS,
+        provider: "claudeAgent",
+        driver: "claudeAgent",
+        instanceId: "claudeAgent",
+        enabled: true,
+        available: true,
+        status: "ready",
+        authStatus: "authenticated",
+      },
+    ];
+    expect(
+      resolveUnsentComposerProvider({
+        explicitProvider: null,
+        threadProvider: "codex",
+        defaultProvider: "codex",
+        statuses: remoteStatuses,
+        hiddenProviders: [],
+      }),
+    ).toBe("claudeAgent");
   });
 });

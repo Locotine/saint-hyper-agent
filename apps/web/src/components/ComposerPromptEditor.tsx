@@ -7,6 +7,7 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { PlainTextPlugin } from "@lexical/react/LexicalPlainTextPlugin";
 import { useLexicalEditable } from "@lexical/react/useLexicalEditable";
 import {
+  $addUpdateTag,
   $createRangeSelection,
   $getSelection,
   $setSelection,
@@ -47,6 +48,7 @@ import {
   useRef,
   type ClipboardEventHandler,
   type Ref,
+  type RefObject,
 } from "react";
 
 import {
@@ -93,6 +95,11 @@ import {
 } from "./composer-nodes";
 
 const COMPOSER_EDITOR_HMR_KEY = `composer-editor-${Math.random().toString(36).slice(2)}`;
+const CONTROLLED_UPDATE_TAG = "saint-composer-controlled-sync";
+const RECENT_EMITTED_VALUE_LIMIT = 16;
+// WebKit (macOS Safari / Linux WebKitGTK) dispatches `compositionend` immediately before the
+// committing `keydown(Enter)` with `isComposing === false` and `keyCode === 13` (WebKit #165004).
+const COMPOSER_POST_COMPOSITION_GRACE_MS = 35;
 
 const ComposerRemoveTerminalContextContext = createContext<(contextId: string) => void>(() => {});
 
@@ -554,6 +561,8 @@ function ComposerCommandKeyPlugin(props: {
     key: "ArrowDown" | "ArrowUp" | "Enter" | "Tab" | "Slash",
     event: KeyboardEvent,
   ) => boolean;
+  isDomComposingRef: RefObject<boolean>;
+  lastCompositionEndAtRef: RefObject<number>;
 }) {
   const [editor] = useLexicalComposerContext();
 
@@ -563,6 +572,20 @@ function ComposerCommandKeyPlugin(props: {
       event: KeyboardEvent | null,
     ): boolean => {
       if (!props.onCommandKeyDown || !event) {
+        return false;
+      }
+      const recentlyEndedComposition =
+        props.lastCompositionEndAtRef.current > 0 &&
+        performance.now() - props.lastCompositionEndAtRef.current <=
+          COMPOSER_POST_COMPOSITION_GRACE_MS;
+      // Never intercept keys during active IME composition (e.g. Vietnamese Telex/VNI on WebKitGTK)
+      // or during the immediate post-compositionend WebKit Enter commit frame.
+      if (
+        event.isComposing ||
+        event.keyCode === 229 ||
+        props.isDomComposingRef.current ||
+        recentlyEndedComposition
+      ) {
         return false;
       }
       const handled = props.onCommandKeyDown(key, event);
@@ -678,11 +701,14 @@ function ComposerInlineTokenArrowPlugin() {
   return null;
 }
 
-function ComposerInlineTokenSelectionNormalizePlugin() {
+function ComposerInlineTokenSelectionNormalizePlugin(props: {
+  isDomComposingRef: RefObject<boolean>;
+}) {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
     return editor.registerUpdateListener(({ editorState }) => {
+      if (props.isDomComposingRef.current) return;
       let afterOffset: number | null = null;
       editorState.read(() => {
         const selection = $getSelection();
@@ -695,13 +721,17 @@ function ComposerInlineTokenSelectionNormalizePlugin() {
       });
       if (afterOffset !== null) {
         queueMicrotask(() => {
-          editor.update(() => {
-            $setSelectionAtComposerOffset(afterOffset!);
-          });
+          if (props.isDomComposingRef.current) return;
+          editor.update(
+            () => {
+              $setSelectionAtComposerOffset(afterOffset!);
+            },
+            { tag: CONTROLLED_UPDATE_TAG },
+          );
         });
       }
     });
-  }, [editor]);
+  }, [editor, props.isDomComposingRef]);
 
   return null;
 }
@@ -773,12 +803,17 @@ function ComposerInlineTokenBackspacePlugin() {
   return null;
 }
 
-function ComposerSlashCommandTransformPlugin() {
+function ComposerSlashCommandTransformPlugin(props: { isDomComposingRef: RefObject<boolean> }) {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
     return editor.registerNodeTransform(TextNode, (node) => {
-      if (isComposerInlineTokenNode(node)) {
+      if (
+        isComposerInlineTokenNode(node) ||
+        !node.isSimpleText() ||
+        node.isComposing() ||
+        props.isDomComposingRef.current
+      ) {
         return;
       }
       const match = matchComposerSlashCommandChipToken(node.getTextContent());
@@ -789,7 +824,7 @@ function ComposerSlashCommandTransformPlugin() {
       const commandNode = match.start === 0 ? splitNodes[0] : splitNodes[1];
       commandNode?.replace($createComposerSlashCommandNode(match.command));
     });
-  }, [editor]);
+  }, [editor, props.isDomComposingRef]);
 
   return null;
 }
@@ -799,14 +834,19 @@ function ComposerSlashCommandTransformPlugin() {
 // (the editor text already equals the prompt string, so the rewrite is skipped), so live chipping
 // must run as a node transform. A chip's text content is the raw URL, so the serialized prompt is
 // unchanged and selection/length stay stable.
-function ComposerLinkTransformPlugin() {
+function ComposerLinkTransformPlugin(props: { isDomComposingRef: RefObject<boolean> }) {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
     // registerNodeTransform(TextNode) fires only for plain text nodes; the chip subclasses have
     // their own node types and are skipped. The isComposerInlineTokenNode guard is defensive.
     return editor.registerNodeTransform(TextNode, (node) => {
-      if (isComposerInlineTokenNode(node)) {
+      if (
+        isComposerInlineTokenNode(node) ||
+        !node.isSimpleText() ||
+        node.isComposing() ||
+        props.isDomComposingRef.current
+      ) {
         return;
       }
       const match = matchComposerLinkToken(node.getTextContent(), {
@@ -819,7 +859,7 @@ function ComposerLinkTransformPlugin() {
       const urlNode = match.start === 0 ? splitNodes[0] : splitNodes[1];
       urlNode?.replace($createComposerLinkNode(match.url));
     });
-  }, [editor]);
+  }, [editor, props.isDomComposingRef]);
 
   return null;
 }
@@ -970,11 +1010,177 @@ function ComposerPromptEditorInner({
     selectionCollapsed: true,
     terminalContextIds: terminalContexts.map((context) => context.id),
   });
-  const isApplyingControlledUpdateRef = useRef(false);
+  const isDomComposingRef = useRef(false);
+  const lastCompositionEndAtRef = useRef(0);
+  const pendingControlledSyncRef = useRef(false);
+  const recentEmittedValuesRef = useRef<string[]>([]);
+  const latestControlledPropsRef = useRef({
+    value,
+    cursor,
+    terminalContexts,
+    terminalContextsSignature,
+    mentionReferences,
+    mentionsSignature,
+  });
+  latestControlledPropsRef.current = {
+    value,
+    cursor,
+    terminalContexts,
+    terminalContextsSignature,
+    mentionReferences,
+    mentionsSignature,
+  };
 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  const applyControlledSync = useCallback(
+    (props: {
+      value: string;
+      cursor: number;
+      terminalContexts: ReadonlyArray<TerminalContextDraft>;
+      terminalContextsSignature: string;
+      mentionReferences: ReadonlyArray<ProviderMentionReference>;
+      mentionsSignature: string;
+    }) => {
+      const normalizedCursor = clampCollapsedComposerCursor(props.value, props.cursor);
+      const previousSnapshot = snapshotRef.current;
+      const contextsChanged =
+        terminalContextsSignatureRef.current !== props.terminalContextsSignature;
+      const mentionsChanged = mentionsSignatureRef.current !== props.mentionsSignature;
+      if (
+        previousSnapshot.value === props.value &&
+        previousSnapshot.cursor === normalizedCursor &&
+        !contextsChanged &&
+        !mentionsChanged
+      ) {
+        // React has caught up to the latest emitted value; discard earlier in-flight echo
+        // entries so a subsequent controlled reset (e.g. clearing back to "" after `/fast`)
+        // is never misclassified as a stale typing echo.
+        recentEmittedValuesRef.current.length = 0;
+        return;
+      }
+
+      // If React is still committing an earlier value the editor already moved past during a
+      // fast typing/IME burst, do not clobber the user's newer in-flight text with root.clear().
+      if (previousSnapshot.value !== props.value && !contextsChanged && !mentionsChanged) {
+        const staleIndex = recentEmittedValuesRef.current.lastIndexOf(props.value);
+        if (staleIndex !== -1) {
+          recentEmittedValuesRef.current.splice(0, staleIndex + 1);
+          return;
+        }
+      }
+
+      // Never tear down the DOM or move selection while an IME composition (e.g. Vietnamese
+      // Telex/VNI on WebKitGTK) owns the active TextNode; flush cleanly once composition ends.
+      if (isDomComposingRef.current) {
+        pendingControlledSyncRef.current = true;
+        return;
+      }
+
+      const rootElement = editor.getRootElement();
+      const isFocused = Boolean(
+        rootElement && document.hasFocus() && document.activeElement === rootElement,
+      );
+
+      // Pasting a bare URL creates a ComposerLinkNode (collapsed length 1) while string-based
+      // cursor clamping treats an unterminated trailing URL as raw text (length url.length).
+      // Avoid a spurious editor.update when the live selection is already at the clamped target.
+      if (previousSnapshot.value === props.value && !contextsChanged && !mentionsChanged) {
+        let alreadyAtTarget = false;
+        editor.getEditorState().read(() => {
+          const liveLength = $getComposerRootLength();
+          const liveOffset = $readSelectionOffsetFromEditorState(previousSnapshot.cursor);
+          const boundedTarget = Math.max(0, Math.min(normalizedCursor, liveLength));
+          alreadyAtTarget = liveOffset === boundedTarget;
+        });
+        if (alreadyAtTarget) {
+          snapshotRef.current = {
+            ...previousSnapshot,
+            cursor: normalizedCursor,
+            expandedCursor: expandCollapsedComposerCursor(props.value, normalizedCursor),
+          };
+          return;
+        }
+      }
+
+      snapshotRef.current = {
+        value: props.value,
+        cursor: normalizedCursor,
+        expandedCursor: expandCollapsedComposerCursor(props.value, normalizedCursor),
+        selectionCollapsed: true,
+        terminalContextIds: props.terminalContexts.map((context) => context.id),
+      };
+      recentEmittedValuesRef.current.length = 0;
+      terminalContextsSignatureRef.current = props.terminalContextsSignature;
+      mentionsSignatureRef.current = props.mentionsSignature;
+
+      if (
+        previousSnapshot.value === props.value &&
+        !contextsChanged &&
+        !mentionsChanged &&
+        !isFocused
+      ) {
+        return;
+      }
+
+      const shouldRewriteEditorState =
+        previousSnapshot.value !== props.value || contextsChanged || mentionsChanged;
+      editor.update(
+        () => {
+          $addUpdateTag(CONTROLLED_UPDATE_TAG);
+          if (shouldRewriteEditorState) {
+            $setComposerEditorPrompt(props.value, props.terminalContexts, props.mentionReferences);
+          }
+          if (shouldRewriteEditorState || isFocused) {
+            $setSelectionAtComposerOffset(normalizedCursor);
+          }
+        },
+        // Keep Lexical's draft cursor current without moving the user's DOM selection.
+        isFocused ? undefined : { tag: SKIP_DOM_SELECTION_TAG },
+      );
+    },
+    [editor],
+  );
+
+  // Track real browser IME composition on the editable root so WebKitGTK's Safari-mode
+  // composition lifecycle never leaves us stuck or lets a controlled rewrite destroy an
+  // actively composed text node.
+  useEffect(() => {
+    const handleCompositionStart = () => {
+      isDomComposingRef.current = true;
+      lastCompositionEndAtRef.current = 0;
+    };
+    const flushAfterComposition = (event: Event) => {
+      if (event.type === "compositionend") {
+        lastCompositionEndAtRef.current = performance.now();
+      } else {
+        lastCompositionEndAtRef.current = 0;
+      }
+      if (!isDomComposingRef.current) return;
+      isDomComposingRef.current = false;
+      if (!pendingControlledSyncRef.current) return;
+      pendingControlledSyncRef.current = false;
+      queueMicrotask(() => {
+        if (isDomComposingRef.current) return;
+        applyControlledSync(latestControlledPropsRef.current);
+      });
+    };
+    return editor.registerRootListener((rootElement, prevRootElement) => {
+      if (prevRootElement) {
+        prevRootElement.removeEventListener("compositionstart", handleCompositionStart);
+        prevRootElement.removeEventListener("compositionend", flushAfterComposition);
+        prevRootElement.removeEventListener("blur", flushAfterComposition);
+      }
+      isDomComposingRef.current = false;
+      if (rootElement) {
+        rootElement.addEventListener("compositionstart", handleCompositionStart);
+        rootElement.addEventListener("compositionend", flushAfterComposition);
+        rootElement.addEventListener("blur", flushAfterComposition);
+      }
+    });
+  }, [applyControlledSync, editor]);
 
   // Disabling the editor (e.g. while a turn dispatch is connecting) turns off
   // contenteditable, which drops browser focus to <body>. Remember whether the
@@ -1008,58 +1214,17 @@ function ComposerPromptEditorInner({
   }, [disabled, editor, isEditable]);
 
   useLayoutEffect(() => {
-    const normalizedCursor = clampCollapsedComposerCursor(value, cursor);
-    const previousSnapshot = snapshotRef.current;
-    const contextsChanged = terminalContextsSignatureRef.current !== terminalContextsSignature;
-    const mentionsChanged = mentionsSignatureRef.current !== mentionsSignature;
-    if (
-      previousSnapshot.value === value &&
-      previousSnapshot.cursor === normalizedCursor &&
-      !contextsChanged &&
-      !mentionsChanged
-    ) {
-      return;
-    }
-
-    snapshotRef.current = {
+    applyControlledSync({
       value,
-      cursor: normalizedCursor,
-      expandedCursor: expandCollapsedComposerCursor(value, normalizedCursor),
-      selectionCollapsed: true,
-      terminalContextIds: terminalContexts.map((context) => context.id),
-    };
-    terminalContextsSignatureRef.current = terminalContextsSignature;
-    mentionsSignatureRef.current = mentionsSignature;
-
-    const rootElement = editor.getRootElement();
-    const isFocused = Boolean(
-      rootElement && document.hasFocus() && document.activeElement === rootElement,
-    );
-    if (previousSnapshot.value === value && !contextsChanged && !mentionsChanged && !isFocused) {
-      return;
-    }
-
-    isApplyingControlledUpdateRef.current = true;
-    editor.update(
-      () => {
-        const shouldRewriteEditorState =
-          previousSnapshot.value !== value || contextsChanged || mentionsChanged;
-        if (shouldRewriteEditorState) {
-          $setComposerEditorPrompt(value, terminalContexts, mentionReferences);
-        }
-        if (shouldRewriteEditorState || isFocused) {
-          $setSelectionAtComposerOffset(normalizedCursor);
-        }
-      },
-      // Keep Lexical's draft cursor current without moving the user's DOM selection.
-      isFocused ? undefined : { tag: SKIP_DOM_SELECTION_TAG },
-    );
-    queueMicrotask(() => {
-      isApplyingControlledUpdateRef.current = false;
+      cursor,
+      terminalContexts,
+      terminalContextsSignature,
+      mentionReferences,
+      mentionsSignature,
     });
   }, [
+    applyControlledSync,
     cursor,
-    editor,
     mentionReferences,
     mentionsSignature,
     terminalContexts,
@@ -1169,57 +1334,67 @@ function ComposerPromptEditorInner({
     [blurEditor, focusAt, isEditorFocused, readSnapshot],
   );
 
-  const handleEditorChange = useCallback((editorState: EditorState) => {
-    editorState.read(() => {
-      const selection = $getSelection();
-      const selectionCollapsed = !$isRangeSelection(selection) || selection.isCollapsed();
-      const nextValue = $getRoot().getTextContent();
-      const fallbackCursor = clampCollapsedComposerCursor(nextValue, snapshotRef.current.cursor);
-      const nextCursor = clampCollapsedComposerCursor(
-        nextValue,
-        $readSelectionOffsetFromEditorState(fallbackCursor),
-      );
-      const fallbackExpandedCursor = clampExpandedCursor(
-        nextValue,
-        snapshotRef.current.expandedCursor,
-      );
-      const nextExpandedCursor = clampExpandedCursor(
-        nextValue,
-        $readExpandedSelectionOffsetFromEditorState(fallbackExpandedCursor),
-      );
-      const terminalContextIds = collectTerminalContextIds($getRoot());
-      const previousSnapshot = snapshotRef.current;
-      if (
-        previousSnapshot.value === nextValue &&
-        previousSnapshot.cursor === nextCursor &&
-        previousSnapshot.expandedCursor === nextExpandedCursor &&
-        previousSnapshot.terminalContextIds.length === terminalContextIds.length &&
-        previousSnapshot.terminalContextIds.every((id, index) => id === terminalContextIds[index])
-      ) {
+  const handleEditorChange = useCallback(
+    (editorState: EditorState, _editor: unknown, tags: Set<string>) => {
+      if (tags.has(CONTROLLED_UPDATE_TAG)) {
         return;
       }
-      if (isApplyingControlledUpdateRef.current) {
-        return;
-      }
-      snapshotRef.current = {
-        value: nextValue,
-        cursor: nextCursor,
-        expandedCursor: nextExpandedCursor,
-        selectionCollapsed,
-        terminalContextIds,
-      };
-      const cursorAdjacentToMention =
-        isCollapsedCursorAdjacentToInlineToken(nextValue, nextCursor, "left") ||
-        isCollapsedCursorAdjacentToInlineToken(nextValue, nextCursor, "right");
-      onChangeRef.current(
-        nextValue,
-        nextCursor,
-        nextExpandedCursor,
-        cursorAdjacentToMention,
-        terminalContextIds,
-      );
-    });
-  }, []);
+      editorState.read(() => {
+        const selection = $getSelection();
+        const selectionCollapsed = !$isRangeSelection(selection) || selection.isCollapsed();
+        const nextValue = $getRoot().getTextContent();
+        const fallbackCursor = clampCollapsedComposerCursor(nextValue, snapshotRef.current.cursor);
+        const nextCursor = clampCollapsedComposerCursor(
+          nextValue,
+          $readSelectionOffsetFromEditorState(fallbackCursor),
+        );
+        const fallbackExpandedCursor = clampExpandedCursor(
+          nextValue,
+          snapshotRef.current.expandedCursor,
+        );
+        const nextExpandedCursor = clampExpandedCursor(
+          nextValue,
+          $readExpandedSelectionOffsetFromEditorState(fallbackExpandedCursor),
+        );
+        const terminalContextIds = collectTerminalContextIds($getRoot());
+        const previousSnapshot = snapshotRef.current;
+        if (
+          previousSnapshot.value === nextValue &&
+          previousSnapshot.cursor === nextCursor &&
+          previousSnapshot.expandedCursor === nextExpandedCursor &&
+          previousSnapshot.terminalContextIds.length === terminalContextIds.length &&
+          previousSnapshot.terminalContextIds.every((id, index) => id === terminalContextIds[index])
+        ) {
+          return;
+        }
+        const emitted = recentEmittedValuesRef.current;
+        if (previousSnapshot.value !== nextValue) {
+          emitted.push(previousSnapshot.value);
+          if (emitted.length > RECENT_EMITTED_VALUE_LIMIT) {
+            emitted.splice(0, emitted.length - RECENT_EMITTED_VALUE_LIMIT);
+          }
+        }
+        snapshotRef.current = {
+          value: nextValue,
+          cursor: nextCursor,
+          expandedCursor: nextExpandedCursor,
+          selectionCollapsed,
+          terminalContextIds,
+        };
+        const cursorAdjacentToMention =
+          isCollapsedCursorAdjacentToInlineToken(nextValue, nextCursor, "left") ||
+          isCollapsedCursorAdjacentToInlineToken(nextValue, nextCursor, "right");
+        onChangeRef.current(
+          nextValue,
+          nextCursor,
+          nextExpandedCursor,
+          cursorAdjacentToMention,
+          terminalContextIds,
+        );
+      });
+    },
+    [],
+  );
 
   return (
     <ComposerRemoveTerminalContextContext.Provider value={onRemoveTerminalContext}>
@@ -1259,12 +1434,16 @@ function ComposerPromptEditorInner({
           ErrorBoundary={LexicalErrorBoundary}
         />
         <OnChangePlugin onChange={handleEditorChange} />
-        <ComposerCommandKeyPlugin {...(onCommandKeyDown ? { onCommandKeyDown } : {})} />
+        <ComposerCommandKeyPlugin
+          isDomComposingRef={isDomComposingRef}
+          lastCompositionEndAtRef={lastCompositionEndAtRef}
+          {...(onCommandKeyDown ? { onCommandKeyDown } : {})}
+        />
         <ComposerInlineTokenArrowPlugin />
-        <ComposerInlineTokenSelectionNormalizePlugin />
+        <ComposerInlineTokenSelectionNormalizePlugin isDomComposingRef={isDomComposingRef} />
         <ComposerInlineTokenBackspacePlugin />
-        <ComposerSlashCommandTransformPlugin />
-        <ComposerLinkTransformPlugin />
+        <ComposerSlashCommandTransformPlugin isDomComposingRef={isDomComposingRef} />
+        <ComposerLinkTransformPlugin isDomComposingRef={isDomComposingRef} />
         <ComposerLinkPastePlugin />
         <ComposerThreadMentionProviderPlugin />
         {onCollapsePastedText ? (

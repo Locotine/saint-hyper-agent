@@ -3,6 +3,7 @@
 //
 // A client's roots are its own projects' folders and the worktrees of its own threads. Folder
 // browsing for "add project" stays open elsewhere; reading, writing and git are held to these roots.
+import * as nodeFs from "node:fs/promises";
 import nodePath from "node:path";
 
 import { Effect, Stream } from "effect";
@@ -13,6 +14,45 @@ import { CurrentClientScope, type ClientScope } from "./clientScope.ts";
 
 const caseFold = (value: string) => (process.platform === "win32" ? value.toLowerCase() : value);
 
+const MAX_SYMLINK_DEPTH = 32;
+
+/**
+ * Resolves symlinks (including dangling symlinks) through the longest existing ancestor without
+ * blocking the server event loop, so containment checks cannot be bypassed by an in-root symlink
+ * pointing outside a client's roots while synthetic non-existent paths still normalize cleanly.
+ */
+async function canonicalizePathAsync(target: string, depth = 0): Promise<string> {
+  const resolved = nodePath.resolve(target);
+  if (depth >= MAX_SYMLINK_DEPTH) return resolved;
+  try {
+    return await nodeFs.realpath(resolved);
+  } catch {
+    // Walk up until we find an existing ancestor (or dangling symlink).
+  }
+  const suffix: string[] = [];
+  let cursor = resolved;
+  while (true) {
+    try {
+      const stat = await nodeFs.lstat(cursor);
+      if (stat.isSymbolicLink()) {
+        const linkTarget = await nodeFs.readlink(cursor);
+        const expanded = nodePath.resolve(nodePath.dirname(cursor), linkTarget);
+        const canonicalTarget = await canonicalizePathAsync(expanded, depth + 1);
+        return suffix.length > 0 ? nodePath.join(canonicalTarget, ...suffix) : canonicalTarget;
+      }
+      const realAncestor = await nodeFs.realpath(cursor);
+      return suffix.length > 0 ? nodePath.join(realAncestor, ...suffix) : realAncestor;
+    } catch {
+      const parent = nodePath.dirname(cursor);
+      if (parent === cursor) {
+        return resolved;
+      }
+      suffix.unshift(nodePath.basename(cursor));
+      cursor = parent;
+    }
+  }
+}
+
 /** Whether `candidate` is `root` or lies below it (separator-aware, so `/a/bc` is not under `/a/b`). */
 export function isPathWithin(root: string, candidate: string): boolean {
   const relative = nodePath.relative(
@@ -20,6 +60,28 @@ export function isPathWithin(root: string, candidate: string): boolean {
     caseFold(nodePath.resolve(candidate)),
   );
   return relative === "" || (!relative.startsWith("..") && !nodePath.isAbsolute(relative));
+}
+
+/** Symlink-aware containment check (resolves live and dangling symlinks asynchronously). */
+export async function isRealPathWithin(root: string, candidate: string): Promise<boolean> {
+  const [canonicalRoot, canonicalCandidate] = await Promise.all([
+    canonicalizePathAsync(root),
+    canonicalizePathAsync(candidate),
+  ]);
+  return isPathWithin(canonicalRoot, canonicalCandidate);
+}
+
+export async function isRealPathWithinRoots(
+  roots: Iterable<string>,
+  candidate: string,
+): Promise<boolean> {
+  if (!nodePath.isAbsolute(candidate)) return false;
+  const canonicalCandidate = await canonicalizePathAsync(candidate);
+  for (const root of roots) {
+    const canonicalRoot = await canonicalizePathAsync(root);
+    if (isPathWithin(canonicalRoot, canonicalCandidate)) return true;
+  }
+  return false;
 }
 
 export function isPathWithinRoots(roots: Iterable<string>, candidate: string): boolean {
@@ -78,6 +140,57 @@ function isUnclaimedWorktree(
   );
 }
 
+/** Whether `scope` may read, write or run git at `candidate` (symlink-aware async check). */
+export async function clientMayUsePathAsync(
+  readModel: Pick<OrchestrationReadModel, "projects" | "threads">,
+  scope: Exclude<ClientScope, null>,
+  worktreesDir: string,
+  candidate: string,
+  reserved: ReadonlyMap<string, string> = new Map(),
+): Promise<boolean> {
+  if (!nodePath.isAbsolute(candidate)) return false;
+  const canonicalCandidate = await canonicalizePathAsync(candidate);
+  const roots = clientRoots(readModel, scope);
+  for (const root of roots) {
+    const canonicalRoot = await canonicalizePathAsync(root);
+    if (isPathWithin(canonicalRoot, canonicalCandidate)) return true;
+  }
+  const canonicalWorktreesDir = await canonicalizePathAsync(worktreesDir);
+  if (
+    !isPathWithin(canonicalWorktreesDir, canonicalCandidate) ||
+    isPathWithin(canonicalCandidate, canonicalWorktreesDir)
+  ) {
+    return false;
+  }
+  for (const [path, creator] of reserved) {
+    if (creator === scope) continue;
+    const canonicalReserved = await canonicalizePathAsync(path);
+    if (
+      isPathWithin(canonicalReserved, canonicalCandidate) ||
+      isPathWithin(canonicalCandidate, canonicalReserved)
+    ) {
+      return false;
+    }
+  }
+  for (const thread of readModel.threads) {
+    for (const path of [
+      thread.worktreePath,
+      thread.workingDirectory,
+      thread.associatedWorktreePath,
+    ]) {
+      if (!path) continue;
+      const canonicalThreadPath = await canonicalizePathAsync(path);
+      if (
+        isPathWithin(canonicalThreadPath, canonicalCandidate) ||
+        isPathWithin(canonicalCandidate, canonicalThreadPath)
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 /** Whether `scope` may read, write or run git at `candidate`. */
 export function clientMayUsePath(
   readModel: Pick<OrchestrationReadModel, "projects" | "threads">,
@@ -121,6 +234,8 @@ export const CLIENT_PATH_FIELDS: Readonly<Record<string, readonly string[]>> = {
       WS_METHODS.projectsMoveEntry,
       WS_METHODS.projectsRenameEntry,
       WS_METHODS.projectsRunDevServer,
+      WS_METHODS.shellOpenInEditor,
+      WS_METHODS.terminalOpen,
       WS_METHODS.editorDebugStart,
       WS_METHODS.editorIntelligence,
       WS_METHODS.gitPull,
@@ -183,7 +298,10 @@ export function guardClientPaths<H extends object, E>(
       for (const field of CLIENT_PATH_FIELDS[method] ?? []) {
         const value = input[field];
         if (typeof value !== "string" || value.length === 0) continue;
-        if (!clientMayUsePath(readModel, scope, deps.worktreesDir, value, reserved)) {
+        const allowed = yield* Effect.promise(() =>
+          clientMayUsePathAsync(readModel, scope, deps.worktreesDir, value, reserved),
+        );
+        if (!allowed) {
           return yield* Effect.fail(deps.denied());
         }
       }

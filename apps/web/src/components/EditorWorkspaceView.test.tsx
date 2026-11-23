@@ -362,6 +362,22 @@ describe("EditorWorkspaceView", () => {
     }
   });
 
+  it("opens the editor in the active split group when fileEdit targets another file (e.g. F12 definition jump)", () => {
+    const markup = renderToStaticMarkup(
+      <SidebarProvider>
+        <EditorWorkspaceView
+          {...makeEditorBaseProps()}
+          selectedFilePath="main.ts"
+          centerMode="fileEdit"
+          editFilePath="greeting.ts"
+        />
+      </SidebarProvider>,
+    );
+
+    expect(markup).toContain("Editing");
+    expect(markup).toContain("greeting.ts");
+  });
+
   it("accepts dropped file paths only when dataTransfer includes CHAT_FILE_REFERENCE_DRAG_TYPE", () => {
     const makeMockDataTransfer = () => {
       const store = new Map<string, string>();

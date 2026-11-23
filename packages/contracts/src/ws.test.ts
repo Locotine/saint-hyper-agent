@@ -2,7 +2,7 @@ import { assert, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
 import { ORCHESTRATION_WS_CHANNELS, ORCHESTRATION_WS_METHODS } from "./orchestration";
-import { WebSocketRequest, WsResponse, WS_CHANNELS } from "./ws";
+import { WebSocketRequest, WsResponse, WS_CHANNELS, WS_METHODS } from "./ws";
 
 const decode = <S extends Schema.Top>(
   schema: S,
@@ -110,4 +110,36 @@ it.effect("rejects push envelopes when channel payload does not match the channe
 
     assert.strictEqual(result._tag, "Failure");
   }),
+);
+
+it.effect(
+  "decodes server.upsertKeybinding with ServerUpsertKeybindingInput and rejects bare rules",
+  () =>
+    Effect.gen(function* () {
+      const parsed = yield* decode(WebSocketRequest, {
+        id: "req-kb-1",
+        body: {
+          _tag: WS_METHODS.serverUpsertKeybinding,
+          rule: { key: "mod+k", command: "terminal.toggle" },
+          replacing: { key: "mod+j", command: "terminal.toggle" },
+        },
+      });
+      assert.strictEqual(parsed.body._tag, WS_METHODS.serverUpsertKeybinding);
+      if (parsed.body._tag === WS_METHODS.serverUpsertKeybinding) {
+        assert.strictEqual(parsed.body.rule.key, "mod+k");
+        assert.strictEqual(parsed.body.replacing?.key, "mod+j");
+      }
+
+      const bareResult = yield* Effect.exit(
+        decode(WebSocketRequest, {
+          id: "req-kb-2",
+          body: {
+            _tag: WS_METHODS.serverUpsertKeybinding,
+            key: "mod+k",
+            command: "terminal.toggle",
+          },
+        }),
+      );
+      assert.strictEqual(bareResult._tag, "Failure");
+    }),
 );

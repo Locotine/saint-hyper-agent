@@ -11,7 +11,7 @@ import { threadRouteParam, type HostId } from "@saint/shared/hostId";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 
-import { useRemoteSshState } from "~/hooks/useRemoteSshState";
+import { useRemoteHostAlias } from "~/hooks/useRemoteSshState";
 import { HostScope } from "~/hosts/hostScope";
 import { hostStores } from "~/hosts/hostStores";
 import { useHostThreadDetail } from "~/hosts/hostThreadDetail";
@@ -20,14 +20,13 @@ import { isSplitRoute, resolveRouteChatSurface } from "~/splitViewRoute";
 import { selectSplitView, useSplitViewStore } from "~/splitViewStore";
 import { SingleChatSurface } from "./SingleChatSurface";
 import { SplitChatSurface } from "./SplitChatSurface";
-import { remoteHostAlias } from "../settings/remoteHostsSettingsModel";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
 
 const RECONNECT_HINT = "Reconnect it in Settings → Remote hosts.";
 
 function useHostAlias(hostId: HostId): string {
-  return remoteHostAlias(useRemoteSshState(), hostId) ?? "This host";
+  return useRemoteHostAlias(hostId) ?? "This host";
 }
 
 export function RemoteThreadSurface(props: {
@@ -64,10 +63,12 @@ export function RemoteThreadSurface(props: {
       search: (previous) => ({ ...stripDiffSearchParams(previous), splitViewId: undefined }),
     });
   }, [hostId, navigate, staleSplitRoute, threadId]);
-  const live = useSyncExternalStore(
+  const streamStatus = useSyncExternalStore(
     hostStores.subscribe,
-    () => hostStores.status(hostId).status === "live",
+    () => hostStores.status(hostId).status,
   );
+  const live = streamStatus === "live";
+  const connecting = streamStatus === "connecting";
   const loaded = useSyncExternalStore(
     hostStores.subscribe,
     () => hostStores.get(hostId).getState().threadDetailSyncById?.[threadId] === "synced",
@@ -80,8 +81,12 @@ export function RemoteThreadSurface(props: {
     return (
       <Empty className="flex-1">
         <EmptyHeader>
-          <EmptyTitle>{`${alias} is offline`}</EmptyTitle>
-          <EmptyDescription>{`This chat has not loaded yet. ${RECONNECT_HINT}`}</EmptyDescription>
+          <EmptyTitle>{connecting ? `Connecting to ${alias}…` : `${alias} is offline`}</EmptyTitle>
+          <EmptyDescription>
+            {connecting
+              ? "Waiting for the remote host to finish connecting."
+              : `This chat has not loaded yet. ${RECONNECT_HINT}`}
+          </EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -90,7 +95,7 @@ export function RemoteThreadSurface(props: {
   return (
     <HostScope hostId={hostId}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {live ? null : (
+        {live || connecting ? null : (
           <Alert variant="warning" size="sm" className="m-2 w-auto">
             <AlertDescription>{`${alias} is offline, so this chat is read-only. ${RECONNECT_HINT}`}</AlertDescription>
           </Alert>

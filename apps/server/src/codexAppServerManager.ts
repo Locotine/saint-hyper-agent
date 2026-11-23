@@ -103,6 +103,7 @@ import {
   teardownChildProcessTree,
   teardownProviderProcessTree,
 } from "./provider/supervisedProcessTeardown.ts";
+import { signalOwnedChildProcess } from "./platform/processTreeController.ts";
 import { ensureIsolatedScratchWorkspace, resolveScratchWorkspaceCwd } from "./scratchWorkspaces.ts";
 import { createLogger } from "./logger";
 import { MCP_CONNECTOR_SERVER_NAME_SUFFIX } from "@saint/shared/mcpConnectors";
@@ -239,6 +240,7 @@ interface CodexSessionContext {
   readonly additionalDirectories?: ReadonlyArray<string>;
   collabReceiverTurns: Map<string, TurnId>;
   collabReceiverParents: Map<string, string>;
+  childActiveTurnIds: Map<string, TurnId>;
   reviewTurnIds: Set<TurnId>;
   taskCompleteFallback?:
     | {
@@ -372,6 +374,23 @@ export interface CodexAppServerSendTurnInput {
   readonly serviceTier?: string | null;
   readonly effort?: string;
   readonly interactionMode?: ProviderInteractionMode;
+}
+
+export interface CodexAppServerSteerSubagentInput {
+  readonly threadId: ThreadId;
+  readonly providerThreadId: string;
+  readonly input?: string;
+  readonly attachments?: ReadonlyArray<CodexImageInputItem>;
+  readonly skills?: ReadonlyArray<ProviderSkillReference>;
+  readonly mentions?: ReadonlyArray<ProviderMentionReference>;
+}
+
+export interface CodexAppServerSteerSubagentResult {
+  readonly threadId: ThreadId;
+  readonly providerThreadId: string;
+  readonly providerParentThreadId?: string;
+  readonly turnId: TurnId;
+  readonly parentTurnId?: TurnId;
 }
 
 type CodexAppServerReviewTarget = ProviderStartReviewInput["target"];
@@ -1537,6 +1556,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         pendingUserInputs: new Map(),
         collabReceiverTurns: new Map(),
         collabReceiverParents: new Map(),
+        childActiveTurnIds: new Map(),
         reviewTurnIds: new Set(),
         nextRequestId: 1,
         stopping: false,
@@ -1920,6 +1940,72 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       ...(context.session.resumeCursor !== undefined
         ? { resumeCursor: context.session.resumeCursor }
         : {}),
+    };
+  }
+
+  async steerSubagent(
+    input: CodexAppServerSteerSubagentInput,
+  ): Promise<CodexAppServerSteerSubagentResult> {
+    const context = this.requireSession(input.threadId);
+    const turnInput = buildCodexTurnInput(input);
+    if (turnInput.length === 0) {
+      throw new Error("Turn input must include text or attachments.");
+    }
+
+    const parentProviderThreadId =
+      context.collabReceiverParents.get(input.providerThreadId) ??
+      readResumeThreadId({ resumeCursor: context.session.resumeCursor });
+    const parentTurnId =
+      context.collabReceiverTurns.get(input.providerThreadId) ?? context.session.activeTurnId;
+
+    const activeChildTurnId = context.childActiveTurnIds.get(input.providerThreadId);
+    if (activeChildTurnId !== undefined) {
+      try {
+        const response = await this.sendRequest(context, "turn/steer", {
+          threadId: input.providerThreadId,
+          input: turnInput,
+          expectedTurnId: activeChildTurnId,
+        });
+        const turnIdRaw = this.readString(this.readObject(response), "turnId");
+        const turnId = turnIdRaw ? TurnId.makeUnsafe(turnIdRaw) : activeChildTurnId;
+        context.childActiveTurnIds.set(input.providerThreadId, turnId);
+        return {
+          threadId: context.session.threadId,
+          providerThreadId: input.providerThreadId,
+          ...(parentProviderThreadId ? { providerParentThreadId: parentProviderThreadId } : {}),
+          turnId,
+          ...(parentTurnId ? { parentTurnId } : {}),
+        };
+      } catch {
+        // The child turn may have finished before `turn/steer` arrived;
+        // clear the stale active turn id and fall back to `turn/start`.
+        context.childActiveTurnIds.delete(input.providerThreadId);
+      }
+    }
+
+    const response = await this.sendRequest(context, "turn/start", {
+      threadId: input.providerThreadId,
+      input: turnInput,
+      summary: "auto",
+    });
+    const turnIdRaw = this.readString(this.readObject(this.readObject(response), "turn"), "id");
+    if (!turnIdRaw) {
+      throw new Error("turn/start response did not include a turn id.");
+    }
+    const turnId = TurnId.makeUnsafe(turnIdRaw);
+    context.childActiveTurnIds.set(input.providerThreadId, turnId);
+    if (!context.collabReceiverTurns.has(input.providerThreadId)) {
+      context.collabReceiverTurns.set(input.providerThreadId, parentTurnId ?? turnId);
+    }
+    if (parentProviderThreadId && !context.collabReceiverParents.has(input.providerThreadId)) {
+      context.collabReceiverParents.set(input.providerThreadId, parentProviderThreadId);
+    }
+    return {
+      threadId: context.session.threadId,
+      providerThreadId: input.providerThreadId,
+      ...(parentProviderThreadId ? { providerParentThreadId: parentProviderThreadId } : {}),
+      turnId,
+      ...(parentTurnId ? { parentTurnId } : {}),
     };
   }
 
@@ -2577,6 +2663,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         pendingUserInputs: new Map(),
         collabReceiverTurns: new Map(),
         collabReceiverParents: new Map(),
+        childActiveTurnIds: new Map(),
         reviewTurnIds: new Set(),
         nextRequestId: 1,
         stopping: false,
@@ -3264,6 +3351,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       this.clearTaskCompleteFallback(context);
       context.collabReceiverTurns.clear();
       context.collabReceiverParents.clear();
+      context.childActiveTurnIds?.clear();
       context.gatewaySessionLease?.release();
 
       const stopError =
@@ -4123,6 +4211,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       pendingUserInputs: new Map(),
       collabReceiverTurns: new Map(),
       collabReceiverParents: new Map(),
+      childActiveTurnIds: new Map(),
       reviewTurnIds: new Set(),
       nextRequestId: 1,
       stopping: false,
@@ -4458,10 +4547,25 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         notification.method === "thread/status/changed")
     )
       return;
-    if (isChildConversation && notification.method === "thread/closed" && providerThreadId) {
-      // The child conversation ended; nothing more will arrive from it.
-      context.collabReceiverTurns.delete(providerThreadId);
-      context.collabReceiverParents.delete(providerThreadId);
+    if (isChildConversation && providerThreadId) {
+      if (notification.method === "thread/closed") {
+        // The child conversation ended; nothing more will arrive from it.
+        context.collabReceiverTurns.delete(providerThreadId);
+        context.collabReceiverParents.delete(providerThreadId);
+        context.childActiveTurnIds?.delete(providerThreadId);
+      } else if (notification.method === "turn/started") {
+        const childTurnId =
+          toTurnId(this.readString(this.readObject(notification.params)?.turn, "id")) ??
+          rawRoute.turnId;
+        if (childTurnId) {
+          context.childActiveTurnIds?.set(providerThreadId, childTurnId);
+        }
+      } else if (
+        notification.method === "turn/completed" ||
+        notification.method === "turn/aborted"
+      ) {
+        context.childActiveTurnIds?.delete(providerThreadId);
+      }
     }
     if (
       isChildConversation &&
@@ -5767,7 +5871,9 @@ function runCodexVersionCommand(input: {
     timer = setTimeout(() => {
       // SIGKILL (rather than spawnSync's SIGTERM) because the promise settles here
       // regardless: a binary that ignores SIGTERM would otherwise linger forever.
-      child.kill("SIGKILL");
+      // Route through the shared process-tree boundary so Windows `.cmd` shims also
+      // terminate grandchild processes rather than only the outer `cmd.exe` wrapper.
+      signalOwnedChildProcess(child, "SIGKILL");
       finish({
         error: new Error(
           `Codex CLI version check timed out after ${CODEX_VERSION_CHECK_TIMEOUT_MS}ms.`,

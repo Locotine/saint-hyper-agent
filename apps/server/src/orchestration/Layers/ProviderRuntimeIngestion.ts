@@ -464,6 +464,10 @@ function assistantMessageSegmentKey(threadId: ThreadId, messageId: MessageId): s
   return JSON.stringify([threadId, messageId]);
 }
 
+function supportsLiveReasoningPreview(provider: string): boolean {
+  return provider === "claudeAgent" || provider === "antigravity";
+}
+
 function reasoningSummaryBufferKey(
   event: ProviderRuntimeEvent,
   threadId = event.threadId,
@@ -1176,12 +1180,12 @@ const make = Effect.gen(function* () {
     threadId: ThreadId,
     activity: OrchestrationThreadActivity,
   ) {
-    const isClaudeReasoning =
-      event.provider === "claudeAgent" &&
+    const isLivePreviewReasoning =
+      supportsLiveReasoningPreview(event.provider) &&
       (event.type === "item.updated" || event.type === "item.completed") &&
       event.payload.itemType === "reasoning";
     const hasStableActivity =
-      isClaudeReasoning || providerRuntimeCommandProgressKey(event) !== undefined;
+      isLivePreviewReasoning || providerRuntimeCommandProgressKey(event) !== undefined;
     if (hasStableActivity) {
       const cached = Option.getOrUndefined(yield* Cache.getOption(stableActivityById, activity.id));
       const durable = cached
@@ -1501,7 +1505,7 @@ const make = Effect.gen(function* () {
     const summary = Option.getOrUndefined(
       yield* Cache.getOption(bufferedReasoningSummaryByKey, key),
     );
-    if (!summary || summary.sourceEvent.provider !== "claudeAgent") return;
+    if (!summary || !supportsLiveReasoningPreview(summary.sourceEvent.provider)) return;
     const previewAt = Date.parse(summary.sourceEvent.createdAt);
     if (
       summary.lastPreviewAt !== undefined &&
@@ -1553,7 +1557,7 @@ const make = Effect.gen(function* () {
                   ),
                   threadId,
                   type: "item.completed",
-                  ...(summary.sourceEvent.provider === "claudeAgent"
+                  ...(supportsLiveReasoningPreview(summary.sourceEvent.provider)
                     ? { createdAt: summary.createdAt }
                     : {}),
                   payload: {
@@ -1568,7 +1572,9 @@ const make = Effect.gen(function* () {
                 return Effect.forEach(
                   projectProviderRuntimeActivities(
                     completionEvent,
-                    summary.sourceEvent.provider === "claudeAgent" ? summary.sequence : undefined,
+                    supportsLiveReasoningPreview(summary.sourceEvent.provider)
+                      ? summary.sequence
+                      : undefined,
                   ),
                   (activity) => dispatchActivityUpdate(completionEvent, threadId, activity),
                 ).pipe(Effect.andThen(Cache.invalidate(bufferedReasoningSummaryByKey, key)));
@@ -3713,7 +3719,7 @@ const make = Effect.gen(function* () {
       const activityEvent =
         event.type === "item.completed" && reasoningSummaryKey
           ? withBufferedReasoningSummary(
-              event.provider === "claudeAgent" && completedReasoning
+              supportsLiveReasoningPreview(event.provider) && completedReasoning
                 ? { ...event, createdAt: completedReasoning.createdAt }
                 : event,
               completedReasoning,
@@ -3751,7 +3757,7 @@ const make = Effect.gen(function* () {
       const snapshotKey = providerRuntimeProgressKey(event);
       const activities = projectProviderRuntimeActivities(
         scopedActivityEvent,
-        event.provider === "claudeAgent"
+        supportsLiveReasoningPreview(event.provider)
           ? (completedReasoning?.sequence ?? runtimeSequence)
           : runtimeSequence,
       );

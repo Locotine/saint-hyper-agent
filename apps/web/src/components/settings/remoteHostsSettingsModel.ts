@@ -13,7 +13,12 @@ import type {
 } from "@saint/contracts";
 
 export type RemoteHostStatusTone = "disconnected" | "connecting" | "connected" | "error";
-export type RemoteHostBadgeLabel = "Disconnected" | "Connecting…" | "Connected" | "Error";
+export type RemoteHostBadgeLabel =
+  | "Disconnected"
+  | "Connecting…"
+  | "Stopping…"
+  | "Connected"
+  | "Error";
 
 export interface RemoteHostRow {
   readonly host: string;
@@ -73,6 +78,7 @@ export function remoteHostStatusTone(
 export function remoteHostBadgeLabel(
   state: DesktopRemoteSshHostState | null,
 ): RemoteHostBadgeLabel {
+  if (state?.phase === "stopping") return "Stopping…";
   const tone = remoteHostStatusTone(state);
   switch (tone) {
     case "connected":
@@ -117,6 +123,9 @@ export function remoteHostConnectingProgress(
   row: Pick<RemoteHostRow, "host" | "displayName" | "state">,
 ): string | null {
   if (!isRemoteHostBusy(row.state)) return null;
+  if (row.state?.phase === "stopping") {
+    return `Stopping the managed Saint server on ${row.displayName}…`;
+  }
   const phaseDetail = remoteHostStatus(row.state);
   return `Setting up a managed Saint server on ${row.displayName} — ${phaseDetail}`;
 }

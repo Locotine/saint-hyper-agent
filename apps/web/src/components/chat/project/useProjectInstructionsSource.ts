@@ -1,13 +1,16 @@
-import { scopeLocalProject } from "@saint/shared/hostId";
 import type { ProjectId } from "@saint/contracts";
+import { scopeProject } from "@saint/shared/hostId";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { readLocalNativeApi } from "~/nativeApi";
+import { useHostHandle } from "~/hosts/hostScope";
 import { useProjectInstructionsStore } from "~/projectInstructionsStore";
 
 export function useProjectInstructionsSource(projectId: ProjectId | null) {
+  const chatHost = useHostHandle();
   const localInstructions = useProjectInstructionsStore((state) =>
-    projectId ? (state.instructionsByProjectId[scopeLocalProject(projectId)] ?? "") : "",
+    projectId
+      ? (state.instructionsByProjectId[scopeProject(chatHost.hostId, projectId)] ?? "")
+      : "",
   );
   const setLocalInstructions = useProjectInstructionsStore((state) => state.setInstructions);
   const [serverInstructions, setServerInstructions] = useState<string | null>(null);
@@ -25,7 +28,7 @@ export function useProjectInstructionsSource(projectId: ProjectId | null) {
     }
     let cancelled = false;
     void (async () => {
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       if (!api?.projectAgent) return;
       try {
         const overview = await api.projectAgent.getOverview({ projectId });
@@ -56,11 +59,11 @@ export function useProjectInstructionsSource(projectId: ProjectId | null) {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [chatHost, projectId]);
 
   const onChange = useCallback(
     (nextProjectId: ProjectId, instructions: string) => {
-      const api = readLocalNativeApi();
+      const api = chatHost.api();
       if (serverBacked && api?.projectAgent && revision !== null) {
         void api.projectAgent
           .writeDocument({
@@ -84,9 +87,9 @@ export function useProjectInstructionsSource(projectId: ProjectId | null) {
           });
         return;
       }
-      setLocalInstructions(scopeLocalProject(nextProjectId), instructions);
+      setLocalInstructions(scopeProject(chatHost.hostId, nextProjectId), instructions);
     },
-    [revision, serverBacked, setLocalInstructions],
+    [chatHost, revision, serverBacked, setLocalInstructions],
   );
 
   return {

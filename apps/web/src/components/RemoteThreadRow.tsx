@@ -23,6 +23,7 @@ import { deleteHostThread, updateHostThreadMeta } from "~/hosts/hostThreadCreate
 import { archiveThreadFromClient } from "~/lib/threadArchive";
 import { ServerIcon } from "~/lib/icons";
 import { openPathInThreadTerminal } from "~/lib/openPathInThreadTerminal";
+import { resolveProviderInstancesForHost } from "~/lib/providerAvailability";
 import { threadState, type RemoteCatalogThread } from "~/lib/remoteHostCatalog";
 import { resolveSubagentThreadStatusKind } from "~/lib/subagentPresentation";
 import {
@@ -176,7 +177,7 @@ function RemoteThreadRowBody(props: {
   const navigate = useNavigate();
   const router = useRouter();
   const { settings } = useAppSettings();
-  const providerStatuses = useProviderStatusesForLocalConfig();
+  const providerStatuses = useProviderStatusesForLocalConfig(hostId);
   const { continueThreadHandoff, createThreadHandoff, createTranscriptHandoff } =
     useThreadHandoff();
   const copyPath = useCopyPathToClipboard();
@@ -285,7 +286,11 @@ function RemoteThreadRowBody(props: {
             sourceProvider: thread.modelSelection.provider,
             sourceProviderInstanceId:
               thread.session?.providerInstanceId ?? thread.modelSelection.instanceId,
-            providerInstances: getProviderInstanceOptions(settings),
+            providerInstances: resolveProviderInstancesForHost({
+              hostId,
+              localProviderInstances: getProviderInstanceOptions(settings),
+              providerStatuses,
+            }),
             providerStatuses,
           }
         : null;

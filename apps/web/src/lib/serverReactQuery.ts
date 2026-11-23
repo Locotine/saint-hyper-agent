@@ -1,5 +1,6 @@
 import type {
   ComputerProvisionResult,
+  NativeApi,
   ProviderKind,
   ServerConfig,
   ServerConsumeCodexResetCreditInput,
@@ -12,6 +13,7 @@ import type {
 import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { apiFor } from "../hosts/hostApi";
 import { projectApiFor, withHostKey } from "./projectReactQuery";
+import { hasProbedEnabledProviderStatuses } from "./providerAvailability";
 import { mutationOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { ensureLocalNativeApi } from "~/nativeApi";
 import { EXPENSIVE_READ_RETRY_OPTIONS } from "./expensiveReadRetry";
@@ -61,12 +63,23 @@ export const serverMutationKeys = {
 export function serverConfigQueryOptions(hostId: HostId = LOCAL_HOST_ID) {
   return queryOptions({
     queryKey: withHostKey(serverQueryKeys.config(), hostId),
-    queryFn: async () => {
+    queryFn: async ({ client }) => {
       const api = projectApiFor(hostId);
-      return api.server.getConfig();
+      const config = await api.server.getConfig();
+      if (hostId === LOCAL_HOST_ID) {
+        return config;
+      }
+      const latest = latestRemoteProviderStatusSnapshotsByQueryClient.get(client)?.get(hostId);
+      if (!latest || latest.providers.length === 0) {
+        return config;
+      }
+      return {
+        ...config,
+        providers: mergeRemoteProviderStatusSnapshots(config.providers, latest.providers),
+      };
     },
-    // This computer's config is kept current by its stream; a host's is only read, so it
-    // would otherwise keep the provider health it had when first opened.
+    // This computer's config is kept current by its stream; a host's is kept current by
+    // connect refresh + provider status stream and still allows periodic resyncs.
     staleTime: hostId === LOCAL_HOST_ID ? Infinity : 30_000,
   });
 }
@@ -113,12 +126,103 @@ const latestProviderStatusSnapshotByQueryClient = new WeakMap<
   QueryClient,
   ProviderStatusSnapshot
 >();
+const latestRemoteProviderStatusSnapshotsByQueryClient = new WeakMap<
+  QueryClient,
+  Map<HostId, ProviderStatusSnapshot>
+>();
 
 const configRefreshRevisionByQueryClient = new WeakMap<QueryClient, number>();
 const providerConfigHydrationByQueryClient = new WeakMap<QueryClient, Promise<ServerConfig>>();
+const remoteProviderConfigHydrationByQueryClient = new WeakMap<
+  QueryClient,
+  Map<HostId, Promise<ServerConfig>>
+>();
+const inFlightRemoteProviderRefreshByHostId = new Map<
+  HostId,
+  Promise<readonly ServerProviderStatus[] | null>
+>();
 
-export function hasReconciledServerProviderStatuses(queryClient: QueryClient): boolean {
-  return latestProviderStatusSnapshotByQueryClient.get(queryClient)?.reconciled === true;
+function getRemoteSnapshotMap(queryClient: QueryClient): Map<HostId, ProviderStatusSnapshot> {
+  let map = latestRemoteProviderStatusSnapshotsByQueryClient.get(queryClient);
+  if (!map) {
+    map = new Map();
+    latestRemoteProviderStatusSnapshotsByQueryClient.set(queryClient, map);
+  }
+  return map;
+}
+
+function getRemoteHydrationMap(queryClient: QueryClient): Map<HostId, Promise<ServerConfig>> {
+  let map = remoteProviderConfigHydrationByQueryClient.get(queryClient);
+  if (!map) {
+    map = new Map();
+    remoteProviderConfigHydrationByQueryClient.set(queryClient, map);
+  }
+  return map;
+}
+
+/**
+ * Merges two remote status snapshots without letting an unprobed pre-refresh
+ * projection (which contains only disabled non-allowlisted providers) drop
+ * probed enabled providers from the other snapshot.
+ */
+function mergeRemoteProviderStatusSnapshots(
+  base: readonly ServerProviderStatus[] | undefined,
+  incoming: readonly ServerProviderStatus[],
+): readonly ServerProviderStatus[] {
+  if (!base || base.length === 0) {
+    return incoming;
+  }
+  if (hasProbedEnabledProviderStatuses(base) && !hasProbedEnabledProviderStatuses(incoming)) {
+    return mergeProviderStatusSnapshots(incoming, base);
+  }
+  return mergeProviderStatusSnapshots(base, incoming);
+}
+
+export function hasReconciledServerProviderStatuses(
+  queryClient: QueryClient,
+  hostId: HostId = LOCAL_HOST_ID,
+): boolean {
+  if (hostId === LOCAL_HOST_ID) {
+    return latestProviderStatusSnapshotByQueryClient.get(queryClient)?.reconciled === true;
+  }
+  const snapshot = latestRemoteProviderStatusSnapshotsByQueryClient.get(queryClient)?.get(hostId);
+  if (snapshot !== undefined) {
+    return snapshot.reconciled;
+  }
+  const cached = queryClient.getQueryData<ServerConfig>(
+    withHostKey(serverQueryKeys.config(), hostId),
+  );
+  return hasProbedEnabledProviderStatuses(cached?.providers);
+}
+
+export function markRemoteHostProviderStatusesStale(
+  queryClient: QueryClient,
+  hostId: HostId,
+): void {
+  if (hostId === LOCAL_HOST_ID) return;
+  inFlightRemoteProviderRefreshByHostId.delete(hostId);
+  const snapshots = latestRemoteProviderStatusSnapshotsByQueryClient.get(queryClient);
+  const current = snapshots?.get(hostId);
+  if (current) {
+    snapshots?.set(hostId, { ...current, reconciled: false });
+  }
+}
+
+export function clearRemoteHostProviderStatusState(queryClient: QueryClient, hostId: HostId): void {
+  if (hostId === LOCAL_HOST_ID) return;
+  inFlightRemoteProviderRefreshByHostId.delete(hostId);
+  latestRemoteProviderStatusSnapshotsByQueryClient.get(queryClient)?.delete(hostId);
+  remoteProviderConfigHydrationByQueryClient.get(queryClient)?.delete(hostId);
+  queryClient.removeQueries({ queryKey: withHostKey(serverQueryKeys.config(), hostId) });
+}
+
+export async function awaitInFlightRemoteHostProviderRefresh(
+  hostId: HostId,
+): Promise<readonly ServerProviderStatus[] | null> {
+  if (hostId === LOCAL_HOST_ID) return null;
+  const inFlight = inFlightRemoteProviderRefreshByHostId.get(hostId);
+  if (!inFlight) return null;
+  return inFlight.catch(() => null);
 }
 
 function providerStatusIdentity(
@@ -291,6 +395,141 @@ export async function refreshServerConfigAfterTransportOpen(
     ...config,
     providers,
   });
+}
+
+/**
+ * Folds a remote host's provider status snapshot into its cached `server.config`.
+ * Remote hosts receive provider-status pushes and connect-time refreshes before
+ * any thread opens, so hydrate the host's config instead of dropping early updates.
+ */
+export async function reconcileRemoteHostProviderStatuses(
+  queryClient: QueryClient,
+  hostId: HostId,
+  providers: readonly ServerProviderStatus[],
+  options?: {
+    readonly loadConfig?: () => Promise<ServerConfig>;
+  },
+): Promise<void> {
+  if (hostId === LOCAL_HOST_ID) {
+    await reconcileServerProviderStatuses(queryClient, providers, options);
+    return;
+  }
+  const key = withHostKey(serverQueryKeys.config(), hostId);
+  const snapshots = getRemoteSnapshotMap(queryClient);
+  const previous = snapshots.get(hostId);
+  const currentConfig = queryClient.getQueryData<ServerConfig>(key);
+  const mergedWithPrevious = mergeRemoteProviderStatusSnapshots(previous?.providers, providers);
+  const effectiveProviders = mergeRemoteProviderStatusSnapshots(
+    currentConfig?.providers,
+    mergedWithPrevious,
+  );
+  const reconciled =
+    hasProbedEnabledProviderStatuses(providers) ||
+    (previous?.reconciled === true && hasProbedEnabledProviderStatuses(effectiveProviders));
+  const snapshot: ProviderStatusSnapshot = {
+    revision: (previous?.revision ?? 0) + 1,
+    providers: effectiveProviders,
+    reconciled,
+  };
+  snapshots.set(hostId, snapshot);
+
+  let applied = false;
+  queryClient.setQueryData<ServerConfig>(key, (current) => {
+    if (!current) return current;
+    applied = true;
+    return {
+      ...current,
+      providers: mergeRemoteProviderStatusSnapshots(current.providers, effectiveProviders),
+    };
+  });
+  if (applied) return;
+
+  const remoteApi = options?.loadConfig ? null : apiFor(hostId);
+  if (!options?.loadConfig && !remoteApi) {
+    void queryClient.invalidateQueries({ queryKey: key });
+    return;
+  }
+
+  const loadConfig =
+    options?.loadConfig ??
+    (async () => {
+      const hydrations = getRemoteHydrationMap(queryClient);
+      const inFlight = hydrations.get(hostId);
+      if (inFlight) return inFlight;
+      const request = remoteApi!.server.getConfig();
+      hydrations.set(hostId, request);
+      try {
+        return await request;
+      } finally {
+        if (hydrations.get(hostId) === request) {
+          hydrations.delete(hostId);
+        }
+      }
+    });
+
+  const hydratedConfig = await loadConfig();
+  // Do not resurrect cache state if the host was forgotten while hydration was in flight.
+  const latestSnapshot = snapshots.get(hostId);
+  if (!latestSnapshot) return;
+
+  queryClient.setQueryData<ServerConfig>(key, (current) => {
+    const reconciledProviders = mergeRemoteProviderStatusSnapshots(
+      current?.providers,
+      mergeRemoteProviderStatusSnapshots(hydratedConfig.providers, latestSnapshot.providers),
+    );
+    snapshots.set(hostId, {
+      ...latestSnapshot,
+      providers: reconciledProviders,
+      reconciled:
+        latestSnapshot.reconciled || hasProbedEnabledProviderStatuses(reconciledProviders),
+    });
+    return { ...(current ?? hydratedConfig), providers: reconciledProviders };
+  });
+}
+
+/**
+ * Triggers a live provider-health refresh on a connected remote host, coalesced
+ * per host, and reconciles the result into the host's cached server config.
+ */
+export async function refreshRemoteHostProviderStatuses(
+  queryClient: QueryClient,
+  hostId: HostId,
+  options?: {
+    readonly api?: NativeApi;
+    readonly isCurrent?: () => boolean;
+  },
+): Promise<readonly ServerProviderStatus[] | null> {
+  if (hostId === LOCAL_HOST_ID) {
+    return null;
+  }
+  const existing = inFlightRemoteProviderRefreshByHostId.get(hostId);
+  if (existing) {
+    return existing;
+  }
+  const api = options?.api ?? apiFor(hostId);
+  if (!api?.server.refreshProviders) {
+    return null;
+  }
+  const isCurrent = options?.isCurrent ?? (() => true);
+  const request = api.server
+    .refreshProviders()
+    .then(async (result) => {
+      if (!isCurrent()) {
+        return null;
+      }
+      await reconcileRemoteHostProviderStatuses(queryClient, hostId, result.providers, {
+        loadConfig: () => api.server.getConfig(),
+      });
+      return result.providers;
+    })
+    .catch(() => null)
+    .finally(() => {
+      if (inFlightRemoteProviderRefreshByHostId.get(hostId) === request) {
+        inFlightRemoteProviderRefreshByHostId.delete(hostId);
+      }
+    });
+  inFlightRemoteProviderRefreshByHostId.set(hostId, request);
+  return request;
 }
 
 export function serverAuthSessionQueryOptions() {

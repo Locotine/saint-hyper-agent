@@ -374,8 +374,7 @@ import {
 } from "./chat/MessagesTimeline.logic";
 import { ProjectPicker } from "./chat/ProjectPicker";
 import { useHostThreadActions } from "../hooks/useHostThreadActions";
-import { useRemoteSshState } from "../hooks/useRemoteSshState";
-import { remoteHostAlias } from "./settings/remoteHostsSettingsModel";
+import { useRemoteHostAlias } from "../hooks/useRemoteSshState";
 import { ProviderHealthBanner } from "./chat/ProviderHealthBanner";
 import { resolveProviderModelLabel } from "./chat/ProviderModelPicker";
 import {
@@ -514,6 +513,7 @@ const EMPTY_TERMINAL_RUNTIME_ENV: Record<string, string> = {};
 const MAX_DISMISSED_PROVIDER_HEALTH_BANNERS = 50;
 
 const EMPTY_DISMISSED_PROVIDER_HEALTH_BANNERS: ReadonlyArray<string> = [];
+const EMPTY_HIDDEN_PROVIDERS: readonly ProviderKind[] = [];
 
 function getProviderHealthBannerDismissalKey(status: ServerProviderStatus | null): string | null {
   if (!status || status.status === "ready") {
@@ -675,7 +675,7 @@ export default function ChatView({
   const navigate = useNavigate();
   const { startThread: startHostThread, startThreadInNewProject: startHostThreadInNewProject } =
     useHostThreadActions();
-  const chatHostAlias = remoteHostAlias(useRemoteSshState(), chatHost.hostId) ?? "the host";
+  const chatHostAlias = useRemoteHostAlias(chatHost.hostId) ?? "the host";
   const hostThreadPicker = useMemo(
     () => ({ start: startHostThread, startInNewProject: startHostThreadInNewProject }),
     [startHostThread, startHostThreadInNewProject],
@@ -1513,8 +1513,10 @@ export default function ChatView({
     composerDraft,
     settings,
     resolvedThreadWorktreePath,
-    // Same gate as the Hand off menu: a coordinator is one per-group identity.
-    allowProviderHandoff: isServerThread && !isCoordinatorConversation,
+    // Same gate as the Hand off menu: a coordinator is one per-group identity,
+    // and subagent threads share their parent's session rather than handing off.
+    allowProviderHandoff:
+      isServerThread && !isCoordinatorConversation && !Boolean(activeThread?.parentThreadId),
   });
   const selectedProviderInstances = useMemo(
     () => providerInstances.filter((instance) => instance.provider === selectedProvider),
@@ -1864,7 +1866,10 @@ export default function ChatView({
   // complete: nothing would ever drain the composer queue, so messages routed
   // into it would be swallowed. Server-side reconciliation settles these
   // sessions; this keeps the composer usable until it does.
-  const hasQueueableLiveTurn = hasLiveTurn && activeThread?.session?.activeTurnId != null;
+  // Subagent threads mirror the server decider and never queue: messages steer
+  // the running child task immediately rather than waiting until it finishes.
+  const hasQueueableLiveTurn =
+    hasLiveTurn && activeThread?.session?.activeTurnId != null && !isSubagentThreadView;
   const {
     automationProjects,
     automationThreads,
@@ -2254,8 +2259,8 @@ export default function ChatView({
   const hasPendingThreadWork =
     isWorking || (activeLatestTurnState === "running" && !latestTurnSettled);
   const handleRetryThreadDetailSync = useCallback(() => {
-    void retryThreadDetailSync(threadId).catch(() => undefined);
-  }, [threadId]);
+    void retryThreadDetailSync(threadId, chatHost.hostId).catch(() => undefined);
+  }, [chatHost.hostId, threadId]);
   const activeThreadIsSidechat = Boolean(activeThread && isSidechatThread(activeThread));
   // Stable identity: this element is forwarded to the memoized MessagesTimeline, so
   // building it inline in JSX would defeat its `memo()` on every keystroke.
@@ -2509,12 +2514,15 @@ export default function ChatView({
     currentBranch: currentActiveGitBranch,
   });
 
-  const selectedModelCaps = useMemo(
-    () => getModelCapabilities(selectedProvider, selectedModel),
-    [selectedModel, selectedProvider],
-  );
-  const supportsFastSlashCommand = selectedModelCaps.supportsFastMode;
   const currentProviderModelOptions = composerModelOptions?.[selectedProvider];
+  const composerTraitSelection = getComposerTraitSelection(
+    selectedProvider,
+    selectedModel,
+    prompt,
+    currentProviderModelOptions,
+    selectedRuntimeModel,
+  );
+  const supportsFastSlashCommand = composerTraitSelection.caps.supportsFastMode;
   const { isEffortPreviewOpen, cycleEffort, dismissEffortPreview } = useComposerEffortCycle({
     threadId,
     provider: selectedProvider,
@@ -2526,9 +2534,7 @@ export default function ChatView({
   });
   const isComposerModelEffortPickerOpen =
     isModelPickerOpen || isTraitsPickerOpen || isEffortPreviewOpen;
-  const fastModeEnabled =
-    supportsFastSlashCommand &&
-    (currentProviderModelOptions as { fastMode?: boolean } | undefined)?.fastMode === true;
+  const fastModeEnabled = composerTraitSelection.fastModeEnabled;
   const composerPromptWithoutActiveSlashTrigger =
     composerTrigger?.kind === "slash-command"
       ? stripComposerTriggerText(prompt, composerTrigger)
@@ -2779,7 +2785,7 @@ export default function ChatView({
     [providerInstances, providerStatuses, selectedProvider, selectedProviderInstanceId],
   );
   const voiceProviderStatus = voiceProviderTarget?.status ?? null;
-  const refreshProviderStatuses = useRefreshProviderStatusesNow();
+  const refreshProviderStatuses = useRefreshProviderStatusesNow(chatHost.hostId);
   const activeProjectCwd = activeProject?.cwd ?? null;
   const activeThreadWorktreePath = isGroupContainer ? null : (activeThread?.worktreePath ?? null);
   const hasNativeUserMessages = useMemo(
@@ -4040,7 +4046,8 @@ export default function ChatView({
         return;
       }
       const resolvedInstanceId =
-        selectionOptions?.instanceId ?? resolveDefaultProviderInstanceId(settings, provider);
+        selectionOptions?.instanceId ??
+        (isRemoteHost ? provider : resolveDefaultProviderInstanceId(settings, provider));
       // Picking another provider is a handoff, but the bound provider stays on
       // its own account either way.
       const instanceLockedProvider = lockedProvider ?? boundProvider;
@@ -4124,6 +4131,7 @@ export default function ChatView({
       activeThread,
       boundProvider,
       customModelsByProvider,
+      isRemoteHost,
       lockedProvider,
       modelOptionsByProvider,
       modelOptionsByProviderInstance,
@@ -4936,14 +4944,7 @@ export default function ChatView({
     },
     [promptRef, setComposerCursor, setComposerTrigger, scheduleComposerFocus, setPrompt],
   );
-  const selectedProviderModelOptions = composerModelOptions?.[selectedProvider];
-  const composerTraitSelection = getComposerTraitSelection(
-    selectedProvider,
-    selectedModel,
-    prompt,
-    selectedProviderModelOptions,
-    selectedRuntimeModel,
-  );
+  const selectedProviderModelOptions = currentProviderModelOptions;
   const runtimeUsageContextWindow = useMemo(
     () =>
       activeContextWindow ??
@@ -5131,7 +5132,7 @@ export default function ChatView({
       loadingModelProviders={loadingModelProviders}
       onRefreshModels={refreshModels}
       discoveryErrorsByProvider={discoveryErrorsByProvider}
-      hiddenProviders={settings.hiddenProviders}
+      hiddenProviders={isRemoteHost ? EMPTY_HIDDEN_PROVIDERS : settings.hiddenProviders}
       providerOrder={settings.providerOrder}
       providerInstances={providerInstances}
       selectedProviderInstanceId={selectedProviderInstanceId}
@@ -5185,13 +5186,14 @@ export default function ChatView({
       buildNextProviderOptions(selectedProvider, selectedProviderModelOptions, {
         fastMode: !composerTraitSelection.fastModeEnabled,
       }),
-      { instanceId: selectedProviderInstanceId, persistSticky: true },
+      { instanceId: selectedProviderInstanceId, model: selectedModel, persistSticky: true },
     );
     scheduleComposerFocus();
   }, [
     composerTraitSelection.caps.supportsFastMode,
     composerTraitSelection.fastModeEnabled,
     scheduleComposerFocus,
+    selectedModel,
     selectedProvider,
     selectedProviderInstanceId,
     selectedProviderModelOptions,
@@ -5336,6 +5338,8 @@ export default function ChatView({
     providerNativeCommands,
     providerCommandDiscoveryCwd: providerModelDiscoveryCwd,
     selectedProvider,
+    selectedProviderInstanceId,
+    selectedModel,
     currentProviderModelOptions,
     selectedModelSelection,
     runtimeMode,

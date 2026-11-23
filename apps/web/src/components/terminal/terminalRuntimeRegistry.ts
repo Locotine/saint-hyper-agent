@@ -5,6 +5,7 @@
 
 import { SearchAddon } from "@xterm/addon-search";
 import { Terminal } from "@xterm/xterm";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
 import { registerTerminalRuntimeCleanup } from "../../lib/terminalStateCleanup";
 
 import {
@@ -76,8 +77,8 @@ class TerminalRuntimeRegistry {
     this.entries.delete(runtimeKey);
   }
 
-  disposeTerminal(threadId: string, terminalId: string): void {
-    this.dispose(buildTerminalRuntimeKey(threadId, terminalId));
+  disposeTerminal(threadId: string, terminalId: string, hostId: HostId = LOCAL_HOST_ID): void {
+    this.dispose(buildTerminalRuntimeKey(threadId, terminalId, hostId));
   }
 
   disposeThread(threadId: string): void {

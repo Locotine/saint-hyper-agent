@@ -45,6 +45,7 @@ import {
   useDesktopTopBarTrafficLightGutterClassName,
   useDesktopTopBarWindowControlsGutterClassName,
 } from "~/hooks/useDesktopTopBarGutter";
+import { useStableCallback } from "~/hooks/useStableCallback";
 import {
   buildFileDiffRenderKey,
   resolveFileDiffPath,
@@ -405,6 +406,20 @@ export interface EditorLeaveGuard {
 
 export { extractDroppedFilePath } from "./EditorSplitGroups";
 
+function syncFileEditTargetIntoSplitLayout(
+  layout: EditorSplitLayoutState,
+  editFilePath: string | null,
+): EditorSplitLayoutState {
+  if (!editFilePath) return layout;
+  // Keep editing in whichever split group already displays this file; only open a new
+  // tab in the active group when editing jumps to a file not selected in any group
+  // (for example, F12 Go-to-Definition from Monaco).
+  if (layout.groups.some((group) => group.selectedFilePath === editFilePath)) {
+    return layout;
+  }
+  return syncPrimaryFileIntoSplitLayout(layout, editFilePath);
+}
+
 export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
   // The editor header sits flush against the window's left edge whenever the
   // global sidebar is collapsed, so it has to clear the macOS traffic lights the
@@ -533,7 +548,10 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
   const [splitLayout, setSplitLayout] = useState<EditorSplitLayoutState>(() => {
     const persisted = props.threadId ? readEditorViewState(props.threadId)?.splitLayout : null;
     const base = persisted ?? createInitialEditorSplitLayout(props.selectedFilePath);
-    return syncPrimaryFileIntoSplitLayout(base, props.selectedFilePath);
+    const withSelected = syncPrimaryFileIntoSplitLayout(base, props.selectedFilePath);
+    return props.centerMode === "fileEdit"
+      ? syncFileEditTargetIntoSplitLayout(withSelected, props.editFilePath)
+      : withSelected;
   });
   const splitLayoutRef = useRef(splitLayout);
   splitLayoutRef.current = splitLayout;
@@ -554,6 +572,11 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
   }, [props.threadId, props.selectedFilePath]);
 
   useEffect(() => {
+    if (props.centerMode !== "fileEdit" || !props.editFilePath) return;
+    setSplitLayout((current) => syncFileEditTargetIntoSplitLayout(current, props.editFilePath));
+  }, [props.centerMode, props.editFilePath]);
+
+  useEffect(() => {
     if (!props.threadId || splitLayoutThreadIdRef.current !== props.threadId) return;
     storeEditorSplitLayout(props.threadId, splitLayout);
   }, [props.threadId, splitLayout]);
@@ -566,6 +589,13 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
       const activeGroup =
         next.groups.find((group) => group.id === next.activeGroupId) ?? next.groups[0];
       if (
+        props.centerMode === "fileEdit" &&
+        props.editFilePath !== null &&
+        !next.groups.some((group) => group.openFilePaths.includes(props.editFilePath!))
+      ) {
+        props.onCloseEdit();
+      }
+      if (
         activeGroup?.selectedFilePath &&
         activeGroup.selectedFilePath !== props.selectedFilePath
       ) {
@@ -574,7 +604,7 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
     });
   };
 
-  const stopChatPaneResize = () => {
+  const stopChatPaneResize = useStableCallback(() => {
     const resizeState = chatPaneResizeStateRef.current;
     if (!resizeState || typeof window === "undefined") {
       return;
@@ -593,7 +623,7 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
     setChatPaneWidth(resizeState.pendingWidth);
     storeEditorChatPaneWidth(resizeState.pendingWidth);
     chatPaneResizeStateRef.current = null;
-  };
+  });
 
   useEffect(() => stopChatPaneResize, [stopChatPaneResize]);
 
@@ -667,7 +697,9 @@ export function EditorWorkspaceView(props: EditorWorkspaceViewProps) {
       ? activeSplitGroup?.selectedFilePath === props.editFilePath
         ? activeSplitGroup.id
         : (splitLayout.groups.find((candidate) => candidate.selectedFilePath === props.editFilePath)
-            ?.id ?? null)
+            ?.id ??
+          activeSplitGroup?.id ??
+          null)
       : null;
 
   const guardedSelectDiffFile = (filePath: string) => {

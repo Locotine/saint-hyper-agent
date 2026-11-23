@@ -14,7 +14,8 @@ import { LOCAL_HOST_ID } from "@saint/shared/hostId";
 
 import { apiFor, useHostId } from "~/hosts/hostScope";
 import { readLocalNativeApi } from "~/nativeApi";
-import { resolveHostHttpUrl } from "~/lib/wsHttpUrl";
+import { resolveHostHttpUrlOrNull } from "~/lib/wsHttpUrl";
+import { useHostExplicitUrl } from "./LocalImagePreview";
 import { PanelStateMessage } from "./chat/PanelStateMessage";
 
 // Same capabilities as the response's CSP sandbox; never allow-same-origin, so
@@ -29,6 +30,8 @@ export function HtmlFilePreview(props: {
 }) {
   // A remote host's chat previews the file on that host's server, grant included.
   const hostId = useHostId();
+  const hostExplicitUrl = useHostExplicitUrl(hostId);
+  void hostExplicitUrl;
   const grantQuery = useQuery({
     queryKey: ["projects", "html-preview-grant", props.absolutePath, props.cacheKey, hostId],
     queryFn: async () => {
@@ -55,13 +58,18 @@ export function HtmlFilePreview(props: {
   }
   if (!grantQuery.data) return null;
 
-  const srcUrl = new URL(
-    resolveHostHttpUrl(
-      hostId,
-      `${HTML_PREVIEW_ROUTE_PATH}/${grantQuery.data.grant}/${encodeURIComponent(grantQuery.data.entryName)}`,
-    ),
-    window.location.href,
+  const resolvedUrl = resolveHostHttpUrlOrNull(
+    hostId,
+    `${HTML_PREVIEW_ROUTE_PATH}/${grantQuery.data.grant}/${encodeURIComponent(grantQuery.data.entryName)}`,
   );
+  if (!resolvedUrl) {
+    return (
+      <PanelStateMessage density="compact" fill="flex" className="items-start justify-start p-3">
+        <p className="text-left text-ui-sm text-destructive/85">This host is not connected.</p>
+      </PanelStateMessage>
+    );
+  }
+  const srcUrl = new URL(resolvedUrl, window.location.href);
   // The grant in the path authorizes the route; the server token must never
   // reach the page, whose scripts can read their own URL.
   srcUrl.searchParams.delete("token");

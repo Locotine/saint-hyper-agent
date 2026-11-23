@@ -18,7 +18,7 @@ import {
 import { Skeleton } from "~/components/ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 import { useIsMobile } from "~/hooks/useMediaQuery";
-import { getLocalStorageItem, setLocalStorageItem } from "~/hooks/useLocalStorage";
+import { getLocalStorageItemOrNull, setLocalStorageItem } from "~/hooks/useLocalStorage";
 import { Schema } from "effect";
 
 const SIDEBAR_WIDTH = "16rem";
@@ -649,7 +649,7 @@ function SidebarRail({
     const wrapper = rail.closest<HTMLElement>("[data-slot='sidebar-wrapper']");
     if (!wrapper) return;
 
-    const storedWidth = getLocalStorageItem(resolvedResizable.storageKey, Schema.Finite);
+    const storedWidth = getLocalStorageItemOrNull(resolvedResizable.storageKey, Schema.Finite);
     if (storedWidth === null) return;
     const clampedWidth = clampSidebarWidth(storedWidth, resolvedResizable);
     wrapper.style.setProperty("--sidebar-width", `${clampedWidth}px`);

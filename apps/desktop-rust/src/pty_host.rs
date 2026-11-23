@@ -11,9 +11,52 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 use uuid::Uuid;
+
+const WINDOWS_VERBATIM_CMD_ENV: &str = "SAINT_PTY_VERBATIM_CMD";
+
+fn is_windows_cmd_shell(shell: &str) -> bool {
+    let trimmed = shell.trim().trim_matches('"');
+    let file_name = trimmed
+        .rsplit(|c| c == '\\' || c == '/')
+        .next()
+        .unwrap_or(trimmed);
+    file_name.eq_ignore_ascii_case("cmd") || file_name.eq_ignore_ascii_case("cmd.exe")
+}
+
+/// `portable-pty`'s Windows `CommandBuilder::cmdline()` unconditionally runs MSVCRT `append_quoted`
+/// on every argument containing spaces or quotes, turning `call "C:\..."` into `"call \"C:\...\""`
+/// which `cmd.exe /s /c` rejects. Passing the verbatim `/c` command line through an unquoted
+/// `%SAINT_PTY_VERBATIM_CMD%` argument bypasses `append_quoted` (zero spaces/quotes) while letting
+/// `cmd.exe` expand and execute the exact batch command line verbatim and immediately clear the var.
+fn resolve_windows_verbatim_cmd_args(
+    shell: &str,
+    args: &[String],
+    windows_verbatim_arguments: bool,
+) -> (Vec<String>, Option<(&'static str, String)>) {
+    if !windows_verbatim_arguments || !is_windows_cmd_shell(shell) {
+        return (args.to_vec(), None);
+    }
+    let Some(c_pos) = args.iter().position(|arg| arg.eq_ignore_ascii_case("/c")) else {
+        return (args.to_vec(), None);
+    };
+    if c_pos + 1 >= args.len() {
+        return (args.to_vec(), None);
+    }
+    let raw_command_line = args[c_pos + 1..].join(" ");
+    let mut rewritten = args[..=c_pos].to_vec();
+    rewritten.push(format!("%{WINDOWS_VERBATIM_CMD_ENV}%"));
+    (
+        rewritten,
+        Some((
+            WINDOWS_VERBATIM_CMD_ENV,
+            format!("set {WINDOWS_VERBATIM_CMD_ENV}=& {raw_command_line}"),
+        )),
+    )
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -24,6 +67,8 @@ enum BridgeClientCommand {
         shell: String,
         #[serde(default)]
         args: Vec<String>,
+        #[serde(default)]
+        windows_verbatim_arguments: bool,
         cwd: String,
         cols: u16,
         rows: u16,
@@ -138,13 +183,25 @@ fn read_bounded_line<R: BufRead>(reader: &mut R, max_bytes: usize) -> std::io::R
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
 }
 
-fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
+struct ActivePtySession {
+    pid: u32,
+    killer: Box<dyn portable_pty::ChildKiller + Send + Sync>,
+    shutdown_stream: Option<TcpStream>,
+}
+
+fn handle_pty_bridge_client(
+    stream: TcpStream,
+    expected_token: String,
+    active_sessions: Arc<Mutex<HashMap<u64, ActivePtySession>>>,
+    next_session_id: Arc<AtomicU64>,
+) {
     let _ = stream.set_nodelay(true);
     let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
     let Ok(writer_stream) = stream.try_clone() else {
         return;
     };
     let shutdown_stream = stream.try_clone().ok();
+    let shutdown_stream_for_registry = stream.try_clone().ok();
     let writer = Arc::new(Mutex::new(writer_stream));
     let mut reader = BufReader::new(stream);
 
@@ -156,6 +213,7 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
         token,
         shell,
         args,
+        windows_verbatim_arguments,
         cwd,
         cols,
         rows,
@@ -201,8 +259,13 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
         }
     };
 
+    let (effective_args, verbatim_env) = if cfg!(windows) {
+        resolve_windows_verbatim_cmd_args(&shell, &args, windows_verbatim_arguments)
+    } else {
+        (args, None)
+    };
     let mut cmd = CommandBuilder::new(&shell);
-    for arg in &args {
+    for arg in &effective_args {
         cmd.arg(arg);
     }
     cmd.cwd(&cwd);
@@ -211,6 +274,9 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
     cmd.env_clear();
     for (k, v) in &env {
         cmd.env(k, v);
+    }
+    if let Some((key, value)) = verbatim_env {
+        cmd.env(key, value);
     }
 
     let mut child = match pair.slave.spawn_command(cmd) {
@@ -255,8 +321,22 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
     let master = Arc::new(Mutex::new(Some(pair.master)));
     let pty_writer = Arc::new(Mutex::new(Some(pty_writer)));
     let mut child_killer = child.clone_killer();
+    let session_id = next_session_id.fetch_add(1, Ordering::Relaxed);
+    if let Ok(mut guard) = active_sessions.lock() {
+        guard.insert(
+            session_id,
+            ActivePtySession {
+                pid,
+                killer: child.clone_killer(),
+                shutdown_stream: shutdown_stream_for_registry,
+            },
+        );
+    }
 
     if !send_bridge_event(&writer, &BridgeServerEvent::Spawned { pid }) {
+        if let Ok(mut guard) = active_sessions.lock() {
+            guard.remove(&session_id);
+        }
         let _ = child_killer.kill();
         return;
     }
@@ -387,20 +467,22 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
                 }
             }
             BridgeClientCommand::Kill => {
-                if pid > 0 {
-                    crate::backend::BackendSupervisor::kill_process_tree(pid);
-                }
-                let _ = child_killer.kill();
                 break;
             }
             BridgeClientCommand::Spawn { .. } => {}
         }
     }
 
-    if pid > 0 {
-        crate::backend::BackendSupervisor::kill_process_tree(pid);
+    let removed = active_sessions
+        .lock()
+        .ok()
+        .and_then(|mut guard| guard.remove(&session_id));
+    if removed.is_some() {
+        if pid > 0 {
+            crate::backend::BackendSupervisor::kill_process_tree_no_reap(pid);
+        }
+        let _ = child_killer.kill();
     }
-    let _ = child_killer.kill();
     std::thread::spawn(move || {
         take_and_drop(&pty_writer);
         take_and_drop(&master);
@@ -410,11 +492,14 @@ fn handle_pty_bridge_client(stream: TcpStream, expected_token: String) {
 pub struct PtyHostManager {
     bridge_port: u16,
     bridge_token: String,
+    active_sessions: Arc<Mutex<HashMap<u64, ActivePtySession>>>,
 }
 
 impl PtyHostManager {
     pub fn new() -> Self {
         let bridge_token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+        let active_sessions = Arc::new(Mutex::new(HashMap::new()));
+        let next_session_id = Arc::new(AtomicU64::new(1));
         let listener = TcpListener::bind("127.0.0.1:0").ok();
         let bridge_port = listener
             .as_ref()
@@ -424,11 +509,15 @@ impl PtyHostManager {
 
         if let Some(listener) = listener {
             let token_for_server = bridge_token.clone();
+            let sessions_for_server = Arc::clone(&active_sessions);
+            let next_id_for_server = Arc::clone(&next_session_id);
             std::thread::spawn(move || {
                 for incoming in listener.incoming().flatten() {
                     let token = token_for_server.clone();
+                    let sessions = Arc::clone(&sessions_for_server);
+                    let next_id = Arc::clone(&next_id_for_server);
                     std::thread::spawn(move || {
-                        handle_pty_bridge_client(incoming, token);
+                        handle_pty_bridge_client(incoming, token, sessions, next_id);
                     });
                 }
             });
@@ -437,6 +526,7 @@ impl PtyHostManager {
         Self {
             bridge_port,
             bridge_token,
+            active_sessions,
         }
     }
 
@@ -446,6 +536,24 @@ impl PtyHostManager {
 
     pub fn bridge_token(&self) -> &str {
         &self.bridge_token
+    }
+
+    /// Synchronously terminates every active PTY process tree before app exit or `app.restart()`.
+    pub fn kill_all_sync(&self) {
+        let drained: Vec<ActivePtySession> = self
+            .active_sessions
+            .lock()
+            .map(|mut guard| guard.drain().map(|(_, session)| session).collect())
+            .unwrap_or_default();
+        for mut session in drained {
+            if let Some(stream) = session.shutdown_stream.take() {
+                let _ = stream.shutdown(std::net::Shutdown::Both);
+            }
+            if session.pid > 0 {
+                crate::backend::BackendSupervisor::kill_process_tree_no_reap(session.pid);
+            }
+            let _ = session.killer.kill();
+        }
     }
 }
 
@@ -604,5 +712,48 @@ mod tests {
             "client must observe socket shutdown even while writer mutex remains held, got: {read_res:?}"
         );
         drop(held_guard);
+    }
+
+    #[test]
+    fn rewrites_windows_verbatim_cmd_args_via_unquoted_env_var() {
+        let args: Vec<String> = vec![
+            "/d".into(),
+            "/s".into(),
+            "/v:off".into(),
+            "/c".into(),
+            r#"call "C:\Program Files\Saint CLI\codex.cmd" login --device"#.into(),
+        ];
+        let (rewritten, env_entry) =
+            resolve_windows_verbatim_cmd_args(r"C:\Windows\System32\cmd.exe", &args, true);
+        assert_eq!(
+            rewritten,
+            vec![
+                "/d",
+                "/s",
+                "/v:off",
+                "/c",
+                "%SAINT_PTY_VERBATIM_CMD%",
+            ]
+        );
+        assert!(rewritten
+            .iter()
+            .all(|arg| !arg.contains(' ') && !arg.contains('"')));
+        assert_eq!(
+            env_entry,
+            Some((
+                WINDOWS_VERBATIM_CMD_ENV,
+                r#"set SAINT_PTY_VERBATIM_CMD=& call "C:\Program Files\Saint CLI\codex.cmd" login --device"#
+                    .to_string()
+            ))
+        );
+
+        let (untouched, no_env) =
+            resolve_windows_verbatim_cmd_args(r"C:\Windows\System32\cmd.exe", &args, false);
+        assert_eq!(untouched, args);
+        assert_eq!(no_env, None);
+
+        let (non_cmd, non_cmd_env) = resolve_windows_verbatim_cmd_args("/bin/bash", &args, true);
+        assert_eq!(non_cmd, args);
+        assert_eq!(non_cmd_env, None);
     }
 }

@@ -70,7 +70,7 @@ import {
   resolveThreadPickerTitle,
   resolveToggledChatPanelPatch,
 } from "../../routes/-chatThreadRoute.logic";
-import { getLocalStorageItem, setLocalStorageItem } from "../../hooks/useLocalStorage";
+import { getLocalStorageItemOrNull, setLocalStorageItem } from "../../hooks/useLocalStorage";
 import { ChatPaneBody, KeptChatPane } from "./ChatPaneKeepAlive";
 import {
   CHAT_BACKGROUND_CLASS_NAME,
@@ -130,12 +130,12 @@ function SplitPaneEmbeddedPanel(props: {
   // current key; a stale key re-reads localStorage for the new panel's value.
   const [panelWidthState, setPanelWidthState] = useState<{ key: string; value: number }>(() => ({
     key: storageKey,
-    value: getLocalStorageItem(storageKey, Schema.Finite) ?? defaultPanelWidth,
+    value: getLocalStorageItemOrNull(storageKey, Schema.Finite) ?? defaultPanelWidth,
   }));
   const panelWidth =
     panelWidthState.key === storageKey
       ? panelWidthState.value
-      : (getLocalStorageItem(storageKey, Schema.Finite) ?? defaultPanelWidth);
+      : (getLocalStorageItemOrNull(storageKey, Schema.Finite) ?? defaultPanelWidth);
 
   const shouldAcceptEmbeddedWidth = (nextWidth: number) => {
     const wrapper = wrapperRef.current;

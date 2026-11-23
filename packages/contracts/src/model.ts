@@ -62,6 +62,7 @@ export type ProviderReasoningEffort =
   | CodexReasoningEffort
   | ClaudeCodeEffort
   | PiThinkingLevel
+  | OmpThinkingLevel
   | GrokReasoningEffort
   | DroidReasoningEffort;
 

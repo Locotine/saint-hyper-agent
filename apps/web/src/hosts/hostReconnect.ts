@@ -64,6 +64,9 @@ export function stepAutoReconnect(
       reconnect: false,
     };
   }
+  if (phase === "idle" || phase === "stopping") {
+    return { entry: INITIAL_AUTO_RECONNECT_ENTRY, reconnect: false };
+  }
   const stale = phase === "connected" && streamStale;
   const gaveUp = phase === "error" && entry.everConnected;
   if (!stale && !gaveUp) {

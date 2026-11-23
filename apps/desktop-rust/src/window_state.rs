@@ -62,6 +62,26 @@ fn intersection_area(left: DesktopWindowBounds, right: DesktopWindowBounds) -> i
     i64::from(width) * i64::from(height)
 }
 
+pub fn physical_to_logical_bounds(
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    scale_factor: f64,
+) -> DesktopWindowBounds {
+    let scale = if scale_factor.is_finite() && scale_factor > 0.0 {
+        scale_factor
+    } else {
+        1.0
+    };
+    DesktopWindowBounds {
+        x: (f64::from(x) / scale).round() as i32,
+        y: (f64::from(y) / scale).round() as i32,
+        width: (f64::from(width) / scale).round().max(1.0) as i32,
+        height: (f64::from(height) / scale).round().max(1.0) as i32,
+    }
+}
+
 pub fn resolve_visible_window_bounds(
     saved_bounds: DesktopWindowBounds,
     display_work_areas: &[DesktopWindowBounds],
@@ -759,5 +779,45 @@ mod tests {
         let valid_png_url = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
         assert!(decode_clipboard_png_data_url(valid_png_url).is_some());
         assert!(decode_clipboard_png_data_url("data:image/jpeg;base64,abc").is_none());
+    }
+
+    #[test]
+    fn converts_physical_bounds_to_logical_bounds_across_scale_factors() {
+        assert_eq!(
+            physical_to_logical_bounds(200, 100, 2720, 1720, 2.0),
+            DesktopWindowBounds {
+                x: 100,
+                y: 50,
+                width: 1360,
+                height: 860,
+            }
+        );
+        assert_eq!(
+            physical_to_logical_bounds(150, 75, 1920, 1080, 1.5),
+            DesktopWindowBounds {
+                x: 100,
+                y: 50,
+                width: 1280,
+                height: 720,
+            }
+        );
+        assert_eq!(
+            physical_to_logical_bounds(40, 20, 1200, 800, 0.0),
+            DesktopWindowBounds {
+                x: 40,
+                y: 20,
+                width: 1200,
+                height: 800,
+            }
+        );
+        assert_eq!(
+            physical_to_logical_bounds(40, 20, 1200, 800, f64::NAN),
+            DesktopWindowBounds {
+                x: 40,
+                y: 20,
+                width: 1200,
+                height: 800,
+            }
+        );
     }
 }

@@ -27,6 +27,7 @@ import {
 import { CheckpointInvariantError, type CheckpointStoreError } from "../Errors.ts";
 import { GitCommandError } from "../../git/Errors.ts";
 import { GitCore } from "../../git/Services/GitCore.ts";
+import { stripSaintControlPlaneEnvironment } from "../../providerChildEnvironment.ts";
 import { CheckpointStore, type CheckpointStoreShape } from "../Services/CheckpointStore.ts";
 import { CheckpointRef } from "@saint/contracts";
 import { CHECKPOINT_REFS_PREFIX } from "../Utils.ts";
@@ -163,7 +164,7 @@ const makeCheckpointStore = Effect.gen(function* () {
           Effect.gen(function* () {
             const tempIndexPath = path.join(tempDir, `index-${randomUUID()}`);
             const commitEnv: NodeJS.ProcessEnv = {
-              ...process.env,
+              ...stripSaintControlPlaneEnvironment(process.env),
               GIT_INDEX_FILE: tempIndexPath,
               GIT_AUTHOR_NAME: "Saint",
               GIT_AUTHOR_EMAIL: "saint@users.noreply.github.com",
@@ -411,7 +412,10 @@ const makeCheckpointStore = Effect.gen(function* () {
           fs.makeTempDirectory({ prefix: "saint-provider-patch-" }),
           (tempDir) =>
             Effect.gen(function* () {
-              const env = { ...process.env, GIT_INDEX_FILE: path.join(tempDir, "index") };
+              const env = {
+                ...stripSaintControlPlaneEnvironment(process.env),
+                GIT_INDEX_FILE: path.join(tempDir, "index"),
+              };
               const patchPath = path.join(tempDir, "provider.patch");
               yield* fs.writeFileString(patchPath, input.providerPatch!);
               yield* git.execute({ operation, cwd: input.cwd, args: ["read-tree", baseline], env });
@@ -557,7 +561,7 @@ const makeCheckpointStore = Effect.gen(function* () {
     Effect.gen(function* () {
       const operation = "CheckpointStore.reverseCheckpointDiff";
       const mergeIndexEnv: NodeJS.ProcessEnv = {
-        ...process.env,
+        ...stripSaintControlPlaneEnvironment(process.env),
         GIT_INDEX_FILE: path.join(input.tempDir, `undo-index-${randomUUID()}`),
       };
 

@@ -3,14 +3,20 @@
 // Layer: Web data-fetching unit tests
 
 import { type ServerConfig, type ServerProviderStatus } from "@saint/contracts";
+import { sshHostId } from "@saint/shared/hostId";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 
+import { withHostKey } from "./projectReactQuery";
 import {
+  clearRemoteHostProviderStatusState,
   hasReconciledServerProviderStatuses,
   invalidateProviderUsageQueries,
   LOCAL_SERVERS_VISIBLE_REFETCH_INTERVAL_MS,
+  markRemoteHostProviderStatusesStale,
+  reconcileRemoteHostProviderStatuses,
   reconcileServerProviderStatuses,
+  refreshRemoteHostProviderStatuses,
   refreshServerConfigAfterTransportOpen,
   serverProviderUsageSnapshotQueryOptions,
   serverQueryKeys,
@@ -510,6 +516,87 @@ describe("server provider status reconciliation", () => {
     expect(queryClient.getQueryData<ServerConfig>(serverQueryKeys.config())?.providers).toEqual([
       READY_CODEX_STATUS,
     ]);
+  });
+
+  it("hydrates remote host config on early provider pushes and waits for enabled providers before marking reconciled", async () => {
+    const queryClient = new QueryClient();
+    const remoteHostId = sshHostId("c3d4e5f6");
+    const remoteKey = withHostKey(serverQueryKeys.config(), remoteHostId);
+    const disabledCursor: ServerProviderStatus = {
+      ...READY_CODEX_STATUS,
+      provider: "cursor",
+      driver: "cursor",
+      instanceId: "cursor",
+      enabled: false,
+      available: false,
+      status: "warning",
+      authStatus: "unknown",
+    };
+    const unavailableCodex: ServerProviderStatus = {
+      ...READY_CODEX_STATUS,
+      enabled: true,
+      available: false,
+      status: "error",
+      authStatus: "unknown",
+    };
+    const readyClaude: ServerProviderStatus = {
+      ...READY_CODEX_STATUS,
+      provider: "claudeAgent",
+      driver: "claudeAgent",
+      instanceId: "claudeAgent",
+      enabled: true,
+      available: true,
+      status: "ready",
+      authStatus: "authenticated",
+    };
+
+    expect(hasReconciledServerProviderStatuses(queryClient, remoteHostId)).toBe(false);
+
+    // Initial pre-probe push from a cold remote SSH server contains only disabled providers.
+    await reconcileRemoteHostProviderStatuses(queryClient, remoteHostId, [disabledCursor], {
+      loadConfig: async () => makeServerConfig([disabledCursor]),
+    });
+    expect(hasReconciledServerProviderStatuses(queryClient, remoteHostId)).toBe(false);
+    expect(queryClient.getQueryData<ServerConfig>(remoteKey)?.providers).toEqual([disabledCursor]);
+
+    // Connect-time refresh returns probed enabled providers and marks the remote host reconciled.
+    const refreshed = await refreshRemoteHostProviderStatuses(queryClient, remoteHostId, {
+      api: {
+        server: {
+          refreshProviders: async () => ({
+            providers: [unavailableCodex, readyClaude, disabledCursor],
+          }),
+          getConfig: async () => makeServerConfig([disabledCursor]),
+        },
+      } as never,
+    });
+    expect(refreshed).toEqual([unavailableCodex, readyClaude, disabledCursor]);
+    expect(hasReconciledServerProviderStatuses(queryClient, remoteHostId)).toBe(true);
+    expect(queryClient.getQueryData<ServerConfig>(remoteKey)?.providers).toEqual([
+      unavailableCodex,
+      readyClaude,
+      disabledCursor,
+    ]);
+
+    // An out-of-order pre-probe push cannot drop probed enabled providers.
+    await reconcileRemoteHostProviderStatuses(queryClient, remoteHostId, [disabledCursor]);
+    expect(queryClient.getQueryData<ServerConfig>(remoteKey)?.providers).toEqual([
+      unavailableCodex,
+      readyClaude,
+      disabledCursor,
+    ]);
+
+    // Disconnect marks reconciled stale while keeping cached config; forget clears everything.
+    markRemoteHostProviderStatusesStale(queryClient, remoteHostId);
+    expect(hasReconciledServerProviderStatuses(queryClient, remoteHostId)).toBe(false);
+    expect(queryClient.getQueryData<ServerConfig>(remoteKey)?.providers).toEqual([
+      unavailableCodex,
+      readyClaude,
+      disabledCursor,
+    ]);
+    clearRemoteHostProviderStatusState(queryClient, remoteHostId);
+    expect(hasReconciledServerProviderStatuses(queryClient, remoteHostId)).toBe(false);
+    expect(queryClient.getQueryData<ServerConfig>(remoteKey)).toBeUndefined();
   });
 });
 

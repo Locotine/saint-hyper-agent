@@ -7,7 +7,9 @@ import { MCP_CONNECTORS_BETA_FEATURE, REMOTE_SSH_BETA_FEATURE } from "@saint/sha
 
 import { isBetaFeatureOn } from "~/betaFeatures";
 import { KEYBINDINGS_ICON_NAME } from "~/lib/icons";
+import { useSyncExternalStore } from "react";
 import { remoteSshBridge } from "./lib/devLoopbackHosts";
+import { subscribeLanRelayRemoteSshAvailability } from "./lib/lanRelayRemoteSshBridge";
 
 export const SETTINGS_SECTION_IDS = [
   "general",
@@ -266,9 +268,32 @@ const ALL_SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
   },
 ] as const;
 
+export const ALL_SETTINGS_NAV_ITEMS_LIST: readonly SettingsNavItem[] = ALL_SETTINGS_NAV_ITEMS;
+
 export const SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = ALL_SETTINGS_NAV_ITEMS.filter(
   (item) => isSettingsSectionAvailable(item.id),
 );
+
+let cachedSettingsNavKey: string | null = null;
+let cachedSettingsNavItems: readonly SettingsNavItem[] = SETTINGS_NAV_ITEMS;
+
+export function getSettingsNavItems(): readonly SettingsNavItem[] {
+  const key = `${hasRemoteSshBridge() ? 1 : 0}:${hasDesktopUpdaterBridge() ? 1 : 0}`;
+  if (cachedSettingsNavKey === key) return cachedSettingsNavItems;
+  cachedSettingsNavKey = key;
+  cachedSettingsNavItems = ALL_SETTINGS_NAV_ITEMS.filter((item) =>
+    isSettingsSectionAvailable(item.id),
+  );
+  return cachedSettingsNavItems;
+}
+
+export function useSettingsNavItems(): readonly SettingsNavItem[] {
+  return useSyncExternalStore(
+    subscribeLanRelayRemoteSshAvailability,
+    getSettingsNavItems,
+    () => SETTINGS_NAV_ITEMS,
+  );
+}
 
 /**
  * Stable DOM id for a settings row, derived from its (string) title. Shared by the row that

@@ -8,10 +8,10 @@ import type { Ref } from "react";
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useDebouncedValue } from "@tanstack/react-pacer";
+import { useHostHandle } from "~/hosts/hostScope";
 import { ArrowUpIcon, FileIcon, FolderIcon } from "~/lib/icons";
 import { expandLocalFolderPath } from "~/lib/localFolderMentions";
 import { projectSearchLocalEntriesQueryOptions } from "~/lib/projectReactQuery";
-import { readLocalNativeApi } from "~/nativeApi";
 import { cn } from "~/lib/utils";
 import {
   ELEVATED_HOVER_SURFACE_CLASS_NAME,
@@ -79,11 +79,16 @@ function isTildeRoot(directoryPath: string): boolean {
   return directoryPath === "~/" || directoryPath === "~\\";
 }
 
+function isWindowsUncShareRoot(directoryPath: string): boolean {
+  return /^\\\\[^\\/]+\\[^\\/]+[\\/]?$/.test(directoryPath);
+}
+
 function parentDirectory(directoryPath: string): string | null {
   if (!directoryPath) return null;
   if (directoryPath === "/") return null;
   if (/^[A-Za-z]:[\\/]$/.test(directoryPath)) return null;
   if (isTildeRoot(directoryPath)) return null;
+  if (isWindowsUncShareRoot(directoryPath)) return null;
 
   const separator = detectPathSeparator(directoryPath);
   const trimmed = directoryPath.endsWith(separator) ? directoryPath.slice(0, -1) : directoryPath;
@@ -92,6 +97,9 @@ function parentDirectory(directoryPath: string): string | null {
   if (lastIndex === 0) return "/";
 
   const parentSlice = trimmed.slice(0, lastIndex);
+  if (isWindowsUncShareRoot(parentSlice)) {
+    return `${parentSlice}${separator}`;
+  }
   if (/^[A-Za-z]:$/.test(parentSlice) || parentSlice === "~") {
     return `${parentSlice}${separator}`;
   }
@@ -105,9 +113,14 @@ function deriveDirectoryAndFilter(mentionQuery: string): { directory: string; fi
   }
   const before = mentionQuery.slice(0, slashIndex);
   const after = mentionQuery.slice(slashIndex + 1);
-  // `/foo` (root) and `C:/foo` (drive) and `~/foo` (home) share a rule:
+  // `/foo` (root), `C:/foo` (drive), `~/foo` (home), and `\\server\share\foo` (UNC root) share a rule:
   // the separator itself is the directory, everything before stays part of the root label.
-  if (before === "" || /^[A-Za-z]:$/.test(before) || before === "~") {
+  if (
+    before === "" ||
+    /^[A-Za-z]:$/.test(before) ||
+    before === "~" ||
+    isWindowsUncShareRoot(before)
+  ) {
     return { directory: mentionQuery.slice(0, slashIndex + 1), filter: after };
   }
   return { directory: before, filter: after };
@@ -122,6 +135,7 @@ function isRootDirectory(directoryPath: string): boolean {
   if (directoryPath === "/") return true;
   if (/^[A-Za-z]:[\\/]$/.test(directoryPath)) return true;
   if (isTildeRoot(directoryPath)) return true;
+  if (isWindowsUncShareRoot(directoryPath)) return true;
   return false;
 }
 
@@ -150,8 +164,19 @@ export function ComposerLocalDirectoryMenu(props: {
   handleRef?: Ref<ComposerLocalDirectoryMenuHandle>;
 }) {
   const { mentionQuery, rootLabel, homeDir, onSelectEntry, onNavigateFolder, handleRef } = props;
+  const chatHost = useHostHandle();
   const [entriesByPath, setEntriesByPath] = useState<EntriesByPath>({});
+  const entriesByPathRef = useRef<EntriesByPath>({});
+  entriesByPathRef.current = entriesByPath;
   const [loadingPaths, setLoadingPaths] = useState<ReadonlySet<string>>(() => new Set());
+  const loadingPathsRef = useRef<Set<string>>(new Set());
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   // Error keyed to the directory it was produced for: navigating away derives
   // straight back to null with no state-resetting effect.
   const [errorState, setErrorState] = useState<{ dir: string; message: string } | null>(null);
@@ -181,36 +206,55 @@ export function ComposerLocalDirectoryMenu(props: {
   useEffect(() => {
     if (!expandedDirectory) return;
     if (isAwaitingHomeDir) return;
-    if (entriesByPath[expandedDirectory] !== undefined) return;
-    if (loadingPaths.has(expandedDirectory)) return;
+    if (entriesByPathRef.current[expandedDirectory] !== undefined) return;
+    if (loadingPathsRef.current.has(expandedDirectory)) return;
     // Timeout-0 keeps every state write asynchronous (no wasted pre-paint
     // render), which also keeps this component eligible for React Compiler.
     let cancelled = false;
+    const targetDirectory = expandedDirectory;
     const timeoutId = window.setTimeout(() => {
-      if (cancelled) return;
-      const api = readLocalNativeApi();
+      if (cancelled || !mountedRef.current) return;
+      if (
+        entriesByPathRef.current[targetDirectory] !== undefined ||
+        loadingPathsRef.current.has(targetDirectory)
+      ) {
+        return;
+      }
+      const api = chatHost.api();
       if (!api) {
-        setErrorMessage("App is still connecting. Try again in a moment.");
+        setErrorState({
+          dir: targetDirectory,
+          message: "App is still connecting. Try again in a moment.",
+        });
         return;
       }
 
-      setLoadingPaths((current) => new Set(current).add(expandedDirectory));
+      loadingPathsRef.current.add(targetDirectory);
+      setLoadingPaths((current) => new Set(current).add(targetDirectory));
       void api.projects
         .listDirectories({
-          cwd: expandedDirectory,
+          cwd: targetDirectory,
           includeFiles: true,
         })
         .then((result) => {
-          setEntriesByPath((current) => ({ ...current, [expandedDirectory]: result.entries }));
+          if (!mountedRef.current) return;
+          setEntriesByPath((current) => ({ ...current, [targetDirectory]: result.entries }));
+          setErrorState((current) => (current?.dir === targetDirectory ? null : current));
         })
         .catch((error) => {
-          setEntriesByPath((current) => ({ ...current, [expandedDirectory]: [] }));
-          setErrorMessage(summarizeDirectoryLoadError(error));
+          if (cancelled || !mountedRef.current) return;
+          setErrorState({
+            dir: targetDirectory,
+            message: summarizeDirectoryLoadError(error),
+          });
         })
         .finally(() => {
+          loadingPathsRef.current.delete(targetDirectory);
+          if (!mountedRef.current) return;
           setLoadingPaths((current) => {
+            if (!current.has(targetDirectory)) return current;
             const next = new Set(current);
-            next.delete(expandedDirectory);
+            next.delete(targetDirectory);
             return next;
           });
         });
@@ -219,7 +263,7 @@ export function ComposerLocalDirectoryMenu(props: {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [entriesByPath, expandedDirectory, isAwaitingHomeDir, loadingPaths]);
+  }, [chatHost, expandedDirectory, isAwaitingHomeDir]);
 
   const rawEntries = entriesByPath[expandedDirectory];
   const isLoading = loadingPaths.has(expandedDirectory);
@@ -260,6 +304,7 @@ export function ComposerLocalDirectoryMenu(props: {
 
   const searchQuery = useQuery(
     projectSearchLocalEntriesQueryOptions({
+      hostId: chatHost.hostId,
       rootPath: shouldRunFuzzySearch ? expandedDirectory : null,
       query: trimmedDebouncedFilter,
       includeFiles: true,
@@ -567,13 +612,32 @@ function UseCurrentFolderRow(props: {
 function buildSearchRowSubtitle(entry: ProjectLocalSearchEntry, rootPath: string): string {
   const parent = entry.parentPath ?? "";
   if (!parent) return "";
-  if (rootPath.length > 0 && parent.startsWith(rootPath)) {
-    // Strip the root prefix so long absolute paths don't eat the row; leave a leading
-    // separator so the relative hop stays readable (e.g. `/src/components`).
-    const relative = parent.slice(rootPath.length);
-    if (relative.length === 0) return "";
-    if (relative.startsWith("/") || relative.startsWith("\\")) return relative;
-    return `/${relative}`;
+  if (rootPath.length > 0) {
+    const isWindowsStyle =
+      rootPath.includes("\\") ||
+      parent.includes("\\") ||
+      /^[A-Za-z]:/.test(rootPath) ||
+      /^[A-Za-z]:/.test(parent);
+    const trimmedRoot = rootPath.replace(/[\\/]+$/, "");
+    const normalizedRoot = isWindowsStyle
+      ? trimmedRoot.replaceAll("\\", "/").toLowerCase()
+      : trimmedRoot;
+    const normalizedParent = isWindowsStyle ? parent.replaceAll("\\", "/").toLowerCase() : parent;
+    if (normalizedParent === normalizedRoot) {
+      return "";
+    }
+    if (
+      normalizedRoot.length > 0 &&
+      (normalizedParent.startsWith(`${normalizedRoot}/`) ||
+        (trimmedRoot.length === 0 && parent.startsWith(rootPath)))
+    ) {
+      // Strip the root prefix so long absolute paths don't eat the row; leave a leading
+      // separator so the relative hop stays readable (e.g. `/src/components`).
+      const relative = parent.slice(trimmedRoot.length);
+      if (relative.length === 0) return "";
+      if (relative.startsWith("/") || relative.startsWith("\\")) return relative;
+      return `/${relative}`;
+    }
   }
   return parent;
 }

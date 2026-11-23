@@ -39,6 +39,7 @@ export function useTerminalSurfaceController(threadId: ThreadId) {
   const disposeExitedTerminal = (terminalId: string) => {
     disposeAndCloseTerminalSession({
       api: apiFor(hostId),
+      hostId,
       threadId,
       terminalId,
       processAlreadyExited: true,
@@ -110,7 +111,13 @@ export async function closeTerminalSurface(
   if (!confirmed) {
     return false;
   }
-  await disposeAndCloseTerminalSession({ api, threadId, terminalId, requireStructuredClose: true });
+  await disposeAndCloseTerminalSession({
+    api,
+    hostId,
+    threadId,
+    terminalId,
+    requireStructuredClose: true,
+  });
   store.closeTerminal(scopeThread(hostId, threadId), terminalId);
   return true;
 }

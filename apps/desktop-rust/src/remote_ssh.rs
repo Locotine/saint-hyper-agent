@@ -192,6 +192,9 @@ pub struct RemoteSshManager {
     /// Bumped by disconnect, stop and forget: a connect or reconnect that started under an older
     /// value gives up instead of bringing the server back the user just stopped.
     generations: Mutex<HashMap<String, u64>>,
+    /// Fires on every saved/live state mutation so desktop windows and LAN relay SSE clients
+    /// stay in sync with intermediate connect phases, auto-connect, and background reconnects.
+    state_tx: tokio::sync::broadcast::Sender<()>,
 }
 
 const CONNECT_CANCELLED: &str = "Connection cancelled.";
@@ -202,6 +205,7 @@ impl RemoteSshManager {
         let (client_id, existed) =
             Self::ensure_client_id(&paths.state_dir.join("remote-ssh-client-id"));
         let legacy_root = existed.then(|| format!("{DEFAULT_REMOTE_ROOT}/clients/{client_id}"));
+        let (state_tx, _) = tokio::sync::broadcast::channel(64);
         Self {
             paths,
             saved_hosts: Mutex::new(initial_saved),
@@ -215,7 +219,16 @@ impl RemoteSshManager {
             default_roots: Mutex::new(HashMap::new()),
             reconnecting: Mutex::new(BTreeSet::new()),
             generations: Mutex::new(HashMap::new()),
+            state_tx,
         }
+    }
+
+    pub fn subscribe_state_changes(&self) -> tokio::sync::broadcast::Receiver<()> {
+        self.state_tx.subscribe()
+    }
+
+    fn notify_state_change(&self) {
+        let _ = self.state_tx.send(());
     }
 
     fn is_client_id(value: &str) -> bool {
@@ -422,6 +435,7 @@ impl RemoteSshManager {
                 Ok(None) => true,
             });
         }
+        let mut transitioned = false;
         if !dead_hosts.is_empty() {
             if let Ok(mut live) = self.live_hosts.lock() {
                 for entry in live.iter_mut() {
@@ -430,6 +444,7 @@ impl RemoteSshManager {
                         entry.phase = "reconnecting".to_string();
                         entry.local_port = None;
                         entry.message = None;
+                        transitioned = true;
                     }
                 }
                 dead_hosts.retain(|h| {
@@ -437,6 +452,9 @@ impl RemoteSshManager {
                         .any(|e| &e.host == h && e.phase == "reconnecting")
                 });
             }
+        }
+        if transitioned {
+            self.notify_state_change();
         }
         dead_hosts
     }
@@ -699,6 +717,16 @@ impl RemoteSshManager {
             if let Some(existing) = replaced {
                 Self::kill_and_reap(existing);
             }
+            if let Ok(mut sessions) = self.sessions.lock() {
+                if let Some(session) = sessions.remove(prev) {
+                    sessions.insert(host.clone(), session);
+                }
+            }
+            if let Ok(mut roots) = self.default_roots.lock() {
+                if let Some(root) = roots.remove(prev) {
+                    roots.insert(host.clone(), root);
+                }
+            }
             if let Ok(mut live_guard) = self.live_hosts.lock() {
                 if let Some(live) = live_guard.iter_mut().find(|h| h.host == prev) {
                     live.host = host.clone();
@@ -709,7 +737,18 @@ impl RemoteSshManager {
             }
         }
 
+        self.notify_state_change();
         Ok(self.get_state())
+    }
+
+    pub fn test_host_probe_command(remote_root: &str) -> String {
+        let pattern = Self::remote_root_process_pattern(remote_root);
+        // Run inside POSIX `sh -c '...'` with no nested single quotes so remote users
+        // whose login shell is fish, csh, or tcsh execute the probe cleanly.
+        let inner = format!(
+            "printf \"SAINT_SSH_OK\\n\"; if pgrep -f \"{pattern}\" >/dev/null 2>&1; then printf \"SAINT_SERVER_RUNNING\\n\"; else printf \"SAINT_SERVER_STOPPED\\n\"; fi"
+        );
+        format!("sh -c {}", scripts::quote_shell(&inner))
     }
 
     pub fn test_host(
@@ -747,11 +786,7 @@ impl RemoteSshManager {
                 .or_else(|| saved_entry.as_ref().and_then(|s| s.identity_file.clone())),
         };
         let extra_args = Self::ssh_connection_option_args(&merged);
-        let pattern = Self::remote_root_process_pattern(&remote_root);
-
-        let probe_cmd = format!(
-            "printf 'SAINT_SSH_OK\\n'; if pgrep -f '{pattern}' >/dev/null 2>&1; then printf 'SAINT_SERVER_RUNNING\\n'; else printf 'SAINT_SERVER_STOPPED\\n'; fi"
-        );
+        let probe_cmd = Self::test_host_probe_command(&remote_root);
         let mut ssh_cmd = Command::new("ssh");
         ssh_cmd.args([
             "-o",
@@ -802,15 +837,22 @@ impl RemoteSshManager {
         &self,
         input: DesktopRemoteSshSavedHost,
     ) -> Result<DesktopRemoteSshHostState, String> {
-        let generation = self.generation(input.host.trim());
+        let trimmed_host = input.host.trim().to_string();
+        let generation = self.generation(&trimmed_host);
         let _serial = self.connect_lock.lock().map_err(|e| e.to_string())?;
+        // Stopped or disconnected while this connect waited for the previous one: abort BEFORE
+        // persisting `auto_connect: true` via `upsert_saved_entry`.
+        if self.generation(&trimmed_host) != generation {
+            return self
+                .host_state(&trimmed_host)
+                .ok_or_else(|| CONNECT_CANCELLED.to_string());
+        }
         let entry = self.upsert_saved_entry(None, input, true)?;
         let host = entry.host.clone();
         let host_key = entry
             .host_key
             .clone()
             .unwrap_or_else(Self::generate_host_key);
-        // Stopped or disconnected while this connect waited for the previous one.
         if self.generation(&host) != generation {
             return self
                 .host_state(&host)
@@ -1010,9 +1052,11 @@ impl RemoteSshManager {
         {
             Self::kill_and_reap(prev);
         }
-        let token_changed = {
+        let endpoint_changed = {
             let mut sessions = self.sessions.lock().map_err(|e| e.to_string())?;
-            let changed = sessions.get(host).map_or(true, |s| s.token != token);
+            let changed = sessions
+                .get(host)
+                .map_or(true, |s| s.token != token || s.local_port != local_port);
             sessions.insert(
                 host.to_string(),
                 Session {
@@ -1023,16 +1067,14 @@ impl RemoteSshManager {
             );
             changed
         };
-        let mut state = self.set_phase(host, host_key, remote_root, "connected", None);
-        if token_changed {
-            // A client builds a new transport per epoch; the token is part of its URL.
-            if let Ok(mut live) = self.live_hosts.lock() {
-                if let Some(h) = live.iter_mut().find(|h| h.host == host) {
-                    h.epoch += 1;
-                    state = h.clone();
-                }
-            }
-        }
+        let state = self.set_phase_with_epoch(
+            host,
+            host_key,
+            remote_root,
+            "connected",
+            None,
+            endpoint_changed,
+        );
         Ok(state)
     }
 
@@ -1068,6 +1110,21 @@ impl RemoteSshManager {
         phase: &str,
         message: Option<String>,
     ) -> DesktopRemoteSshHostState {
+        self.set_phase_with_epoch(host, host_key, remote_root, phase, message, false)
+    }
+
+    /// Updates a host's phase (and optionally increments its transport epoch atomically) in a
+    /// single lock acquisition so clients never observe `connected` with a stale epoch before
+    /// the bump.
+    fn set_phase_with_epoch(
+        &self,
+        host: &str,
+        host_key: &str,
+        remote_root: &str,
+        phase: &str,
+        message: Option<String>,
+        increment_epoch: bool,
+    ) -> DesktopRemoteSshHostState {
         let local_port = if phase == "connected" {
             self.sessions
                 .lock()
@@ -1080,7 +1137,7 @@ impl RemoteSshManager {
             return DesktopRemoteSshHostState {
                 host: host.to_string(),
                 host_key: Some(host_key.to_string()),
-                epoch: 0,
+                epoch: if increment_epoch { 1 } else { 0 },
                 remote_root: remote_root.to_string(),
                 phase: phase.to_string(),
                 message,
@@ -1108,7 +1165,13 @@ impl RemoteSshManager {
         h.phase = phase.to_string();
         h.message = message;
         h.local_port = local_port;
-        h.clone()
+        if increment_epoch {
+            h.epoch += 1;
+        }
+        let snapshot = h.clone();
+        drop(live);
+        self.notify_state_change();
+        snapshot
     }
 
     /// Files `scripts/stage-remote-install.ts` staged: the bundle, the dependency pack and
@@ -1555,6 +1618,10 @@ impl RemoteSshManager {
     }
 
     pub fn disconnect(&self, host: &str) -> Result<(), String> {
+        self.disconnect_inner(host, true)
+    }
+
+    fn disconnect_inner(&self, host: &str, transition_to_idle: bool) -> Result<(), String> {
         let trimmed = host.trim();
         if !Self::is_valid_ssh_target(trimmed) {
             return Err("Unknown SSH host.".to_string());
@@ -1577,28 +1644,43 @@ impl RemoteSshManager {
             }
             self.persist_saved_hosts(&saved);
         }
-        if let Ok(mut live) = self.live_hosts.lock() {
-            if let Some(entry) = live.iter_mut().find(|h| h.host == trimmed) {
-                entry.phase = "idle".to_string();
-                entry.local_port = None;
-                entry.message = None;
+        if transition_to_idle {
+            if let Ok(mut live) = self.live_hosts.lock() {
+                if let Some(entry) = live.iter_mut().find(|h| h.host == trimmed) {
+                    entry.phase = "idle".to_string();
+                    entry.local_port = None;
+                    entry.message = None;
+                }
             }
+            self.notify_state_change();
         }
         Ok(())
     }
 
     pub fn stop_server(&self, input: DesktopRemoteSshSavedHost) -> Result<(), String> {
         let host = input.host.trim().to_string();
-        self.disconnect(&host)?;
+        // Tear down the tunnel without flashing an intermediate `idle` state before `stopping`.
+        self.disconnect_inner(&host, false)?;
         let saved_entry = self
             .saved_hosts
             .lock()
             .ok()
             .and_then(|g| g.iter().find(|h| h.host == host).cloned());
+        let resolved_host_key = input
+            .host_key
+            .clone()
+            .filter(|k| !k.is_empty())
+            .or_else(|| {
+                saved_entry
+                    .as_ref()
+                    .and_then(|s| s.host_key.clone())
+                    .filter(|k| !k.is_empty())
+            })
+            .or_else(|| self.host_key_for_host(&host));
         let mut merged = DesktopRemoteSshSavedHost {
             host: host.clone(),
             remote_root: None,
-            host_key: input.host_key,
+            host_key: resolved_host_key,
             auto_connect: input.auto_connect,
             label: input.label,
             user: input
@@ -1611,15 +1693,41 @@ impl RemoteSshManager {
                 .identity_file
                 .or_else(|| saved_entry.as_ref().and_then(|s| s.identity_file.clone())),
         };
+        let host_key = merged.host_key.clone().unwrap_or_default();
+        let initial_root = input
+            .remote_root
+            .as_deref()
+            .and_then(Self::normalize_remote_root)
+            .or_else(|| {
+                saved_entry
+                    .as_ref()
+                    .and_then(|s| s.remote_root.clone())
+            })
+            .unwrap_or_else(|| DEFAULT_REMOTE_ROOT.to_string());
+        self.set_phase(&host, &host_key, &initial_root, "stopping", None);
         let remote_root = match input.remote_root.as_deref().filter(|r| !r.is_empty()) {
-            Some(raw) => Self::normalize_remote_root(raw).ok_or_else(|| {
-                "The remote folder must be a relative path inside the home folder.".to_string()
-            })?,
-            None => self.resolve_default_root(&merged)?,
+            Some(raw) => match Self::normalize_remote_root(raw) {
+                Some(root) => root,
+                None => {
+                    let message =
+                        "The remote folder must be a relative path inside the home folder."
+                            .to_string();
+                    self.set_phase(&host, &host_key, &initial_root, "error", Some(message.clone()));
+                    return Err(message);
+                }
+            },
+            None => match self.resolve_default_root(&merged) {
+                Ok(root) => root,
+                Err(message) => {
+                    self.set_phase(&host, &host_key, &initial_root, "error", Some(message.clone()));
+                    return Err(message);
+                }
+            },
         };
         merged.remote_root = Some(remote_root.clone());
-        let host_key = merged.host_key.clone().unwrap_or_default();
-        self.set_phase(&host, &host_key, &remote_root, "stopping", None);
+        if remote_root != initial_root {
+            self.set_phase(&host, &host_key, &remote_root, "stopping", None);
+        }
         // A connect already past its last check may still be starting the server; wait for it
         // (disconnect above made it give up at its next step) so the stop runs last.
         let result = self
@@ -1914,6 +2022,114 @@ impl RemoteSshManager {
         if let Ok(mut sessions) = self.sessions.lock() {
             sessions.remove(trimmed);
         }
+        self.notify_state_change();
+    }
+
+    /// Resolves the stable `host_key` for a saved or live SSH host.
+    pub fn host_key_for_host(&self, host: &str) -> Option<String> {
+        let trimmed = host.trim();
+        if let Some(key) = self
+            .live_hosts
+            .lock()
+            .ok()
+            .and_then(|g| {
+                g.iter()
+                    .find(|h| h.host == trimmed)
+                    .and_then(|h| h.host_key.clone())
+            })
+            .filter(|k| !k.is_empty())
+        {
+            return Some(key);
+        }
+        self.saved_hosts
+            .lock()
+            .ok()
+            .and_then(|g| {
+                g.iter()
+                    .find(|h| h.host == trimmed)
+                    .and_then(|h| h.host_key.clone())
+            })
+            .filter(|k| !k.is_empty())
+    }
+
+    /// Resolves `(local_port, remote_token, client_id)` for a connected SSH host by `host_key`.
+    /// Used by the LAN relay to reverse-proxy paired phone HTTP/WebSocket traffic without
+    /// exposing the remote server's secret token to the phone.
+    pub fn proxy_target_for_host_key(&self, host_key: &str) -> Option<(u16, String, String)> {
+        let key = host_key.trim();
+        if key.is_empty() {
+            return None;
+        }
+        self.reconcile_tunnels();
+        let host_name = {
+            let live = self.live_hosts.lock().ok()?;
+            let found = live
+                .iter()
+                .find(|h| h.host_key.as_deref() == Some(key) && h.local_port.is_some())?;
+            found.host.clone()
+        };
+        let sessions = self.sessions.lock().ok()?;
+        let session = sessions.get(&host_name)?;
+        Some((
+            session.local_port,
+            session.token.clone(),
+            self.client_id.clone(),
+        ))
+    }
+
+    /// Resolves the active local loopback port for a forwarded dev-server port on `host_key`.
+    pub fn forwarded_port_local_port(&self, host_key: &str, remote_port: u16) -> Option<u16> {
+        let key = host_key.trim();
+        if key.is_empty() || remote_port == 0 {
+            return None;
+        }
+        let host_name = {
+            let live = self.live_hosts.lock().ok()?;
+            live.iter()
+                .find(|h| h.host_key.as_deref() == Some(key))
+                .map(|h| h.host.clone())
+        }
+        .or_else(|| {
+            self.saved_hosts.lock().ok().and_then(|g| {
+                g.iter()
+                    .find(|h| h.host_key.as_deref() == Some(key))
+                    .map(|h| h.host.clone())
+            })
+        })?;
+        let mut forwards = self.port_forwards.lock().ok()?;
+        let key_tuple = (host_name, remote_port);
+        let alive = forwards
+            .get_mut(&key_tuple)
+            .is_some_and(|(_, child)| matches!(child.try_wait(), Ok(None)));
+        if alive {
+            forwards.get(&key_tuple).map(|(port, _)| *port)
+        } else {
+            if let Some((_, child)) = forwards.remove(&key_tuple) {
+                Self::kill_and_reap(child);
+            }
+            None
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn insert_test_connected_host(
+        &self,
+        host: &str,
+        host_key: &str,
+        local_port: u16,
+        token: &str,
+    ) {
+        if let Ok(mut sessions) = self.sessions.lock() {
+            sessions.insert(
+                host.to_string(),
+                Session {
+                    token: token.to_string(),
+                    local_port,
+                    remote_port: local_port,
+                },
+            );
+        }
+        self.set_phase(host, host_key, DEFAULT_REMOTE_ROOT, "connected", None);
     }
 
     pub fn ws_url_for_host(&self, host: &str) -> Option<String> {
@@ -2517,6 +2733,12 @@ mod tests {
             .lock()
             .unwrap()
             .insert("devbox".to_string(), child);
+        manager.insert_test_connected_host("devbox", "a1b2c3d4", 41234, "secret-token");
+        manager
+            .default_roots
+            .lock()
+            .unwrap()
+            .insert("devbox".to_string(), ".saint-remote".to_string());
 
         manager
             .update_host(DesktopRemoteSshUpdateHostInput {
@@ -2539,6 +2761,20 @@ mod tests {
             assert!(!tunnels.contains_key("devbox"));
             assert!(tunnels.contains_key("devbox-renamed"));
         }
+        assert!(manager.ws_url_for_host("devbox").is_none());
+        let ws_url = manager
+            .ws_url_for_host("devbox-renamed")
+            .expect("ws url should remain available under renamed host");
+        assert!(ws_url.starts_with("ws://127.0.0.1:41234/?token=secret-token&client="));
+        assert_eq!(
+            manager
+                .default_roots
+                .lock()
+                .unwrap()
+                .get("devbox-renamed")
+                .map(String::as_str),
+            Some(".saint-remote")
+        );
 
         manager.disconnect("devbox-renamed").unwrap();
         assert!(!manager
@@ -2546,6 +2782,81 @@ mod tests {
             .lock()
             .unwrap()
             .contains_key("devbox-renamed"));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn builds_shell_agnostic_test_host_probe_command() {
+        let cmd = RemoteSshManager::test_host_probe_command(".saint-remote");
+        assert!(cmd.starts_with("sh -c '"), "cmd: {cmd}");
+        assert!(cmd.ends_with('\''), "cmd: {cmd}");
+        // Single-quoted outer payload with no inner single quotes is safe in bash, zsh, dash, fish, and csh.
+        let inner = &cmd["sh -c '".len()..cmd.len() - 1];
+        assert!(!inner.contains('\''), "inner must avoid single quotes: {inner}");
+        assert!(inner.contains("SAINT_SSH_OK"));
+        assert!(inner.contains("[.]saint-remote"));
+    }
+
+    #[test]
+    fn set_phase_with_epoch_emits_single_atomic_notification() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "saint-remote-ssh-atomic-epoch-{}",
+            Uuid::new_v4().simple()
+        ));
+        let paths = SaintPaths::from_base_dir(temp_dir.clone());
+        let manager = RemoteSshManager::new(paths);
+        manager.sessions.lock().unwrap().insert(
+            "devbox".to_string(),
+            Session {
+                token: "tok-1".to_string(),
+                local_port: 43210,
+                remote_port: 3773,
+            },
+        );
+        let mut rx = manager.subscribe_state_changes();
+
+        let state = manager.set_phase_with_epoch(
+            "devbox",
+            "hk-devbox",
+            ".saint",
+            "connected",
+            None,
+            true,
+        );
+        assert_eq!(state.phase, "connected");
+        assert_eq!(state.epoch, 1);
+        assert_eq!(state.local_port, Some(43210));
+        // Exactly one notification fires — never an intermediate connected(epoch=0) event.
+        assert!(rx.try_recv().is_ok());
+        assert!(matches!(
+            rx.try_recv(),
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+        ));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn disconnect_inner_without_idle_transition_preserves_phase_without_notifying() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "saint-remote-ssh-stop-no-idle-{}",
+            Uuid::new_v4().simple()
+        ));
+        let paths = SaintPaths::from_base_dir(temp_dir.clone());
+        let manager = RemoteSshManager::new(paths);
+        manager.set_phase("devbox", "hk-devbox", ".saint", "connected", None);
+        let mut rx = manager.subscribe_state_changes();
+
+        manager.disconnect_inner("devbox", false).unwrap();
+        assert_eq!(
+            manager.host_state("devbox").map(|h| h.phase),
+            Some("connected".to_string())
+        );
+        assert!(matches!(
+            rx.try_recv(),
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+        ));
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }

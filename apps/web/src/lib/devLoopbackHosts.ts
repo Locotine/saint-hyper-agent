@@ -14,16 +14,21 @@ import type {
   DesktopRemoteSshHostState,
   DesktopRemoteSshState,
 } from "@saint/contracts";
+import { lanRelayRemoteSshBridge } from "./lanRelayRemoteSshBridge";
 
 type RemoteSshBridge = NonNullable<DesktopBridge["remoteSsh"]>;
 
 const LOOPBACK_HOSTS_KEY = "saint:dev-loopback-hosts";
 
-/** The bridge this window has: the desktop's, a dev stand-in, or none (Stable without it, browsers). */
+/** The bridge this window has: the desktop's, a dev stand-in, a paired LAN relay, or none. */
 export function remoteSshBridge(): RemoteSshBridge | undefined {
   if (typeof window === "undefined") return undefined;
   if (window.desktopBridge?.remoteSsh) return window.desktopBridge.remoteSsh;
-  return import.meta.env.DEV ? loopbackBridge() : undefined;
+  if (import.meta.env.DEV) {
+    const devBridge = loopbackBridge();
+    if (devBridge) return devBridge;
+  }
+  return lanRelayRemoteSshBridge();
 }
 
 let loopback: RemoteSshBridge | null | undefined;

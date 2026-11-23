@@ -22,4 +22,14 @@ describe("remoteServerForwarder", () => {
     expect(forwardPort).toHaveBeenNthCalledWith(1, { host: "devbox", remotePort: 5173 });
     expect(forwardPort).toHaveBeenNthCalledWith(2, { host: "devbox", remotePort: 8443 });
   });
+
+  it("preserves LAN relay reverse-proxy forward prefixes for paired phones", async () => {
+    const forwardPort = vi.fn(
+      async () => "http://192.168.1.5:3883/api/remote-ssh/forward/hk-1/3000/",
+    );
+    const open = remoteServerForwarder("devbox", forwardPort);
+    await expect(open?.("http://localhost:3000/dashboard?tab=1")).resolves.toBe(
+      "http://192.168.1.5:3883/api/remote-ssh/forward/hk-1/3000/dashboard?tab=1",
+    );
+  });
 });

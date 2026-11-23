@@ -50,7 +50,7 @@ export function composerMentionQuotedPathHasClosingQuote(path: string): boolean 
   return false;
 }
 
-function encodeComposerMentionQuotedPath(path: string): string {
+export function encodeComposerMentionQuotedPath(path: string): string {
   return path.replace(/["\\]/g, "\\$&");
 }
 

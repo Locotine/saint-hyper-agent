@@ -12,13 +12,21 @@ import {
   COMPOSER_SINGLE_ROW_EDITOR_CLASS_NAME,
 } from "./composerPickerStyles";
 
-function ComposerRow({ onOpenPlan = () => {} }: { onOpenPlan?: () => void }) {
+function ComposerRow({
+  onOpenPlan = () => {},
+  prompt = "hello",
+  containerWidth = 600,
+}: {
+  onOpenPlan?: () => void;
+  prompt?: string;
+  containerWidth?: number;
+}) {
   const formRef = useRef<HTMLFormElement>(null);
   const [recording, setRecording] = useState(false);
-  const row = useComposerSingleRow({ formRef, eligible: true, prompt: "hello" });
+  const row = useComposerSingleRow({ formRef, eligible: true, prompt });
   const { overlayRef, overlayBottomClearancePx } = useComposerOverlayHeight();
   return (
-    <div style={{ paddingTop: 200, width: 600 }}>
+    <div style={{ paddingTop: 200, width: containerWidth }}>
       <output aria-label="Footer clearance">{overlayBottomClearancePx}</output>
       <div ref={overlayRef}>
         <div style={{ height: 64 }}>Queued follow-up</div>
@@ -32,7 +40,7 @@ function ComposerRow({ onOpenPlan = () => {} }: { onOpenPlan?: () => void }) {
               style={recording ? { display: "none" } : undefined}
             >
               <div data-testid="composer-editor" style={{ lineHeight: "24px" }}>
-                <p>hello</p>
+                <p>{prompt}</p>
               </div>
             </div>
             <ChatComposerFooter
@@ -107,4 +115,39 @@ it("keeps the plan accessible in the compact row even without a task capsule", a
   await render(<ComposerRow onOpenPlan={openPlan} />);
   await page.getByRole("button", { name: "Show plan sidebar" }).click();
   expect(openPlan).toHaveBeenCalledOnce();
+});
+
+it("expands to block layout without oscillating when prompt width exceeds the single-row slot", async () => {
+  const shortPrompt = "hi";
+  // Wide enough to wrap inside the ~300px single-row slot, but short enough to sit on
+  // one line once expanded to the full 600px block width (the exact historical oscillation zone).
+  const borderlinePrompt = "https://github.com/elementalsouls/Claude-BugHunter kéo repo này";
+  const screen = await render(<ComposerRow prompt={shortPrompt} containerWidth={600} />);
+  const form = page.getByTestId("row-form").element();
+  await expect.element(page.getByTestId("row-form")).toHaveAttribute("data-layout", "row");
+
+  const transitions: string[] = [];
+  const observer = new MutationObserver(() => {
+    const layout = form.getAttribute("data-layout");
+    if (layout) transitions.push(layout);
+  });
+  observer.observe(form, { attributes: true, attributeFilter: ["data-layout"] });
+
+  try {
+    await screen.rerender(<ComposerRow prompt={borderlinePrompt} containerWidth={600} />);
+    await expect.element(page.getByTestId("row-form")).toHaveAttribute("data-layout", "block");
+
+    // Wait several animation frames to confirm ResizeObserver never oscillates back to "row".
+    for (let i = 0; i < 6; i += 1) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    }
+    expect(form.getAttribute("data-layout")).toBe("block");
+    expect(transitions).toEqual(["block"]);
+
+    // Clearing the prompt cleanly returns to single-row mode.
+    await screen.rerender(<ComposerRow prompt="" containerWidth={600} />);
+    await expect.element(page.getByTestId("row-form")).toHaveAttribute("data-layout", "row");
+  } finally {
+    observer.disconnect();
+  }
 });

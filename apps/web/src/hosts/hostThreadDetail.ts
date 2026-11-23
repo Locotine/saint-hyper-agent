@@ -21,6 +21,7 @@ import {
 } from "../routes/-rootEventInvalidation";
 
 import type { HostStore } from "../store";
+import { registerThreadDetailSyncRetry } from "../threadDetailSyncRetry";
 import { hostStores } from "./hostStores";
 import { apiFor } from "./hostScope";
 
@@ -31,7 +32,7 @@ const PENDING_EVENT_LIMIT = 500;
 export function followHostThread(input: {
   readonly api: Pick<
     NativeApi["orchestration"],
-    "onThreadEvent" | "subscribeThread" | "unsubscribeThread"
+    "onThreadEvent" | "onThreadStreamFailure" | "subscribeThread" | "unsubscribeThread"
   >;
   readonly store: Pick<HostStore, "getState">;
   readonly threadId: ThreadId;
@@ -79,6 +80,11 @@ export function followHostThread(input: {
     apply(events.filter((event) => String(event.aggregateId) === threadId));
   });
 
+  const unsubscribeFailure = api.onThreadStreamFailure?.((failure) => {
+    if (stopped || failure.threadId !== threadId) return;
+    input.onError?.(failure.error);
+  });
+
   api.subscribeThread({ threadId }).catch((error: unknown) => {
     if (!stopped) input.onError?.(error);
   });
@@ -86,6 +92,7 @@ export function followHostThread(input: {
   return () => {
     if (stopped) return;
     stopped = true;
+    unsubscribeFailure?.();
     unsubscribe();
     void api.unsubscribeThread({ threadId }).catch(() => undefined);
   };
@@ -106,26 +113,46 @@ export function useHostThreadDetail(hostId: HostId, threadId: ThreadId | null): 
     const api = apiFor(hostId);
     if (!api) return;
     const store = hostStores.get(hostId);
-    return followHostThread({
-      api: api.orchestration,
-      store,
-      threadId,
-      onError: () => store.getState().markThreadDetailSyncFailed(threadId),
-      // Same refresh as this computer's event router: an agent editing the host's files must
-      // refresh the Explorer, open previews and git status (their keys start with the cwd).
-      onEventsApplied: (events) => {
-        const touchesFiles = events.some(
-          (event) =>
-            getProjectFileInvalidationThreadIdForEvent(event) !== null ||
-            getTurnDiffInvalidationThreadIdForEvent(event) !== null,
-        );
-        const touchesGit = events.some(shouldInvalidateGitQueriesForEvent);
-        if (!touchesFiles && !touchesGit) return;
-        const cwd = resolveGitInvalidationCwdForThreadId(store.getState(), threadId);
-        if (!cwd) return;
-        if (touchesFiles) invalidateProjectFileQueriesForCwdsAfterActivity(queryClient, [cwd]);
-        if (touchesGit || touchesFiles) refreshGitQueriesForCwdsAfterActivity(queryClient, [cwd]);
+    let disposed = false;
+    let stopCurrent: (() => void) | null = null;
+    const startFollow = () => {
+      stopCurrent?.();
+      stopCurrent = followHostThread({
+        api: api.orchestration,
+        store,
+        threadId,
+        onError: () => store.getState().markThreadDetailSyncFailed(threadId),
+        // Same refresh as this computer's event router: an agent editing the host's files must
+        // refresh the Explorer, open previews and git status (their keys start with the cwd).
+        onEventsApplied: (events) => {
+          const touchesFiles = events.some(
+            (event) =>
+              getProjectFileInvalidationThreadIdForEvent(event) !== null ||
+              getTurnDiffInvalidationThreadIdForEvent(event) !== null,
+          );
+          const touchesGit = events.some(shouldInvalidateGitQueriesForEvent);
+          if (!touchesFiles && !touchesGit) return;
+          const cwd = resolveGitInvalidationCwdForThreadId(store.getState(), threadId);
+          if (!cwd) return;
+          if (touchesFiles) invalidateProjectFileQueriesForCwdsAfterActivity(queryClient, [cwd]);
+          if (touchesGit || touchesFiles) refreshGitQueriesForCwdsAfterActivity(queryClient, [cwd]);
+        },
+      });
+    };
+    startFollow();
+    const unregisterRetry = registerThreadDetailSyncRetry(
+      async () => {
+        if (disposed) return;
+        store.getState().clearThreadDetailSyncFailure(threadId);
+        startFollow();
       },
-    });
+      { hostId, threadId },
+    );
+    return () => {
+      disposed = true;
+      unregisterRetry();
+      stopCurrent?.();
+      stopCurrent = null;
+    };
   }, [hostId, threadId, live, queryClient]);
 }

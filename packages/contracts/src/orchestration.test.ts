@@ -302,6 +302,40 @@ it.effect("decodes providerless Codex account selections from instance-id payloa
   }),
 );
 
+it.effect("infers Antigravity and Droid for providerless model selections", () =>
+  Effect.gen(function* () {
+    const antigravity = yield* decodeModelSelection({
+      instanceId: "work",
+      model: "antigravity-pro",
+    });
+    assert.deepStrictEqual(antigravity, {
+      provider: "antigravity",
+      instanceId: "work",
+      model: "antigravity-pro",
+    });
+
+    const droid = yield* decodeModelSelection({
+      instanceId: "work",
+      model: "droid-sonnet",
+    });
+    assert.deepStrictEqual(droid, {
+      provider: "claudeAgent",
+      instanceId: "work",
+      model: "droid-sonnet",
+    });
+
+    const droidDirect = yield* decodeModelSelection({
+      instanceId: "work",
+      model: "droid-v2",
+    });
+    assert.deepStrictEqual(droidDirect, {
+      provider: "droid",
+      instanceId: "work",
+      model: "droid-v2",
+    });
+  }),
+);
+
 it.effect("preserves Pi model selections through the JSON codec", () =>
   Effect.gen(function* () {
     const codec = Schema.fromJsonString(ModelSelection);

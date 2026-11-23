@@ -153,7 +153,9 @@ function GeneratedMarkdownImageContent(props: GeneratedMarkdownImageProps) {
   if (props.isLinked) {
     return (
       <span className="chat-generated-image">
-        <img {...imgProps} alt={accessibleName} className="chat-generated-image__img" />
+        {imgProps.src ? (
+          <img {...imgProps} alt={accessibleName} className="chat-generated-image__img" />
+        ) : null}
       </span>
     );
   }

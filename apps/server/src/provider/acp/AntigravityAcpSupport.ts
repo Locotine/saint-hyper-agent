@@ -16,7 +16,6 @@ import type {
 } from "@saint/contracts";
 import type { SaintDesktopFlavor } from "@saint/shared/desktopIdentity";
 import { resolveExecutable } from "@saint/shared/executable";
-import { supportsPosixPermissions } from "@saint/shared/filesystemPlatform";
 import { Effect, Layer, Scope, ServiceMap } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
@@ -63,10 +62,10 @@ export interface AntigravityAcpRuntimeSettings {
 }
 
 export interface AntigravityCliResolutionOptions {
-  readonly env?: NodeJS.ProcessEnv;
-  readonly platform?: NodeJS.Platform;
-  readonly homeDir?: string;
-  readonly pathExists?: (path: string) => boolean;
+  readonly env?: NodeJS.ProcessEnv | undefined;
+  readonly platform?: NodeJS.Platform | undefined;
+  readonly homeDir?: string | undefined;
+  readonly pathExists?: ((path: string) => boolean) | undefined;
 }
 
 export function resolveAntigravityCliBinaryPath(
@@ -84,20 +83,44 @@ export function resolveAntigravityCliBinaryPath(
   if (resolved) {
     return resolved;
   }
-  if (supportsPosixPermissions(platform)) {
-    const homeDir =
-      options.homeDir ?? env.HOME?.trim() ?? env.USERPROFILE?.trim() ?? nodeOs.homedir();
-    const pathExists =
-      options.pathExists ??
-      ((candidate: string) => resolveExecutable(candidate, { platform, env }) !== null);
-    const candidates = [
-      nodePath.join(homeDir, ".gemini", "antigravity-cli", "bin", name),
-      nodePath.join(homeDir, ".local", "bin", name),
-    ];
+  const homeDir =
+    options.homeDir ?? env.HOME?.trim() ?? env.USERPROFILE?.trim() ?? nodeOs.homedir();
+  const joinPath = platform === "win32" ? nodePath.win32.join : nodePath.posix.join;
+  const candidates: string[] = [
+    joinPath(homeDir, ".gemini", "antigravity-cli", "bin", name),
+    joinPath(homeDir, ".local", "bin", name),
+  ];
+  if (platform === "win32") {
+    const localAppData =
+      env.LOCALAPPDATA?.trim() ||
+      (homeDir ? nodePath.win32.join(homeDir, "AppData", "Local") : undefined);
+    if (localAppData) {
+      candidates.push(
+        nodePath.win32.join(localAppData, "Programs", "antigravity-cli", name),
+        nodePath.win32.join(localAppData, "antigravity-cli", "bin", name),
+      );
+    }
+  }
+  if (options.pathExists) {
     for (const candidate of candidates) {
-      if (pathExists(candidate)) {
+      if (platform === "win32") {
+        for (const ext of [".exe", ".cmd", ".bat"]) {
+          const withExt = `${candidate}${ext}`;
+          if (options.pathExists(withExt)) {
+            return withExt;
+          }
+        }
+      }
+      if (options.pathExists(candidate)) {
         return candidate;
       }
+    }
+    return name;
+  }
+  for (const candidate of candidates) {
+    const candidateResolved = resolveExecutable(candidate, { platform, env });
+    if (candidateResolved) {
+      return candidateResolved;
     }
   }
   return name;
