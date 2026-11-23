@@ -2,7 +2,7 @@
 
 ## 1.2.12 — 2026-11-23
 
-**Hotfix for Mobile LAN / Tailscale QR & code pairing (`Invalid Origin header.`).**
+**Hotfix for Mobile LAN / Tailscale QR & code pairing (`Invalid Origin header.`) and readable Markdown tables across desktop & mobile.**
 
 ### Fixed
 
@@ -10,6 +10,9 @@
   - **Root cause**: `GET /pair` (and `401`/`429` pairing retry pages) sent `Referrer-Policy: no-referrer`, which under the WHATWG Fetch standard causes modern browsers (Chrome, Safari iOS, Firefox) to send `Origin: null` on same-origin `<form method="POST" action="/pair">` submissions. `validate_same_origin_request` rejected `Origin: null` because it has no `scheme://authority`.
   - **Fix**: Switched `/pair` HTML and successful redirect responses (`200`, `401`, `429`, `302 -> /`) to `Referrer-Policy: same-origin` so same-origin pairing form submissions send `Origin: http://<host>:<port>` without leaking `Referer` cross-origin. Kept `Referrer-Policy: no-referrer` on the legacy `GET /pair?token=...` scrubbing redirect and kept strict rejection of `Origin: null`, cross-origin, and cross-port CSWSH/CSRF requests.
   - **Tests**: Extended `pairing_post_sets_a_session_cookie_while_get_query_is_rejected_and_rate_limited` in `apps/desktop-rust/src/lan_relay.rs` to assert `Referrer-Policy: same-origin` on `GET /pair`, `401`, and `429`, `no-referrer` on legacy `?token=` redirects, and `403` rejection for `Origin: null`.
+- **Chat Markdown Tables (`apps/web/src/components/ChatMarkdown.tsx`, `apps/web/src/index.css`)**: Fixed crushed/vertical-letter table columns and missing horizontal scroll on mobile and narrow panes.
+  - **Root cause**: `.chat-markdown` applied `overflow-wrap: anywhere` globally without resetting inside `<table>`, causing CSS auto-table layout to shrink short columns down to ~36–54 px and split words letter-by-letter; `<table>` also lacked an `overflow-x: auto` wrapper inside the `overflow-hidden` transcript pane, and used nearly invisible `--border` lines with centered `vertical-align: middle`.
+  - **Fix**: Wrapped rendered Markdown tables in `.chat-markdown-table-scroll` (`overflow-x: auto`, rounded theme-aware frame), overrode table wrapping to `overflow-wrap: break-word; word-break: normal` (with `overflow-wrap: normal` on `thead th`, `overflow-wrap: anywhere` scoped to `td :is(code, a)`, and horizontal-scrolling `max-width: 18rem` cell caps on `<= 640px`), aligned cells to `vertical-align: top`, added subtle `thead th` header tint and clearer dividers, and covered desktop + mobile geometry in `ChatMarkdown.table.browser.tsx`.
 
 ## 1.2.11 — 2026-11-23
 

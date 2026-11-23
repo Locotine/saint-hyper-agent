@@ -1319,6 +1319,13 @@ function TechnicalBidiIsolate(props: { active: boolean; children: ReactNode }) {
 }
 
 const MARKDOWN_COMPONENTS: Components = {
+  table: function MarkdownTable({ node: _node, children, ...props }) {
+    return (
+      <div className="chat-markdown-table-scroll">
+        <table {...props}>{children}</table>
+      </div>
+    );
+  },
   blockquote: function MarkdownBlockquote({ node: _node, children, ...props }) {
     const kind = (props as { "data-github-alert"?: GithubAlertKind })["data-github-alert"];
     const alert = kind ? GITHUB_ALERTS[kind] : undefined;

@@ -33,6 +33,14 @@ export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
         details:
           "Changed the /pair HTML responses in the Rust LAN relay from Referrer-Policy: no-referrer to Referrer-Policy: same-origin so mobile browsers send a valid same-origin Origin header on form POST instead of Origin: null, while keeping cross-origin, cross-port, and Origin: null protections enforced.",
       },
+      {
+        id: "markdown-table-layout-scroll",
+        title: "Readable Markdown tables on desktop and mobile",
+        description:
+          "Tables in chat messages now scroll horizontally on narrow screens instead of crushing short columns into vertical letters, with clearer headers and cell borders.",
+        details:
+          "Wrapped rendered Markdown tables in a scrollable container, replaced inherited overflow-wrap: anywhere inside tables with word-preserving wrapping, top-aligned cell content, and added theme-aware header shading and dividers.",
+      },
     ],
   },
   {

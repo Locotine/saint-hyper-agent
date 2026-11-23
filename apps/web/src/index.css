@@ -865,7 +865,8 @@ label:has(> select#reasoning-effort) select {
 .chat-markdown ol,
 .chat-markdown blockquote,
 .chat-markdown pre,
-.chat-markdown table {
+.chat-markdown table,
+.chat-markdown .chat-markdown-table-scroll {
   margin: 0.65rem 0;
 }
 
@@ -1111,7 +1112,8 @@ label:has(> select#reasoning-effort) select {
 .chat-markdown--user ol,
 .chat-markdown--user blockquote,
 .chat-markdown--user pre,
-.chat-markdown--user table {
+.chat-markdown--user table,
+.chat-markdown--user .chat-markdown-table-scroll {
   margin: 0.45rem 0;
 }
 
@@ -1639,7 +1641,8 @@ label:has(> select#reasoning-effort) select {
 .editor-markdown-preview .chat-markdown ol,
 .editor-markdown-preview .chat-markdown blockquote,
 .editor-markdown-preview .chat-markdown pre,
-.editor-markdown-preview .chat-markdown table {
+.editor-markdown-preview .chat-markdown table,
+.editor-markdown-preview .chat-markdown .chat-markdown-table-scroll {
   margin: 0.85rem 0;
 }
 
@@ -2784,16 +2787,70 @@ label:has(> select#reasoning-effort) select {
   outline-offset: 2px;
 }
 
+.chat-markdown-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid color-mix(in srgb, var(--foreground) 11%, transparent);
+  border-radius: 0.5rem;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-markdown .chat-markdown-table-scroll > table {
+  margin: 0;
+}
+
+/* Override `.chat-markdown`'s `overflow-wrap: anywhere` inside tables: otherwise
+   CSS auto-table sizing shrinks every column's min-content down to a single
+   character and crushes short columns into vertical 1-2 letter stacks. */
 .chat-markdown table {
   width: 100%;
   border-collapse: collapse;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .chat-markdown th,
 .chat-markdown td {
-  border: 1px solid var(--border);
-  padding: 0.35rem 0.45rem;
+  border-right: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+  padding: 0.45rem 0.65rem;
   text-align: left;
+  vertical-align: top;
+}
+
+.chat-markdown th:last-child,
+.chat-markdown td:last-child {
+  border-right: 0;
+}
+
+.chat-markdown tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.chat-markdown thead th {
+  background: var(--muted);
+  border-bottom-color: color-mix(in srgb, var(--foreground) 13%, transparent);
+  font-weight: 600;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.chat-markdown td :is(code, a) {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .chat-markdown .chat-markdown-table-scroll > table {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .chat-markdown .chat-markdown-table-scroll > table th,
+  .chat-markdown .chat-markdown-table-scroll > table td {
+    max-width: 18rem;
+  }
 }
 
 /* A visual placed in a reply sits inside that reply's markdown. Its components style
@@ -3182,7 +3239,8 @@ diffs-container {
 .pull-request-prose ol,
 .pull-request-prose blockquote,
 .pull-request-prose pre,
-.pull-request-prose table {
+.pull-request-prose table,
+.pull-request-prose .chat-markdown-table-scroll {
   margin: 0.8rem 0;
 }
 .pull-request-prose li + li {

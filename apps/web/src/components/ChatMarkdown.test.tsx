@@ -423,10 +423,20 @@ $$
       ].join("\n"),
     );
 
-    expect(markup).toContain("<table>");
+    expect(markup).toContain('<div class="chat-markdown-table-scroll"><table>');
     expect(markup).toContain("<th>Studio</th>");
     expect(markup).toContain("<td>Purpose</td>");
     expect(markup).not.toContain("|---|");
+  });
+
+  it("wraps tables in a horizontal scroll container and keeps dir=ltr in auto-blocks mode", async () => {
+    const markup = await renderAutoDirectionMarkdown(
+      ["| Kiểm tra | Kết quả |", "| --- | --- |", "| `bun run lint` | **PASS** |"].join("\n"),
+    );
+
+    expect(markup).toContain('<div class="chat-markdown-table-scroll"><table dir="ltr">');
+    expect(markup).toContain('<th dir="auto">Kiểm tra</th>');
+    expect(markup).toContain('<td dir="auto"><strong>PASS</strong></td>');
   });
 
   it("keeps pipe-and-dash lines inside code fences out of table repair", async () => {
