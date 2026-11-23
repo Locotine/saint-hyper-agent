@@ -1,5 +1,7 @@
 import { EditorDebugService } from "./editor/debugService";
 import { EditorLanguageService } from "./editor/languageService";
+import { EditorDebug } from "./editor/Services/EditorDebug";
+import { EditorLanguage } from "./editor/Services/EditorLanguage";
 import { requireNativeEditor } from "./editor/nativeEditorGate";
 import { readEventLoopStatus } from "./eventLoopMonitor";
 import { makeGitActionRunner } from "./git/gitActionRunner";
@@ -554,10 +556,18 @@ const makeWsRpcHandlersLayer = () =>
       const projectAgentService = yield* ProjectAgentService;
       const projectAgentRepository = yield* ProjectAgentRepository;
       const config = yield* ServerConfig;
-      const editorLanguages = new EditorLanguageService();
-      const editorDebug = new EditorDebugService(config.stateDir);
-      yield* Effect.addFinalizer(() => Effect.promise(() => editorDebug.dispose()));
-      yield* Effect.addFinalizer(() => Effect.sync(() => editorLanguages.dispose()));
+      const providedEditorLanguage = Option.getOrUndefined(
+        yield* Effect.serviceOption(EditorLanguage),
+      );
+      const providedEditorDebug = Option.getOrUndefined(yield* Effect.serviceOption(EditorDebug));
+      const editorLanguages = providedEditorLanguage ?? new EditorLanguageService();
+      const editorDebug = providedEditorDebug ?? new EditorDebugService(config.stateDir);
+      if (!providedEditorDebug) {
+        yield* Effect.addFinalizer(() => Effect.promise(() => editorDebug.dispose()));
+      }
+      if (!providedEditorLanguage) {
+        yield* Effect.addFinalizer(() => Effect.sync(() => editorLanguages.dispose()));
+      }
       const devServerManager = yield* DevServerManager;
       const fileSystem = yield* FileSystem.FileSystem;
       const externalMcp = yield* ExternalMcpService;

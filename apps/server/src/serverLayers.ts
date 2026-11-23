@@ -29,6 +29,8 @@ import { TurnCheckpointCoordinatorLive } from "./orchestration/Layers/TurnCheckp
 import { OrchestrationLayerLive } from "./orchestration/runtimeLayer";
 
 import { DevServerManagerLive } from "./devServerManager";
+import { EditorDebugLive } from "./editor/Layers/EditorDebug";
+import { EditorLanguageLive } from "./editor/Layers/EditorLanguage";
 import { DeviceServiceLive } from "./device/Layers/DeviceService";
 import type { DeviceService } from "./device/Services/DeviceService";
 import { ComputerServiceLive } from "./computer/Layers/ComputerService";
@@ -289,6 +291,8 @@ export function makeServerRuntimeServicesLayer(
         OrchestrationCommandReceiptRepositoryLive,
         // The same instance the todo.* RPCs use, so a to-do an agent adds reaches open windows.
         todoServiceLayer,
+        EditorLanguageLive,
+        EditorDebugLive,
       ),
     ),
     Layer.provideMerge(QueuedTurnPromotionRepositoryLive),
@@ -365,6 +369,8 @@ export function makeServerRuntimeServicesLayer(
     threadGitMetadataReactorLayer,
     threadDeletionReactorLayer,
     devServerManagerLayer,
+    EditorLanguageLive,
+    EditorDebugLive,
     DeviceServiceLive,
     ComputerServiceLive,
     GitLayerLive,

@@ -109,6 +109,9 @@ import { makeAgentGatewayBrowserTools } from "../browserTools.ts";
 import { makeAgentGatewayComputerBrowserTools } from "../computerBrowserTools.ts";
 import { computerApprovalDisplayArgs } from "../computerApprovalDisplay.ts";
 import { makeAgentGatewayDeviceTools } from "../deviceTools.ts";
+import { makeAgentGatewayEditorTools } from "../editorTools.ts";
+import { EditorDebug } from "../../editor/Services/EditorDebug.ts";
+import { EditorLanguage } from "../../editor/Services/EditorLanguage.ts";
 import { DeviceService } from "../../device/Services/DeviceService.ts";
 import {
   COMPUTER_CONTROL_CAPABILITY,
@@ -225,6 +228,8 @@ export const makeAgentGateway = Effect.gen(function* () {
   // offered eleven tools that can only report an unsupported platform.
   const deviceService = Option.getOrUndefined(yield* Effect.serviceOption(DeviceService));
   const computerService = Option.getOrUndefined(yield* Effect.serviceOption(ComputerService));
+  const editorLanguage = Option.getOrUndefined(yield* Effect.serviceOption(EditorLanguage));
+  const editorDebug = Option.getOrUndefined(yield* Effect.serviceOption(EditorDebug));
   const loadProviderAvailabilities = Effect.gen(function* () {
     const [settings, statuses] = yield* Effect.all([
       serverSettings.getSettings,
@@ -1181,6 +1186,11 @@ export const makeAgentGateway = Effect.gen(function* () {
   const browserTools = makeAgentGatewayBrowserTools(browserAutomationHost, {
     resolveWorkspaceRoot,
   });
+  const editorTools = makeAgentGatewayEditorTools({
+    editorLanguage,
+    editorDebug,
+    resolveWorkspaceRoot,
+  });
   const projectAgentTools = makeProjectAgentTools({
     projectAgent: projectAgentService,
   });
@@ -1693,6 +1703,7 @@ export const makeAgentGateway = Effect.gen(function* () {
       : []),
     ...(sapBus && ledger ? makeAgentGatewaySapTools({ sap: sapBus, ledger }) : []),
     ...browserTools,
+    ...editorTools,
     ...kanbanTools,
     // Same switch as the todo.* RPCs: a build without Tasks offers agents no to-do tools.
     ...(isServerBetaFeatureEnabled("tasks") ? todoTools : []),
