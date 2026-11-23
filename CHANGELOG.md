@@ -2,7 +2,25 @@
 
 ## 1.2.12 — 2026-11-23
 
-**Hotfix for Mobile LAN / Tailscale QR & code pairing (`Invalid Origin header.`) and readable Markdown tables across desktop & mobile.**
+**IDE Intelligence (LSP) & Live Debugger (DAP) MCP tools, full Desktop `cua_host ↔ cua-driver` IPC proxy, warm Antigravity ACP sessions with background-task protection, customizable sidebar usage rings, plus Mobile LAN pairing and Markdown table fixes.**
+
+### Added
+
+- **IDE Intelligence (LSP) & Live Debugger (DAP) MCP Tools (`apps/server/src/agentGateway/editorTools.ts`, `apps/server/src/editor/`)**: Promoted `EditorLanguageService` and `EditorDebugService` to shared Effect services (`EditorLanguage`, `EditorDebug`) wired across `wsRpc` and `AgentGateway`, exposing 9 workspace-confined, thread-isolated MCP tools to coding agents:
+  - Language intelligence: `saint_lsp_diagnostics`, `saint_lsp_definition`, `saint_lsp_references`, `saint_lsp_symbols`, and `saint_lsp_refactor`.
+  - Live debugging: `saint_debug_start`, `saint_debug_control`, `saint_debug_inspect`, and `saint_debug_poll`.
+- **Desktop Computer-Use IPC Proxy & Live Preview (`apps/desktop-rust/src/cua_host.rs`, `apps/desktop-rust/src/lib.rs`)**: Replaced desktop `cua_host.rs` stubs with real async Unix-socket / Windows named-pipe proxying to bundled `cua-driver`, including `metadata` handshake, host-owned `expected_input_epoch`, fail-closed `stop` (`interrupt_input` / `cancel_input` cleanup verification), `pause`/`resume`, `shield`, `end_task`, `end_browser_thread`, `browser_control`, `restore_clipboard`, `setup`/`probe`, and `computerPreview.frame` live frame emission.
+- **Customizable Sidebar Usage Rings & Antigravity Usage Tracking (`apps/web/src/components/AppRailUsage.tsx`, `apps/web/src/components/chat/ContextWindowMeter.tsx`, `apps/server/src/providerUsage/`)**:
+  - Removed the 2-account sidebar cap and added a quick customize popover directly in the sidebar rail to toggle connected accounts and ring modes (`Both`, `5h`, `Weekly`).
+  - Added Antigravity local usage archive enrichment and live `usage_update` context-window occupancy tracking across turns and `session/load` replays.
+  - Preserved a minimum visible arc for non-zero context usage in `ContextWindowMeter` and adjusted `composerFooterLayout` degradation so the context ring stays visible longer on narrow viewports.
+
+### Changed
+
+- **Warm Antigravity ACP Sessions & Background-Task Protection (`apps/server/src/orchestration/turnStartSession.ts`, `apps/server/src/provider/Layers/AntigravityAcpAdapter.ts`, `apps/server/src/provider/acp/AcpSessionRuntime.ts`, `apps/server/src/provider/Layers/ProviderService.ts`)**:
+  - Kept warm `"ready"` sessions in `"running"` instead of flashing `"Starting Antigravity…"` on follow-up turns, and skipped redundant `session/set_model` / `session/set_mode` RPCs when model and mode are unchanged.
+  - Tracked detached/daemon commands, schedules, workflows, and async subagents in `liveRuntimeTaskIds` so Idle Reaper and Host Economy do not terminate `agy acp` while background work is still running.
+  - Preserved the live `agy acp` process across Stop (`interruptTurn`) by rotating the retired Agent Gateway bearer credential in-place via `session/resume` / `session/load`, with fail-closed fallback to a clean session restart if the agent rejects reload.
 
 ### Fixed
 

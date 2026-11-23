@@ -26,6 +26,38 @@ export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
     date: "Nov 23",
     features: [
       {
+        id: "agent-gateway-lsp-dap-tools",
+        title: "Workspace LSP intelligence and live DAP debugger for agents",
+        description:
+          "Coding agents can now query workspace diagnostics, definitions, references, symbols, safe refactors, and drive live debugger sessions directly through Saint's MCP gateway.",
+        details:
+          "Added 9 workspace-confined, thread-isolated MCP tools (saint_lsp_diagnostics, saint_lsp_definition, saint_lsp_references, saint_lsp_symbols, saint_lsp_refactor, saint_debug_start, saint_debug_control, saint_debug_inspect, and saint_debug_poll) backed by shared EditorLanguage and EditorDebug services.",
+      },
+      {
+        id: "antigravity-warm-session-and-background-tasks",
+        title: "Warm Antigravity sessions that protect background tasks",
+        description:
+          "Follow-up messages no longer flash 'Starting Antigravity…', and pressing Stop or idling no longer kills running Antigravity background commands, schedules, workflows, or subagents.",
+        details:
+          "Skipped redundant model/mode RPCs on warm turns, tracked async Antigravity background tasks against Idle Reaper and Host Economy, and rotated retired Agent Gateway tokens in-place via session/resume or session/load on interrupt with fail-closed fallback.",
+      },
+      {
+        id: "desktop-cua-host-proxy-and-preview",
+        title: "Desktop Computer-Use driver proxy, safety controls, and live preview",
+        description:
+          "The Tauri desktop host now connects directly to bundled cua-driver with real safety shields, fail-closed emergency stop, and live Computer preview frames.",
+        details:
+          "Implemented async Unix-socket and Windows named-pipe proxying in cua_host.rs with metadata handshake, host-owned input epochs, interrupt_input/cancel_input cleanup enforcement, pause/resume/shield/browser controls, and computerPreview.frame emission.",
+      },
+      {
+        id: "customizable-sidebar-usage-rings-and-context-meter",
+        title: "Customizable sidebar usage rings and clearer context meter",
+        description:
+          "All connected provider accounts can now appear in the sidebar usage rail with a quick customize popover, Antigravity local usage tracking, and a more readable context-window ring.",
+        details:
+          "Removed the two-account sidebar limit, added a rail customize popover for account toggles and ring modes, enriched Antigravity usage snapshots with live context-window occupancy, and kept non-zero context arcs visible on narrow footers.",
+      },
+      {
         id: "lan-relay-mobile-pairing-origin-fix",
         title: "Fixed Mobile LAN & Tailscale pairing (Invalid Origin header)",
         description:
