@@ -59,6 +59,7 @@ import type {
   TerminalRuntimeViewState,
 } from "./terminalRuntimeTypes";
 import { waitForTerminalFontReady } from "./terminalFontSettle";
+import { attachTerminalImeGuard } from "./terminalImeGuard";
 import { observeTerminalWriteParsed } from "./terminalPerformance";
 
 const ENABLE_TERMINAL_WEBGL = true;
@@ -1015,7 +1016,49 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
 
   bindHostTransportSubscriptions(entry);
 
+  const submitTerminalData = (data: string) => {
+    if (data.length === 0) return;
+    const nextIdentityState = consumeTerminalIdentityInput(entry.titleInputBuffer, data);
+    entry.titleInputBuffer = nextIdentityState.buffer;
+    const submittedIdentity = nextIdentityState.identity;
+    if (submittedIdentity && (submittedIdentity.cliKind || entry.terminalCliKind !== null)) {
+      entry.terminalCliKind = submittedIdentity.cliKind;
+      entry.callbacks.onTerminalMetadataChange(entry.terminalId, {
+        cliKind: submittedIdentity.cliKind,
+        label: submittedIdentity.title,
+      });
+    }
+    if (data.includes("\r") || data.includes("\n")) {
+      entry.pendingInputWorkspaceNotify = true;
+    }
+    const api = terminalApiFor(entry);
+    if (!api) return;
+    void api.terminal
+      .write({ threadId: entry.threadId, terminalId: entry.terminalId, data })
+      .catch((error) =>
+        writeSystemMessage(terminal, describeErrorMessage(error, "Terminal write failed")),
+      );
+  };
+
+  const imeGuard = attachTerminalImeGuard(wrapper, submitTerminalData);
+  entry.persistentDisposables.push(() => {
+    imeGuard.dispose();
+  });
+
   terminal.attachCustomKeyEventHandler((event) => {
+    // Yield all keys to the active IME composition so custom terminal shortcuts never hijack
+    // preedit keys (e.g. fcitx5-lotus Preedit mode on Linux WebKitGTK).
+    if (event.isComposing || event.keyCode === 229 || imeGuard.isComposing()) {
+      return true;
+    }
+
+    if (event.type === "keydown" && event.key === "\u00a0" && !event.metaKey && !event.ctrlKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      void sendTerminalInput(entry, " ", "Failed to write space");
+      return false;
+    }
+
     if (
       event.type === "keydown" &&
       event.key === "Enter" &&
@@ -1107,27 +1150,10 @@ export function createRuntimeEntry(config: TerminalRuntimeConfig): TerminalRunti
   );
 
   entry.terminalDisposables.push(
-    terminal.onData((data) => {
-      const nextIdentityState = consumeTerminalIdentityInput(entry.titleInputBuffer, data);
-      entry.titleInputBuffer = nextIdentityState.buffer;
-      const submittedIdentity = nextIdentityState.identity;
-      if (submittedIdentity && (submittedIdentity.cliKind || entry.terminalCliKind !== null)) {
-        entry.terminalCliKind = submittedIdentity.cliKind;
-        entry.callbacks.onTerminalMetadataChange(entry.terminalId, {
-          cliKind: submittedIdentity.cliKind,
-          label: submittedIdentity.title,
-        });
-      }
-      if (data.includes("\r") || data.includes("\n")) {
-        entry.pendingInputWorkspaceNotify = true;
-      }
-      const api = terminalApiFor(entry);
-      if (!api) return;
-      void api.terminal
-        .write({ threadId: entry.threadId, terminalId: entry.terminalId, data })
-        .catch((error) =>
-          writeSystemMessage(terminal, describeErrorMessage(error, "Terminal write failed")),
-        );
+    terminal.onData((rawData) => {
+      const data = imeGuard.filterOnData(rawData);
+      if (data === null) return;
+      submitTerminalData(data);
     }),
   );
 

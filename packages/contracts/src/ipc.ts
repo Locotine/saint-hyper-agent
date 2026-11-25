@@ -1251,6 +1251,8 @@ export interface DesktopBridge {
     getState: () => Promise<DesktopRemoteSshState>;
     /** Connects (installing and starting the server when needed), then opens its window. */
     connect: (host: DesktopRemoteSshSavedHost) => Promise<DesktopRemoteSshHostState>;
+    /** Re-establishes a stale tunnel in place without clearing auto-connect or flashing idle. */
+    reconnect?: (host: DesktopRemoteSshSavedHost) => Promise<DesktopRemoteSshHostState>;
     /** Closes the tunnel and the host's windows; the remote server keeps running. */
     disconnect: (host: string) => Promise<void>;
     /** Stops the host's server (its windows close); installed files and data stay. */

@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.2.14 — 2026-11-25
+
+**Terminal NBSP & WebKitGTK IME input fixes, Linux KDE Wallet Antigravity usage ring fix, Linux Wayland image paste fix, Remote SSH reconnect & tunnel stability fixes, and Rust test/build cleanup.**
+
+### Fixed
+
+- **Terminal Space Normalization & WebKitGTK Preedit IME Guard (`apps/web/src/components/terminal/terminalInputNormalization.ts`, `apps/web/src/components/terminal/terminalImeGuard.ts`, `apps/web/src/components/terminal/terminalRuntime.ts`)**:
+  - Normalized non-breaking space characters (`U+00A0`, `U+2007`, `U+202F`) sent into the terminal to plain ASCII spaces so commands typed or pasted under Linux IMEs no longer fail with `bash: git pull: command not found`.
+  - Added a dedicated WebKitGTK / `fcitx5` Preedit composition guard that commits `compositionend` text synchronously before trailing keys, filters delayed/truncated xterm `_finalizeComposition` echoes, deduplicates WebKitGTK `insertText` replays and leaked trailing Space keys, and yields active composition keystrokes out of custom key handlers.
+- **Linux Antigravity Usage Ring & KDE Wallet Secret Service Reader (`apps/server/src/providerUsage/providers/antigravity.ts`, `apps/web/src/onboarding/steps/ProviderConnectTerminal.tsx`)**:
+  - Added a Linux `org.freedesktop.secrets` D-Bus fallback (`gi.repository.Gio`) so Saint reads `agy` OAuth credentials stored in KDE Wallet (`content_type = text/plain; charset=utf8`) even when `secret-tool` rejects the MIME type or `gir1.2-secret-1` is unavailable.
+  - Kept refreshed OS-keyring OAuth access tokens in memory cache instead of writing plaintext credentials to disk, and invalidated provider usage queries when closing `ProviderConnectTerminal`.
+- **Composer Image Paste Ordering & Linux Wayland/WebKitGTK Support (`apps/desktop-rust/src/lib.rs`, `apps/web/src/hooks/useComposerDropzone.ts`, `apps/web/src/components/ComposerPromptEditor.tsx`)**:
+  - Moved `ComposerPromptEditor`'s external `onPaste` handler to `onPasteCapture` with a `COMMAND_PRIORITY_CRITICAL` `PASTE_COMMAND` guard for already-prevented events so `useComposerDropzone.onComposerPaste` runs before Lexical's `PlainTextPlugin` unconditionally calls `event.preventDefault()`, restoring image/file paste across all platforms while preventing browser "Copy Image" from also inserting companion image URL text.
+  - Added non-blocking GTK3 clipboard image read (`request_image` → PNG) and write (`PixbufLoader` → `set_image`/`store`) on Linux before falling back to `wl-paste` (all `image/*` MIME types) and `xclip`, so pasting images works on Wayland without `wl-clipboard` installed and without blocking the GTK main loop.
+  - Added `hasExplicitClipboardImageSignal` so browser "Copy Image" payloads (`image/*`, `Files`, `<img` HTML with empty/single-URL text, or image `file://` URIs) probe native clipboard while plain text/URL pastes continue to skip it; added a 60 ms `Ctrl+V` fallback when WebKitGTK swallows image-only `paste` events.
+- **Remote SSH Stability & Non-Destructive Reconnect (`apps/desktop-rust/src/remote_ssh_scripts.rs`, `apps/desktop-rust/src/remote_ssh.rs`, `apps/desktop-rust/src/lib.rs`, `apps/desktop-rust/src-bridge/preloadBridge.ts`, `packages/contracts/src/ipc.ts`, `apps/web/src/hosts/hostReconnect.ts`, `apps/web/src/hooks/useRemoteHostStoreSync.ts`)**:
+  - Fixed remote `server_alive()` liveness checks under 80-column `ps` truncation by inspecting `/proc/$pid/cmdline` first and falling back to `COLUMNS= ps -ww -p "$pid" -o args=`.
+  - Enabled `TCPKeepAlive=yes` and `ServerAliveCountMax=6`, isolated SSH port-forward tunnels with `ControlMaster=no` / `ControlPath=none` plus stderr exit logging, verified local tunnel port availability, and added a non-destructive `remoteSsh.reconnect` IPC command (`desktop_remote_ssh_reconnect`) that preserves `auto_connect` instead of calling `disconnect()`.
+  - Updated `stepAutoReconnect` to take `HostShellStatus` and only reset backoff once the stream reaches `"live"` (with a 30 s grace window if stuck in `"connecting"`).
+- **Desktop Rust Build & Test Hygiene (`apps/desktop-rust/Cargo.toml`, `apps/desktop-rust/src/backend.rs`, `apps/desktop-rust/src/lan_relay.rs`)**:
+  - Scoped `window-vibrancy` to macOS/Windows targets and removed dead Wayland helper code so Linux `cargo test` compiles with zero warnings.
+  - Eliminated a flaky `AddrInUse` port race in `lan_relay::tests::relays_health_to_the_backend_for_a_paired_device` by binding an ephemeral backend socket up front via `BackendSupervisor::new_with_port`.
+
 ## 1.2.13 — 2026-11-23
 
 **Live local & Remote SSH workspace/terminal auto-reload, Linux link-paste freeze fix, Linux site favicon & browser globe fallback fixes, and CI test alignment.**

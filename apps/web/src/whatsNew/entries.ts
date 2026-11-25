@@ -22,6 +22,44 @@ import type { WhatsNewEntry } from "./logic";
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    version: "1.2.14",
+    date: "Nov 25",
+    features: [
+      {
+        id: "terminal-nbsp-and-webkitgtk-ime-guard",
+        title: "Fixed terminal spaces and Vietnamese/CJK IME preedit on Linux",
+        description:
+          "Typing or pasting commands in the integrated terminal no longer fails with non-breaking space errors, and fcitx5 Preedit composition commits cleanly without duplicated or dropped characters.",
+        details:
+          "Normalized U+00A0/U+2007/U+202F to ASCII spaces before PTY writes and added a WebKitGTK terminal IME guard that commits compositionend synchronously, suppresses delayed xterm _finalizeComposition echoes, and filters duplicate insertText and leaked trailing Space events.",
+      },
+      {
+        id: "linux-kde-wallet-antigravity-usage",
+        title: "Fixed Antigravity usage ring on Linux KDE Wallet",
+        description:
+          "The Antigravity sidebar usage ring now detects signed-in agy CLI accounts stored in KDE Wallet and refreshes immediately after connecting.",
+        details:
+          "Added an org.freedesktop.secrets D-Bus reader fallback for KDE Wallet MIME-typed secrets, kept refreshed OS-keyring access tokens in memory instead of writing plaintext to disk, and invalidated provider usage queries when closing ProviderConnectTerminal.",
+      },
+      {
+        id: "linux-wayland-composer-image-paste",
+        title: "Restored image paste in chat (and Linux Wayland clipboard support)",
+        description:
+          "Pasting screenshots or copied browser images into the composer works reliably again across desktop and web, including Linux Wayland/X11 without wl-clipboard.",
+        details:
+          "Dispatched ComposerPromptEditor paste handling in capture phase before Lexical's PlainTextPlugin prevents default, added async GTK3 clipboard image read/write with wl-paste and xclip fallbacks, probed native image clipboards on explicit image signals without regressing plain link pastes, and added a Ctrl+V fallback for WebKitGTK.",
+      },
+      {
+        id: "remote-ssh-tunnel-and-reconnect-stability",
+        title: "More reliable Remote SSH connections and reconnects",
+        description:
+          "Remote SSH hosts stay connected longer, stop dropping due to truncated process checks or shared tunnel sockets, and recover smoothly without tripping reconnect loops.",
+        details:
+          "Fixed 80-column ps truncation in server_alive(), enabled TCPKeepAlive and ServerAliveCountMax=6, isolated port-forward tunnels from ControlMaster, added a non-destructive remoteSsh.reconnect IPC path preserving auto_connect, and gated auto-reconnect backoff reset on live stream health.",
+      },
+    ],
+  },
+  {
     version: "1.2.13",
     date: "Nov 23",
     features: [

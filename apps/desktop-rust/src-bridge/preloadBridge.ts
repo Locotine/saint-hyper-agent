@@ -229,6 +229,7 @@ export function createTauriDesktopBridge(
       ? {
           getState: () => adapter.invoke("desktop_remote_ssh_get_state"),
           connect: (host) => adapter.invoke("desktop_remote_ssh_connect", { host }),
+          reconnect: (host) => adapter.invoke("desktop_remote_ssh_reconnect", { host }),
           disconnect: (host) => adapter.invoke("desktop_remote_ssh_disconnect", { host }),
           stopServer: (host) => adapter.invoke("desktop_remote_ssh_stop_server", { host }),
           forget: (host) => adapter.invoke("desktop_remote_ssh_forget", { host }),

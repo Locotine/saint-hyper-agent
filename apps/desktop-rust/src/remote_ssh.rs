@@ -130,15 +130,19 @@ struct PersistedSavedHostsEnvelope {
 }
 
 /// Non-interactive ssh: never prompt for a password or host key inside the app.
-const SSH_BASE_OPTIONS: [&str; 8] = [
+/// 15s * 6 = 90s keepalive tolerance survives brief WAN/VPN stalls (matching WsTransport's
+/// 90s open budget) while still detecting dead links promptly.
+const SSH_BASE_OPTIONS: [&str; 10] = [
     "-o",
     "BatchMode=yes",
     "-o",
     "ConnectTimeout=15",
     "-o",
+    "TCPKeepAlive=yes",
+    "-o",
     "ServerAliveInterval=15",
     "-o",
-    "ServerAliveCountMax=3",
+    "ServerAliveCountMax=6",
 ];
 const PROBE_TIMEOUT: Duration = Duration::from_secs(60);
 const UPLOAD_TIMEOUT: Duration = Duration::from_secs(10 * 60);
@@ -427,38 +431,55 @@ impl RemoteSshManager {
     /// Drops exited tunnels; a connected host whose tunnel exited turns `reconnecting` and is
     /// returned so the monitor can bring it back.
     fn reconcile_tunnels(&self) -> Vec<String> {
-        let mut dead_hosts = Vec::new();
+        let mut dead_hosts: Vec<(String, String)> = Vec::new();
         if let Ok(mut tunnels) = self.tunnels.lock() {
             tunnels.retain(|host, child| match child.try_wait() {
-                Ok(Some(_)) | Err(_) => {
-                    dead_hosts.push(host.clone());
+                Ok(Some(status)) => {
+                    let reason = status
+                        .code()
+                        .map_or_else(|| "signal".to_string(), |c| format!("exit {c}"));
+                    dead_hosts.push((host.clone(), reason));
+                    false
+                }
+                Err(err) => {
+                    dead_hosts.push((host.clone(), format!("wait error: {err}")));
                     false
                 }
                 Ok(None) => true,
             });
         }
         let mut transitioned = false;
+        let mut reconnect_hosts = Vec::new();
         if !dead_hosts.is_empty() {
             if let Ok(mut live) = self.live_hosts.lock() {
                 for entry in live.iter_mut() {
-                    if dead_hosts.contains(&entry.host) && entry.phase == "connected" {
-                        eprintln!("[remote-ssh] {} tunnel closed, reconnecting", entry.host);
-                        entry.phase = "reconnecting".to_string();
-                        entry.local_port = None;
-                        entry.message = None;
-                        transitioned = true;
+                    if let Some((_, reason)) = dead_hosts.iter().find(|(h, _)| h == &entry.host) {
+                        if entry.phase == "connected" {
+                            eprintln!(
+                                "[remote-ssh] {} tunnel closed ({reason}), reconnecting",
+                                entry.host
+                            );
+                            entry.phase = "reconnecting".to_string();
+                            entry.local_port = None;
+                            entry.message = None;
+                            transitioned = true;
+                        }
                     }
                 }
-                dead_hosts.retain(|h| {
-                    live.iter()
-                        .any(|e| &e.host == h && e.phase == "reconnecting")
-                });
+                for (host, _) in dead_hosts {
+                    if live
+                        .iter()
+                        .any(|e| e.host == host && e.phase == "reconnecting")
+                    {
+                        reconnect_hosts.push(host);
+                    }
+                }
             }
         }
         if transitioned {
             self.notify_state_change();
         }
-        dead_hosts
+        reconnect_hosts
     }
 
     pub fn get_state(&self) -> DesktopRemoteSshState {
@@ -486,6 +507,10 @@ impl RemoteSshManager {
             .and_then(|l| l.local_addr())
             .map(|a| a.port())
             .unwrap_or(42890)
+    }
+
+    fn local_port_available(port: u16) -> bool {
+        port > 0 && TcpListener::bind(("127.0.0.1", port)).is_ok()
     }
 
     fn sanitize_optional_field(raw: Option<&str>) -> Option<String> {
@@ -839,6 +864,23 @@ impl RemoteSshManager {
         &self,
         input: DesktopRemoteSshSavedHost,
     ) -> Result<DesktopRemoteSshHostState, String> {
+        self.connect_inner(input, false)
+    }
+
+    /// Re-establishes a host's tunnel in place without marking `auto_connect = false`, flashing
+    /// `idle`, or setting `auto_reconnect_suppressed`. Reuses the running remote server when live.
+    pub fn reconnect(
+        &self,
+        input: DesktopRemoteSshSavedHost,
+    ) -> Result<DesktopRemoteSshHostState, String> {
+        self.connect_inner(input, true)
+    }
+
+    fn connect_inner(
+        &self,
+        input: DesktopRemoteSshSavedHost,
+        force_reconnect: bool,
+    ) -> Result<DesktopRemoteSshHostState, String> {
         let trimmed_host = input.host.trim().to_string();
         let generation = self.generation(&trimmed_host);
         let _serial = self.connect_lock.lock().map_err(|e| e.to_string())?;
@@ -849,7 +891,7 @@ impl RemoteSshManager {
                 .host_state(&trimmed_host)
                 .ok_or_else(|| CONNECT_CANCELLED.to_string());
         }
-        let entry = self.upsert_saved_entry(None, input, true)?;
+        let entry = self.upsert_saved_entry(None, input, !force_reconnect)?;
         let host = entry.host.clone();
         let host_key = entry
             .host_key
@@ -882,13 +924,25 @@ impl RemoteSshManager {
             live.iter()
                 .any(|h| h.host == host && h.phase == "connected" && h.remote_root == remote_root)
         });
-        if connected && live_port.is_some_and(|p| Self::answers_health(p, Duration::from_secs(5))) {
+        if !force_reconnect
+            && connected
+            && live_port.is_some_and(|p| Self::answers_health(p, Duration::from_secs(5)))
+        {
             if let Some(state) = self.host_state(&host) {
                 return Ok(state);
             }
         }
+        if force_reconnect && connected {
+            self.set_phase(&host, &host_key, &remote_root, "reconnecting", None);
+        }
 
-        match self.run_connect(&entry, &remote_root, &host_key, false, generation) {
+        match self.run_connect(
+            &entry,
+            &remote_root,
+            &host_key,
+            force_reconnect && connected,
+            generation,
+        ) {
             Ok(state) => Ok(state),
             Err(message) => {
                 if let Some(child) = self.tunnels.lock().ok().and_then(|mut t| t.remove(&host)) {
@@ -1026,18 +1080,24 @@ impl RemoteSshManager {
         };
 
         step("tunneling")?;
-        // Keep the local port across reconnects so open windows reconnect to the same URL.
-        let mut local_port = self
+        // Keep the local port across reconnects so open windows reconnect to the same URL,
+        // unless that local port is currently held by another socket (avoiding a 30s bind timeout).
+        let kept_port = self
             .sessions
             .lock()
             .ok()
             .and_then(|s| s.get(host).map(|s| s.local_port))
-            .unwrap_or_else(Self::reserve_local_port);
+            .filter(|&port| Self::local_port_available(port));
+        let mut local_port = kept_port.unwrap_or_else(Self::reserve_local_port);
         let health = |port| Self::answers_health(port, Duration::from_secs(2));
         let child = match self.open_tunnel(entry, local_port, remote_port, health) {
             Ok(child) => child,
-            Err(_) => {
-                // The kept port may be taken now; windows re-read the URL on reconnect.
+            Err(err) if err == CONNECT_CANCELLED => return Err(err),
+            Err(err) => {
+                if kept_port.is_none() {
+                    return Err(err);
+                }
+                // The kept port may have been taken between check and ssh bind; pick a fresh one.
                 local_port = Self::reserve_local_port();
                 self.open_tunnel(entry, local_port, remote_port, health)?
             }
@@ -1563,8 +1623,9 @@ impl RemoteSshManager {
         Ok(run)
     }
 
-    /// Spawns `ssh -N -L` and waits until `ready(local_port)` holds (for Saint's own tunnel, the
-    /// remote server answers /health). No ExitOnForwardFailure: a taken port from the user's
+    /// Spawns a dedicated `ssh -N -L` tunnel (isolated from `~/.ssh/config` ControlMaster /
+    /// ControlPersist multiplexing so a master expiry never tears down the forward) and waits
+    /// until `ready(local_port)` holds. No ExitOnForwardFailure: a taken port from the user's
     /// own ssh config forwards would kill the tunnel; our own forward is proven by `ready`.
     fn open_tunnel(
         &self,
@@ -1575,6 +1636,10 @@ impl RemoteSshManager {
     ) -> Result<Child, String> {
         let mut cmd = Self::ssh_command(entry);
         cmd.args([
+            "-o",
+            "ControlMaster=no",
+            "-o",
+            "ControlPath=none",
             "-N",
             "-L",
             &format!("127.0.0.1:{local_port}:127.0.0.1:{remote_port}"),
@@ -1609,10 +1674,26 @@ impl RemoteSshManager {
                 ));
             }
             if ready(local_port) {
-                // Drain stderr so a chatty ssh never blocks on a full pipe.
-                if let Some(mut pipe) = child.stderr.take() {
+                // Drain stderr asynchronously so a chatty ssh never blocks on a full pipe, while
+                // logging the first lines so disconnect causes appear in desktop diagnostics.
+                if let Some(pipe) = child.stderr.take() {
+                    let log_host = entry.host.clone();
                     std::thread::spawn(move || {
-                        let _ = std::io::copy(&mut pipe, &mut std::io::sink());
+                        use std::io::{BufRead, BufReader};
+                        let mut reader = BufReader::new(pipe);
+                        let mut line = String::new();
+                        let mut logged = 0usize;
+                        while let Ok(n) = reader.read_line(&mut line) {
+                            if n == 0 {
+                                break;
+                            }
+                            let trimmed = line.trim();
+                            if !trimmed.is_empty() && logged < 50 {
+                                eprintln!("[remote-ssh] {log_host} tunnel stderr: {trimmed}");
+                                logged += 1;
+                            }
+                            line.clear();
+                        }
                     });
                 }
                 return Ok(child);
@@ -1979,8 +2060,14 @@ impl RemoteSshManager {
                 .ok()
                 .and_then(|s| s.get(host).map(|s| (s.local_port, s.remote_port)));
             let result = match session {
-                Some((local, remote)) if attempt == 0 => self
-                    .open_tunnel(&entry, local, remote, |port| {
+                Some((kept_local, remote)) if attempt == 0 => {
+                    let target_local = if Self::local_port_available(kept_local) {
+                        kept_local
+                    } else {
+                        Self::reserve_local_port()
+                    };
+                    let port_changed = target_local != kept_local;
+                    self.open_tunnel(&entry, target_local, remote, |port| {
                         Self::answers_health(port, Duration::from_secs(2))
                     })
                     .and_then(|child| {
@@ -1996,8 +2083,23 @@ impl RemoteSshManager {
                         {
                             Self::kill_and_reap(prev);
                         }
-                        Ok(self.set_phase(host, &host_key, &state.remote_root, "connected", None))
-                    }),
+                        if port_changed {
+                            if let Ok(mut sessions) = self.sessions.lock() {
+                                if let Some(s) = sessions.get_mut(host) {
+                                    s.local_port = target_local;
+                                }
+                            }
+                        }
+                        Ok(self.set_phase_with_epoch(
+                            host,
+                            &host_key,
+                            &state.remote_root,
+                            "connected",
+                            None,
+                            port_changed,
+                        ))
+                    })
+                }
                 _ => self.run_connect(&entry, &state.remote_root, &host_key, true, generation),
             };
             match result {
@@ -2909,6 +3011,27 @@ mod tests {
             Err(tokio::sync::broadcast::error::TryRecvError::Empty)
         ));
 
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn ssh_base_options_enable_tcp_keepalive_and_tolerant_server_alive_window() {
+        assert!(SSH_BASE_OPTIONS.contains(&"TCPKeepAlive=yes"));
+        assert!(SSH_BASE_OPTIONS.contains(&"ServerAliveInterval=15"));
+        assert!(SSH_BASE_OPTIONS.contains(&"ServerAliveCountMax=6"));
+    }
+
+    #[test]
+    fn reconnecting_phase_keeps_auto_reconnect_enabled() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "saint-remote-ssh-reconnecting-phase-{}",
+            Uuid::new_v4().simple()
+        ));
+        let paths = SaintPaths::from_base_dir(temp_dir.clone());
+        let manager = RemoteSshManager::new(paths);
+        let state = manager.set_phase("devbox", "hk-devbox", ".saint", "reconnecting", None);
+        assert_eq!(state.phase, "reconnecting");
+        assert!(!state.auto_reconnect_suppressed);
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

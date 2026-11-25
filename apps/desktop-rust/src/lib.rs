@@ -377,14 +377,101 @@ const CLIPBOARD_IO_TIMEOUT: std::time::Duration = std::time::Duration::from_mill
 const WAYLAND_CLIPBOARD_LIST_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
 
 #[cfg(any(target_os = "linux", test))]
-fn wayland_clipboard_mime_list_has_png(raw: &str) -> bool {
-    raw.lines().any(|line| line.trim().eq_ignore_ascii_case("image/png"))
-}
-
-#[cfg(any(target_os = "linux", test))]
 fn wayland_clipboard_mime_list_has_any_image(raw: &str) -> bool {
     raw.lines()
         .any(|line| line.trim().to_ascii_lowercase().starts_with("image/"))
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn linux_clipboard_preferred_image_mime(raw: &str) -> Option<String> {
+    let mut fallback: Option<String> = None;
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        let lower = trimmed.to_ascii_lowercase();
+        if !lower.starts_with("image/") {
+            continue;
+        }
+        if lower == "image/png" {
+            return Some("image/png".to_string());
+        }
+        if fallback.is_none()
+            && matches!(
+                lower.as_str(),
+                "image/jpeg" | "image/jpg" | "image/webp" | "image/bmp" | "image/gif" | "image/tiff"
+            )
+        {
+            fallback = Some(trimmed.to_string());
+        }
+    }
+    fallback
+}
+
+#[cfg(target_os = "linux")]
+fn decode_linux_image_bytes_to_png(mime: &str, bytes: &[u8]) -> Option<Vec<u8>> {
+    if mime.eq_ignore_ascii_case("image/png") && bytes.starts_with(b"\x89PNG") {
+        return Some(bytes.to_vec());
+    }
+    use gtk::gdk_pixbuf::prelude::PixbufLoaderExt as _;
+    let loader = gtk::gdk_pixbuf::PixbufLoader::with_mime_type(mime)
+        .or_else(|_| Ok::<_, gtk::glib::Error>(gtk::gdk_pixbuf::PixbufLoader::new()))
+        .ok()?;
+    loader.write(bytes).ok()?;
+    loader.close().ok()?;
+    let pixbuf = loader.pixbuf()?;
+    pixbuf.save_to_bufferv("png", &[]).ok()
+}
+
+/// Reads an image from the native GTK3 clipboard asynchronously on the main loop with zero
+/// synchronous `wait_for_*` calls (preventing self-owned clipboard deadlocks). Works natively on
+/// KDE Plasma Wayland, GNOME Wayland, Sway, and X11 without requiring `wl-paste` or `xclip`.
+#[cfg(target_os = "linux")]
+async fn read_linux_gtk_clipboard_image_png(app: &tauri::AppHandle) -> Option<Vec<u8>> {
+    let (tx, rx) = tokio::sync::oneshot::channel::<Option<Vec<u8>>>();
+    let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
+    let tx_dispatch = std::sync::Arc::clone(&tx);
+    let dispatched = app.run_on_main_thread(move || {
+        let clipboard = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
+        clipboard.request_image(move |_clipboard, pixbuf| {
+            let png = pixbuf.and_then(|pb| pb.save_to_bufferv("png", &[]).ok());
+            if let Some(sender) = tx_dispatch.lock().ok().and_then(|mut g| g.take()) {
+                let _ = sender.send(png);
+            }
+        });
+    });
+    if dispatched.is_err() {
+        return None;
+    }
+    match tokio::time::timeout(CLIPBOARD_IO_TIMEOUT, rx).await {
+        Ok(Ok(bytes)) => bytes,
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "linux")]
+async fn write_linux_gtk_clipboard_image_png(app: &tauri::AppHandle, png_bytes: Vec<u8>) -> bool {
+    let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
+    let dispatched = app.run_on_main_thread(move || {
+        use gtk::gdk_pixbuf::prelude::PixbufLoaderExt as _;
+        let ok = (|| -> Option<()> {
+            let loader = gtk::gdk_pixbuf::PixbufLoader::with_type("png").ok()?;
+            loader.write(&png_bytes).ok()?;
+            loader.close().ok()?;
+            let pixbuf = loader.pixbuf()?;
+            let clipboard = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
+            clipboard.set_image(&pixbuf);
+            clipboard.store();
+            Some(())
+        })()
+        .is_some();
+        let _ = tx.send(ok);
+    });
+    if dispatched.is_err() {
+        return false;
+    }
+    matches!(
+        tokio::time::timeout(CLIPBOARD_IO_TIMEOUT, rx).await,
+        Ok(Ok(true))
+    )
 }
 
 #[cfg(target_os = "linux")]
@@ -461,18 +548,28 @@ fn run_command_output_bounded(
 // can never deadlock the window when pasting links or self-owned clipboard selections.
 #[tauri::command]
 async fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<String> {
+    use base64::Engine as _;
+    let encode = |png: Vec<u8>| {
+        format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(png)
+        )
+    };
+
+    // On Linux (KDE/GNOME/Sway Wayland and X11), read via GTK3's async clipboard API first so
+    // image paste works natively without requiring `wl-paste` or `xclip` and without blocking
+    // the main loop on self-owned clipboard selections.
+    #[cfg(target_os = "linux")]
+    if let Some(png_bytes) = read_linux_gtk_clipboard_image_png(&app).await {
+        if png_bytes.starts_with(b"\x89PNG") {
+            return Some(encode(png_bytes));
+        }
+    }
+
     let task = tauri::async_runtime::spawn_blocking(move || {
-        use base64::Engine as _;
         use tauri_plugin_clipboard_manager::ClipboardExt;
-        let encode = |png: Vec<u8>| {
-            format!(
-                "data:image/png;base64,{}",
-                base64::engine::general_purpose::STANDARD.encode(png)
-            )
-        };
-        // GNOME Wayland has no data-control protocol, so arboard cannot read the clipboard
-        // there; wl-paste can. Always probe `--list-types` first with a short timeout so
-        // non-image clipboards (such as pasted URLs) return immediately without blocking.
+        // Fallback when GTK3 returned no image (e.g. compositor quirk): probe Wayland via
+        // `wl-paste` or X11/XWayland via `xclip` with bounded timeouts.
         #[cfg(target_os = "linux")]
         if std::env::var_os("WAYLAND_DISPLAY").is_some() {
             if let Some(types_out) = run_command_output_bounded(
@@ -486,15 +583,44 @@ async fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<Strin
                     if !wayland_clipboard_mime_list_has_any_image(&mime_list) {
                         return None;
                     }
-                    if wayland_clipboard_mime_list_has_png(&mime_list) {
+                    if let Some(mime) = linux_clipboard_preferred_image_mime(&mime_list) {
                         if let Some(out) = run_command_output_bounded(
                             "wl-paste",
-                            &["--no-newline", "--type", "image/png"],
+                            &["--no-newline", "--type", &mime],
                             None,
                             CLIPBOARD_IO_TIMEOUT,
                         ) {
-                            if out.status.success() && out.stdout.starts_with(b"\x89PNG") {
-                                return Some(encode(out.stdout));
+                            if out.status.success() {
+                                if let Some(png) = decode_linux_image_bytes_to_png(&mime, &out.stdout) {
+                                    return Some(encode(png));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        #[cfg(target_os = "linux")]
+        if std::env::var_os("DISPLAY").is_some() {
+            if let Some(targets_out) = run_command_output_bounded(
+                "xclip",
+                &["-selection", "clipboard", "-t", "TARGETS", "-o"],
+                None,
+                WAYLAND_CLIPBOARD_LIST_TIMEOUT,
+            ) {
+                if targets_out.status.success() {
+                    let mime_list = String::from_utf8_lossy(&targets_out.stdout);
+                    if let Some(mime) = linux_clipboard_preferred_image_mime(&mime_list) {
+                        if let Some(out) = run_command_output_bounded(
+                            "xclip",
+                            &["-selection", "clipboard", "-t", &mime, "-o"],
+                            None,
+                            CLIPBOARD_IO_TIMEOUT,
+                        ) {
+                            if out.status.success() {
+                                if let Some(png) = decode_linux_image_bytes_to_png(&mime, &out.stdout) {
+                                    return Some(encode(png));
+                                }
                             }
                         }
                     }
@@ -522,24 +648,41 @@ async fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<Strin
 
 #[tauri::command]
 async fn desktop_clipboard_write_image(app: tauri::AppHandle, data_url: String) -> bool {
+    let Some(png_bytes) = decode_clipboard_png_data_url(&data_url) else {
+        return false;
+    };
+    #[cfg(target_os = "linux")]
+    if write_linux_gtk_clipboard_image_png(&app, png_bytes.clone()).await {
+        return true;
+    }
     let task = tauri::async_runtime::spawn_blocking(move || {
         use tauri_plugin_clipboard_manager::ClipboardExt;
-        let Some(png_bytes) = decode_clipboard_png_data_url(&data_url) else {
-            return false;
-        };
         let Ok(image) = tauri::image::Image::from_bytes(&png_bytes) else {
             return false;
         };
         if app.clipboard().write_image(&image).is_ok() {
             return true;
         }
-        // Mirror `wl-paste` above for GNOME/Wayland sessions where arboard cannot
-        // access the Wayland clipboard directly.
+        // Mirror `wl-paste` / `xclip` fallbacks for Linux sessions where arboard cannot access
+        // the clipboard directly.
         #[cfg(target_os = "linux")]
         if std::env::var_os("WAYLAND_DISPLAY").is_some() {
             if let Some(out) = run_command_output_bounded(
                 "wl-copy",
                 &["--type", "image/png"],
+                Some(&png_bytes),
+                CLIPBOARD_IO_TIMEOUT,
+            ) {
+                if out.status.success() {
+                    return true;
+                }
+            }
+        }
+        #[cfg(target_os = "linux")]
+        if std::env::var_os("DISPLAY").is_some() {
+            if let Some(out) = run_command_output_bounded(
+                "xclip",
+                &["-selection", "clipboard", "-t", "image/png", "-i"],
                 Some(&png_bytes),
                 CLIPBOARD_IO_TIMEOUT,
             ) {
@@ -1450,6 +1593,17 @@ async fn desktop_remote_ssh_connect(
 }
 
 #[tauri::command]
+async fn desktop_remote_ssh_reconnect(
+    state: State<'_, Arc<DesktopSharedState>>,
+    host: DesktopRemoteSshSavedHost,
+) -> Result<DesktopRemoteSshHostState, String> {
+    let remote_ssh = Arc::clone(&state.remote_ssh);
+    tokio::task::spawn_blocking(move || remote_ssh.reconnect(host))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn desktop_remote_ssh_disconnect(
     state: State<'_, Arc<DesktopSharedState>>,
     host: String,
@@ -2334,6 +2488,7 @@ pub fn run() {
             desktop_appsnap_hide_permission_guide,
             desktop_remote_ssh_get_state,
             desktop_remote_ssh_connect,
+            desktop_remote_ssh_reconnect,
             desktop_remote_ssh_disconnect,
             desktop_remote_ssh_stop_server,
             desktop_remote_ssh_forget,
@@ -2391,23 +2546,29 @@ pub fn run() {
 
 #[cfg(test)]
 mod clipboard_tests {
-    use super::{wayland_clipboard_mime_list_has_any_image, wayland_clipboard_mime_list_has_png};
+    use super::{linux_clipboard_preferred_image_mime, wayland_clipboard_mime_list_has_any_image};
 
     #[test]
     fn wayland_mime_list_skips_text_and_uri_links() {
         let link_mimes = "text/plain;charset=utf-8\ntext/uri-list\ntext/html\nUTF8_STRING\n";
         assert!(!wayland_clipboard_mime_list_has_any_image(link_mimes));
-        assert!(!wayland_clipboard_mime_list_has_png(link_mimes));
+        assert_eq!(linux_clipboard_preferred_image_mime(link_mimes), None);
     }
 
     #[test]
     fn wayland_mime_list_detects_png_and_other_images() {
-        let png_mimes = "image/png\ntext/html\n";
+        let png_mimes = "image/jpeg\nimage/png\ntext/html\n";
         assert!(wayland_clipboard_mime_list_has_any_image(png_mimes));
-        assert!(wayland_clipboard_mime_list_has_png(png_mimes));
+        assert_eq!(
+            linux_clipboard_preferred_image_mime(png_mimes).as_deref(),
+            Some("image/png")
+        );
 
         let jpeg_mimes = "IMAGE/JPEG\n";
         assert!(wayland_clipboard_mime_list_has_any_image(jpeg_mimes));
-        assert!(!wayland_clipboard_mime_list_has_png(jpeg_mimes));
+        assert_eq!(
+            linux_clipboard_preferred_image_mime(jpeg_mimes).as_deref(),
+            Some("IMAGE/JPEG")
+        );
     }
 }

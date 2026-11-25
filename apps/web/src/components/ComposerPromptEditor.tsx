@@ -25,6 +25,7 @@ import {
   KEY_DOWN_COMMAND,
   KEY_ENTER_COMMAND,
   KEY_TAB_COMMAND,
+  COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_HIGH,
   SKIP_DOM_SELECTION_TAG,
   KEY_BACKSPACE_COMMAND,
@@ -63,6 +64,7 @@ import {
   splitPromptIntoComposerSegments,
 } from "~/composer-editor-mentions";
 import { parseBareComposerLink } from "~/lib/linkChips";
+import { hasExplicitClipboardImageSignal } from "~/hooks/useComposerDropzone";
 import { type TerminalContextDraft } from "~/lib/terminalContext";
 import { shouldCollapsePastedText } from "~/lib/composerPastedText";
 import type { ProviderMentionReference } from "@saint/contracts";
@@ -920,8 +922,12 @@ function ComposerLinkPastePlugin() {
       (event) => {
         const clipboardData = event instanceof ClipboardEvent ? event.clipboardData : null;
         // Let image/file attachments take precedence over a companion image URL in text/plain
-        // (mirrors ComposerBigPastePlugin so browser "Copy Image" attaches the image once).
-        if (clipboardData && clipboardData.files.length > 0) {
+        // (mirrors ComposerBigPastePlugin so browser "Copy Image" attaches the image once,
+        // including on WebKitGTK where clipboardData.files is empty for image pastes).
+        if (
+          clipboardData &&
+          (clipboardData.files.length > 0 || hasExplicitClipboardImageSignal(clipboardData))
+        ) {
           return false;
         }
         const url = parseBareComposerLink(clipboardData?.getData("text/plain") ?? "");
@@ -1008,7 +1014,7 @@ function ComposerBigPastePlugin(props: { onCollapsePastedText: (text: string) =>
           return false;
         }
         // Image/file pastes are handled by the composer dropzone — never collapse them.
-        if (clipboardData.files.length > 0) {
+        if (clipboardData.files.length > 0 || hasExplicitClipboardImageSignal(clipboardData)) {
           return false;
         }
         const text = clipboardData.getData("text/plain");
@@ -1482,6 +1488,81 @@ function ComposerPromptEditorInner({
     [editor],
   );
 
+  // Run external paste handling (image/file attachments and desktop clipboard image probing)
+  // in capture phase BEFORE Lexical's native target-phase `paste` listener fires. Otherwise
+  // `@lexical/plain-text` unconditionally calls `event.preventDefault()` on every paste when a
+  // selection exists, causing `useComposerDropzone.onComposerPaste` to bail on
+  // `event.defaultPrevented` and dropping pasted images across all platforms.
+  useEffect(() => {
+    return editor.registerCommand(
+      PASTE_COMMAND,
+      (event) => event instanceof ClipboardEvent && event.defaultPrevented,
+      COMMAND_PRIORITY_CRITICAL,
+    );
+  }, [editor]);
+
+  // WebKitGTK on Linux/Wayland can swallow Ctrl+V without dispatching a DOM `paste` event when
+  // the OS clipboard contains only an image (no text/plain target). If a Ctrl+V keydown on the
+  // editable root produces no paste event within a short grace window, dispatch a synthetic paste
+  // event so the dropzone's native image clipboard reader runs.
+  const lastPasteEventAtRef = useRef(0);
+  const handleContentEditablePaste: ClipboardEventHandler<HTMLDivElement> | undefined = onPaste
+    ? (event) => {
+        lastPasteEventAtRef.current = performance.now();
+        onPaste(event);
+      }
+    : undefined;
+
+  useEffect(() => {
+    if (!onPaste || disabled) return;
+    if (
+      typeof window === "undefined" ||
+      typeof window.desktopBridge?.clipboard?.readImagePngDataUrl !== "function"
+    ) {
+      return;
+    }
+    let fallbackTimer: number | null = null;
+    const clearFallback = () => {
+      if (fallbackTimer !== null) {
+        window.clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        !event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== "v"
+      ) {
+        return;
+      }
+      const keydownAt = performance.now();
+      clearFallback();
+      fallbackTimer = window.setTimeout(() => {
+        fallbackTimer = null;
+        if (lastPasteEventAtRef.current >= keydownAt) return;
+        const rootElement = editor.getRootElement();
+        if (!rootElement || document.activeElement !== rootElement) return;
+        if (typeof ClipboardEvent === "function") {
+          rootElement.dispatchEvent(
+            new ClipboardEvent("paste", { bubbles: true, cancelable: true }),
+          );
+        }
+      }, 60);
+    };
+    const unregister = editor.registerRootListener((rootElement, prevRootElement) => {
+      prevRootElement?.removeEventListener("keydown", handleKeyDown);
+      clearFallback();
+      rootElement?.addEventListener("keydown", handleKeyDown);
+    });
+    return () => {
+      clearFallback();
+      unregister();
+    };
+  }, [disabled, editor, onPaste]);
+
   return (
     <ComposerRemoveTerminalContextContext.Provider value={onRemoveTerminalContext}>
       <div className="relative">
@@ -1500,7 +1581,7 @@ function ComposerPromptEditorInner({
               aria-placeholder={placeholder}
               aria-label={ariaLabel}
               placeholder={<span />}
-              onPaste={onPaste}
+              onPasteCapture={handleContentEditablePaste}
             />
           }
           placeholder={

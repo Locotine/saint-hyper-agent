@@ -100,12 +100,26 @@ impl BackendSupervisor {
         // static initialization script keeps a stable endpoint across retries and
         // page reloads. Ceiling: a port taken between allocation and spawn fails
         // all retries; upgrade path is a dynamic bridge query for the URL.
-        let port = Self::allocate_ephemeral_port();
+        Self::with_port(paths, Self::allocate_ephemeral_port())
+    }
+
+    #[cfg(test)]
+    pub fn new_with_port(paths: SaintPaths, port: u16) -> Self {
+        Self::with_port(paths, port)
+    }
+
+    fn with_port(paths: SaintPaths, port: u16) -> Self {
         let auth_token = std::env::var("SAINT_AUTH_TOKEN")
             .ok()
             .map(|v| v.trim().to_string())
             .filter(|v| !v.is_empty())
-            .unwrap_or_else(|| format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple()));
+            .unwrap_or_else(|| {
+                format!(
+                    "{}{}",
+                    uuid::Uuid::new_v4().simple(),
+                    uuid::Uuid::new_v4().simple()
+                )
+            });
         let shutdown_token = uuid::Uuid::new_v4().simple().to_string();
         let http_base_url = format!("http://127.0.0.1:{port}");
         let ws_url = format!("ws://127.0.0.1:{port}/?token={auth_token}");

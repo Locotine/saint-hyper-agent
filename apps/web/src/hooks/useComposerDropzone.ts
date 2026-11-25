@@ -8,6 +8,7 @@ import { useEffect, useRef, type ClipboardEvent, type DragEvent } from "react";
 import { CHAT_FILE_REFERENCE_DRAG_TYPE } from "~/lib/chatReferences";
 import { isDroppedComposerDirectory, splitDroppedComposerFiles } from "~/lib/composerDropPaths";
 import { readDesktopClipboardImageFile } from "~/lib/desktopClipboard";
+import { parseBareComposerLink } from "~/lib/linkChips";
 
 export interface ComposerDropzoneFileSplit {
   readonly imageFiles: File[];
@@ -65,9 +66,54 @@ export function shouldHandleComposerDropzoneFiles(
   return false;
 }
 
+const CLIPBOARD_IMAGE_FILE_URI_PATTERN =
+  /^file:\/\/.+\.(?:png|jpe?g|gif|webp|bmp|avif|tiff?)(?:[?#].*)?$/i;
+
+function isClipboardImageFileUriList(rawUriList: string): boolean {
+  const uris = rawUriList
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+  return uris.length > 0 && uris.every((uri) => CLIPBOARD_IMAGE_FILE_URI_PATTERN.test(uri));
+}
+
+function isPlainTextEmptyOrSingleLink(plainText: string): boolean {
+  const trimmed = plainText.trim();
+  if (trimmed.length === 0) return true;
+  if (parseBareComposerLink(trimmed) !== null) return true;
+  return CLIPBOARD_IMAGE_FILE_URI_PATTERN.test(trimmed);
+}
+
+/**
+ * True when `clipboardData` carries an explicit image signal (even when WebKitGTK omits
+ * `clipboardData.files`), such as browser "Copy Image" (`image/*` or `<img` HTML alongside a
+ * companion image URL) or a local image file URI.
+ */
+export function hasExplicitClipboardImageSignal(
+  clipboardData: Pick<DataTransfer, "getData" | "types">,
+): boolean {
+  const types = Array.from(clipboardData.types).map((type) => type.toLowerCase());
+  if (types.some((type) => type.startsWith("image/")) || types.includes("files")) {
+    return true;
+  }
+  const plainText = clipboardData.getData("text/plain");
+  if (!isPlainTextEmptyOrSingleLink(plainText)) {
+    return false;
+  }
+  const html = clipboardData.getData("text/html");
+  if (/<img\b/i.test(html)) {
+    return true;
+  }
+  const uriList = clipboardData.getData("text/uri-list");
+  return isClipboardImageFileUriList(uriList);
+}
+
 export function shouldProbeDesktopClipboardImage(
   clipboardData: Pick<DataTransfer, "getData" | "types">,
 ): boolean {
+  if (hasExplicitClipboardImageSignal(clipboardData)) {
+    return true;
+  }
   const hasTextOrUriPayload =
     clipboardData.getData("text/plain") !== "" ||
     clipboardData.getData("text/uri-list") !== "" ||
@@ -214,9 +260,15 @@ export function useComposerDropzone(input: {
     }
     if (files.length === 0) {
       // WebKitGTK (Linux desktop) exposes no files for a pasted image; ask the desktop shell
-      // only when the clipboard carries no text/URL payload (pasting a link or URI must never
-      // invoke the native image clipboard reader).
+      // when the clipboard carries an explicit image signal or has no text/URL payload (plain
+      // link/text pastes never invoke the native image clipboard reader).
       if (shouldProbeDesktopClipboardImage(event.clipboardData)) {
+        const hasNativeImageReader =
+          typeof window !== "undefined" &&
+          typeof window.desktopBridge?.clipboard?.readImagePngDataUrl === "function";
+        if (hasNativeImageReader && hasExplicitClipboardImageSignal(event.clipboardData)) {
+          event.preventDefault();
+        }
         void readDesktopClipboardImageFile().then((file) => {
           if (file) handleSplitFiles({ imageFiles: [file], genericFiles: [] });
         });

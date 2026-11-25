@@ -6,6 +6,7 @@ import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
 import { detectComposerTrigger, type ComposerTrigger } from "../composer-logic";
+import { useComposerDropzone } from "../hooks/useComposerDropzone";
 import { ComposerPromptEditor, type ComposerPromptEditorHandle } from "./ComposerPromptEditor";
 
 type EditorProps = ComponentProps<typeof ComposerPromptEditor>;
@@ -386,5 +387,80 @@ describe("ComposerPromptEditor link paste and IME composition", () => {
     editor.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "ti" }));
     await expect.poll(() => triggerOutput.textContent).toBe("mention:ti");
     expect(onChangeSpy).toHaveBeenLastCalledWith("@ti", false);
+  });
+
+  it("attaches pasted images before Lexical prevents default and suppresses companion image URL text", async () => {
+    const ref = createRef<ComposerPromptEditorHandle>();
+    const addedImages: File[] = [];
+
+    function ImagePasteHarness() {
+      const [value, setValue] = useState("");
+      const [cursor, setCursor] = useState(0);
+      const { onComposerPaste } = useComposerDropzone({
+        addImages: (files) => {
+          addedImages.push(...files);
+        },
+        fileSupport: {
+          genericFiles: "accept",
+          addFiles: () => {},
+        },
+        setIsDragOverComposer: () => {},
+      });
+
+      return (
+        <ComposerPromptEditor
+          ref={ref}
+          value={value}
+          cursor={cursor}
+          terminalContexts={[]}
+          disabled={false}
+          placeholder="Write a message"
+          ariaLabel="Message"
+          onRemoveTerminalContext={() => {}}
+          onChange={(nextValue, nextCursor) => {
+            setValue(nextValue);
+            setCursor(nextCursor);
+          }}
+          onPaste={onComposerPaste}
+        />
+      );
+    }
+
+    await render(<ImagePasteHarness />);
+    const editor = document.querySelector<HTMLElement>('[data-testid="composer-editor"]')!;
+    ref.current?.focus();
+    await expect.poll(() => document.activeElement).toBe(editor);
+    await settleSelection();
+
+    // Browser "Copy Image" includes both an image File and a companion image URL in text/plain.
+    const pngFile = new File([new Uint8Array([137, 80, 78, 71])], "copied.png", {
+      type: "image/png",
+    });
+    const imageClipboard = new DataTransfer();
+    imageClipboard.items.add(pngFile);
+    imageClipboard.setData("text/plain", "https://example.com/copied.png");
+    editor.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: imageClipboard,
+      }),
+    );
+
+    await expect.poll(() => addedImages.map((file) => file.name)).toEqual(["copied.png"]);
+    expect(ref.current?.readSnapshot().value).toBe("");
+
+    // Plain URL paste without an image still inserts as a link chip normally.
+    const linkClipboard = new DataTransfer();
+    linkClipboard.setData("text/plain", "https://example.com/docs");
+    editor.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: linkClipboard,
+      }),
+    );
+
+    await expect.poll(() => ref.current?.readSnapshot().value).toBe("https://example.com/docs");
   });
 });

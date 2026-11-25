@@ -308,7 +308,11 @@ const SERVER_ALIVE_FUNCTION: &str = r#"server_alive() {
   [ -f "$run_dir/server.pid" ] || return 1
   pid=$(cat "$run_dir/server.pid" 2>/dev/null || true)
   [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null || return 1
-  command_line=$(ps -p "$pid" -o args= 2>/dev/null) || return 0
+  if [ -r "/proc/$pid/cmdline" ]; then
+    command_line=$(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null || true)
+    case "$command_line" in *dist/index.mjs*) return 0 ;; esac
+  fi
+  command_line=$(COLUMNS= ps -ww -p "$pid" -o args= 2>/dev/null || ps -p "$pid" -o args= 2>/dev/null) || return 0
   case "$command_line" in *dist/index.mjs*) return 0 ;; esac
   return 1
 }"#;
@@ -929,6 +933,46 @@ mod tests {
         );
         assert!(compare_install_versions("1.2.3-beta.1", "1.2.3") < 0);
         assert_eq!(tmux_session_name(".saint-remote"), "saint-remote");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn server_alive_matches_long_command_line_under_80_columns() {
+        let scratch = std::env::temp_dir().join(format!(
+            "saint-server-alive-test-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&scratch).unwrap();
+        // Spawn a sleeping process whose argv exceeds 80 columns before `dist/index.mjs`.
+        let mut child = std::process::Command::new("sh")
+            .args([
+                "-c",
+                "sleep 10",
+                "--max-old-space-size=1024",
+                "--max-semi-space-size=8",
+                "/home/very-long-username-for-testing/.saint-remote/versions/1.2.13-518d8ae7d96d/dist/index.mjs",
+            ])
+            .spawn()
+            .unwrap();
+        let pid_path = scratch.join("server.pid");
+        std::fs::write(&pid_path, format!("{}\n", child.id())).unwrap();
+        let script = format!(
+            "set -eu\nrun_dir={}\n{SERVER_ALIVE_FUNCTION}\nserver_alive\n",
+            quote_shell(&scratch.to_string_lossy())
+        );
+        let out = std::process::Command::new("sh")
+            .args(["-c", &script])
+            .env("COLUMNS", "80")
+            .output()
+            .unwrap();
+        let _ = child.kill();
+        let _ = child.wait();
+        let _ = std::fs::remove_dir_all(&scratch);
+        assert!(
+            out.status.success(),
+            "server_alive must detect dist/index.mjs beyond column 80: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
     }
 
     /// Runs probe → upload → install → start → stop against this machine with a scratch `$HOME`

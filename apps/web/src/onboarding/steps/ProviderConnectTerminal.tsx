@@ -6,11 +6,13 @@
 
 import { scopeLocalThread } from "@saint/shared/hostId";
 import type { ProviderKind } from "@saint/contracts";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
 import ThreadTerminalDrawer from "~/components/ThreadTerminalDrawer";
 import { disposeAndCloseTerminalSession } from "~/components/terminal/terminalSession";
 import { useTerminalSurfaceController } from "~/hooks/useTerminalSurfaceController";
+import { serverQueryKeys } from "~/lib/serverReactQuery";
 import { readLocalNativeApi } from "~/nativeApi";
 import { runProjectCommandInTerminal } from "~/projectTerminalRunner";
 import { useTerminalStateStore } from "~/terminalStateStore";
@@ -21,6 +23,7 @@ export function ProviderConnectTerminal(props: {
   signInCommand: string;
   cwd: string;
 }) {
+  const queryClient = useQueryClient();
   const scopeId = onboardingTerminalThreadId(props.provider);
   const terminal = useTerminalSurfaceController(scopeId);
   const { terminalState, openTerminalThreadPage } = terminal;
@@ -35,8 +38,9 @@ export function ProviderConnectTerminal(props: {
         disposeAndCloseTerminalSession({ api, threadId: scopeId, terminalId });
       }
       clearTerminalState(scopeLocalThread(scopeId));
+      void queryClient.invalidateQueries({ queryKey: serverQueryKeys.allProviderUsage() });
     },
-    [clearTerminalState, scopeId],
+    [clearTerminalState, queryClient, scopeId],
   );
 
   useEffect(() => {

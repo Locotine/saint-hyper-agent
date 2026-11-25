@@ -8,6 +8,7 @@ import { CHAT_FILE_REFERENCE_DRAG_TYPE } from "~/lib/chatReferences";
 
 import {
   collectComposerClipboardFiles,
+  hasExplicitClipboardImageSignal,
   isComposerDropzoneInternalDragTransition,
   shouldBlockDisabledComposerDropzoneTransfer,
   shouldPreventDefaultForUnhandledFileDrop,
@@ -104,7 +105,7 @@ describe("useComposerDropzone file capability helpers", () => {
     expect(shouldBlockDisabledComposerDropzoneTransfer(true, ["text/plain"])).toBe(false);
   });
 
-  it("skips desktop clipboard image probing whenever text or URI link payloads are present", () => {
+  it("skips desktop clipboard image probing for plain text/URI pastes while allowing image signals", () => {
     const makeClipboard = (values: Record<string, string>, types: string[]) => ({
       getData: (mime: string) => values[mime] ?? "",
       types,
@@ -121,7 +122,44 @@ describe("useComposerDropzone file capability helpers", () => {
       ),
     ).toBe(false);
     expect(shouldProbeDesktopClipboardImage(makeClipboard({}, ["text/html"]))).toBe(false);
+    expect(
+      shouldProbeDesktopClipboardImage(
+        makeClipboard(
+          { "text/plain": "Check out this screenshot", "text/html": '<p>Hi <img src="x.png"></p>' },
+          ["text/plain", "text/html"],
+        ),
+      ),
+    ).toBe(false);
     expect(shouldProbeDesktopClipboardImage(makeClipboard({}, []))).toBe(true);
     expect(shouldProbeDesktopClipboardImage(makeClipboard({}, ["image/png"]))).toBe(true);
+    expect(
+      shouldProbeDesktopClipboardImage(
+        makeClipboard(
+          {
+            "text/plain": "https://example.com/pic.png",
+            "text/html": '<img src="https://example.com/pic.png">',
+          },
+          ["image/png", "text/html", "text/plain"],
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      hasExplicitClipboardImageSignal(
+        makeClipboard(
+          {
+            "text/plain": "https://example.com/pic.png",
+            "text/html": '<img src="https://example.com/pic.png">',
+          },
+          ["text/html", "text/plain"],
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      hasExplicitClipboardImageSignal(
+        makeClipboard({ "text/uri-list": "file:///home/user/Pictures/shot.png" }, [
+          "text/uri-list",
+        ]),
+      ),
+    ).toBe(true);
   });
 });

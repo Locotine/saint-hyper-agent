@@ -59,7 +59,7 @@ export function useRemoteHostStoreSync(state: DesktopRemoteSshState): void {
         const step = stepAutoReconnect(entries.get(hostKey) ?? INITIAL_AUTO_RECONNECT_ENTRY, {
           now,
           phase: hostState.phase,
-          streamStale: hostStores.status(sshHostId(hostKey)).status === "stale",
+          streamStatus: hostStores.status(sshHostId(hostKey)).status,
           autoReconnectSuppressed: hostState.autoReconnectSuppressed === true,
         });
         entries.set(hostKey, step.entry);

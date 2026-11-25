@@ -80,11 +80,13 @@ type GoogleOAuthClientKind = "antigravity" | "gemini-cli";
 interface GeminiCredCandidate {
   path: string;
   client: GoogleOAuthClientKind;
+  source?: "file" | "keyring";
 }
 
 interface GeminiOAuthCreds {
   path: string;
   client: GoogleOAuthClientKind;
+  source: "file" | "keyring";
   record: Record<string, unknown>;
   accessToken: string;
   refreshToken?: string;
@@ -148,6 +150,7 @@ function readGeminiCreds(candidate: GeminiCredCandidate, value: unknown): Gemini
   const refreshToken = asString(tokenRecord.refresh_token) ?? asString(record.refresh_token);
   return {
     ...candidate,
+    source: candidate.source ?? "file",
     record,
     accessToken,
     ...(refreshToken ? { refreshToken } : {}),
@@ -213,8 +216,38 @@ const LINUX_SECRET_TOOL_ARGS = [
   "username",
   KEYRING_ACCOUNT,
 ] as const;
-// Fallback when libsecret-tools is not installed: GNOME and KDE desktops ship the system
-// Python with the libsecret GObject bindings, so this needs nothing extra on those hosts.
+// Direct Session D-Bus lookup against org.freedesktop.secrets via gi.repository.Gio (shipped
+// with python3-gi on Debian/Ubuntu/Fedora/Arch without requiring gir1.2-secret-1). Reads raw
+// secret bytes regardless of content_type, fixing KDE Wallet entries stored with
+// `text/plain; charset=utf8` where `secret-tool lookup` exits 1 ("does not contain a textual password").
+export const LINUX_PYTHON_DBUS_SECRET_SCRIPT = [
+  "import sys",
+  "from gi.repository import Gio, GLib",
+  "bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)",
+  "def call(path, iface, method, params=None):",
+  "    return bus.call_sync('org.freedesktop.secrets', path, iface, method, params, None, Gio.DBusCallFlags.NONE, 3000, None)",
+  `unlocked, _locked = call('/org/freedesktop/secrets', 'org.freedesktop.Secret.Service', 'SearchItems', GLib.Variant('(a{ss})', ({'service': '${KEYRING_SERVICE}', 'username': '${KEYRING_ACCOUNT}'},))).unpack()`,
+  "if not unlocked:",
+  "    sys.exit(0)",
+  "_out, session_path = call('/org/freedesktop/secrets', 'org.freedesktop.Secret.Service', 'OpenSession', GLib.Variant('(sv)', ('plain', GLib.Variant('s', '')))).unpack()",
+  "try:",
+  "    secrets = call('/org/freedesktop/secrets', 'org.freedesktop.Secret.Service', 'GetSecrets', GLib.Variant('(aoo)', (unlocked, session_path))).unpack()[0]",
+  "    for item_path in unlocked:",
+  "        secret = secrets.get(item_path)",
+  "        if not secret:",
+  "            continue",
+  "        raw = bytes(secret[2])",
+  "        if raw:",
+  "            sys.stdout.write(raw.decode('utf-8'))",
+  "            break",
+  "finally:",
+  "    try:",
+  "        call(session_path, 'org.freedesktop.Secret.Session', 'Close')",
+  "    except Exception:",
+  "        pass",
+].join("\n");
+
+// Fallback when Gio D-Bus lookup is unavailable: GNOME and KDE desktops that ship gir1.2-secret-1.
 const LINUX_PYTHON_SECRET_SCRIPT = [
   "import gi, sys",
   "gi.require_version('Secret', '1')",
@@ -224,19 +257,35 @@ const LINUX_PYTHON_SECRET_SCRIPT = [
   "sys.stdout.write(value or '')",
 ].join("\n");
 
-async function readLinuxSecretService(): Promise<string> {
-  try {
-    const { stdout } = await execFileAsync("secret-tool", [...LINUX_SECRET_TOOL_ARGS], {
-      timeout: KEYRING_TIMEOUT_MS,
-    });
-    if (stdout.trim()) return stdout;
-  } catch {
-    // secret-tool missing or no item; try the Python bindings below.
+type LinuxSecretExecFn = (
+  file: string,
+  args: readonly string[],
+  options: { readonly timeout: number },
+) => Promise<{ readonly stdout: string }>;
+
+export async function readLinuxSecretServiceWithExec(run: LinuxSecretExecFn): Promise<string> {
+  const attempts: ReadonlyArray<{ readonly file: string; readonly args: readonly string[] }> = [
+    { file: "secret-tool", args: LINUX_SECRET_TOOL_ARGS },
+    { file: "/usr/bin/python3", args: ["-c", LINUX_PYTHON_DBUS_SECRET_SCRIPT] },
+    { file: "/usr/bin/python3", args: ["-c", LINUX_PYTHON_SECRET_SCRIPT] },
+  ];
+  let lastError: unknown;
+  for (const attempt of attempts) {
+    try {
+      const { stdout } = await run(attempt.file, attempt.args, { timeout: KEYRING_TIMEOUT_MS });
+      if (stdout.trim()) return stdout;
+    } catch (error) {
+      lastError = error;
+    }
   }
-  const { stdout } = await execFileAsync("/usr/bin/python3", ["-c", LINUX_PYTHON_SECRET_SCRIPT], {
-    timeout: KEYRING_TIMEOUT_MS,
-  });
-  return stdout;
+  if (lastError !== undefined) throw lastError;
+  return "";
+}
+
+async function readLinuxSecretService(): Promise<string> {
+  return readLinuxSecretServiceWithExec((file, args, options) =>
+    execFileAsync(file, [...args], options),
+  );
 }
 
 /** go-keyring wraps some values (macOS) as `go-keyring-base64:` or `go-keyring-encoded:` (hex). */
@@ -324,9 +373,12 @@ async function resolveGeminiCreds(ctx: ProviderUsageContext): Promise<GeminiOAut
     const creds = readGeminiCreds(candidate, await readJsonFile(candidate.path));
     if (creds) return creds;
   }
-  const keyringTarget = antigravityCandidates[0] ?? {
-    path: nodePath.join(ctx.homeDir, ".gemini", "antigravity-cli", "antigravity-oauth-token"),
-    client: "antigravity" as const,
+  const keyringTarget: GeminiCredCandidate = {
+    ...(antigravityCandidates[0] ?? {
+      path: nodePath.join(ctx.homeDir, ".gemini", "antigravity-cli", "antigravity-oauth-token"),
+      client: "antigravity" as const,
+    }),
+    source: "keyring",
   };
   const keyringCreds = readGeminiCreds(keyringTarget, await readOsKeyringAntigravityToken(ctx));
   if (keyringCreds) return keyringCreds;
@@ -532,7 +584,17 @@ async function refreshGeminiCreds(
     return refreshed.status === 400 && refreshed.errorCode === "invalid_grant" ? "dead" : null;
   }
   const nextRecord = applyRefreshedTokens(creds, refreshed);
-  await writeJsonFileAtomic(creds.path, nextRecord);
+  if (creds.source === "keyring") {
+    // Keep OS-keyring tokens out of plaintext files on disk; update the in-memory keyring cache
+    // so subsequent quota reads reuse the rotated access token without failing on missing dirs.
+    cachedKeyringEntry = {
+      homeDir: nodePath.resolve(ctx.homeDir),
+      value: nextRecord,
+      expiresAtMs: ctx.nowMs + KEYRING_CACHE_TTL_MS,
+    };
+  } else {
+    await writeJsonFileAtomic(creds.path, nextRecord);
+  }
   const refreshToken = refreshed.refreshToken ?? creds.refreshToken;
   return {
     ...creds,

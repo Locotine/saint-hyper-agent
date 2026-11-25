@@ -2,7 +2,7 @@
 // Purpose: Covers Antigravity/agy OAuth files, Google refresh write-back, and Cloud Code quota
 // (summary pools first, legacy per-model buckets as fallback).
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
 
@@ -13,8 +13,10 @@ import { outboundHttp } from "@saint/shared/outboundHttp";
 import {
   antigravityUsageFetcher,
   decodeGoKeyringValue,
+  LINUX_PYTHON_DBUS_SECRET_SCRIPT,
   parseAntigravityQuota,
   parseAntigravityQuotaSummary,
+  readLinuxSecretServiceWithExec,
   setAntigravityKeyringReaderForTest,
 } from "./antigravity";
 
@@ -690,6 +692,84 @@ describe("antigravityUsageFetcher", () => {
     expect(fourth.status).toBe("ok");
     expect(callCount).toBe(3);
     expect(seenAuthHeaders.at(-1)).toBe("Bearer ya29-rotated-in-keyring");
+  });
+
+  it("refreshes an expired OS keyring token in memory without failing on missing disk directories", async () => {
+    const homeDir = mkdtempSync(nodePath.join(os.tmpdir(), "saint-agy-keyring-refresh-"));
+    tempDirs.push(homeDir);
+    let readerCalls = 0;
+    setAntigravityKeyringReaderForTest(async () => {
+      readerCalls += 1;
+      return {
+        auth_method: "consumer",
+        token: {
+          access_token: "ya29-keyring-expired",
+          refresh_token: "1//keyring-refresh",
+          expiry: new Date(NOW_MS - 60_000).toISOString(),
+        },
+      };
+    });
+
+    stubOutboundFetch(async (url, init) => {
+      const target = String(url);
+      if (target.includes("oauth2.googleapis.com/token")) {
+        return jsonResponse({
+          access_token: "ya29-keyring-refreshed",
+          expires_in: 3600,
+        });
+      }
+      const headers = init?.headers as Record<string, string>;
+      expect(headers.Authorization).toBe("Bearer ya29-keyring-refreshed");
+      if (isQuotaSummaryUrl(target)) return jsonResponse(QUOTA_SUMMARY);
+      if (target.includes("loadCodeAssist"))
+        return jsonResponse({ currentTier: { id: "free-tier" } });
+      throw new Error(`unexpected url ${target}`);
+    });
+
+    const first = await antigravityUsageFetcher.fetch({
+      homeDir,
+      env: {},
+      platform: "linux",
+      nowMs: NOW_MS,
+    });
+    expect(first.status).toBe("ok");
+    expect(readerCalls).toBe(1);
+    expect(
+      existsSync(nodePath.join(homeDir, ".gemini", "antigravity-cli", "antigravity-oauth-token")),
+    ).toBe(false);
+
+    // Subsequent read within cache TTL uses the refreshed keyring token in memory.
+    const second = await antigravityUsageFetcher.fetch({
+      homeDir,
+      env: {},
+      platform: "linux",
+      nowMs: NOW_MS + 10_000,
+    });
+    expect(second.status).toBe("ok");
+    expect(readerCalls).toBe(1);
+  });
+});
+
+describe("readLinuxSecretServiceWithExec", () => {
+  it("falls back to direct Gio D-Bus org.freedesktop.secrets when secret-tool rejects KDE Wallet content_type", async () => {
+    const calls: Array<{ file: string; args: readonly string[] }> = [];
+    const payload = '{"token":{"access_token":"ya29-kwallet"}}';
+    const result = await readLinuxSecretServiceWithExec(async (file, args) => {
+      calls.push({ file, args });
+      if (file === "secret-tool") {
+        throw new Error("secret-tool: secret does not contain a textual password");
+      }
+      if (file === "/usr/bin/python3" && args[1] === LINUX_PYTHON_DBUS_SECRET_SCRIPT) {
+        return { stdout: payload };
+      }
+      throw new Error("unexpected fallback");
+    });
+
+    expect(result).toBe(payload);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.file).toBe("secret-tool");
+    expect(calls[1]?.file).toBe("/usr/bin/python3");
+    expect(calls[1]?.args[1]).toBe(LINUX_PYTHON_DBUS_SECRET_SCRIPT);
   });
 });
 

@@ -2405,12 +2405,13 @@ mod tests {
             "saint-relay-test-{}",
             uuid::Uuid::new_v4().simple()
         ));
-        let paths = crate::state::SaintPaths::from_base_dir(root);
-        let backend = Arc::new(BackendSupervisor::new(paths.clone()));
+        let paths = crate::state::SaintPaths::from_base_dir(root.clone());
+        // Bind the fake upstream listener first on port 0 so parallel tests cannot race for an
+        // ephemeral port released by BackendSupervisor::new().
+        let fake = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let fake_port = fake.local_addr().unwrap().port();
+        let backend = Arc::new(BackendSupervisor::new_with_port(paths.clone(), fake_port));
         let remote_ssh = Arc::new(RemoteSshManager::new(paths));
-        let fake = TcpListener::bind(("127.0.0.1", backend.port()))
-            .await
-            .unwrap();
         tokio::spawn(async move {
             let (mut s, _) = fake.accept().await.unwrap();
             let mut buf = vec![0u8; 4096];
@@ -2463,6 +2464,7 @@ mod tests {
             client.read_to_string(&mut out),
         )
         .await;
+        let _ = std::fs::remove_dir_all(&root);
         out
     }
 
