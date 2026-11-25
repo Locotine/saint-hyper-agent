@@ -421,30 +421,87 @@ fn decode_linux_image_bytes_to_png(mime: &str, bytes: &[u8]) -> Option<Vec<u8>> 
     pixbuf.save_to_bufferv("png", &[]).ok()
 }
 
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, PartialEq, Eq)]
+enum GtkClipboardImageOutcome {
+    Image(Vec<u8>),
+    NoImage,
+    UnavailableOrTimedOut,
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn linux_atom_names_have_any_image<'a>(names: impl IntoIterator<Item = &'a str>) -> bool {
+    names
+        .into_iter()
+        .any(|name| name.trim().to_ascii_lowercase().starts_with("image/"))
+}
+
 /// Reads an image from the native GTK3 clipboard asynchronously on the main loop with zero
-/// synchronous `wait_for_*` calls (preventing self-owned clipboard deadlocks). Works natively on
-/// KDE Plasma Wayland, GNOME Wayland, Sway, and X11 without requiring `wl-paste` or `xclip`.
+/// synchronous `wait_for_*` calls (preventing self-owned clipboard deadlocks). Checks advertised
+/// `TARGETS` MIME atoms first so text/URL clipboards return `NoImage` immediately without asking
+/// the clipboard owner app to synthesize image data. Works natively on KDE Plasma Wayland, GNOME
+/// Wayland, Sway, and X11 without requiring `wl-paste` or `xclip`.
 #[cfg(target_os = "linux")]
-async fn read_linux_gtk_clipboard_image_png(app: &tauri::AppHandle) -> Option<Vec<u8>> {
-    let (tx, rx) = tokio::sync::oneshot::channel::<Option<Vec<u8>>>();
+async fn read_linux_gtk_clipboard_image_png(app: &tauri::AppHandle) -> GtkClipboardImageOutcome {
+    let (tx, rx) = tokio::sync::oneshot::channel::<GtkClipboardImageOutcome>();
     let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
     let tx_dispatch = std::sync::Arc::clone(&tx);
     let dispatched = app.run_on_main_thread(move || {
         let clipboard = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
-        clipboard.request_image(move |_clipboard, pixbuf| {
-            let png = pixbuf.and_then(|pb| pb.save_to_bufferv("png", &[]).ok());
-            if let Some(sender) = tx_dispatch.lock().ok().and_then(|mut g| g.take()) {
-                let _ = sender.send(png);
+        let targets_atom = gtk::gdk::Atom::intern("TARGETS");
+        clipboard.request_contents(&targets_atom, move |clipboard, selection_data| {
+            let finish = |outcome: GtkClipboardImageOutcome| {
+                if let Some(sender) = tx_dispatch.lock().ok().and_then(|mut g| g.take()) {
+                    let _ = sender.send(outcome);
+                }
+            };
+            if let Some(targets) = selection_data.targets() {
+                let target_names: Vec<String> =
+                    targets.iter().map(|atom| atom.name().to_string()).collect();
+                let has_image = selection_data.targets_include_image(false)
+                    || linux_atom_names_have_any_image(target_names.iter().map(String::as_str));
+                if !has_image {
+                    finish(GtkClipboardImageOutcome::NoImage);
+                    return;
+                }
             }
+            let tx_img = std::sync::Arc::clone(&tx_dispatch);
+            clipboard.request_image(move |_clipboard, pixbuf| {
+                let outcome = match pixbuf.and_then(|pb| pb.save_to_bufferv("png", &[]).ok()) {
+                    Some(png) if png.starts_with(b"\x89PNG") => GtkClipboardImageOutcome::Image(png),
+                    _ => GtkClipboardImageOutcome::NoImage,
+                };
+                if let Some(sender) = tx_img.lock().ok().and_then(|mut g| g.take()) {
+                    let _ = sender.send(outcome);
+                }
+            });
         });
     });
     if dispatched.is_err() {
-        return None;
+        return GtkClipboardImageOutcome::UnavailableOrTimedOut;
     }
     match tokio::time::timeout(CLIPBOARD_IO_TIMEOUT, rx).await {
-        Ok(Ok(bytes)) => bytes,
-        _ => None,
+        Ok(Ok(outcome)) => outcome,
+        _ => GtkClipboardImageOutcome::UnavailableOrTimedOut,
     }
+}
+
+#[cfg(target_os = "linux")]
+async fn write_linux_gtk_clipboard_text(app: &tauri::AppHandle, text: String) -> bool {
+    let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
+    let dispatched = app.run_on_main_thread(move || {
+        let clipboard = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
+        clipboard.set_text(&text);
+        clipboard.store();
+        let _ = tx.send(true);
+    });
+    if dispatched.is_err() {
+        return false;
+    }
+    matches!(
+        tokio::time::timeout(CLIPBOARD_IO_TIMEOUT, rx).await,
+        Ok(Ok(true))
+    )
 }
 
 #[cfg(target_os = "linux")]
@@ -558,20 +615,25 @@ async fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<Strin
 
     // On Linux (KDE/GNOME/Sway Wayland and X11), read via GTK3's async clipboard API first so
     // image paste works natively without requiring `wl-paste` or `xclip` and without blocking
-    // the main loop on self-owned clipboard selections.
+    // the main loop on self-owned clipboard selections. When GTK3 definitively confirms there is
+    // no image on the clipboard (e.g. text/link paste), return immediately — never fall through
+    // to X11/XWayland `arboard` polling which can hang and leak blocking threads.
     #[cfg(target_os = "linux")]
-    if let Some(png_bytes) = read_linux_gtk_clipboard_image_png(&app).await {
-        if png_bytes.starts_with(b"\x89PNG") {
-            return Some(encode(png_bytes));
-        }
+    match read_linux_gtk_clipboard_image_png(&app).await {
+        GtkClipboardImageOutcome::Image(png_bytes) => return Some(encode(png_bytes)),
+        GtkClipboardImageOutcome::NoImage => return None,
+        GtkClipboardImageOutcome::UnavailableOrTimedOut => {}
     }
 
     let task = tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(not(target_os = "linux"))]
         use tauri_plugin_clipboard_manager::ClipboardExt;
-        // Fallback when GTK3 returned no image (e.g. compositor quirk): probe Wayland via
-        // `wl-paste` or X11/XWayland via `xclip` with bounded timeouts.
+        // Fallback only when GTK3 was unavailable or timed out: probe Wayland via `wl-paste`
+        // or X11 via `xclip` with bounded timeouts.
         #[cfg(target_os = "linux")]
-        if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        let is_wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
+        #[cfg(target_os = "linux")]
+        if is_wayland {
             if let Some(types_out) = run_command_output_bounded(
                 "wl-paste",
                 &["--list-types"],
@@ -610,6 +672,9 @@ async fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<Strin
             ) {
                 if targets_out.status.success() {
                     let mime_list = String::from_utf8_lossy(&targets_out.stdout);
+                    if !wayland_clipboard_mime_list_has_any_image(&mime_list) {
+                        return None;
+                    }
                     if let Some(mime) = linux_clipboard_preferred_image_mime(&mime_list) {
                         if let Some(out) = run_command_output_bounded(
                             "xclip",
@@ -627,6 +692,14 @@ async fn desktop_clipboard_read_image_png(app: tauri::AppHandle) -> Option<Strin
                 }
             }
         }
+        // `arboard` in tauri-plugin-clipboard-manager uses X11-only x11rb on Linux and can hang
+        // waiting for SelectionNotify on Wayland/XWayland bridges. Never invoke it on Wayland.
+        #[cfg(target_os = "linux")]
+        if is_wayland {
+            return None;
+        }
+        #[cfg(target_os = "linux")]
+        use tauri_plugin_clipboard_manager::ClipboardExt;
         let image = app.clipboard().read_image().ok()?;
         let mut png_bytes = Vec::new();
         {
@@ -1847,16 +1920,22 @@ async fn desktop_browser_request_copy_link(
 ) -> Result<(), String> {
     if let Some(url) = state.browser.tab_url(&input.thread_id, &input.tab_id) {
         if url != "about:blank" && !url.is_empty() {
-            let url_for_clipboard = url.clone();
-            let app_for_clipboard = app.clone();
-            let _ = tokio::time::timeout(
-                CLIPBOARD_IO_TIMEOUT,
-                tauri::async_runtime::spawn_blocking(move || {
-                    use tauri_plugin_clipboard_manager::ClipboardExt;
-                    let _ = app_for_clipboard.clipboard().write_text(&url_for_clipboard);
-                }),
-            )
-            .await;
+            #[cfg(target_os = "linux")]
+            let wrote_via_gtk = write_linux_gtk_clipboard_text(&app, url.clone()).await;
+            #[cfg(not(target_os = "linux"))]
+            let wrote_via_gtk = false;
+            if !wrote_via_gtk {
+                let url_for_clipboard = url.clone();
+                let app_for_clipboard = app.clone();
+                let _ = tokio::time::timeout(
+                    CLIPBOARD_IO_TIMEOUT,
+                    tauri::async_runtime::spawn_blocking(move || {
+                        use tauri_plugin_clipboard_manager::ClipboardExt;
+                        let _ = app_for_clipboard.clipboard().write_text(&url_for_clipboard);
+                    }),
+                )
+                .await;
+            }
             emit_window_event(
                 &webview,
                 "desktop:browser-copy-link",
@@ -2546,7 +2625,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod clipboard_tests {
-    use super::{linux_clipboard_preferred_image_mime, wayland_clipboard_mime_list_has_any_image};
+    use super::{
+        linux_atom_names_have_any_image, linux_clipboard_preferred_image_mime,
+        wayland_clipboard_mime_list_has_any_image, GtkClipboardImageOutcome,
+    };
 
     #[test]
     fn wayland_mime_list_skips_text_and_uri_links() {
@@ -2569,6 +2651,26 @@ mod clipboard_tests {
         assert_eq!(
             linux_clipboard_preferred_image_mime(jpeg_mimes).as_deref(),
             Some("IMAGE/JPEG")
+        );
+    }
+
+    #[test]
+    fn gtk_target_atoms_distinguish_links_from_images() {
+        let github_link_targets = [
+            "TIMESTAMP",
+            "TARGETS",
+            "UTF8_STRING",
+            "text/plain;charset=utf-8",
+            "text/html",
+            "text/uri-list",
+        ];
+        assert!(!linux_atom_names_have_any_image(github_link_targets));
+
+        let image_targets = ["TARGETS", "text/html", "image/png"];
+        assert!(linux_atom_names_have_any_image(image_targets));
+        assert_ne!(
+            GtkClipboardImageOutcome::NoImage,
+            GtkClipboardImageOutcome::UnavailableOrTimedOut
         );
     }
 }

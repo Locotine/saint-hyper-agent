@@ -161,5 +161,44 @@ describe("useComposerDropzone file capability helpers", () => {
         ]),
       ),
     ).toBe(true);
+    // Copied GitHub links / rich cards with an avatar or badge <img> inside an <a> must NOT
+    // be misclassified as an image paste (otherwise they get swallowed and trigger native image IPC).
+    expect(
+      hasExplicitClipboardImageSignal(
+        makeClipboard(
+          {
+            "text/plain": "https://github.com/Locotine/saint-hyper-agent/pull/97",
+            "text/html":
+              '<a href="https://github.com/Locotine/saint-hyper-agent/pull/97"><img src="https://avatars.githubusercontent.com/u/1?v=4" width="16">Locotine/saint-hyper-agent#97</a>',
+          },
+          ["text/html", "text/plain"],
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      shouldProbeDesktopClipboardImage(
+        makeClipboard(
+          {
+            "text/plain": "https://github.com/Locotine/saint-hyper-agent/pull/97",
+            "text/html":
+              '<a href="https://github.com/Locotine/saint-hyper-agent/pull/97"><img src="https://avatars.githubusercontent.com/u/1?v=4" width="16">Locotine/saint-hyper-agent#97</a>',
+          },
+          ["text/html", "text/plain"],
+        ),
+      ),
+    ).toBe(false);
+    // Standalone browser "Copy Image" wrapped in StartFragment comments still triggers image probing.
+    expect(
+      hasExplicitClipboardImageSignal(
+        makeClipboard(
+          {
+            "text/plain": "https://example.com/pic.png",
+            "text/html":
+              '<html><body><!--StartFragment--><img src="https://example.com/pic.png" alt="pic"><!--EndFragment--></body></html>',
+          },
+          ["text/html", "text/plain"],
+        ),
+      ),
+    ).toBe(true);
   });
 });

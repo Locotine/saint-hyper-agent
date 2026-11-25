@@ -463,4 +463,73 @@ describe("ComposerPromptEditor link paste and IME composition", () => {
 
     await expect.poll(() => ref.current?.readSnapshot().value).toBe("https://example.com/docs");
   });
+
+  it("keeps pasted GitHub link chips editable after arrow navigation and ignores HTML avatar wrappers", async () => {
+    const ref = createRef<ComposerPromptEditorHandle>();
+    const addedImages: File[] = [];
+
+    function GitHubLinkHarness() {
+      const [value, setValue] = useState("");
+      const [cursor, setCursor] = useState(0);
+      const { onComposerPaste } = useComposerDropzone({
+        addImages: (files) => {
+          addedImages.push(...files);
+        },
+        fileSupport: {
+          genericFiles: "accept",
+          addFiles: () => {},
+        },
+        setIsDragOverComposer: () => {},
+      });
+
+      return (
+        <ComposerPromptEditor
+          ref={ref}
+          value={value}
+          cursor={cursor}
+          terminalContexts={[]}
+          disabled={false}
+          placeholder="Write a message"
+          ariaLabel="Message"
+          onRemoveTerminalContext={() => {}}
+          onChange={(nextValue, nextCursor) => {
+            setValue(nextValue);
+            setCursor(nextCursor);
+          }}
+          onPaste={onComposerPaste}
+        />
+      );
+    }
+
+    await render(<GitHubLinkHarness />);
+    const editor = document.querySelector<HTMLElement>('[data-testid="composer-editor"]')!;
+    ref.current?.focus();
+    await expect.poll(() => document.activeElement).toBe(editor);
+    await settleSelection();
+
+    const prUrl = "https://github.com/Locotine/saint-hyper-agent/pull/97";
+    const linkClipboard = new DataTransfer();
+    linkClipboard.setData("text/plain", prUrl);
+    linkClipboard.setData(
+      "text/html",
+      `<a href="${prUrl}"><img src="https://avatars.githubusercontent.com/u/1?v=4" width="16">Locotine/saint-hyper-agent#97</a>`,
+    );
+    editor.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: linkClipboard,
+      }),
+    );
+
+    await expect.poll(() => ref.current?.readSnapshot().value).toBe(prUrl);
+    expect(addedImages).toEqual([]);
+
+    // Arrowing left then right across the freshly pasted link chip must stay in a RangeSelection
+    // (never trapped in a NodeSelection) so typing immediately appends cleanly.
+    await userEvent.keyboard("{ArrowLeft}{ArrowRight}");
+    await settleSelection();
+    await userEvent.type(editor, " fix");
+    await expect.poll(() => ref.current?.readSnapshot().value).toBe(`${prUrl} fix`);
+  });
 });

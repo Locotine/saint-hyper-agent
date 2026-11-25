@@ -19,6 +19,62 @@ const SLOT_FIT_MARGIN_PX = 2;
  *  carry horizontal margins excluded from Range.getBoundingClientRect), word-wrap boundaries,
  *  and classic non-overlay scrollbars (Linux WebKitGTK) cannot oscillate row ↔ block forever. */
 const COLLAPSE_HYSTERESIS_PX = 24;
+/** Hard circuit-breaker: if row ↔ block flips this many times within the window for the same
+ *  prompt (e.g. a scrollbar-width jump or async chip measurement), latch into block mode. */
+const OSCILLATION_FLIP_WINDOW_MS = 500;
+const OSCILLATION_MAX_FLIPS_IN_WINDOW = 3;
+
+export interface ComposerSingleRowOscillationState {
+  readonly prompt: string;
+  readonly flipTimestamps: readonly number[];
+  readonly latchedBlock: boolean;
+}
+
+export function createComposerSingleRowOscillationState(
+  prompt = "",
+): ComposerSingleRowOscillationState {
+  return { prompt, flipTimestamps: [], latchedBlock: false };
+}
+
+/**
+ * Tracks rapid row ↔ block flips for an unchanged prompt. Once a prompt oscillates at least
+ * `OSCILLATION_MAX_FLIPS_IN_WINDOW` times within `OSCILLATION_FLIP_WINDOW_MS`, latches `fits`
+ * to `false` (block mode) until the prompt changes or clears.
+ */
+export function applyComposerSingleRowOscillationGuard(input: {
+  readonly state: ComposerSingleRowOscillationState;
+  readonly prompt: string;
+  readonly currentFits: boolean;
+  readonly proposedFits: boolean;
+  readonly nowMs: number;
+}): {
+  readonly fits: boolean;
+  readonly nextState: ComposerSingleRowOscillationState;
+} {
+  const { prompt, currentFits, proposedFits, nowMs } = input;
+  const state =
+    input.state.prompt === prompt ? input.state : createComposerSingleRowOscillationState(prompt);
+
+  if (state.latchedBlock) {
+    return { fits: false, nextState: state };
+  }
+  if (proposedFits === currentFits) {
+    return { fits: proposedFits, nextState: state };
+  }
+
+  const recent = state.flipTimestamps.filter((ts) => nowMs - ts <= OSCILLATION_FLIP_WINDOW_MS);
+  recent.push(nowMs);
+  if (recent.length >= OSCILLATION_MAX_FLIPS_IN_WINDOW) {
+    return {
+      fits: false,
+      nextState: { prompt, flipTimestamps: recent, latchedBlock: true },
+    };
+  }
+  return {
+    fits: proposedFits,
+    nextState: { prompt, flipTimestamps: recent, latchedBlock: false },
+  };
+}
 
 export interface ComposerSingleRowDecisionInput {
   readonly prompt: string;
@@ -129,10 +185,14 @@ export function useComposerSingleRow(input: {
   const lastOverflowRef = useRef<{ readonly prompt: string; readonly surfaceWidth: number } | null>(
     null,
   );
+  const oscillationRef = useRef<ComposerSingleRowOscillationState>(
+    createComposerSingleRowOscillationState(prompt),
+  );
 
   useLayoutEffect(() => {
     if (!eligible) {
       lastOverflowRef.current = null;
+      oscillationRef.current = createComposerSingleRowOscillationState(prompt);
       return;
     }
     const editor = formRef.current?.querySelector<HTMLElement>(EDITOR_SELECTOR);
@@ -163,8 +223,18 @@ export function useComposerSingleRow(input: {
         lineWidth,
         lastOverflow: lastOverflowRef.current,
       });
-      lastOverflowRef.current = decision.nextLastOverflow;
-      setFits((current) => (current === decision.fits ? current : decision.fits));
+      const guarded = applyComposerSingleRowOscillationGuard({
+        state: oscillationRef.current,
+        prompt,
+        currentFits: fits,
+        proposedFits: decision.fits,
+        nowMs: performance.now(),
+      });
+      oscillationRef.current = guarded.nextState;
+      lastOverflowRef.current = guarded.nextState.latchedBlock
+        ? { prompt, surfaceWidth }
+        : decision.nextLastOverflow;
+      setFits((current) => (current === guarded.fits ? current : guarded.fits));
     };
     sync();
     if (typeof ResizeObserver === "undefined") return;
@@ -172,7 +242,7 @@ export function useComposerSingleRow(input: {
     observer.observe(editor);
     observer.observe(surface);
     return () => observer.disconnect();
-  }, [eligible, formRef, prompt, singleRow]);
+  }, [eligible, fits, formRef, prompt, singleRow]);
 
   return singleRow;
 }

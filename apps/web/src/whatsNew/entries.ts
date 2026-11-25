@@ -22,6 +22,28 @@ import type { WhatsNewEntry } from "./logic";
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    version: "1.2.15",
+    date: "Nov 25",
+    features: [
+      {
+        id: "linux-github-link-paste-and-webkitgtk-caret",
+        title: "Fixed Debian/Linux freezes and typing glitches when pasting GitHub links",
+        description:
+          "Pasting GitHub links (including rich links with avatars or icons) on Debian/Linux Wayland stays instant and responsive, and arrow navigation and typing immediately after a link chip work cleanly on WebKitGTK.",
+        details:
+          "Checked GTK3 clipboard TARGETS MIME atoms first with a 3-state outcome so non-image clipboards never fall through to XWayland arboard polling, restricted HTML image-paste detection to standalone <img> fragments, disabled NodeSelection trapping on ComposerLinkNode with WebKitGTK decorator-adjacent insertText handling, widened Wayland Ctrl+V fallback timing, and added a single-row ↔ block layout oscillation circuit-breaker.",
+      },
+      {
+        id: "transcript-auto-follow-post-send-stability",
+        title: "Kept chat auto-scroll locked to live replies after sending",
+        description:
+          "Sending a message with top-anchoring turned off now reliably keeps streaming replies pinned to the bottom without falsely detaching when row heights or composer size settle.",
+        details:
+          "Distinguished browser bottom-clamping during layout shrinks from upward user scrolls using maxScrollTop and DOM bottom checks, extended the animated post-send scroll guard to 600 ms (still cancelled instantly by user gestures), and armed streaming tail settle on send.",
+      },
+    ],
+  },
+  {
     version: "1.2.14",
     date: "Nov 25",
     features: [

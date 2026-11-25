@@ -25,6 +25,7 @@ import {
   KEY_DOWN_COMMAND,
   KEY_ENTER_COMMAND,
   KEY_TAB_COMMAND,
+  BEFORE_INPUT_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_HIGH,
   SKIP_DOM_SELECTION_TAG,
@@ -638,6 +639,36 @@ function ComposerCommandKeyPlugin(props: {
   return null;
 }
 
+function $isCollapsedSelectionAdjacentToInlineTokenNode(
+  selection: ReturnType<typeof $getSelection>,
+  direction: "left" | "right",
+): boolean {
+  if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+    return false;
+  }
+  const anchorNode = selection.anchor.getNode();
+  const offset = selection.anchor.offset;
+  if ($isElementNode(anchorNode)) {
+    const childIndex = direction === "left" ? offset - 1 : offset;
+    if (childIndex < 0 || childIndex >= anchorNode.getChildrenSize()) {
+      return false;
+    }
+    return isComposerInlineTokenNode(anchorNode.getChildAtIndex(childIndex));
+  }
+  if (isComposerInlineTokenNode(anchorNode)) {
+    return direction === "left" ? offset > 0 : offset === 0;
+  }
+  if ($isTextNode(anchorNode)) {
+    if (direction === "left" && offset === 0) {
+      return isComposerInlineTokenNode(anchorNode.getPreviousSibling());
+    }
+    if (direction === "right" && offset === anchorNode.getTextContentSize()) {
+      return isComposerInlineTokenNode(anchorNode.getNextSibling());
+    }
+  }
+  return false;
+}
+
 function ComposerInlineTokenArrowPlugin() {
   const [editor] = useLexicalComposerContext();
 
@@ -652,7 +683,10 @@ function ComposerInlineTokenArrowPlugin() {
           const currentOffset = $readSelectionOffsetFromEditorState(0);
           if (currentOffset <= 0) return;
           const promptValue = $getRoot().getTextContent();
-          if (!isCollapsedCursorAdjacentToInlineToken(promptValue, currentOffset, "left")) {
+          if (
+            !$isCollapsedSelectionAdjacentToInlineTokenNode(selection, "left") &&
+            !isCollapsedCursorAdjacentToInlineToken(promptValue, currentOffset, "left")
+          ) {
             return;
           }
           nextOffset = currentOffset - 1;
@@ -679,7 +713,10 @@ function ComposerInlineTokenArrowPlugin() {
           const composerLength = $getComposerRootLength();
           if (currentOffset >= composerLength) return;
           const promptValue = $getRoot().getTextContent();
-          if (!isCollapsedCursorAdjacentToInlineToken(promptValue, currentOffset, "right")) {
+          if (
+            !$isCollapsedSelectionAdjacentToInlineTokenNode(selection, "right") &&
+            !isCollapsedCursorAdjacentToInlineToken(promptValue, currentOffset, "right")
+          ) {
             return;
           }
           nextOffset = currentOffset + 1;
@@ -700,6 +737,54 @@ function ComposerInlineTokenArrowPlugin() {
       unregisterRight();
     };
   }, [editor]);
+
+  return null;
+}
+
+// WebKitGTK can drop `insertText` beforeinput events when a collapsed ElementPoint caret sits
+// directly beside an inline DecoratorNode (e.g. right after pasting a bare GitHub link chip with
+// no adjacent `#text` node). Inserting via Lexical's RangeSelection creates a real editable
+// TextNode immediately so subsequent typing and IME composition proceed natively.
+function ComposerDecoratorAdjacentInputPlugin(props: { isDomComposingRef: RefObject<boolean> }) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    return editor.registerCommand(
+      BEFORE_INPUT_COMMAND,
+      (event) => {
+        if (
+          props.isDomComposingRef.current ||
+          event.isComposing ||
+          event.inputType !== "insertText" ||
+          typeof event.data !== "string" ||
+          event.data.length === 0 ||
+          event.data.includes("\n")
+        ) {
+          return false;
+        }
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+          return false;
+        }
+        const anchorNode = selection.anchor.getNode();
+        const adjacentToDecorator =
+          $isElementNode(anchorNode) &&
+          (anchorNode.getChildAtIndex(selection.anchor.offset - 1) instanceof ComposerLinkNode ||
+            anchorNode.getChildAtIndex(selection.anchor.offset - 1) instanceof
+              ComposerTerminalContextNode ||
+            anchorNode.getChildAtIndex(selection.anchor.offset) instanceof ComposerLinkNode ||
+            anchorNode.getChildAtIndex(selection.anchor.offset) instanceof
+              ComposerTerminalContextNode);
+        if (!adjacentToDecorator) {
+          return false;
+        }
+        event.preventDefault();
+        selection.insertRawText(event.data);
+        return true;
+      },
+      COMMAND_PRIORITY_HIGH,
+    );
+  }, [editor, props.isDomComposingRef]);
 
   return null;
 }
@@ -753,7 +838,7 @@ function ComposerInlineTokenSelectionNormalizePlugin(props: {
       if (signature === lastNormalizedSignature || scheduled) {
         return;
       }
-      if (nodeKey === lastNormalizedNodeKey && now - lastNormalizedAt < 250) {
+      if (nodeKey === lastNormalizedNodeKey && now - lastNormalizedAt < 1000) {
         if (sameNodeNormalizationCount >= 2) {
           return;
         }
@@ -1530,6 +1615,7 @@ function ComposerPromptEditorInner({
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
+        event.repeat ||
         !event.ctrlKey ||
         event.metaKey ||
         event.altKey ||
@@ -1540,6 +1626,8 @@ function ComposerPromptEditorInner({
       }
       const keydownAt = performance.now();
       clearFallback();
+      // Give Wayland `wl_data_offer` negotiation enough headroom on text/link pastes so
+      // we only fire the synthetic image-clipboard fallback when WebKitGTK truly suppressed `paste`.
       fallbackTimer = window.setTimeout(() => {
         fallbackTimer = null;
         if (lastPasteEventAtRef.current >= keydownAt) return;
@@ -1550,7 +1638,7 @@ function ComposerPromptEditorInner({
             new ClipboardEvent("paste", { bubbles: true, cancelable: true }),
           );
         }
-      }, 60);
+      }, 180);
     };
     const unregister = editor.registerRootListener((rootElement, prevRootElement) => {
       prevRootElement?.removeEventListener("keydown", handleKeyDown);
@@ -1607,6 +1695,7 @@ function ComposerPromptEditorInner({
           {...(onCommandKeyDown ? { onCommandKeyDown } : {})}
         />
         <ComposerInlineTokenArrowPlugin />
+        <ComposerDecoratorAdjacentInputPlugin isDomComposingRef={isDomComposingRef} />
         <ComposerInlineTokenSelectionNormalizePlugin isDomComposingRef={isDomComposingRef} />
         <ComposerInlineTokenBackspacePlugin />
         <ComposerSlashCommandTransformPlugin isDomComposingRef={isDomComposingRef} />

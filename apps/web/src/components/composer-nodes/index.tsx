@@ -644,6 +644,12 @@ export class ComposerLinkNode extends DecoratorNode<ReactElement> {
   override isInline(): true {
     return true;
   }
+
+  // Keep keyboard navigation in a RangeSelection so arrowing past a link chip on
+  // WebKitGTK never strands the caret in a NodeSelection where typing is dropped.
+  override isKeyboardSelectable(): false {
+    return false;
+  }
 }
 
 export function $createComposerLinkNode(url: string): ComposerLinkNode {
@@ -703,6 +709,10 @@ export class ComposerTerminalContextNode extends DecoratorNode<ReactElement> {
 
   override isInline(): true {
     return true;
+  }
+
+  override isKeyboardSelectable(): false {
+    return false;
   }
 
   override decorate(): ReactElement {

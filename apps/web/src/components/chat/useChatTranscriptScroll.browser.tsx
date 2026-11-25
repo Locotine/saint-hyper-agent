@@ -301,4 +301,61 @@ describe("transcript detach on reader gestures", () => {
       await screen.unmount();
     }
   });
+
+  it("does not detach live follow when a layout shrink clamps scrollTop down at the bottom, while genuine upward drops still detach", async () => {
+    const node = document.createElement("div");
+    let scrollHeight = 1_200;
+    Object.defineProperties(node, {
+      scrollHeight: { get: () => scrollHeight, configurable: true },
+      clientHeight: { value: 200 },
+      scrollTop: { value: 1_000, writable: true },
+    });
+    const listRef = {
+      current: {
+        scrollToEnd: vi.fn(async () => {
+          node.scrollTop = Math.max(0, scrollHeight - 200);
+        }),
+        getScrollableNode: () => node,
+        getState: () => ({ isAtEnd: false }),
+      } as unknown as LegendListRef,
+    };
+    let controls: ReturnType<typeof useChatTranscriptScroll> | undefined;
+    function Harness() {
+      controls = useChatTranscriptScroll({
+        activeThreadId: ThreadId.makeUnsafe("shrink-clamp"),
+        legendListRef: listRef,
+        timelineEntries: EMPTY_TIMELINE,
+        hasStreamingAssistantText: true,
+        composerTranscriptInsetPx: 0,
+        isInactiveSplitPane: false,
+      });
+      return null;
+    }
+    const screen = await render(<Harness />);
+    try {
+      await waitForFrames();
+      // Let the initial mount scrollToEnd 200ms guard expire so subsequent calls exercise
+      // the non-programmatic branch.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 230));
+      // Prime lastObservedScrollRef at bottom (scrollTop=1000, maxScrollTop=1000).
+      controls!.onIsAtEndChange(true);
+      expect(controls!.isUserScrollDetached).toBe(false);
+
+      // Simulate an estimated row shrinking from 90px to 48px: browser clamps scrollTop
+      // down to 958 while still at the bottom, and LegendList briefly reports isAtEnd=false.
+      scrollHeight = 1_158;
+      node.scrollTop = 958;
+      controls!.onIsAtEndChange(false);
+      expect(controls!.isUserScrollDetached).toBe(false);
+
+      // A genuine non-gesture upward scroll (scrollHeight unchanged, scrollTop drops away
+      // from bottom) must still detach immediately.
+      node.scrollTop = 500;
+      controls!.onIsAtEndChange(false);
+      await waitForFrames();
+      expect(controls!.isUserScrollDetached).toBe(true);
+    } finally {
+      await screen.unmount();
+    }
+  });
 });

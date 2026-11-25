@@ -67,8 +67,11 @@ export function useChatTranscriptScroll({
   const lastObservedScrollRef = useRef<{
     container: HTMLElement | null;
     scrollTop: number;
-  }>({ container: null, scrollTop: 0 });
+    maxScrollTop: number;
+  }>({ container: null, scrollTop: 0, maxScrollTop: 0 });
   const autoFollowThreadIdRef = useRef<ThreadId | null>(null);
+  const previousThreadIdRef = useRef(activeThreadId);
+  const pendingStreamingThreadRef = useRef<ThreadId | null>(null);
   const pendingInteractionAnchorRef = useRef<{
     element: HTMLElement;
     top: number;
@@ -145,7 +148,10 @@ export function useChatTranscriptScroll({
   const animateNextAutoFollowScrollRef = useRef(false);
   const scrollToEnd = useCallback(
     (animated = false) => {
-      programmaticScrollUntilRef.current = performance.now() + 200;
+      // Smooth post-send jumps animate over ~350-550ms in Chromium; guard the full
+      // slide so row re-measurements during arrival do not falsely detach follow.
+      // Any user gesture clears this guard immediately via `clearTranscriptAutoFollow`.
+      programmaticScrollUntilRef.current = performance.now() + (animated ? 600 : 200);
       legendListRef.current?.scrollToEnd?.({ animated });
     },
     [legendListRef],
@@ -155,7 +161,9 @@ export function useChatTranscriptScroll({
       cancelPendingScrollGesture();
       cancelPendingFollowCorrection();
       autoFollowThreadIdRef.current = targetThreadId;
+      pendingStreamingThreadRef.current = targetThreadId;
       animateNextAutoFollowScrollRef.current = animated;
+      lastObservedScrollRef.current = { container: null, scrollTop: 0, maxScrollTop: 0 };
       isAtEndRef.current = true;
       setTranscriptScrollDetached(false);
       showScrollDebouncer.current.cancel();
@@ -224,12 +232,32 @@ export function useChatTranscriptScroll({
         tailAnchorScrollInFlightRef.current ||
         settledScrollInFlightRef.current ||
         performance.now() < programmaticScrollUntilRef.current;
+      const currentMaxScrollTop =
+        container instanceof HTMLElement
+          ? Math.max(0, container.scrollHeight - container.clientHeight)
+          : 0;
+      const scrollTopDropPx =
+        container instanceof HTMLElement && prevObserved.container === container
+          ? prevObserved.scrollTop - container.scrollTop
+          : 0;
+      const maxScrollShrinkPx =
+        container instanceof HTMLElement && prevObserved.container === container
+          ? Math.max(0, prevObserved.maxScrollTop - currentMaxScrollTop)
+          : 0;
+      // Only treat a scrollTop decrease as a non-gesture upward user scroll when the
+      // drop exceeds any concurrent shrink of maxScrollTop (browser bottom-clamping
+      // when rows re-measure smaller or composer inset shrinks) and actually leaves
+      // the live bottom edge.
       const scrollTopDropped =
         container instanceof HTMLElement &&
-        prevObserved.container === container &&
-        container.scrollTop < prevObserved.scrollTop - 1;
+        scrollTopDropPx > maxScrollShrinkPx + 1 &&
+        !isScrollContainerNearBottom(container, 1);
       if (container instanceof HTMLElement) {
-        lastObservedScrollRef.current = { container, scrollTop: container.scrollTop };
+        lastObservedScrollRef.current = {
+          container,
+          scrollTop: container.scrollTop,
+          maxScrollTop: currentMaxScrollTop,
+        };
       }
       const pending = pendingScrollGestureRef.current;
       if (pending?.keyboard && container === pending.container) {
@@ -561,6 +589,7 @@ export function useChatTranscriptScroll({
   useLayoutEffect(() => {
     cancelPendingFollowCorrection();
     isAtEndRef.current = true;
+    lastObservedScrollRef.current = { container: null, scrollTop: 0, maxScrollTop: 0 };
     settledScrollRequestRef.current += 1;
     settledScrollInFlightRef.current = false;
     programmaticScrollUntilRef.current = 0;
@@ -634,6 +663,11 @@ export function useChatTranscriptScroll({
     // land a composer-growth short of the tail.
     programmaticScrollUntilRef.current = performance.now() + 200;
     scrollContainer.scrollTop += insetDeltaPx;
+    lastObservedScrollRef.current = {
+      container: scrollContainer,
+      scrollTop: scrollContainer.scrollTop,
+      maxScrollTop: Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight),
+    };
   }, [legendListRef, activeThreadId, composerTranscriptInsetPx, isInactiveSplitPane]);
 
   const onScrollToBottom = useCallback(() => {
@@ -685,8 +719,6 @@ export function useChatTranscriptScroll({
     setTranscriptScrollDetached,
   ]);
 
-  const previousThreadIdRef = useRef(activeThreadId);
-  const pendingStreamingThreadRef = useRef<ThreadId | null>(null);
   useEffect(() => {
     if (previousThreadIdRef.current !== activeThreadId) {
       previousThreadIdRef.current = activeThreadId;

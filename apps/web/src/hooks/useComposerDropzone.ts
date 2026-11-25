@@ -85,9 +85,32 @@ function isPlainTextEmptyOrSingleLink(plainText: string): boolean {
 }
 
 /**
+ * True only when `text/html` is a standalone image fragment (browser "Copy Image": `<img>`
+ * optionally wrapped in `<html>/<body>/<!--StartFragment-->` with no anchor link wrapper and
+ * no visible text). Rich copied links/cards (e.g. `<a href="..."><img ...>owner/repo</a>`)
+ * return false so link pastes are never hijacked as image pastes.
+ */
+function isStandaloneClipboardImageHtml(rawHtml: string): boolean {
+  if (!/<img\b/i.test(rawHtml)) {
+    return false;
+  }
+  if (/<a\b/i.test(rawHtml)) {
+    return false;
+  }
+  const visibleText = rawHtml
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, "")
+    .replace(/<script\b[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .trim();
+  return visibleText.length === 0;
+}
+
+/**
  * True when `clipboardData` carries an explicit image signal (even when WebKitGTK omits
- * `clipboardData.files`), such as browser "Copy Image" (`image/*` or `<img` HTML alongside a
- * companion image URL) or a local image file URI.
+ * `clipboardData.files`), such as browser "Copy Image" (`image/*` or standalone `<img` HTML
+ * alongside a companion image URL) or a local image file URI.
  */
 export function hasExplicitClipboardImageSignal(
   clipboardData: Pick<DataTransfer, "getData" | "types">,
@@ -101,7 +124,7 @@ export function hasExplicitClipboardImageSignal(
     return false;
   }
   const html = clipboardData.getData("text/html");
-  if (/<img\b/i.test(html)) {
+  if (isStandaloneClipboardImageHtml(html)) {
     return true;
   }
   const uriList = clipboardData.getData("text/uri-list");
@@ -227,6 +250,7 @@ export function useComposerDropzone(input: {
   } = input;
   const internalDragDepthRef = useRef(0);
   const dragDepthRef = input.dragDepthRef ?? internalDragDepthRef;
+  const nativeImageProbeInFlightRef = useRef(false);
 
   const handleSplitFiles = (files: ComposerDropzoneFileSplit): boolean => {
     if (disabled) return false;
@@ -269,9 +293,17 @@ export function useComposerDropzone(input: {
         if (hasNativeImageReader && hasExplicitClipboardImageSignal(event.clipboardData)) {
           event.preventDefault();
         }
-        void readDesktopClipboardImageFile().then((file) => {
-          if (file) handleSplitFiles({ imageFiles: [file], genericFiles: [] });
-        });
+        if (nativeImageProbeInFlightRef.current) {
+          return;
+        }
+        nativeImageProbeInFlightRef.current = true;
+        void readDesktopClipboardImageFile()
+          .then((file) => {
+            if (file) handleSplitFiles({ imageFiles: [file], genericFiles: [] });
+          })
+          .finally(() => {
+            nativeImageProbeInFlightRef.current = false;
+          });
       }
       return;
     }

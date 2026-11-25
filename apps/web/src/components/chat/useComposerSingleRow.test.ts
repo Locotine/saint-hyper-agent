@@ -5,7 +5,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { resolveComposerSingleRowDecision } from "./useComposerSingleRow";
+import {
+  applyComposerSingleRowOscillationGuard,
+  createComposerSingleRowOscillationState,
+  resolveComposerSingleRowDecision,
+} from "./useComposerSingleRow";
 
 describe("resolveComposerSingleRowDecision", () => {
   it("expands to block mode and stays latched when a wrapped row unwraps near the slot edge", () => {
@@ -102,5 +106,67 @@ describe("resolveComposerSingleRowDecision", () => {
     });
     expect(decision.fits).toBe(false);
     expect(decision.nextLastOverflow).toBeNull();
+  });
+});
+
+describe("applyComposerSingleRowOscillationGuard", () => {
+  it("latches into block mode after rapid row/block flips for the same prompt and resets on prompt change", () => {
+    const prompt = "https://github.com/Locotine/saint-hyper-agent/actions/runs/45548385154";
+    let state = createComposerSingleRowOscillationState(prompt);
+
+    const flip1 = applyComposerSingleRowOscillationGuard({
+      state,
+      prompt,
+      currentFits: true,
+      proposedFits: false,
+      nowMs: 100,
+    });
+    expect(flip1.fits).toBe(false);
+    expect(flip1.nextState.latchedBlock).toBe(false);
+    state = flip1.nextState;
+
+    const flip2 = applyComposerSingleRowOscillationGuard({
+      state,
+      prompt,
+      currentFits: false,
+      proposedFits: true,
+      nowMs: 140,
+    });
+    expect(flip2.fits).toBe(true);
+    expect(flip2.nextState.latchedBlock).toBe(false);
+    state = flip2.nextState;
+
+    const flip3 = applyComposerSingleRowOscillationGuard({
+      state,
+      prompt,
+      currentFits: true,
+      proposedFits: false,
+      nowMs: 180,
+    });
+    expect(flip3.fits).toBe(false);
+    expect(flip3.nextState.latchedBlock).toBe(true);
+    state = flip3.nextState;
+
+    // Subsequent proposals to collapse back to single-row stay latched in block mode.
+    const latched = applyComposerSingleRowOscillationGuard({
+      state,
+      prompt,
+      currentFits: false,
+      proposedFits: true,
+      nowMs: 220,
+    });
+    expect(latched.fits).toBe(false);
+    expect(latched.nextState.latchedBlock).toBe(true);
+
+    // Clearing or editing the prompt resets the circuit-breaker cleanly.
+    const cleared = applyComposerSingleRowOscillationGuard({
+      state: latched.nextState,
+      prompt: "",
+      currentFits: false,
+      proposedFits: true,
+      nowMs: 260,
+    });
+    expect(cleared.fits).toBe(true);
+    expect(cleared.nextState.latchedBlock).toBe(false);
   });
 });

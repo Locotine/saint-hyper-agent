@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.15 — 2026-11-25
+
+**Comprehensive Linux/Debian GitHub link-paste freeze fix across GTK3/Wayland clipboard IPC, composer dropzone HTML filtering, WebKitGTK Lexical caret handling, and single-row layout oscillation protection, plus transcript auto-follow stability fix.**
+
+### Fixed
+
+- **Debian / Linux GitHub Link Paste Freeze & WebKitGTK Caret Stability (`apps/desktop-rust/src/lib.rs`, `apps/web/src/hooks/useComposerDropzone.ts`, `apps/web/src/components/ComposerPromptEditor.tsx`, `apps/web/src/components/composer-nodes/index.tsx`, `apps/web/src/components/chat/useComposerSingleRow.ts`)**:
+  - Updated `read_linux_gtk_clipboard_image_png` to return a 3-state `GtkClipboardImageOutcome` (`Image`, `NoImage`, `UnavailableOrTimedOut`) and inspect clipboard `TARGETS` MIME atoms asynchronously first so text/URL clipboards return `NoImage` immediately without asking the clipboard owner for image data or falling through to `wl-paste`, `xclip`, or X11-only `arboard` (`SelectionNotify` hangs on Wayland/XWayland). Updated `desktop_browser_request_copy_link` on Linux to write text via GTK3 first.
+  - Tightened `hasExplicitClipboardImageSignal` via `isStandaloneClipboardImageHtml` so copied GitHub links and rich cards containing `<a ...><img ...></a>` or visible text are never misclassified as standalone "Copy Image" pastes (which previously swallowed the link and invoked native image clipboard IPC), and deduplicated in-flight native image clipboard probes.
+  - Overrode `isKeyboardSelectable() = false` on `ComposerLinkNode` and `ComposerTerminalContextNode`, checked live sibling token nodes in `ComposerInlineTokenArrowPlugin`, added `ComposerDecoratorAdjacentInputPlugin` to preserve `beforeinput(insertText)` right next to decorator chips on WebKitGTK, widened `ComposerInlineTokenSelectionNormalizePlugin`'s bounce window to `1000 ms`, and increased the Wayland `Ctrl+V` fallback delay to `180 ms` while ignoring `event.repeat`.
+  - Added an oscillation circuit-breaker (`applyComposerSingleRowOscillationGuard`) in `useComposerSingleRow` that latches into block mode if a prompt flips row ↔ block 3+ times within `500 ms` (e.g. from classic non-overlay Linux scrollbar width shifts).
+- **Transcript Auto-Follow Stability After Send (`apps/web/src/components/chat/useChatTranscriptScroll.ts`)**:
+  - Fixed a race where browser bottom-clamping during row re-measurement or composer inset shrinkage lowered `scrollTop` while `LegendList` momentarily reported `isAtEnd = false`, falsely detaching live follow before streaming responses arrived (reproduced in CI `chat-follow` `keeps sent messages at the bottom with anchoring disabled when using send button, and follows streaming text`).
+  - Tracked `maxScrollTop` alongside `scrollTop`, extended the animated post-send `scrollToEnd` guard to `600 ms` (still cancelled immediately by any user gesture), reset observed scroll state on `armTranscriptAutoFollow` and thread switch, and armed `pendingStreamingThreadRef` on send so initial-thread streaming rows settle cleanly to the bottom.
+
 ## 1.2.14 — 2026-11-25
 
 **Terminal NBSP & WebKitGTK IME input fixes, Linux KDE Wallet Antigravity usage ring fix, Linux Wayland image paste fix, Remote SSH reconnect & tunnel stability fixes, and Rust test/build cleanup.**
