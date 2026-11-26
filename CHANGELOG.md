@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.17 — 2026-11-26
+
+**Fixed Linux/Unix desktop startup hanging indefinitely on the splash logo screen when launched with a controlling terminal (such as from an Ubuntu terminal or AppImage shell launch).**
+
+### Fixed
+
+- **Linux / Unix Sidecar `SIGTTIN`/`SIGTTOU` Startup Deadlock (`apps/desktop-rust/src/backend.rs`)**:
+  - Replaced `cmd.process_group(0)` with `libc::setsid()` (with `setpgid(0, 0)` fallback) in `configure_unix_sidecar_session` when spawning `saint-server`. Previously, moving `saint-server` into a background process group while keeping the parent's controlling `/dev/tty` caused the first-run login-shell `PATH` probe (`bash -ilc ...` in `fixPath`) to trigger `SIGTTIN`/`SIGTTOU` and permanently stop the entire `saint-server` process group (`State: T`), preventing the server from binding its port and leaving the app stuck on the logo screen (`saint-server is still starting...`).
+  - Calling `setsid()` detaches `/dev/tty` while preserving `SID = PGID = child PID` so `kill_process_tree` (`killpg`) continues terminating all sidecar descendants cleanly, verified with new unit tests and live controlling-PTY launch tests.
+
 ## 1.2.16 — 2026-11-26
 
 **Linux WebKitGTK AT-SPI crash fix when typing Vietnamese/non-ASCII text via IME (`fcitx5-lotus` Uinput) after pasting link chips, plus composer link chip ARIA/favicon hardening and automatic WebKitWebProcess crash recovery.**

@@ -56,6 +56,28 @@ pub struct SidecarRuntimeBridgeConfig {
     pub pty_bridge_token: Option<String>,
 }
 
+#[cfg(unix)]
+fn configure_unix_sidecar_session(cmd: &mut Command) {
+    // Spawn the sidecar in its own session (SID = PGID = child PID) rather than
+    // `process_group(0)` alone. Moving `saint-server` into a background process group
+    // while keeping the parent's controlling terminal (`/dev/tty`) causes interactive
+    // login-shell probes (`bash -ilc ...` in `fixPath`) to trigger `SIGTTIN`/`SIGTTOU`
+    // and permanently stop the entire `saint-server` process group (`State: T`), freezing
+    // the desktop app on the splash logo whenever launched from a terminal. `setsid()`
+    // detaches `/dev/tty` while still making the child a process group leader for
+    // `kill_process_tree` (`killpg`).
+    // SAFETY: `libc::setsid` and `libc::setpgid` are async-signal-safe syscalls executed
+    // exclusively in the forked child before `exec`.
+    unsafe {
+        cmd.pre_exec(|| {
+            if libc::setsid() == -1 {
+                let _ = libc::setpgid(0, 0);
+            }
+            Ok(())
+        });
+    }
+}
+
 pub struct BackendSupervisor {
     paths: SaintPaths,
     port: u16,
@@ -333,9 +355,10 @@ impl BackendSupervisor {
 
         #[cfg(unix)]
         {
-            // Spawn the sidecar in its own process group (PGID = child PID) so
-            // kill_process_tree can terminate the entire sidecar process group.
-            cmd.process_group(0);
+            // Detach from any controlling terminal while still giving the sidecar its own
+            // process group (SID = PGID = child PID) so `kill_process_tree` kills descendants
+            // and login-shell probes (`bash -ilc`) never stop the server with SIGTTIN/SIGTTOU.
+            configure_unix_sidecar_session(&mut cmd);
         }
 
         crate::clear_injected_linux_webkit_a11y_env(cmd.as_std_mut());
@@ -523,7 +546,7 @@ impl BackendSupervisor {
             if pgid <= 0 {
                 return;
             }
-            // SAFETY: killpg signals the process group `pgid` created via `process_group(0)`.
+            // SAFETY: killpg signals the process group `pgid` created via `setsid()` / `process_group(0)`.
             let term_rc = unsafe { libc::killpg(pgid, libc::SIGTERM) };
             if term_rc != 0
                 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
@@ -1011,11 +1034,10 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn unix_kill_process_tree_terminates_process_group_descendants() {
-        let mut group_leader = Command::new("/bin/sh")
-            .args(["-c", "sleep 30 & wait"])
-            .process_group(0)
-            .spawn()
-            .unwrap();
+        let mut cmd = Command::new("/bin/sh");
+        cmd.args(["-c", "sleep 30 & wait"]);
+        configure_unix_sidecar_session(&mut cmd);
+        let mut group_leader = cmd.spawn().unwrap();
         let pgid = group_leader.id().expect("group leader must have pid");
         tokio::time::sleep(Duration::from_millis(50)).await;
 
@@ -1023,5 +1045,44 @@ mod tests {
         let _ = group_leader.wait().await;
         let probe_rc = unsafe { libc::killpg(pgid as libc::pid_t, 0) };
         assert_ne!(probe_rc, 0, "process group must no longer exist");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn unix_sidecar_session_detaches_tty_so_interactive_login_shell_never_stops() {
+        let shell = if std::path::Path::new("/bin/bash").is_file() {
+            "/bin/bash"
+        } else {
+            "/bin/sh"
+        };
+        let mut cmd = Command::new("/bin/sh");
+        cmd.args([
+            "-c",
+            // Verify controlling tty is detached (`< /dev/tty` fails) and an interactive
+            // login shell probe completes instead of stopping on SIGTTIN/SIGTTOU.
+            r#"if ( : < /dev/tty ) 2>/dev/null; then echo HAS_TTY; exit 2; fi; "$1" -ilc "printf '__DETACHED_OK__'" </dev/null"#,
+            "_",
+            shell,
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+        configure_unix_sidecar_session(&mut cmd);
+
+        let output = tokio::time::timeout(Duration::from_secs(10), cmd.output())
+            .await
+            .expect("detached interactive login shell must not hang on SIGTTIN/SIGTTOU")
+            .expect("spawned shell must run");
+        assert!(
+            output.status.success(),
+            "expected success, got status={} stderr={}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains("__DETACHED_OK__"),
+            "stdout={}",
+            String::from_utf8_lossy(&output.stdout)
+        );
     }
 }

@@ -22,6 +22,20 @@ import type { WhatsNewEntry } from "./logic";
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    version: "1.2.17",
+    date: "Nov 26",
+    features: [
+      {
+        id: "linux-terminal-launch-splash-hang",
+        title: "Fixed Linux app hanging on the logo screen when launched from a terminal",
+        description:
+          "Starting Saint Hyper Agent from a Linux terminal (including Ubuntu `.deb` and AppImage launches on a fresh install) now boots straight past the logo screen instead of freezing while waiting for the background server.",
+        details:
+          "Replaced `process_group(0)` with `setsid()` in `BackendSupervisor` (`configure_unix_sidecar_session`) so `saint-server` detaches from the parent's controlling `/dev/tty` while keeping its own process group (`PGID = child PID`) for clean teardown, preventing `fixPath`'s interactive login-shell probe (`bash -ilc`) from receiving `SIGTTIN`/`SIGTTOU` and stopping the server process group.",
+      },
+    ],
+  },
+  {
     version: "1.2.16",
     date: "Nov 26",
     features: [
