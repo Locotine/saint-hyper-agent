@@ -1,7 +1,10 @@
+import { sshHostId } from "@saint/shared/hostId";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { emitWsTransportState } from "../wsTransportEvents";
 import { subscribeComposerTransportStatus } from "./composerTransportStatus";
+
+const REMOTE_HOST_ID = sshHostId("a1b2c3d4");
 
 describe("composer transport status", () => {
   let unsubscribe: (() => void) | undefined;
@@ -10,6 +13,7 @@ describe("composer transport status", () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", new EventTarget());
     emitWsTransportState("open");
+    emitWsTransportState("open", REMOTE_HOST_ID);
   });
 
   afterEach(() => {
@@ -79,5 +83,25 @@ describe("composer transport status", () => {
     vi.advanceTimersByTime(2000);
     emitWsTransportState("open");
     expect(messages).toEqual(["Reconnecting to Saint…", null]);
+  });
+
+  it("isolates a remote host subscription from local outages and tracks the remote transport", () => {
+    let message: string | null = null;
+    unsubscribe = subscribeComposerTransportStatus((value) => (message = value), REMOTE_HOST_ID);
+
+    // Local transport closing must not warn on a healthy remote host chat.
+    emitWsTransportState("closed");
+    vi.advanceTimersByTime(2000);
+    expect(message).toBeNull();
+
+    // Outages on the remote host itself still surface after the delay and clear on recovery.
+    emitWsTransportState("closed", REMOTE_HOST_ID);
+    vi.advanceTimersByTime(1499);
+    expect(message).toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(message).toBe("Reconnecting to Saint…");
+
+    emitWsTransportState("open", REMOTE_HOST_ID);
+    expect(message).toBeNull();
   });
 });

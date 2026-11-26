@@ -329,7 +329,7 @@ pub fn reveal_path_in_file_manager(target: &Path) -> Result<(), String> {
             target.parent().unwrap_or(target)
         };
         let mut cmd = std::process::Command::new("xdg-open");
-        crate::clear_injected_linux_webkit_a11y_env(&mut cmd);
+        crate::clear_injected_linux_webkit_env(&mut cmd);
         cmd.arg(open_target).spawn().map_err(|e| e.to_string())?;
         Ok(())
     }

@@ -3,6 +3,8 @@
 // Layer: Route helper
 // Exports: last-thread route resolver plus empty-startup fallback policy helpers.
 
+import { isRemoteThreadParam } from "@saint/shared/hostId";
+
 export type LastThreadRoute = {
   threadId: string;
   splitViewId?: string | undefined;
@@ -37,6 +39,12 @@ export function resolveRestorableThreadRoute(input: {
   return lastThreadRoute;
 }
 
+function hasRestorableLocalRememberedRoute(lastThreadRoute: LastThreadRoute | null): boolean {
+  // Empty-startup recovery polls and repairs this machine's projection only; a remote SSH thread
+  // never lives in local threadIds, so holding the splash screen for local repair only stalls boot.
+  return lastThreadRoute !== null && !isRemoteThreadParam(lastThreadRoute.threadId);
+}
+
 // Route fallback guards separate a stale URL from a temporarily empty startup snapshot.
 export function shouldStartRememberedRouteRecovery(input: {
   lastThreadRoute: LastThreadRoute | null;
@@ -44,7 +52,9 @@ export function shouldStartRememberedRouteRecovery(input: {
   recoveryState: EmptyRouteRestoreRecoveryState;
 }): boolean {
   return Boolean(
-    input.lastThreadRoute && input.availableThreadCount === 0 && input.recoveryState === "idle",
+    hasRestorableLocalRememberedRoute(input.lastThreadRoute) &&
+    input.availableThreadCount === 0 &&
+    input.recoveryState === "idle",
   );
 }
 
@@ -54,7 +64,9 @@ export function shouldHoldRememberedRouteFallback(input: {
   recoveryState: EmptyRouteRestoreRecoveryState;
 }): boolean {
   return Boolean(
-    input.lastThreadRoute && input.availableThreadCount === 0 && input.recoveryState !== "done",
+    hasRestorableLocalRememberedRoute(input.lastThreadRoute) &&
+    input.availableThreadCount === 0 &&
+    input.recoveryState !== "done",
   );
 }
 

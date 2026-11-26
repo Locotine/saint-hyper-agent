@@ -97,6 +97,7 @@ function ChatThreadRouteContent() {
   const recoveryStartedRef = useRef(false);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };

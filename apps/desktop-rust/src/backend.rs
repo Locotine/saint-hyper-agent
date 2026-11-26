@@ -361,7 +361,7 @@ impl BackendSupervisor {
             configure_unix_sidecar_session(&mut cmd);
         }
 
-        crate::clear_injected_linux_webkit_a11y_env(cmd.as_std_mut());
+        crate::clear_injected_linux_webkit_env(cmd.as_std_mut());
 
         cmd
     }

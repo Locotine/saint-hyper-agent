@@ -8,7 +8,7 @@
 
 import { ThreadId } from "@saint/contracts";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { SplashScreen } from "./SplashScreen";
 import {
@@ -52,8 +52,9 @@ export function RestoreOrCreateChatRoute({
   const threadIds = useStore((state) => state.threadIds ?? EMPTY_THREAD_IDS);
   const splitViewsHydrated = useSplitViewStore((state) => state.hasHydrated);
   const splitViewsById = useSplitViewStore((state) => state.splitViewsById);
-  const splitViewIds = Object.keys(splitViewsById).filter(
-    (splitViewId) => splitViewsById[splitViewId],
+  const splitViewIds = useMemo(
+    () => Object.keys(splitViewsById).filter((splitViewId) => splitViewsById[splitViewId]),
+    [splitViewsById],
   );
   const [attempt, setAttempt] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function RestoreOrCreateChatRoute({
   const createFreshChatInFlightRef = useRef(false);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
@@ -156,7 +158,7 @@ export function RestoreOrCreateChatRoute({
       const result: StartContainerChatResult = await createFreshChat().finally(() => {
         createFreshChatInFlightRef.current = false;
       });
-      if (cancelled || result.ok) {
+      if (!mountedRef.current || result.ok) {
         return;
       }
       setErrorMessage(result.error);

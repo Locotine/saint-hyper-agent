@@ -68,9 +68,23 @@ const MAX_DROPPED_FILE_BYTES: u64 = 32 * 1024 * 1024;
 
 #[cfg(any(target_os = "linux", test))]
 const LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS: &str = "unix:path=/nonexistent-a11y-bus";
+#[cfg(any(target_os = "linux", test))]
+const LINUX_DISABLED_WEBKIT_DMABUF_RENDERER: &str = "1";
 
 #[cfg(target_os = "linux")]
 static SAINT_INJECTED_LINUX_WEBKIT_A11Y: AtomicBool = AtomicBool::new(false);
+#[cfg(target_os = "linux")]
+static SAINT_INJECTED_LINUX_WEBKIT_DMABUF: AtomicBool = AtomicBool::new(false);
+
+#[cfg(any(target_os = "linux", test))]
+fn is_truthy_env_opt_in(value: Option<&str>) -> bool {
+    value.is_some_and(|opt_in| {
+        let normalized = opt_in.trim();
+        normalized == "1"
+            || normalized.eq_ignore_ascii_case("true")
+            || normalized.eq_ignore_ascii_case("yes")
+    })
+}
 
 /// WebKitGTK 2.50–2.54 aborts (`SIGABRT`) inside `WebCore::AccessibilityObjectAtspi::textInserted()`
 /// when editing 16-bit text (such as Vietnamese via fcitx5-lotus Uinput) after inline chips in a
@@ -88,36 +102,66 @@ fn resolve_linux_webkit_a11y_bus_address(
     if existing_a11y_bus.is_some_and(|value| !value.trim().is_empty()) {
         return None;
     }
-    if let Some(opt_in) = enable_a11y_opt_in {
-        let normalized = opt_in.trim();
-        if normalized == "1"
-            || normalized.eq_ignore_ascii_case("true")
-            || normalized.eq_ignore_ascii_case("yes")
-        {
-            return None;
-        }
+    if is_truthy_env_opt_in(enable_a11y_opt_in) {
+        return None;
     }
     Some(LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS)
 }
 
+/// On Linux desktops (notably Ubuntu 24.04 LTS with WebKitGTK 4.1 under Wayland/NVIDIA/Mesa),
+/// WebKitGTK's DMA-BUF renderer can freeze painting on the initial splash frame while JS and
+/// WebSockets keep running underneath (often only repainting after a resize or a second window).
+/// Disabling the DMA-BUF renderer switches frame sharing to POSIX shared memory while keeping
+/// compositing intact. Users who explicitly set `WEBKIT_DISABLE_DMABUF_RENDERER` or opt back in
+/// via `SAINT_ENABLE_LINUX_DMABUF=1` keep full control.
+#[cfg(any(target_os = "linux", test))]
+fn resolve_linux_webkit_dmabuf_renderer_env(
+    existing_dmabuf_env: Option<&str>,
+    enable_dmabuf_opt_in: Option<&str>,
+) -> Option<&'static str> {
+    if existing_dmabuf_env.is_some_and(|value| !value.trim().is_empty()) {
+        return None;
+    }
+    if is_truthy_env_opt_in(enable_dmabuf_opt_in) {
+        return None;
+    }
+    Some(LINUX_DISABLED_WEBKIT_DMABUF_RENDERER)
+}
+
 #[cfg(target_os = "linux")]
-fn configure_linux_webkit_a11y_env() {
-    let existing = std::env::var("WEBKIT_A11Y_BUS_ADDRESS").ok();
-    let opt_in = std::env::var("SAINT_ENABLE_LINUX_A11Y").ok();
+fn configure_linux_webkit_env() {
+    let existing_a11y = std::env::var("WEBKIT_A11Y_BUS_ADDRESS").ok();
+    let a11y_opt_in = std::env::var("SAINT_ENABLE_LINUX_A11Y").ok();
     if let Some(disabled_bus) =
-        resolve_linux_webkit_a11y_bus_address(existing.as_deref(), opt_in.as_deref())
+        resolve_linux_webkit_a11y_bus_address(existing_a11y.as_deref(), a11y_opt_in.as_deref())
     {
         std::env::set_var("WEBKIT_A11Y_BUS_ADDRESS", disabled_bus);
         SAINT_INJECTED_LINUX_WEBKIT_A11Y.store(true, Ordering::SeqCst);
     }
+
+    let existing_dmabuf = std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok();
+    let dmabuf_opt_in = std::env::var("SAINT_ENABLE_LINUX_DMABUF").ok();
+    if let Some(disabled_dmabuf) = resolve_linux_webkit_dmabuf_renderer_env(
+        existing_dmabuf.as_deref(),
+        dmabuf_opt_in.as_deref(),
+    ) {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", disabled_dmabuf);
+        SAINT_INJECTED_LINUX_WEBKIT_DMABUF.store(true, Ordering::SeqCst);
+    }
 }
 
-/// Strips Saint's internal `WEBKIT_A11Y_BUS_ADDRESS` workaround from child processes
-/// (`saint-server`, `xdg-open`) so user terminals, agents, and external browsers never inherit it.
-pub(crate) fn clear_injected_linux_webkit_a11y_env(cmd: &mut std::process::Command) {
+/// Strips Saint's internal Linux WebKitGTK workarounds (`WEBKIT_A11Y_BUS_ADDRESS`,
+/// `WEBKIT_DISABLE_DMABUF_RENDERER`) from child processes (`saint-server`, `cua-driver`,
+/// `xdg-open`) so user terminals, agents, and external browsers never inherit them.
+pub(crate) fn clear_injected_linux_webkit_env(cmd: &mut std::process::Command) {
     #[cfg(target_os = "linux")]
-    if SAINT_INJECTED_LINUX_WEBKIT_A11Y.load(Ordering::Relaxed) {
-        cmd.env_remove("WEBKIT_A11Y_BUS_ADDRESS");
+    {
+        if SAINT_INJECTED_LINUX_WEBKIT_A11Y.load(Ordering::Relaxed) {
+            cmd.env_remove("WEBKIT_A11Y_BUS_ADDRESS");
+        }
+        if SAINT_INJECTED_LINUX_WEBKIT_DMABUF.load(Ordering::Relaxed) {
+            cmd.env_remove("WEBKIT_DISABLE_DMABUF_RENDERER");
+        }
     }
     #[cfg(not(target_os = "linux"))]
     let _ = cmd;
@@ -1187,7 +1231,7 @@ fn desktop_open_external(url: String) -> Result<bool, String> {
     #[cfg(target_os = "linux")]
     {
         let mut cmd = std::process::Command::new("xdg-open");
-        clear_injected_linux_webkit_a11y_env(&mut cmd);
+        clear_injected_linux_webkit_env(&mut cmd);
         cmd.arg(&url).spawn().map_err(|e| e.to_string())?;
     }
     Ok(true)
@@ -2328,7 +2372,7 @@ fn build_initialization_script(state: &DesktopSharedState) -> String {
 pub fn run() {
     // Must run before GTK/WebKitGTK initialization and before spawning background threads.
     #[cfg(target_os = "linux")]
-    configure_linux_webkit_a11y_env();
+    configure_linux_webkit_env();
     // The window class must match StartupWMClass in the launcher that
     // scripts/linux/install-saint.sh writes, or the dock shows a separate "saint-desktop" icon.
     #[cfg(target_os = "linux")]
@@ -2864,8 +2908,9 @@ mod clipboard_tests {
 #[cfg(test)]
 mod linux_webkit_stability_tests {
     use super::{
-        resolve_linux_webkit_a11y_bus_address, WebProcessRecoveryLimiter,
-        WebProcessTerminationKind, LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS,
+        resolve_linux_webkit_a11y_bus_address, resolve_linux_webkit_dmabuf_renderer_env,
+        WebProcessRecoveryLimiter, WebProcessTerminationKind,
+        LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS, LINUX_DISABLED_WEBKIT_DMABUF_RENDERER,
         WEB_PROCESS_RECOVERY_MAX_ATTEMPTS, WEB_PROCESS_RECOVERY_WINDOW,
     };
     use std::time::{Duration, Instant};
@@ -2893,6 +2938,27 @@ mod linux_webkit_stability_tests {
         assert_eq!(
             resolve_linux_webkit_a11y_bus_address(None, Some("0")),
             Some(LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS)
+        );
+    }
+
+    #[test]
+    fn linux_webkit_dmabuf_guard_disables_by_default_and_respects_overrides() {
+        assert_eq!(
+            resolve_linux_webkit_dmabuf_renderer_env(None, None),
+            Some(LINUX_DISABLED_WEBKIT_DMABUF_RENDERER)
+        );
+        assert_eq!(
+            resolve_linux_webkit_dmabuf_renderer_env(Some("  "), None),
+            Some(LINUX_DISABLED_WEBKIT_DMABUF_RENDERER)
+        );
+        assert_eq!(resolve_linux_webkit_dmabuf_renderer_env(Some("0"), None), None);
+        assert_eq!(resolve_linux_webkit_dmabuf_renderer_env(Some("1"), None), None);
+        assert_eq!(resolve_linux_webkit_dmabuf_renderer_env(None, Some("1")), None);
+        assert_eq!(resolve_linux_webkit_dmabuf_renderer_env(None, Some("true")), None);
+        assert_eq!(resolve_linux_webkit_dmabuf_renderer_env(None, Some("YES")), None);
+        assert_eq!(
+            resolve_linux_webkit_dmabuf_renderer_env(None, Some("0")),
+            Some(LINUX_DISABLED_WEBKIT_DMABUF_RENDERER)
         );
     }
 

@@ -89,6 +89,12 @@ export function createHostConnectionRegistry<T extends { dispose: () => Promise<
 
 export const hostConnections = createHostConnectionRegistry((url, hostId) => {
   const transport = new WsTransport(url, { hostId });
-  transport.onStateChange((state) => emitWsTransportState(state, hostId));
+  emitWsTransportState(transport.getState(), hostId);
+  transport.onStateChange((state) => {
+    // A retired epoch disposing after a replacement was acquired must not overwrite the active host state.
+    const active = hostConnections.peek(hostId);
+    if (active !== undefined && active !== transport) return;
+    emitWsTransportState(state, hostId);
+  });
   return transport;
 });

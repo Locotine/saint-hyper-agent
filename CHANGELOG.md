@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.2.18 — 2026-11-26
+
+**Fixed Ubuntu 24.04 LTS / Linux WebKitGTK DMA-BUF initial-frame splash freeze, spurious `"Reconnecting to Saint…"` banner on working Remote SSH chats, and remote `lastThreadRoute` startup stall & splash-screen recovery deadlock.**
+
+### Fixed
+
+- **Linux WebKitGTK DMA-BUF Splash Repaint Freeze (`apps/desktop-rust/src/lib.rs`, `apps/desktop-rust/src/backend.rs`, `apps/desktop-rust/src/cua_host.rs`, `apps/desktop-rust/src/state.rs`)**:
+  - Set `WEBKIT_DISABLE_DMABUF_RENDERER=1` by default on Linux before GTK/WebKitGTK initialization (`configure_linux_webkit_env`) to avoid WebKitGTK 4.1 DMA-BUF hardware rendering freezing on the initial splash frame under Wayland/NVIDIA/Mesa while JavaScript and WebSockets continue running underneath. Respected explicit user `WEBKIT_DISABLE_DMABUF_RENDERER` values and added an explicit `SAINT_ENABLE_LINUX_DMABUF=1` opt-in.
+  - Generalized `clear_injected_linux_webkit_env` so spawned child processes (`saint-server`, `cua-driver`, `xdg-open`) strip both Saint-injected `WEBKIT_A11Y_BUS_ADDRESS` and `WEBKIT_DISABLE_DMABUF_RENDERER` variables.
+- **False `"Reconnecting to Saint…"` Status on Active Remote SSH Chats (`apps/web/src/components/chat/ComposerTransportNotice.tsx`, `apps/web/src/lib/composerTransportStatus.ts`, `apps/web/src/hosts/hostConnectionRegistry.ts`)**:
+  - Scoped `ComposerTransportNotice` and `subscribeComposerTransportStatus` to the active `HostScope` (`useHostId()` + `addHostWsTransportStateListener`) so remote SSH chats reflect their own remote host WebSocket state rather than showing local `saint-server` outages above a working remote chat.
+  - Guarded `hostConnectionRegistry` transport state forwarding so retiring a previous epoch's transport never overwrites a newly acquired active transport's state.
+- **Remote `lastThreadRoute` Startup Stall & Splash Recovery Deadlock (`apps/web/src/chatRouteRestore.ts`, `apps/web/src/components/RestoreOrCreateChatRoute.tsx`, `apps/web/src/routes/_chat.$threadId.tsx`)**:
+  - Skipped local empty-startup projection polling and `repairState()` when the remembered `lastThreadRoute` belongs to a remote SSH host (`isRemoteThreadParam`), eliminating the 5.6-second splash stall and unnecessary local projection rebuild on every launch.
+  - Reset `mountedRef.current = true` on mount in `RestoreOrCreateChatRoute` and `_chat.$threadId` so React StrictMode / remount cycles never leave recovery stuck on `<SplashScreen />`, memoized `splitViewIds`, and ensured `createFreshChat()` errors still surface if parent callbacks re-render while creation is in flight.
+
 ## 1.2.17 — 2026-11-26
 
 **Fixed Linux/Unix desktop startup hanging indefinitely on the splash logo screen when launched with a controlling terminal (such as from an Ubuntu terminal or AppImage shell launch).**

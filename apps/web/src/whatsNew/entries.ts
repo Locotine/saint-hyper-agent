@@ -22,6 +22,20 @@ import type { WhatsNewEntry } from "./logic";
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    version: "1.2.18",
+    date: "Nov 26",
+    features: [
+      {
+        id: "linux-dmabuf-splash-freeze-and-remote-reconnect-notice",
+        title: "Fixed Ubuntu 24.04 logo freeze and false reconnecting banner on Remote SSH chats",
+        description:
+          "Saint Hyper Agent on Ubuntu 24.04 / Linux no longer freezes on the logo screen under WebKitGTK DMA-BUF rendering, boots straight past startup when your last chat was on a Remote SSH host, and only shows the reconnecting banner when the active host's connection actually drops.",
+        details:
+          "Disabled WebKitGTK's DMA-BUF renderer by default on Linux (`WEBKIT_DISABLE_DMABUF_RENDERER=1`, opt-in override via `SAINT_ENABLE_LINUX_DMABUF=1`, stripped from child processes), scoped `ComposerTransportNotice` and `subscribeComposerTransportStatus` to `useHostId()` with epoch-safe state forwarding in `hostConnectionRegistry`, skipped local empty-DB `repairState()` polling for remote `lastThreadRoute` entries, and fixed `mountedRef` / in-flight error handling in `RestoreOrCreateChatRoute` and `_chat.$threadId`.",
+      },
+    ],
+  },
+  {
     version: "1.2.17",
     date: "Nov 26",
     features: [

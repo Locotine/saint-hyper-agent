@@ -1,7 +1,12 @@
-import { addWsTransportStateListener } from "../wsTransportEvents";
+import { LOCAL_HOST_ID, type HostId } from "@saint/shared/hostId";
+
+import { addHostWsTransportStateListener } from "../wsTransportEvents";
 
 /** Delay outage notices, but clear them immediately on recovery. Only owns UI timers. */
-export function subscribeComposerTransportStatus(listener: (message: string | null) => void) {
+export function subscribeComposerTransportStatus(
+  listener: (message: string | null) => void,
+  hostId: HostId = LOCAL_HOST_ID,
+) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let message: string | null = null;
   let visible = false;
@@ -9,7 +14,8 @@ export function subscribeComposerTransportStatus(listener: (message: string | nu
     clearTimeout(timer);
     timer = undefined;
   };
-  const unsubscribe = addWsTransportStateListener(
+  const unsubscribe = addHostWsTransportStateListener(
+    hostId,
     (state) => {
       message =
         state === "open"

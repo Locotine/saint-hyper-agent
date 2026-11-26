@@ -84,6 +84,25 @@ describe("resolveRestorableThreadRoute", () => {
     ).toBe(false);
   });
 
+  it("skips local empty-startup recovery when the remembered route belongs to a remote host", () => {
+    for (const threadId of ["ssh:deadbeef~thread-remote-1", "local~ssh:deadbeef~thread-remote-1"]) {
+      expect(
+        shouldStartRememberedRouteRecovery({
+          lastThreadRoute: { threadId },
+          availableThreadCount: 0,
+          recoveryState: "idle",
+        }),
+      ).toBe(false);
+      expect(
+        shouldHoldRememberedRouteFallback({
+          lastThreadRoute: { threadId },
+          availableThreadCount: 0,
+          recoveryState: "idle",
+        }),
+      ).toBe(false);
+    }
+  });
+
   it("recovers a missing thread route only while no server threads are known", () => {
     expect(
       shouldStartMissingThreadRouteRecovery({
