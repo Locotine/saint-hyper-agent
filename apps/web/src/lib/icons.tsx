@@ -1,4 +1,5 @@
 import { type CSSProperties, type FC, type SVGProps } from "react";
+import { type IconBaseProps, type IconType } from "react-icons";
 import { PiSquareSplitHorizontal, PiSquareSplitVertical } from "react-icons/pi";
 import { RiApps2Line } from "react-icons/ri";
 import { SiGithub } from "react-icons/si";
@@ -75,6 +76,21 @@ function adaptIcon(Component: TablerIcon): LucideIcon {
   };
 }
 
+function adaptReactIcon(Component: IconType): LucideIcon {
+  return function AdaptedReactIcon(props) {
+    const isAriaHidden = props["aria-hidden"] === true || props["aria-hidden"] === "true";
+    // react-icons' Simple Icons (e.g. SiGithub) bake `role="img"` into `attr`.
+    // When rendered decoratively with `aria-hidden="true"` (such as inside
+    // ComposerLinkNode), explicitly clear `role` so WebKitGTK's AT-SPI never
+    // creates an embedded image object inside `contenteditable="true"`.
+    const forwarded: Record<string, unknown> = { ...props };
+    if (isAriaHidden && props.role === undefined) {
+      forwarded.role = undefined;
+    }
+    return <Component {...(forwarded as IconBaseProps)} />;
+  };
+}
+
 // Wraps a Central icon asset behind the LucideIcon API. Rendering via CSS mask
 // avoids stroke-on-stroke alpha summation that gave hand-drawn SVGs a
 // "stamped twice" look on shared vertices (the previous PinIcon bug).
@@ -94,9 +110,7 @@ function centralIconWrapper(name: string, variant?: CentralIconVariant): LucideI
   };
 }
 
-export const AppsIcon: LucideIcon = (props) => (
-  <RiApps2Line className={props.className} style={props.style} />
-);
+export const AppsIcon: LucideIcon = adaptReactIcon(RiApps2Line);
 // Composer stacked-panel glyphs (subagent strip / workflow run card).
 export const BackgroundTrayIcon: LucideIcon = centralIconWrapper("arrow-down-wall");
 export const ContextCompactionIcon: LucideIcon = centralIconWrapper("arrows-hide");
@@ -183,9 +197,7 @@ export const FlaskConicalIcon = adaptIcon(IconFlask2);
 export const GitCommitIcon: LucideIcon = centralIconWrapper("commits");
 export const GitMergeIcon: LucideIcon = centralIconWrapper("merged");
 export const PushIcon: LucideIcon = centralIconWrapper("cloud-simple-upload");
-export const GitHubIcon: LucideIcon = (props) => (
-  <SiGithub className={props.className} style={props.style} />
-);
+export const GitHubIcon: LucideIcon = adaptReactIcon(SiGithub);
 // Issue state glyphs, GitHub's shapes from the same Central outline set: a ring with a dot
 // (open), a checked ring (closed as completed), and a struck ring (closed as not planned).
 export const IssueOpenedIcon: LucideIcon = centralIconWrapper("record");
@@ -220,9 +232,7 @@ export const DeviceRecordStopIcon: LucideIcon = centralIconWrapper("stop", "fill
 export const DeviceRotateIcon = adaptIcon(IconDeviceMobileRotated);
 export const DevicePowerIcon = adaptIcon(IconPower);
 export const DeviceDetachIcon = adaptIcon(IconPlugOff);
-export const McpIcon: LucideIcon = (props) => (
-  <VscMcp className={props.className} style={props.style} />
-);
+export const McpIcon: LucideIcon = adaptReactIcon(VscMcp);
 export const PluginIcon: LucideIcon = centralIconWrapper("puzzle");
 // Single hammer/build glyph (tool-call rows, codex provider, "build" scripts).
 // Sourced from the Central set so it matches the other work-row icons (pencil,
@@ -287,12 +297,8 @@ export const DeviceLaptopIcon = adaptIcon(IconDeviceLaptop);
 export const MonitorIcon = adaptIcon(IconDeviceDesktop);
 export const StopIcon: LucideIcon = centralIconWrapper("stop", "fill");
 export const StopFilledIcon: LucideIcon = centralIconWrapper("stop", "fill");
-export const SquareSplitHorizontal: LucideIcon = (props) => (
-  <PiSquareSplitHorizontal className={props.className} style={props.style} />
-);
-export const SquareSplitVertical: LucideIcon = (props) => (
-  <PiSquareSplitVertical className={props.className} style={props.style} />
-);
+export const SquareSplitHorizontal: LucideIcon = adaptReactIcon(PiSquareSplitHorizontal);
+export const SquareSplitVertical: LucideIcon = adaptReactIcon(PiSquareSplitVertical);
 const TemporaryThreadGlyph = centralIconWrapper("bubble-annotation-5");
 // Dotted "annotation" chat bubble — the temporary thread marker shown on the
 // composer toggle and beside temporary threads in the sidebar.

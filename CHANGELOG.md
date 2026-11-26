@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.16 — 2026-11-26
+
+**Linux WebKitGTK AT-SPI crash fix when typing Vietnamese/non-ASCII text via IME (`fcitx5-lotus` Uinput) after pasting link chips, plus composer link chip ARIA/favicon hardening and automatic WebKitWebProcess crash recovery.**
+
+### Fixed
+
+- **Linux WebKitGTK `SIGABRT` Crash on Vietnamese / Non-ASCII IME Input After Link Paste (`apps/desktop-rust/src/lib.rs`, `apps/desktop-rust/src/backend.rs`, `apps/desktop-rust/src/cua_host.rs`, `apps/desktop-rust/src/state.rs`)**:
+  - Disabled WebKitGTK's crashing direct AT-SPI D-Bus bridge by default on Linux via `WEBKIT_A11Y_BUS_ADDRESS=unix:path=/nonexistent-a11y-bus` before GTK/WebKitGTK initialization (avoiding the WebKitGTK 2.50–2.54 `WebCore::AccessibilityObjectAtspi::textInserted()` abort on 16-bit UTF-16 text insertion after inline chips while keeping `DBUS_SESSION_BUS_ADDRESS` intact for KDE Wallet, portals, notifications, and IME D-Bus). Preserved explicit user `WEBKIT_A11Y_BUS_ADDRESS` values and added an explicit `SAINT_ENABLE_LINUX_A11Y=1` opt-in for screen readers.
+  - Stripped Saint's injected `WEBKIT_A11Y_BUS_ADDRESS` from spawned child processes (`saint-server`, `cua-driver`, and `xdg-open`) so user terminals, agents, and external browsers never inherit the internal workaround.
+  - Hooked GTK `web-process-terminated` (`install_linux_web_process_recovery`) to automatically reload the webview after `250 ms` on unexpected `WebKitWebProcess` crash or memory-limit termination with a 3-attempts-per-60s circuit-breaker, skipping API-initiated terminations and app shutdown.
+- **Composer Link Chip ARIA & Decorative Favicon Hardening (`apps/web/src/lib/icons.tsx`, `apps/web/src/components/InlineLinkChip.tsx`, `apps/web/src/components/LinkChipIcon.tsx`, `apps/web/src/components/SiteFavicon.tsx`, `apps/web/src/components/ConnectorIcon.tsx`)**:
+  - Added `adaptReactIcon` to forward `aria-*` props on `react-icons` wrappers (`GitHubIcon`, `AppsIcon`, `McpIcon`, `SquareSplitHorizontal`, `SquareSplitVertical`) and clear their baked `role="img"` when rendered decoratively with `aria-hidden="true"` and no explicit `role`.
+  - Removed nested `role="link"` from non-interactive `InlineLinkChip` spans inside the `contenteditable` composer (`role="textbox"`), marked standalone `SiteFavicon` `<img>` tags with `role="presentation"`, and painted loaded favicons inside `contenteditable` composer chips (`InlineLinkChip` non-interactive mode and `createConnectorIconElement`) as CSS `background-image` spans so WebKitGTK's AT-SPI never encounters replaced `RenderImage` or embedded link/image objects inside the editor even when Linux accessibility is explicitly enabled.
+
 ## 1.2.15 — 2026-11-25
 
 **Comprehensive Linux/Debian GitHub link-paste freeze fix across GTK3/Wayland clipboard IPC, composer dropzone HTML filtering, WebKitGTK Lexical caret handling, and single-row layout oscillation protection, plus transcript auto-follow stability fix.**

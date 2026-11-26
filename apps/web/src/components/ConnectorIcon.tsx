@@ -105,11 +105,15 @@ export function createConnectorIconElement(name: string, className: string): HTM
   // no broken image while it is unknown or after it failed.
   const src = resolveSiteFaviconUrl(site, { fallback: "none" });
   const showFavicon = () => {
-    const image = document.createElement("img");
-    image.alt = "";
-    image.className = "size-full rounded-[2px] object-contain";
-    image.src = getSiteFaviconRenderSrc(src);
-    host.replaceChildren(image);
+    const renderSrc = getSiteFaviconRenderSrc(src).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+    const icon = document.createElement("span");
+    icon.ariaHidden = "true";
+    icon.className = "inline-block size-full rounded-[2px]";
+    icon.style.backgroundImage = `url("${renderSrc}")`;
+    icon.style.backgroundPosition = "center";
+    icon.style.backgroundRepeat = "no-repeat";
+    icon.style.backgroundSize = "contain";
+    host.replaceChildren(icon);
   };
   const status = siteFaviconStatusCache.get(src);
   if (status === "ok") {

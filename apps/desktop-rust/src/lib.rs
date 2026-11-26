@@ -66,6 +66,188 @@ use crate::window_state::{
 
 const MAX_DROPPED_FILE_BYTES: u64 = 32 * 1024 * 1024;
 
+#[cfg(any(target_os = "linux", test))]
+const LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS: &str = "unix:path=/nonexistent-a11y-bus";
+
+#[cfg(target_os = "linux")]
+static SAINT_INJECTED_LINUX_WEBKIT_A11Y: AtomicBool = AtomicBool::new(false);
+
+/// WebKitGTK 2.50–2.54 aborts (`SIGABRT`) inside `WebCore::AccessibilityObjectAtspi::textInserted()`
+/// when editing 16-bit text (such as Vietnamese via fcitx5-lotus Uinput) after inline chips in a
+/// `contenteditable` editor. WebKitGTK connects directly to AT-SPI D-Bus via
+/// `WEBKIT_A11Y_BUS_ADDRESS` and ignores `NO_AT_BRIDGE=1`. Redirecting only
+/// `WEBKIT_A11Y_BUS_ADDRESS` disables that crashing bridge while preserving
+/// `DBUS_SESSION_BUS_ADDRESS` (KDE Wallet, desktop portals, notifications, and IME D-Bus).
+/// Users who need a screen reader can opt back in via `SAINT_ENABLE_LINUX_A11Y=1` or by setting
+/// `WEBKIT_A11Y_BUS_ADDRESS` explicitly.
+#[cfg(any(target_os = "linux", test))]
+fn resolve_linux_webkit_a11y_bus_address(
+    existing_a11y_bus: Option<&str>,
+    enable_a11y_opt_in: Option<&str>,
+) -> Option<&'static str> {
+    if existing_a11y_bus.is_some_and(|value| !value.trim().is_empty()) {
+        return None;
+    }
+    if let Some(opt_in) = enable_a11y_opt_in {
+        let normalized = opt_in.trim();
+        if normalized == "1"
+            || normalized.eq_ignore_ascii_case("true")
+            || normalized.eq_ignore_ascii_case("yes")
+        {
+            return None;
+        }
+    }
+    Some(LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS)
+}
+
+#[cfg(target_os = "linux")]
+fn configure_linux_webkit_a11y_env() {
+    let existing = std::env::var("WEBKIT_A11Y_BUS_ADDRESS").ok();
+    let opt_in = std::env::var("SAINT_ENABLE_LINUX_A11Y").ok();
+    if let Some(disabled_bus) =
+        resolve_linux_webkit_a11y_bus_address(existing.as_deref(), opt_in.as_deref())
+    {
+        std::env::set_var("WEBKIT_A11Y_BUS_ADDRESS", disabled_bus);
+        SAINT_INJECTED_LINUX_WEBKIT_A11Y.store(true, Ordering::SeqCst);
+    }
+}
+
+/// Strips Saint's internal `WEBKIT_A11Y_BUS_ADDRESS` workaround from child processes
+/// (`saint-server`, `xdg-open`) so user terminals, agents, and external browsers never inherit it.
+pub(crate) fn clear_injected_linux_webkit_a11y_env(cmd: &mut std::process::Command) {
+    #[cfg(target_os = "linux")]
+    if SAINT_INJECTED_LINUX_WEBKIT_A11Y.load(Ordering::Relaxed) {
+        cmd.env_remove("WEBKIT_A11Y_BUS_ADDRESS");
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = cmd;
+}
+
+#[cfg(any(target_os = "linux", test))]
+const WEB_PROCESS_RECOVERY_WINDOW: std::time::Duration = std::time::Duration::from_secs(60);
+#[cfg(any(target_os = "linux", test))]
+const WEB_PROCESS_RECOVERY_MAX_ATTEMPTS: usize = 3;
+#[cfg(target_os = "linux")]
+const WEB_PROCESS_RECOVERY_DELAY: std::time::Duration = std::time::Duration::from_millis(250);
+
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WebProcessTerminationKind {
+    Crashed,
+    ExceededMemoryLimit,
+    TerminatedByApi,
+    Unknown(i32),
+}
+
+#[cfg(any(target_os = "linux", test))]
+impl WebProcessTerminationKind {
+    fn from_webkit_enum_value(value: i32) -> Self {
+        match value {
+            0 => Self::Crashed,
+            1 => Self::ExceededMemoryLimit,
+            2 => Self::TerminatedByApi,
+            other => Self::Unknown(other),
+        }
+    }
+
+    fn should_auto_recover(self) -> bool {
+        matches!(self, Self::Crashed | Self::ExceededMemoryLimit)
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, Default)]
+struct WebProcessRecoveryLimiter {
+    recent_recoveries: Vec<std::time::Instant>,
+}
+
+#[cfg(any(target_os = "linux", test))]
+impl WebProcessRecoveryLimiter {
+    fn try_record_recovery(
+        &mut self,
+        now: std::time::Instant,
+        kind: WebProcessTerminationKind,
+    ) -> Option<usize> {
+        if !kind.should_auto_recover() {
+            return None;
+        }
+        self.recent_recoveries.retain(|ts| {
+            now.checked_duration_since(*ts)
+                .is_some_and(|elapsed| elapsed < WEB_PROCESS_RECOVERY_WINDOW)
+        });
+        if self.recent_recoveries.len() >= WEB_PROCESS_RECOVERY_MAX_ATTEMPTS {
+            return None;
+        }
+        self.recent_recoveries.push(now);
+        Some(self.recent_recoveries.len())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn extract_gvalue_enum_code(value: &gtk::glib::Value) -> Option<i32> {
+    value
+        .get::<i32>()
+        .ok()
+        .or_else(|| {
+            value
+                .transform::<i32>()
+                .ok()
+                .and_then(|converted| converted.get::<i32>().ok())
+        })
+}
+
+#[cfg(target_os = "linux")]
+fn install_linux_web_process_recovery(
+    window: &tauri::WebviewWindow,
+    state: Arc<DesktopSharedState>,
+) {
+    let window_for_reload = window.clone();
+    let limiter = Arc::new(std::sync::Mutex::new(WebProcessRecoveryLimiter::default()));
+    let _ = window.with_webview(move |platform| {
+        use gtk::prelude::*;
+        let widget: gtk::Widget = platform.inner().upcast();
+        let obj: gtk::glib::Object = widget.upcast();
+        obj.connect_local("web-process-terminated", false, move |args| {
+            let reason_code = args
+                .get(1)
+                .and_then(extract_gvalue_enum_code)
+                .unwrap_or(-1);
+            let kind = WebProcessTerminationKind::from_webkit_enum_value(reason_code);
+            if state.backend.is_shutting_down() {
+                return None;
+            }
+            let attempt = limiter
+                .lock()
+                .ok()
+                .and_then(|mut guard| guard.try_record_recovery(std::time::Instant::now(), kind));
+            match attempt {
+                Some(attempt_num) => {
+                    eprintln!(
+                        "[saint-desktop-rust] WebKitWebProcess terminated ({kind:?}); scheduling reload attempt {attempt_num}/{WEB_PROCESS_RECOVERY_MAX_ATTEMPTS}"
+                    );
+                    let window_reload = window_for_reload.clone();
+                    let state_reload = Arc::clone(&state);
+                    gtk::glib::timeout_add_local_once(WEB_PROCESS_RECOVERY_DELAY, move || {
+                        if !state_reload.backend.is_shutting_down() {
+                            if let Err(err) = window_reload.reload() {
+                                eprintln!(
+                                    "[saint-desktop-rust] Failed to reload webview after WebKitWebProcess termination: {err}"
+                                );
+                            }
+                        }
+                    });
+                }
+                None => {
+                    eprintln!(
+                        "[saint-desktop-rust] WebKitWebProcess terminated ({kind:?}); skipping auto-reload"
+                    );
+                }
+            }
+            None
+        });
+    });
+}
+
 fn cleanup_all_managed_resources(state: &DesktopSharedState) {
     state.backend.begin_shutdown();
     state.pty_host.kill_all_sync();
@@ -1004,10 +1186,9 @@ fn desktop_open_external(url: String) -> Result<bool, String> {
     }
     #[cfg(target_os = "linux")]
     {
-        std::process::Command::new("xdg-open")
-            .arg(&url)
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        let mut cmd = std::process::Command::new("xdg-open");
+        clear_injected_linux_webkit_a11y_env(&mut cmd);
+        cmd.arg(&url).spawn().map_err(|e| e.to_string())?;
     }
     Ok(true)
 }
@@ -2145,6 +2326,9 @@ fn build_initialization_script(state: &DesktopSharedState) -> String {
 }
 
 pub fn run() {
+    // Must run before GTK/WebKitGTK initialization and before spawning background threads.
+    #[cfg(target_os = "linux")]
+    configure_linux_webkit_a11y_env();
     // The window class must match StartupWMClass in the launcher that
     // scripts/linux/install-saint.sh writes, or the dock shows a separate "saint-desktop" icon.
     #[cfg(target_os = "linux")]
@@ -2374,6 +2558,8 @@ pub fn run() {
                 }
             }
             let window = win_builder.build()?;
+            #[cfg(target_os = "linux")]
+            install_linux_web_process_recovery(&window, Arc::clone(&state));
             let initial_accelerators = state
                 .menu_accelerators
                 .read()
@@ -2671,6 +2857,102 @@ mod clipboard_tests {
         assert_ne!(
             GtkClipboardImageOutcome::NoImage,
             GtkClipboardImageOutcome::UnavailableOrTimedOut
+        );
+    }
+}
+
+#[cfg(test)]
+mod linux_webkit_stability_tests {
+    use super::{
+        resolve_linux_webkit_a11y_bus_address, WebProcessRecoveryLimiter,
+        WebProcessTerminationKind, LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS,
+        WEB_PROCESS_RECOVERY_MAX_ATTEMPTS, WEB_PROCESS_RECOVERY_WINDOW,
+    };
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn linux_webkit_a11y_guard_disables_by_default_and_respects_overrides() {
+        assert_eq!(
+            resolve_linux_webkit_a11y_bus_address(None, None),
+            Some(LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS)
+        );
+        assert_eq!(
+            resolve_linux_webkit_a11y_bus_address(Some("   "), None),
+            Some(LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS)
+        );
+        assert_eq!(
+            resolve_linux_webkit_a11y_bus_address(
+                Some("unix:path=/run/user/1000/at-spi/bus_0"),
+                None
+            ),
+            None
+        );
+        assert_eq!(resolve_linux_webkit_a11y_bus_address(None, Some("1")), None);
+        assert_eq!(resolve_linux_webkit_a11y_bus_address(None, Some("true")), None);
+        assert_eq!(resolve_linux_webkit_a11y_bus_address(None, Some("YES")), None);
+        assert_eq!(
+            resolve_linux_webkit_a11y_bus_address(None, Some("0")),
+            Some(LINUX_DISABLED_WEBKIT_A11Y_BUS_ADDRESS)
+        );
+    }
+
+    #[test]
+    fn web_process_recovery_limiter_bounds_retries_and_skips_api_termination() {
+        let mut limiter = WebProcessRecoveryLimiter::default();
+        let t0 = Instant::now();
+
+        assert_eq!(
+            limiter.try_record_recovery(t0, WebProcessTerminationKind::TerminatedByApi),
+            None
+        );
+        assert_eq!(
+            limiter.try_record_recovery(t0, WebProcessTerminationKind::Unknown(99)),
+            None
+        );
+
+        for attempt in 1..=WEB_PROCESS_RECOVERY_MAX_ATTEMPTS {
+            assert_eq!(
+                limiter.try_record_recovery(
+                    t0 + Duration::from_secs(attempt as u64),
+                    WebProcessTerminationKind::Crashed,
+                ),
+                Some(attempt)
+            );
+        }
+
+        // Next crash within the same window must trip the circuit-breaker.
+        assert_eq!(
+            limiter.try_record_recovery(
+                t0 + Duration::from_secs(10),
+                WebProcessTerminationKind::ExceededMemoryLimit,
+            ),
+            None
+        );
+
+        // Once the window expires, recovery is permitted again.
+        assert_eq!(
+            limiter.try_record_recovery(
+                t0 + WEB_PROCESS_RECOVERY_WINDOW + Duration::from_secs(5),
+                WebProcessTerminationKind::Crashed,
+            ),
+            Some(1)
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn extracts_gvalue_enum_codes_for_webkit_termination_reason() {
+        use gtk::glib::ToValue;
+
+        let crashed = gtk::Orientation::Horizontal.to_value();
+        let exceeded = gtk::Orientation::Vertical.to_value();
+        assert_eq!(super::extract_gvalue_enum_code(&crashed), Some(0));
+        assert_eq!(super::extract_gvalue_enum_code(&exceeded), Some(1));
+        assert_eq!(
+            WebProcessTerminationKind::from_webkit_enum_value(
+                super::extract_gvalue_enum_code(&crashed).unwrap()
+            ),
+            WebProcessTerminationKind::Crashed
         );
     }
 }

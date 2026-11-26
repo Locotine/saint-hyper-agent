@@ -63,7 +63,13 @@ export function InlineLinkChip({
 
   const content = (
     <InlineChipContent
-      icon={<LinkChipIcon url={url} className={COMPOSER_INLINE_CHIP_INLINE_ICON_CLASS_NAME} />}
+      icon={
+        <LinkChipIcon
+          url={url}
+          avoidImgElement={!interactive}
+          className={COMPOSER_INLINE_CHIP_INLINE_ICON_CLASS_NAME}
+        />
+      }
       label={label}
     />
   );
@@ -82,6 +88,9 @@ export function InlineLinkChip({
     );
   }
 
+  // Omit interactive ARIA `role="link"` inside the `contenteditable` composer (`role="textbox"`):
+  // nested link roles are invalid inside a textbox and cause WebKitGTK's AT-SPI text-offset
+  // calculator to collapse the chip to U+FFFC and abort on non-ASCII typing (e.g. Vietnamese IME).
   return (
     <span
       className={chipClassName}
@@ -90,7 +99,6 @@ export function InlineLinkChip({
       suppressContentEditableWarning
       spellCheck={false}
       onClick={onClick}
-      role="link"
     >
       {content}
     </span>

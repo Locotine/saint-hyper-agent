@@ -31,6 +31,16 @@ export interface SiteFaviconProps {
   readonly className?: string | undefined;
   /** Shown while loading and on failure; defaults to the globe icon. */
   readonly fallback?: ReactNode;
+  /**
+   * Paint the loaded favicon as a CSS background on a `<span>` instead of an `<img>`.
+   * Used inside `contenteditable` editors so WebKitGTK's AT-SPI never sees a replaced
+   * `RenderImage` child inside a textbox (which aborts in `AccessibilityObjectAtspi::textInserted`).
+   */
+  readonly avoidImgElement?: boolean | undefined;
+}
+
+function formatCssUrl(src: string): string {
+  return `url("${src.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}")`;
 }
 
 export const SiteFavicon = function SiteFavicon({
@@ -38,6 +48,7 @@ export const SiteFavicon = function SiteFavicon({
   size,
   className,
   fallback,
+  avoidImgElement,
 }: SiteFaviconProps) {
   // Re-evaluate once the desktop sidecar publishes its WS URL so links rendered
   // during early startup don't stay stuck on a pre-boot 404 fallback.
@@ -79,11 +90,29 @@ export const SiteFavicon = function SiteFavicon({
   const sizeStyle = size === undefined ? undefined : { width: `${size}px`, height: `${size}px` };
 
   if (status === "ok" && faviconSrc) {
+    const renderSrc = getSiteFaviconRenderSrc(faviconSrc);
+    if (avoidImgElement) {
+      return (
+        <span
+          aria-hidden="true"
+          data-slot="site-favicon"
+          className={cn("inline-block shrink-0 rounded-[2px]", className)}
+          style={{
+            ...sizeStyle,
+            backgroundImage: formatCssUrl(renderSrc),
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "contain",
+          }}
+        />
+      );
+    }
     return (
       <img
-        src={getSiteFaviconRenderSrc(faviconSrc)}
+        src={renderSrc}
         alt=""
         aria-hidden="true"
+        role="presentation"
         className={cn("shrink-0 rounded-[2px] object-contain", className)}
         style={sizeStyle}
         onError={() => {

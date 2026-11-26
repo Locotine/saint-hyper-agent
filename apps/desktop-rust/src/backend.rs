@@ -338,6 +338,8 @@ impl BackendSupervisor {
             cmd.process_group(0);
         }
 
+        crate::clear_injected_linux_webkit_a11y_env(cmd.as_std_mut());
+
         cmd
     }
 

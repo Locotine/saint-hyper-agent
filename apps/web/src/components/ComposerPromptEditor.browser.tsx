@@ -525,6 +525,15 @@ describe("ComposerPromptEditor link paste and IME composition", () => {
     await expect.poll(() => ref.current?.readSnapshot().value).toBe(prUrl);
     expect(addedImages).toEqual([]);
 
+    // Pasted link chips inside the contenteditable textbox must not emit nested interactive
+    // `role="link"` or accessible `<svg role="img">` objects (which trigger WebKitGTK AT-SPI
+    // `AccessibilityObjectAtspi::textInserted` SIGABRT on non-ASCII / Vietnamese IME typing).
+    expect(editor.querySelectorAll('[role="link"]')).toHaveLength(0);
+    expect(editor.querySelectorAll('[role="img"]')).toHaveLength(0);
+    const chipSvg = editor.querySelector("svg");
+    expect(chipSvg).not.toBeNull();
+    expect(chipSvg?.getAttribute("aria-hidden")).toBe("true");
+
     // Arrowing left then right across the freshly pasted link chip must stay in a RangeSelection
     // (never trapped in a NodeSelection) so typing immediately appends cleanly.
     await userEvent.keyboard("{ArrowLeft}{ArrowRight}");

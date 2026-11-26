@@ -22,6 +22,20 @@ import type { WhatsNewEntry } from "./logic";
 
 export const WHATS_NEW_ENTRIES: readonly WhatsNewEntry[] = [
   {
+    version: "1.2.16",
+    date: "Nov 26",
+    features: [
+      {
+        id: "linux-webkitgtk-vietnamese-ime-link-crash",
+        title: "Fixed Linux app crashes when typing Vietnamese after pasting links",
+        description:
+          "Pasting GitHub or web links and typing Vietnamese (including fcitx5-lotus Uinput Smooth) or other non-ASCII text no longer crashes the Linux desktop app, and WebKitWebProcess now recovers automatically if an unexpected crash ever occurs.",
+        details:
+          "Isolated WebKitGTK's AT-SPI D-Bus bridge via WEBKIT_A11Y_BUS_ADDRESS on Linux (while preserving DBUS_SESSION_BUS_ADDRESS, clearing the workaround from child processes, and supporting SAINT_ENABLE_LINUX_A11Y=1 opt-in), added bounded web-process-terminated auto-reload recovery, cleared baked role='img' on aria-hidden react-icons wrappers, removed nested role='link' from composer InlineLinkChip spans, and rendered composer link/connector favicons via CSS background-image spans instead of <img> inside contenteditable.",
+      },
+    ],
+  },
+  {
     version: "1.2.15",
     date: "Nov 25",
     features: [
